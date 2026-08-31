@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/connector-mapping/v2",
+  "title": "ConnectorMappingV2",
+  "description": "THE IMMUTABLE, SUCCESSOR-VERSIONED PROVIDER MAPPING — A THIRD FAMILY, NOT A MEMBER OF EITHER OTHER ONE. Canon is explicit that a ConnectorMapping is its own object with its own identity: a connector payload is source material and not canonical domain truth until a ConnectorMapping AND a DataRecipe bind it, and any field, action, schema, ontology, object-model or policy change creates a SUCCESSOR mapping revision. v1 honoured neither clause. Its identity came from the wall clock, so a retried declaration minted a second mapping; its `revision` was an integer incremented on the same stored record, so revision 1's bytes were overwritten and became unaddressable; and the DataRecipe lane embedded mappings as opaque passthrough arrays, so a mapping could exist as a fragment of a recipe rather than as an object. This version fixes all three. Identity is DERIVED, not clocked: `identity_basis` records that the mapping id comes from the owner ref and the caller's idempotency key and carries that key's hash, so a retry resolves to the record it already minted instead of appending a second one. Revisions are IMMUTABLE AND ADDRESSABLE: `revision_ref` names one revision, a portable invariant refuses one that does not extend its own `connector_mapping_id`, and `succession` names the predecessor revision and its exact bytes. The SEMANTIC-COMPONENT SNAPSHOT IS EXACT: `semantic_component_refs` must cover exactly the connector schema, the ontology revision, the target object models, the redaction policy and the evidence contracts this mapping reads — no more, no fewer — so a mapping cannot commit a snapshot that omits something it names. And a PROPERTY IS NEVER TARGETED TWICE, checked offline by invariant rather than only inside the route that happened to write the record. This contract is a mapping. It carries no credentials, it grants no authority, it launders no source rights, and registering it claims no runtime implementation.",
+  "x-ioi-schema-version": "ioi.connector-mapping.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "connectorMappingFamilyRef": {
+      "type": "string",
+      "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "connectorMappingRevisionRef": {
+      "type": "string",
+      "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "connector_mapping_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "name",
+    "identity_basis",
+    "connector_id",
+    "ontology_revision_ref",
+    "source_schema_ref",
+    "target_object_model_refs",
+    "field_mappings",
+    "action_mappings",
+    "authority_scopes_required",
+    "redaction_policy_ref",
+    "evidence_required",
+    "semantic_component_set_snapshot_ref",
+    "semantic_component_set_hash",
+    "semantic_component_refs",
+    "semantic_component_count",
+    "effective_policy_hash",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.connector-mapping.v2"
+    },
+    "connector_mapping_id": {
+      "$ref": "#/$defs/connectorMappingFamilyRef",
+      "description": "THE FAMILY, IN CANON'S OWN `mapping://` SCHEME. v1 wrote `connector-mapping://` and carried identity twice, as a bare `id` and a separate `ref`."
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/connectorMappingRevisionRef",
+      "description": "ONE IMMUTABLE REVISION. The `/revision/` segment is mandatory, which refuses a family-head or mutable-latest reference wherever an exact mapping is required — including in a DataRecipe's `connector_mapping_revision_refs`, which admits nothing else. A registered invariant refuses a revision ref that does not extend its own `connector_mapping_id`."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "identity_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `cmap_{nanos:x}` — the hex of the epoch nanosecond count — so the same declaration retried after a dropped response minted a SECOND mapping, and two declarations in one nanosecond collided. This block pins the only admissible basis and carries the hash of the idempotency key the id was derived from, so a reader can tell a derived identity from a clocked one without trusting the producer to have been careful.",
+      "required": [
+        "derived_from",
+        "idempotency_key_hash",
+        "refused_basis"
+      ],
+      "properties": {
+        "derived_from": {
+          "const": "owner_ref_and_idempotency_key"
+        },
+        "idempotency_key_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "refused_basis": {
+          "const": "wall_clock_nanoseconds"
+        }
+      }
+    },
+    "connector_id": {
+      "type": "string",
+      "pattern": "^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "The external adapter this mapping reads from. A connector is a replaceable supply adapter; naming one grants nothing and carries no credential — canon keeps credentials out of the mapping entirely, and v1 already refused any plaintext secret key in the body."
+    },
+    "ontology_revision_ref": {
+      "$ref": "#/$defs/ontologyRevisionRef",
+      "description": "ONE EXACT ADMITTED ONTOLOGY REVISION. v1 copied the ontology's CURRENT ref, so a mapping declared today and read tomorrow could be read against different semantics with nothing recording that it moved. An ontology change now requires a successor mapping revision, which is what canon says it requires."
+    },
+    "source_schema_ref": {
+      "type": "string",
+      "pattern": "^(?:artifact|cid|provider-schema)://[^\\s]{1,500}$",
+      "description": "The provider-side contract this mapping reads. Canon allows an artifact ref, a CID, or a named provider schema; all three are exact, and none of them is a live fetch."
+    },
+    "target_object_model_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"
+      },
+      "description": "The canonical object models this mapping produces into. At least one: a mapping that targets no canonical object has not turned source material into domain truth, which is the only thing a mapping is for."
+    },
+    "field_mappings": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "source_field",
+          "target_property_ref",
+          "source_type",
+          "source_cardinality"
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "key",
+              "title",
+              "field"
+            ],
+            "description": "v1 kept the key and title bindings in two separate top-level members and the rest in a third, so the three could disagree about shape. Here they are one list with a declared role, which is what lets a single invariant check that no property is targeted twice across all of them."
+          },
+          "source_field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "target_property_ref": {
+            "type": "string",
+            "pattern": "^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+            "description": "The target property, qualified by the object model that owns it. v1 carried a bare `property_id` whose meaning depended on which object type the record happened to name."
+          },
+          "source_type": {
+            "enum": [
+              "string",
+              "integer",
+              "double",
+              "boolean",
+              "timestamp",
+              "date",
+              "json"
+            ]
+          },
+          "source_cardinality": {
+            "enum": [
+              "one",
+              "many"
+            ]
+          }
+        }
+      },
+      "description": "The provider-field bindings. Silent field equivalence is forbidden: every binding is explicit, typed, and attributable to a role."
+    },
+    "action_mappings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_action",
+          "target_action_ref"
+        ],
+        "properties": {
+          "source_action": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "target_action_ref": {
+            "type": "string",
+            "pattern": "^ontology-action://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"
+          }
+        }
+      },
+      "description": "Provider actions bound to typed ontology actions. Binding an action here compiles meaning into a request and grants nothing: the named action contract still passes capability, policy, authority, daemon, evidence and verification gates."
+    },
+    "authority_scopes_required": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"
+      },
+      "description": "The scopes a caller must ALREADY hold for this mapping to be usable. A requirement, never a grant: listing a scope here is the mapping stating what it needs, and nothing in this record confers it."
+    },
+    "redaction_policy_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional, and when present it is part of the committed snapshot. Redaction reduces exposure; it creates no right and never severs lineage."
+    },
+    "evidence_required": {
+      "$ref": "#/$defs/refList",
+      "description": "The evidence contracts a consumer of this mapping must satisfy. Part of the committed snapshot, so a mapping cannot silently drop an evidence obligation while keeping its revision."
+    },
+    "semantic_component_set_snapshot_ref": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,500}$"
+    },
+    "semantic_component_set_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "semantic_component_refs": {
+      "type": "array",
+      "maxItems": 320,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "description": "THE FLAT SET THE SNAPSHOT COVERS. A registered invariant requires it to equal EXACTLY the union of `source_schema_ref`, `ontology_revision_ref`, `redaction_policy_ref` when present, `target_object_model_refs` and `evidence_required` — canon's own list of what a mapping's snapshot commits — with nothing extra and nothing dropped."
+    },
+    "semantic_component_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 320
+    },
+    "effective_policy_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "active",
+        "deprecated",
+        "revoked"
+      ],
+      "description": "Canon's four registry members, verbatim. v1's pinned `declared` is not among them and is not translated into one: a stored v1 mapping says `declared`, this contract says which of canon's four a v2 mapping is in, and the two vocabularies do not overlap."
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "The ADMISSION stamp of this revision. There is no `updated_at`: an immutable revision has one stamp, and v1's second one was the in-place-edit tell."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Canon: any field, action, schema, ontology, object-model or policy change creates a successor mapping revision. This block states which of those changes produced this revision and binds the predecessor it succeeds — its exact ref and its exact bytes, both or neither.",
+      "required": [
+        "succession_reason",
+        "predecessor_revision_ref",
+        "predecessor_content_hash",
+        "supersedes_predecessor",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "succession_reason": {
+          "enum": [
+            "genesis",
+            "field_change",
+            "action_change",
+            "source_schema_change",
+            "ontology_revision_change",
+            "object_model_change",
+            "policy_change",
+            "correction"
+          ]
+        },
+        "predecessor_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/connectorMappingRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersedes_predecessor": {
+          "type": "boolean"
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "title": "a genesis revision has no predecessor, in both slots at once",
+          "if": {
+            "required": [
+              "succession_reason"
+            ],
+            "properties": {
+              "succession_reason": {
+                "const": "genesis"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "type": "null"
+              },
+              "predecessor_content_hash": {
+                "type": "null"
+              },
+              "supersedes_predecessor": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "$ref": "#/$defs/connectorMappingRevisionRef"
+              },
+              "predecessor_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A mapping converged from a stored v1 names that predecessor's contract, its ref in the scheme it was ACTUALLY stored under, and its exact content hash — all three or none. `downgrade_to_predecessor` is pinned to `refused`: a v2 revision cannot be re-encoded as a v1 record without dropping the derived identity, the immutable revision, the semantic snapshot and the commitment, and presenting that weaker record as the same fact is exactly what a downgrade would be.",
+      "required": [
+        "from_schema_version",
+        "from_mapping_ref",
+        "from_content_hash",
+        "from_revision",
+        "compatibility",
+        "reinterprets_predecessor",
+        "downgrade_to_predecessor"
+      ],
+      "properties": {
+        "from_schema_version": {
+          "oneOf": [
+            {
+              "const": "ioi.hypervisor.odk.connector-mapping.v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_mapping_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^connector-mapping://cmap_[0-9a-f]{12,32}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Named in v1's own `connector-mapping://` scheme with v1's own clocked id, because that is what was stored. Rewriting it into `mapping://` would be reinterpreting the predecessor."
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_revision": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "WHICH in-place edit of the v1 record was converged. v1's `revision` counter overwrote its own history, so this number is the only thing that says which state of that mutable record the convergence saw. It is preserved as a number, not promoted into a revision ref, because no ref ever addressed it. REQUIRED AND NULLABLE, never merely optional: a slot inside a hashed block that may be ABSENT rather than null does not survive a projection round trip byte-identically, so the commitment would stop verifying for exactly the records that omit it."
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "converged_from_v1"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        },
+        "downgrade_to_predecessor": {
+          "const": "refused"
+        }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — every provenance slot is null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_mapping_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              },
+              "from_revision": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.odk.connector-mapping.v1"
+              },
+              "from_mapping_ref": {
+                "type": "string",
+                "pattern": "^connector-mapping://cmap_[0-9a-f]{12,32}$"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "from_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              }
+            }
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle_id",
+        "nonclaim_authority_token",
+        "nonclaim_source_rights_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "connector_mapping_registry_lifecycle.v2",
+          "description": "A DISTINCT LIFECYCLE ID FROM THE OTHER TWO FAMILIES. The DataRecipe registry lifecycle, this one, and the TransformationRun execution lifecycle are three different axes; pinning the id in the bytes means a projection that flattened them into one `status` column can be caught from a stored record rather than from reading the projection's code."
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_source_rights_token": {
+          "const": "source_rights"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "connector_mapping_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "connector_mapping_is_not_canonical_domain_truth_by_itself"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "source_rights",
+          "credential_custody",
+          "provider_payload_is_domain_truth",
+          "training_consent",
+          "semantic_truth",
+          "run_outputs",
+          "policy_permission",
+          "capability_lease_crossing",
+          "connector_availability"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "source_rights"
+          }
+        },
+        {
+          "contains": {
+            "const": "credential_custody"
+          }
+        },
+        {
+          "contains": {
+            "const": "provider_payload_is_domain_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "training_consent"
+          }
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          }
+        }
+      ],
+      "description": "Six mandatory members. `credential_custody` and `provider_payload_is_domain_truth` are the two this family needs that no other carries: a mapping never holds the connector's credentials, and canon's non-negotiable 2 says a connector payload stays source material until a ConnectorMapping AND a DataRecipe bind it — a mapping alone does not make the payload domain truth."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. It is what makes the revision immutable in a way a reader can test."
+    }
+  }
+}

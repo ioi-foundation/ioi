@@ -1,0 +1,26 @@
+{
+  "schema_version": "ioi.hypervisor.odk.data-recipe.v1",
+  "object": "ioi.hypervisor.odk.data_recipe",
+  "id": "recipe_4c1d8b02f7a6e935",
+  "ref": "recipe://recipe_4c1d8b02f7a6e935",
+  "name": "intake-normalise",
+  "description": "Normalise clinic intake forms into patient-intake objects.",
+  "status": "active",
+  "ontology_ref": "ontology://acme-clinic/patient-intake",
+  "output_kind": "ontology_objects",
+  "source_refs": [
+    "source://drive/intake-forms"
+  ],
+  "connector_mappings": [
+    "connector-mapping://cmap_18f2c9b0a4d76e41"
+  ],
+  "policy_bound_views": [
+    "view://vw_intake_minimised"
+  ],
+  "projection_refs": [],
+  "evaluation_dataset_refs": [],
+  "worker_plan_refs": [],
+  "workflow_schema_refs": [],
+  "created_at": "2026-08-14T09:12:44Z",
+  "updated_at": "2026-08-21T16:03:07Z"
+}

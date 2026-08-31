@@ -1,0 +1,526 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/data-recipe/v2",
+  "title": "DataRecipeV2",
+  "description": "THE IMMUTABLE, CONTENT-ADDRESSED DEFINITION — ONE HALF OF THE DEFINITION/RUN SPLIT. Canon states the whole family in two sentences: a released DataRecipe revision is immutable and content-addressed, and it declares transformations and output contracts but contains no concrete dataset, distilled output, artifact, authority grant, run, or receipt. v1 satisfied neither half — it was patched in place and it embedded its mappings and views as opaque passthrough arrays. This version carries canon's member set under canon's own names and then makes four things checkable OFFLINE, from the bytes, with no daemon consulted. Identity is OWNER-QUALIFIED AND REVISION-EXACT: `data_recipe_id` names the family, `revision_ref` names one revision of THAT family, and a portable invariant refuses a `revision_ref` that does not extend its own `data_recipe_id`. The SEMANTIC-COMPONENT SNAPSHOT IS EXACT AND COMPLETE: `semantic_component_refs` must cover exactly the union of the five readable ref fields — no more, no fewer — so a recipe that names a mapping in the readable field and omits it from the committed snapshot fails, which is the precise mechanism by which a released recipe cannot silently resolve a newer semantic head. SUCCESSION IS EXPLICIT: a revision either is a genesis or names its predecessor's exact ref AND its predecessor's exact content hash, both, with a stated reason drawn from the five changes non-negotiable 3 says require a successor. And the NONCLAIMS ARE FIELDS: a relying party holding only the bytes reads what this definition declines to assert rather than inferring it. THREE THINGS ARE REFUSED BY CONSTRUCTION. The generic `recipe://` scheme cannot appear as an identity, because every identity pattern here is anchored on `data-recipe://` and `constants.refused_generic_recipe_scheme` names the rejected spelling in the bytes. An INLINE connector mapping cannot appear, because `connector_mapping_revision_refs` admits only strings matching an exact `mapping://…/revision/…` form — a structured member is a schema refusal, not a coercion. And a FAMILY-HEAD or mutable-latest reference cannot appear anywhere a revision is required, because every such pattern demands the `/revision/` segment. This contract is a definition. It grants no authority, it is not training consent, it does not carry its own runs' outputs, and registering it claims no runtime implementation of the split it describes.",
+  "x-ioi-schema-version": "ioi.data-recipe.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dataRecipeFamilyRef": {
+      "type": "string",
+      "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "dataRecipeRevisionRef": {
+      "type": "string",
+      "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "connectorMappingRevisionRef": {
+      "type": "string",
+      "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "data_recipe_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "name",
+    "ontology_revision_refs",
+    "input_source_types",
+    "connector_mapping_revision_refs",
+    "output_object_model_refs",
+    "output_dataset_contract_refs",
+    "transformation_steps",
+    "policy_bound_data_view_refs",
+    "receipt_obligations",
+    "semantic_component_set_snapshot_ref",
+    "semantic_component_set_hash",
+    "semantic_component_refs",
+    "semantic_component_count",
+    "effective_policy_hash",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.data-recipe.v2"
+    },
+    "data_recipe_id": {
+      "$ref": "#/$defs/dataRecipeFamilyRef",
+      "description": "THE FAMILY, IN CANON'S OWN SCHEME. v1 carried a bare `id` plus a `ref` written in the generic `recipe://` scheme the term-boundary ruling forbids. This is the aggregate lineage a revision belongs to; it is never a resolvable pipeline on its own, and nothing may execute against it."
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/dataRecipeRevisionRef",
+      "description": "ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment is mandatory, which is what refuses a family-head or mutable-latest reference: a bare `data-recipe://acme.intake` does not match this pattern and cannot be admitted where a revision is required. A registered invariant additionally refuses a revision ref that does not extend its own `data_recipe_id`, so a revision cannot be filed under a family it does not belong to."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+      "description": "OWNER-QUALIFIED IDENTITY. The revision ref alone is an id in a namespace; the owner is what makes it resolvable to one recipe rather than to whichever same-named recipe a reader happens to look up. v1 used the owner to derive an id and then did not store it, so a stored v1 recipe cannot say who owns it."
+    },
+    "tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "The tenancy boundary this definition lives inside. A run carries the same field and commits its outputs to it, which is how cross-tenant output becomes checkable rather than assumed."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "ontology_revision_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ontologyRevisionRef"
+      },
+      "description": "EXACT ADMITTED ONTOLOGY REVISIONS, never family refs. v1 carried one `ontology_ref` checked for local resolvability only, so a v1 recipe followed the ontology's head wherever it went. The `/revision/` segment here is the whole difference."
+    },
+    "input_source_types": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "connector",
+          "document",
+          "trace",
+          "dataset",
+          "artifact"
+        ]
+      },
+      "description": "Canon's five input source types, verbatim."
+    },
+    "connector_mapping_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/connectorMappingRevisionRef"
+      },
+      "description": "INLINE MAPPING IS REFUSED HERE, NOT COERCED. v1 embedded `connector_mappings` as an opaque passthrough array — whatever the caller sent, structured members included. This member admits ONLY a string naming an exact `mapping://…/revision/…`, so an inline mapping object is a schema refusal and a family-head mapping ref is a schema refusal. A ConnectorMapping is a separate family with its own identity and its own lifecycle; folding one into a recipe is the conflation the definition/run split exists to end."
+    },
+    "output_object_model_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Typed output CONTRACTS. v1 carried one coarse `output_kind` word instead."
+    },
+    "output_dataset_contract_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Output dataset CONTRACTS — schema or object-model refs. Never a concrete dataset: canon says a recipe revision contains output contracts and never concrete run outputs, and `does_not_assert` carries `run_outputs` so the record says so itself."
+    },
+    "transformation_steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "extract",
+          "redact",
+          "normalize",
+          "dedupe",
+          "validate",
+          "map",
+          "link",
+          "export"
+        ]
+      },
+      "description": "Canon's eight transformation steps, verbatim. Declaring `redact` reduces exposure; it creates no right and severs no lineage."
+    },
+    "policy_bound_data_view_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The governed lenses this recipe reads through. Naming a view is not being granted it: a run revalidates current authority, rights, revocation and expiry before materialization, and this definition asserts none of that."
+    },
+    "receipt_obligations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "data_recipe_run",
+          "transformation",
+          "validation",
+          "artifact",
+          "policy_decision",
+          "redaction",
+          "export",
+          "impact"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "data_recipe_run"
+          }
+        },
+        {
+          "contains": {
+            "const": "transformation"
+          }
+        }
+      ],
+      "description": "Canon's two obligations are mandatory members; the rest are declarable additions. An obligation is a requirement placed on future runs, never a receipt this definition holds."
+    },
+    "semantic_component_set_snapshot_ref": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,500}$",
+      "description": "The artifact enumerating the exact revision ref and content hash of every ontology version, ConnectorMapping, object model, schema contract and policy-bound view named by the readable family-ref fields above."
+    },
+    "semantic_component_set_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The snapshot's own commitment. `content_hash` commits this value, so a released recipe cannot silently resolve a newer mapping or semantic head: changing what the snapshot contains changes this hash, which changes the content hash, which changes the revision."
+    },
+    "semantic_component_refs": {
+      "type": "array",
+      "maxItems": 320,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "description": "THE FLAT SET THE SNAPSHOT COVERS, CARRIED IN THE RECORD SO THE COVERAGE IS CHECKABLE WITHOUT FETCHING THE ARTIFACT. A registered invariant requires this to equal EXACTLY the union of `ontology_revision_refs`, `connector_mapping_revision_refs`, `output_object_model_refs`, `output_dataset_contract_refs` and `policy_bound_data_view_refs` — same members, same count, nothing extra and nothing dropped. A recipe that reads through a policy view it left out of its own snapshot fails offline."
+    },
+    "semantic_component_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 320,
+      "description": "The declared size of that set, checked against it by a registered invariant. A count that disagrees with the list is the cheapest possible tell that one of them was edited."
+    },
+    "effective_policy_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The commitment over the composed policy this revision was released under. Policy composition is deterministic and inspectable, so the composed result has a hash; carrying it means a later reader can tell that the policy moved even when every readable ref still resolves."
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "active",
+        "deprecated",
+        "revoked"
+      ],
+      "description": "Canon's four registry members, verbatim. INVENTORY STATUS ONLY: it says where this revision sits in its own registry lifecycle and says nothing about whether any run executed, succeeded, or produced anything. A run's state lives on the run, in a vocabulary that shares no member with this one."
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than from the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp, and a second one would be the mutability tell v1 carried."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Non-negotiable 3 says a changed ontology, ConnectorMapping, object model, schema or policy-bound view REQUIRES a successor recipe; this block is where that succession is stated rather than implied by a bumped counter. A genesis revision has no predecessor and says so in both provenance slots at once. Every other revision names its predecessor's exact ref AND its predecessor's exact content hash, both, plus the reason it exists. Independently nullable slots would admit partial tuples that read as complete — a `connector_mapping_change` naming no predecessor bytes claims a lineage nobody can check — so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.",
+      "required": [
+        "succession_reason",
+        "predecessor_revision_ref",
+        "predecessor_content_hash",
+        "supersedes_predecessor",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "succession_reason": {
+          "enum": [
+            "genesis",
+            "ontology_revision_change",
+            "connector_mapping_change",
+            "object_model_change",
+            "output_contract_change",
+            "policy_bound_view_change",
+            "transformation_step_change",
+            "correction"
+          ],
+          "description": "`genesis` plus the five changes non-negotiable 3 names as requiring a successor, plus a step change and a correction. Every member other than `genesis` obliges the full predecessor tuple."
+        },
+        "predecessor_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/dataRecipeRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predecessor's bytes, hashed over ITS OWN enumerated fields under ITS OWN domain separator. A successor that names a predecessor ref but no predecessor hash has named a pointer, not bytes."
+        },
+        "supersedes_predecessor": {
+          "type": "boolean",
+          "description": "Whether this revision retires the predecessor for new use. False is legitimate — two revisions may stand together while consumers migrate — and either way the predecessor stays addressable, because superseding is not deletion."
+        },
+        "reinterprets_predecessor": {
+          "const": false,
+          "description": "Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning; the predecessor is preserved exactly as admitted."
+        }
+      },
+      "allOf": [
+        {
+          "title": "a genesis revision has no predecessor, in both slots at once",
+          "if": {
+            "required": [
+              "succession_reason"
+            ],
+            "properties": {
+              "succession_reason": {
+                "const": "genesis"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "type": "null"
+              },
+              "predecessor_content_hash": {
+                "type": "null"
+              },
+              "supersedes_predecessor": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "$ref": "#/$defs/dataRecipeRevisionRef"
+              },
+              "predecessor_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A recipe authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned to `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the semantic snapshot, the succession tuple and the commitment — a lossy re-encoding that would present a weaker record as the same fact.",
+      "required": [
+        "from_schema_version",
+        "from_recipe_ref",
+        "from_content_hash",
+        "compatibility",
+        "reinterprets_predecessor",
+        "downgrade_to_predecessor"
+      ],
+      "properties": {
+        "from_schema_version": {
+          "oneOf": [
+            {
+              "const": "ioi.hypervisor.odk.data-recipe.v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_recipe_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^recipe://recipe_[0-9a-f]{16}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predecessor is named in the scheme it was ACTUALLY STORED UNDER — the generic `recipe://` this successor exists to stop minting. Rewriting it into `data-recipe://` here would be reinterpreting v1, which is the one thing a convergence may not do."
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "converged_from_v1"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        },
+        "downgrade_to_predecessor": {
+          "const": "refused"
+        }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — all three provenance slots are null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_recipe_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.odk.data-recipe.v1"
+              },
+              "from_recipe_ref": {
+                "type": "string",
+                "pattern": "^recipe://recipe_[0-9a-f]{16}$"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language needing literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.",
+      "required": [
+        "lifecycle_id",
+        "refused_generic_recipe_scheme",
+        "nonclaim_authority_token",
+        "nonclaim_run_outputs_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "data_recipe_registry_lifecycle.v2",
+          "description": "Names WHICH lifecycle `registry_status` is drawn from. The run family pins a different id over a disjoint vocabulary, so a reader cannot mistake a definition's registry state for an execution's state even when both are called `status` in some projection."
+        },
+        "refused_generic_recipe_scheme": {
+          "const": "recipe://",
+          "description": "The spelling this contract refuses as an identity, named in the bytes. `recipe://` is a typed legacy DataRecipe alias and never identifies a generic executable recipe family; here it appears only as the rejected form and, in `migration.from_recipe_ref`, as the honest record of what a v1 predecessor was stored as."
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_run_outputs_token": {
+          "const": "run_outputs"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "data_recipe_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "data_recipe_is_not_semantic_truth_or_training_consent"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "run_outputs",
+          "training_consent",
+          "source_rights",
+          "semantic_truth",
+          "generic_executable_recipe_family",
+          "policy_permission",
+          "capability_lease_crossing",
+          "provider_deletion",
+          "marketplace_truth"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "run_outputs"
+          }
+        },
+        {
+          "contains": {
+            "const": "training_consent"
+          }
+        },
+        {
+          "contains": {
+            "const": "source_rights"
+          }
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "generic_executable_recipe_family"
+          }
+        }
+      ],
+      "description": "Six mandatory members. `run_outputs` is the one this family needs that no other carries: canon says a recipe revision contains output CONTRACTS and never concrete run outputs, and a definition that could be read as holding its runs' results is the exact conflation the split exists to end. `generic_executable_recipe_family` states the term-boundary refusal in the record itself."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered."
+    }
+  }
+}

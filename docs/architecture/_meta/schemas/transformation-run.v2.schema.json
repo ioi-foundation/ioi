@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/transformation-run/v2",
+  "title": "TransformationRunV2",
+  "description": "ONE ADMITTED EXECUTION — THE OTHER HALF OF THE DEFINITION/RUN SPLIT, AND THE PLACE NON-NEGOTIABLE 3 IS ENFORCED. Canon: every TransformationRun binds the exact `data-recipe://.../revision/...` ref and content hash PLUS the exact semantic-component snapshot and hash already committed by that revision, and the resolved tuple must EQUAL the committed one. v1 bound none of the three — it had no recipe field at all, so there was nothing for a tuple to be equal to. This version carries the recipe binding and then makes the equality CHECKABLE OFFLINE by carrying both sides: `recipe_committed_semantic_component_set_hash` is what the recipe revision froze, `resolved_semantic_component_set_hash` is what this run actually resolved, and a registered invariant refuses the record when they differ. That single rule is what stops a signed recipe from executing against a later semantic head, and it needs no daemon, no registry read and no network to decide. FIVE MORE REFUSALS ARE STRUCTURAL. DEFINITION AND MAPPING SUBSTITUTION: the run carries both the mapping set the recipe committed and the mapping set it resolved, and an invariant requires them to be the same set exactly — swap one mapping for a same-named successor and the run fails. FAMILY-HEAD AND MUTABLE-LATEST: every recipe, mapping and ontology reference here demands a `/revision/` segment, so a run can never be pointed at a head. MISSING HASHES: the recipe hash, both snapshot hashes and the content hash are all required, and the run's position in its recipe's admitted chain is one exact SHA-256. WALL-CLOCK RETRY IDENTITY: v1's id was the hex of the epoch nanosecond count, so a retried plan minted a second run; `identity_basis` pins the derived basis and carries the idempotency key's hash. CROSS-TENANT OUTPUT: the run names the tenant it runs in and the tenant its outputs land in, and an invariant requires them to be the same. A run attests what it transformed, from which sources, under which policy, into which objects. It does not make the transformed assertion universally correct, it does not prove provider deletion or model unlearning, and registering this contract claims no runtime implementation of the split it describes.",
+  "x-ioi-schema-version": "ioi.transformation-run.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "dataRecipeRevisionRef": {
+      "type": "string",
+      "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "connectorMappingRevisionRef": {
+      "type": "string",
+      "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "artifactRef": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s]{1,500}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "transformation_run_id",
+    "owner_ref",
+    "tenant_ref",
+    "output_tenant_ref",
+    "identity_basis",
+    "data_recipe_revision_ref",
+    "data_recipe_content_hash",
+    "data_recipe_admitted_head_before",
+    "recipe_committed_semantic_component_set_snapshot_ref",
+    "recipe_committed_semantic_component_set_hash",
+    "resolved_semantic_component_set_snapshot_ref",
+    "resolved_semantic_component_set_hash",
+    "recipe_committed_connector_mapping_revision_refs",
+    "resolved_connector_mapping_revision_refs",
+    "ontology_revision_refs",
+    "policy_bound_data_view_refs",
+    "institutional_learning_boundary_profile_ref",
+    "effective_learning_policy_hash",
+    "learning_source_rights_claim_refs",
+    "authority_grant_refs",
+    "input_refs",
+    "output_intent",
+    "output_object_refs",
+    "output_dataset_refs",
+    "output_distilled_dataset_refs",
+    "output_artifact_refs",
+    "derivative_policy_ref",
+    "impact_graph_ref",
+    "receipt_refs",
+    "execution_status",
+    "admitted_at",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.transformation-run.v2"
+    },
+    "transformation_run_id": {
+      "type": "string",
+      "pattern": "^transform://trun_[0-9a-f]{32}$",
+      "description": "ONE IDENTITY, IN CANON'S `transform://` SCHEME, AT A FIXED WIDTH. v1 carried a bare `id` plus a `transformation-run://` ref and derived both from the wall clock, so the width drifted with the epoch and a retry minted a second run. Thirty-two hex digits of a derived digest is a width that cannot drift and a value a retry reproduces."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "The tenancy this execution runs inside."
+    },
+    "output_tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "CROSS-TENANT OUTPUT, REFUSED OFFLINE. The tenancy this run's outputs are committed to, carried as its own field precisely so it can DISAGREE with `tenant_ref` and be caught. A registered invariant requires the two to be equal, so a run that would deposit derived objects, datasets or artifacts into another tenant fails on the bytes, before anything is fetched and without a policy engine being consulted. v1 had no owner or tenant on the record at all, so there was nothing to compare."
+    },
+    "identity_basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `trun_{nanos:x}` — the hex of the epoch nanosecond count at create — so the same plan retried after a dropped response admitted a SECOND execution of the same intent, and the two were indistinguishable afterwards. This block pins the only admissible basis and carries the hash of the idempotency key the id derives from, so a replayed admission is recognisable as the run it already is.",
+      "required": [
+        "derived_from",
+        "idempotency_key_hash",
+        "refused_basis"
+      ],
+      "properties": {
+        "derived_from": {
+          "const": "owner_ref_and_idempotency_key"
+        },
+        "idempotency_key_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "refused_basis": {
+          "const": "wall_clock_nanoseconds"
+        }
+      }
+    },
+    "data_recipe_revision_ref": {
+      "$ref": "#/$defs/dataRecipeRevisionRef",
+      "description": "THE FIELD v1 DID NOT HAVE. Required, never nullable, and never a family ref: an execution always runs a definition, and the `/revision/` segment is what stops it from running whichever revision is current when it starts. A v1 run bound a connector mapping and a policy view directly and had no recipe at all, which is the whole content of 'the exact definition/run split is not started'."
+    },
+    "data_recipe_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The recipe revision's own commitment, carried so the run's binding is to BYTES and not merely to a name. Edit the recipe and this stops matching; substitute a same-named revision and it stops matching too."
+    },
+    "data_recipe_admitted_head_before": {
+      "type": "string",
+      "pattern": "^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$",
+      "description": "The exact head of the recipe family's admitted stream that this run was admitted AGAINST. EXACTLY ONE SHA-256, sixty-four lowercase hex digits, with or without the `sha256:` prefix the substrate happens to issue; the prefix is tolerated only because reformatting a head would stop it matching the chain it names, never because the width is negotiable. A truncated head names a prefix of the chain rather than a position in it, which is the ambiguity this field exists to remove. It locates the run at one position in one history, so a run cannot be replayed against a different history and still read as consistent."
+    },
+    "recipe_committed_semantic_component_set_snapshot_ref": {
+      "$ref": "#/$defs/artifactRef",
+      "description": "The snapshot the RECIPE REVISION froze. Carried on the run so the comparison below needs nothing but this record."
+    },
+    "recipe_committed_semantic_component_set_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The hash the recipe revision committed for that snapshot."
+    },
+    "resolved_semantic_component_set_snapshot_ref": {
+      "$ref": "#/$defs/artifactRef",
+      "description": "The snapshot THIS RUN actually resolved."
+    },
+    "resolved_semantic_component_set_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "THE HASH THE EQUALITY RULE IS ABOUT. Canon: the resolved semantic-component tuple must exactly equal the tuple committed by the admitted DataRecipe revision, and a run may not replace an ontology, mapping, object model, schema or policy-bound view with a current registry head. Both sides are in the record, an invariant compares them, and a mismatch is a refusal a relying party reaches offline. A different semantic dependency set requires a SUCCESSOR RECIPE REVISION and a new admission — never a run that resolves differently and reports success."
+    },
+    "recipe_committed_connector_mapping_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/connectorMappingRevisionRef"
+      },
+      "description": "The exact mapping revisions the recipe revision named."
+    },
+    "resolved_connector_mapping_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/connectorMappingRevisionRef"
+      },
+      "description": "MAPPING SUBSTITUTION, REFUSED OFFLINE. The mapping revisions this run actually resolved. A registered invariant requires this set to be EXACTLY the committed set — same members, same count — so swapping one mapping for its successor, adding a mapping the recipe never named, or dropping one it did, all fail on the bytes. Canon says a mapping change requires a successor mapping AND a successor recipe; this is that sentence made checkable."
+    },
+    "ontology_revision_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ontologyRevisionRef"
+      },
+      "description": "The exact admitted ontology revisions this run was executed against. v1 copied the bound mapping's current family ref."
+    },
+    "policy_bound_data_view_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The governed lenses this run read through. A permitted view is not training consent, and a prior transformation receipt is not perpetual permission: reads revalidate current authority, rights, revocation and expiry, and this record attests which views were named, never that they are still valid now."
+    },
+    "institutional_learning_boundary_profile_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Nullable, because not every run is learning-bearing — but a registered invariant requires it when `output_intent` is one of the three that feed learning, so the nullability cannot be used to skip the boundary on the runs that need it."
+    },
+    "effective_learning_policy_hash": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The commitment over the most restrictive intersection of the active institutional boundary, source and participant rights, consent, licence, route rights, retention and destination scope. Required by invariant on the same three learning-bearing intents. Composition never widens: union, majority permission, material transformation, aggregation, de-identification and ontology mapping cannot turn a prohibited use into a permitted one, and a hash over the composed result is what lets a later reader tell that the composition moved."
+    },
+    "learning_source_rights_claim_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "authority_grant_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The grants the admitting component RESOLVED for this run. Listing a grant is a record of what was resolved, never a grant this record confers."
+    },
+    "input_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "output_intent": {
+      "enum": [
+        "ontology_objects",
+        "projection",
+        "evaluation_dataset",
+        "training_material",
+        "distilled_dataset",
+        "export_bundle"
+      ],
+      "description": "What this run set out to produce. The three learning-bearing members — `evaluation_dataset`, `training_material`, `distilled_dataset` — oblige the boundary profile and effective learning-policy hash by invariant."
+    },
+    "output_object_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "CONCRETE OUTPUTS BELONG TO THE RUN, NEVER TO THE DEFINITION. A DataRecipe revision declares output CONTRACTS and holds no results; these four output members are where results live, which is the structural reason the two objects cannot be collapsed."
+    },
+    "output_dataset_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "output_distilled_dataset_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "output_artifact_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "derivative_policy_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "impact_graph_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^agentgres://projection/[^\\s]{1,400}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Where the derivation and obligation edges this run created are reachable from. When a source right expires or is withdrawn, the impact graph is what identifies every dependent artifact so the owning policy can choose a receipted disposition."
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Required non-empty by invariant once `execution_status` is `completed`: canon says runs must emit transformation receipts for consequential training, evaluation, projection or service outcomes, and a completed run with no receipt is that obligation unmet."
+    },
+    "execution_status": {
+      "enum": [
+        "queued",
+        "running",
+        "completed",
+        "failed",
+        "rejected"
+      ],
+      "description": "CANON'S FIVE RUN STATES, AND A DELIBERATELY DIFFERENT AXIS FROM THE DEFINITIONS. The field is named `execution_status` rather than `status` because a DataRecipe and a ConnectorMapping carry `registry_status` over draft | active | deprecated | revoked, and the two vocabularies share NO member. A projection that flattened a definition's inventory state and an execution's state into one column would have to invent a member that exists in neither list. v1's four states — planned, dry_run_ready, blocked, cancelled — are not members of this vocabulary either and are not translated into it."
+    },
+    "admitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "The ADMISSION stamp, taken from the admitted operation rather than from the wall clock, so a replayed admission re-commits byte-identically. Together with `identity_basis` this is what makes retry identity a property of the record instead of a property of when the request arrived."
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A run converged from a stored v1 record names that predecessor's contract, its ref in v1's own scheme with v1's own clocked id, and its exact content hash — all three or none. Downgrade is pinned `refused` for a reason specific to this family: a v1 record has nowhere to put the recipe binding, the committed-versus-resolved tuple, the outputs, or the tenancy, so re-encoding a v2 run as v1 would discard the entire basis on which it was admitted and present the remainder as the same fact.",
+      "required": [
+        "from_schema_version",
+        "from_run_ref",
+        "from_content_hash",
+        "predecessor_reached_execution",
+        "compatibility",
+        "reinterprets_predecessor",
+        "downgrade_to_predecessor"
+      ],
+      "properties": {
+        "from_schema_version": {
+          "oneOf": [
+            {
+              "const": "ioi.hypervisor.odk.transformation-run.v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_run_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^transformation-run://trun_[0-9a-f]{12,32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_reached_execution": {
+          "const": false,
+          "description": "Pinned false unconditionally, including on a fresh v2 run where there is no predecessor to describe. No v1 record ever executed: `executed` and `materialized` were reserved words that plane never set, and its `execution` block pinned `source_contacted`, `data_moved` and `object_instances` to false, false and zero. A convergence that carried v1 outputs forward would be inventing them, so the contract states in the bytes that there were none."
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "converged_from_v1"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        },
+        "downgrade_to_predecessor": {
+          "const": "refused"
+        }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — all three provenance slots are null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_run_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.odk.transformation-run.v1"
+              },
+              "from_run_ref": {
+                "type": "string",
+                "pattern": "^transformation-run://trun_[0-9a-f]{12,32}$"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle_id",
+        "nonclaim_authority_token",
+        "nonclaim_semantic_correctness_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "transformation_run_execution_lifecycle.v2",
+          "description": "A DISTINCT LIFECYCLE ID FROM BOTH DEFINITION FAMILIES. Three families, three lifecycle ids, three vocabularies with no shared member — carried in the bytes so the distinctness is checkable from a stored record rather than argued from prose."
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_semantic_correctness_token": {
+          "const": "semantic_correctness"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "transformation_run_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "transformation_run_attests_boundary_facts_not_universal_correctness"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "semantic_correctness",
+          "training_consent",
+          "perpetual_permission",
+          "provider_deletion",
+          "model_unlearning",
+          "source_rights",
+          "definition_substitution_permitted",
+          "downstream_admission",
+          "marketplace_truth"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "semantic_correctness"
+          }
+        },
+        {
+          "contains": {
+            "const": "training_consent"
+          }
+        },
+        {
+          "contains": {
+            "const": "perpetual_permission"
+          }
+        },
+        {
+          "contains": {
+            "const": "provider_deletion"
+          }
+        },
+        {
+          "contains": {
+            "const": "model_unlearning"
+          }
+        }
+      ],
+      "description": "Six mandatory members, and four of them are this family's alone. `perpetual_permission` because a prior transformation receipt is not permission for future use. `provider_deletion` and `model_unlearning` because canon's non-negotiable 21 says a receipt proves only its declared fact and never hidden provider behaviour or unlearning by implication — recall, quarantine, deletion and retraining are distinct observable actions and none of them proves a model forgot. `semantic_correctness` because admitting that a transformation happened is not admitting that its output is true."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. Substituting the recipe binding, the resolved tuple, the mapping set or the output tenancy all break it."
+    }
+  }
+}

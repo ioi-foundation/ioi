@@ -1,0 +1,77 @@
+{
+  "schema_version": "ioi.transformation-run.v2",
+  "transformation_run_id": "transform://trun_b52d18ef03c7049651f2c8d3e714ab69",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "output_tenant_ref": "tenant://acme-clinic",
+  "identity_basis": {
+    "derived_from": "owner_ref_and_idempotency_key",
+    "idempotency_key_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+    "refused_basis": "wall_clock_nanoseconds"
+  },
+  "data_recipe_revision_ref": "data-recipe://acme.intake-normalise/revision/1",
+  "data_recipe_content_hash": "sha256:8da96a55a228bdf3a8d4cc74b6da9eed42f131c768a0dbc27033f548a9f14231",
+  "data_recipe_admitted_head_before": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "recipe_committed_semantic_component_set_snapshot_ref": "artifact://acme/intake-normalise/semantic-set/1",
+  "recipe_committed_semantic_component_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "resolved_semantic_component_set_snapshot_ref": "artifact://acme/intake-normalise/semantic-set/1",
+  "resolved_semantic_component_set_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "recipe_committed_connector_mapping_revision_refs": [
+    "mapping://acme.intake-form/revision/3"
+  ],
+  "resolved_connector_mapping_revision_refs": [
+    "mapping://acme.intake-form/revision/3"
+  ],
+  "ontology_revision_refs": [
+    "ontology://acme-clinic/patient-intake/revision/7"
+  ],
+  "policy_bound_data_view_refs": [
+    "view://vw_intake_minimised"
+  ],
+  "institutional_learning_boundary_profile_ref": null,
+  "effective_learning_policy_hash": null,
+  "learning_source_rights_claim_refs": [],
+  "authority_grant_refs": [
+    "grant://acme-clinic/intake-read/2026-08"
+  ],
+  "input_refs": [
+    "artifact://acme/intake-forms/batch-2026-08"
+  ],
+  "output_intent": "ontology_objects",
+  "output_object_refs": [],
+  "output_dataset_refs": [],
+  "output_distilled_dataset_refs": [],
+  "output_artifact_refs": [],
+  "derivative_policy_ref": "policy://acme-clinic/intake-derivatives",
+  "impact_graph_ref": null,
+  "receipt_refs": [
+    "receipt://acme-clinic/transformation/2026-08-rejected"
+  ],
+  "execution_status": "rejected",
+  "admitted_at": "2026-08-29T09:44:31Z",
+  "migration": {
+    "from_schema_version": "ioi.hypervisor.odk.transformation-run.v1",
+    "from_run_ref": "transformation-run://trun_18f2c9b0a4d76e50",
+    "from_content_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "predecessor_reached_execution": false,
+    "compatibility": "converged_from_v1",
+    "reinterprets_predecessor": false,
+    "downgrade_to_predecessor": "refused"
+  },
+  "constants": {
+    "lifecycle_id": "transformation_run_execution_lifecycle.v2",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_semantic_correctness_token": "semantic_correctness"
+  },
+  "authority_nonclaim": "transformation_run_grants_no_authority",
+  "truth_nonclaim": "transformation_run_attests_boundary_facts_not_universal_correctness",
+  "does_not_assert": [
+    "authority",
+    "semantic_correctness",
+    "training_consent",
+    "perpetual_permission",
+    "provider_deletion",
+    "model_unlearning"
+  ],
+  "content_hash": "sha256:58429a4216c1bac4978ad629c89497cbbd95a56835eda8e95da726d09a6ae723"
+}

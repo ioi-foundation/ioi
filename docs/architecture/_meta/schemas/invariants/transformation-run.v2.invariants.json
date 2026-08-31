@@ -1,0 +1,277 @@
+{
+  "$id": "invariant://ioi/foundations/objects/transformation-run/frozen-semantic-tuple/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/transformation-run/v2",
+  "rules": [
+    {
+      "rule_id": "transformation_run.content_hash.commits_the_whole_run",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — which means the recipe binding, both sides of the semantic tuple, the resolved mapping set, the output tenancy and the receipts are all inside the commitment. Substituting any of them breaks the hash, offline, with nothing but the bytes.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.transformation-run-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "transformation_run_id": {
+            "path": "$.transformation_run_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "output_tenant_ref": {
+            "path": "$.output_tenant_ref"
+          },
+          "identity_basis": {
+            "path": "$.identity_basis"
+          },
+          "data_recipe_revision_ref": {
+            "path": "$.data_recipe_revision_ref"
+          },
+          "data_recipe_content_hash": {
+            "path": "$.data_recipe_content_hash"
+          },
+          "data_recipe_admitted_head_before": {
+            "path": "$.data_recipe_admitted_head_before"
+          },
+          "recipe_committed_semantic_component_set_snapshot_ref": {
+            "path": "$.recipe_committed_semantic_component_set_snapshot_ref"
+          },
+          "recipe_committed_semantic_component_set_hash": {
+            "path": "$.recipe_committed_semantic_component_set_hash"
+          },
+          "resolved_semantic_component_set_snapshot_ref": {
+            "path": "$.resolved_semantic_component_set_snapshot_ref"
+          },
+          "resolved_semantic_component_set_hash": {
+            "path": "$.resolved_semantic_component_set_hash"
+          },
+          "recipe_committed_connector_mapping_revision_refs": {
+            "path": "$.recipe_committed_connector_mapping_revision_refs"
+          },
+          "resolved_connector_mapping_revision_refs": {
+            "path": "$.resolved_connector_mapping_revision_refs"
+          },
+          "ontology_revision_refs": {
+            "path": "$.ontology_revision_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "institutional_learning_boundary_profile_ref": {
+            "path": "$.institutional_learning_boundary_profile_ref"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "learning_source_rights_claim_refs": {
+            "path": "$.learning_source_rights_claim_refs"
+          },
+          "authority_grant_refs": {
+            "path": "$.authority_grant_refs"
+          },
+          "input_refs": {
+            "path": "$.input_refs"
+          },
+          "output_intent": {
+            "path": "$.output_intent"
+          },
+          "output_object_refs": {
+            "path": "$.output_object_refs"
+          },
+          "output_dataset_refs": {
+            "path": "$.output_dataset_refs"
+          },
+          "output_distilled_dataset_refs": {
+            "path": "$.output_distilled_dataset_refs"
+          },
+          "output_artifact_refs": {
+            "path": "$.output_artifact_refs"
+          },
+          "derivative_policy_ref": {
+            "path": "$.derivative_policy_ref"
+          },
+          "impact_graph_ref": {
+            "path": "$.impact_graph_ref"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          },
+          "execution_status": {
+            "path": "$.execution_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "transformation_run.semantic_tuple.resolved_equals_the_recipe_commitment",
+      "description": "NON-NEGOTIABLE 3, MADE OFFLINE-CHECKABLE. Canon: the resolved semantic-component tuple must exactly equal the tuple committed by the admitted DataRecipe revision, and a run may not replace an ontology, mapping, object model, schema or policy-bound view with a current registry head. Both hashes are carried on the run, so the comparison needs no registry read and no network. A run whose resolved tuple differs has executed a different pipeline than the one the recipe revision was signed for; the correct outcome is a SUCCESSOR RECIPE REVISION and a new admission, never a run that resolves differently and reports success.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resolved_semantic_component_set_hash",
+          "$.recipe_committed_semantic_component_set_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.semantic_tuple.resolved_snapshot_is_the_recipe_snapshot",
+      "description": "The hashes agreeing while the snapshot refs point at different artifacts would mean two locations claiming one commitment, and a reader following the ref would read material the hash was never taken over. Both halves of the tuple are checked, not just the digest.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.resolved_semantic_component_set_snapshot_ref",
+          "$.recipe_committed_semantic_component_set_snapshot_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.connector_mappings.resolved_set_is_exactly_the_recipe_set",
+      "description": "DEFINITION AND MAPPING SUBSTITUTION, REFUSED OFFLINE. Canon says a mapping change requires a successor mapping AND a successor recipe. This rule requires the mapping revisions the run resolved to be exactly the ones the recipe revision committed — same members, same count. Swapping a mapping for its successor, adding one the recipe never named, or dropping one it did all fail on the bytes, which is the difference between a run that executed the admitted definition and one that executed something adjacent to it.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.resolved_connector_mapping_revision_refs",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.recipe_committed_connector_mapping_revision_refs"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.tenancy.outputs_stay_in_the_running_tenant",
+      "description": "CROSS-TENANT OUTPUT, REFUSED OFFLINE. The run names the tenancy it executes in and the tenancy its outputs are committed to as two independent fields, precisely so they can disagree and be caught. A run that would deposit derived objects, datasets or artifacts into another tenant fails on the record, before any byte leaves the owner boundary and without a policy engine being consulted.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.tenant_ref",
+          "$.output_tenant_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.receipts.a_completed_run_emits_them",
+      "description": "Canon: runs must emit transformation receipts for consequential training, evaluation, projection or service outcomes. A run reporting `completed` with an empty receipt list has left that obligation unmet while presenting itself as finished.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.receipt_refs",
+        "when_path": "$.execution_status",
+        "values": [
+          "completed"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.outputs.a_completed_run_owns_at_least_one_output",
+      "description": "CONCRETE OUTPUTS BELONG TO THE RUN. A completed run with all four output lists empty either produced nothing while reporting success, or produced something it recorded elsewhere — and the second is how outputs drift back onto the definition. Any one of the four satisfies this; a run still queued, running, failed or rejected is not asked for outputs at all.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "non_empty_when_in",
+            "path": "$.output_object_refs",
+            "when_path": "$.execution_status",
+            "values": [
+              "completed"
+            ]
+          },
+          {
+            "operator": "non_empty_when_in",
+            "path": "$.output_dataset_refs",
+            "when_path": "$.execution_status",
+            "values": [
+              "completed"
+            ]
+          },
+          {
+            "operator": "non_empty_when_in",
+            "path": "$.output_distilled_dataset_refs",
+            "when_path": "$.execution_status",
+            "values": [
+              "completed"
+            ]
+          },
+          {
+            "operator": "non_empty_when_in",
+            "path": "$.output_artifact_refs",
+            "when_path": "$.execution_status",
+            "values": [
+              "completed"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.learning.a_learning_bearing_run_binds_its_boundary",
+      "description": "Every governed learning use binds the effective `InstitutionalLearningBoundaryProfile`. The field is nullable because not every run is learning-bearing; this rule stops that nullability from being the way the boundary gets skipped on the three output intents that feed learning.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.institutional_learning_boundary_profile_ref",
+        "when_path": "$.output_intent",
+        "values": [
+          "evaluation_dataset",
+          "training_material",
+          "distilled_dataset"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.learning.a_learning_bearing_run_binds_its_effective_policy",
+      "description": "The boundary profile is a scope ceiling, not blanket permission; the controlling value is the most restrictive intersection of boundary, source and participant rights, consent, licence, route rights, retention and destination scope. A learning-bearing run that names a profile but commits no composed-policy hash has recorded the ceiling and not the decision.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.effective_learning_policy_hash",
+        "when_path": "$.output_intent",
+        "values": [
+          "evaluation_dataset",
+          "training_material",
+          "distilled_dataset"
+        ]
+      }
+    },
+    {
+      "rule_id": "transformation_run.nonclaims.authority_is_never_omitted",
+      "description": "A transformation receipt attests boundary facts. It is not authority, and dropping the nonclaim would let a run be read as the permission that allowed it.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "transformation_run.nonclaims.semantic_correctness_is_never_omitted",
+      "description": "Admitting that a transformation happened is not admitting that its output is true. Operational truth and semantic belief stay distinct, and the record says so itself rather than leaving a reader to infer it.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_semantic_correctness_token"
+      }
+    }
+  ]
+}

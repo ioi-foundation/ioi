@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/connector-mapping/v1",
+  "title": "ConnectorMappingV1",
+  "description": "THE PREDECESSOR, REGISTERED AS THE RECORD THE CONNECTOR-MAPPING LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.connector-mapping.v1` was a local Rust constant with no `_meta/schemas/` entry behind it. This contract registers the stored bytes verbatim so v2's `successor_of` names a contract that exists, so a convergence can commit this predecessor's EXACT bytes, and so each divergence is a checked expectation rather than prose. Five divergences from the canonical `ConnectorMappingEnvelope` matter. Identity is DERIVED FROM THE WALL CLOCK — `cmap_{nanos:x}` — so a retried declaration mints a SECOND mapping with a different id for the same intent, and two mappings minted in the same nanosecond collide; an idempotent producer cannot exist on this identity. The stored `ref` uses `connector-mapping://` where canon uses `mapping://`. `revision` is an INTEGER MUTATED IN PLACE by the patch path rather than a `revision_ref` naming an immutable successor, so canon's 'each ConnectorMapping revision is immutable' does not hold: revision 2 overwrites revision 1's bytes and revision 1 becomes unaddressable. There is no `content_hash`, no `semantic_component_set_snapshot_ref` and no `semantic_component_set_hash`, so nothing commits which ontology, object-model or policy revision the mapping was declared against. And `status` is pinned to the literal `declared`, a value that is not in canon's registry vocabulary at all. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.",
+  "x-ioi-schema-version": "ioi.hypervisor.odk.connector-mapping.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_field",
+        "property_id"
+      ],
+      "properties": {
+        "source_field": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "property_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_type": {
+          "enum": [
+            "string",
+            "integer",
+            "double",
+            "boolean",
+            "timestamp",
+            "date",
+            "json"
+          ]
+        },
+        "source_cardinality": {
+          "enum": [
+            "one",
+            "many"
+          ]
+        }
+      },
+      "description": "The four members `binding_tuple` reads out of a caller-supplied binding. `source_type` and `source_cardinality` are optional here because the v1 reader DEFAULTS them to `string` and `one` when absent, so a stored record may legitimately omit both — registering them as required would refuse bytes this lane admits."
+    }
+  },
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "status",
+    "ingestion",
+    "revision",
+    "receipt_refs",
+    "history",
+    "created_at",
+    "updated_at",
+    "data_source_id",
+    "data_source_ref",
+    "ontology_ref",
+    "object_type_id",
+    "source_dataset",
+    "key_mapping",
+    "title_mapping",
+    "field_mappings",
+    "health"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.odk.connector-mapping.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.odk.connector_mapping"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^cmap_[0-9a-f]{12,32}$",
+      "description": "WALL-CLOCK IDENTITY. `format!(\"cmap_{:x}\", nanos())` — the lower-case hex of the Unix epoch nanosecond count at create. The width is a RANGE rather than a fixed number because the value is a timestamp: it is sixteen hex digits today and widens on its own schedule, which is itself the tell that an identity derived from the clock is not a derived identity at all. v2 derives the mapping id from owner plus idempotency key so a retry resolves to the record it already minted."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^connector-mapping://cmap_[0-9a-f]{12,32}$",
+      "description": "Canon's scheme for this family is `mapping://`. This lane writes `connector-mapping://`, and the stored value is what a reader resolves, so the divergence is registered rather than translated."
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": [
+        "declared"
+      ],
+      "description": "THE PINNED VALUE, AND IT IS NOT CANON'S. Canon's registry vocabulary is draft | active | deprecated | revoked. This lane writes the literal `declared` at create and no path changes it, so `declared` is the only value a stored v1 record can hold — and it maps onto no canonical member, which is why v2 renames the axis to `registry_status` and carries canon's four."
+    },
+    "ingestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wired",
+        "note"
+      ],
+      "properties": {
+        "wired": {
+          "const": false
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "description": "The lane's own inertness declaration, pinned to `wired: false` because no path sets it true: a v1 mapping is a validated declaration and nothing reads, extracts, or moves source data through it."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "AN IN-PLACE COUNTER, NOT AN IMMUTABLE REVISION. The patch path increments this on the SAME stored record, so the prior revision's bytes are gone and no ref addresses them. Canon requires each revision to be immutable and successor-versioned; that is exactly what this integer is not."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "history": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "op",
+          "at",
+          "summary",
+          "receipt_ref"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "op": {
+            "enum": [
+              "created",
+              "patched"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "receipt_ref": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "description": "An EMBEDDED narrative of the in-place edits. It records that revisions happened; it does not make the superseded ones addressable, and it commits none of their bytes."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "data_source_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "data_source_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Projected from the resolved data source's own `source_ref`, which the projector copies with a null fallback — so a stored record may carry null here even though the source resolved."
+    },
+    "ontology_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The resolved ontology's CURRENT ref, copied with a null fallback. It names a family, never an exact admitted revision, so a mapping declared today and read tomorrow may be read against different semantics with nothing recording that it moved."
+    },
+    "object_type_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source_dataset": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "key_mapping": {
+      "$ref": "#/$defs/binding"
+    },
+    "title_mapping": {
+      "$ref": "#/$defs/binding"
+    },
+    "field_mappings": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/binding"
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "mapped_properties",
+        "total_properties",
+        "required_gaps",
+        "object_instances",
+        "authority_crossed",
+        "missing_contracts",
+        "note"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "ready",
+            "incomplete"
+          ]
+        },
+        "mapped_properties": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "total_properties": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "required_gaps": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "object_instances": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 0,
+          "description": "Pinned to zero because no path produces an object plane: an ODK mapping declares a shape and materializes nothing."
+        },
+        "authority_crossed": {
+          "const": false
+        },
+        "missing_contracts": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "enum": [
+              "PolicyBoundDataView",
+              "TransformationRun",
+              "OntologyProjection"
+            ]
+          }
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "description": "A READINESS PROJECTION EMBEDDED IN THE RECORD. `status: ready` here means every required property of the target object type has a binding — it is a completeness statement about the declaration, never an admission, an authority, or a statement that anything may run."
+    }
+  }
+}

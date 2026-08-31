@@ -1,0 +1,47 @@
+{
+  "schema_version": "ioi.hypervisor.odk.transformation-run.v1",
+  "object": "ioi.hypervisor.odk.transformation_run",
+  "id": "trun_18f2c9b0a4d76e50",
+  "ref": "transformation-run://trun_18f2c9b0a4d76e50",
+  "name": "intake-normalise-plan",
+  "description": "",
+  "status": "planned",
+  "operation": "transform",
+  "connector_mapping_id": "cmap_18f2c9b0a4d76e41",
+  "connector_mapping_ref": "connector-mapping://cmap_18f2c9b0a4d76e41",
+  "policy_view_id": "pbdv_18f2c9b0a4d76e45",
+  "policy_view_ref": "view://vw_intake_minimised",
+  "ontology_ref": "ontology://acme-clinic/patient-intake",
+  "object_type_id": "patient_intake",
+  "requested_fields": [
+    "intake_id",
+    "display_name"
+  ],
+  "purpose": "clinic intake normalisation",
+  "output_intent": "ontology_objects",
+  "plan": null,
+  "execution": {
+    "source_contacted": false,
+    "data_moved": false,
+    "object_instances": 0,
+    "note": "plan/dry-run only — live reads are a future connector-adapter cut"
+  },
+  "missing_contracts": [
+    "OntologyProjection"
+  ],
+  "revision": 1,
+  "receipt_refs": [
+    "agentgres://transformation-run-receipt/trr_18f2c9b0a4d76e51"
+  ],
+  "history": [
+    {
+      "revision": 1,
+      "op": "created",
+      "at": "2026-08-20T10:00:00Z",
+      "summary": "TransformationRun plan admitted",
+      "receipt_ref": "agentgres://transformation-run-receipt/trr_18f2c9b0a4d76e51"
+    }
+  ],
+  "created_at": "2026-08-20T10:00:00Z",
+  "updated_at": "2026-08-20T10:00:00Z"
+}

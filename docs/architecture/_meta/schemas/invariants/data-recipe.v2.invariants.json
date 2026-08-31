@@ -1,0 +1,217 @@
+{
+  "$id": "invariant://ioi/foundations/objects/data-recipe/immutable-definition/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/data-recipe/v2",
+  "rules": [
+    {
+      "rule_id": "data_recipe.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the semantic-component snapshot hash, which is how canon's 'a released recipe cannot silently resolve a newer mapping or semantic head' becomes a property of the bytes. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.data-recipe-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "data_recipe_id": {
+            "path": "$.data_recipe_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "ontology_revision_refs": {
+            "path": "$.ontology_revision_refs"
+          },
+          "input_source_types": {
+            "path": "$.input_source_types"
+          },
+          "connector_mapping_revision_refs": {
+            "path": "$.connector_mapping_revision_refs"
+          },
+          "output_object_model_refs": {
+            "path": "$.output_object_model_refs"
+          },
+          "output_dataset_contract_refs": {
+            "path": "$.output_dataset_contract_refs"
+          },
+          "transformation_steps": {
+            "path": "$.transformation_steps"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "semantic_component_set_snapshot_ref": {
+            "path": "$.semantic_component_set_snapshot_ref"
+          },
+          "semantic_component_set_hash": {
+            "path": "$.semantic_component_set_hash"
+          },
+          "semantic_component_refs": {
+            "path": "$.semantic_component_refs"
+          },
+          "semantic_component_count": {
+            "path": "$.semantic_component_count"
+          },
+          "effective_policy_hash": {
+            "path": "$.effective_policy_hash"
+          },
+          "registry_status": {
+            "path": "$.registry_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "data_recipe.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one recipe from being filed under another recipe's id — and a consumer resolving the family would then read a revision that never belonged to it. This rule requires `revision_ref` to begin with `data_recipe_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot: a bare family ref has no such segment.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.data_recipe_id",
+        "prefix": "data-recipe://",
+        "strip_prefix": "data-recipe://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "data_recipe.semantic_snapshot.covers_exactly_the_named_components",
+      "description": "THE SNAPSHOT IS EXACT, AND EXACTNESS IS BOTH DIRECTIONS. Canon says the semantic-component snapshot enumerates the exact revision ref and content hash for every ontology version, ConnectorMapping, object model, schema contract and policy-bound view NAMED BY THE READABLE FIELDS. This rule requires the committed set to equal that union exactly: a recipe that reads through a policy view it left out of its own snapshot fails, and so does one whose snapshot carries a component the readable fields never named. Either direction would let the committed hash describe a different dependency set than the record advertises, which is the exact gap that lets a signed recipe drift onto a newer head.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.semantic_component_refs",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.ontology_revision_refs",
+          "$.connector_mapping_revision_refs",
+          "$.output_object_model_refs",
+          "$.output_dataset_contract_refs",
+          "$.policy_bound_data_view_refs"
+        ]
+      }
+    },
+    {
+      "rule_id": "data_recipe.semantic_snapshot.component_count_matches_the_enumerated_set",
+      "description": "The declared count and the enumerated list are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that one of them was edited without the other.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.semantic_component_refs",
+        "count_path": "$.semantic_component_count"
+      }
+    },
+    {
+      "rule_id": "data_recipe.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes this rule because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "data_recipe.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that something changed relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "ontology_revision_change",
+          "connector_mapping_change",
+          "object_model_change",
+          "output_contract_change",
+          "policy_bound_view_change",
+          "transformation_step_change",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "data_recipe.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, and the succession becomes uncheckable exactly when it matters.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "ontology_revision_change",
+          "connector_mapping_change",
+          "object_model_change",
+          "output_contract_change",
+          "policy_bound_view_change",
+          "transformation_step_change",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "data_recipe.migration.a_converged_revision_names_its_source_bytes",
+      "description": "A convergence from the v1 lane must commit the EXACT predecessor bytes. `converged_from_v1` with no source hash claims a provenance while naming nothing anyone could check, which is worse than claiming none.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_content_hash",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
+        ]
+      }
+    },
+    {
+      "rule_id": "data_recipe.nonclaims.authority_is_never_omitted",
+      "description": "Semantic meaning does not grant authority. The token is pinned in `constants` so this rule can require its presence without the invariant language carrying a literal of its own.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "data_recipe.nonclaims.run_outputs_is_never_omitted",
+      "description": "A DataRecipe revision declares output CONTRACTS and holds no concrete run outputs. Dropping this nonclaim would let a definition be read as holding its runs' results, which is the conflation the definition/run split exists to end.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_run_outputs_token"
+      }
+    }
+  ]
+}

@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/transformation-run/v1",
+  "title": "TransformationRunV1",
+  "description": "THE PREDECESSOR, REGISTERED AS THE RECORD THE TRANSFORMATION-RUN LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.transformation-run.v1` was a local Rust constant with no `_meta/schemas/` entry behind it. THE DIVERGENCE THAT DEFINES THIS FAMILY'S GAP IS AN ABSENCE, NOT A FIELD: a v1 run carries NO `data_recipe_revision_ref`, NO `data_recipe_content_hash`, and NO resolved semantic-component tuple. It binds a connector mapping and a policy view directly and executes against whatever those records currently say. Non-negotiable 3 requires every TransformationRun to bind the exact `data-recipe://.../revision/...` ref and content hash plus the exact semantic-component snapshot already committed by that revision; v1 binds none of the three, which is precisely why the delta row reads 'partial precursor; exact definition/run split not started'. The rest follows from it. Identity is DERIVED FROM THE WALL CLOCK — `trun_{nanos:x}` — so a retried plan mints a second run for the same intent. The stored `ref` uses `transformation-run://` where canon uses `transform://`. `revision` is an in-place counter on one mutable record rather than an execution that happens once. The lifecycle stops at `planned | dry_run_ready | blocked | cancelled`: `executed` and `materialized` are reserved words this plane never sets, so no v1 record has ever transformed anything, and the outputs canon assigns to a run — `output_object_refs`, `output_dataset_refs`, `output_distilled_dataset_refs`, `output_artifact_refs`, `impact_graph_ref` — have no field to live in. There is no owner or tenant on the record at all, so cross-tenant output has nothing to be checked against. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.",
+  "x-ioi-schema-version": "ioi.hypervisor.odk.transformation-run.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "status",
+    "operation",
+    "connector_mapping_id",
+    "connector_mapping_ref",
+    "policy_view_id",
+    "policy_view_ref",
+    "ontology_ref",
+    "object_type_id",
+    "requested_fields",
+    "purpose",
+    "output_intent",
+    "plan",
+    "execution",
+    "missing_contracts",
+    "revision",
+    "receipt_refs",
+    "history",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.odk.transformation-run.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.odk.transformation_run"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^trun_[0-9a-f]{12,32}$",
+      "description": "WALL-CLOCK IDENTITY. `format!(\"trun_{:x}\", nanos())` — the lower-case hex of the Unix epoch nanosecond count at create. A retry therefore does not resolve to the run it already admitted; it admits another one. The width is a range because the value is a timestamp and widens on its own schedule."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^transformation-run://trun_[0-9a-f]{12,32}$",
+      "description": "Canon's scheme for this family is `transform://`. This lane writes `transformation-run://`, and the stored value is what a reader resolves."
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "dry_run_ready",
+        "blocked",
+        "cancelled"
+      ],
+      "description": "THE FOUR STATES THIS PLANE CAN REACH, AND NOT ONE OF THEM IS AN EXECUTION. `executed` and `materialized` are declared reserved and never set here. Canon's run lifecycle is queued | running | completed | failed | rejected; none of v1's four is a member of it, so a v1 `status` cannot be read as a canonical run state under any translation."
+    },
+    "operation": {
+      "const": "transform",
+      "description": "Pinned: this lane writes the literal `transform` and offers no other operation."
+    },
+    "connector_mapping_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "THE RUN BINDS THE MAPPING DIRECTLY, WITH NO RECIPE BETWEEN THEM. It also binds it by MUTABLE id: the mapping's own `revision` counter can advance under this run without changing anything here, so a v1 run names a mapping whose bytes may no longer be the ones it was planned against."
+    },
+    "connector_mapping_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy_view_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "policy_view_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ontology_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Copied from the bound mapping's own current ontology ref. A family ref, never an exact admitted revision."
+    },
+    "object_type_id": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 256
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "requested_fields": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "output_intent": {
+      "enum": [
+        "ontology_objects",
+        "projection",
+        "evaluation_dataset",
+        "training_material",
+        "export_bundle"
+      ],
+      "description": "An INTENT, and the record says so: nothing is produced. Canon's run owns concrete outputs; this field is the only place a v1 run says what it would have produced."
+    },
+    "plan": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "object_type_id",
+            "fields",
+            "policy_gate",
+            "output_intent",
+            "would_contact_source",
+            "object_instances",
+            "receipts_before_output"
+          ],
+          "properties": {
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "data_source_ref",
+                "declared_endpoint_only"
+              ],
+              "properties": {
+                "data_source_ref": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "declared_endpoint_only": {
+                  "const": true
+                }
+              }
+            },
+            "object_type_id": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "property_id",
+                  "source_field",
+                  "source_type"
+                ],
+                "properties": {
+                  "property_id": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "source_field": {
+                    "type": "string",
+                    "maxLength": 256
+                  },
+                  "source_type": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                }
+              }
+            },
+            "policy_gate": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "policy_view_ref",
+                "purpose",
+                "receipt_obligations"
+              ],
+              "properties": {
+                "policy_view_ref": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "purpose": {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                "receipt_obligations": {
+                  "type": "array",
+                  "maxItems": 64,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                }
+              }
+            },
+            "output_intent": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "would_contact_source": {
+              "const": false
+            },
+            "object_instances": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
+            },
+            "receipts_before_output": {
+              "const": true
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null at create and populated only by a dry run. The plan is assembled from DECLARED truth — the mapping's bindings and the view's obligations — and never from a source read, which is why `would_contact_source` and `object_instances` are pinned. Registering it as nullable is what makes 'a created run has no plan' a checked fact."
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_contacted",
+        "data_moved",
+        "object_instances",
+        "note"
+      ],
+      "properties": {
+        "source_contacted": {
+          "const": false
+        },
+        "data_moved": {
+          "const": false
+        },
+        "object_instances": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 0
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "description": "THE INERTNESS BLOCK, PINNED AS PINNED. All three values are literals this lane writes and never updates. A v1 run is a plan and a dry run; it has never contacted a source or moved a byte, and registering the pins is what makes that checkable from the record rather than believed from the prose."
+    },
+    "missing_contracts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "enum": [
+          "PolicyBoundDataView",
+          "TransformationRun",
+          "OntologyProjection"
+        ]
+      }
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "An in-place counter on one mutable record. An execution happens once; a counter that advances is the shape of a definition being edited, not of a run being run."
+    },
+    "blocked_reasons": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        }
+      },
+      "description": "Written only by a blocked dry run, so it is absent on every record that has not been blocked. Optional here for that reason — requiring it would refuse the create-time record this lane admits."
+    },
+    "receipt_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "history": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "op",
+          "at",
+          "summary",
+          "receipt_ref"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "op": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "receipt_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

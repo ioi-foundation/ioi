@@ -1,0 +1,76 @@
+{
+  "schema_version": "ioi.hypervisor.odk.connector-mapping.v1",
+  "object": "ioi.hypervisor.odk.connector_mapping",
+  "id": "cmap_18f2c9b0a4d76e41",
+  "ref": "connector-mapping://cmap_18f2c9b0a4d76e41",
+  "name": "intake-form",
+  "description": "Intake form fields into patient-intake objects.",
+  "status": "declared",
+  "ingestion": {
+    "wired": false,
+    "note": "declaration only — no extraction, no source read, no object instances"
+  },
+  "revision": 2,
+  "receipt_refs": [
+    "agentgres://connector-mapping-receipt/cmr_18f2c9b0a4d76e42"
+  ],
+  "history": [
+    {
+      "revision": 1,
+      "op": "created",
+      "at": "2026-08-14T09:10:02Z",
+      "summary": "ConnectorMapping declared",
+      "receipt_ref": "agentgres://connector-mapping-receipt/cmr_18f2c9b0a4d76e40"
+    },
+    {
+      "revision": 2,
+      "op": "patched",
+      "at": "2026-08-19T13:55:31Z",
+      "summary": "ConnectorMapping re-declared",
+      "receipt_ref": "agentgres://connector-mapping-receipt/cmr_18f2c9b0a4d76e42"
+    }
+  ],
+  "created_at": "2026-08-14T09:10:02Z",
+  "updated_at": "2026-08-19T13:55:31Z",
+  "data_source_id": "ds_intake_drive",
+  "data_source_ref": "data-source://ds_intake_drive",
+  "ontology_ref": "ontology://acme-clinic/patient-intake",
+  "object_type_id": "patient_intake",
+  "source_dataset": "intake_forms_2026",
+  "key_mapping": {
+    "source_field": "record_id",
+    "property_id": "intake_id",
+    "source_type": "string",
+    "source_cardinality": "one"
+  },
+  "title_mapping": {
+    "source_field": "patient_name",
+    "property_id": "display_name",
+    "source_type": "string",
+    "source_cardinality": "one"
+  },
+  "field_mappings": [
+    {
+      "source_field": "dob",
+      "property_id": "date_of_birth",
+      "source_type": "date",
+      "source_cardinality": "one"
+    }
+  ],
+  "health": {
+    "status": "incomplete",
+    "mapped_properties": 3,
+    "total_properties": 5,
+    "required_gaps": [
+      "Primary complaint"
+    ],
+    "object_instances": 0,
+    "authority_crossed": false,
+    "missing_contracts": [
+      "PolicyBoundDataView",
+      "TransformationRun",
+      "OntologyProjection"
+    ],
+    "note": "declaration only — no extraction; authorization requires PolicyBoundDataView, execution requires TransformationRun"
+  }
+}

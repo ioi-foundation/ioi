@@ -1,0 +1,95 @@
+{
+  "schema_version": "ioi.connector-mapping.v2",
+  "connector_mapping_id": "mapping://acme.intake-form",
+  "revision_ref": "mapping://acme.intake-form/revision/3",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "name": "intake-form",
+  "identity_basis": {
+    "derived_from": "owner_ref_and_idempotency_key",
+    "idempotency_key_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "refused_basis": "wall_clock_nanoseconds"
+  },
+  "connector_id": "connector://google-drive",
+  "ontology_revision_ref": "ontology://acme-clinic/patient-intake/revision/7",
+  "source_schema_ref": "artifact://acme/intake-form/provider-schema/2026-08",
+  "target_object_model_refs": [
+    "object-model://om_patient_intake"
+  ],
+  "field_mappings": [
+    {
+      "role": "key",
+      "source_field": "record_id",
+      "target_property_ref": "object-model://om_patient_intake#intake_id",
+      "source_type": "string",
+      "source_cardinality": "one"
+    },
+    {
+      "role": "title",
+      "source_field": "patient_name",
+      "target_property_ref": "object-model://om_patient_intake#display_name",
+      "source_type": "string",
+      "source_cardinality": "one"
+    },
+    {
+      "role": "field",
+      "source_field": "dob",
+      "target_property_ref": "object-model://om_patient_intake#date_of_birth",
+      "source_type": "date",
+      "source_cardinality": "one"
+    }
+  ],
+  "action_mappings": [],
+  "authority_scopes_required": [
+    "scope:connector.google_drive.read"
+  ],
+  "redaction_policy_ref": "policy://acme-clinic/intake-redaction",
+  "evidence_required": [
+    "evidence-contract://acme-clinic/intake-consent"
+  ],
+  "semantic_component_set_snapshot_ref": "artifact://acme/intake-form/semantic-set/3",
+  "semantic_component_set_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "semantic_component_refs": [
+    "artifact://acme/intake-form/provider-schema/2026-08",
+    "ontology://acme-clinic/patient-intake/revision/7",
+    "policy://acme-clinic/intake-redaction",
+    "object-model://om_patient_intake",
+    "evidence-contract://acme-clinic/intake-consent"
+  ],
+  "semantic_component_count": 5,
+  "effective_policy_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "registry_status": "active",
+  "admitted_at": "2026-08-27T14:02:19Z",
+  "succession": {
+    "succession_reason": "genesis",
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null,
+    "supersedes_predecessor": false,
+    "reinterprets_predecessor": false
+  },
+  "migration": {
+    "from_schema_version": null,
+    "from_mapping_ref": null,
+    "from_content_hash": null,
+    "from_revision": null,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false,
+    "downgrade_to_predecessor": "refused"
+  },
+  "constants": {
+    "lifecycle_id": "connector_mapping_registry_lifecycle.v2",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_source_rights_token": "source_rights"
+  },
+  "authority_nonclaim": "connector_mapping_grants_no_authority",
+  "truth_nonclaim": "connector_mapping_is_not_canonical_domain_truth_by_itself",
+  "does_not_assert": [
+    "authority",
+    "source_rights",
+    "credential_custody",
+    "provider_payload_is_domain_truth",
+    "training_consent",
+    "semantic_truth"
+  ],
+  "content_hash": "sha256:8e9e9aa817b765f2a73425c7f069b0a0b0bd87766810aac30e5c4fea12492c04"
+}

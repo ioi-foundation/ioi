@@ -1,0 +1,226 @@
+{
+  "$id": "invariant://ioi/foundations/objects/connector-mapping/successor-versioned-mapping/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/connector-mapping/v2",
+  "rules": [
+    {
+      "rule_id": "connector_mapping.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map. v1 had no commitment at all and a `revision` counter that overwrote its own history, so nothing recorded what a given mapping revision actually said; this rule is what makes 'each ConnectorMapping revision is immutable' testable rather than asserted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.connector-mapping-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "connector_mapping_id": {
+            "path": "$.connector_mapping_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "identity_basis": {
+            "path": "$.identity_basis"
+          },
+          "connector_id": {
+            "path": "$.connector_id"
+          },
+          "ontology_revision_ref": {
+            "path": "$.ontology_revision_ref"
+          },
+          "source_schema_ref": {
+            "path": "$.source_schema_ref"
+          },
+          "target_object_model_refs": {
+            "path": "$.target_object_model_refs"
+          },
+          "field_mappings": {
+            "path": "$.field_mappings"
+          },
+          "action_mappings": {
+            "path": "$.action_mappings"
+          },
+          "authority_scopes_required": {
+            "path": "$.authority_scopes_required"
+          },
+          "redaction_policy_ref": {
+            "path": "$.redaction_policy_ref"
+          },
+          "evidence_required": {
+            "path": "$.evidence_required"
+          },
+          "semantic_component_set_snapshot_ref": {
+            "path": "$.semantic_component_set_snapshot_ref"
+          },
+          "semantic_component_set_hash": {
+            "path": "$.semantic_component_set_hash"
+          },
+          "semantic_component_refs": {
+            "path": "$.semantic_component_refs"
+          },
+          "semantic_component_count": {
+            "path": "$.semantic_component_count"
+          },
+          "effective_policy_hash": {
+            "path": "$.effective_policy_hash"
+          },
+          "registry_status": {
+            "path": "$.registry_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "connector_mapping.revision_ref.extends_its_own_family",
+      "description": "A revision belongs to the family it names. Requiring `revision_ref` to begin with `connector_mapping_id` plus the `/revision/` segment also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.connector_mapping_id",
+        "prefix": "mapping://",
+        "strip_prefix": "mapping://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "connector_mapping.semantic_snapshot.covers_exactly_the_named_components",
+      "description": "Canon: a ConnectorMapping's snapshot commits the exact connector contract and schema, ontology version, target object models, policy and evidence-contract revisions represented by the readable family refs. This rule requires the committed set to be that union exactly — nothing extra, nothing dropped. A null `redaction_policy_ref` contributes no member, so an unredacted mapping is not forced to invent one.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.semantic_component_refs",
+        "required_paths": [
+          "$.source_schema_ref",
+          "$.ontology_revision_ref",
+          "$.redaction_policy_ref"
+        ],
+        "required_array_paths": [
+          "$.target_object_model_refs",
+          "$.evidence_required"
+        ]
+      }
+    },
+    {
+      "rule_id": "connector_mapping.semantic_snapshot.component_count_matches_the_enumerated_set",
+      "description": "The declared count and the enumerated list must agree, so editing one without the other is caught.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.semantic_component_refs",
+        "count_path": "$.semantic_component_count"
+      }
+    },
+    {
+      "rule_id": "connector_mapping.field_mappings.no_property_is_targeted_twice",
+      "description": "TWO BINDINGS INTO ONE PROPERTY IS AN AMBIGUOUS MAPPING, AND SILENT FIELD EQUIVALENCE IS FORBIDDEN. The v1 route enforced this inside the handler that wrote the record, so the guarantee lived in a code path rather than in the contract and no reader holding the bytes could check it. Here it is a portable rule over `target_property_ref`, which is object-model-qualified, so the check is exact rather than dependent on which object type the record happens to name.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.field_mappings",
+        "fields": [
+          "target_property_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "connector_mapping.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession terminates in itself and proves nothing. A genesis revision passes because its predecessor slot is null.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "connector_mapping.succession.a_successor_names_its_predecessor_revision",
+      "description": "Canon says any field, action, schema, ontology, object-model or policy change creates a successor revision. A successor that names no predecessor has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "field_change",
+          "action_change",
+          "source_schema_change",
+          "ontology_revision_change",
+          "object_model_change",
+          "policy_change",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "connector_mapping.succession.a_successor_names_its_predecessor_bytes",
+      "description": "The predecessor's hash is what makes the lineage checkable; a ref alone is a location, not the bytes that were there.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "field_change",
+          "action_change",
+          "source_schema_change",
+          "ontology_revision_change",
+          "object_model_change",
+          "policy_change",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "connector_mapping.migration.a_converged_revision_names_its_source_bytes",
+      "description": "`converged_from_v1` must commit the exact predecessor bytes, or the provenance names a mutable record whose contents are gone.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_content_hash",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
+        ]
+      }
+    },
+    {
+      "rule_id": "connector_mapping.nonclaims.source_rights_is_never_omitted",
+      "description": "Ontology mapping never launders rights. Every governed source contributes constraints to every derived artifact, and a mapping that could be read as conferring source rights would be the laundering canon forbids.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_source_rights_token"
+      }
+    }
+  ]
+}

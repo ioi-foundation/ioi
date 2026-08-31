@@ -1,0 +1,83 @@
+{
+  "schema_version": "ioi.data-recipe.v2",
+  "data_recipe_id": "data-recipe://acme.intake-normalise",
+  "revision_ref": "data-recipe://acme.intake-normalise/revision/2",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "name": "intake-normalise",
+  "ontology_revision_refs": [
+    "ontology://acme-clinic/patient-intake/revision/7"
+  ],
+  "input_source_types": [
+    "connector",
+    "document"
+  ],
+  "connector_mapping_revision_refs": [
+    "mapping://acme.intake-form/revision/4"
+  ],
+  "output_object_model_refs": [
+    "object-model://om_patient_intake"
+  ],
+  "output_dataset_contract_refs": [
+    "schema://acme-clinic/patient-intake-row/v2"
+  ],
+  "transformation_steps": [
+    "extract",
+    "redact",
+    "normalize",
+    "validate",
+    "map"
+  ],
+  "policy_bound_data_view_refs": [
+    "view://vw_intake_minimised"
+  ],
+  "receipt_obligations": [
+    "data_recipe_run",
+    "transformation"
+  ],
+  "semantic_component_set_snapshot_ref": "artifact://acme/intake-normalise/semantic-set/2",
+  "semantic_component_set_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "semantic_component_refs": [
+    "ontology://acme-clinic/patient-intake/revision/7",
+    "mapping://acme.intake-form/revision/4",
+    "object-model://om_patient_intake",
+    "schema://acme-clinic/patient-intake-row/v2",
+    "view://vw_intake_minimised"
+  ],
+  "semantic_component_count": 5,
+  "effective_policy_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "registry_status": "active",
+  "admitted_at": "2026-08-29T08:41:52Z",
+  "succession": {
+    "succession_reason": "connector_mapping_change",
+    "predecessor_revision_ref": "data-recipe://acme.intake-normalise/revision/1",
+    "predecessor_content_hash": "sha256:8da96a55a228bdf3a8d4cc74b6da9eed42f131c768a0dbc27033f548a9f14231",
+    "supersedes_predecessor": true,
+    "reinterprets_predecessor": false
+  },
+  "migration": {
+    "from_schema_version": "ioi.hypervisor.odk.data-recipe.v1",
+    "from_recipe_ref": "recipe://recipe_4c1d8b02f7a6e935",
+    "from_content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "compatibility": "converged_from_v1",
+    "reinterprets_predecessor": false,
+    "downgrade_to_predecessor": "refused"
+  },
+  "constants": {
+    "lifecycle_id": "data_recipe_registry_lifecycle.v2",
+    "refused_generic_recipe_scheme": "recipe://",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_run_outputs_token": "run_outputs"
+  },
+  "authority_nonclaim": "data_recipe_grants_no_authority",
+  "truth_nonclaim": "data_recipe_is_not_semantic_truth_or_training_consent",
+  "does_not_assert": [
+    "authority",
+    "run_outputs",
+    "training_consent",
+    "source_rights",
+    "semantic_truth",
+    "generic_executable_recipe_family"
+  ],
+  "content_hash": "sha256:164d3e4742f53517713713a63f6fed7753fa1f74576e749a73c7631fe6b6fb80"
+}

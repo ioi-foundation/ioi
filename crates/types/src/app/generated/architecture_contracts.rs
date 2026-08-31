@@ -284,6 +284,12 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/domain-app-runtime/v2", "sha256:da120e17bc1bff39eb7c6c2cdf0f16363fa387fc45769ec0e353c0352f735c8f"),
     ("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", "sha256:b009b108a377b45b5875f1dd25824e9cf2dc74dc654a879f8db9b237cf0cd2df"),
     ("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", "sha256:3a35f155eb6ca2aff68cae82e99e781c263fd2053452e968617895b6696abb3d"),
+    ("schema://ioi/foundations/objects/data-recipe/v1", "sha256:8abbb8390bb4e58d811d025c1aa17011b435702feec299197210bc57b4b50836"),
+    ("schema://ioi/foundations/objects/data-recipe/v2", "sha256:a827d1a5fb241e44da65a4dfc899367c4d319994fd09204a825c939426bd689f"),
+    ("schema://ioi/foundations/objects/connector-mapping/v1", "sha256:7379e23b7046374045acd667e12aa7f848e70c6279684bb5b7765a0a453dae98"),
+    ("schema://ioi/foundations/objects/connector-mapping/v2", "sha256:fd62948d8a118070ca4e97307a9f089d8d88d548630204f463ad96c84f8b13a2"),
+    ("schema://ioi/foundations/objects/transformation-run/v1", "sha256:51089ec8b2b03cd172d3fcaeb29f8ef2d1aacbee2c4947c5eaab52c2706f3907"),
+    ("schema://ioi/foundations/objects/transformation-run/v2", "sha256:7d51565952d542b34fb2816f66f314abc9af969bf91a6f4626f3f1e24db5010b"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -110432,6 +110438,3881 @@ pub enum DomainAppMountReceiptV2DoesNotAssertItem {
     PackageAdmission,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRecipeV1 {
+    pub schema_version: DataRecipeV1SchemaVersion,
+    pub object: DataRecipeV1Object,
+    pub id: String,
+    pub r#ref: String,
+    pub name: String,
+    pub description: String,
+    pub status: DataRecipeV1Status,
+    pub ontology_ref: String,
+    pub output_kind: DataRecipeV1OutputKind,
+    pub source_refs: Vec<String>,
+    pub connector_mappings: Vec<String>,
+    pub policy_bound_views: Vec<String>,
+    pub projection_refs: Vec<String>,
+    pub evaluation_dataset_refs: Vec<String>,
+    pub worker_plan_refs: Vec<String>,
+    pub workflow_schema_refs: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/data-recipe/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/data-recipe/v1","title":"DataRecipeV1","description":"THE PREDECESSOR, REGISTERED AS THE RECORD THE ODK LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.data-recipe.v1` was a local Rust constant with no `_meta/schemas/` entry behind it, so every DataRecipe claim rested on a string literal. This contract registers the stored bytes verbatim, divergences and all, for the three reasons the M05.6 predecessors were registered: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the immutable content-addressed definition contract' is a checked expectation with fixtures rather than a claim in prose. It diverges from the canonical `DataRecipeEnvelope` in six ways a successor has to fix rather than paper over. The stored `ref` uses the BARE `recipe://` scheme, which the term-boundary ruling calls a defect — the admission prefix and the stored ref disagree, and the stored one is what a reader resolves. Identity is carried twice, as a bare `id` and a separate `ref`, where canon carries `data_recipe_id` once. There is NO `revision_ref`, NO `predecessor_revision_ref` and NO `content_hash`: the record is patched in place, so a v1 recipe is a MUTABLE definition and two runs naming the same recipe may have executed different pipelines. There is no `semantic_component_set_snapshot_ref` or `semantic_component_set_hash`, so a v1 recipe resolves whatever ontology, mapping, object-model and policy-view heads are current at execution time — the exact thing non-negotiable 3 forbids. `connector_mappings` and `policy_bound_views` are INLINE passthrough arrays rather than exact mapping and view revision refs, which is the folded-family defect the definition/run split exists to end. And `status` never advances past `draft` because nothing writes it. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.data-recipe.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","ontology_ref","output_kind","source_refs","connector_mappings","policy_bound_views","projection_refs","evaluation_dataset_refs","worker_plan_refs","workflow_schema_refs","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.data-recipe.v1"},"object":{"const":"ioi.hypervisor.odk.data_recipe"},"id":{"type":"string","pattern":"^recipe_[0-9a-f]{16}$","description":"Derived from the caller's owner ref plus its idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted. The id prefix is `recipe`, not `data_recipe` — the unqualified spelling reaches into the identity itself."},"ref":{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$","description":"THE GENERIC SCHEME, PINNED AS THE DEFECT IT IS. The admission path declares `data-recipe://` as its ref prefix, but the record this lane persists writes `recipe://{id}`, and the stored value is the one a reader resolves. `recipe://` is a typed legacy DataRecipe alias at best; registering the stored spelling exactly is what makes 'the bare recipe name is unqualified' a checked fact rather than a note. v2 carries `data_recipe_id` in the owner-qualified `data-recipe://` scheme and refuses this one."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PINNED VALUE. Canon's registry vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."},"ontology_ref":{"type":"string","maxLength":512,"description":"ONE ontology ref, checked for local resolvability only: no owner resolution, no committed hash, and no requirement that it name an exact admitted revision. A v1 recipe therefore follows whatever the named ontology's head happens to be when a run reads it. Canon carries `ontology_refs` as a set of EXACT revisions."},"output_kind":{"enum":["ontology_objects","projection","evaluation_dataset","training_material"],"description":"The four `RECIPE_OUTPUT_KINDS` this lane accepts, verbatim. Canon carries `output_object_model_refs` and `output_dataset_contract_refs` — typed output CONTRACTS — where v1 carries one coarse kind word."},"source_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"connector_mappings":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"INLINE MAPPING, AND A PASSTHROUGH AT THAT. The v1 route copies whatever the caller sent under this key without validating it, and the code comment says so outright: ConnectorMapping is embedded as an opaque array because it is not a separate family here. This contract registers it as the ref list it is USED as, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed with a typed refusal; that population needs an explicit convergence, which this contract records rather than performs. Canon's member is `connector_mapping_refs`, and v2 requires each entry to be an EXACT mapping revision."},"policy_bound_views":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"The same inline passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."},"projection_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"evaluation_dataset_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"worker_plan_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"workflow_schema_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"A SEPARATE `updated_at` IS THE MUTABILITY TELL. An immutable content-addressed revision has one admission stamp and never a later one; this family carries a stamp that the in-place patch path rewrites."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DataRecipeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<DataRecipeV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<DataRecipeV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_kind: serde_json::from_value::<DataRecipeV1OutputKind>(
+                object
+                    .remove(r#"output_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mappings: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"connector_mappings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mappings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_views: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_views"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_bound_views"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"projection_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_dataset_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluation_dataset_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_dataset_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_plan_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"worker_plan_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_plan_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workflow_schema_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"workflow_schema_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workflow_schema_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.data-recipe.v1"#)]
+    IoiHypervisorOdkDataRecipeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV1Object {
+    #[serde(rename = r#"ioi.hypervisor.odk.data_recipe"#)]
+    IoiHypervisorOdkDataRecipe,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV1OutputKind {
+    #[serde(rename = r#"ontology_objects"#)]
+    OntologyObjects,
+    #[serde(rename = r#"projection"#)]
+    Projection,
+    #[serde(rename = r#"evaluation_dataset"#)]
+    EvaluationDataset,
+    #[serde(rename = r#"training_material"#)]
+    TrainingMaterial,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRecipeV2 {
+    pub schema_version: DataRecipeV2SchemaVersion,
+    pub data_recipe_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub name: String,
+    pub ontology_revision_refs: Vec<String>,
+    pub input_source_types: Vec<DataRecipeV2InputSourceTypesItem>,
+    pub connector_mapping_revision_refs: Vec<String>,
+    pub output_object_model_refs: Vec<String>,
+    pub output_dataset_contract_refs: Vec<String>,
+    pub transformation_steps: Vec<DataRecipeV2TransformationStepsItem>,
+    pub policy_bound_data_view_refs: Vec<String>,
+    pub receipt_obligations: Vec<DataRecipeV2ReceiptObligationsItem>,
+    pub semantic_component_set_snapshot_ref: String,
+    pub semantic_component_set_hash: String,
+    pub semantic_component_refs: Vec<String>,
+    pub semantic_component_count: ArchitectureContractInteger,
+    pub effective_policy_hash: String,
+    pub registry_status: DataRecipeV2RegistryStatus,
+    pub admitted_at: String,
+    pub succession: DataRecipeV2Succession,
+    pub migration: DataRecipeV2Migration,
+    pub constants: DataRecipeV2Constants,
+    pub authority_nonclaim: DataRecipeV2AuthorityNonclaim,
+    pub truth_nonclaim: DataRecipeV2TruthNonclaim,
+    pub does_not_assert: Vec<DataRecipeV2DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/data-recipe/v2","title":"DataRecipeV2","description":"THE IMMUTABLE, CONTENT-ADDRESSED DEFINITION — ONE HALF OF THE DEFINITION/RUN SPLIT. Canon states the whole family in two sentences: a released DataRecipe revision is immutable and content-addressed, and it declares transformations and output contracts but contains no concrete dataset, distilled output, artifact, authority grant, run, or receipt. v1 satisfied neither half — it was patched in place and it embedded its mappings and views as opaque passthrough arrays. This version carries canon's member set under canon's own names and then makes four things checkable OFFLINE, from the bytes, with no daemon consulted. Identity is OWNER-QUALIFIED AND REVISION-EXACT: `data_recipe_id` names the family, `revision_ref` names one revision of THAT family, and a portable invariant refuses a `revision_ref` that does not extend its own `data_recipe_id`. The SEMANTIC-COMPONENT SNAPSHOT IS EXACT AND COMPLETE: `semantic_component_refs` must cover exactly the union of the five readable ref fields — no more, no fewer — so a recipe that names a mapping in the readable field and omits it from the committed snapshot fails, which is the precise mechanism by which a released recipe cannot silently resolve a newer semantic head. SUCCESSION IS EXPLICIT: a revision either is a genesis or names its predecessor's exact ref AND its predecessor's exact content hash, both, with a stated reason drawn from the five changes non-negotiable 3 says require a successor. And the NONCLAIMS ARE FIELDS: a relying party holding only the bytes reads what this definition declines to assert rather than inferring it. THREE THINGS ARE REFUSED BY CONSTRUCTION. The generic `recipe://` scheme cannot appear as an identity, because every identity pattern here is anchored on `data-recipe://` and `constants.refused_generic_recipe_scheme` names the rejected spelling in the bytes. An INLINE connector mapping cannot appear, because `connector_mapping_revision_refs` admits only strings matching an exact `mapping://…/revision/…` form — a structured member is a schema refusal, not a coercion. And a FAMILY-HEAD or mutable-latest reference cannot appear anywhere a revision is required, because every such pattern demands the `/revision/` segment. This contract is a definition. It grants no authority, it is not training consent, it does not carry its own runs' outputs, and registering it claims no runtime implementation of the split it describes.","x-ioi-schema-version":"ioi.data-recipe.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dataRecipeFamilyRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","data_recipe_id","revision_ref","owner_ref","tenant_ref","name","ontology_revision_refs","input_source_types","connector_mapping_revision_refs","output_object_model_refs","output_dataset_contract_refs","transformation_steps","policy_bound_data_view_refs","receipt_obligations","semantic_component_set_snapshot_ref","semantic_component_set_hash","semantic_component_refs","semantic_component_count","effective_policy_hash","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.data-recipe.v2"},"data_recipe_id":{"$ref":"#/$defs/dataRecipeFamilyRef","description":"THE FAMILY, IN CANON'S OWN SCHEME. v1 carried a bare `id` plus a `ref` written in the generic `recipe://` scheme the term-boundary ruling forbids. This is the aggregate lineage a revision belongs to; it is never a resolvable pipeline on its own, and nothing may execute against it."},"revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef","description":"ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment is mandatory, which is what refuses a family-head or mutable-latest reference: a bare `data-recipe://acme.intake` does not match this pattern and cannot be admitted where a revision is required. A registered invariant additionally refuses a revision ref that does not extend its own `data_recipe_id`, so a revision cannot be filed under a family it does not belong to."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"OWNER-QUALIFIED IDENTITY. The revision ref alone is an id in a namespace; the owner is what makes it resolvable to one recipe rather than to whichever same-named recipe a reader happens to look up. v1 used the owner to derive an id and then did not store it, so a stored v1 recipe cannot say who owns it."},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The tenancy boundary this definition lives inside. A run carries the same field and commits its outputs to it, which is how cross-tenant output becomes checkable rather than assumed."},"name":{"type":"string","minLength":1,"maxLength":200},"ontology_revision_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"},"description":"EXACT ADMITTED ONTOLOGY REVISIONS, never family refs. v1 carried one `ontology_ref` checked for local resolvability only, so a v1 recipe followed the ontology's head wherever it went. The `/revision/` segment here is the whole difference."},"input_source_types":{"type":"array","minItems":1,"maxItems":5,"uniqueItems":true,"items":{"enum":["connector","document","trace","dataset","artifact"]},"description":"Canon's five input source types, verbatim."},"connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"INLINE MAPPING IS REFUSED HERE, NOT COERCED. v1 embedded `connector_mappings` as an opaque passthrough array — whatever the caller sent, structured members included. This member admits ONLY a string naming an exact `mapping://…/revision/…`, so an inline mapping object is a schema refusal and a family-head mapping ref is a schema refusal. A ConnectorMapping is a separate family with its own identity and its own lifecycle; folding one into a recipe is the conflation the definition/run split exists to end."},"output_object_model_refs":{"$ref":"#/$defs/refList","description":"Typed output CONTRACTS. v1 carried one coarse `output_kind` word instead."},"output_dataset_contract_refs":{"$ref":"#/$defs/refList","description":"Output dataset CONTRACTS — schema or object-model refs. Never a concrete dataset: canon says a recipe revision contains output contracts and never concrete run outputs, and `does_not_assert` carries `run_outputs` so the record says so itself."},"transformation_steps":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["extract","redact","normalize","dedupe","validate","map","link","export"]},"description":"Canon's eight transformation steps, verbatim. Declaring `redact` reduces exposure; it creates no right and severs no lineage."},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList","description":"The governed lenses this recipe reads through. Naming a view is not being granted it: a run revalidates current authority, rights, revocation and expiry before materialization, and this definition asserts none of that."},"receipt_obligations":{"type":"array","minItems":2,"maxItems":8,"uniqueItems":true,"items":{"enum":["data_recipe_run","transformation","validation","artifact","policy_decision","redaction","export","impact"]},"allOf":[{"contains":{"const":"data_recipe_run"}},{"contains":{"const":"transformation"}}],"description":"Canon's two obligations are mandatory members; the rest are declarable additions. An obligation is a requirement placed on future runs, never a receipt this definition holds."},"semantic_component_set_snapshot_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$","description":"The artifact enumerating the exact revision ref and content hash of every ontology version, ConnectorMapping, object model, schema contract and policy-bound view named by the readable family-ref fields above."},"semantic_component_set_hash":{"$ref":"#/$defs/sha256","description":"The snapshot's own commitment. `content_hash` commits this value, so a released recipe cannot silently resolve a newer mapping or semantic head: changing what the snapshot contains changes this hash, which changes the content hash, which changes the revision."},"semantic_component_refs":{"type":"array","maxItems":320,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"THE FLAT SET THE SNAPSHOT COVERS, CARRIED IN THE RECORD SO THE COVERAGE IS CHECKABLE WITHOUT FETCHING THE ARTIFACT. A registered invariant requires this to equal EXACTLY the union of `ontology_revision_refs`, `connector_mapping_revision_refs`, `output_object_model_refs`, `output_dataset_contract_refs` and `policy_bound_data_view_refs` — same members, same count, nothing extra and nothing dropped. A recipe that reads through a policy view it left out of its own snapshot fails offline."},"semantic_component_count":{"type":"integer","minimum":0,"maximum":320,"description":"The declared size of that set, checked against it by a registered invariant. A count that disagrees with the list is the cheapest possible tell that one of them was edited."},"effective_policy_hash":{"$ref":"#/$defs/sha256","description":"The commitment over the composed policy this revision was released under. Policy composition is deterministic and inspectable, so the composed result has a hash; carrying it means a later reader can tell that the policy moved even when every readable ref still resolves."},"registry_status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four registry members, verbatim. INVENTORY STATUS ONLY: it says where this revision sits in its own registry lifecycle and says nothing about whether any run executed, succeeded, or produced anything. A run's state lives on the run, in a vocabulary that shares no member with this one."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of this revision, taken from the admitted operation rather than from the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp, and a second one would be the mutability tell v1 carried."},"succession":{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Non-negotiable 3 says a changed ontology, ConnectorMapping, object model, schema or policy-bound view REQUIRES a successor recipe; this block is where that succession is stated rather than implied by a bumped counter. A genesis revision has no predecessor and says so in both provenance slots at once. Every other revision names its predecessor's exact ref AND its predecessor's exact content hash, both, plus the reason it exists. Independently nullable slots would admit partial tuples that read as complete — a `connector_mapping_change` naming no predecessor bytes claims a lineage nobody can check — so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","ontology_revision_change","connector_mapping_change","object_model_change","output_contract_change","policy_bound_view_change","transformation_step_change","correction"],"description":"`genesis` plus the five changes non-negotiable 3 names as requiring a successor, plus a step change and a correction. Every member other than `genesis` obliges the full predecessor tuple."},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/dataRecipeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over ITS OWN enumerated fields under ITS OWN domain separator. A successor that names a predecessor ref but no predecessor hash has named a pointer, not bytes."},"supersedes_predecessor":{"type":"boolean","description":"Whether this revision retires the predecessor for new use. False is legitimate — two revisions may stand together while consumers migrate — and either way the predecessor stays addressable, because superseding is not deletion."},"reinterprets_predecessor":{"const":false,"description":"Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning; the predecessor is preserved exactly as admitted."}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A recipe authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned to `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the semantic snapshot, the succession tuple and the commitment — a lossy re-encoding that would present a weaker record as the same fact.","required":["from_schema_version","from_recipe_ref","from_content_hash","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.data-recipe.v1"},{"type":"null"}]},"from_recipe_ref":{"oneOf":[{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$"},{"type":"null"}],"description":"The predecessor is named in the scheme it was ACTUALLY STORED UNDER — the generic `recipe://` this successor exists to stop minting. Rewriting it into `data-recipe://` here would be reinterpreting v1, which is the one thing a convergence may not do."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_recipe_ref":{"type":"null"},"from_content_hash":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.data-recipe.v1"},"from_recipe_ref":{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"constants":{"type":"object","additionalProperties":false,"description":"Tokens pinned in the schema so the portable invariants can require them without the invariant language needing literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.","required":["lifecycle_id","refused_generic_recipe_scheme","nonclaim_authority_token","nonclaim_run_outputs_token"],"properties":{"lifecycle_id":{"const":"data_recipe_registry_lifecycle.v2","description":"Names WHICH lifecycle `registry_status` is drawn from. The run family pins a different id over a disjoint vocabulary, so a reader cannot mistake a definition's registry state for an execution's state even when both are called `status` in some projection."},"refused_generic_recipe_scheme":{"const":"recipe://","description":"The spelling this contract refuses as an identity, named in the bytes. `recipe://` is a typed legacy DataRecipe alias and never identifies a generic executable recipe family; here it appears only as the rejected form and, in `migration.from_recipe_ref`, as the honest record of what a v1 predecessor was stored as."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_run_outputs_token":{"const":"run_outputs"}}},"authority_nonclaim":{"const":"data_recipe_grants_no_authority"},"truth_nonclaim":{"const":"data_recipe_is_not_semantic_truth_or_training_consent"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","run_outputs","training_consent","source_rights","semantic_truth","generic_executable_recipe_family","policy_permission","capability_lease_crossing","provider_deletion","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"run_outputs"}},{"contains":{"const":"training_consent"}},{"contains":{"const":"source_rights"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"generic_executable_recipe_family"}}],"description":"Six mandatory members. `run_outputs` is the one this family needs that no other carries: canon says a recipe revision contains output CONTRACTS and never concrete run outputs, and a definition that could be read as holding its runs' results is the exact conflation the split exists to end. `generic_executable_recipe_family` states the term-boundary refusal in the record itself."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DataRecipeV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_recipe_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_recipe_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_revision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_revision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_source_types: serde_json::from_value::<Vec<DataRecipeV2InputSourceTypesItem>>(
+                object
+                    .remove(r#"input_source_types"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"input_source_types"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"connector_mapping_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_mapping_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_object_model_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"output_object_model_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"output_object_model_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_dataset_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"output_dataset_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"output_dataset_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transformation_steps:
+                serde_json::from_value::<Vec<DataRecipeV2TransformationStepsItem>>(
+                    object.remove(r#"transformation_steps"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transformation_steps"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_data_view_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<DataRecipeV2ReceiptObligationsItem>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_set_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"semantic_component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_component_set_snapshot_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"semantic_component_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_component_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"semantic_component_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"semantic_component_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"semantic_component_count"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_component_count"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<DataRecipeV2RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<DataRecipeV2Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<DataRecipeV2Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<DataRecipeV2Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<DataRecipeV2AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<DataRecipeV2TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<Vec<DataRecipeV2DoesNotAssertItem>>(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2SchemaVersion {
+    #[serde(rename = r#"ioi.data-recipe.v2"#)]
+    IoiDataRecipeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2InputSourceTypesItem {
+    #[serde(rename = r#"connector"#)]
+    Connector,
+    #[serde(rename = r#"document"#)]
+    Document,
+    #[serde(rename = r#"trace"#)]
+    Trace,
+    #[serde(rename = r#"dataset"#)]
+    Dataset,
+    #[serde(rename = r#"artifact"#)]
+    Artifact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2TransformationStepsItem {
+    #[serde(rename = r#"extract"#)]
+    Extract,
+    #[serde(rename = r#"redact"#)]
+    Redact,
+    #[serde(rename = r#"normalize"#)]
+    Normalize,
+    #[serde(rename = r#"dedupe"#)]
+    Dedupe,
+    #[serde(rename = r#"validate"#)]
+    Validate,
+    #[serde(rename = r#"map"#)]
+    Map,
+    #[serde(rename = r#"link"#)]
+    Link,
+    #[serde(rename = r#"export"#)]
+    Export,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2ReceiptObligationsItem {
+    #[serde(rename = r#"data_recipe_run"#)]
+    DataRecipeRun,
+    #[serde(rename = r#"transformation"#)]
+    Transformation,
+    #[serde(rename = r#"validation"#)]
+    Validation,
+    #[serde(rename = r#"artifact"#)]
+    Artifact,
+    #[serde(rename = r#"policy_decision"#)]
+    PolicyDecision,
+    #[serde(rename = r#"redaction"#)]
+    Redaction,
+    #[serde(rename = r#"export"#)]
+    Export,
+    #[serde(rename = r#"impact"#)]
+    Impact,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRecipeV2Succession {
+    pub succession_reason: DataRecipeV2SuccessionSuccessionReason,
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub supersedes_predecessor: bool,
+    pub reinterprets_predecessor: DataRecipeV2SuccessionReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV2Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Non-negotiable 3 says a changed ontology, ConnectorMapping, object model, schema or policy-bound view REQUIRES a successor recipe; this block is where that succession is stated rather than implied by a bumped counter. A genesis revision has no predecessor and says so in both provenance slots at once. Every other revision names its predecessor's exact ref AND its predecessor's exact content hash, both, plus the reason it exists. Independently nullable slots would admit partial tuples that read as complete — a `connector_mapping_change` naming no predecessor bytes claims a lineage nobody can check — so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","ontology_revision_change","connector_mapping_change","object_model_change","output_contract_change","policy_bound_view_change","transformation_step_change","correction"],"description":"`genesis` plus the five changes non-negotiable 3 names as requiring a successor, plus a step change and a correction. Every member other than `genesis` obliges the full predecessor tuple."},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/dataRecipeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over ITS OWN enumerated fields under ITS OWN domain separator. A successor that names a predecessor ref but no predecessor hash has named a pointer, not bytes."},"supersedes_predecessor":{"type":"boolean","description":"Whether this revision retires the predecessor for new use. False is legitimate — two revisions may stand together while consumers migrate — and either way the predecessor stays addressable, because superseding is not deletion."},"reinterprets_predecessor":{"const":false,"description":"Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning; the predecessor is preserved exactly as admitted."}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            succession_reason: serde_json::from_value::<DataRecipeV2SuccessionSuccessionReason>(
+                object
+                    .remove(r#"succession_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_predecessor: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"supersedes_predecessor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_predecessor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                DataRecipeV2SuccessionReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2SuccessionSuccessionReason {
+    #[serde(rename = r#"genesis"#)]
+    Genesis,
+    #[serde(rename = r#"ontology_revision_change"#)]
+    OntologyRevisionChange,
+    #[serde(rename = r#"connector_mapping_change"#)]
+    ConnectorMappingChange,
+    #[serde(rename = r#"object_model_change"#)]
+    ObjectModelChange,
+    #[serde(rename = r#"output_contract_change"#)]
+    OutputContractChange,
+    #[serde(rename = r#"policy_bound_view_change"#)]
+    PolicyBoundViewChange,
+    #[serde(rename = r#"transformation_step_change"#)]
+    TransformationStepChange,
+    #[serde(rename = r#"correction"#)]
+    Correction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataRecipeV2SuccessionReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for DataRecipeV2SuccessionReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV2SuccessionReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRecipeV2Migration {
+    pub from_schema_version: Option<DataRecipeV2MigrationFromSchemaVersion>,
+    pub from_recipe_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub compatibility: DataRecipeV2MigrationCompatibility,
+    pub reinterprets_predecessor: DataRecipeV2MigrationReinterpretsPredecessor,
+    pub downgrade_to_predecessor: DataRecipeV2MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV2Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A recipe authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned to `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the semantic snapshot, the succession tuple and the commitment — a lossy re-encoding that would present a weaker record as the same fact.","required":["from_schema_version","from_recipe_ref","from_content_hash","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.data-recipe.v1"},{"type":"null"}]},"from_recipe_ref":{"oneOf":[{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$"},{"type":"null"}],"description":"The predecessor is named in the scheme it was ACTUALLY STORED UNDER — the generic `recipe://` this successor exists to stop minting. Rewriting it into `data-recipe://` here would be reinterpreting v1, which is the one thing a convergence may not do."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_recipe_ref":{"type":"null"},"from_content_hash":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.data-recipe.v1"},"from_recipe_ref":{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_schema_version: serde_json::from_value::<
+                Option<DataRecipeV2MigrationFromSchemaVersion>,
+            >(
+                object
+                    .remove(r#"from_schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_recipe_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_recipe_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_recipe_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<DataRecipeV2MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                DataRecipeV2MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                DataRecipeV2MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2MigrationFromSchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.data-recipe.v1"#)]
+    IoiHypervisorOdkDataRecipeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"converged_from_v1"#)]
+    ConvergedFromV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DataRecipeV2MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for DataRecipeV2MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV2MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DataRecipeV2Constants {
+    pub lifecycle_id: DataRecipeV2ConstantsLifecycleId,
+    pub refused_generic_recipe_scheme: DataRecipeV2ConstantsRefusedGenericRecipeScheme,
+    pub nonclaim_authority_token: DataRecipeV2ConstantsNonclaimAuthorityToken,
+    pub nonclaim_run_outputs_token: DataRecipeV2ConstantsNonclaimRunOutputsToken,
+}
+
+impl<'de> serde::Deserialize<'de> for DataRecipeV2Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+            r#"{"type":"object","additionalProperties":false,"description":"Tokens pinned in the schema so the portable invariants can require them without the invariant language needing literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.","required":["lifecycle_id","refused_generic_recipe_scheme","nonclaim_authority_token","nonclaim_run_outputs_token"],"properties":{"lifecycle_id":{"const":"data_recipe_registry_lifecycle.v2","description":"Names WHICH lifecycle `registry_status` is drawn from. The run family pins a different id over a disjoint vocabulary, so a reader cannot mistake a definition's registry state for an execution's state even when both are called `status` in some projection."},"refused_generic_recipe_scheme":{"const":"recipe://","description":"The spelling this contract refuses as an identity, named in the bytes. `recipe://` is a typed legacy DataRecipe alias and never identifies a generic executable recipe family; here it appears only as the rejected form and, in `migration.from_recipe_ref`, as the honest record of what a v1 predecessor was stored as."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_run_outputs_token":{"const":"run_outputs"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            lifecycle_id: serde_json::from_value::<DataRecipeV2ConstantsLifecycleId>(
+                object
+                    .remove(r#"lifecycle_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refused_generic_recipe_scheme: serde_json::from_value::<
+                DataRecipeV2ConstantsRefusedGenericRecipeScheme,
+            >(
+                object
+                    .remove(r#"refused_generic_recipe_scheme"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"refused_generic_recipe_scheme"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaim_authority_token: serde_json::from_value::<
+                DataRecipeV2ConstantsNonclaimAuthorityToken,
+            >(
+                object
+                    .remove(r#"nonclaim_authority_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"nonclaim_authority_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaim_run_outputs_token: serde_json::from_value::<
+                DataRecipeV2ConstantsNonclaimRunOutputsToken,
+            >(
+                object
+                    .remove(r#"nonclaim_run_outputs_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"nonclaim_run_outputs_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2ConstantsLifecycleId {
+    #[serde(rename = r#"data_recipe_registry_lifecycle.v2"#)]
+    DataRecipeRegistryLifecycleV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2ConstantsRefusedGenericRecipeScheme {
+    #[serde(rename = r#"recipe://"#)]
+    Recipe,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2ConstantsNonclaimAuthorityToken {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2ConstantsNonclaimRunOutputsToken {
+    #[serde(rename = r#"run_outputs"#)]
+    RunOutputs,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2AuthorityNonclaim {
+    #[serde(rename = r#"data_recipe_grants_no_authority"#)]
+    DataRecipeGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2TruthNonclaim {
+    #[serde(rename = r#"data_recipe_is_not_semantic_truth_or_training_consent"#)]
+    DataRecipeIsNotSemanticTruthOrTrainingConsent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DataRecipeV2DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"run_outputs"#)]
+    RunOutputs,
+    #[serde(rename = r#"training_consent"#)]
+    TrainingConsent,
+    #[serde(rename = r#"source_rights"#)]
+    SourceRights,
+    #[serde(rename = r#"semantic_truth"#)]
+    SemanticTruth,
+    #[serde(rename = r#"generic_executable_recipe_family"#)]
+    GenericExecutableRecipeFamily,
+    #[serde(rename = r#"policy_permission"#)]
+    PolicyPermission,
+    #[serde(rename = r#"capability_lease_crossing"#)]
+    CapabilityLeaseCrossing,
+    #[serde(rename = r#"provider_deletion"#)]
+    ProviderDeletion,
+    #[serde(rename = r#"marketplace_truth"#)]
+    MarketplaceTruth,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1 {
+    pub schema_version: ConnectorMappingV1SchemaVersion,
+    pub object: ConnectorMappingV1Object,
+    pub id: String,
+    pub r#ref: String,
+    pub name: String,
+    pub description: String,
+    pub status: ConnectorMappingV1Status,
+    pub ingestion: ConnectorMappingV1Ingestion,
+    pub revision: ArchitectureContractInteger,
+    pub receipt_refs: Vec<String>,
+    pub history: Vec<ConnectorMappingV1HistoryItem>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub data_source_id: String,
+    pub data_source_ref: Option<String>,
+    pub ontology_ref: Option<String>,
+    pub object_type_id: String,
+    pub source_dataset: Option<String>,
+    pub key_mapping: ConnectorMappingV1KeyMapping,
+    pub title_mapping: ConnectorMappingV1TitleMapping,
+    pub field_mappings: Vec<ConnectorMappingV1FieldMappingsItem>,
+    pub health: ConnectorMappingV1Health,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/connector-mapping/v1","title":"ConnectorMappingV1","description":"THE PREDECESSOR, REGISTERED AS THE RECORD THE CONNECTOR-MAPPING LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.connector-mapping.v1` was a local Rust constant with no `_meta/schemas/` entry behind it. This contract registers the stored bytes verbatim so v2's `successor_of` names a contract that exists, so a convergence can commit this predecessor's EXACT bytes, and so each divergence is a checked expectation rather than prose. Five divergences from the canonical `ConnectorMappingEnvelope` matter. Identity is DERIVED FROM THE WALL CLOCK — `cmap_{nanos:x}` — so a retried declaration mints a SECOND mapping with a different id for the same intent, and two mappings minted in the same nanosecond collide; an idempotent producer cannot exist on this identity. The stored `ref` uses `connector-mapping://` where canon uses `mapping://`. `revision` is an INTEGER MUTATED IN PLACE by the patch path rather than a `revision_ref` naming an immutable successor, so canon's 'each ConnectorMapping revision is immutable' does not hold: revision 2 overwrites revision 1's bytes and revision 1 becomes unaddressable. There is no `content_hash`, no `semantic_component_set_snapshot_ref` and no `semantic_component_set_hash`, so nothing commits which ontology, object-model or policy revision the mapping was declared against. And `status` is pinned to the literal `declared`, a value that is not in canon's registry vocabulary at all. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.connector-mapping.v1","type":"object","additionalProperties":false,"$defs":{"binding":{"type":"object","additionalProperties":false,"required":["source_field","property_id"],"properties":{"source_field":{"type":"string","minLength":1,"maxLength":256},"property_id":{"type":"string","minLength":1,"maxLength":256},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}},"description":"The four members `binding_tuple` reads out of a caller-supplied binding. `source_type` and `source_cardinality` are optional here because the v1 reader DEFAULTS them to `string` and `one` when absent, so a stored record may legitimately omit both — registering them as required would refuse bytes this lane admits."}},"required":["schema_version","object","id","ref","name","description","status","ingestion","revision","receipt_refs","history","created_at","updated_at","data_source_id","data_source_ref","ontology_ref","object_type_id","source_dataset","key_mapping","title_mapping","field_mappings","health"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.connector-mapping.v1"},"object":{"const":"ioi.hypervisor.odk.connector_mapping"},"id":{"type":"string","pattern":"^cmap_[0-9a-f]{12,32}$","description":"WALL-CLOCK IDENTITY. `format!(\"cmap_{:x}\", nanos())` — the lower-case hex of the Unix epoch nanosecond count at create. The width is a RANGE rather than a fixed number because the value is a timestamp: it is sixteen hex digits today and widens on its own schedule, which is itself the tell that an identity derived from the clock is not a derived identity at all. v2 derives the mapping id from owner plus idempotency key so a retry resolves to the record it already minted."},"ref":{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$","description":"Canon's scheme for this family is `mapping://`. This lane writes `connector-mapping://`, and the stored value is what a reader resolves, so the divergence is registered rather than translated."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["declared"],"description":"THE PINNED VALUE, AND IT IS NOT CANON'S. Canon's registry vocabulary is draft | active | deprecated | revoked. This lane writes the literal `declared` at create and no path changes it, so `declared` is the only value a stored v1 record can hold — and it maps onto no canonical member, which is why v2 renames the axis to `registry_status` and carries canon's four."},"ingestion":{"type":"object","additionalProperties":false,"required":["wired","note"],"properties":{"wired":{"const":false},"note":{"type":"string","maxLength":512}},"description":"The lane's own inertness declaration, pinned to `wired: false` because no path sets it true: a v1 mapping is a validated declaration and nothing reads, extracts, or moves source data through it."},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"AN IN-PLACE COUNTER, NOT AN IMMUTABLE REVISION. The patch path increments this on the SAME stored record, so the prior revision's bytes are gone and no ref addresses them. Canon requires each revision to be immutable and successor-versioned; that is exactly what this integer is not."},"receipt_refs":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":512}},"history":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["revision","op","at","summary","receipt_ref"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"op":{"enum":["created","patched"]},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"summary":{"type":"string","maxLength":512},"receipt_ref":{"type":"string","maxLength":512}}},"description":"An EMBEDDED narrative of the in-place edits. It records that revisions happened; it does not make the superseded ones addressable, and it commits none of their bytes."},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"data_source_id":{"type":"string","minLength":1,"maxLength":256},"data_source_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"Projected from the resolved data source's own `source_ref`, which the projector copies with a null fallback — so a stored record may carry null here even though the source resolved."},"ontology_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"The resolved ontology's CURRENT ref, copied with a null fallback. It names a family, never an exact admitted revision, so a mapping declared today and read tomorrow may be read against different semantics with nothing recording that it moved."},"object_type_id":{"type":"string","minLength":1,"maxLength":256},"source_dataset":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"key_mapping":{"$ref":"#/$defs/binding"},"title_mapping":{"$ref":"#/$defs/binding"},"field_mappings":{"type":"array","maxItems":256,"items":{"$ref":"#/$defs/binding"}},"health":{"type":"object","additionalProperties":false,"required":["status","mapped_properties","total_properties","required_gaps","object_instances","authority_crossed","missing_contracts","note"],"properties":{"status":{"enum":["ready","incomplete"]},"mapped_properties":{"type":"integer","minimum":0,"maximum":9007199254740991},"total_properties":{"type":"integer","minimum":0,"maximum":9007199254740991},"required_gaps":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":256}},"object_instances":{"type":"integer","minimum":0,"maximum":0,"description":"Pinned to zero because no path produces an object plane: an ODK mapping declares a shape and materializes nothing."},"authority_crossed":{"const":false},"missing_contracts":{"type":"array","maxItems":8,"items":{"enum":["PolicyBoundDataView","TransformationRun","OntologyProjection"]}},"note":{"type":"string","maxLength":512}},"description":"A READINESS PROJECTION EMBEDDED IN THE RECORD. `status: ready` here means every required property of the target object type has a binding — it is a completeness statement about the declaration, never an admission, an authority, or a statement that anything may run."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ConnectorMappingV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<ConnectorMappingV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ConnectorMappingV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ingestion: serde_json::from_value::<ConnectorMappingV1Ingestion>(
+                object
+                    .remove(r#"ingestion"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ingestion"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            history: serde_json::from_value::<Vec<ConnectorMappingV1HistoryItem>>(
+                object
+                    .remove(r#"history"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"history"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_source_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_source_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_source_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_source_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"data_source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_type_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"object_type_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_type_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_dataset: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"source_dataset"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_dataset"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            key_mapping: serde_json::from_value::<ConnectorMappingV1KeyMapping>(
+                object
+                    .remove(r#"key_mapping"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"key_mapping"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            title_mapping: serde_json::from_value::<ConnectorMappingV1TitleMapping>(
+                object
+                    .remove(r#"title_mapping"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"title_mapping"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            field_mappings: serde_json::from_value::<Vec<ConnectorMappingV1FieldMappingsItem>>(
+                object
+                    .remove(r#"field_mappings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"field_mappings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            health: serde_json::from_value::<ConnectorMappingV1Health>(
+                object
+                    .remove(r#"health"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"health"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.connector-mapping.v1"#)]
+    IoiHypervisorOdkConnectorMappingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1Object {
+    #[serde(rename = r#"ioi.hypervisor.odk.connector_mapping"#)]
+    IoiHypervisorOdkConnectorMapping,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1Status {
+    #[serde(rename = r#"declared"#)]
+    Declared,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1Ingestion {
+    pub wired: ConnectorMappingV1IngestionWired,
+    pub note: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1Ingestion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["wired","note"],"properties":{"wired":{"const":false},"note":{"type":"string","maxLength":512}},"description":"The lane's own inertness declaration, pinned to `wired: false` because no path sets it true: a v1 mapping is a validated declaration and nothing reads, extracts, or moves source data through it."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            wired: serde_json::from_value::<ConnectorMappingV1IngestionWired>(
+                object
+                    .remove(r#"wired"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"wired"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectorMappingV1IngestionWired {
+    False,
+}
+
+impl serde::Serialize for ConnectorMappingV1IngestionWired {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1IngestionWired {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1HistoryItem {
+    pub revision: ArchitectureContractInteger,
+    pub op: ConnectorMappingV1HistoryItemOp,
+    pub at: String,
+    pub summary: String,
+    pub receipt_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1HistoryItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["revision","op","at","summary","receipt_ref"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"op":{"enum":["created","patched"]},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"summary":{"type":"string","maxLength":512},"receipt_ref":{"type":"string","maxLength":512}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<ConnectorMappingV1HistoryItemOp>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            summary: serde_json::from_value::<String>(
+                object
+                    .remove(r#"summary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"summary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1HistoryItemOp {
+    #[serde(rename = r#"created"#)]
+    Created,
+    #[serde(rename = r#"patched"#)]
+    Patched,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1KeyMapping {
+    pub source_field: String,
+    pub property_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_type: Option<ConnectorMappingV1KeyMappingSourceType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_cardinality: Option<ConnectorMappingV1KeyMappingSourceCardinality>,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1KeyMapping {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_field","property_id"],"properties":{"source_field":{"type":"string","minLength":1,"maxLength":256},"property_id":{"type":"string","minLength":1,"maxLength":256},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}},"description":"The four members `binding_tuple` reads out of a caller-supplied binding. `source_type` and `source_cardinality` are optional here because the v1 reader DEFAULTS them to `string` and `one` when absent, so a stored record may legitimately omit both — registering them as required would refuse bytes this lane admits."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_field: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_field"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_field"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            property_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"property_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"property_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_type: match object.remove(r#"source_type"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ConnectorMappingV1KeyMappingSourceType>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            source_cardinality: match object.remove(r#"source_cardinality"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ConnectorMappingV1KeyMappingSourceCardinality>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1KeyMappingSourceType {
+    #[serde(rename = r#"string"#)]
+    String,
+    #[serde(rename = r#"integer"#)]
+    Integer,
+    #[serde(rename = r#"double"#)]
+    Double,
+    #[serde(rename = r#"boolean"#)]
+    Boolean,
+    #[serde(rename = r#"timestamp"#)]
+    Timestamp,
+    #[serde(rename = r#"date"#)]
+    Date,
+    #[serde(rename = r#"json"#)]
+    Json,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1KeyMappingSourceCardinality {
+    #[serde(rename = r#"one"#)]
+    One,
+    #[serde(rename = r#"many"#)]
+    Many,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1TitleMapping {
+    pub source_field: String,
+    pub property_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_type: Option<ConnectorMappingV1TitleMappingSourceType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_cardinality: Option<ConnectorMappingV1TitleMappingSourceCardinality>,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1TitleMapping {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_field","property_id"],"properties":{"source_field":{"type":"string","minLength":1,"maxLength":256},"property_id":{"type":"string","minLength":1,"maxLength":256},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}},"description":"The four members `binding_tuple` reads out of a caller-supplied binding. `source_type` and `source_cardinality` are optional here because the v1 reader DEFAULTS them to `string` and `one` when absent, so a stored record may legitimately omit both — registering them as required would refuse bytes this lane admits."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_field: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_field"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_field"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            property_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"property_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"property_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_type: match object.remove(r#"source_type"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ConnectorMappingV1TitleMappingSourceType>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            source_cardinality: match object.remove(r#"source_cardinality"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ConnectorMappingV1TitleMappingSourceCardinality>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1TitleMappingSourceType {
+    #[serde(rename = r#"string"#)]
+    String,
+    #[serde(rename = r#"integer"#)]
+    Integer,
+    #[serde(rename = r#"double"#)]
+    Double,
+    #[serde(rename = r#"boolean"#)]
+    Boolean,
+    #[serde(rename = r#"timestamp"#)]
+    Timestamp,
+    #[serde(rename = r#"date"#)]
+    Date,
+    #[serde(rename = r#"json"#)]
+    Json,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1TitleMappingSourceCardinality {
+    #[serde(rename = r#"one"#)]
+    One,
+    #[serde(rename = r#"many"#)]
+    Many,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1FieldMappingsItem {
+    pub source_field: String,
+    pub property_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_type: Option<ConnectorMappingV1FieldMappingsItemSourceType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_cardinality: Option<ConnectorMappingV1FieldMappingsItemSourceCardinality>,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1FieldMappingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_field","property_id"],"properties":{"source_field":{"type":"string","minLength":1,"maxLength":256},"property_id":{"type":"string","minLength":1,"maxLength":256},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}},"description":"The four members `binding_tuple` reads out of a caller-supplied binding. `source_type` and `source_cardinality` are optional here because the v1 reader DEFAULTS them to `string` and `one` when absent, so a stored record may legitimately omit both — registering them as required would refuse bytes this lane admits."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_field: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_field"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_field"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            property_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"property_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"property_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_type: match object.remove(r#"source_type"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ConnectorMappingV1FieldMappingsItemSourceType>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            source_cardinality: match object.remove(r#"source_cardinality"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ConnectorMappingV1FieldMappingsItemSourceCardinality>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1FieldMappingsItemSourceType {
+    #[serde(rename = r#"string"#)]
+    String,
+    #[serde(rename = r#"integer"#)]
+    Integer,
+    #[serde(rename = r#"double"#)]
+    Double,
+    #[serde(rename = r#"boolean"#)]
+    Boolean,
+    #[serde(rename = r#"timestamp"#)]
+    Timestamp,
+    #[serde(rename = r#"date"#)]
+    Date,
+    #[serde(rename = r#"json"#)]
+    Json,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1FieldMappingsItemSourceCardinality {
+    #[serde(rename = r#"one"#)]
+    One,
+    #[serde(rename = r#"many"#)]
+    Many,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV1Health {
+    pub status: ConnectorMappingV1HealthStatus,
+    pub mapped_properties: ArchitectureContractInteger,
+    pub total_properties: ArchitectureContractInteger,
+    pub required_gaps: Vec<String>,
+    pub object_instances: ArchitectureContractInteger,
+    pub authority_crossed: ConnectorMappingV1HealthAuthorityCrossed,
+    pub missing_contracts: Vec<ConnectorMappingV1HealthMissingContractsItem>,
+    pub note: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1Health {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["status","mapped_properties","total_properties","required_gaps","object_instances","authority_crossed","missing_contracts","note"],"properties":{"status":{"enum":["ready","incomplete"]},"mapped_properties":{"type":"integer","minimum":0,"maximum":9007199254740991},"total_properties":{"type":"integer","minimum":0,"maximum":9007199254740991},"required_gaps":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":256}},"object_instances":{"type":"integer","minimum":0,"maximum":0,"description":"Pinned to zero because no path produces an object plane: an ODK mapping declares a shape and materializes nothing."},"authority_crossed":{"const":false},"missing_contracts":{"type":"array","maxItems":8,"items":{"enum":["PolicyBoundDataView","TransformationRun","OntologyProjection"]}},"note":{"type":"string","maxLength":512}},"description":"A READINESS PROJECTION EMBEDDED IN THE RECORD. `status: ready` here means every required property of the target object type has a binding — it is a completeness statement about the declaration, never an admission, an authority, or a statement that anything may run."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status: serde_json::from_value::<ConnectorMappingV1HealthStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapped_properties: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"mapped_properties"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mapped_properties"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            total_properties: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"total_properties"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"total_properties"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_gaps: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_gaps"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_gaps"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_instances: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"object_instances"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_instances"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_crossed: serde_json::from_value::<ConnectorMappingV1HealthAuthorityCrossed>(
+                object
+                    .remove(r#"authority_crossed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_crossed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            missing_contracts: serde_json::from_value::<
+                Vec<ConnectorMappingV1HealthMissingContractsItem>,
+            >(
+                object
+                    .remove(r#"missing_contracts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"missing_contracts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1HealthStatus {
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"incomplete"#)]
+    Incomplete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectorMappingV1HealthAuthorityCrossed {
+    False,
+}
+
+impl serde::Serialize for ConnectorMappingV1HealthAuthorityCrossed {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV1HealthAuthorityCrossed {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV1HealthMissingContractsItem {
+    #[serde(rename = r#"PolicyBoundDataView"#)]
+    PolicyBoundDataView,
+    #[serde(rename = r#"TransformationRun"#)]
+    TransformationRun,
+    #[serde(rename = r#"OntologyProjection"#)]
+    OntologyProjection,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2 {
+    pub schema_version: ConnectorMappingV2SchemaVersion,
+    pub connector_mapping_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub name: String,
+    pub identity_basis: ConnectorMappingV2IdentityBasis,
+    pub connector_id: String,
+    pub ontology_revision_ref: String,
+    pub source_schema_ref: String,
+    pub target_object_model_refs: Vec<String>,
+    pub field_mappings: Vec<ConnectorMappingV2FieldMappingsItem>,
+    pub action_mappings: Vec<ConnectorMappingV2ActionMappingsItem>,
+    pub authority_scopes_required: Vec<String>,
+    pub redaction_policy_ref: Option<String>,
+    pub evidence_required: Vec<String>,
+    pub semantic_component_set_snapshot_ref: String,
+    pub semantic_component_set_hash: String,
+    pub semantic_component_refs: Vec<String>,
+    pub semantic_component_count: ArchitectureContractInteger,
+    pub effective_policy_hash: String,
+    pub registry_status: ConnectorMappingV2RegistryStatus,
+    pub admitted_at: String,
+    pub succession: ConnectorMappingV2Succession,
+    pub migration: ConnectorMappingV2Migration,
+    pub constants: ConnectorMappingV2Constants,
+    pub authority_nonclaim: ConnectorMappingV2AuthorityNonclaim,
+    pub truth_nonclaim: ConnectorMappingV2TruthNonclaim,
+    pub does_not_assert: Vec<ConnectorMappingV2DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/connector-mapping/v2","title":"ConnectorMappingV2","description":"THE IMMUTABLE, SUCCESSOR-VERSIONED PROVIDER MAPPING — A THIRD FAMILY, NOT A MEMBER OF EITHER OTHER ONE. Canon is explicit that a ConnectorMapping is its own object with its own identity: a connector payload is source material and not canonical domain truth until a ConnectorMapping AND a DataRecipe bind it, and any field, action, schema, ontology, object-model or policy change creates a SUCCESSOR mapping revision. v1 honoured neither clause. Its identity came from the wall clock, so a retried declaration minted a second mapping; its `revision` was an integer incremented on the same stored record, so revision 1's bytes were overwritten and became unaddressable; and the DataRecipe lane embedded mappings as opaque passthrough arrays, so a mapping could exist as a fragment of a recipe rather than as an object. This version fixes all three. Identity is DERIVED, not clocked: `identity_basis` records that the mapping id comes from the owner ref and the caller's idempotency key and carries that key's hash, so a retry resolves to the record it already minted instead of appending a second one. Revisions are IMMUTABLE AND ADDRESSABLE: `revision_ref` names one revision, a portable invariant refuses one that does not extend its own `connector_mapping_id`, and `succession` names the predecessor revision and its exact bytes. The SEMANTIC-COMPONENT SNAPSHOT IS EXACT: `semantic_component_refs` must cover exactly the connector schema, the ontology revision, the target object models, the redaction policy and the evidence contracts this mapping reads — no more, no fewer — so a mapping cannot commit a snapshot that omits something it names. And a PROPERTY IS NEVER TARGETED TWICE, checked offline by invariant rather than only inside the route that happened to write the record. This contract is a mapping. It carries no credentials, it grants no authority, it launders no source rights, and registering it claims no runtime implementation.","x-ioi-schema-version":"ioi.connector-mapping.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"connectorMappingFamilyRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","connector_mapping_id","revision_ref","owner_ref","tenant_ref","name","identity_basis","connector_id","ontology_revision_ref","source_schema_ref","target_object_model_refs","field_mappings","action_mappings","authority_scopes_required","redaction_policy_ref","evidence_required","semantic_component_set_snapshot_ref","semantic_component_set_hash","semantic_component_refs","semantic_component_count","effective_policy_hash","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.connector-mapping.v2"},"connector_mapping_id":{"$ref":"#/$defs/connectorMappingFamilyRef","description":"THE FAMILY, IN CANON'S OWN `mapping://` SCHEME. v1 wrote `connector-mapping://` and carried identity twice, as a bare `id` and a separate `ref`."},"revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef","description":"ONE IMMUTABLE REVISION. The `/revision/` segment is mandatory, which refuses a family-head or mutable-latest reference wherever an exact mapping is required — including in a DataRecipe's `connector_mapping_revision_refs`, which admits nothing else. A registered invariant refuses a revision ref that does not extend its own `connector_mapping_id`."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"name":{"type":"string","minLength":1,"maxLength":200},"identity_basis":{"type":"object","additionalProperties":false,"description":"WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `cmap_{nanos:x}` — the hex of the epoch nanosecond count — so the same declaration retried after a dropped response minted a SECOND mapping, and two declarations in one nanosecond collided. This block pins the only admissible basis and carries the hash of the idempotency key the id was derived from, so a reader can tell a derived identity from a clocked one without trusting the producer to have been careful.","required":["derived_from","idempotency_key_hash","refused_basis"],"properties":{"derived_from":{"const":"owner_ref_and_idempotency_key"},"idempotency_key_hash":{"$ref":"#/$defs/sha256"},"refused_basis":{"const":"wall_clock_nanoseconds"}}},"connector_id":{"type":"string","pattern":"^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The external adapter this mapping reads from. A connector is a replaceable supply adapter; naming one grants nothing and carries no credential — canon keeps credentials out of the mapping entirely, and v1 already refused any plaintext secret key in the body."},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"ONE EXACT ADMITTED ONTOLOGY REVISION. v1 copied the ontology's CURRENT ref, so a mapping declared today and read tomorrow could be read against different semantics with nothing recording that it moved. An ontology change now requires a successor mapping revision, which is what canon says it requires."},"source_schema_ref":{"type":"string","pattern":"^(?:artifact|cid|provider-schema)://[^\\s]{1,500}$","description":"The provider-side contract this mapping reads. Canon allows an artifact ref, a CID, or a named provider schema; all three are exact, and none of them is a live fetch."},"target_object_model_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"},"description":"The canonical object models this mapping produces into. At least one: a mapping that targets no canonical object has not turned source material into domain truth, which is the only thing a mapping is for."},"field_mappings":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["role","source_field","target_property_ref","source_type","source_cardinality"],"properties":{"role":{"enum":["key","title","field"],"description":"v1 kept the key and title bindings in two separate top-level members and the rest in a third, so the three could disagree about shape. Here they are one list with a declared role, which is what lets a single invariant check that no property is targeted twice across all of them."},"source_field":{"type":"string","minLength":1,"maxLength":256},"target_property_ref":{"type":"string","pattern":"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The target property, qualified by the object model that owns it. v1 carried a bare `property_id` whose meaning depended on which object type the record happened to name."},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}}},"description":"The provider-field bindings. Silent field equivalence is forbidden: every binding is explicit, typed, and attributable to a role."},"action_mappings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["source_action","target_action_ref"],"properties":{"source_action":{"type":"string","minLength":1,"maxLength":256},"target_action_ref":{"type":"string","pattern":"^ontology-action://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"}}},"description":"Provider actions bound to typed ontology actions. Binding an action here compiles meaning into a request and grants nothing: the named action contract still passes capability, policy, authority, daemon, evidence and verification gates."},"authority_scopes_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"},"description":"The scopes a caller must ALREADY hold for this mapping to be usable. A requirement, never a grant: listing a scope here is the mapping stating what it needs, and nothing in this record confers it."},"redaction_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Optional, and when present it is part of the committed snapshot. Redaction reduces exposure; it creates no right and never severs lineage."},"evidence_required":{"$ref":"#/$defs/refList","description":"The evidence contracts a consumer of this mapping must satisfy. Part of the committed snapshot, so a mapping cannot silently drop an evidence obligation while keeping its revision."},"semantic_component_set_snapshot_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"semantic_component_set_hash":{"$ref":"#/$defs/sha256"},"semantic_component_refs":{"type":"array","maxItems":320,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"THE FLAT SET THE SNAPSHOT COVERS. A registered invariant requires it to equal EXACTLY the union of `source_schema_ref`, `ontology_revision_ref`, `redaction_policy_ref` when present, `target_object_model_refs` and `evidence_required` — canon's own list of what a mapping's snapshot commits — with nothing extra and nothing dropped."},"semantic_component_count":{"type":"integer","minimum":0,"maximum":320},"effective_policy_hash":{"$ref":"#/$defs/sha256"},"registry_status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four registry members, verbatim. v1's pinned `declared` is not among them and is not translated into one: a stored v1 mapping says `declared`, this contract says which of canon's four a v2 mapping is in, and the two vocabularies do not overlap."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of this revision. There is no `updated_at`: an immutable revision has one stamp, and v1's second one was the in-place-edit tell."},"succession":{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Canon: any field, action, schema, ontology, object-model or policy change creates a successor mapping revision. This block states which of those changes produced this revision and binds the predecessor it succeeds — its exact ref and its exact bytes, both or neither.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","field_change","action_change","source_schema_change","ontology_revision_change","object_model_change","policy_change","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/connectorMappingRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A mapping converged from a stored v1 names that predecessor's contract, its ref in the scheme it was ACTUALLY stored under, and its exact content hash — all three or none. `downgrade_to_predecessor` is pinned to `refused`: a v2 revision cannot be re-encoded as a v1 record without dropping the derived identity, the immutable revision, the semantic snapshot and the commitment, and presenting that weaker record as the same fact is exactly what a downgrade would be.","required":["from_schema_version","from_mapping_ref","from_content_hash","from_revision","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.connector-mapping.v1"},{"type":"null"}]},"from_mapping_ref":{"oneOf":[{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$"},{"type":"null"}],"description":"Named in v1's own `connector-mapping://` scheme with v1's own clocked id, because that is what was stored. Rewriting it into `mapping://` would be reinterpreting the predecessor."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision":{"oneOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}],"description":"WHICH in-place edit of the v1 record was converged. v1's `revision` counter overwrote its own history, so this number is the only thing that says which state of that mutable record the convergence saw. It is preserved as a number, not promoted into a revision ref, because no ref ever addressed it. REQUIRED AND NULLABLE, never merely optional: a slot inside a hashed block that may be ABSENT rather than null does not survive a projection round trip byte-identically, so the commitment would stop verifying for exactly the records that omit it."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — every provenance slot is null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_mapping_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.connector-mapping.v1"},"from_mapping_ref":{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$"},"from_content_hash":{"$ref":"#/$defs/sha256"},"from_revision":{"type":"integer","minimum":1,"maximum":9007199254740991}}}}]},"constants":{"type":"object","additionalProperties":false,"required":["lifecycle_id","nonclaim_authority_token","nonclaim_source_rights_token"],"properties":{"lifecycle_id":{"const":"connector_mapping_registry_lifecycle.v2","description":"A DISTINCT LIFECYCLE ID FROM THE OTHER TWO FAMILIES. The DataRecipe registry lifecycle, this one, and the TransformationRun execution lifecycle are three different axes; pinning the id in the bytes means a projection that flattened them into one `status` column can be caught from a stored record rather than from reading the projection's code."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_source_rights_token":{"const":"source_rights"}}},"authority_nonclaim":{"const":"connector_mapping_grants_no_authority"},"truth_nonclaim":{"const":"connector_mapping_is_not_canonical_domain_truth_by_itself"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","source_rights","credential_custody","provider_payload_is_domain_truth","training_consent","semantic_truth","run_outputs","policy_permission","capability_lease_crossing","connector_availability"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"source_rights"}},{"contains":{"const":"credential_custody"}},{"contains":{"const":"provider_payload_is_domain_truth"}},{"contains":{"const":"training_consent"}},{"contains":{"const":"semantic_truth"}}],"description":"Six mandatory members. `credential_custody` and `provider_payload_is_domain_truth` are the two this family needs that no other carries: a mapping never holds the connector's credentials, and canon's non-negotiable 2 says a connector payload stays source material until a ConnectorMapping AND a DataRecipe bind it — a mapping alone does not make the payload domain truth."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. It is what makes the revision immutable in a way a reader can test."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ConnectorMappingV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_basis: serde_json::from_value::<ConnectorMappingV2IdentityBasis>(
+                object
+                    .remove(r#"identity_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_object_model_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"target_object_model_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"target_object_model_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            field_mappings: serde_json::from_value::<Vec<ConnectorMappingV2FieldMappingsItem>>(
+                object
+                    .remove(r#"field_mappings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"field_mappings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_mappings: serde_json::from_value::<Vec<ConnectorMappingV2ActionMappingsItem>>(
+                object
+                    .remove(r#"action_mappings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_mappings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"redaction_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_set_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"semantic_component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_component_set_snapshot_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"semantic_component_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_component_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"semantic_component_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"semantic_component_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            semantic_component_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"semantic_component_count"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"semantic_component_count"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<ConnectorMappingV2RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<ConnectorMappingV2Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<ConnectorMappingV2Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<ConnectorMappingV2Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<ConnectorMappingV2AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<ConnectorMappingV2TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<Vec<ConnectorMappingV2DoesNotAssertItem>>(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2SchemaVersion {
+    #[serde(rename = r#"ioi.connector-mapping.v2"#)]
+    IoiConnectorMappingV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2IdentityBasis {
+    pub derived_from: ConnectorMappingV2IdentityBasisDerivedFrom,
+    pub idempotency_key_hash: String,
+    pub refused_basis: ConnectorMappingV2IdentityBasisRefusedBasis,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2IdentityBasis {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `cmap_{nanos:x}` — the hex of the epoch nanosecond count — so the same declaration retried after a dropped response minted a SECOND mapping, and two declarations in one nanosecond collided. This block pins the only admissible basis and carries the hash of the idempotency key the id was derived from, so a reader can tell a derived identity from a clocked one without trusting the producer to have been careful.","required":["derived_from","idempotency_key_hash","refused_basis"],"properties":{"derived_from":{"const":"owner_ref_and_idempotency_key"},"idempotency_key_hash":{"$ref":"#/$defs/sha256"},"refused_basis":{"const":"wall_clock_nanoseconds"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            derived_from: serde_json::from_value::<ConnectorMappingV2IdentityBasisDerivedFrom>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_key_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refused_basis: serde_json::from_value::<ConnectorMappingV2IdentityBasisRefusedBasis>(
+                object
+                    .remove(r#"refused_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refused_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2IdentityBasisDerivedFrom {
+    #[serde(rename = r#"owner_ref_and_idempotency_key"#)]
+    OwnerRefAndIdempotencyKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2IdentityBasisRefusedBasis {
+    #[serde(rename = r#"wall_clock_nanoseconds"#)]
+    WallClockNanoseconds,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2FieldMappingsItem {
+    pub role: ConnectorMappingV2FieldMappingsItemRole,
+    pub source_field: String,
+    pub target_property_ref: String,
+    pub source_type: ConnectorMappingV2FieldMappingsItemSourceType,
+    pub source_cardinality: ConnectorMappingV2FieldMappingsItemSourceCardinality,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2FieldMappingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["role","source_field","target_property_ref","source_type","source_cardinality"],"properties":{"role":{"enum":["key","title","field"],"description":"v1 kept the key and title bindings in two separate top-level members and the rest in a third, so the three could disagree about shape. Here they are one list with a declared role, which is what lets a single invariant check that no property is targeted twice across all of them."},"source_field":{"type":"string","minLength":1,"maxLength":256},"target_property_ref":{"type":"string","pattern":"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The target property, qualified by the object model that owns it. v1 carried a bare `property_id` whose meaning depended on which object type the record happened to name."},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            role: serde_json::from_value::<ConnectorMappingV2FieldMappingsItemRole>(
+                object
+                    .remove(r#"role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_field: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_field"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_field"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_property_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_property_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_property_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_type: serde_json::from_value::<ConnectorMappingV2FieldMappingsItemSourceType>(
+                object
+                    .remove(r#"source_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_cardinality: serde_json::from_value::<
+                ConnectorMappingV2FieldMappingsItemSourceCardinality,
+            >(
+                object
+                    .remove(r#"source_cardinality"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_cardinality"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2FieldMappingsItemRole {
+    #[serde(rename = r#"key"#)]
+    Key,
+    #[serde(rename = r#"title"#)]
+    Title,
+    #[serde(rename = r#"field"#)]
+    Field,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2FieldMappingsItemSourceType {
+    #[serde(rename = r#"string"#)]
+    String,
+    #[serde(rename = r#"integer"#)]
+    Integer,
+    #[serde(rename = r#"double"#)]
+    Double,
+    #[serde(rename = r#"boolean"#)]
+    Boolean,
+    #[serde(rename = r#"timestamp"#)]
+    Timestamp,
+    #[serde(rename = r#"date"#)]
+    Date,
+    #[serde(rename = r#"json"#)]
+    Json,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2FieldMappingsItemSourceCardinality {
+    #[serde(rename = r#"one"#)]
+    One,
+    #[serde(rename = r#"many"#)]
+    Many,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2ActionMappingsItem {
+    pub source_action: String,
+    pub target_action_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2ActionMappingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_action","target_action_ref"],"properties":{"source_action":{"type":"string","minLength":1,"maxLength":256},"target_action_ref":{"type":"string","pattern":"^ontology-action://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_action: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_action_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_action_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_action_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2Succession {
+    pub succession_reason: ConnectorMappingV2SuccessionSuccessionReason,
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub supersedes_predecessor: bool,
+    pub reinterprets_predecessor: ConnectorMappingV2SuccessionReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Canon: any field, action, schema, ontology, object-model or policy change creates a successor mapping revision. This block states which of those changes produced this revision and binds the predecessor it succeeds — its exact ref and its exact bytes, both or neither.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","field_change","action_change","source_schema_change","ontology_revision_change","object_model_change","policy_change","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/connectorMappingRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            succession_reason:
+                serde_json::from_value::<ConnectorMappingV2SuccessionSuccessionReason>(
+                    object
+                        .remove(r#"succession_reason"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"succession_reason"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_predecessor: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"supersedes_predecessor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_predecessor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                ConnectorMappingV2SuccessionReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2SuccessionSuccessionReason {
+    #[serde(rename = r#"genesis"#)]
+    Genesis,
+    #[serde(rename = r#"field_change"#)]
+    FieldChange,
+    #[serde(rename = r#"action_change"#)]
+    ActionChange,
+    #[serde(rename = r#"source_schema_change"#)]
+    SourceSchemaChange,
+    #[serde(rename = r#"ontology_revision_change"#)]
+    OntologyRevisionChange,
+    #[serde(rename = r#"object_model_change"#)]
+    ObjectModelChange,
+    #[serde(rename = r#"policy_change"#)]
+    PolicyChange,
+    #[serde(rename = r#"correction"#)]
+    Correction,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectorMappingV2SuccessionReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for ConnectorMappingV2SuccessionReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2SuccessionReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2Migration {
+    pub from_schema_version: Option<ConnectorMappingV2MigrationFromSchemaVersion>,
+    pub from_mapping_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub from_revision: Option<ArchitectureContractInteger>,
+    pub compatibility: ConnectorMappingV2MigrationCompatibility,
+    pub reinterprets_predecessor: ConnectorMappingV2MigrationReinterpretsPredecessor,
+    pub downgrade_to_predecessor: ConnectorMappingV2MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A mapping converged from a stored v1 names that predecessor's contract, its ref in the scheme it was ACTUALLY stored under, and its exact content hash — all three or none. `downgrade_to_predecessor` is pinned to `refused`: a v2 revision cannot be re-encoded as a v1 record without dropping the derived identity, the immutable revision, the semantic snapshot and the commitment, and presenting that weaker record as the same fact is exactly what a downgrade would be.","required":["from_schema_version","from_mapping_ref","from_content_hash","from_revision","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.connector-mapping.v1"},{"type":"null"}]},"from_mapping_ref":{"oneOf":[{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$"},{"type":"null"}],"description":"Named in v1's own `connector-mapping://` scheme with v1's own clocked id, because that is what was stored. Rewriting it into `mapping://` would be reinterpreting the predecessor."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision":{"oneOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}],"description":"WHICH in-place edit of the v1 record was converged. v1's `revision` counter overwrote its own history, so this number is the only thing that says which state of that mutable record the convergence saw. It is preserved as a number, not promoted into a revision ref, because no ref ever addressed it. REQUIRED AND NULLABLE, never merely optional: a slot inside a hashed block that may be ABSENT rather than null does not survive a projection round trip byte-identically, so the commitment would stop verifying for exactly the records that omit it."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — every provenance slot is null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_mapping_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.connector-mapping.v1"},"from_mapping_ref":{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$"},"from_content_hash":{"$ref":"#/$defs/sha256"},"from_revision":{"type":"integer","minimum":1,"maximum":9007199254740991}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_schema_version: serde_json::from_value::<
+                Option<ConnectorMappingV2MigrationFromSchemaVersion>,
+            >(
+                object
+                    .remove(r#"from_schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_mapping_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_mapping_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_mapping_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_revision: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"from_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<ConnectorMappingV2MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                ConnectorMappingV2MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                ConnectorMappingV2MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2MigrationFromSchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.connector-mapping.v1"#)]
+    IoiHypervisorOdkConnectorMappingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"converged_from_v1"#)]
+    ConvergedFromV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectorMappingV2MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for ConnectorMappingV2MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ConnectorMappingV2Constants {
+    pub lifecycle_id: ConnectorMappingV2ConstantsLifecycleId,
+    pub nonclaim_authority_token: ConnectorMappingV2ConstantsNonclaimAuthorityToken,
+    pub nonclaim_source_rights_token: ConnectorMappingV2ConstantsNonclaimSourceRightsToken,
+}
+
+impl<'de> serde::Deserialize<'de> for ConnectorMappingV2Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["lifecycle_id","nonclaim_authority_token","nonclaim_source_rights_token"],"properties":{"lifecycle_id":{"const":"connector_mapping_registry_lifecycle.v2","description":"A DISTINCT LIFECYCLE ID FROM THE OTHER TWO FAMILIES. The DataRecipe registry lifecycle, this one, and the TransformationRun execution lifecycle are three different axes; pinning the id in the bytes means a projection that flattened them into one `status` column can be caught from a stored record rather than from reading the projection's code."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_source_rights_token":{"const":"source_rights"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            lifecycle_id: serde_json::from_value::<ConnectorMappingV2ConstantsLifecycleId>(
+                object
+                    .remove(r#"lifecycle_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaim_authority_token: serde_json::from_value::<
+                ConnectorMappingV2ConstantsNonclaimAuthorityToken,
+            >(
+                object
+                    .remove(r#"nonclaim_authority_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"nonclaim_authority_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaim_source_rights_token: serde_json::from_value::<
+                ConnectorMappingV2ConstantsNonclaimSourceRightsToken,
+            >(
+                object
+                    .remove(r#"nonclaim_source_rights_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"nonclaim_source_rights_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2ConstantsLifecycleId {
+    #[serde(rename = r#"connector_mapping_registry_lifecycle.v2"#)]
+    ConnectorMappingRegistryLifecycleV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2ConstantsNonclaimAuthorityToken {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2ConstantsNonclaimSourceRightsToken {
+    #[serde(rename = r#"source_rights"#)]
+    SourceRights,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2AuthorityNonclaim {
+    #[serde(rename = r#"connector_mapping_grants_no_authority"#)]
+    ConnectorMappingGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2TruthNonclaim {
+    #[serde(rename = r#"connector_mapping_is_not_canonical_domain_truth_by_itself"#)]
+    ConnectorMappingIsNotCanonicalDomainTruthByItself,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ConnectorMappingV2DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"source_rights"#)]
+    SourceRights,
+    #[serde(rename = r#"credential_custody"#)]
+    CredentialCustody,
+    #[serde(rename = r#"provider_payload_is_domain_truth"#)]
+    ProviderPayloadIsDomainTruth,
+    #[serde(rename = r#"training_consent"#)]
+    TrainingConsent,
+    #[serde(rename = r#"semantic_truth"#)]
+    SemanticTruth,
+    #[serde(rename = r#"run_outputs"#)]
+    RunOutputs,
+    #[serde(rename = r#"policy_permission"#)]
+    PolicyPermission,
+    #[serde(rename = r#"capability_lease_crossing"#)]
+    CapabilityLeaseCrossing,
+    #[serde(rename = r#"connector_availability"#)]
+    ConnectorAvailability,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1 {
+    pub schema_version: TransformationRunV1SchemaVersion,
+    pub object: TransformationRunV1Object,
+    pub id: String,
+    pub r#ref: String,
+    pub name: String,
+    pub description: String,
+    pub status: TransformationRunV1Status,
+    pub operation: TransformationRunV1Operation,
+    pub connector_mapping_id: String,
+    pub connector_mapping_ref: Option<String>,
+    pub policy_view_id: String,
+    pub policy_view_ref: Option<String>,
+    pub ontology_ref: Option<String>,
+    pub object_type_id: Option<String>,
+    pub requested_fields: Vec<String>,
+    pub purpose: String,
+    pub output_intent: TransformationRunV1OutputIntent,
+    pub plan: Option<TransformationRunV1Plan>,
+    pub execution: TransformationRunV1Execution,
+    pub missing_contracts: Vec<TransformationRunV1MissingContractsItem>,
+    pub revision: ArchitectureContractInteger,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blocked_reasons: Option<Vec<TransformationRunV1BlockedReasonsItem>>,
+    pub receipt_refs: Vec<String>,
+    pub history: Vec<TransformationRunV1HistoryItem>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/transformation-run/v1","title":"TransformationRunV1","description":"THE PREDECESSOR, REGISTERED AS THE RECORD THE TRANSFORMATION-RUN LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.transformation-run.v1` was a local Rust constant with no `_meta/schemas/` entry behind it. THE DIVERGENCE THAT DEFINES THIS FAMILY'S GAP IS AN ABSENCE, NOT A FIELD: a v1 run carries NO `data_recipe_revision_ref`, NO `data_recipe_content_hash`, and NO resolved semantic-component tuple. It binds a connector mapping and a policy view directly and executes against whatever those records currently say. Non-negotiable 3 requires every TransformationRun to bind the exact `data-recipe://.../revision/...` ref and content hash plus the exact semantic-component snapshot already committed by that revision; v1 binds none of the three, which is precisely why the delta row reads 'partial precursor; exact definition/run split not started'. The rest follows from it. Identity is DERIVED FROM THE WALL CLOCK — `trun_{nanos:x}` — so a retried plan mints a second run for the same intent. The stored `ref` uses `transformation-run://` where canon uses `transform://`. `revision` is an in-place counter on one mutable record rather than an execution that happens once. The lifecycle stops at `planned | dry_run_ready | blocked | cancelled`: `executed` and `materialized` are reserved words this plane never sets, so no v1 record has ever transformed anything, and the outputs canon assigns to a run — `output_object_refs`, `output_dataset_refs`, `output_distilled_dataset_refs`, `output_artifact_refs`, `impact_graph_ref` — have no field to live in. There is no owner or tenant on the record at all, so cross-tenant output has nothing to be checked against. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.transformation-run.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","operation","connector_mapping_id","connector_mapping_ref","policy_view_id","policy_view_ref","ontology_ref","object_type_id","requested_fields","purpose","output_intent","plan","execution","missing_contracts","revision","receipt_refs","history","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.transformation-run.v1"},"object":{"const":"ioi.hypervisor.odk.transformation_run"},"id":{"type":"string","pattern":"^trun_[0-9a-f]{12,32}$","description":"WALL-CLOCK IDENTITY. `format!(\"trun_{:x}\", nanos())` — the lower-case hex of the Unix epoch nanosecond count at create. A retry therefore does not resolve to the run it already admitted; it admits another one. The width is a range because the value is a timestamp and widens on its own schedule."},"ref":{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$","description":"Canon's scheme for this family is `transform://`. This lane writes `transformation-run://`, and the stored value is what a reader resolves."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["planned","dry_run_ready","blocked","cancelled"],"description":"THE FOUR STATES THIS PLANE CAN REACH, AND NOT ONE OF THEM IS AN EXECUTION. `executed` and `materialized` are declared reserved and never set here. Canon's run lifecycle is queued | running | completed | failed | rejected; none of v1's four is a member of it, so a v1 `status` cannot be read as a canonical run state under any translation."},"operation":{"const":"transform","description":"Pinned: this lane writes the literal `transform` and offers no other operation."},"connector_mapping_id":{"type":"string","minLength":1,"maxLength":256,"description":"THE RUN BINDS THE MAPPING DIRECTLY, WITH NO RECIPE BETWEEN THEM. It also binds it by MUTABLE id: the mapping's own `revision` counter can advance under this run without changing anything here, so a v1 run names a mapping whose bytes may no longer be the ones it was planned against."},"connector_mapping_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"policy_view_id":{"type":"string","minLength":1,"maxLength":256},"policy_view_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"ontology_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"Copied from the bound mapping's own current ontology ref. A family ref, never an exact admitted revision."},"object_type_id":{"oneOf":[{"type":"string","maxLength":256},{"type":"null"}]},"requested_fields":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":256}},"purpose":{"type":"string","minLength":1,"maxLength":512},"output_intent":{"enum":["ontology_objects","projection","evaluation_dataset","training_material","export_bundle"],"description":"An INTENT, and the record says so: nothing is produced. Canon's run owns concrete outputs; this field is the only place a v1 run says what it would have produced."},"plan":{"oneOf":[{"type":"object","additionalProperties":false,"required":["source","object_type_id","fields","policy_gate","output_intent","would_contact_source","object_instances","receipts_before_output"],"properties":{"source":{"type":"object","additionalProperties":false,"required":["data_source_ref","declared_endpoint_only"],"properties":{"data_source_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"declared_endpoint_only":{"const":true}}},"object_type_id":{"oneOf":[{"type":"string","maxLength":256},{"type":"null"}]},"fields":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["property_id","source_field","source_type"],"properties":{"property_id":{"type":"string","maxLength":256},"source_field":{"type":"string","maxLength":256},"source_type":{"type":"string","maxLength":64}}}},"policy_gate":{"type":"object","additionalProperties":false,"required":["policy_view_ref","purpose","receipt_obligations"],"properties":{"policy_view_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"purpose":{"type":"string","maxLength":512},"receipt_obligations":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":128}}}},"output_intent":{"type":"string","maxLength":64},"would_contact_source":{"const":false},"object_instances":{"type":"integer","minimum":0,"maximum":0},"receipts_before_output":{"const":true}}},{"type":"null"}],"description":"Null at create and populated only by a dry run. The plan is assembled from DECLARED truth — the mapping's bindings and the view's obligations — and never from a source read, which is why `would_contact_source` and `object_instances` are pinned. Registering it as nullable is what makes 'a created run has no plan' a checked fact."},"execution":{"type":"object","additionalProperties":false,"required":["source_contacted","data_moved","object_instances","note"],"properties":{"source_contacted":{"const":false},"data_moved":{"const":false},"object_instances":{"type":"integer","minimum":0,"maximum":0},"note":{"type":"string","maxLength":512}},"description":"THE INERTNESS BLOCK, PINNED AS PINNED. All three values are literals this lane writes and never updates. A v1 run is a plan and a dry run; it has never contacted a source or moved a byte, and registering the pins is what makes that checkable from the record rather than believed from the prose."},"missing_contracts":{"type":"array","maxItems":8,"items":{"enum":["PolicyBoundDataView","TransformationRun","OntologyProjection"]}},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"An in-place counter on one mutable record. An execution happens once; a counter that advances is the shape of a definition being edited, not of a run being run."},"blocked_reasons":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","maxLength":128},"message":{"type":"string","maxLength":1024}}},"description":"Written only by a blocked dry run, so it is absent on every record that has not been blocked. Optional here for that reason — requiring it would refuse the create-time record this lane admits."},"receipt_refs":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":512}},"history":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["revision","op","at","summary","receipt_ref"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"op":{"type":"string","maxLength":64},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"summary":{"type":"string","maxLength":512},"receipt_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]}}}},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<TransformationRunV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<TransformationRunV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<TransformationRunV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation: serde_json::from_value::<TransformationRunV1Operation>(
+                object
+                    .remove(r#"operation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mapping_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"connector_mapping_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mapping_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_view_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_view_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_view_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_view_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"policy_view_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_view_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"ontology_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_type_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"object_type_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_type_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requested_fields: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"requested_fields"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requested_fields"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purpose: serde_json::from_value::<String>(
+                object
+                    .remove(r#"purpose"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purpose"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_intent: serde_json::from_value::<TransformationRunV1OutputIntent>(
+                object
+                    .remove(r#"output_intent"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_intent"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            plan: serde_json::from_value::<Option<TransformationRunV1Plan>>(
+                object
+                    .remove(r#"plan"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"plan"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            execution: serde_json::from_value::<TransformationRunV1Execution>(
+                object
+                    .remove(r#"execution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"execution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            missing_contracts:
+                serde_json::from_value::<Vec<TransformationRunV1MissingContractsItem>>(
+                    object
+                        .remove(r#"missing_contracts"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"missing_contracts"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            blocked_reasons: match object.remove(r#"blocked_reasons"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<Vec<TransformationRunV1BlockedReasonsItem>>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            history: serde_json::from_value::<Vec<TransformationRunV1HistoryItem>>(
+                object
+                    .remove(r#"history"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"history"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.transformation-run.v1"#)]
+    IoiHypervisorOdkTransformationRunV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV1Object {
+    #[serde(rename = r#"ioi.hypervisor.odk.transformation_run"#)]
+    IoiHypervisorOdkTransformationRun,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV1Status {
+    #[serde(rename = r#"planned"#)]
+    Planned,
+    #[serde(rename = r#"dry_run_ready"#)]
+    DryRunReady,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"cancelled"#)]
+    Cancelled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV1Operation {
+    #[serde(rename = r#"transform"#)]
+    Transform,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV1OutputIntent {
+    #[serde(rename = r#"ontology_objects"#)]
+    OntologyObjects,
+    #[serde(rename = r#"projection"#)]
+    Projection,
+    #[serde(rename = r#"evaluation_dataset"#)]
+    EvaluationDataset,
+    #[serde(rename = r#"training_material"#)]
+    TrainingMaterial,
+    #[serde(rename = r#"export_bundle"#)]
+    ExportBundle,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1Plan {
+    pub source: TransformationRunV1PlanSource,
+    pub object_type_id: Option<String>,
+    pub fields: Vec<TransformationRunV1PlanFieldsItem>,
+    pub policy_gate: TransformationRunV1PlanPolicyGate,
+    pub output_intent: String,
+    pub would_contact_source: TransformationRunV1PlanWouldContactSource,
+    pub object_instances: ArchitectureContractInteger,
+    pub receipts_before_output: TransformationRunV1PlanReceiptsBeforeOutput,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1Plan {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source","object_type_id","fields","policy_gate","output_intent","would_contact_source","object_instances","receipts_before_output"],"properties":{"source":{"type":"object","additionalProperties":false,"required":["data_source_ref","declared_endpoint_only"],"properties":{"data_source_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"declared_endpoint_only":{"const":true}}},"object_type_id":{"oneOf":[{"type":"string","maxLength":256},{"type":"null"}]},"fields":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["property_id","source_field","source_type"],"properties":{"property_id":{"type":"string","maxLength":256},"source_field":{"type":"string","maxLength":256},"source_type":{"type":"string","maxLength":64}}}},"policy_gate":{"type":"object","additionalProperties":false,"required":["policy_view_ref","purpose","receipt_obligations"],"properties":{"policy_view_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"purpose":{"type":"string","maxLength":512},"receipt_obligations":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":128}}}},"output_intent":{"type":"string","maxLength":64},"would_contact_source":{"const":false},"object_instances":{"type":"integer","minimum":0,"maximum":0},"receipts_before_output":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source: serde_json::from_value::<TransformationRunV1PlanSource>(
+                object
+                    .remove(r#"source"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_type_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"object_type_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_type_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fields: serde_json::from_value::<Vec<TransformationRunV1PlanFieldsItem>>(
+                object
+                    .remove(r#"fields"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fields"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_gate: serde_json::from_value::<TransformationRunV1PlanPolicyGate>(
+                object
+                    .remove(r#"policy_gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_intent: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_intent"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_intent"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            would_contact_source:
+                serde_json::from_value::<TransformationRunV1PlanWouldContactSource>(
+                    object.remove(r#"would_contact_source"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"would_contact_source"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            object_instances: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"object_instances"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_instances"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipts_before_output: serde_json::from_value::<
+                TransformationRunV1PlanReceiptsBeforeOutput,
+            >(
+                object
+                    .remove(r#"receipts_before_output"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipts_before_output"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1PlanSource {
+    pub data_source_ref: Option<String>,
+    pub declared_endpoint_only: TransformationRunV1PlanSourceDeclaredEndpointOnly,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1PlanSource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["data_source_ref","declared_endpoint_only"],"properties":{"data_source_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"declared_endpoint_only":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            data_source_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"data_source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_endpoint_only: serde_json::from_value::<
+                TransformationRunV1PlanSourceDeclaredEndpointOnly,
+            >(
+                object
+                    .remove(r#"declared_endpoint_only"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_endpoint_only"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV1PlanSourceDeclaredEndpointOnly {
+    True,
+}
+
+impl serde::Serialize for TransformationRunV1PlanSourceDeclaredEndpointOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1PlanSourceDeclaredEndpointOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1PlanFieldsItem {
+    pub property_id: String,
+    pub source_field: String,
+    pub source_type: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1PlanFieldsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["property_id","source_field","source_type"],"properties":{"property_id":{"type":"string","maxLength":256},"source_field":{"type":"string","maxLength":256},"source_type":{"type":"string","maxLength":64}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            property_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"property_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"property_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_field: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_field"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_field"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1PlanPolicyGate {
+    pub policy_view_ref: Option<String>,
+    pub purpose: String,
+    pub receipt_obligations: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1PlanPolicyGate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["policy_view_ref","purpose","receipt_obligations"],"properties":{"policy_view_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"purpose":{"type":"string","maxLength":512},"receipt_obligations":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":128}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            policy_view_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"policy_view_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_view_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purpose: serde_json::from_value::<String>(
+                object
+                    .remove(r#"purpose"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purpose"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV1PlanWouldContactSource {
+    False,
+}
+
+impl serde::Serialize for TransformationRunV1PlanWouldContactSource {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1PlanWouldContactSource {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV1PlanReceiptsBeforeOutput {
+    True,
+}
+
+impl serde::Serialize for TransformationRunV1PlanReceiptsBeforeOutput {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1PlanReceiptsBeforeOutput {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1Execution {
+    pub source_contacted: TransformationRunV1ExecutionSourceContacted,
+    pub data_moved: TransformationRunV1ExecutionDataMoved,
+    pub object_instances: ArchitectureContractInteger,
+    pub note: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1Execution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_contacted","data_moved","object_instances","note"],"properties":{"source_contacted":{"const":false},"data_moved":{"const":false},"object_instances":{"type":"integer","minimum":0,"maximum":0},"note":{"type":"string","maxLength":512}},"description":"THE INERTNESS BLOCK, PINNED AS PINNED. All three values are literals this lane writes and never updates. A v1 run is a plan and a dry run; it has never contacted a source or moved a byte, and registering the pins is what makes that checkable from the record rather than believed from the prose."}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_contacted:
+                serde_json::from_value::<TransformationRunV1ExecutionSourceContacted>(
+                    object
+                        .remove(r#"source_contacted"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"source_contacted"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            data_moved: serde_json::from_value::<TransformationRunV1ExecutionDataMoved>(
+                object
+                    .remove(r#"data_moved"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_moved"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object_instances: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"object_instances"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object_instances"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV1ExecutionSourceContacted {
+    False,
+}
+
+impl serde::Serialize for TransformationRunV1ExecutionSourceContacted {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1ExecutionSourceContacted {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV1ExecutionDataMoved {
+    False,
+}
+
+impl serde::Serialize for TransformationRunV1ExecutionDataMoved {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1ExecutionDataMoved {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV1MissingContractsItem {
+    #[serde(rename = r#"PolicyBoundDataView"#)]
+    PolicyBoundDataView,
+    #[serde(rename = r#"TransformationRun"#)]
+    TransformationRun,
+    #[serde(rename = r#"OntologyProjection"#)]
+    OntologyProjection,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1BlockedReasonsItem {
+    pub code: String,
+    pub message: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1BlockedReasonsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","maxLength":128},"message":{"type":"string","maxLength":1024}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            code: serde_json::from_value::<String>(
+                object
+                    .remove(r#"code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            message: serde_json::from_value::<String>(
+                object
+                    .remove(r#"message"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"message"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV1HistoryItem {
+    pub revision: ArchitectureContractInteger,
+    pub op: String,
+    pub at: String,
+    pub summary: String,
+    pub receipt_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV1HistoryItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["revision","op","at","summary","receipt_ref"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"op":{"type":"string","maxLength":64},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"summary":{"type":"string","maxLength":512},"receipt_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            op: serde_json::from_value::<String>(
+                object
+                    .remove(r#"op"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"op"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            summary: serde_json::from_value::<String>(
+                object
+                    .remove(r#"summary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"summary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV2 {
+    pub schema_version: TransformationRunV2SchemaVersion,
+    pub transformation_run_id: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub output_tenant_ref: String,
+    pub identity_basis: TransformationRunV2IdentityBasis,
+    pub data_recipe_revision_ref: String,
+    pub data_recipe_content_hash: String,
+    pub data_recipe_admitted_head_before: String,
+    pub recipe_committed_semantic_component_set_snapshot_ref: String,
+    pub recipe_committed_semantic_component_set_hash: String,
+    pub resolved_semantic_component_set_snapshot_ref: String,
+    pub resolved_semantic_component_set_hash: String,
+    pub recipe_committed_connector_mapping_revision_refs: Vec<String>,
+    pub resolved_connector_mapping_revision_refs: Vec<String>,
+    pub ontology_revision_refs: Vec<String>,
+    pub policy_bound_data_view_refs: Vec<String>,
+    pub institutional_learning_boundary_profile_ref: Option<String>,
+    pub effective_learning_policy_hash: Option<String>,
+    pub learning_source_rights_claim_refs: Vec<String>,
+    pub authority_grant_refs: Vec<String>,
+    pub input_refs: Vec<String>,
+    pub output_intent: TransformationRunV2OutputIntent,
+    pub output_object_refs: Vec<String>,
+    pub output_dataset_refs: Vec<String>,
+    pub output_distilled_dataset_refs: Vec<String>,
+    pub output_artifact_refs: Vec<String>,
+    pub derivative_policy_ref: Option<String>,
+    pub impact_graph_ref: Option<String>,
+    pub receipt_refs: Vec<String>,
+    pub execution_status: TransformationRunV2ExecutionStatus,
+    pub admitted_at: String,
+    pub migration: TransformationRunV2Migration,
+    pub constants: TransformationRunV2Constants,
+    pub authority_nonclaim: TransformationRunV2AuthorityNonclaim,
+    pub truth_nonclaim: TransformationRunV2TruthNonclaim,
+    pub does_not_assert: Vec<TransformationRunV2DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/transformation-run/v2","title":"TransformationRunV2","description":"ONE ADMITTED EXECUTION — THE OTHER HALF OF THE DEFINITION/RUN SPLIT, AND THE PLACE NON-NEGOTIABLE 3 IS ENFORCED. Canon: every TransformationRun binds the exact `data-recipe://.../revision/...` ref and content hash PLUS the exact semantic-component snapshot and hash already committed by that revision, and the resolved tuple must EQUAL the committed one. v1 bound none of the three — it had no recipe field at all, so there was nothing for a tuple to be equal to. This version carries the recipe binding and then makes the equality CHECKABLE OFFLINE by carrying both sides: `recipe_committed_semantic_component_set_hash` is what the recipe revision froze, `resolved_semantic_component_set_hash` is what this run actually resolved, and a registered invariant refuses the record when they differ. That single rule is what stops a signed recipe from executing against a later semantic head, and it needs no daemon, no registry read and no network to decide. FIVE MORE REFUSALS ARE STRUCTURAL. DEFINITION AND MAPPING SUBSTITUTION: the run carries both the mapping set the recipe committed and the mapping set it resolved, and an invariant requires them to be the same set exactly — swap one mapping for a same-named successor and the run fails. FAMILY-HEAD AND MUTABLE-LATEST: every recipe, mapping and ontology reference here demands a `/revision/` segment, so a run can never be pointed at a head. MISSING HASHES: the recipe hash, both snapshot hashes and the content hash are all required, and the run's position in its recipe's admitted chain is one exact SHA-256. WALL-CLOCK RETRY IDENTITY: v1's id was the hex of the epoch nanosecond count, so a retried plan minted a second run; `identity_basis` pins the derived basis and carries the idempotency key's hash. CROSS-TENANT OUTPUT: the run names the tenant it runs in and the tenant its outputs land in, and an invariant requires them to be the same. A run attests what it transformed, from which sources, under which policy, into which objects. It does not make the transformed assertion universally correct, it does not prove provider deletion or model unlearning, and registering this contract claims no runtime implementation of the split it describes.","x-ioi-schema-version":"ioi.transformation-run.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","transformation_run_id","owner_ref","tenant_ref","output_tenant_ref","identity_basis","data_recipe_revision_ref","data_recipe_content_hash","data_recipe_admitted_head_before","recipe_committed_semantic_component_set_snapshot_ref","recipe_committed_semantic_component_set_hash","resolved_semantic_component_set_snapshot_ref","resolved_semantic_component_set_hash","recipe_committed_connector_mapping_revision_refs","resolved_connector_mapping_revision_refs","ontology_revision_refs","policy_bound_data_view_refs","institutional_learning_boundary_profile_ref","effective_learning_policy_hash","learning_source_rights_claim_refs","authority_grant_refs","input_refs","output_intent","output_object_refs","output_dataset_refs","output_distilled_dataset_refs","output_artifact_refs","derivative_policy_ref","impact_graph_ref","receipt_refs","execution_status","admitted_at","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.transformation-run.v2"},"transformation_run_id":{"type":"string","pattern":"^transform://trun_[0-9a-f]{32}$","description":"ONE IDENTITY, IN CANON'S `transform://` SCHEME, AT A FIXED WIDTH. v1 carried a bare `id` plus a `transformation-run://` ref and derived both from the wall clock, so the width drifted with the epoch and a retry minted a second run. Thirty-two hex digits of a derived digest is a width that cannot drift and a value a retry reproduces."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The tenancy this execution runs inside."},"output_tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"CROSS-TENANT OUTPUT, REFUSED OFFLINE. The tenancy this run's outputs are committed to, carried as its own field precisely so it can DISAGREE with `tenant_ref` and be caught. A registered invariant requires the two to be equal, so a run that would deposit derived objects, datasets or artifacts into another tenant fails on the bytes, before anything is fetched and without a policy engine being consulted. v1 had no owner or tenant on the record at all, so there was nothing to compare."},"identity_basis":{"type":"object","additionalProperties":false,"description":"WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `trun_{nanos:x}` — the hex of the epoch nanosecond count at create — so the same plan retried after a dropped response admitted a SECOND execution of the same intent, and the two were indistinguishable afterwards. This block pins the only admissible basis and carries the hash of the idempotency key the id derives from, so a replayed admission is recognisable as the run it already is.","required":["derived_from","idempotency_key_hash","refused_basis"],"properties":{"derived_from":{"const":"owner_ref_and_idempotency_key"},"idempotency_key_hash":{"$ref":"#/$defs/sha256"},"refused_basis":{"const":"wall_clock_nanoseconds"}}},"data_recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef","description":"THE FIELD v1 DID NOT HAVE. Required, never nullable, and never a family ref: an execution always runs a definition, and the `/revision/` segment is what stops it from running whichever revision is current when it starts. A v1 run bound a connector mapping and a policy view directly and had no recipe at all, which is the whole content of 'the exact definition/run split is not started'."},"data_recipe_content_hash":{"$ref":"#/$defs/sha256","description":"The recipe revision's own commitment, carried so the run's binding is to BYTES and not merely to a name. Edit the recipe and this stops matching; substitute a same-named revision and it stops matching too."},"data_recipe_admitted_head_before":{"type":"string","pattern":"^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$","description":"The exact head of the recipe family's admitted stream that this run was admitted AGAINST. EXACTLY ONE SHA-256, sixty-four lowercase hex digits, with or without the `sha256:` prefix the substrate happens to issue; the prefix is tolerated only because reformatting a head would stop it matching the chain it names, never because the width is negotiable. A truncated head names a prefix of the chain rather than a position in it, which is the ambiguity this field exists to remove. It locates the run at one position in one history, so a run cannot be replayed against a different history and still read as consistent."},"recipe_committed_semantic_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef","description":"The snapshot the RECIPE REVISION froze. Carried on the run so the comparison below needs nothing but this record."},"recipe_committed_semantic_component_set_hash":{"$ref":"#/$defs/sha256","description":"The hash the recipe revision committed for that snapshot."},"resolved_semantic_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef","description":"The snapshot THIS RUN actually resolved."},"resolved_semantic_component_set_hash":{"$ref":"#/$defs/sha256","description":"THE HASH THE EQUALITY RULE IS ABOUT. Canon: the resolved semantic-component tuple must exactly equal the tuple committed by the admitted DataRecipe revision, and a run may not replace an ontology, mapping, object model, schema or policy-bound view with a current registry head. Both sides are in the record, an invariant compares them, and a mismatch is a refusal a relying party reaches offline. A different semantic dependency set requires a SUCCESSOR RECIPE REVISION and a new admission — never a run that resolves differently and reports success."},"recipe_committed_connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"The exact mapping revisions the recipe revision named."},"resolved_connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"MAPPING SUBSTITUTION, REFUSED OFFLINE. The mapping revisions this run actually resolved. A registered invariant requires this set to be EXACTLY the committed set — same members, same count — so swapping one mapping for its successor, adding a mapping the recipe never named, or dropping one it did, all fail on the bytes. Canon says a mapping change requires a successor mapping AND a successor recipe; this is that sentence made checkable."},"ontology_revision_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"},"description":"The exact admitted ontology revisions this run was executed against. v1 copied the bound mapping's current family ref."},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList","description":"The governed lenses this run read through. A permitted view is not training consent, and a prior transformation receipt is not perpetual permission: reads revalidate current authority, rights, revocation and expiry, and this record attests which views were named, never that they are still valid now."},"institutional_learning_boundary_profile_ref":{"oneOf":[{"type":"string","pattern":"^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Nullable, because not every run is learning-bearing — but a registered invariant requires it when `output_intent` is one of the three that feed learning, so the nullability cannot be used to skip the boundary on the runs that need it."},"effective_learning_policy_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The commitment over the most restrictive intersection of the active institutional boundary, source and participant rights, consent, licence, route rights, retention and destination scope. Required by invariant on the same three learning-bearing intents. Composition never widens: union, majority permission, material transformation, aggregation, de-identification and ontology mapping cannot turn a prohibited use into a permitted one, and a hash over the composed result is what lets a later reader tell that the composition moved."},"learning_source_rights_claim_refs":{"$ref":"#/$defs/refList"},"authority_grant_refs":{"$ref":"#/$defs/refList","description":"The grants the admitting component RESOLVED for this run. Listing a grant is a record of what was resolved, never a grant this record confers."},"input_refs":{"$ref":"#/$defs/refList"},"output_intent":{"enum":["ontology_objects","projection","evaluation_dataset","training_material","distilled_dataset","export_bundle"],"description":"What this run set out to produce. The three learning-bearing members — `evaluation_dataset`, `training_material`, `distilled_dataset` — oblige the boundary profile and effective learning-policy hash by invariant."},"output_object_refs":{"$ref":"#/$defs/refList","description":"CONCRETE OUTPUTS BELONG TO THE RUN, NEVER TO THE DEFINITION. A DataRecipe revision declares output CONTRACTS and holds no results; these four output members are where results live, which is the structural reason the two objects cannot be collapsed."},"output_dataset_refs":{"$ref":"#/$defs/refList"},"output_distilled_dataset_refs":{"$ref":"#/$defs/refList"},"output_artifact_refs":{"$ref":"#/$defs/refList"},"derivative_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}]},"impact_graph_ref":{"oneOf":[{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,400}$"},{"type":"null"}],"description":"Where the derivation and obligation edges this run created are reachable from. When a source right expires or is withdrawn, the impact graph is what identifies every dependent artifact so the owning policy can choose a receipted disposition."},"receipt_refs":{"$ref":"#/$defs/refList","description":"Required non-empty by invariant once `execution_status` is `completed`: canon says runs must emit transformation receipts for consequential training, evaluation, projection or service outcomes, and a completed run with no receipt is that obligation unmet."},"execution_status":{"enum":["queued","running","completed","failed","rejected"],"description":"CANON'S FIVE RUN STATES, AND A DELIBERATELY DIFFERENT AXIS FROM THE DEFINITIONS. The field is named `execution_status` rather than `status` because a DataRecipe and a ConnectorMapping carry `registry_status` over draft | active | deprecated | revoked, and the two vocabularies share NO member. A projection that flattened a definition's inventory state and an execution's state into one column would have to invent a member that exists in neither list. v1's four states — planned, dry_run_ready, blocked, cancelled — are not members of this vocabulary either and are not translated into it."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp, taken from the admitted operation rather than from the wall clock, so a replayed admission re-commits byte-identically. Together with `identity_basis` this is what makes retry identity a property of the record instead of a property of when the request arrived."},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A run converged from a stored v1 record names that predecessor's contract, its ref in v1's own scheme with v1's own clocked id, and its exact content hash — all three or none. Downgrade is pinned `refused` for a reason specific to this family: a v1 record has nowhere to put the recipe binding, the committed-versus-resolved tuple, the outputs, or the tenancy, so re-encoding a v2 run as v1 would discard the entire basis on which it was admitted and present the remainder as the same fact.","required":["from_schema_version","from_run_ref","from_content_hash","predecessor_reached_execution","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.transformation-run.v1"},{"type":"null"}]},"from_run_ref":{"oneOf":[{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"predecessor_reached_execution":{"const":false,"description":"Pinned false unconditionally, including on a fresh v2 run where there is no predecessor to describe. No v1 record ever executed: `executed` and `materialized` were reserved words that plane never set, and its `execution` block pinned `source_contacted`, `data_moved` and `object_instances` to false, false and zero. A convergence that carried v1 outputs forward would be inventing them, so the contract states in the bytes that there were none."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_run_ref":{"type":"null"},"from_content_hash":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.transformation-run.v1"},"from_run_ref":{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"constants":{"type":"object","additionalProperties":false,"required":["lifecycle_id","nonclaim_authority_token","nonclaim_semantic_correctness_token"],"properties":{"lifecycle_id":{"const":"transformation_run_execution_lifecycle.v2","description":"A DISTINCT LIFECYCLE ID FROM BOTH DEFINITION FAMILIES. Three families, three lifecycle ids, three vocabularies with no shared member — carried in the bytes so the distinctness is checkable from a stored record rather than argued from prose."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_semantic_correctness_token":{"const":"semantic_correctness"}}},"authority_nonclaim":{"const":"transformation_run_grants_no_authority"},"truth_nonclaim":{"const":"transformation_run_attests_boundary_facts_not_universal_correctness"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","semantic_correctness","training_consent","perpetual_permission","provider_deletion","model_unlearning","source_rights","definition_substitution_permitted","downstream_admission","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"semantic_correctness"}},{"contains":{"const":"training_consent"}},{"contains":{"const":"perpetual_permission"}},{"contains":{"const":"provider_deletion"}},{"contains":{"const":"model_unlearning"}}],"description":"Six mandatory members, and four of them are this family's alone. `perpetual_permission` because a prior transformation receipt is not permission for future use. `provider_deletion` and `model_unlearning` because canon's non-negotiable 21 says a receipt proves only its declared fact and never hidden provider behaviour or unlearning by implication — recall, quarantine, deletion and retraining are distinct observable actions and none of them proves a model forgot. `semantic_correctness` because admitting that a transformation happened is not admitting that its output is true."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. Substituting the recipe binding, the resolved tuple, the mapping set or the output tenancy all break it."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<TransformationRunV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transformation_run_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transformation_run_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transformation_run_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_basis: serde_json::from_value::<TransformationRunV2IdentityBasis>(
+                object
+                    .remove(r#"identity_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_recipe_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_recipe_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_recipe_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_recipe_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_admitted_head_before: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_recipe_admitted_head_before"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_recipe_admitted_head_before"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_committed_semantic_component_set_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipe_committed_semantic_component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"recipe_committed_semantic_component_set_snapshot_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_committed_semantic_component_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipe_committed_semantic_component_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"recipe_committed_semantic_component_set_hash"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_semantic_component_set_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_semantic_component_set_snapshot_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"resolved_semantic_component_set_snapshot_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_semantic_component_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_semantic_component_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_semantic_component_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_committed_connector_mapping_revision_refs:
+                serde_json::from_value::<Vec<String>>(
+                    object
+                        .remove(r#"recipe_committed_connector_mapping_revision_refs"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(
+                                r#"recipe_committed_connector_mapping_revision_refs"#,
+                            )
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            resolved_connector_mapping_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_connector_mapping_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"resolved_connector_mapping_revision_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_revision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_revision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_data_view_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            institutional_learning_boundary_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"institutional_learning_boundary_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"institutional_learning_boundary_profile_ref"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_learning_policy_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effective_learning_policy_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"effective_learning_policy_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_source_rights_claim_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"learning_source_rights_claim_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"learning_source_rights_claim_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            input_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"input_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"input_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_intent: serde_json::from_value::<TransformationRunV2OutputIntent>(
+                object
+                    .remove(r#"output_intent"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_intent"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_object_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"output_object_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_object_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_dataset_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"output_dataset_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_dataset_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_distilled_dataset_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"output_distilled_dataset_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"output_distilled_dataset_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"output_artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derivative_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"derivative_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derivative_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            impact_graph_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"impact_graph_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"impact_graph_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            execution_status: serde_json::from_value::<TransformationRunV2ExecutionStatus>(
+                object
+                    .remove(r#"execution_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"execution_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<TransformationRunV2Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<TransformationRunV2Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<TransformationRunV2AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<TransformationRunV2TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<Vec<TransformationRunV2DoesNotAssertItem>>(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2SchemaVersion {
+    #[serde(rename = r#"ioi.transformation-run.v2"#)]
+    IoiTransformationRunV2,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV2IdentityBasis {
+    pub derived_from: TransformationRunV2IdentityBasisDerivedFrom,
+    pub idempotency_key_hash: String,
+    pub refused_basis: TransformationRunV2IdentityBasisRefusedBasis,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV2IdentityBasis {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `trun_{nanos:x}` — the hex of the epoch nanosecond count at create — so the same plan retried after a dropped response admitted a SECOND execution of the same intent, and the two were indistinguishable afterwards. This block pins the only admissible basis and carries the hash of the idempotency key the id derives from, so a replayed admission is recognisable as the run it already is.","required":["derived_from","idempotency_key_hash","refused_basis"],"properties":{"derived_from":{"const":"owner_ref_and_idempotency_key"},"idempotency_key_hash":{"$ref":"#/$defs/sha256"},"refused_basis":{"const":"wall_clock_nanoseconds"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            derived_from: serde_json::from_value::<TransformationRunV2IdentityBasisDerivedFrom>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            idempotency_key_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"idempotency_key_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"idempotency_key_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refused_basis: serde_json::from_value::<TransformationRunV2IdentityBasisRefusedBasis>(
+                object
+                    .remove(r#"refused_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refused_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2IdentityBasisDerivedFrom {
+    #[serde(rename = r#"owner_ref_and_idempotency_key"#)]
+    OwnerRefAndIdempotencyKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2IdentityBasisRefusedBasis {
+    #[serde(rename = r#"wall_clock_nanoseconds"#)]
+    WallClockNanoseconds,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2OutputIntent {
+    #[serde(rename = r#"ontology_objects"#)]
+    OntologyObjects,
+    #[serde(rename = r#"projection"#)]
+    Projection,
+    #[serde(rename = r#"evaluation_dataset"#)]
+    EvaluationDataset,
+    #[serde(rename = r#"training_material"#)]
+    TrainingMaterial,
+    #[serde(rename = r#"distilled_dataset"#)]
+    DistilledDataset,
+    #[serde(rename = r#"export_bundle"#)]
+    ExportBundle,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2ExecutionStatus {
+    #[serde(rename = r#"queued"#)]
+    Queued,
+    #[serde(rename = r#"running"#)]
+    Running,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV2Migration {
+    pub from_schema_version: Option<TransformationRunV2MigrationFromSchemaVersion>,
+    pub from_run_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub predecessor_reached_execution: TransformationRunV2MigrationPredecessorReachedExecution,
+    pub compatibility: TransformationRunV2MigrationCompatibility,
+    pub reinterprets_predecessor: TransformationRunV2MigrationReinterpretsPredecessor,
+    pub downgrade_to_predecessor: TransformationRunV2MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV2Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A run converged from a stored v1 record names that predecessor's contract, its ref in v1's own scheme with v1's own clocked id, and its exact content hash — all three or none. Downgrade is pinned `refused` for a reason specific to this family: a v1 record has nowhere to put the recipe binding, the committed-versus-resolved tuple, the outputs, or the tenancy, so re-encoding a v2 run as v1 would discard the entire basis on which it was admitted and present the remainder as the same fact.","required":["from_schema_version","from_run_ref","from_content_hash","predecessor_reached_execution","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.transformation-run.v1"},{"type":"null"}]},"from_run_ref":{"oneOf":[{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"predecessor_reached_execution":{"const":false,"description":"Pinned false unconditionally, including on a fresh v2 run where there is no predecessor to describe. No v1 record ever executed: `executed` and `materialized` were reserved words that plane never set, and its `execution` block pinned `source_contacted`, `data_moved` and `object_instances` to false, false and zero. A convergence that carried v1 outputs forward would be inventing them, so the contract states in the bytes that there were none."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_run_ref":{"type":"null"},"from_content_hash":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.transformation-run.v1"},"from_run_ref":{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_schema_version: serde_json::from_value::<
+                Option<TransformationRunV2MigrationFromSchemaVersion>,
+            >(
+                object
+                    .remove(r#"from_schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_run_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_reached_execution: serde_json::from_value::<
+                TransformationRunV2MigrationPredecessorReachedExecution,
+            >(
+                object
+                    .remove(r#"predecessor_reached_execution"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_reached_execution"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<TransformationRunV2MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                TransformationRunV2MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                TransformationRunV2MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2MigrationFromSchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.transformation-run.v1"#)]
+    IoiHypervisorOdkTransformationRunV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV2MigrationPredecessorReachedExecution {
+    False,
+}
+
+impl serde::Serialize for TransformationRunV2MigrationPredecessorReachedExecution {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV2MigrationPredecessorReachedExecution {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"converged_from_v1"#)]
+    ConvergedFromV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransformationRunV2MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for TransformationRunV2MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV2MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct TransformationRunV2Constants {
+    pub lifecycle_id: TransformationRunV2ConstantsLifecycleId,
+    pub nonclaim_authority_token: TransformationRunV2ConstantsNonclaimAuthorityToken,
+    pub nonclaim_semantic_correctness_token:
+        TransformationRunV2ConstantsNonclaimSemanticCorrectnessToken,
+}
+
+impl<'de> serde::Deserialize<'de> for TransformationRunV2Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["lifecycle_id","nonclaim_authority_token","nonclaim_semantic_correctness_token"],"properties":{"lifecycle_id":{"const":"transformation_run_execution_lifecycle.v2","description":"A DISTINCT LIFECYCLE ID FROM BOTH DEFINITION FAMILIES. Three families, three lifecycle ids, three vocabularies with no shared member — carried in the bytes so the distinctness is checkable from a stored record rather than argued from prose."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_semantic_correctness_token":{"const":"semantic_correctness"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            lifecycle_id: serde_json::from_value::<TransformationRunV2ConstantsLifecycleId>(
+                object
+                    .remove(r#"lifecycle_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaim_authority_token: serde_json::from_value::<
+                TransformationRunV2ConstantsNonclaimAuthorityToken,
+            >(
+                object
+                    .remove(r#"nonclaim_authority_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"nonclaim_authority_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaim_semantic_correctness_token: serde_json::from_value::<
+                TransformationRunV2ConstantsNonclaimSemanticCorrectnessToken,
+            >(
+                object
+                    .remove(r#"nonclaim_semantic_correctness_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"nonclaim_semantic_correctness_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2ConstantsLifecycleId {
+    #[serde(rename = r#"transformation_run_execution_lifecycle.v2"#)]
+    TransformationRunExecutionLifecycleV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2ConstantsNonclaimAuthorityToken {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2ConstantsNonclaimSemanticCorrectnessToken {
+    #[serde(rename = r#"semantic_correctness"#)]
+    SemanticCorrectness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2AuthorityNonclaim {
+    #[serde(rename = r#"transformation_run_grants_no_authority"#)]
+    TransformationRunGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2TruthNonclaim {
+    #[serde(rename = r#"transformation_run_attests_boundary_facts_not_universal_correctness"#)]
+    TransformationRunAttestsBoundaryFactsNotUniversalCorrectness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TransformationRunV2DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"semantic_correctness"#)]
+    SemanticCorrectness,
+    #[serde(rename = r#"training_consent"#)]
+    TrainingConsent,
+    #[serde(rename = r#"perpetual_permission"#)]
+    PerpetualPermission,
+    #[serde(rename = r#"provider_deletion"#)]
+    ProviderDeletion,
+    #[serde(rename = r#"model_unlearning"#)]
+    ModelUnlearning,
+    #[serde(rename = r#"source_rights"#)]
+    SourceRights,
+    #[serde(rename = r#"definition_substitution_permitted"#)]
+    DefinitionSubstitutionPermitted,
+    #[serde(rename = r#"downstream_admission"#)]
+    DownstreamAdmission,
+    #[serde(rename = r#"marketplace_truth"#)]
+    MarketplaceTruth,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -118554,6 +122435,462 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-content-hash-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-qualified-scheme-ref-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-status-advanced-past-draft.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-v2-schema-version-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-genesis-authored-at-v2.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-successor-converged-from-v1.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-connector-mapping-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-downgrade-to-predecessor-permitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-generic-recipe-scheme-identity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-genesis-carries-a-predecessor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-inline-connector-mapping.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-succession-partial-tuple.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-v1-schema-version-on-v2.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-revision-ref-under-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("data_recipe.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-count-disagrees-with-the-set.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("data_recipe.semantic_snapshot.component_count_matches_the_enumerated_set"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-omits-a-named-policy-view.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("data_recipe.semantic_snapshot.covers_exactly_the_named_components"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/data-recipe/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("data_recipe.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/positive-stored-v1-declared.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-canonical-mapping-scheme-ref-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-revision-ref-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-status-outside-the-pinned-value.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-v2-schema-version-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-genesis-authored-at-v2.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-successor-converged-from-v1.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-downgrade-to-predecessor-permitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-legacy-connector-mapping-scheme-identity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-ontology-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-v1-schema-version-on-v2.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-wall-clock-identity-basis.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-duplicate-target-property.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("connector_mapping.field_mappings.no_property_is_targeted_twice"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-revision-ref-under-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("connector_mapping.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-snapshot-omits-the-source-schema.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("connector_mapping.semantic_snapshot.covers_exactly_the_named_components"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/connector-mapping/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("connector_mapping.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-dry-run-ready.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-planned.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-recipe-binding-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-reserved-executed-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-v2-schema-version-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-completed-run-freezes-the-recipe-tuple.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-rejected-run-converged-from-v1.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-downgrade-to-predecessor-permitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-content-hash-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-family-head-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-truncated-admitted-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-lifecycle-state-on-v2.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-schema-version-on-v2.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-wall-clock-retry-identity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-outputs.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.outputs.a_completed_run_owns_at_least_one_output"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-receipts.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.receipts.a_completed_run_emits_them"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-connector-mapping-substitution.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.connector_mappings.resolved_set_is_exactly_the_recipe_set"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-cross-tenant-output.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.tenancy.outputs_stay_in_the_running_tenant"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-boundary-profile.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.learning.a_learning_bearing_run_binds_its_boundary"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-effective-policy-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.learning.a_learning_bearing_run_binds_its_effective_policy"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.semantic_tuple.resolved_snapshot_is_the_recipe_snapshot"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.semantic_tuple.resolved_equals_the_recipe_commitment"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/transformation-run/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("transformation_run.content_hash.commits_the_whole_run"),
     },
 ];
 
@@ -131296,6 +135633,633 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-content-hash-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-content-hash-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-qualified-scheme-ref-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-qualified-scheme-ref-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-status-advanced-past-draft.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-status-advanced-past-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-v2-schema-version-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-v2-schema-version-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-genesis-authored-at-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-genesis-authored-at-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-successor-converged-from-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-successor-converged-from-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-connector-mapping-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-connector-mapping-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-downgrade-to-predecessor-permitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-downgrade-to-predecessor-permitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-generic-recipe-scheme-identity.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-generic-recipe-scheme-identity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-genesis-carries-a-predecessor.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-genesis-carries-a-predecessor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-inline-connector-mapping.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-inline-connector-mapping.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-succession-partial-tuple.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-succession-partial-tuple.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-v1-schema-version-on-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-v1-schema-version-on-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-revision-ref-under-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-revision-ref-under-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-count-disagrees-with-the-set.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-count-disagrees-with-the-set.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-omits-a-named-policy-view.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-omits-a-named-policy-view.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/data-recipe/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/positive-stored-v1-declared.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/positive-stored-v1-declared.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-canonical-mapping-scheme-ref-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-canonical-mapping-scheme-ref-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-revision-ref-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-revision-ref-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-status-outside-the-pinned-value.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-status-outside-the-pinned-value.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-v2-schema-version-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-v2-schema-version-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-genesis-authored-at-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-genesis-authored-at-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-successor-converged-from-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-successor-converged-from-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-downgrade-to-predecessor-permitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-downgrade-to-predecessor-permitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-legacy-connector-mapping-scheme-identity.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-legacy-connector-mapping-scheme-identity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-ontology-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-ontology-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-v1-schema-version-on-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-v1-schema-version-on-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-wall-clock-identity-basis.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-wall-clock-identity-basis.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-duplicate-target-property.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-duplicate-target-property.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-revision-ref-under-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-revision-ref-under-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-snapshot-omits-the-source-schema.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-snapshot-omits-the-source-schema.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/connector-mapping/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-dry-run-ready.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-dry-run-ready.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-planned.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-planned.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-recipe-binding-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-recipe-binding-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-reserved-executed-status.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-reserved-executed-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-v2-schema-version-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-v2-schema-version-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-completed-run-freezes-the-recipe-tuple.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-completed-run-freezes-the-recipe-tuple.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-rejected-run-converged-from-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-rejected-run-converged-from-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-downgrade-to-predecessor-permitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-downgrade-to-predecessor-permitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-content-hash-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-content-hash-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-family-head-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-family-head-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-truncated-admitted-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-truncated-admitted-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-lifecycle-state-on-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-lifecycle-state-on-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-schema-version-on-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-schema-version-on-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-wall-clock-retry-identity.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-wall-clock-retry-identity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-outputs.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-outputs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-receipts.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-receipts.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-connector-mapping-substitution.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-connector-mapping-substitution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-cross-tenant-output.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-cross-tenant-output.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-boundary-profile.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-boundary-profile.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-effective-policy-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-effective-policy-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/transformation-run/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -132931,6 +137895,12 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/domain-app-runtime/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-runtime/v2","title":"DomainAppRuntimeV2","description":"THE CANONICAL RUNTIME, AND THE OBJECT A MOUNT RECEIPT CAN NOW NAME EXACTLY. The runtime — never the DomainApp — owns mounted/serving state, the governance refs that permitted it, its route and its receipt chain. Four things v1 could not express are structural here. Identity is one scheme-prefixed `domain_app_runtime_id` derived from the caller's owner and idempotency key, so a retried mount resolves to the runtime it already created instead of minting a second one from the wall clock. `revision` counts this runtime's admitted transitions, so a receipt can bind the exact revision it attests rather than merely the app. `external_ingress_ref` exists as its own required field, so canon's rule that internal route and external ingress are DISTINCT admissions has a wire form: serving assigns the internal route and leaves ingress null, and a record where ingress appeared as a consequence of serving is refused by the conditionals below. And `content_hash` commits the whole runtime, which is the value a receipt binds so a relying party can check offline that the receipt and the runtime describe the same state.","x-ioi-schema-version":"ioi.domain-app-runtime.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","domain_app_runtime_id","domain_app_ref","owner_ref","revision","state","mounted","serving","internal_route_ref","external_ingress_ref","approval_request_ref","release_control_ref","authority_refs","receipt_refs","rollback_posture","mounted_at","serve_started_at","serve_stopped_at","unmounted_at","unmount_reason","killed_at","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.domain-app-runtime.v2"},"domain_app_runtime_id":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{16}$","description":"ONE IDENTITY FIELD, AND A DERIVED ONE. Sixteen hex digits from the caller's owner and idempotency key, so the same logical mount submitted twice resolves to one runtime. v1 minted this from `nanos()`, which made every retry a second runtime and made replay impossible to distinguish from a genuine second mount."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The app this runtime is one governed mount of. At most one runtime per DomainApp may be mounted at a time."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"Server-resolved from the authenticated caller that admitted the mount. It is what makes the runtime identity a mount receipt binds OWNER-QUALIFIED: two owners can hold runtimes whose ids collide only if they also share an owner, which they do not."},"revision":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"This runtime's own transition counter: 0 at mount, and one higher at every admitted transition after it. A mount receipt binds the exact revision it attests, so an app with several runtimes and a runtime with several transitions are both addressable."},"state":{"enum":["mounted","serving","unmounted","killed"],"description":"RUNTIME STATE — never the DomainApp's inventory status. The two vocabularies are disjoint on purpose (G-6): no member of this enum appears in `DomainApp.status` and no member of that one appears here, so a reader cannot conflate 'admitted' with 'running'."},"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"internal_route_ref":{"oneOf":[{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"Assigning an internal route is part of the mount's governance. Required at every revision with an explicit null so 'not routed' can never be read out of an absent key."},"external_ingress_ref":{"oneOf":[{"type":"string","pattern":"^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"A SEPARATE ADMISSION THIS ENVELOPE RECORDS BUT DOES NOT GRANT. v1 had no field at all, so serving and ingress were inseparable in the record. Here serving leaves it null and the conditional below refuses a record that acquired ingress merely by serving."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Re-read and re-checked live at each serve transition. A mount's earlier permission is never inherited forward as standing permission to serve."},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"authority_refs":{"$ref":"#/$defs/refList","description":"The authority refs the admitting ApprovalRequest recorded. Recording them is evidence of what permitted the mount; it is not a grant."},"receipt_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"description":"At least one: a runtime exists because a mount was receipted, so there is no unreceipted path onto this ladder."},"rollback_posture":{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's own name for what v1 called `rollback`.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}},"mounted_at":{"$ref":"#/$defs/timestamp","description":"The ADMISSION stamp of the mount, taken from the admitted operation rather than from the wall clock, so a replayed mount is byte-identical to the one it replays."},"serve_started_at":{"$ref":"#/$defs/nullableTimestamp"},"serve_stopped_at":{"$ref":"#/$defs/nullableTimestamp"},"unmounted_at":{"$ref":"#/$defs/nullableTimestamp"},"unmount_reason":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"killed_at":{"$ref":"#/$defs/nullableTimestamp"},"authority_nonclaim":{"const":"domain_app_runtime_grants_no_authority"},"truth_nonclaim":{"const":"domain_app_runtime_is_not_registration_or_launchability","description":"A mounted, serving Domain App is still not product inventory. It becomes launchable only through the ordinary `extension_application` registration and the product-surface compiler."},"does_not_assert":{"type":"array","minItems":5,"maxItems":9,"uniqueItems":true,"items":{"enum":["authority","registration","launchability","external_ingress","app_behaviour","semantic_validity","package_admission","installation","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"registration"}},{"contains":{"const":"launchability"}},{"contains":{"const":"external_ingress"}},{"contains":{"const":"app_behaviour"}}],"description":"Five mandatory members. `external_ingress` is the one this family needs that no other does: the whole point of the separate field is that a serving runtime asserts nothing about ingress."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator. It is the value a `DomainAppMountReceipt` binds, so a relying party can check offline that the receipt and the runtime describe the same admitted state."}},"allOf":[{"title":"serving implies mounted, and names its internal route","if":{"required":["serving"],"properties":{"serving":{"const":true}}},"then":{"properties":{"mounted":{"const":true},"state":{"const":"serving"},"internal_route_ref":{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}}}},{"title":"a runtime that is not serving holds no internal route","if":{"required":["serving"],"properties":{"serving":{"const":false}}},"then":{"properties":{"internal_route_ref":{"type":"null"}}}},{"title":"an unmounted runtime is not serving and records when the mount ended","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"serving":{"const":false},"unmounted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}},{"title":"the killed state is terminal and stamped","if":{"required":["state"],"properties":{"state":{"const":"killed"}}},"then":{"properties":{"mounted":{"const":false},"serving":{"const":false},"killed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}},{"title":"external ingress is never a consequence of the mount admission alone","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"external_ingress_ref":{"type":"null"}}}}]}"##),
     ("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v1","title":"DomainAppMountReceiptV1","description":"THE PREDECESSOR, REGISTERED SO THE DIVERGENCE IT CARRIES CAN BE NAMED — DEPRECATED AND READ-ONLY. `DomainAppMountReceiptEnvelope` requires `domain_app_runtime_ref` and says why in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. THIS CONTRACT HAS NO SUCH FIELD. Every v1 receipt names the app, the approval and the release control, and is silent about the runtime — so the whole receipt chain of a twice-mounted app is one undifferentiated set, and a `domain_app.serve_stop` receipt cannot be attributed to the mount it stopped. Its `state_root` compounds the gap: the preimage is the five values pipe-joined as text, so it commits exactly what the receipt already says and nothing about the runtime state the transition produced, and a pipe inside any component makes two different transitions share a preimage. AUTHORING AT v1 IS CLOSED. Stored v1 receipts remain readable exactly as admitted; they are immutable evidence that a transition happened, and they stay exactly as unable to say which runtime it happened to.","x-ioi-schema-version":"ioi.hypervisor.domain-app-mount-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","action","domain_app_ref","approval_request_ref","release_control_ref","state_root","at"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app-mount-receipt.v1"},"object":{"const":"ioi.hypervisor.domain_app_mount_receipt"},"id":{"type":"string","pattern":"^mrcpt_[0-9a-f]{1,32}$","description":"Minted from `nanos()`, so a replayed transition emits a second receipt with a different id rather than resolving to the one already admitted."},"ref":{"type":"string","pattern":"^mount-receipt://mrcpt_[0-9a-f]{1,32}$"},"action":{"enum":["domain_app.mount","domain_app.serve_start","domain_app.serve_stop","domain_app.unmount","domain_app.kill_stop_serving","domain_app.kill_unmount"],"description":"Canon's six. Enforcement emits the same receipt family as a voluntary stop, distinguished only by the action name — this half was already correct at v1."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The app. And, at v1, the only object this receipt can name."},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512},"state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"A digest over `action|domain_app_ref|approval_request_ref|release_control_ref|at` joined with pipes. It commits the receipt's own visible fields and nothing else — not the runtime, not its revision, not the state the transition produced — so recomputing it proves the four strings were not edited and proves nothing about what was admitted."},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"Wall-clock at receipt construction, not the admission stamp, which is why a v1 receipt for a replayed transition is byte-different from the receipt it replays."}}}"#),
     ("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","title":"DomainAppMountReceiptV2","description":"THE RECEIPT THAT BINDS THE RUNTIME IT TRANSITIONED. Canon requires `domain_app_runtime_ref` and gives the reason in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. v1 had no such field, so this contract adds it and then adds the three facts that make the binding EXACT rather than merely present. `domain_app_runtime_owner_ref` makes the runtime identity owner-qualified, so a receipt cannot be read against a same-named runtime under another owner. `domain_app_runtime_revision` names which transition of that runtime this receipt attests, so a serve-stop receipt is attributable to the serve it stopped. `domain_app_runtime_content_hash` commits the runtime state the transition PRODUCED, so a relying party holding the receipt and the runtime can check offline that they describe the same admitted state instead of trusting that they do. `domain_app_admitted_head_before` names the exact chain position the transition was admitted against, which is what makes the receipt locatable in the app's own admitted history rather than merely consistent with it. `state_root` is a canonical-JSON commitment over every other field under a domain separator — a real commitment a verifier recomputes, replacing v1's pipe-joined text digest whose preimage was ambiguous and whose material said nothing about the runtime. It attests that a named transition was admitted for a named runtime under a named approval and release control at a named time. It does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran.","x-ioi-schema-version":"ioi.domain-app-mount-receipt.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"required":["schema_version","mount_receipt_id","action","domain_app_ref","domain_app_runtime_ref","domain_app_runtime_owner_ref","domain_app_runtime_revision","domain_app_runtime_content_hash","domain_app_admitted_head_before","approval_request_ref","release_control_ref","state_root","at","does_not_assert"],"properties":{"schema_version":{"const":"ioi.domain-app-mount-receipt.v2"},"mount_receipt_id":{"type":"string","pattern":"^mount-receipt://mrcpt_[0-9a-f]{16}$","description":"One scheme-prefixed identity, derived from the caller's owner, idempotency key and this transition's action — so a replayed transition resolves to the receipt it already emitted rather than appending a second one that attests the same fact under a different id."},"action":{"enum":["domain_app.mount","domain_app.serve_start","domain_app.serve_stop","domain_app.unmount","domain_app.kill_stop_serving","domain_app.kill_unmount"],"description":"Canon's six. Governance enforcement drives the same transitions and emits the same receipt family as a voluntary stop, so an enforced stop leaves exactly the record a voluntary one does, distinguished only by the action name."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"domain_app_runtime_ref":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{16}$","description":"THE FIELD v1 DID NOT HAVE. Required, never nullable: a transition always has a runtime, and a receipt that could omit it would reintroduce exactly the ambiguity this version exists to remove."},"domain_app_runtime_owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"OWNER-QUALIFIED IDENTITY. The runtime ref alone is an id in a namespace; the owner is what makes it resolvable to one runtime rather than to whichever runtime a reader happens to look up."},"domain_app_runtime_revision":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Which admitted transition of that runtime this receipt attests. A mount is revision 0 by construction, since a mount creates the runtime it transitions."},"domain_app_runtime_content_hash":{"$ref":"#/$defs/sha256","description":"The `content_hash` of the runtime record this transition PRODUCED, not of the one it started from. It is what makes 'this receipt is about this runtime state' checkable from bytes: substitute the runtime and the hash stops matching; edit the runtime and it stops matching too."},"domain_app_admitted_head_before":{"type":"string","pattern":"^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$","description":"The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. EXACTLY ONE SHA-256, sixty-four lowercase hex digits, with or without the `sha256:` prefix the substrate happens to issue; the prefix is tolerated only because reformatting a head would stop it matching the chain it names, never because the width is negotiable. A range like sixteen-to-a-hundred-and-twenty-eight would admit a truncated head, and a truncated head names a prefix of the chain rather than a position in it — which is exactly the ambiguity this field exists to remove. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"state_root":{"$ref":"#/$defs/sha256","description":"A canonical-JSON SHA-256 over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. v1's preimage was the five values joined with pipes, which is ambiguous under any component containing a pipe and commits nothing about the runtime; this one commits the whole receipt including the three runtime bindings above."},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of the transition, taken from the admitted operation rather than from the wall clock, so a replayed transition re-emits a byte-identical receipt."},"does_not_assert":{"type":"array","minItems":4,"maxItems":8,"uniqueItems":true,"items":{"enum":["app_behaviour","semantic_validity","external_surface_exists","domain_action_ran","authority","registration","launchability","package_admission"]},"allOf":[{"contains":{"const":"app_behaviour"}},{"contains":{"const":"semantic_validity"}},{"contains":{"const":"external_surface_exists"}},{"contains":{"const":"domain_action_ran"}}],"description":"Canon's four nonclaims, carried as fields so the receipt states its own limits in the bytes a relying party reads: it does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran."}},"allOf":[{"title":"a mount receipt attests the runtime's genesis revision","if":{"required":["action"],"properties":{"action":{"const":"domain_app.mount"}}},"then":{"properties":{"domain_app_runtime_revision":{"type":"integer","minimum":0,"maximum":0,"description":"A mount creates the runtime it transitions, so its receipt attests revision 0 and nothing else."}}}}]}"##),
+    ("schema://ioi/foundations/objects/data-recipe/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/data-recipe/v1","title":"DataRecipeV1","description":"THE PREDECESSOR, REGISTERED AS THE RECORD THE ODK LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.data-recipe.v1` was a local Rust constant with no `_meta/schemas/` entry behind it, so every DataRecipe claim rested on a string literal. This contract registers the stored bytes verbatim, divergences and all, for the three reasons the M05.6 predecessors were registered: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the immutable content-addressed definition contract' is a checked expectation with fixtures rather than a claim in prose. It diverges from the canonical `DataRecipeEnvelope` in six ways a successor has to fix rather than paper over. The stored `ref` uses the BARE `recipe://` scheme, which the term-boundary ruling calls a defect — the admission prefix and the stored ref disagree, and the stored one is what a reader resolves. Identity is carried twice, as a bare `id` and a separate `ref`, where canon carries `data_recipe_id` once. There is NO `revision_ref`, NO `predecessor_revision_ref` and NO `content_hash`: the record is patched in place, so a v1 recipe is a MUTABLE definition and two runs naming the same recipe may have executed different pipelines. There is no `semantic_component_set_snapshot_ref` or `semantic_component_set_hash`, so a v1 recipe resolves whatever ontology, mapping, object-model and policy-view heads are current at execution time — the exact thing non-negotiable 3 forbids. `connector_mappings` and `policy_bound_views` are INLINE passthrough arrays rather than exact mapping and view revision refs, which is the folded-family defect the definition/run split exists to end. And `status` never advances past `draft` because nothing writes it. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.data-recipe.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","ontology_ref","output_kind","source_refs","connector_mappings","policy_bound_views","projection_refs","evaluation_dataset_refs","worker_plan_refs","workflow_schema_refs","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.data-recipe.v1"},"object":{"const":"ioi.hypervisor.odk.data_recipe"},"id":{"type":"string","pattern":"^recipe_[0-9a-f]{16}$","description":"Derived from the caller's owner ref plus its idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted. The id prefix is `recipe`, not `data_recipe` — the unqualified spelling reaches into the identity itself."},"ref":{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$","description":"THE GENERIC SCHEME, PINNED AS THE DEFECT IT IS. The admission path declares `data-recipe://` as its ref prefix, but the record this lane persists writes `recipe://{id}`, and the stored value is the one a reader resolves. `recipe://` is a typed legacy DataRecipe alias at best; registering the stored spelling exactly is what makes 'the bare recipe name is unqualified' a checked fact rather than a note. v2 carries `data_recipe_id` in the owner-qualified `data-recipe://` scheme and refuses this one."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PINNED VALUE. Canon's registry vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."},"ontology_ref":{"type":"string","maxLength":512,"description":"ONE ontology ref, checked for local resolvability only: no owner resolution, no committed hash, and no requirement that it name an exact admitted revision. A v1 recipe therefore follows whatever the named ontology's head happens to be when a run reads it. Canon carries `ontology_refs` as a set of EXACT revisions."},"output_kind":{"enum":["ontology_objects","projection","evaluation_dataset","training_material"],"description":"The four `RECIPE_OUTPUT_KINDS` this lane accepts, verbatim. Canon carries `output_object_model_refs` and `output_dataset_contract_refs` — typed output CONTRACTS — where v1 carries one coarse kind word."},"source_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"connector_mappings":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"INLINE MAPPING, AND A PASSTHROUGH AT THAT. The v1 route copies whatever the caller sent under this key without validating it, and the code comment says so outright: ConnectorMapping is embedded as an opaque array because it is not a separate family here. This contract registers it as the ref list it is USED as, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed with a typed refusal; that population needs an explicit convergence, which this contract records rather than performs. Canon's member is `connector_mapping_refs`, and v2 requires each entry to be an EXACT mapping revision."},"policy_bound_views":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"The same inline passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."},"projection_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"evaluation_dataset_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"worker_plan_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"workflow_schema_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"A SEPARATE `updated_at` IS THE MUTABILITY TELL. An immutable content-addressed revision has one admission stamp and never a later one; this family carries a stamp that the in-place patch path rewrites."}}}"#),
+    ("schema://ioi/foundations/objects/data-recipe/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/data-recipe/v2","title":"DataRecipeV2","description":"THE IMMUTABLE, CONTENT-ADDRESSED DEFINITION — ONE HALF OF THE DEFINITION/RUN SPLIT. Canon states the whole family in two sentences: a released DataRecipe revision is immutable and content-addressed, and it declares transformations and output contracts but contains no concrete dataset, distilled output, artifact, authority grant, run, or receipt. v1 satisfied neither half — it was patched in place and it embedded its mappings and views as opaque passthrough arrays. This version carries canon's member set under canon's own names and then makes four things checkable OFFLINE, from the bytes, with no daemon consulted. Identity is OWNER-QUALIFIED AND REVISION-EXACT: `data_recipe_id` names the family, `revision_ref` names one revision of THAT family, and a portable invariant refuses a `revision_ref` that does not extend its own `data_recipe_id`. The SEMANTIC-COMPONENT SNAPSHOT IS EXACT AND COMPLETE: `semantic_component_refs` must cover exactly the union of the five readable ref fields — no more, no fewer — so a recipe that names a mapping in the readable field and omits it from the committed snapshot fails, which is the precise mechanism by which a released recipe cannot silently resolve a newer semantic head. SUCCESSION IS EXPLICIT: a revision either is a genesis or names its predecessor's exact ref AND its predecessor's exact content hash, both, with a stated reason drawn from the five changes non-negotiable 3 says require a successor. And the NONCLAIMS ARE FIELDS: a relying party holding only the bytes reads what this definition declines to assert rather than inferring it. THREE THINGS ARE REFUSED BY CONSTRUCTION. The generic `recipe://` scheme cannot appear as an identity, because every identity pattern here is anchored on `data-recipe://` and `constants.refused_generic_recipe_scheme` names the rejected spelling in the bytes. An INLINE connector mapping cannot appear, because `connector_mapping_revision_refs` admits only strings matching an exact `mapping://…/revision/…` form — a structured member is a schema refusal, not a coercion. And a FAMILY-HEAD or mutable-latest reference cannot appear anywhere a revision is required, because every such pattern demands the `/revision/` segment. This contract is a definition. It grants no authority, it is not training consent, it does not carry its own runs' outputs, and registering it claims no runtime implementation of the split it describes.","x-ioi-schema-version":"ioi.data-recipe.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dataRecipeFamilyRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","data_recipe_id","revision_ref","owner_ref","tenant_ref","name","ontology_revision_refs","input_source_types","connector_mapping_revision_refs","output_object_model_refs","output_dataset_contract_refs","transformation_steps","policy_bound_data_view_refs","receipt_obligations","semantic_component_set_snapshot_ref","semantic_component_set_hash","semantic_component_refs","semantic_component_count","effective_policy_hash","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.data-recipe.v2"},"data_recipe_id":{"$ref":"#/$defs/dataRecipeFamilyRef","description":"THE FAMILY, IN CANON'S OWN SCHEME. v1 carried a bare `id` plus a `ref` written in the generic `recipe://` scheme the term-boundary ruling forbids. This is the aggregate lineage a revision belongs to; it is never a resolvable pipeline on its own, and nothing may execute against it."},"revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef","description":"ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment is mandatory, which is what refuses a family-head or mutable-latest reference: a bare `data-recipe://acme.intake` does not match this pattern and cannot be admitted where a revision is required. A registered invariant additionally refuses a revision ref that does not extend its own `data_recipe_id`, so a revision cannot be filed under a family it does not belong to."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"OWNER-QUALIFIED IDENTITY. The revision ref alone is an id in a namespace; the owner is what makes it resolvable to one recipe rather than to whichever same-named recipe a reader happens to look up. v1 used the owner to derive an id and then did not store it, so a stored v1 recipe cannot say who owns it."},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The tenancy boundary this definition lives inside. A run carries the same field and commits its outputs to it, which is how cross-tenant output becomes checkable rather than assumed."},"name":{"type":"string","minLength":1,"maxLength":200},"ontology_revision_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"},"description":"EXACT ADMITTED ONTOLOGY REVISIONS, never family refs. v1 carried one `ontology_ref` checked for local resolvability only, so a v1 recipe followed the ontology's head wherever it went. The `/revision/` segment here is the whole difference."},"input_source_types":{"type":"array","minItems":1,"maxItems":5,"uniqueItems":true,"items":{"enum":["connector","document","trace","dataset","artifact"]},"description":"Canon's five input source types, verbatim."},"connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"INLINE MAPPING IS REFUSED HERE, NOT COERCED. v1 embedded `connector_mappings` as an opaque passthrough array — whatever the caller sent, structured members included. This member admits ONLY a string naming an exact `mapping://…/revision/…`, so an inline mapping object is a schema refusal and a family-head mapping ref is a schema refusal. A ConnectorMapping is a separate family with its own identity and its own lifecycle; folding one into a recipe is the conflation the definition/run split exists to end."},"output_object_model_refs":{"$ref":"#/$defs/refList","description":"Typed output CONTRACTS. v1 carried one coarse `output_kind` word instead."},"output_dataset_contract_refs":{"$ref":"#/$defs/refList","description":"Output dataset CONTRACTS — schema or object-model refs. Never a concrete dataset: canon says a recipe revision contains output contracts and never concrete run outputs, and `does_not_assert` carries `run_outputs` so the record says so itself."},"transformation_steps":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["extract","redact","normalize","dedupe","validate","map","link","export"]},"description":"Canon's eight transformation steps, verbatim. Declaring `redact` reduces exposure; it creates no right and severs no lineage."},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList","description":"The governed lenses this recipe reads through. Naming a view is not being granted it: a run revalidates current authority, rights, revocation and expiry before materialization, and this definition asserts none of that."},"receipt_obligations":{"type":"array","minItems":2,"maxItems":8,"uniqueItems":true,"items":{"enum":["data_recipe_run","transformation","validation","artifact","policy_decision","redaction","export","impact"]},"allOf":[{"contains":{"const":"data_recipe_run"}},{"contains":{"const":"transformation"}}],"description":"Canon's two obligations are mandatory members; the rest are declarable additions. An obligation is a requirement placed on future runs, never a receipt this definition holds."},"semantic_component_set_snapshot_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$","description":"The artifact enumerating the exact revision ref and content hash of every ontology version, ConnectorMapping, object model, schema contract and policy-bound view named by the readable family-ref fields above."},"semantic_component_set_hash":{"$ref":"#/$defs/sha256","description":"The snapshot's own commitment. `content_hash` commits this value, so a released recipe cannot silently resolve a newer mapping or semantic head: changing what the snapshot contains changes this hash, which changes the content hash, which changes the revision."},"semantic_component_refs":{"type":"array","maxItems":320,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"THE FLAT SET THE SNAPSHOT COVERS, CARRIED IN THE RECORD SO THE COVERAGE IS CHECKABLE WITHOUT FETCHING THE ARTIFACT. A registered invariant requires this to equal EXACTLY the union of `ontology_revision_refs`, `connector_mapping_revision_refs`, `output_object_model_refs`, `output_dataset_contract_refs` and `policy_bound_data_view_refs` — same members, same count, nothing extra and nothing dropped. A recipe that reads through a policy view it left out of its own snapshot fails offline."},"semantic_component_count":{"type":"integer","minimum":0,"maximum":320,"description":"The declared size of that set, checked against it by a registered invariant. A count that disagrees with the list is the cheapest possible tell that one of them was edited."},"effective_policy_hash":{"$ref":"#/$defs/sha256","description":"The commitment over the composed policy this revision was released under. Policy composition is deterministic and inspectable, so the composed result has a hash; carrying it means a later reader can tell that the policy moved even when every readable ref still resolves."},"registry_status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four registry members, verbatim. INVENTORY STATUS ONLY: it says where this revision sits in its own registry lifecycle and says nothing about whether any run executed, succeeded, or produced anything. A run's state lives on the run, in a vocabulary that shares no member with this one."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of this revision, taken from the admitted operation rather than from the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp, and a second one would be the mutability tell v1 carried."},"succession":{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Non-negotiable 3 says a changed ontology, ConnectorMapping, object model, schema or policy-bound view REQUIRES a successor recipe; this block is where that succession is stated rather than implied by a bumped counter. A genesis revision has no predecessor and says so in both provenance slots at once. Every other revision names its predecessor's exact ref AND its predecessor's exact content hash, both, plus the reason it exists. Independently nullable slots would admit partial tuples that read as complete — a `connector_mapping_change` naming no predecessor bytes claims a lineage nobody can check — so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","ontology_revision_change","connector_mapping_change","object_model_change","output_contract_change","policy_bound_view_change","transformation_step_change","correction"],"description":"`genesis` plus the five changes non-negotiable 3 names as requiring a successor, plus a step change and a correction. Every member other than `genesis` obliges the full predecessor tuple."},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/dataRecipeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over ITS OWN enumerated fields under ITS OWN domain separator. A successor that names a predecessor ref but no predecessor hash has named a pointer, not bytes."},"supersedes_predecessor":{"type":"boolean","description":"Whether this revision retires the predecessor for new use. False is legitimate — two revisions may stand together while consumers migrate — and either way the predecessor stays addressable, because superseding is not deletion."},"reinterprets_predecessor":{"const":false,"description":"Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning; the predecessor is preserved exactly as admitted."}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A recipe authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned to `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the semantic snapshot, the succession tuple and the commitment — a lossy re-encoding that would present a weaker record as the same fact.","required":["from_schema_version","from_recipe_ref","from_content_hash","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.data-recipe.v1"},{"type":"null"}]},"from_recipe_ref":{"oneOf":[{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$"},{"type":"null"}],"description":"The predecessor is named in the scheme it was ACTUALLY STORED UNDER — the generic `recipe://` this successor exists to stop minting. Rewriting it into `data-recipe://` here would be reinterpreting v1, which is the one thing a convergence may not do."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_recipe_ref":{"type":"null"},"from_content_hash":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.data-recipe.v1"},"from_recipe_ref":{"type":"string","pattern":"^recipe://recipe_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"constants":{"type":"object","additionalProperties":false,"description":"Tokens pinned in the schema so the portable invariants can require them without the invariant language needing literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.","required":["lifecycle_id","refused_generic_recipe_scheme","nonclaim_authority_token","nonclaim_run_outputs_token"],"properties":{"lifecycle_id":{"const":"data_recipe_registry_lifecycle.v2","description":"Names WHICH lifecycle `registry_status` is drawn from. The run family pins a different id over a disjoint vocabulary, so a reader cannot mistake a definition's registry state for an execution's state even when both are called `status` in some projection."},"refused_generic_recipe_scheme":{"const":"recipe://","description":"The spelling this contract refuses as an identity, named in the bytes. `recipe://` is a typed legacy DataRecipe alias and never identifies a generic executable recipe family; here it appears only as the rejected form and, in `migration.from_recipe_ref`, as the honest record of what a v1 predecessor was stored as."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_run_outputs_token":{"const":"run_outputs"}}},"authority_nonclaim":{"const":"data_recipe_grants_no_authority"},"truth_nonclaim":{"const":"data_recipe_is_not_semantic_truth_or_training_consent"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","run_outputs","training_consent","source_rights","semantic_truth","generic_executable_recipe_family","policy_permission","capability_lease_crossing","provider_deletion","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"run_outputs"}},{"contains":{"const":"training_consent"}},{"contains":{"const":"source_rights"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"generic_executable_recipe_family"}}],"description":"Six mandatory members. `run_outputs` is the one this family needs that no other carries: canon says a recipe revision contains output CONTRACTS and never concrete run outputs, and a definition that could be read as holding its runs' results is the exact conflation the split exists to end. `generic_executable_recipe_family` states the term-boundary refusal in the record itself."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered."}}}"##),
+    ("schema://ioi/foundations/objects/connector-mapping/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/connector-mapping/v1","title":"ConnectorMappingV1","description":"THE PREDECESSOR, REGISTERED AS THE RECORD THE CONNECTOR-MAPPING LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.connector-mapping.v1` was a local Rust constant with no `_meta/schemas/` entry behind it. This contract registers the stored bytes verbatim so v2's `successor_of` names a contract that exists, so a convergence can commit this predecessor's EXACT bytes, and so each divergence is a checked expectation rather than prose. Five divergences from the canonical `ConnectorMappingEnvelope` matter. Identity is DERIVED FROM THE WALL CLOCK — `cmap_{nanos:x}` — so a retried declaration mints a SECOND mapping with a different id for the same intent, and two mappings minted in the same nanosecond collide; an idempotent producer cannot exist on this identity. The stored `ref` uses `connector-mapping://` where canon uses `mapping://`. `revision` is an INTEGER MUTATED IN PLACE by the patch path rather than a `revision_ref` naming an immutable successor, so canon's 'each ConnectorMapping revision is immutable' does not hold: revision 2 overwrites revision 1's bytes and revision 1 becomes unaddressable. There is no `content_hash`, no `semantic_component_set_snapshot_ref` and no `semantic_component_set_hash`, so nothing commits which ontology, object-model or policy revision the mapping was declared against. And `status` is pinned to the literal `declared`, a value that is not in canon's registry vocabulary at all. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.connector-mapping.v1","type":"object","additionalProperties":false,"$defs":{"binding":{"type":"object","additionalProperties":false,"required":["source_field","property_id"],"properties":{"source_field":{"type":"string","minLength":1,"maxLength":256},"property_id":{"type":"string","minLength":1,"maxLength":256},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}},"description":"The four members `binding_tuple` reads out of a caller-supplied binding. `source_type` and `source_cardinality` are optional here because the v1 reader DEFAULTS them to `string` and `one` when absent, so a stored record may legitimately omit both — registering them as required would refuse bytes this lane admits."}},"required":["schema_version","object","id","ref","name","description","status","ingestion","revision","receipt_refs","history","created_at","updated_at","data_source_id","data_source_ref","ontology_ref","object_type_id","source_dataset","key_mapping","title_mapping","field_mappings","health"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.connector-mapping.v1"},"object":{"const":"ioi.hypervisor.odk.connector_mapping"},"id":{"type":"string","pattern":"^cmap_[0-9a-f]{12,32}$","description":"WALL-CLOCK IDENTITY. `format!(\"cmap_{:x}\", nanos())` — the lower-case hex of the Unix epoch nanosecond count at create. The width is a RANGE rather than a fixed number because the value is a timestamp: it is sixteen hex digits today and widens on its own schedule, which is itself the tell that an identity derived from the clock is not a derived identity at all. v2 derives the mapping id from owner plus idempotency key so a retry resolves to the record it already minted."},"ref":{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$","description":"Canon's scheme for this family is `mapping://`. This lane writes `connector-mapping://`, and the stored value is what a reader resolves, so the divergence is registered rather than translated."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["declared"],"description":"THE PINNED VALUE, AND IT IS NOT CANON'S. Canon's registry vocabulary is draft | active | deprecated | revoked. This lane writes the literal `declared` at create and no path changes it, so `declared` is the only value a stored v1 record can hold — and it maps onto no canonical member, which is why v2 renames the axis to `registry_status` and carries canon's four."},"ingestion":{"type":"object","additionalProperties":false,"required":["wired","note"],"properties":{"wired":{"const":false},"note":{"type":"string","maxLength":512}},"description":"The lane's own inertness declaration, pinned to `wired: false` because no path sets it true: a v1 mapping is a validated declaration and nothing reads, extracts, or moves source data through it."},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"AN IN-PLACE COUNTER, NOT AN IMMUTABLE REVISION. The patch path increments this on the SAME stored record, so the prior revision's bytes are gone and no ref addresses them. Canon requires each revision to be immutable and successor-versioned; that is exactly what this integer is not."},"receipt_refs":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":512}},"history":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["revision","op","at","summary","receipt_ref"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"op":{"enum":["created","patched"]},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"summary":{"type":"string","maxLength":512},"receipt_ref":{"type":"string","maxLength":512}}},"description":"An EMBEDDED narrative of the in-place edits. It records that revisions happened; it does not make the superseded ones addressable, and it commits none of their bytes."},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"data_source_id":{"type":"string","minLength":1,"maxLength":256},"data_source_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"Projected from the resolved data source's own `source_ref`, which the projector copies with a null fallback — so a stored record may carry null here even though the source resolved."},"ontology_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"The resolved ontology's CURRENT ref, copied with a null fallback. It names a family, never an exact admitted revision, so a mapping declared today and read tomorrow may be read against different semantics with nothing recording that it moved."},"object_type_id":{"type":"string","minLength":1,"maxLength":256},"source_dataset":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"key_mapping":{"$ref":"#/$defs/binding"},"title_mapping":{"$ref":"#/$defs/binding"},"field_mappings":{"type":"array","maxItems":256,"items":{"$ref":"#/$defs/binding"}},"health":{"type":"object","additionalProperties":false,"required":["status","mapped_properties","total_properties","required_gaps","object_instances","authority_crossed","missing_contracts","note"],"properties":{"status":{"enum":["ready","incomplete"]},"mapped_properties":{"type":"integer","minimum":0,"maximum":9007199254740991},"total_properties":{"type":"integer","minimum":0,"maximum":9007199254740991},"required_gaps":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":256}},"object_instances":{"type":"integer","minimum":0,"maximum":0,"description":"Pinned to zero because no path produces an object plane: an ODK mapping declares a shape and materializes nothing."},"authority_crossed":{"const":false},"missing_contracts":{"type":"array","maxItems":8,"items":{"enum":["PolicyBoundDataView","TransformationRun","OntologyProjection"]}},"note":{"type":"string","maxLength":512}},"description":"A READINESS PROJECTION EMBEDDED IN THE RECORD. `status: ready` here means every required property of the target object type has a binding — it is a completeness statement about the declaration, never an admission, an authority, or a statement that anything may run."}}}"##),
+    ("schema://ioi/foundations/objects/connector-mapping/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/connector-mapping/v2","title":"ConnectorMappingV2","description":"THE IMMUTABLE, SUCCESSOR-VERSIONED PROVIDER MAPPING — A THIRD FAMILY, NOT A MEMBER OF EITHER OTHER ONE. Canon is explicit that a ConnectorMapping is its own object with its own identity: a connector payload is source material and not canonical domain truth until a ConnectorMapping AND a DataRecipe bind it, and any field, action, schema, ontology, object-model or policy change creates a SUCCESSOR mapping revision. v1 honoured neither clause. Its identity came from the wall clock, so a retried declaration minted a second mapping; its `revision` was an integer incremented on the same stored record, so revision 1's bytes were overwritten and became unaddressable; and the DataRecipe lane embedded mappings as opaque passthrough arrays, so a mapping could exist as a fragment of a recipe rather than as an object. This version fixes all three. Identity is DERIVED, not clocked: `identity_basis` records that the mapping id comes from the owner ref and the caller's idempotency key and carries that key's hash, so a retry resolves to the record it already minted instead of appending a second one. Revisions are IMMUTABLE AND ADDRESSABLE: `revision_ref` names one revision, a portable invariant refuses one that does not extend its own `connector_mapping_id`, and `succession` names the predecessor revision and its exact bytes. The SEMANTIC-COMPONENT SNAPSHOT IS EXACT: `semantic_component_refs` must cover exactly the connector schema, the ontology revision, the target object models, the redaction policy and the evidence contracts this mapping reads — no more, no fewer — so a mapping cannot commit a snapshot that omits something it names. And a PROPERTY IS NEVER TARGETED TWICE, checked offline by invariant rather than only inside the route that happened to write the record. This contract is a mapping. It carries no credentials, it grants no authority, it launders no source rights, and registering it claims no runtime implementation.","x-ioi-schema-version":"ioi.connector-mapping.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"connectorMappingFamilyRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","connector_mapping_id","revision_ref","owner_ref","tenant_ref","name","identity_basis","connector_id","ontology_revision_ref","source_schema_ref","target_object_model_refs","field_mappings","action_mappings","authority_scopes_required","redaction_policy_ref","evidence_required","semantic_component_set_snapshot_ref","semantic_component_set_hash","semantic_component_refs","semantic_component_count","effective_policy_hash","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.connector-mapping.v2"},"connector_mapping_id":{"$ref":"#/$defs/connectorMappingFamilyRef","description":"THE FAMILY, IN CANON'S OWN `mapping://` SCHEME. v1 wrote `connector-mapping://` and carried identity twice, as a bare `id` and a separate `ref`."},"revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef","description":"ONE IMMUTABLE REVISION. The `/revision/` segment is mandatory, which refuses a family-head or mutable-latest reference wherever an exact mapping is required — including in a DataRecipe's `connector_mapping_revision_refs`, which admits nothing else. A registered invariant refuses a revision ref that does not extend its own `connector_mapping_id`."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"name":{"type":"string","minLength":1,"maxLength":200},"identity_basis":{"type":"object","additionalProperties":false,"description":"WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `cmap_{nanos:x}` — the hex of the epoch nanosecond count — so the same declaration retried after a dropped response minted a SECOND mapping, and two declarations in one nanosecond collided. This block pins the only admissible basis and carries the hash of the idempotency key the id was derived from, so a reader can tell a derived identity from a clocked one without trusting the producer to have been careful.","required":["derived_from","idempotency_key_hash","refused_basis"],"properties":{"derived_from":{"const":"owner_ref_and_idempotency_key"},"idempotency_key_hash":{"$ref":"#/$defs/sha256"},"refused_basis":{"const":"wall_clock_nanoseconds"}}},"connector_id":{"type":"string","pattern":"^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The external adapter this mapping reads from. A connector is a replaceable supply adapter; naming one grants nothing and carries no credential — canon keeps credentials out of the mapping entirely, and v1 already refused any plaintext secret key in the body."},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"ONE EXACT ADMITTED ONTOLOGY REVISION. v1 copied the ontology's CURRENT ref, so a mapping declared today and read tomorrow could be read against different semantics with nothing recording that it moved. An ontology change now requires a successor mapping revision, which is what canon says it requires."},"source_schema_ref":{"type":"string","pattern":"^(?:artifact|cid|provider-schema)://[^\\s]{1,500}$","description":"The provider-side contract this mapping reads. Canon allows an artifact ref, a CID, or a named provider schema; all three are exact, and none of them is a live fetch."},"target_object_model_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"},"description":"The canonical object models this mapping produces into. At least one: a mapping that targets no canonical object has not turned source material into domain truth, which is the only thing a mapping is for."},"field_mappings":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["role","source_field","target_property_ref","source_type","source_cardinality"],"properties":{"role":{"enum":["key","title","field"],"description":"v1 kept the key and title bindings in two separate top-level members and the rest in a third, so the three could disagree about shape. Here they are one list with a declared role, which is what lets a single invariant check that no property is targeted twice across all of them."},"source_field":{"type":"string","minLength":1,"maxLength":256},"target_property_ref":{"type":"string","pattern":"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The target property, qualified by the object model that owns it. v1 carried a bare `property_id` whose meaning depended on which object type the record happened to name."},"source_type":{"enum":["string","integer","double","boolean","timestamp","date","json"]},"source_cardinality":{"enum":["one","many"]}}},"description":"The provider-field bindings. Silent field equivalence is forbidden: every binding is explicit, typed, and attributable to a role."},"action_mappings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["source_action","target_action_ref"],"properties":{"source_action":{"type":"string","minLength":1,"maxLength":256},"target_action_ref":{"type":"string","pattern":"^ontology-action://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"}}},"description":"Provider actions bound to typed ontology actions. Binding an action here compiles meaning into a request and grants nothing: the named action contract still passes capability, policy, authority, daemon, evidence and verification gates."},"authority_scopes_required":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"},"description":"The scopes a caller must ALREADY hold for this mapping to be usable. A requirement, never a grant: listing a scope here is the mapping stating what it needs, and nothing in this record confers it."},"redaction_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Optional, and when present it is part of the committed snapshot. Redaction reduces exposure; it creates no right and never severs lineage."},"evidence_required":{"$ref":"#/$defs/refList","description":"The evidence contracts a consumer of this mapping must satisfy. Part of the committed snapshot, so a mapping cannot silently drop an evidence obligation while keeping its revision."},"semantic_component_set_snapshot_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"semantic_component_set_hash":{"$ref":"#/$defs/sha256"},"semantic_component_refs":{"type":"array","maxItems":320,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"THE FLAT SET THE SNAPSHOT COVERS. A registered invariant requires it to equal EXACTLY the union of `source_schema_ref`, `ontology_revision_ref`, `redaction_policy_ref` when present, `target_object_model_refs` and `evidence_required` — canon's own list of what a mapping's snapshot commits — with nothing extra and nothing dropped."},"semantic_component_count":{"type":"integer","minimum":0,"maximum":320},"effective_policy_hash":{"$ref":"#/$defs/sha256"},"registry_status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four registry members, verbatim. v1's pinned `declared` is not among them and is not translated into one: a stored v1 mapping says `declared`, this contract says which of canon's four a v2 mapping is in, and the two vocabularies do not overlap."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of this revision. There is no `updated_at`: an immutable revision has one stamp, and v1's second one was the in-place-edit tell."},"succession":{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. Canon: any field, action, schema, ontology, object-model or policy change creates a successor mapping revision. This block states which of those changes produced this revision and binds the predecessor it succeeds — its exact ref and its exact bytes, both or neither.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","field_change","action_change","source_schema_change","ontology_revision_change","object_model_change","policy_change","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/connectorMappingRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A mapping converged from a stored v1 names that predecessor's contract, its ref in the scheme it was ACTUALLY stored under, and its exact content hash — all three or none. `downgrade_to_predecessor` is pinned to `refused`: a v2 revision cannot be re-encoded as a v1 record without dropping the derived identity, the immutable revision, the semantic snapshot and the commitment, and presenting that weaker record as the same fact is exactly what a downgrade would be.","required":["from_schema_version","from_mapping_ref","from_content_hash","from_revision","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.connector-mapping.v1"},{"type":"null"}]},"from_mapping_ref":{"oneOf":[{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$"},{"type":"null"}],"description":"Named in v1's own `connector-mapping://` scheme with v1's own clocked id, because that is what was stored. Rewriting it into `mapping://` would be reinterpreting the predecessor."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision":{"oneOf":[{"type":"integer","minimum":1,"maximum":9007199254740991},{"type":"null"}],"description":"WHICH in-place edit of the v1 record was converged. v1's `revision` counter overwrote its own history, so this number is the only thing that says which state of that mutable record the convergence saw. It is preserved as a number, not promoted into a revision ref, because no ref ever addressed it. REQUIRED AND NULLABLE, never merely optional: a slot inside a hashed block that may be ABSENT rather than null does not survive a projection round trip byte-identically, so the commitment would stop verifying for exactly the records that omit it."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — every provenance slot is null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_mapping_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.connector-mapping.v1"},"from_mapping_ref":{"type":"string","pattern":"^connector-mapping://cmap_[0-9a-f]{12,32}$"},"from_content_hash":{"$ref":"#/$defs/sha256"},"from_revision":{"type":"integer","minimum":1,"maximum":9007199254740991}}}}]},"constants":{"type":"object","additionalProperties":false,"required":["lifecycle_id","nonclaim_authority_token","nonclaim_source_rights_token"],"properties":{"lifecycle_id":{"const":"connector_mapping_registry_lifecycle.v2","description":"A DISTINCT LIFECYCLE ID FROM THE OTHER TWO FAMILIES. The DataRecipe registry lifecycle, this one, and the TransformationRun execution lifecycle are three different axes; pinning the id in the bytes means a projection that flattened them into one `status` column can be caught from a stored record rather than from reading the projection's code."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_source_rights_token":{"const":"source_rights"}}},"authority_nonclaim":{"const":"connector_mapping_grants_no_authority"},"truth_nonclaim":{"const":"connector_mapping_is_not_canonical_domain_truth_by_itself"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","source_rights","credential_custody","provider_payload_is_domain_truth","training_consent","semantic_truth","run_outputs","policy_permission","capability_lease_crossing","connector_availability"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"source_rights"}},{"contains":{"const":"credential_custody"}},{"contains":{"const":"provider_payload_is_domain_truth"}},{"contains":{"const":"training_consent"}},{"contains":{"const":"semantic_truth"}}],"description":"Six mandatory members. `credential_custody` and `provider_payload_is_domain_truth` are the two this family needs that no other carries: a mapping never holds the connector's credentials, and canon's non-negotiable 2 says a connector payload stays source material until a ConnectorMapping AND a DataRecipe bind it — a mapping alone does not make the payload domain truth."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. It is what makes the revision immutable in a way a reader can test."}}}"##),
+    ("schema://ioi/foundations/objects/transformation-run/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/transformation-run/v1","title":"TransformationRunV1","description":"THE PREDECESSOR, REGISTERED AS THE RECORD THE TRANSFORMATION-RUN LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.transformation-run.v1` was a local Rust constant with no `_meta/schemas/` entry behind it. THE DIVERGENCE THAT DEFINES THIS FAMILY'S GAP IS AN ABSENCE, NOT A FIELD: a v1 run carries NO `data_recipe_revision_ref`, NO `data_recipe_content_hash`, and NO resolved semantic-component tuple. It binds a connector mapping and a policy view directly and executes against whatever those records currently say. Non-negotiable 3 requires every TransformationRun to bind the exact `data-recipe://.../revision/...` ref and content hash plus the exact semantic-component snapshot already committed by that revision; v1 binds none of the three, which is precisely why the delta row reads 'partial precursor; exact definition/run split not started'. The rest follows from it. Identity is DERIVED FROM THE WALL CLOCK — `trun_{nanos:x}` — so a retried plan mints a second run for the same intent. The stored `ref` uses `transformation-run://` where canon uses `transform://`. `revision` is an in-place counter on one mutable record rather than an execution that happens once. The lifecycle stops at `planned | dry_run_ready | blocked | cancelled`: `executed` and `materialized` are reserved words this plane never sets, so no v1 record has ever transformed anything, and the outputs canon assigns to a run — `output_object_refs`, `output_dataset_refs`, `output_distilled_dataset_refs`, `output_artifact_refs`, `impact_graph_ref` — have no field to live in. There is no owner or tenant on the record at all, so cross-tenant output has nothing to be checked against. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.transformation-run.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","operation","connector_mapping_id","connector_mapping_ref","policy_view_id","policy_view_ref","ontology_ref","object_type_id","requested_fields","purpose","output_intent","plan","execution","missing_contracts","revision","receipt_refs","history","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.transformation-run.v1"},"object":{"const":"ioi.hypervisor.odk.transformation_run"},"id":{"type":"string","pattern":"^trun_[0-9a-f]{12,32}$","description":"WALL-CLOCK IDENTITY. `format!(\"trun_{:x}\", nanos())` — the lower-case hex of the Unix epoch nanosecond count at create. A retry therefore does not resolve to the run it already admitted; it admits another one. The width is a range because the value is a timestamp and widens on its own schedule."},"ref":{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$","description":"Canon's scheme for this family is `transform://`. This lane writes `transformation-run://`, and the stored value is what a reader resolves."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["planned","dry_run_ready","blocked","cancelled"],"description":"THE FOUR STATES THIS PLANE CAN REACH, AND NOT ONE OF THEM IS AN EXECUTION. `executed` and `materialized` are declared reserved and never set here. Canon's run lifecycle is queued | running | completed | failed | rejected; none of v1's four is a member of it, so a v1 `status` cannot be read as a canonical run state under any translation."},"operation":{"const":"transform","description":"Pinned: this lane writes the literal `transform` and offers no other operation."},"connector_mapping_id":{"type":"string","minLength":1,"maxLength":256,"description":"THE RUN BINDS THE MAPPING DIRECTLY, WITH NO RECIPE BETWEEN THEM. It also binds it by MUTABLE id: the mapping's own `revision` counter can advance under this run without changing anything here, so a v1 run names a mapping whose bytes may no longer be the ones it was planned against."},"connector_mapping_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"policy_view_id":{"type":"string","minLength":1,"maxLength":256},"policy_view_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"ontology_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"Copied from the bound mapping's own current ontology ref. A family ref, never an exact admitted revision."},"object_type_id":{"oneOf":[{"type":"string","maxLength":256},{"type":"null"}]},"requested_fields":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":256}},"purpose":{"type":"string","minLength":1,"maxLength":512},"output_intent":{"enum":["ontology_objects","projection","evaluation_dataset","training_material","export_bundle"],"description":"An INTENT, and the record says so: nothing is produced. Canon's run owns concrete outputs; this field is the only place a v1 run says what it would have produced."},"plan":{"oneOf":[{"type":"object","additionalProperties":false,"required":["source","object_type_id","fields","policy_gate","output_intent","would_contact_source","object_instances","receipts_before_output"],"properties":{"source":{"type":"object","additionalProperties":false,"required":["data_source_ref","declared_endpoint_only"],"properties":{"data_source_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"declared_endpoint_only":{"const":true}}},"object_type_id":{"oneOf":[{"type":"string","maxLength":256},{"type":"null"}]},"fields":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["property_id","source_field","source_type"],"properties":{"property_id":{"type":"string","maxLength":256},"source_field":{"type":"string","maxLength":256},"source_type":{"type":"string","maxLength":64}}}},"policy_gate":{"type":"object","additionalProperties":false,"required":["policy_view_ref","purpose","receipt_obligations"],"properties":{"policy_view_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"purpose":{"type":"string","maxLength":512},"receipt_obligations":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":128}}}},"output_intent":{"type":"string","maxLength":64},"would_contact_source":{"const":false},"object_instances":{"type":"integer","minimum":0,"maximum":0},"receipts_before_output":{"const":true}}},{"type":"null"}],"description":"Null at create and populated only by a dry run. The plan is assembled from DECLARED truth — the mapping's bindings and the view's obligations — and never from a source read, which is why `would_contact_source` and `object_instances` are pinned. Registering it as nullable is what makes 'a created run has no plan' a checked fact."},"execution":{"type":"object","additionalProperties":false,"required":["source_contacted","data_moved","object_instances","note"],"properties":{"source_contacted":{"const":false},"data_moved":{"const":false},"object_instances":{"type":"integer","minimum":0,"maximum":0},"note":{"type":"string","maxLength":512}},"description":"THE INERTNESS BLOCK, PINNED AS PINNED. All three values are literals this lane writes and never updates. A v1 run is a plan and a dry run; it has never contacted a source or moved a byte, and registering the pins is what makes that checkable from the record rather than believed from the prose."},"missing_contracts":{"type":"array","maxItems":8,"items":{"enum":["PolicyBoundDataView","TransformationRun","OntologyProjection"]}},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"An in-place counter on one mutable record. An execution happens once; a counter that advances is the shape of a definition being edited, not of a run being run."},"blocked_reasons":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["code","message"],"properties":{"code":{"type":"string","maxLength":128},"message":{"type":"string","maxLength":1024}}},"description":"Written only by a blocked dry run, so it is absent on every record that has not been blocked. Optional here for that reason — requiring it would refuse the create-time record this lane admits."},"receipt_refs":{"type":"array","maxItems":256,"items":{"type":"string","maxLength":512}},"history":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["revision","op","at","summary","receipt_ref"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"op":{"type":"string","maxLength":64},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"summary":{"type":"string","maxLength":512},"receipt_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]}}}},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
+    ("schema://ioi/foundations/objects/transformation-run/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/transformation-run/v2","title":"TransformationRunV2","description":"ONE ADMITTED EXECUTION — THE OTHER HALF OF THE DEFINITION/RUN SPLIT, AND THE PLACE NON-NEGOTIABLE 3 IS ENFORCED. Canon: every TransformationRun binds the exact `data-recipe://.../revision/...` ref and content hash PLUS the exact semantic-component snapshot and hash already committed by that revision, and the resolved tuple must EQUAL the committed one. v1 bound none of the three — it had no recipe field at all, so there was nothing for a tuple to be equal to. This version carries the recipe binding and then makes the equality CHECKABLE OFFLINE by carrying both sides: `recipe_committed_semantic_component_set_hash` is what the recipe revision froze, `resolved_semantic_component_set_hash` is what this run actually resolved, and a registered invariant refuses the record when they differ. That single rule is what stops a signed recipe from executing against a later semantic head, and it needs no daemon, no registry read and no network to decide. FIVE MORE REFUSALS ARE STRUCTURAL. DEFINITION AND MAPPING SUBSTITUTION: the run carries both the mapping set the recipe committed and the mapping set it resolved, and an invariant requires them to be the same set exactly — swap one mapping for a same-named successor and the run fails. FAMILY-HEAD AND MUTABLE-LATEST: every recipe, mapping and ontology reference here demands a `/revision/` segment, so a run can never be pointed at a head. MISSING HASHES: the recipe hash, both snapshot hashes and the content hash are all required, and the run's position in its recipe's admitted chain is one exact SHA-256. WALL-CLOCK RETRY IDENTITY: v1's id was the hex of the epoch nanosecond count, so a retried plan minted a second run; `identity_basis` pins the derived basis and carries the idempotency key's hash. CROSS-TENANT OUTPUT: the run names the tenant it runs in and the tenant its outputs land in, and an invariant requires them to be the same. A run attests what it transformed, from which sources, under which policy, into which objects. It does not make the transformed assertion universally correct, it does not prove provider deletion or model unlearning, and registering this contract claims no runtime implementation of the split it describes.","x-ioi-schema-version":"ioi.transformation-run.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","transformation_run_id","owner_ref","tenant_ref","output_tenant_ref","identity_basis","data_recipe_revision_ref","data_recipe_content_hash","data_recipe_admitted_head_before","recipe_committed_semantic_component_set_snapshot_ref","recipe_committed_semantic_component_set_hash","resolved_semantic_component_set_snapshot_ref","resolved_semantic_component_set_hash","recipe_committed_connector_mapping_revision_refs","resolved_connector_mapping_revision_refs","ontology_revision_refs","policy_bound_data_view_refs","institutional_learning_boundary_profile_ref","effective_learning_policy_hash","learning_source_rights_claim_refs","authority_grant_refs","input_refs","output_intent","output_object_refs","output_dataset_refs","output_distilled_dataset_refs","output_artifact_refs","derivative_policy_ref","impact_graph_ref","receipt_refs","execution_status","admitted_at","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.transformation-run.v2"},"transformation_run_id":{"type":"string","pattern":"^transform://trun_[0-9a-f]{32}$","description":"ONE IDENTITY, IN CANON'S `transform://` SCHEME, AT A FIXED WIDTH. v1 carried a bare `id` plus a `transformation-run://` ref and derived both from the wall clock, so the width drifted with the epoch and a retry minted a second run. Thirty-two hex digits of a derived digest is a width that cannot drift and a value a retry reproduces."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The tenancy this execution runs inside."},"output_tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"CROSS-TENANT OUTPUT, REFUSED OFFLINE. The tenancy this run's outputs are committed to, carried as its own field precisely so it can DISAGREE with `tenant_ref` and be caught. A registered invariant requires the two to be equal, so a run that would deposit derived objects, datasets or artifacts into another tenant fails on the bytes, before anything is fetched and without a policy engine being consulted. v1 had no owner or tenant on the record at all, so there was nothing to compare."},"identity_basis":{"type":"object","additionalProperties":false,"description":"WALL-CLOCK RETRY IDENTITY, REFUSED IN THE BYTES. v1's id was `trun_{nanos:x}` — the hex of the epoch nanosecond count at create — so the same plan retried after a dropped response admitted a SECOND execution of the same intent, and the two were indistinguishable afterwards. This block pins the only admissible basis and carries the hash of the idempotency key the id derives from, so a replayed admission is recognisable as the run it already is.","required":["derived_from","idempotency_key_hash","refused_basis"],"properties":{"derived_from":{"const":"owner_ref_and_idempotency_key"},"idempotency_key_hash":{"$ref":"#/$defs/sha256"},"refused_basis":{"const":"wall_clock_nanoseconds"}}},"data_recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef","description":"THE FIELD v1 DID NOT HAVE. Required, never nullable, and never a family ref: an execution always runs a definition, and the `/revision/` segment is what stops it from running whichever revision is current when it starts. A v1 run bound a connector mapping and a policy view directly and had no recipe at all, which is the whole content of 'the exact definition/run split is not started'."},"data_recipe_content_hash":{"$ref":"#/$defs/sha256","description":"The recipe revision's own commitment, carried so the run's binding is to BYTES and not merely to a name. Edit the recipe and this stops matching; substitute a same-named revision and it stops matching too."},"data_recipe_admitted_head_before":{"type":"string","pattern":"^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$","description":"The exact head of the recipe family's admitted stream that this run was admitted AGAINST. EXACTLY ONE SHA-256, sixty-four lowercase hex digits, with or without the `sha256:` prefix the substrate happens to issue; the prefix is tolerated only because reformatting a head would stop it matching the chain it names, never because the width is negotiable. A truncated head names a prefix of the chain rather than a position in it, which is the ambiguity this field exists to remove. It locates the run at one position in one history, so a run cannot be replayed against a different history and still read as consistent."},"recipe_committed_semantic_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef","description":"The snapshot the RECIPE REVISION froze. Carried on the run so the comparison below needs nothing but this record."},"recipe_committed_semantic_component_set_hash":{"$ref":"#/$defs/sha256","description":"The hash the recipe revision committed for that snapshot."},"resolved_semantic_component_set_snapshot_ref":{"$ref":"#/$defs/artifactRef","description":"The snapshot THIS RUN actually resolved."},"resolved_semantic_component_set_hash":{"$ref":"#/$defs/sha256","description":"THE HASH THE EQUALITY RULE IS ABOUT. Canon: the resolved semantic-component tuple must exactly equal the tuple committed by the admitted DataRecipe revision, and a run may not replace an ontology, mapping, object model, schema or policy-bound view with a current registry head. Both sides are in the record, an invariant compares them, and a mismatch is a refusal a relying party reaches offline. A different semantic dependency set requires a SUCCESSOR RECIPE REVISION and a new admission — never a run that resolves differently and reports success."},"recipe_committed_connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"The exact mapping revisions the recipe revision named."},"resolved_connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"MAPPING SUBSTITUTION, REFUSED OFFLINE. The mapping revisions this run actually resolved. A registered invariant requires this set to be EXACTLY the committed set — same members, same count — so swapping one mapping for its successor, adding a mapping the recipe never named, or dropping one it did, all fail on the bytes. Canon says a mapping change requires a successor mapping AND a successor recipe; this is that sentence made checkable."},"ontology_revision_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"},"description":"The exact admitted ontology revisions this run was executed against. v1 copied the bound mapping's current family ref."},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList","description":"The governed lenses this run read through. A permitted view is not training consent, and a prior transformation receipt is not perpetual permission: reads revalidate current authority, rights, revocation and expiry, and this record attests which views were named, never that they are still valid now."},"institutional_learning_boundary_profile_ref":{"oneOf":[{"type":"string","pattern":"^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Nullable, because not every run is learning-bearing — but a registered invariant requires it when `output_intent` is one of the three that feed learning, so the nullability cannot be used to skip the boundary on the runs that need it."},"effective_learning_policy_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The commitment over the most restrictive intersection of the active institutional boundary, source and participant rights, consent, licence, route rights, retention and destination scope. Required by invariant on the same three learning-bearing intents. Composition never widens: union, majority permission, material transformation, aggregation, de-identification and ontology mapping cannot turn a prohibited use into a permitted one, and a hash over the composed result is what lets a later reader tell that the composition moved."},"learning_source_rights_claim_refs":{"$ref":"#/$defs/refList"},"authority_grant_refs":{"$ref":"#/$defs/refList","description":"The grants the admitting component RESOLVED for this run. Listing a grant is a record of what was resolved, never a grant this record confers."},"input_refs":{"$ref":"#/$defs/refList"},"output_intent":{"enum":["ontology_objects","projection","evaluation_dataset","training_material","distilled_dataset","export_bundle"],"description":"What this run set out to produce. The three learning-bearing members — `evaluation_dataset`, `training_material`, `distilled_dataset` — oblige the boundary profile and effective learning-policy hash by invariant."},"output_object_refs":{"$ref":"#/$defs/refList","description":"CONCRETE OUTPUTS BELONG TO THE RUN, NEVER TO THE DEFINITION. A DataRecipe revision declares output CONTRACTS and holds no results; these four output members are where results live, which is the structural reason the two objects cannot be collapsed."},"output_dataset_refs":{"$ref":"#/$defs/refList"},"output_distilled_dataset_refs":{"$ref":"#/$defs/refList"},"output_artifact_refs":{"$ref":"#/$defs/refList"},"derivative_policy_ref":{"oneOf":[{"type":"string","pattern":"^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}]},"impact_graph_ref":{"oneOf":[{"type":"string","pattern":"^agentgres://projection/[^\\s]{1,400}$"},{"type":"null"}],"description":"Where the derivation and obligation edges this run created are reachable from. When a source right expires or is withdrawn, the impact graph is what identifies every dependent artifact so the owning policy can choose a receipted disposition."},"receipt_refs":{"$ref":"#/$defs/refList","description":"Required non-empty by invariant once `execution_status` is `completed`: canon says runs must emit transformation receipts for consequential training, evaluation, projection or service outcomes, and a completed run with no receipt is that obligation unmet."},"execution_status":{"enum":["queued","running","completed","failed","rejected"],"description":"CANON'S FIVE RUN STATES, AND A DELIBERATELY DIFFERENT AXIS FROM THE DEFINITIONS. The field is named `execution_status` rather than `status` because a DataRecipe and a ConnectorMapping carry `registry_status` over draft | active | deprecated | revoked, and the two vocabularies share NO member. A projection that flattened a definition's inventory state and an execution's state into one column would have to invent a member that exists in neither list. v1's four states — planned, dry_run_ready, blocked, cancelled — are not members of this vocabulary either and are not translated into it."},"admitted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp, taken from the admitted operation rather than from the wall clock, so a replayed admission re-commits byte-identically. Together with `identity_basis` this is what makes retry identity a property of the record instead of a property of when the request arrived."},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, AND DOWNGRADE REFUSED IN THE BYTES. A run converged from a stored v1 record names that predecessor's contract, its ref in v1's own scheme with v1's own clocked id, and its exact content hash — all three or none. Downgrade is pinned `refused` for a reason specific to this family: a v1 record has nowhere to put the recipe binding, the committed-versus-resolved tuple, the outputs, or the tenancy, so re-encoding a v2 run as v1 would discard the entire basis on which it was admitted and present the remainder as the same fact.","required":["from_schema_version","from_run_ref","from_content_hash","predecessor_reached_execution","compatibility","reinterprets_predecessor","downgrade_to_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.transformation-run.v1"},{"type":"null"}]},"from_run_ref":{"oneOf":[{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"predecessor_reached_execution":{"const":false,"description":"Pinned false unconditionally, including on a fresh v2 run where there is no predecessor to describe. No v1 record ever executed: `executed` and `materialized` were reserved words that plane never set, and its `execution` block pinned `source_contacted`, `data_moved` and `object_instances` to false, false and zero. A convergence that carried v1 outputs forward would be inventing them, so the contract states in the bytes that there were none."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_run_ref":{"type":"null"},"from_content_hash":{"type":"null"}}},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.transformation-run.v1"},"from_run_ref":{"type":"string","pattern":"^transformation-run://trun_[0-9a-f]{12,32}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"constants":{"type":"object","additionalProperties":false,"required":["lifecycle_id","nonclaim_authority_token","nonclaim_semantic_correctness_token"],"properties":{"lifecycle_id":{"const":"transformation_run_execution_lifecycle.v2","description":"A DISTINCT LIFECYCLE ID FROM BOTH DEFINITION FAMILIES. Three families, three lifecycle ids, three vocabularies with no shared member — carried in the bytes so the distinctness is checkable from a stored record rather than argued from prose."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_semantic_correctness_token":{"const":"semantic_correctness"}}},"authority_nonclaim":{"const":"transformation_run_grants_no_authority"},"truth_nonclaim":{"const":"transformation_run_attests_boundary_facts_not_universal_correctness"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","semantic_correctness","training_consent","perpetual_permission","provider_deletion","model_unlearning","source_rights","definition_substitution_permitted","downstream_admission","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"semantic_correctness"}},{"contains":{"const":"training_consent"}},{"contains":{"const":"perpetual_permission"}},{"contains":{"const":"provider_deletion"}},{"contains":{"const":"model_unlearning"}}],"description":"Six mandatory members, and four of them are this family's alone. `perpetual_permission` because a prior transformation receipt is not permission for future use. `provider_deletion` and `model_unlearning` because canon's non-negotiable 21 says a receipt proves only its declared fact and never hidden provider behaviour or unlearning by implication — recall, quarantine, deletion and retraining are distinct observable actions and none of them proves a model forgot. `semantic_correctness` because admitting that a transformation happened is not admitting that its output is true."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. Substituting the recipe binding, the resolved tuple, the mapping set or the output tenancy all break it."}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -133175,6 +138145,12 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/domain-app-runtime/v2", r#"[{"rule_id":"domain_app_runtime.content_hash.commits_the_whole_runtime","description":"THE VALUE A MOUNT RECEIPT BINDS. Because this commitment covers every field including `revision`, `state`, `internal_route_ref` and `external_ingress_ref`, a receipt that carries this hash is bound to one exact runtime state. Substituting the runtime, editing its state, or advancing its revision all move the hash, so 'the receipt and the runtime describe the same admitted state' is decidable from the two records alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.domain-app-runtime-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"domain_app_runtime_id":{"path":"$.domain_app_runtime_id"},"domain_app_ref":{"path":"$.domain_app_ref"},"owner_ref":{"path":"$.owner_ref"},"revision":{"path":"$.revision"},"state":{"path":"$.state"},"mounted":{"path":"$.mounted"},"serving":{"path":"$.serving"},"internal_route_ref":{"path":"$.internal_route_ref"},"external_ingress_ref":{"path":"$.external_ingress_ref"},"approval_request_ref":{"path":"$.approval_request_ref"},"release_control_ref":{"path":"$.release_control_ref"},"authority_refs":{"path":"$.authority_refs"},"receipt_refs":{"path":"$.receipt_refs"},"rollback_posture":{"path":"$.rollback_posture"},"mounted_at":{"path":"$.mounted_at"},"serve_started_at":{"path":"$.serve_started_at"},"serve_stopped_at":{"path":"$.serve_stopped_at"},"unmounted_at":{"path":"$.unmounted_at"},"unmount_reason":{"path":"$.unmount_reason"},"killed_at":{"path":"$.killed_at"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", r#"[{"rule_id":"domain_app_mount_receipt.state_root.commits_the_whole_receipt","description":"A REAL COMMITMENT, REPLACING A PIPE-JOINED TEXT DIGEST. v1's state_root hashed `action|domain_app_ref|approval|release|at` as one string: ambiguous under any component containing a pipe, and silent about the runtime because the runtime was not in the receipt at all. This rule commits every field of v2 under a domain separator over canonical JSON, so the three runtime bindings — ref, owner, revision and the runtime's own content hash — are inside the commitment. Editing which runtime a receipt names now breaks the state_root, offline, with nothing but the bytes.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.domain-app-mount-receipt-state-root-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"mount_receipt_id":{"path":"$.mount_receipt_id"},"action":{"path":"$.action"},"domain_app_ref":{"path":"$.domain_app_ref"},"domain_app_runtime_ref":{"path":"$.domain_app_runtime_ref"},"domain_app_runtime_owner_ref":{"path":"$.domain_app_runtime_owner_ref"},"domain_app_runtime_revision":{"path":"$.domain_app_runtime_revision"},"domain_app_runtime_content_hash":{"path":"$.domain_app_runtime_content_hash"},"domain_app_admitted_head_before":{"path":"$.domain_app_admitted_head_before"},"approval_request_ref":{"path":"$.approval_request_ref"},"release_control_ref":{"path":"$.release_control_ref"},"at":{"path":"$.at"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.state_root","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/foundations/objects/data-recipe/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/data-recipe/v2", r#"[{"rule_id":"data_recipe.content_hash.commits_the_whole_revision","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the semantic-component snapshot hash, which is how canon's 'a released recipe cannot silently resolve a newer mapping or semantic head' becomes a property of the bytes. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.data-recipe-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"data_recipe_id":{"path":"$.data_recipe_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"name":{"path":"$.name"},"ontology_revision_refs":{"path":"$.ontology_revision_refs"},"input_source_types":{"path":"$.input_source_types"},"connector_mapping_revision_refs":{"path":"$.connector_mapping_revision_refs"},"output_object_model_refs":{"path":"$.output_object_model_refs"},"output_dataset_contract_refs":{"path":"$.output_dataset_contract_refs"},"transformation_steps":{"path":"$.transformation_steps"},"policy_bound_data_view_refs":{"path":"$.policy_bound_data_view_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"semantic_component_set_snapshot_ref":{"path":"$.semantic_component_set_snapshot_ref"},"semantic_component_set_hash":{"path":"$.semantic_component_set_hash"},"semantic_component_refs":{"path":"$.semantic_component_refs"},"semantic_component_count":{"path":"$.semantic_component_count"},"effective_policy_hash":{"path":"$.effective_policy_hash"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"data_recipe.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one recipe from being filed under another recipe's id — and a consumer resolving the family would then read a revision that never belonged to it. This rule requires `revision_ref` to begin with `data_recipe_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot: a bare family ref has no such segment.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.data_recipe_id","prefix":"data-recipe://","strip_prefix":"data-recipe://","suffix":"/revision/"}},{"rule_id":"data_recipe.semantic_snapshot.covers_exactly_the_named_components","description":"THE SNAPSHOT IS EXACT, AND EXACTNESS IS BOTH DIRECTIONS. Canon says the semantic-component snapshot enumerates the exact revision ref and content hash for every ontology version, ConnectorMapping, object model, schema contract and policy-bound view NAMED BY THE READABLE FIELDS. This rule requires the committed set to equal that union exactly: a recipe that reads through a policy view it left out of its own snapshot fails, and so does one whose snapshot carries a component the readable fields never named. Either direction would let the committed hash describe a different dependency set than the record advertises, which is the exact gap that lets a signed recipe drift onto a newer head.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.semantic_component_refs","required_paths":[],"required_array_paths":["$.ontology_revision_refs","$.connector_mapping_revision_refs","$.output_object_model_refs","$.output_dataset_contract_refs","$.policy_bound_data_view_refs"]}},{"rule_id":"data_recipe.semantic_snapshot.component_count_matches_the_enumerated_set","description":"The declared count and the enumerated list are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that one of them was edited without the other.","expression":{"operator":"array_length_equals","array_path":"$.semantic_component_refs","count_path":"$.semantic_component_count"}},{"rule_id":"data_recipe.succession.a_revision_is_never_its_own_predecessor","description":"A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes this rule because its predecessor slot is null and null is not the revision ref.","expression":{"operator":"fields_not_equal","paths":["$.revision_ref","$.succession.predecessor_revision_ref"]}},{"rule_id":"data_recipe.succession.a_successor_names_its_predecessor_revision","description":"Every succession reason other than `genesis` is a statement that something changed relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_revision_ref","when_path":"$.succession.succession_reason","values":["ontology_revision_change","connector_mapping_change","object_model_change","output_contract_change","policy_bound_view_change","transformation_step_change","correction"]}},{"rule_id":"data_recipe.succession.a_successor_names_its_predecessor_bytes","description":"A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, and the succession becomes uncheckable exactly when it matters.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_content_hash","when_path":"$.succession.succession_reason","values":["ontology_revision_change","connector_mapping_change","object_model_change","output_contract_change","policy_bound_view_change","transformation_step_change","correction"]}},{"rule_id":"data_recipe.migration.a_converged_revision_names_its_source_bytes","description":"A convergence from the v1 lane must commit the EXACT predecessor bytes. `converged_from_v1` with no source hash claims a provenance while naming nothing anyone could check, which is worse than claiming none.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_content_hash","when_path":"$.migration.compatibility","values":["converged_from_v1"]}},{"rule_id":"data_recipe.nonclaims.authority_is_never_omitted","description":"Semantic meaning does not grant authority. The token is pinned in `constants` so this rule can require its presence without the invariant language carrying a literal of its own.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_authority_token"}},{"rule_id":"data_recipe.nonclaims.run_outputs_is_never_omitted","description":"A DataRecipe revision declares output CONTRACTS and holds no concrete run outputs. Dropping this nonclaim would let a definition be read as holding its runs' results, which is the conflation the definition/run split exists to end.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_run_outputs_token"}}]"#),
+    ("schema://ioi/foundations/objects/connector-mapping/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/connector-mapping/v2", r#"[{"rule_id":"connector_mapping.content_hash.commits_the_whole_revision","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map. v1 had no commitment at all and a `revision` counter that overwrote its own history, so nothing recorded what a given mapping revision actually said; this rule is what makes 'each ConnectorMapping revision is immutable' testable rather than asserted.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.connector-mapping-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"connector_mapping_id":{"path":"$.connector_mapping_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"name":{"path":"$.name"},"identity_basis":{"path":"$.identity_basis"},"connector_id":{"path":"$.connector_id"},"ontology_revision_ref":{"path":"$.ontology_revision_ref"},"source_schema_ref":{"path":"$.source_schema_ref"},"target_object_model_refs":{"path":"$.target_object_model_refs"},"field_mappings":{"path":"$.field_mappings"},"action_mappings":{"path":"$.action_mappings"},"authority_scopes_required":{"path":"$.authority_scopes_required"},"redaction_policy_ref":{"path":"$.redaction_policy_ref"},"evidence_required":{"path":"$.evidence_required"},"semantic_component_set_snapshot_ref":{"path":"$.semantic_component_set_snapshot_ref"},"semantic_component_set_hash":{"path":"$.semantic_component_set_hash"},"semantic_component_refs":{"path":"$.semantic_component_refs"},"semantic_component_count":{"path":"$.semantic_component_count"},"effective_policy_hash":{"path":"$.effective_policy_hash"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"connector_mapping.revision_ref.extends_its_own_family","description":"A revision belongs to the family it names. Requiring `revision_ref` to begin with `connector_mapping_id` plus the `/revision/` segment also refuses a family-head reference in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.connector_mapping_id","prefix":"mapping://","strip_prefix":"mapping://","suffix":"/revision/"}},{"rule_id":"connector_mapping.semantic_snapshot.covers_exactly_the_named_components","description":"Canon: a ConnectorMapping's snapshot commits the exact connector contract and schema, ontology version, target object models, policy and evidence-contract revisions represented by the readable family refs. This rule requires the committed set to be that union exactly — nothing extra, nothing dropped. A null `redaction_policy_ref` contributes no member, so an unredacted mapping is not forced to invent one.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.semantic_component_refs","required_paths":["$.source_schema_ref","$.ontology_revision_ref","$.redaction_policy_ref"],"required_array_paths":["$.target_object_model_refs","$.evidence_required"]}},{"rule_id":"connector_mapping.semantic_snapshot.component_count_matches_the_enumerated_set","description":"The declared count and the enumerated list must agree, so editing one without the other is caught.","expression":{"operator":"array_length_equals","array_path":"$.semantic_component_refs","count_path":"$.semantic_component_count"}},{"rule_id":"connector_mapping.field_mappings.no_property_is_targeted_twice","description":"TWO BINDINGS INTO ONE PROPERTY IS AN AMBIGUOUS MAPPING, AND SILENT FIELD EQUIVALENCE IS FORBIDDEN. The v1 route enforced this inside the handler that wrote the record, so the guarantee lived in a code path rather than in the contract and no reader holding the bytes could check it. Here it is a portable rule over `target_property_ref`, which is object-model-qualified, so the check is exact rather than dependent on which object type the record happens to name.","expression":{"operator":"array_unique_by_fields","array_path":"$.field_mappings","fields":["target_property_ref"]}},{"rule_id":"connector_mapping.succession.a_revision_is_never_its_own_predecessor","description":"A self-referential succession terminates in itself and proves nothing. A genesis revision passes because its predecessor slot is null.","expression":{"operator":"fields_not_equal","paths":["$.revision_ref","$.succession.predecessor_revision_ref"]}},{"rule_id":"connector_mapping.succession.a_successor_names_its_predecessor_revision","description":"Canon says any field, action, schema, ontology, object-model or policy change creates a successor revision. A successor that names no predecessor has claimed a change against nothing.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_revision_ref","when_path":"$.succession.succession_reason","values":["field_change","action_change","source_schema_change","ontology_revision_change","object_model_change","policy_change","correction"]}},{"rule_id":"connector_mapping.succession.a_successor_names_its_predecessor_bytes","description":"The predecessor's hash is what makes the lineage checkable; a ref alone is a location, not the bytes that were there.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_content_hash","when_path":"$.succession.succession_reason","values":["field_change","action_change","source_schema_change","ontology_revision_change","object_model_change","policy_change","correction"]}},{"rule_id":"connector_mapping.migration.a_converged_revision_names_its_source_bytes","description":"`converged_from_v1` must commit the exact predecessor bytes, or the provenance names a mutable record whose contents are gone.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_content_hash","when_path":"$.migration.compatibility","values":["converged_from_v1"]}},{"rule_id":"connector_mapping.nonclaims.source_rights_is_never_omitted","description":"Ontology mapping never launders rights. Every governed source contributes constraints to every derived artifact, and a mapping that could be read as conferring source rights would be the laundering canon forbids.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_source_rights_token"}}]"#),
+    ("schema://ioi/foundations/objects/transformation-run/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/transformation-run/v2", r#"[{"rule_id":"transformation_run.content_hash.commits_the_whole_run","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — which means the recipe binding, both sides of the semantic tuple, the resolved mapping set, the output tenancy and the receipts are all inside the commitment. Substituting any of them breaks the hash, offline, with nothing but the bytes.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.transformation-run-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"transformation_run_id":{"path":"$.transformation_run_id"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"output_tenant_ref":{"path":"$.output_tenant_ref"},"identity_basis":{"path":"$.identity_basis"},"data_recipe_revision_ref":{"path":"$.data_recipe_revision_ref"},"data_recipe_content_hash":{"path":"$.data_recipe_content_hash"},"data_recipe_admitted_head_before":{"path":"$.data_recipe_admitted_head_before"},"recipe_committed_semantic_component_set_snapshot_ref":{"path":"$.recipe_committed_semantic_component_set_snapshot_ref"},"recipe_committed_semantic_component_set_hash":{"path":"$.recipe_committed_semantic_component_set_hash"},"resolved_semantic_component_set_snapshot_ref":{"path":"$.resolved_semantic_component_set_snapshot_ref"},"resolved_semantic_component_set_hash":{"path":"$.resolved_semantic_component_set_hash"},"recipe_committed_connector_mapping_revision_refs":{"path":"$.recipe_committed_connector_mapping_revision_refs"},"resolved_connector_mapping_revision_refs":{"path":"$.resolved_connector_mapping_revision_refs"},"ontology_revision_refs":{"path":"$.ontology_revision_refs"},"policy_bound_data_view_refs":{"path":"$.policy_bound_data_view_refs"},"institutional_learning_boundary_profile_ref":{"path":"$.institutional_learning_boundary_profile_ref"},"effective_learning_policy_hash":{"path":"$.effective_learning_policy_hash"},"learning_source_rights_claim_refs":{"path":"$.learning_source_rights_claim_refs"},"authority_grant_refs":{"path":"$.authority_grant_refs"},"input_refs":{"path":"$.input_refs"},"output_intent":{"path":"$.output_intent"},"output_object_refs":{"path":"$.output_object_refs"},"output_dataset_refs":{"path":"$.output_dataset_refs"},"output_distilled_dataset_refs":{"path":"$.output_distilled_dataset_refs"},"output_artifact_refs":{"path":"$.output_artifact_refs"},"derivative_policy_ref":{"path":"$.derivative_policy_ref"},"impact_graph_ref":{"path":"$.impact_graph_ref"},"receipt_refs":{"path":"$.receipt_refs"},"execution_status":{"path":"$.execution_status"},"admitted_at":{"path":"$.admitted_at"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"transformation_run.semantic_tuple.resolved_equals_the_recipe_commitment","description":"NON-NEGOTIABLE 3, MADE OFFLINE-CHECKABLE. Canon: the resolved semantic-component tuple must exactly equal the tuple committed by the admitted DataRecipe revision, and a run may not replace an ontology, mapping, object model, schema or policy-bound view with a current registry head. Both hashes are carried on the run, so the comparison needs no registry read and no network. A run whose resolved tuple differs has executed a different pipeline than the one the recipe revision was signed for; the correct outcome is a SUCCESSOR RECIPE REVISION and a new admission, never a run that resolves differently and reports success.","expression":{"operator":"fields_equal","paths":["$.resolved_semantic_component_set_hash","$.recipe_committed_semantic_component_set_hash"]}},{"rule_id":"transformation_run.semantic_tuple.resolved_snapshot_is_the_recipe_snapshot","description":"The hashes agreeing while the snapshot refs point at different artifacts would mean two locations claiming one commitment, and a reader following the ref would read material the hash was never taken over. Both halves of the tuple are checked, not just the digest.","expression":{"operator":"fields_equal","paths":["$.resolved_semantic_component_set_snapshot_ref","$.recipe_committed_semantic_component_set_snapshot_ref"]}},{"rule_id":"transformation_run.connector_mappings.resolved_set_is_exactly_the_recipe_set","description":"DEFINITION AND MAPPING SUBSTITUTION, REFUSED OFFLINE. Canon says a mapping change requires a successor mapping AND a successor recipe. This rule requires the mapping revisions the run resolved to be exactly the ones the recipe revision committed — same members, same count. Swapping a mapping for its successor, adding one the recipe never named, or dropping one it did all fail on the bytes, which is the difference between a run that executed the admitted definition and one that executed something adjacent to it.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.resolved_connector_mapping_revision_refs","required_paths":[],"required_array_paths":["$.recipe_committed_connector_mapping_revision_refs"]}},{"rule_id":"transformation_run.tenancy.outputs_stay_in_the_running_tenant","description":"CROSS-TENANT OUTPUT, REFUSED OFFLINE. The run names the tenancy it executes in and the tenancy its outputs are committed to as two independent fields, precisely so they can disagree and be caught. A run that would deposit derived objects, datasets or artifacts into another tenant fails on the record, before any byte leaves the owner boundary and without a policy engine being consulted.","expression":{"operator":"fields_equal","paths":["$.tenant_ref","$.output_tenant_ref"]}},{"rule_id":"transformation_run.receipts.a_completed_run_emits_them","description":"Canon: runs must emit transformation receipts for consequential training, evaluation, projection or service outcomes. A run reporting `completed` with an empty receipt list has left that obligation unmet while presenting itself as finished.","expression":{"operator":"non_empty_when_in","path":"$.receipt_refs","when_path":"$.execution_status","values":["completed"]}},{"rule_id":"transformation_run.outputs.a_completed_run_owns_at_least_one_output","description":"CONCRETE OUTPUTS BELONG TO THE RUN. A completed run with all four output lists empty either produced nothing while reporting success, or produced something it recorded elsewhere — and the second is how outputs drift back onto the definition. Any one of the four satisfies this; a run still queued, running, failed or rejected is not asked for outputs at all.","expression":{"operator":"any_of","expressions":[{"operator":"non_empty_when_in","path":"$.output_object_refs","when_path":"$.execution_status","values":["completed"]},{"operator":"non_empty_when_in","path":"$.output_dataset_refs","when_path":"$.execution_status","values":["completed"]},{"operator":"non_empty_when_in","path":"$.output_distilled_dataset_refs","when_path":"$.execution_status","values":["completed"]},{"operator":"non_empty_when_in","path":"$.output_artifact_refs","when_path":"$.execution_status","values":["completed"]}]}},{"rule_id":"transformation_run.learning.a_learning_bearing_run_binds_its_boundary","description":"Every governed learning use binds the effective `InstitutionalLearningBoundaryProfile`. The field is nullable because not every run is learning-bearing; this rule stops that nullability from being the way the boundary gets skipped on the three output intents that feed learning.","expression":{"operator":"non_empty_when_in","path":"$.institutional_learning_boundary_profile_ref","when_path":"$.output_intent","values":["evaluation_dataset","training_material","distilled_dataset"]}},{"rule_id":"transformation_run.learning.a_learning_bearing_run_binds_its_effective_policy","description":"The boundary profile is a scope ceiling, not blanket permission; the controlling value is the most restrictive intersection of boundary, source and participant rights, consent, licence, route rights, retention and destination scope. A learning-bearing run that names a profile but commits no composed-policy hash has recorded the ceiling and not the decision.","expression":{"operator":"non_empty_when_in","path":"$.effective_learning_policy_hash","when_path":"$.output_intent","values":["evaluation_dataset","training_material","distilled_dataset"]}},{"rule_id":"transformation_run.nonclaims.authority_is_never_omitted","description":"A transformation receipt attests boundary facts. It is not authority, and dropping the nonclaim would let a run be read as the permission that allowed it.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_authority_token"}},{"rule_id":"transformation_run.nonclaims.semantic_correctness_is_never_omitted","description":"Admitting that a transformation happened is not admitting that its output is true. Operational truth and semantic belief stay distinct, and the record says so itself rather than leaving a reader to infer it.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_semantic_correctness_token"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -133294,6 +138270,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:artifact|cid)://[^\s]{1,500}$"#,
         r#"^(?:artifact|cid)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:artifact|cid|provider-schema)://[^\s]{1,500}$"#,
+        r#"^(?:artifact|cid|provider-schema)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^(?:artifact|evidence|receipt|ledger)://[^\s]{1,500}$"#,
@@ -133730,6 +138710,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
         r#"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+    ),
+    (
+        r#"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^(?:origin-binding|origin)://[^\s]{1,500}$"#,
@@ -134557,6 +139541,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^agentgres://operation/event-stream/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,460}$"#,
     ),
     (
+        r#"^agentgres://projection/[^\s]{1,400}$"#,
+        r#"^agentgres://projection/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^agentgres://state-root/[^\s]{1,240}$"#,
         r#"^agentgres://state-root/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -134797,6 +139785,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^cleanup-obligation://[^\s]{1,240}$"#,
         r#"^cleanup-obligation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
+    (r#"^cmap_[0-9a-f]{12,32}$"#, r#"^cmap_[0-9a-f]{12,32}$"#),
     (
         r#"^collaboration-terms://[^\s]{1,240}$"#,
         r#"^collaboration-terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
@@ -134844,6 +139833,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^conformance-profile://[^\s]{1,248}$"#,
         r#"^conformance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^connector-mapping://cmap_[0-9a-f]{12,32}$"#,
+        r#"^connector-mapping://cmap_[0-9a-f]{12,32}$"#,
+    ),
+    (
+        r#"^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
     ),
     (
         r#"^connector://[^\s]{1,248}$"#,
@@ -134898,6 +139895,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^data-recipe://[^\s]{1,500}$"#,
         r#"^data-recipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^dataset-snapshot://[^\s]{1,500}$"#,
@@ -135309,6 +140314,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^lease://[^\s]{1,248}$"#,
         r#"^lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -135351,6 +140360,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^mapping://[^\s]{1,240}$"#,
         r#"^mapping://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^mapping://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^mapping://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^mcp-gateway-requirement://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -135430,6 +140447,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^node://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"#,
+        r#"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"#,
+    ),
+    (
         r#"^object-model://[^\s]{1,240}$"#,
         r#"^object-model://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -135447,6 +140472,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^odk://odk_[0-9a-f]{16}$"#, r#"^odk://odk_[0-9a-f]{16}$"#),
     (r#"^odk_[0-9a-f]{16}$"#, r#"^odk_[0-9a-f]{16}$"#),
+    (
+        r#"^ontology-action://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"#,
+        r#"^ontology-action://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$"#,
+    ),
     (
         r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
         r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
@@ -135628,6 +140657,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^policy://[A-Za-z0-9._~:/-]+$"#,
         r#"^policy://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^policy://[^\s]+$"#,
@@ -135827,7 +140860,12 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^receipt[^\s]{1,260}$"#,
         r#"^receipt[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,260}$"#,
     ),
+    (
+        r#"^recipe://recipe_[0-9a-f]{16}$"#,
+        r#"^recipe://recipe_[0-9a-f]{16}$"#,
+    ),
     (r#"^recipe_[0-9a-f]{1,32}$"#, r#"^recipe_[0-9a-f]{1,32}$"#),
+    (r#"^recipe_[0-9a-f]{16}$"#, r#"^recipe_[0-9a-f]{16}$"#),
     (
         r#"^reference://[^\s]{1,248}$"#,
         r#"^reference://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
@@ -135958,6 +140996,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^scm-revision:[0-9a-f]{40,64}$"#,
         r#"^scm-revision:[0-9a-f]{40,64}$"#,
+    ),
+    (
+        r#"^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"#,
+        r#"^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"#,
     ),
     (
         r#"^scope:[^\s]{1,120}$"#,
@@ -136236,6 +141278,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$"#,
     ),
     (
+        r#"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
         r#"^terms://[^\s]{1,248}$"#,
         r#"^terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -136268,6 +141314,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^trainpipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^transform://trun_[0-9a-f]{32}$"#,
+        r#"^transform://trun_[0-9a-f]{32}$"#,
+    ),
+    (
+        r#"^transformation-run://trun_[0-9a-f]{12,32}$"#,
+        r#"^transformation-run://trun_[0-9a-f]{12,32}$"#,
+    ),
+    (
         r#"^transition://[^\s]{1,248}$"#,
         r#"^transition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -136275,6 +141329,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^transition://state-transition/sha256:[0-9a-f]{64}$"#,
         r#"^transition://state-transition/sha256:[0-9a-f]{64}$"#,
     ),
+    (r#"^trun_[0-9a-f]{12,32}$"#, r#"^trun_[0-9a-f]{12,32}$"#),
     (
         r#"^user://[^\s/?#\\]+$"#,
         r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]+$"#,
@@ -138557,6 +143612,63 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json"))),
     ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json"))),
     ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-content-hash-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-content-hash-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-qualified-scheme-ref-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-qualified-scheme-ref-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-status-advanced-past-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-status-advanced-past-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-v2-schema-version-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v1/negative-v2-schema-version-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-genesis-authored-at-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-genesis-authored-at-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-successor-converged-from-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/positive-successor-converged-from-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-connector-mapping-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-connector-mapping-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-downgrade-to-predecessor-permitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-downgrade-to-predecessor-permitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-generic-recipe-scheme-identity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-generic-recipe-scheme-identity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-genesis-carries-a-predecessor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-genesis-carries-a-predecessor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-inline-connector-mapping.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-inline-connector-mapping.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-succession-partial-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-succession-partial-tuple.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-v1-schema-version-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-revision-ref-under-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-count-disagrees-with-the-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-count-disagrees-with-the-set.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-omits-a-named-policy-view.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-snapshot-omits-a-named-policy-view.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-recipe-v2/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/positive-stored-v1-declared.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/positive-stored-v1-declared.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-canonical-mapping-scheme-ref-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-canonical-mapping-scheme-ref-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-revision-ref-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-revision-ref-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-status-outside-the-pinned-value.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-status-outside-the-pinned-value.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-v2-schema-version-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v1/negative-v2-schema-version-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-genesis-authored-at-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-genesis-authored-at-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-successor-converged-from-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/positive-successor-converged-from-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-downgrade-to-predecessor-permitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-downgrade-to-predecessor-permitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-legacy-connector-mapping-scheme-identity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-legacy-connector-mapping-scheme-identity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-ontology-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-ontology-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-v1-schema-version-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-wall-clock-identity-basis.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-wall-clock-identity-basis.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-duplicate-target-property.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-duplicate-target-property.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-revision-ref-under-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-snapshot-omits-the-source-schema.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-snapshot-omits-the-source-schema.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-mapping-v2/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-dry-run-ready.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-dry-run-ready.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-planned.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/positive-stored-v1-planned.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-recipe-binding-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-recipe-binding-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-reserved-executed-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-reserved-executed-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-v2-schema-version-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v1/negative-v2-schema-version-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-completed-run-freezes-the-recipe-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-completed-run-freezes-the-recipe-tuple.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-rejected-run-converged-from-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/positive-rejected-run-converged-from-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-downgrade-to-predecessor-permitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-downgrade-to-predecessor-permitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-content-hash-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-content-hash-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-family-head-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-recipe-family-head-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-truncated-admitted-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-truncated-admitted-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-lifecycle-state-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-lifecycle-state-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-v1-schema-version-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-wall-clock-retry-identity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-wall-clock-retry-identity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-outputs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-outputs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-receipts.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-completed-run-without-receipts.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-connector-mapping-substitution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-connector-mapping-substitution.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-cross-tenant-output.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-cross-tenant-output.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-boundary-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-boundary-profile.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-effective-policy-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-learning-run-without-effective-policy-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -139765,6 +144877,36 @@ mod tests {
         },
         "schema://ioi/foundations/objects/domain-app-mount-receipt/v2" => {
             serde_json::from_value::<DomainAppMountReceiptV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/data-recipe/v1" => {
+            serde_json::from_value::<DataRecipeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/data-recipe/v2" => {
+            serde_json::from_value::<DataRecipeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/connector-mapping/v1" => {
+            serde_json::from_value::<ConnectorMappingV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/connector-mapping/v2" => {
+            serde_json::from_value::<ConnectorMappingV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/transformation-run/v1" => {
+            serde_json::from_value::<TransformationRunV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/transformation-run/v2" => {
+            serde_json::from_value::<TransformationRunV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -140979,6 +146121,36 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/data-recipe/v1" => {
+            let projection = serde_json::from_value::<DataRecipeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/data-recipe/v2" => {
+            let projection = serde_json::from_value::<DataRecipeV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/connector-mapping/v1" => {
+            let projection = serde_json::from_value::<ConnectorMappingV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/connector-mapping/v2" => {
+            let projection = serde_json::from_value::<ConnectorMappingV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/transformation-run/v1" => {
+            let projection = serde_json::from_value::<TransformationRunV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/transformation-run/v2" => {
+            let projection = serde_json::from_value::<TransformationRunV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -141115,8 +146287,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1014,
-            "the registered golden corpus must remain the explicit 1014-fixture bar",
+            1071,
+            "the registered golden corpus must remain the explicit 1071-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -141358,7 +146530,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 840,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 862,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

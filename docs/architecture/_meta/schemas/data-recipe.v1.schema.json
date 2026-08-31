@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/data-recipe/v1",
+  "title": "DataRecipeV1",
+  "description": "THE PREDECESSOR, REGISTERED AS THE RECORD THE ODK LANE ACTUALLY MINTS — DEPRECATED AND READ-ONLY. `ioi.hypervisor.odk.data-recipe.v1` was a local Rust constant with no `_meta/schemas/` entry behind it, so every DataRecipe claim rested on a string literal. This contract registers the stored bytes verbatim, divergences and all, for the three reasons the M05.6 predecessors were registered: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the immutable content-addressed definition contract' is a checked expectation with fixtures rather than a claim in prose. It diverges from the canonical `DataRecipeEnvelope` in six ways a successor has to fix rather than paper over. The stored `ref` uses the BARE `recipe://` scheme, which the term-boundary ruling calls a defect — the admission prefix and the stored ref disagree, and the stored one is what a reader resolves. Identity is carried twice, as a bare `id` and a separate `ref`, where canon carries `data_recipe_id` once. There is NO `revision_ref`, NO `predecessor_revision_ref` and NO `content_hash`: the record is patched in place, so a v1 recipe is a MUTABLE definition and two runs naming the same recipe may have executed different pipelines. There is no `semantic_component_set_snapshot_ref` or `semantic_component_set_hash`, so a v1 recipe resolves whatever ontology, mapping, object-model and policy-view heads are current at execution time — the exact thing non-negotiable 3 forbids. `connector_mappings` and `policy_bound_views` are INLINE passthrough arrays rather than exact mapping and view revision refs, which is the folded-family defect the definition/run split exists to end. And `status` never advances past `draft` because nothing writes it. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.",
+  "x-ioi-schema-version": "ioi.hypervisor.odk.data-recipe.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "status",
+    "ontology_ref",
+    "output_kind",
+    "source_refs",
+    "connector_mappings",
+    "policy_bound_views",
+    "projection_refs",
+    "evaluation_dataset_refs",
+    "worker_plan_refs",
+    "workflow_schema_refs",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.odk.data-recipe.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.odk.data_recipe"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^recipe_[0-9a-f]{16}$",
+      "description": "Derived from the caller's owner ref plus its idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted. The id prefix is `recipe`, not `data_recipe` — the unqualified spelling reaches into the identity itself."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^recipe://recipe_[0-9a-f]{16}$",
+      "description": "THE GENERIC SCHEME, PINNED AS THE DEFECT IT IS. The admission path declares `data-recipe://` as its ref prefix, but the record this lane persists writes `recipe://{id}`, and the stored value is the one a reader resolves. `recipe://` is a typed legacy DataRecipe alias at best; registering the stored spelling exactly is what makes 'the bare recipe name is unqualified' a checked fact rather than a note. v2 carries `data_recipe_id` in the owner-qualified `data-recipe://` scheme and refuses this one."
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": [
+        "draft"
+      ],
+      "description": "THE PINNED VALUE. Canon's registry vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."
+    },
+    "ontology_ref": {
+      "type": "string",
+      "maxLength": 512,
+      "description": "ONE ontology ref, checked for local resolvability only: no owner resolution, no committed hash, and no requirement that it name an exact admitted revision. A v1 recipe therefore follows whatever the named ontology's head happens to be when a run reads it. Canon carries `ontology_refs` as a set of EXACT revisions."
+    },
+    "output_kind": {
+      "enum": [
+        "ontology_objects",
+        "projection",
+        "evaluation_dataset",
+        "training_material"
+      ],
+      "description": "The four `RECIPE_OUTPUT_KINDS` this lane accepts, verbatim. Canon carries `output_object_model_refs` and `output_dataset_contract_refs` — typed output CONTRACTS — where v1 carries one coarse kind word."
+    },
+    "source_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "connector_mappings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "description": "INLINE MAPPING, AND A PASSTHROUGH AT THAT. The v1 route copies whatever the caller sent under this key without validating it, and the code comment says so outright: ConnectorMapping is embedded as an opaque array because it is not a separate family here. This contract registers it as the ref list it is USED as, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed with a typed refusal; that population needs an explicit convergence, which this contract records rather than performs. Canon's member is `connector_mapping_refs`, and v2 requires each entry to be an EXACT mapping revision."
+    },
+    "policy_bound_views": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "description": "The same inline passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."
+    },
+    "projection_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "evaluation_dataset_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "worker_plan_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "workflow_schema_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "A SEPARATE `updated_at` IS THE MUTABILITY TELL. An immutable content-addressed revision has one admission stamp and never a later one; this family carries a stamp that the in-place patch path rewrites."
+    }
+  }
+}
