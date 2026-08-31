@@ -276,6 +276,14 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/semantic-mapping-decision/v1", "sha256:a35f12979fc1f3f4d9b70f498464b8aff0af33b02e82999aa2d98c98a0b2c8b9"),
     ("schema://ioi/foundations/ontology-assertion/v2", "sha256:96b4877140e1a0f091332bc306927a8c1e7ca886f38caa7a015cba6876639712"),
     ("schema://ioi/foundations/assurance-transition-receipt/v2", "sha256:366535c143fb479d1a375ef44a863961baa133cd663582351d9b2a396f704a5c"),
+    ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", "sha256:03cc0996970dba20c7259bdbfedae89c89e1b49d8d0844d0725169360c2c0476"),
+    ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", "sha256:80b79d3440f7aff4483eb88dd3951c27b23f33a391d82a437f053d50d5285fa9"),
+    ("schema://ioi/foundations/objects/domain-app/v1", "sha256:ff30212b40a5b1309e9fadbb48b99f1e738c2baf9622992fdda48c03d9624693"),
+    ("schema://ioi/foundations/objects/domain-app/v2", "sha256:8c64d503e48b4905b5cdfef363e737abefebb3870dbb516685ceb033136a6c30"),
+    ("schema://ioi/foundations/objects/domain-app-runtime/v1", "sha256:2e455269a381c59e808be5238d96aad05442e7bb131075fbb80a0fe048624d73"),
+    ("schema://ioi/foundations/objects/domain-app-runtime/v2", "sha256:da120e17bc1bff39eb7c6c2cdf0f16363fa387fc45769ec0e353c0352f735c8f"),
+    ("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", "sha256:b009b108a377b45b5875f1dd25824e9cf2dc74dc654a879f8db9b237cf0cd2df"),
+    ("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", "sha256:a5f884b7a49085387e24f0aef90d1dd2895e04db851bacc20457eed3e70959a1"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -108214,6 +108222,2216 @@ pub enum AssuranceTransitionReceiptV2ChallengeResolutionChallengeContractRef {
     SchemaIoiFoundationsObjectsVerifierChallengeEnvelopeV2,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyDevelopmentKitManifestV1 {
+    pub schema_version: OntologyDevelopmentKitManifestV1SchemaVersion,
+    pub object: OntologyDevelopmentKitManifestV1Object,
+    pub id: String,
+    pub r#ref: String,
+    pub name: String,
+    pub description: String,
+    pub status: OntologyDevelopmentKitManifestV1Status,
+    pub ontology_refs: Vec<String>,
+    pub recipe_refs: Vec<String>,
+    pub surface_descriptor_refs: Vec<String>,
+    pub connector_mappings: Vec<String>,
+    pub policy_bound_views: Vec<String>,
+    pub eval_refs: Vec<String>,
+    pub worker_plan_refs: Vec<String>,
+    pub mcp_operator_contracts: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyDevelopmentKitManifestV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","title":"OntologyDevelopmentKitManifestV1","description":"THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK manifest lane minted while no `_meta/schemas/` entry existed for any ODK family and `ioi.hypervisor.odk.manifest.v1` was a local Rust constant. It diverges from the canonical `OntologyDevelopmentKitManifestEnvelope` in five ways that a successor has to fix rather than paper over: the identity field is a bare `id` plus a separate `ref` where canon carries one `odk_manifest_id`; the recipe binding is `recipe_refs`, the unqualified name the term-boundary ruling forbids, where canon carries `data_recipe_refs`; `mcp_operator_contracts` folds two canonical members (`operator_contract_refs` and `mcp_contract_refs`) into one list; canon's `canonical_object_model_refs`, `ontology_projection_refs`, `workflow_schema_refs`, `benchmark_profile_refs`, `conformance_profile_refs`, `package_refs` and `receipt_obligations` are absent entirely; and `status` never advances past `draft` because nothing writes it. It is registered for the same three reasons the v1 descriptor is: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the canonical member set' is a checked expectation with fixtures rather than a claim in prose. AUTHORING AT v1 IS CLOSED — the daemon refuses `schema_version: ioi.hypervisor.odk.manifest.v1` on create. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","ontology_refs","recipe_refs","surface_descriptor_refs","connector_mappings","policy_bound_views","eval_refs","worker_plan_refs","mcp_operator_contracts","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"object":{"const":"ioi.hypervisor.odk.manifest"},"id":{"type":"string","pattern":"^odk_[0-9a-f]{16}$","description":"Derived from owner plus caller idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted."},"ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$","description":"v1 carried identity twice, as a bare id and as a scheme-prefixed ref. v2 carries `odk_manifest_id` once, in canon's own scheme-prefixed form."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PINNED VALUE. Canon's vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."},"ontology_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","maxLength":512},"description":"Locally resolvable ontology refs. v1 checks resolvability only: no owner resolution, no committed hash, and no requirement that a ref name an exact admitted revision."},"recipe_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"THE UNQUALIFIED NAME. Canon's member is `data_recipe_refs`; `recipe_refs` is the generic spelling the term-boundary ruling calls a defect. v2 renames it and refuses this spelling on an authoring request rather than translating it."},"surface_descriptor_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"connector_mappings":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"A PASSTHROUGH FIELD, REGISTERED AS THE REF LIST IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed at the owner seam with a typed refusal. That population needs an explicit convergence, which this contract records rather than performs; canon's member is `connector_mapping_refs`."},"policy_bound_views":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"The same passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."},"eval_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"v1's single evaluation list. Canon splits it into `evaluation_dataset_refs` and `benchmark_profile_refs`, which are different objects with different owners."},"worker_plan_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"mcp_operator_contracts":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"TWO CANONICAL MEMBERS FOLDED INTO ONE. Canon carries `operator_contract_refs` and `mcp_contract_refs` separately because an operator contract and an MCP profile are different contracts with different consumers. v1 cannot tell them apart, which is why a convergence cannot split this list without the author saying which is which."},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<OntologyDevelopmentKitManifestV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<OntologyDevelopmentKitManifestV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OntologyDevelopmentKitManifestV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"recipe_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipe_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_descriptor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"surface_descriptor_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_descriptor_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mappings: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"connector_mappings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mappings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_views: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_views"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_bound_views"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            eval_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"eval_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"eval_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_plan_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"worker_plan_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_plan_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mcp_operator_contracts: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"mcp_operator_contracts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_operator_contracts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.manifest.v1"#)]
+    IoiHypervisorOdkManifestV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV1Object {
+    #[serde(rename = r#"ioi.hypervisor.odk.manifest"#)]
+    IoiHypervisorOdkManifest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyDevelopmentKitManifestV2 {
+    pub schema_version: OntologyDevelopmentKitManifestV2SchemaVersion,
+    pub odk_manifest_id: String,
+    pub name: String,
+    pub version: String,
+    pub owner_ref: String,
+    pub ontology_refs: Vec<String>,
+    pub canonical_object_model_refs: Vec<String>,
+    pub data_recipe_refs: Vec<String>,
+    pub connector_mapping_refs: Vec<String>,
+    pub policy_bound_data_view_refs: Vec<String>,
+    pub ontology_projection_refs: Vec<String>,
+    pub surface_descriptor_refs: Vec<String>,
+    pub workflow_schema_refs: Vec<String>,
+    pub evaluation_dataset_refs: Vec<String>,
+    pub benchmark_profile_refs: Vec<String>,
+    pub worker_plan_refs: Vec<String>,
+    pub operator_contract_refs: Vec<String>,
+    pub mcp_contract_refs: Vec<String>,
+    pub conformance_profile_refs: Vec<String>,
+    pub package_refs: Vec<String>,
+    pub receipt_obligations: Vec<String>,
+    pub status: OntologyDevelopmentKitManifestV2Status,
+    pub migration: OntologyDevelopmentKitManifestV2Migration,
+    pub authority_nonclaim: OntologyDevelopmentKitManifestV2AuthorityNonclaim,
+    pub truth_nonclaim: OntologyDevelopmentKitManifestV2TruthNonclaim,
+    pub does_not_assert: Vec<OntologyDevelopmentKitManifestV2DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyDevelopmentKitManifestV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","title":"OntologyDevelopmentKitManifestV2","description":"THE CANONICAL ODK MANIFEST, REGISTERED. Non-negotiable 10 says an ODK manifest can scaffold surfaces, domain apps, evals, workers and packages but cannot become runtime truth, permission truth, semantic truth or marketplace truth by itself. Until this contract landed, that boundary had no wire form: `ioi.hypervisor.odk.manifest.v1` was a Rust string literal, no `_meta/schemas/` entry existed for any ODK family, and G-4 therefore forbade every surface from claiming one. This version carries canon's sixteen member lists under canon's own names, splits the three places v1 folded distinct members together (`recipe_refs` into `data_recipe_refs`; `eval_refs` into `evaluation_dataset_refs` and `benchmark_profile_refs`; `mcp_operator_contracts` into `operator_contract_refs` and `mcp_contract_refs`), and carries the nonclaims as fields so a relying party holding only the bytes can check what the manifest declines to assert. A manifest is a builder and conformance object: it packages contracts, and packaging is not admission.","x-ioi-schema-version":"ioi.ontology-development-kit-manifest.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"manifestRef":{"type":"string","pattern":"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","odk_manifest_id","name","version","owner_ref","ontology_refs","canonical_object_model_refs","data_recipe_refs","connector_mapping_refs","policy_bound_data_view_refs","ontology_projection_refs","surface_descriptor_refs","workflow_schema_refs","evaluation_dataset_refs","benchmark_profile_refs","worker_plan_refs","operator_contract_refs","mcp_contract_refs","conformance_profile_refs","package_refs","receipt_obligations","status","migration","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.ontology-development-kit-manifest.v2"},"odk_manifest_id":{"$ref":"#/$defs/manifestRef","description":"ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `id` and a separate `ref` that could disagree with each other; canon carries `odk_manifest_id: odk://…` once."},"name":{"type":"string","minLength":1,"maxLength":200},"version":{"type":"string","minLength":1,"maxLength":128,"description":"Canon's `semver_or_hash`. A manifest version is the builder's own declared version of the package it describes; it is not the version of any ontology it binds, and advancing it re-means nothing downstream."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"The owner the admission was scoped to. A manifest is owned; it is not a global registry entry."},"ontology_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"At least one owning ontology. A kit manifest that binds no meaning is packaging nothing this layer owns."},"canonical_object_model_refs":{"$ref":"#/$defs/refList"},"data_recipe_refs":{"$ref":"#/$defs/refList","description":"THE QUALIFIED NAME. v1 called this `recipe_refs`; the term-boundary ruling makes a generic executable recipe family a defect, so every recipe is owner-qualified. An authoring request naming `recipe_refs` is refused rather than translated."},"connector_mapping_refs":{"$ref":"#/$defs/refList"},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList"},"ontology_projection_refs":{"$ref":"#/$defs/refList"},"surface_descriptor_refs":{"$ref":"#/$defs/refList","description":"The descriptors this manifest packages. Packaging a descriptor neither admits it nor registers it: the composable-application journey admits each stage's own fact and a generator that appears to skip one has skipped an admission."},"workflow_schema_refs":{"$ref":"#/$defs/refList"},"evaluation_dataset_refs":{"$ref":"#/$defs/refList","description":"One half of v1's single `eval_refs` list. A dataset and a benchmark profile are different objects with different owners, and a convergence cannot split the legacy list without the author saying which member is which."},"benchmark_profile_refs":{"$ref":"#/$defs/refList"},"worker_plan_refs":{"$ref":"#/$defs/refList","description":"An `OntologyToWorkerPlan` can propose workers, tools, schemas, evals and manifests. Naming one here proposes; it grants no authority (non-negotiable 9)."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList","description":"The other half of v1's folded `mcp_operator_contracts`. An operator contract and an MCP profile have different consumers, so they are different members."},"conformance_profile_refs":{"$ref":"#/$defs/refList"},"package_refs":{"$ref":"#/$defs/refList","description":"Artifact refs for the packaged bytes. A package ref is not a local package admission and not a marketplace listing."},"receipt_obligations":{"$ref":"#/$defs/refList","description":"What a consumer of this manifest owes receipts for. An obligation stated here is a requirement on the consumer, never a permission granted to it."},"status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four members, verbatim. INVENTORY STATUS ONLY (G-6): it says where this manifest sits in its own lifecycle and says nothing about whether anything it packages is mounted, serving, installed or launchable. Those are other planes' state, on other objects."},"migration":{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A manifest authored fresh at v2 has no predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Independently nullable fields would admit partial tuples that READ AS COMPLETE — `converged_from_v1` with a null hash claims a provenance while naming no bytes anyone could check — so the two conditionals below partition the compatibility enum exactly and a partial or mixed block is a SCHEMA refusal.","required":["from_schema_version","from_manifest_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.manifest.v1"},{"type":"null"}]},"from_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 manifests the same commitment."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_manifest_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"from_manifest_ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"authority_nonclaim":{"const":"ontology_development_kit_manifest_grants_no_authority"},"truth_nonclaim":{"const":"ontology_development_kit_manifest_is_not_runtime_or_semantic_truth","description":"Non-negotiable 10, as a field."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_lease_crossing","runtime_truth","semantic_truth","permission_truth","marketplace_truth","package_admission","installation","registration","conformance_result"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_lease_crossing"}},{"contains":{"const":"runtime_truth"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"permission_truth"}},{"contains":{"const":"marketplace_truth"}},{"contains":{"const":"package_admission"}}],"description":"Seven mandatory members. `package_admission` is the one this family needs that the descriptor's list does not: a manifest is the packaging object, and 'packaged' reading as 'admitted' is the exact stage-skip the composable-application journey calls a defect."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<OntologyDevelopmentKitManifestV2SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            odk_manifest_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"odk_manifest_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"odk_manifest_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_object_model_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"canonical_object_model_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"canonical_object_model_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"data_recipe_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_recipe_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"connector_mapping_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mapping_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_data_view_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_projection_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_projection_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ontology_projection_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_descriptor_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"surface_descriptor_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_descriptor_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workflow_schema_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"workflow_schema_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workflow_schema_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluation_dataset_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evaluation_dataset_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluation_dataset_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            benchmark_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"benchmark_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"benchmark_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_plan_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"worker_plan_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_plan_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operator_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"operator_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operator_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mcp_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"mcp_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conformance_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"conformance_profile_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"conformance_profile_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"package_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<OntologyDevelopmentKitManifestV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<OntologyDevelopmentKitManifestV2Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<
+                OntologyDevelopmentKitManifestV2AuthorityNonclaim,
+            >(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim:
+                serde_json::from_value::<OntologyDevelopmentKitManifestV2TruthNonclaim>(
+                    object
+                        .remove(r#"truth_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<
+                Vec<OntologyDevelopmentKitManifestV2DoesNotAssertItem>,
+            >(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2SchemaVersion {
+    #[serde(rename = r#"ioi.ontology-development-kit-manifest.v2"#)]
+    IoiOntologyDevelopmentKitManifestV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OntologyDevelopmentKitManifestV2Migration {
+    pub from_schema_version: Option<OntologyDevelopmentKitManifestV2MigrationFromSchemaVersion>,
+    pub from_manifest_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub compatibility: OntologyDevelopmentKitManifestV2MigrationCompatibility,
+    pub reinterprets_predecessor: OntologyDevelopmentKitManifestV2MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for OntologyDevelopmentKitManifestV2Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A manifest authored fresh at v2 has no predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Independently nullable fields would admit partial tuples that READ AS COMPLETE — `converged_from_v1` with a null hash claims a provenance while naming no bytes anyone could check — so the two conditionals below partition the compatibility enum exactly and a partial or mixed block is a SCHEMA refusal.","required":["from_schema_version","from_manifest_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.manifest.v1"},{"type":"null"}]},"from_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 manifests the same commitment."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_manifest_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"from_manifest_ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_schema_version: serde_json::from_value::<
+                Option<OntologyDevelopmentKitManifestV2MigrationFromSchemaVersion>,
+            >(
+                object
+                    .remove(r#"from_schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_manifest_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<
+                OntologyDevelopmentKitManifestV2MigrationCompatibility,
+            >(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                OntologyDevelopmentKitManifestV2MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2MigrationFromSchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.odk.manifest.v1"#)]
+    IoiHypervisorOdkManifestV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"converged_from_v1"#)]
+    ConvergedFromV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OntologyDevelopmentKitManifestV2MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for OntologyDevelopmentKitManifestV2MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for OntologyDevelopmentKitManifestV2MigrationReinterpretsPredecessor
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2AuthorityNonclaim {
+    #[serde(rename = r#"ontology_development_kit_manifest_grants_no_authority"#)]
+    OntologyDevelopmentKitManifestGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2TruthNonclaim {
+    #[serde(rename = r#"ontology_development_kit_manifest_is_not_runtime_or_semantic_truth"#)]
+    OntologyDevelopmentKitManifestIsNotRuntimeOrSemanticTruth,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OntologyDevelopmentKitManifestV2DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"capability_lease_crossing"#)]
+    CapabilityLeaseCrossing,
+    #[serde(rename = r#"runtime_truth"#)]
+    RuntimeTruth,
+    #[serde(rename = r#"semantic_truth"#)]
+    SemanticTruth,
+    #[serde(rename = r#"permission_truth"#)]
+    PermissionTruth,
+    #[serde(rename = r#"marketplace_truth"#)]
+    MarketplaceTruth,
+    #[serde(rename = r#"package_admission"#)]
+    PackageAdmission,
+    #[serde(rename = r#"installation"#)]
+    Installation,
+    #[serde(rename = r#"registration"#)]
+    Registration,
+    #[serde(rename = r#"conformance_result"#)]
+    ConformanceResult,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppV1 {
+    pub schema_version: DomainAppV1SchemaVersion,
+    pub object: DomainAppV1Object,
+    pub domain_app_id: String,
+    pub domain_app_ref: String,
+    pub name: String,
+    pub description: String,
+    pub status: DomainAppV1Status,
+    pub surface_descriptor_ref: String,
+    pub odk_manifest_ref: Option<String>,
+    pub project_ref: Option<String>,
+    pub owner_ref: String,
+    pub visibility: DomainAppV1Visibility,
+    pub ontology_refs: Vec<String>,
+    pub data_recipe_refs: Vec<String>,
+    pub mcp_contract_refs: Vec<String>,
+    pub authority_requirement_refs: Vec<String>,
+    pub operator_contract_refs: Vec<String>,
+    pub receipt_obligations: Vec<String>,
+    pub generated_artifact_refs: Vec<String>,
+    pub runtime_posture: DomainAppV1RuntimePosture,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app/v1","title":"DomainAppV1","description":"THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the record the Domain Apps foundation cut minted while `ioi.hypervisor.domain-app.v1` was a Rust string literal with no registered contract behind it. Three divergences from `DomainAppEnvelope` are byte-verified rather than asserted, and this contract states each one so it is checkable. First, `status` is written as the literal `draft` at create and NO path advances it: the four other canonical states (`admitted`, `installed`, `deprecated`, `revoked`) are unreachable, so the field records a pin rather than a lifecycle. Second, the four composable-application stage bindings canon requires — `surface_registration_ref`, `package_release_ref`, `installation_ref`, `system_binding_refs` — do not exist as fields at all, so 'this app has no admitted registration' and 'this record cannot express a registration' are the same absence. Third, the derived provenance snapshot covers ontology, data-recipe and MCP refs only; canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` are absent, so a v1 DomainApp over a descriptor that binds eight object models records none of them. AUTHORING AT v1 IS CLOSED. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.domain-app.v1","type":"object","additionalProperties":false,"$defs":{"refList":{"type":"array","maxItems":128,"items":{"type":"string","maxLength":512}},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","object","domain_app_id","domain_app_ref","name","description","status","surface_descriptor_ref","odk_manifest_ref","project_ref","owner_ref","visibility","ontology_refs","data_recipe_refs","mcp_contract_refs","authority_requirement_refs","operator_contract_refs","receipt_obligations","generated_artifact_refs","runtime_posture"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app.v1"},"object":{"const":"ioi.hypervisor.domain_app"},"domain_app_id":{"type":"string","pattern":"^dapp_[0-9a-f]{16}$","description":"A BARE ID WHERE CANON CARRIES A REF. Canon's `domain_app_id` is `domain-app://…`; v1 puts the unprefixed id here and the ref in a second field beside it, so two fields can disagree about one identity. Derived from owner plus caller idempotency key by `replay_stable_id`, sixteen hex digits wide."},"domain_app_ref":{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PIN, REGISTERED AS A PIN. The producer writes the literal `draft` and no transition — not mount, not serve, not registration, not admission — ever moves it. Canon's vocabulary is draft | admitted | installed | deprecated | revoked; four of those five are unreachable in this contract, which is exactly what makes 'status is pinned' a checked fact here rather than a claim in a delta row."},"surface_descriptor_ref":{"type":"string","pattern":"^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. That half of the contract was already correct at v1."},"odk_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"project_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"A PASSTHROUGH FIELD, REGISTERED AS THE REF IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying a structured value here does not satisfy this contract and fails closed at the owner seam rather than being silently repaired."},"owner_ref":{"type":"string","minLength":1,"maxLength":256,"description":"Resolved from the authenticated caller at create. The v1 PATCH path also copies a caller-supplied `owner_ref` straight onto the record, which is why this field is typed as a string rather than as the owner-scheme pattern v2 requires."},"visibility":{"enum":["private","org","marketplace_candidate"],"description":"`marketplace_candidate` is a flag on a draft, never a publication."},"ontology_refs":{"$ref":"#/$defs/refList","description":"Half of the derived snapshot canon defines. `canonical_object_model_refs` and `policy_bound_data_view_refs` have no field in this contract, so a descriptor's object-model and policy-view bindings are dropped on the floor at create."},"data_recipe_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList"},"authority_requirement_refs":{"$ref":"#/$defs/refList","description":"Author-supplied and unresolved. Declaring an authority requirement is a statement of what the app will owe; it grants nothing (non-negotiable 9)."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"receipt_obligations":{"$ref":"#/$defs/refList"},"generated_artifact_refs":{"$ref":"#/$defs/refList"},"runtime_posture":{"type":"object","additionalProperties":false,"required":["mounted","route","note"],"description":"The backlink projection of the runtime. v1's version is the union of the key sets five different writers put here — create, mount, serve, unmount and kill enforcement each write their own shape — which is why `serving` and `mount_ref` are optional: a record written by the create path has neither, and a reader cannot tell 'not serving' from 'this writer did not say'.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"note":{"type":"string","maxLength":512},"mount_ref":{"type":"string","maxLength":512},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512}}},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/timestamp"},"admitted_head":{"type":"string","maxLength":256,"description":"The head the NEXT writer must present. It is a fact about the stream projected onto the row, not part of the admitted payload — the payload has it removed before admission so a successor is not byte-different from its own replay."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DomainAppV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<DomainAppV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<DomainAppV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_descriptor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"surface_descriptor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_descriptor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            odk_manifest_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"odk_manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"odk_manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            project_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"project_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"project_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visibility: serde_json::from_value::<DomainAppV1Visibility>(
+                object
+                    .remove(r#"visibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"visibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"data_recipe_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_recipe_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mcp_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"mcp_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operator_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"operator_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operator_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            generated_artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"generated_artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"generated_artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_posture: serde_json::from_value::<DomainAppV1RuntimePosture>(
+                object
+                    .remove(r#"runtime_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: match object.remove(r#"created_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            updated_at: match object.remove(r#"updated_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            admitted_head: match object.remove(r#"admitted_head"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.domain-app.v1"#)]
+    IoiHypervisorDomainAppV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV1Object {
+    #[serde(rename = r#"ioi.hypervisor.domain_app"#)]
+    IoiHypervisorDomainApp,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV1Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV1Visibility {
+    #[serde(rename = r#"private"#)]
+    Private,
+    #[serde(rename = r#"org"#)]
+    Org,
+    #[serde(rename = r#"marketplace_candidate"#)]
+    MarketplaceCandidate,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppV1RuntimePosture {
+    pub mounted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serving: Option<bool>,
+    pub route: Option<String>,
+    pub note: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mount_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_request_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_control_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppV1RuntimePosture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["mounted","route","note"],"description":"The backlink projection of the runtime. v1's version is the union of the key sets five different writers put here — create, mount, serve, unmount and kill enforcement each write their own shape — which is why `serving` and `mount_ref` are optional: a record written by the create path has neither, and a reader cannot tell 'not serving' from 'this writer did not say'.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"note":{"type":"string","maxLength":512},"mount_ref":{"type":"string","maxLength":512},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mounted: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"mounted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mounted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serving: match object.remove(r#"serving"#) {
+                Some(field_value) => serde_json::from_value::<Option<bool>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            route: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mount_ref: match object.remove(r#"mount_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            approval_request_ref: match object.remove(r#"approval_request_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            release_control_ref: match object.remove(r#"release_control_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppV2 {
+    pub schema_version: DomainAppV2SchemaVersion,
+    pub domain_app_id: String,
+    pub name: String,
+    pub description: String,
+    pub surface_descriptor_ref: String,
+    pub surface_descriptor_schema_version: DomainAppV2SurfaceDescriptorSchemaVersion,
+    pub surface_descriptor_content_hash: String,
+    pub odk_manifest_ref: Option<String>,
+    pub owner_ref: String,
+    pub project_ref: Option<String>,
+    pub visibility: DomainAppV2Visibility,
+    pub ontology_refs: Vec<String>,
+    pub canonical_object_model_refs: Vec<String>,
+    pub data_recipe_refs: Vec<String>,
+    pub policy_bound_data_view_refs: Vec<String>,
+    pub operator_contract_refs: Vec<String>,
+    pub mcp_contract_refs: Vec<String>,
+    pub authority_requirement_refs: Vec<String>,
+    pub receipt_obligations: Vec<String>,
+    pub generated_artifact_refs: Vec<String>,
+    pub surface_registration_ref: Option<String>,
+    pub package_release_ref: Option<String>,
+    pub installation_ref: Option<String>,
+    pub system_binding_refs: Vec<String>,
+    pub launch_posture: DomainAppV2LaunchPosture,
+    pub status: DomainAppV2Status,
+    pub runtime_posture: DomainAppV2RuntimePosture,
+    pub migration: DomainAppV2Migration,
+    pub authority_nonclaim: DomainAppV2AuthorityNonclaim,
+    pub truth_nonclaim: DomainAppV2TruthNonclaim,
+    pub does_not_assert: Vec<DomainAppV2DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app/v2","title":"DomainAppV2","description":"THE CANONICAL DOMAIN APP, WITH INVENTORY STATUS AND RUNTIME STATE STRUCTURALLY SEPARATED (G-6). v1 pinned `status` to `draft` forever and had no field for any stage of the composable-application journey, so 'this app was never registered' and 'this record cannot say whether it was registered' were the same bytes. This version makes the two state kinds different fields with different writers and enforces their coupling in the schema. `status` is INVENTORY: it advances only when the stage binding that produced it is named — `admitted` requires the immutable package release, `installed` requires the installation binding and the surface registration beside it — and no mount, serve, stop, unmount or kill transition may move it. `runtime_posture` is a BACKLINK PROJECTION of the `DomainAppRuntime` that owns mounted/serving state, and it must name the exact runtime it projects whenever it claims either. The two cannot be confused by a reader because neither field's vocabulary appears in the other. `launch_posture` carries canon's System-binding bound as a field: an app with no admitted System binding is `inspect_only`, and the schema refuses a record that claims otherwise while binding nothing. The derived snapshot is complete — canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` were absent from v1 entirely — and it is bound to the EXACT descriptor bytes it was derived from, so a snapshot cannot silently belong to a different revision of its own source.","x-ioi-schema-version":"ioi.domain-app.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainAppRef":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"runtimeRef":{"type":"string","pattern":"^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","domain_app_id","name","description","surface_descriptor_ref","surface_descriptor_schema_version","surface_descriptor_content_hash","odk_manifest_ref","owner_ref","project_ref","visibility","ontology_refs","canonical_object_model_refs","data_recipe_refs","policy_bound_data_view_refs","operator_contract_refs","mcp_contract_refs","authority_requirement_refs","receipt_obligations","generated_artifact_refs","surface_registration_ref","package_release_ref","installation_ref","system_binding_refs","launch_posture","status","runtime_posture","migration","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.domain-app.v2"},"domain_app_id":{"$ref":"#/$defs/domainAppRef","description":"ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `domain_app_id` and a separate `domain_app_ref` that could disagree."},"name":{"type":"string","minLength":1,"maxLength":200},"description":{"type":"string","maxLength":2000},"surface_descriptor_ref":{"type":"string","pattern":"^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. A DomainApp without a resolving app-shaped descriptor is a defect, not a draft."},"surface_descriptor_schema_version":{"enum":["ioi.ontology-surface-descriptor.v2","ioi.hypervisor.odk.surface-descriptor.v1"],"description":"WHICH REGISTERED CONTRACT THE SNAPSHOT WAS READ UNDER. Both versions are readable; neither is reinterpreted as the other. Recording the version is what lets a reader tell a snapshot that is empty because the descriptor binds nothing from one that is empty because the consumer read the wrong field names — the exact defect the v1 lineage read had, where `ontology_ref` and `recipe_refs` were read off a v2 record that carries neither and the empty result was recorded as provenance."},"surface_descriptor_content_hash":{"$ref":"#/$defs/sha256","description":"The EXACT descriptor bytes this snapshot was derived from, hashed under that descriptor version's own domain separator. A descriptor that advances leaves this app's snapshot bound to the revision it actually read, so 'the snapshot is current' is decidable offline rather than assumed."},"odk_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"Optional packaging provenance. When present it must itself name this descriptor, so packaging provenance cannot disagree with the app-shape contract."},"owner_ref":{"$ref":"#/$defs/ownerRef","description":"Server-resolved from the authenticated caller, never copied from the request body. v1's PATCH path accepted a caller-supplied owner_ref, which is how a record's owner could stop being the owner its admission was scoped to."},"project_ref":{"oneOf":[{"type":"string","pattern":"^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}]},"visibility":{"enum":["private","org","marketplace_candidate"],"description":"Distribution intent, and nothing else. `marketplace_candidate` is a flag on a record, never a publication and never a local package admission."},"ontology_refs":{"$ref":"#/$defs/refList","description":"Derived snapshot member. The four snapshot lists are a projection of the bound descriptor and manifest, not independent authorship: a DomainApp cannot widen the ontology, object-model, recipe or view set its descriptor declares."},"canonical_object_model_refs":{"$ref":"#/$defs/refList","description":"ABSENT FROM v1 ENTIRELY. A v1 DomainApp over a descriptor binding eight object models recorded none of them, and nothing failed."},"data_recipe_refs":{"$ref":"#/$defs/refList"},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList","description":"ABSENT FROM v1 ENTIRELY. Policy-bound views gate read, transform, distill, train, evaluate, export, publish and route use of governed data; an app whose record could not name the views its descriptor binds could not be checked against them."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList"},"authority_requirement_refs":{"$ref":"#/$defs/refList","description":"What this app will OWE when it acts. Declaring a requirement grants nothing (non-negotiable 9): a consequential action still passes capability, policy, authority, daemon, evidence and verification gates."},"receipt_obligations":{"$ref":"#/$defs/refList"},"generated_artifact_refs":{"$ref":"#/$defs/refList"},"surface_registration_ref":{"oneOf":[{"type":"string","pattern":"^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Stage 7 of the composable-application journey: the `HypervisorApplicationSurfaceRegistration` that makes this app launchable as an `extension_application`. Mounting is a runtime fact and registration is an inventory fact; they are never substitutes."},"package_release_ref":{"oneOf":[{"type":"string","pattern":"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Stage 6: the immutable release local Packages admission produced."},"installation_ref":{"oneOf":[{"type":"string","pattern":"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Stage 7: the installation binding. Admission does not install; installation does not expose."},"system_binding_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"description":"Stage 9: admitted System/context bindings. Their absence bounds the app to inspect-only use rather than silently permitting effects."},"launch_posture":{"enum":["inspect_only","system_bound"],"description":"CANON'S SYSTEM-BINDING BOUND, AS A FIELD A RELYING PARTY CAN READ. It is not independent authorship: the two conditionals below tie it to `system_binding_refs` exactly, so a record claiming `system_bound` while binding no System is a SCHEMA refusal rather than something a reader has to notice."},"status":{"enum":["draft","admitted","installed","deprecated","revoked"],"description":"INVENTORY STATUS — canon's five members, and the field v1 pinned to `draft`. It answers where this app sits in the composable-application journey and NOTHING about whether it is mounted or serving. The conditionals below make each advance carry the stage binding that produced it, so `admitted` cannot be written by a route that admitted nothing."},"runtime_posture":{"type":"object","additionalProperties":false,"required":["mounted","serving","route","mount_ref"],"description":"RUNTIME STATE — a backlink PROJECTION of the `DomainAppRuntime`, never a second source of truth. All four keys are required at every revision, so a reader can never confuse 'not serving' with 'this writer did not say', which is exactly what v1's union-of-five-writers shape allowed. The conditionals bind the projection to a real runtime: claiming mounted or serving without naming the runtime is refused.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"The INTERNAL route only. External ingress is a separate admission recorded on the runtime, and it is never a consequence of serving."},"mount_ref":{"oneOf":[{"$ref":"#/$defs/runtimeRef"},{"type":"null"}]}},"allOf":[{"title":"serving implies mounted","if":{"required":["serving"],"properties":{"serving":{"const":true}}},"then":{"properties":{"mounted":{"const":true}}}},{"title":"a live posture names the runtime it projects","if":{"required":["mounted"],"properties":{"mounted":{"const":true}}},"then":{"properties":{"mount_ref":{"$ref":"#/$defs/runtimeRef"}}}},{"title":"an unmounted posture projects nothing","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"serving":{"const":false},"route":{"type":"null"},"mount_ref":{"type":"null"}}}}]},"migration":{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — and exactly two admissible tuples, partitioned by `compatibility`.","required":["from_schema_version","from_domain_app_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.domain-app.v1"},{"type":"null"}]},"from_domain_app_ref":{"oneOf":[{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_domain_app_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.domain-app.v1"},"from_domain_app_ref":{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"authority_nonclaim":{"const":"domain_app_grants_no_authority"},"truth_nonclaim":{"const":"domain_app_is_not_registration_admission_or_runtime_truth","description":"A DomainApp is not a runtime (`DomainAppRuntime` owns mounted/serving state), not a catalog registration, not an admission, and not semantic truth. A DomainApp with no admitted registration is a candidate, not durable product inventory."},"does_not_assert":{"type":"array","minItems":7,"maxItems":11,"uniqueItems":true,"items":{"enum":["authority","capability_lease_crossing","runtime_truth","semantic_truth","permission_truth","marketplace_truth","registration","package_admission","installation","launchability","external_ingress"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"runtime_truth"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"permission_truth"}},{"contains":{"const":"marketplace_truth"}},{"contains":{"const":"registration"}},{"contains":{"const":"launchability"}}],"description":"Seven mandatory members. `registration` and `launchability` are the two this family needs most: a mounted, serving Domain App is still not product inventory, and the record has to say so in its own bytes."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, recomputable offline by a relying party holding only the bytes."}},"allOf":[{"title":"no System binding means inspect-only","if":{"required":["system_binding_refs"],"properties":{"system_binding_refs":{"type":"array","maxItems":0}}},"then":{"properties":{"launch_posture":{"const":"inspect_only"}}}},{"title":"a system-bound posture names at least one admitted System binding","if":{"required":["launch_posture"],"properties":{"launch_posture":{"const":"system_bound"}}},"then":{"properties":{"system_binding_refs":{"type":"array","minItems":1}}}},{"title":"a draft has completed no journey stage","if":{"required":["status"],"properties":{"status":{"const":"draft"}}},"then":{"properties":{"surface_registration_ref":{"type":"null"},"package_release_ref":{"type":"null"},"installation_ref":{"type":"null"}}}},{"title":"admitted names the immutable release that admitted it, and nothing further","if":{"required":["status"],"properties":{"status":{"const":"admitted"}}},"then":{"properties":{"package_release_ref":{"type":"string","pattern":"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"installation_ref":{"type":"null"},"surface_registration_ref":{"type":"null"}}}},{"title":"installed names release, installation and registration together","if":{"required":["status"],"properties":{"status":{"const":"installed"}}},"then":{"properties":{"package_release_ref":{"type":"string","pattern":"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"installation_ref":{"type":"string","pattern":"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"surface_registration_ref":{"type":"string","pattern":"^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DomainAppV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_descriptor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"surface_descriptor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_descriptor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_descriptor_schema_version: serde_json::from_value::<
+                DomainAppV2SurfaceDescriptorSchemaVersion,
+            >(
+                object
+                    .remove(r#"surface_descriptor_schema_version"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"surface_descriptor_schema_version"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_descriptor_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"surface_descriptor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"surface_descriptor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            odk_manifest_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"odk_manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"odk_manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            project_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"project_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"project_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            visibility: serde_json::from_value::<DomainAppV2Visibility>(
+                object
+                    .remove(r#"visibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"visibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ontology_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_object_model_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"canonical_object_model_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"canonical_object_model_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"data_recipe_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_recipe_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_data_view_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operator_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"operator_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operator_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mcp_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"mcp_contract_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_contract_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            generated_artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"generated_artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"generated_artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_registration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"surface_registration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"surface_registration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            package_release_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"package_release_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"package_release_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            installation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"installation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"installation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"system_binding_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            launch_posture: serde_json::from_value::<DomainAppV2LaunchPosture>(
+                object
+                    .remove(r#"launch_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"launch_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<DomainAppV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_posture: serde_json::from_value::<DomainAppV2RuntimePosture>(
+                object
+                    .remove(r#"runtime_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<DomainAppV2Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<DomainAppV2AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<DomainAppV2TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<Vec<DomainAppV2DoesNotAssertItem>>(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2SchemaVersion {
+    #[serde(rename = r#"ioi.domain-app.v2"#)]
+    IoiDomainAppV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2SurfaceDescriptorSchemaVersion {
+    #[serde(rename = r#"ioi.ontology-surface-descriptor.v2"#)]
+    IoiOntologySurfaceDescriptorV2,
+    #[serde(rename = r#"ioi.hypervisor.odk.surface-descriptor.v1"#)]
+    IoiHypervisorOdkSurfaceDescriptorV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2Visibility {
+    #[serde(rename = r#"private"#)]
+    Private,
+    #[serde(rename = r#"org"#)]
+    Org,
+    #[serde(rename = r#"marketplace_candidate"#)]
+    MarketplaceCandidate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2LaunchPosture {
+    #[serde(rename = r#"inspect_only"#)]
+    InspectOnly,
+    #[serde(rename = r#"system_bound"#)]
+    SystemBound,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2Status {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"installed"#)]
+    Installed,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppV2RuntimePosture {
+    pub mounted: bool,
+    pub serving: bool,
+    pub route: Option<String>,
+    pub mount_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppV2RuntimePosture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mounted","serving","route","mount_ref"],"description":"RUNTIME STATE — a backlink PROJECTION of the `DomainAppRuntime`, never a second source of truth. All four keys are required at every revision, so a reader can never confuse 'not serving' with 'this writer did not say', which is exactly what v1's union-of-five-writers shape allowed. The conditionals bind the projection to a real runtime: claiming mounted or serving without naming the runtime is refused.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"The INTERNAL route only. External ingress is a separate admission recorded on the runtime, and it is never a consequence of serving."},"mount_ref":{"oneOf":[{"$ref":"#/$defs/runtimeRef"},{"type":"null"}]}},"allOf":[{"title":"serving implies mounted","if":{"required":["serving"],"properties":{"serving":{"const":true}}},"then":{"properties":{"mounted":{"const":true}}}},{"title":"a live posture names the runtime it projects","if":{"required":["mounted"],"properties":{"mounted":{"const":true}}},"then":{"properties":{"mount_ref":{"$ref":"#/$defs/runtimeRef"}}}},{"title":"an unmounted posture projects nothing","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"serving":{"const":false},"route":{"type":"null"},"mount_ref":{"type":"null"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mounted: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"mounted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mounted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serving: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"serving"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"serving"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            route: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mount_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"mount_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mount_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppV2Migration {
+    pub from_schema_version: Option<DomainAppV2MigrationFromSchemaVersion>,
+    pub from_domain_app_ref: Option<String>,
+    pub from_content_hash: Option<String>,
+    pub compatibility: DomainAppV2MigrationCompatibility,
+    pub reinterprets_predecessor: DomainAppV2MigrationReinterpretsPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppV2Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app/v2"#,
+            r##"{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — and exactly two admissible tuples, partitioned by `compatibility`.","required":["from_schema_version","from_domain_app_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.domain-app.v1"},{"type":"null"}]},"from_domain_app_ref":{"oneOf":[{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_domain_app_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.domain-app.v1"},"from_domain_app_ref":{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from_schema_version: serde_json::from_value::<
+                Option<DomainAppV2MigrationFromSchemaVersion>,
+            >(
+                object
+                    .remove(r#"from_schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_domain_app_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_domain_app_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_domain_app_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            from_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"from_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compatibility: serde_json::from_value::<DomainAppV2MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reinterprets_predecessor: serde_json::from_value::<
+                DomainAppV2MigrationReinterpretsPredecessor,
+            >(
+                object
+                    .remove(r#"reinterprets_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reinterprets_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2MigrationFromSchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.domain-app.v1"#)]
+    IoiHypervisorDomainAppV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"converged_from_v1"#)]
+    ConvergedFromV1,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DomainAppV2MigrationReinterpretsPredecessor {
+    False,
+}
+
+impl serde::Serialize for DomainAppV2MigrationReinterpretsPredecessor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppV2MigrationReinterpretsPredecessor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2AuthorityNonclaim {
+    #[serde(rename = r#"domain_app_grants_no_authority"#)]
+    DomainAppGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2TruthNonclaim {
+    #[serde(rename = r#"domain_app_is_not_registration_admission_or_runtime_truth"#)]
+    DomainAppIsNotRegistrationAdmissionOrRuntimeTruth,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppV2DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"capability_lease_crossing"#)]
+    CapabilityLeaseCrossing,
+    #[serde(rename = r#"runtime_truth"#)]
+    RuntimeTruth,
+    #[serde(rename = r#"semantic_truth"#)]
+    SemanticTruth,
+    #[serde(rename = r#"permission_truth"#)]
+    PermissionTruth,
+    #[serde(rename = r#"marketplace_truth"#)]
+    MarketplaceTruth,
+    #[serde(rename = r#"registration"#)]
+    Registration,
+    #[serde(rename = r#"package_admission"#)]
+    PackageAdmission,
+    #[serde(rename = r#"installation"#)]
+    Installation,
+    #[serde(rename = r#"launchability"#)]
+    Launchability,
+    #[serde(rename = r#"external_ingress"#)]
+    ExternalIngress,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppRuntimeV1 {
+    pub schema_version: DomainAppRuntimeV1SchemaVersion,
+    pub object: DomainAppRuntimeV1Object,
+    pub id: String,
+    pub r#ref: String,
+    pub domain_app_ref: String,
+    pub mounted: bool,
+    pub state: DomainAppRuntimeV1State,
+    pub serving: bool,
+    pub route: (),
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub internal_route_ref: Option<String>,
+    pub approval_request_ref: String,
+    pub release_control_ref: String,
+    pub authority_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub rollback: DomainAppRuntimeV1Rollback,
+    pub note: String,
+    pub mounted_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serve_started_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serve_stopped_at: Option<String>,
+    pub unmounted_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unmount_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub killed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub killed_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppRuntimeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app-runtime/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-runtime/v1","title":"DomainAppRuntimeV1","description":"THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the runtime record the governed mount ladder minted while `ioi.hypervisor.domain-app-runtime.v1` was a Rust string literal. Four divergences from `DomainAppRuntimeEnvelope` are byte-verified. Identity is a bare `id` plus a separate `ref` where canon carries one `domain_app_runtime_id`. `rollback` is canon's `rollback_posture` under a different name. `external_ingress_ref` DOES NOT EXIST as a field, so canon's rule that internal route and external ingress are distinct admissions has no wire form here — serving and ingress are not separable in the record, and the only honest reading of a v1 runtime is that its ingress state is unknown rather than absent. And the record carries no owner and no revision, so a mount receipt could not have bound the exact runtime revision it transitioned even if it had tried. There is also a dead `route` key that the mount writes as null and no transition ever sets: the serving route lives in `internal_route_ref`, which means a reader taking `route` at face value sees an unrouted runtime while it serves. AUTHORING AT v1 IS CLOSED. Stored v1 runtimes remain readable exactly as admitted.","x-ioi-schema-version":"ioi.hypervisor.domain-app-runtime.v1","type":"object","additionalProperties":false,"$defs":{"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refList":{"type":"array","maxItems":128,"items":{"type":"string","maxLength":512}}},"required":["schema_version","object","id","ref","domain_app_ref","mounted","state","serving","route","approval_request_ref","release_control_ref","authority_refs","receipt_refs","rollback","note","mounted_at","unmounted_at","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app-runtime.v1"},"object":{"const":"ioi.hypervisor.domain_app_runtime"},"id":{"type":"string","pattern":"^dartm_[0-9a-f]{1,32}$","description":"MINTED FROM THE WALL CLOCK. `format!(\"dartm_{:x}\", nanos())` — so the id is a function of when the mount happened rather than of what was requested, and a retried mount mints a SECOND runtime rather than resolving to the first. That is why the width here is a range: nothing about this id is derived, so nothing about it is fixed."},"ref":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{1,32}$"},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"mounted":{"type":"boolean"},"state":{"enum":["mounted","serving","unmounted","killed"],"description":"Canon's four runtime states. This half of the contract was already correct at v1: runtime state is the runtime's, and it is not the DomainApp's inventory status."},"serving":{"type":"boolean"},"route":{"type":"null","description":"THE DEAD KEY. The mount writes `null` here and no transition ever sets it; the serving route is written to `internal_route_ref` instead. Registering it as `null`-only is what turns 'this field is never populated' into a checked fact."},"internal_route_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"Present only once a serve transition has run. Absent on a runtime that has only ever been mounted, which is why it is optional here and required-with-an-explicit-null in v2."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"authority_refs":{"$ref":"#/$defs/refList","description":"Copied verbatim from the admitting ApprovalRequest's `required_authority_refs` without validation, so a legacy record carrying structured members here does not satisfy this contract and fails closed rather than being silently repaired."},"receipt_refs":{"$ref":"#/$defs/refList","description":"The receipt chain, appended one entry per transition."},"rollback":{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's `rollback_posture`, under v1's shorter name.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}},"note":{"type":"string","maxLength":1024},"mounted_at":{"$ref":"#/$defs/timestamp"},"serve_started_at":{"$ref":"#/$defs/timestamp"},"serve_stopped_at":{"$ref":"#/$defs/timestamp"},"unmounted_at":{"oneOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]},"unmount_reason":{"type":"string","maxLength":512},"killed":{"type":"boolean"},"killed_at":{"$ref":"#/$defs/timestamp"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/timestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DomainAppRuntimeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<DomainAppRuntimeV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mounted: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"mounted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mounted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<DomainAppRuntimeV1State>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serving: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"serving"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"serving"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            route: serde_json::from_value::<()>(
+                object
+                    .remove(r#"route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            internal_route_ref: match object.remove(r#"internal_route_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            approval_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_control_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"release_control_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_control_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback: serde_json::from_value::<DomainAppRuntimeV1Rollback>(
+                object
+                    .remove(r#"rollback"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mounted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mounted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mounted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serve_started_at: match object.remove(r#"serve_started_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            serve_stopped_at: match object.remove(r#"serve_stopped_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            unmounted_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"unmounted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unmounted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unmount_reason: match object.remove(r#"unmount_reason"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            killed: match object.remove(r#"killed"#) {
+                Some(field_value) => serde_json::from_value::<Option<bool>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            killed_at: match object.remove(r#"killed_at"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.domain-app-runtime.v1"#)]
+    IoiHypervisorDomainAppRuntimeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV1Object {
+    #[serde(rename = r#"ioi.hypervisor.domain_app_runtime"#)]
+    IoiHypervisorDomainAppRuntime,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV1State {
+    #[serde(rename = r#"mounted"#)]
+    Mounted,
+    #[serde(rename = r#"serving"#)]
+    Serving,
+    #[serde(rename = r#"unmounted"#)]
+    Unmounted,
+    #[serde(rename = r#"killed"#)]
+    Killed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppRuntimeV1Rollback {
+    pub unmountable: bool,
+    pub note: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppRuntimeV1Rollback {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app-runtime/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's `rollback_posture`, under v1's shorter name.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unmountable: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"unmountable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unmountable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppRuntimeV2 {
+    pub schema_version: DomainAppRuntimeV2SchemaVersion,
+    pub domain_app_runtime_id: String,
+    pub domain_app_ref: String,
+    pub owner_ref: String,
+    pub revision: ArchitectureContractInteger,
+    pub state: DomainAppRuntimeV2State,
+    pub mounted: bool,
+    pub serving: bool,
+    pub internal_route_ref: Option<String>,
+    pub external_ingress_ref: Option<String>,
+    pub approval_request_ref: String,
+    pub release_control_ref: String,
+    pub authority_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub rollback_posture: DomainAppRuntimeV2RollbackPosture,
+    pub mounted_at: String,
+    pub serve_started_at: Option<String>,
+    pub serve_stopped_at: Option<String>,
+    pub unmounted_at: Option<String>,
+    pub unmount_reason: Option<String>,
+    pub killed_at: Option<String>,
+    pub authority_nonclaim: DomainAppRuntimeV2AuthorityNonclaim,
+    pub truth_nonclaim: DomainAppRuntimeV2TruthNonclaim,
+    pub does_not_assert: Vec<DomainAppRuntimeV2DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppRuntimeV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-runtime/v2","title":"DomainAppRuntimeV2","description":"THE CANONICAL RUNTIME, AND THE OBJECT A MOUNT RECEIPT CAN NOW NAME EXACTLY. The runtime — never the DomainApp — owns mounted/serving state, the governance refs that permitted it, its route and its receipt chain. Four things v1 could not express are structural here. Identity is one scheme-prefixed `domain_app_runtime_id` derived from the caller's owner and idempotency key, so a retried mount resolves to the runtime it already created instead of minting a second one from the wall clock. `revision` counts this runtime's admitted transitions, so a receipt can bind the exact revision it attests rather than merely the app. `external_ingress_ref` exists as its own required field, so canon's rule that internal route and external ingress are DISTINCT admissions has a wire form: serving assigns the internal route and leaves ingress null, and a record where ingress appeared as a consequence of serving is refused by the conditionals below. And `content_hash` commits the whole runtime, which is the value a receipt binds so a relying party can check offline that the receipt and the runtime describe the same state.","x-ioi-schema-version":"ioi.domain-app-runtime.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","domain_app_runtime_id","domain_app_ref","owner_ref","revision","state","mounted","serving","internal_route_ref","external_ingress_ref","approval_request_ref","release_control_ref","authority_refs","receipt_refs","rollback_posture","mounted_at","serve_started_at","serve_stopped_at","unmounted_at","unmount_reason","killed_at","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.domain-app-runtime.v2"},"domain_app_runtime_id":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{16}$","description":"ONE IDENTITY FIELD, AND A DERIVED ONE. Sixteen hex digits from the caller's owner and idempotency key, so the same logical mount submitted twice resolves to one runtime. v1 minted this from `nanos()`, which made every retry a second runtime and made replay impossible to distinguish from a genuine second mount."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The app this runtime is one governed mount of. At most one runtime per DomainApp may be mounted at a time."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"Server-resolved from the authenticated caller that admitted the mount. It is what makes the runtime identity a mount receipt binds OWNER-QUALIFIED: two owners can hold runtimes whose ids collide only if they also share an owner, which they do not."},"revision":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"This runtime's own transition counter: 0 at mount, and one higher at every admitted transition after it. A mount receipt binds the exact revision it attests, so an app with several runtimes and a runtime with several transitions are both addressable."},"state":{"enum":["mounted","serving","unmounted","killed"],"description":"RUNTIME STATE — never the DomainApp's inventory status. The two vocabularies are disjoint on purpose (G-6): no member of this enum appears in `DomainApp.status` and no member of that one appears here, so a reader cannot conflate 'admitted' with 'running'."},"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"internal_route_ref":{"oneOf":[{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"Assigning an internal route is part of the mount's governance. Required at every revision with an explicit null so 'not routed' can never be read out of an absent key."},"external_ingress_ref":{"oneOf":[{"type":"string","pattern":"^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"A SEPARATE ADMISSION THIS ENVELOPE RECORDS BUT DOES NOT GRANT. v1 had no field at all, so serving and ingress were inseparable in the record. Here serving leaves it null and the conditional below refuses a record that acquired ingress merely by serving."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Re-read and re-checked live at each serve transition. A mount's earlier permission is never inherited forward as standing permission to serve."},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"authority_refs":{"$ref":"#/$defs/refList","description":"The authority refs the admitting ApprovalRequest recorded. Recording them is evidence of what permitted the mount; it is not a grant."},"receipt_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"description":"At least one: a runtime exists because a mount was receipted, so there is no unreceipted path onto this ladder."},"rollback_posture":{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's own name for what v1 called `rollback`.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}},"mounted_at":{"$ref":"#/$defs/timestamp","description":"The ADMISSION stamp of the mount, taken from the admitted operation rather than from the wall clock, so a replayed mount is byte-identical to the one it replays."},"serve_started_at":{"$ref":"#/$defs/nullableTimestamp"},"serve_stopped_at":{"$ref":"#/$defs/nullableTimestamp"},"unmounted_at":{"$ref":"#/$defs/nullableTimestamp"},"unmount_reason":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"killed_at":{"$ref":"#/$defs/nullableTimestamp"},"authority_nonclaim":{"const":"domain_app_runtime_grants_no_authority"},"truth_nonclaim":{"const":"domain_app_runtime_is_not_registration_or_launchability","description":"A mounted, serving Domain App is still not product inventory. It becomes launchable only through the ordinary `extension_application` registration and the product-surface compiler."},"does_not_assert":{"type":"array","minItems":5,"maxItems":9,"uniqueItems":true,"items":{"enum":["authority","registration","launchability","external_ingress","app_behaviour","semantic_validity","package_admission","installation","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"registration"}},{"contains":{"const":"launchability"}},{"contains":{"const":"external_ingress"}},{"contains":{"const":"app_behaviour"}}],"description":"Five mandatory members. `external_ingress` is the one this family needs that no other does: the whole point of the separate field is that a serving runtime asserts nothing about ingress."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator. It is the value a `DomainAppMountReceipt` binds, so a relying party can check offline that the receipt and the runtime describe the same admitted state."}},"allOf":[{"title":"serving implies mounted, and names its internal route","if":{"required":["serving"],"properties":{"serving":{"const":true}}},"then":{"properties":{"mounted":{"const":true},"state":{"const":"serving"},"internal_route_ref":{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}}}},{"title":"a runtime that is not serving holds no internal route","if":{"required":["serving"],"properties":{"serving":{"const":false}}},"then":{"properties":{"internal_route_ref":{"type":"null"}}}},{"title":"an unmounted runtime is not serving and records when the mount ended","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"serving":{"const":false},"unmounted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}},{"title":"the killed state is terminal and stamped","if":{"required":["state"],"properties":{"state":{"const":"killed"}}},"then":{"properties":{"mounted":{"const":false},"serving":{"const":false},"killed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}},{"title":"external ingress is never a consequence of the mount admission alone","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"external_ingress_ref":{"type":"null"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DomainAppRuntimeV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_runtime_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_runtime_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_runtime_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state: serde_json::from_value::<DomainAppRuntimeV2State>(
+                object
+                    .remove(r#"state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mounted: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"mounted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mounted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serving: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"serving"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"serving"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            internal_route_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"internal_route_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"internal_route_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_ingress_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"external_ingress_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"external_ingress_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_control_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"release_control_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_control_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rollback_posture: serde_json::from_value::<DomainAppRuntimeV2RollbackPosture>(
+                object
+                    .remove(r#"rollback_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rollback_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mounted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mounted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mounted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serve_started_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"serve_started_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"serve_started_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            serve_stopped_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"serve_stopped_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"serve_stopped_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unmounted_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"unmounted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unmounted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            unmount_reason: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"unmount_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unmount_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            killed_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"killed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"killed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<DomainAppRuntimeV2AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<DomainAppRuntimeV2TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<Vec<DomainAppRuntimeV2DoesNotAssertItem>>(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV2SchemaVersion {
+    #[serde(rename = r#"ioi.domain-app-runtime.v2"#)]
+    IoiDomainAppRuntimeV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV2State {
+    #[serde(rename = r#"mounted"#)]
+    Mounted,
+    #[serde(rename = r#"serving"#)]
+    Serving,
+    #[serde(rename = r#"unmounted"#)]
+    Unmounted,
+    #[serde(rename = r#"killed"#)]
+    Killed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppRuntimeV2RollbackPosture {
+    pub unmountable: bool,
+    pub note: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppRuntimeV2RollbackPosture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's own name for what v1 called `rollback`.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            unmountable: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"unmountable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unmountable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            note: serde_json::from_value::<String>(
+                object
+                    .remove(r#"note"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"note"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV2AuthorityNonclaim {
+    #[serde(rename = r#"domain_app_runtime_grants_no_authority"#)]
+    DomainAppRuntimeGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV2TruthNonclaim {
+    #[serde(rename = r#"domain_app_runtime_is_not_registration_or_launchability"#)]
+    DomainAppRuntimeIsNotRegistrationOrLaunchability,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppRuntimeV2DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"registration"#)]
+    Registration,
+    #[serde(rename = r#"launchability"#)]
+    Launchability,
+    #[serde(rename = r#"external_ingress"#)]
+    ExternalIngress,
+    #[serde(rename = r#"app_behaviour"#)]
+    AppBehaviour,
+    #[serde(rename = r#"semantic_validity"#)]
+    SemanticValidity,
+    #[serde(rename = r#"package_admission"#)]
+    PackageAdmission,
+    #[serde(rename = r#"installation"#)]
+    Installation,
+    #[serde(rename = r#"marketplace_truth"#)]
+    MarketplaceTruth,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppMountReceiptV1 {
+    pub schema_version: DomainAppMountReceiptV1SchemaVersion,
+    pub object: DomainAppMountReceiptV1Object,
+    pub id: String,
+    pub r#ref: String,
+    pub action: DomainAppMountReceiptV1Action,
+    pub domain_app_ref: String,
+    pub approval_request_ref: String,
+    pub release_control_ref: String,
+    pub state_root: String,
+    pub at: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppMountReceiptV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v1","title":"DomainAppMountReceiptV1","description":"THE PREDECESSOR, REGISTERED SO THE DIVERGENCE IT CARRIES CAN BE NAMED — DEPRECATED AND READ-ONLY. `DomainAppMountReceiptEnvelope` requires `domain_app_runtime_ref` and says why in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. THIS CONTRACT HAS NO SUCH FIELD. Every v1 receipt names the app, the approval and the release control, and is silent about the runtime — so the whole receipt chain of a twice-mounted app is one undifferentiated set, and a `domain_app.serve_stop` receipt cannot be attributed to the mount it stopped. Its `state_root` compounds the gap: the preimage is the five values pipe-joined as text, so it commits exactly what the receipt already says and nothing about the runtime state the transition produced, and a pipe inside any component makes two different transitions share a preimage. AUTHORING AT v1 IS CLOSED. Stored v1 receipts remain readable exactly as admitted; they are immutable evidence that a transition happened, and they stay exactly as unable to say which runtime it happened to.","x-ioi-schema-version":"ioi.hypervisor.domain-app-mount-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","action","domain_app_ref","approval_request_ref","release_control_ref","state_root","at"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app-mount-receipt.v1"},"object":{"const":"ioi.hypervisor.domain_app_mount_receipt"},"id":{"type":"string","pattern":"^mrcpt_[0-9a-f]{1,32}$","description":"Minted from `nanos()`, so a replayed transition emits a second receipt with a different id rather than resolving to the one already admitted."},"ref":{"type":"string","pattern":"^mount-receipt://mrcpt_[0-9a-f]{1,32}$"},"action":{"enum":["domain_app.mount","domain_app.serve_start","domain_app.serve_stop","domain_app.unmount","domain_app.kill_stop_serving","domain_app.kill_unmount"],"description":"Canon's six. Enforcement emits the same receipt family as a voluntary stop, distinguished only by the action name — this half was already correct at v1."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The app. And, at v1, the only object this receipt can name."},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512},"state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"A digest over `action|domain_app_ref|approval_request_ref|release_control_ref|at` joined with pipes. It commits the receipt's own visible fields and nothing else — not the runtime, not its revision, not the state the transition produced — so recomputing it proves the four strings were not edited and proves nothing about what was admitted."},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"Wall-clock at receipt construction, not the admission stamp, which is why a v1 receipt for a replayed transition is byte-different from the receipt it replays."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DomainAppMountReceiptV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            object: serde_json::from_value::<DomainAppMountReceiptV1Object>(
+                object
+                    .remove(r#"object"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"object"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action: serde_json::from_value::<DomainAppMountReceiptV1Action>(
+                object
+                    .remove(r#"action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_control_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"release_control_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_control_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppMountReceiptV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.domain-app-mount-receipt.v1"#)]
+    IoiHypervisorDomainAppMountReceiptV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppMountReceiptV1Object {
+    #[serde(rename = r#"ioi.hypervisor.domain_app_mount_receipt"#)]
+    IoiHypervisorDomainAppMountReceipt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppMountReceiptV1Action {
+    #[serde(rename = r#"domain_app.mount"#)]
+    DomainAppMount,
+    #[serde(rename = r#"domain_app.serve_start"#)]
+    DomainAppServeStart,
+    #[serde(rename = r#"domain_app.serve_stop"#)]
+    DomainAppServeStop,
+    #[serde(rename = r#"domain_app.unmount"#)]
+    DomainAppUnmount,
+    #[serde(rename = r#"domain_app.kill_stop_serving"#)]
+    DomainAppKillStopServing,
+    #[serde(rename = r#"domain_app.kill_unmount"#)]
+    DomainAppKillUnmount,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DomainAppMountReceiptV2 {
+    pub schema_version: DomainAppMountReceiptV2SchemaVersion,
+    pub mount_receipt_id: String,
+    pub action: DomainAppMountReceiptV2Action,
+    pub domain_app_ref: String,
+    pub domain_app_runtime_ref: String,
+    pub domain_app_runtime_owner_ref: String,
+    pub domain_app_runtime_revision: ArchitectureContractInteger,
+    pub domain_app_runtime_content_hash: String,
+    pub domain_app_admitted_head_before: String,
+    pub approval_request_ref: String,
+    pub release_control_ref: String,
+    pub state_root: String,
+    pub at: String,
+    pub does_not_assert: Vec<DomainAppMountReceiptV2DoesNotAssertItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for DomainAppMountReceiptV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","title":"DomainAppMountReceiptV2","description":"THE RECEIPT THAT BINDS THE RUNTIME IT TRANSITIONED. Canon requires `domain_app_runtime_ref` and gives the reason in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. v1 had no such field, so this contract adds it and then adds the three facts that make the binding EXACT rather than merely present. `domain_app_runtime_owner_ref` makes the runtime identity owner-qualified, so a receipt cannot be read against a same-named runtime under another owner. `domain_app_runtime_revision` names which transition of that runtime this receipt attests, so a serve-stop receipt is attributable to the serve it stopped. `domain_app_runtime_content_hash` commits the runtime state the transition PRODUCED, so a relying party holding the receipt and the runtime can check offline that they describe the same admitted state instead of trusting that they do. `domain_app_admitted_head_before` names the exact chain position the transition was admitted against, which is what makes the receipt locatable in the app's own admitted history rather than merely consistent with it. `state_root` is a canonical-JSON commitment over every other field under a domain separator — a real commitment a verifier recomputes, replacing v1's pipe-joined text digest whose preimage was ambiguous and whose material said nothing about the runtime. It attests that a named transition was admitted for a named runtime under a named approval and release control at a named time. It does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran.","x-ioi-schema-version":"ioi.domain-app-mount-receipt.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"required":["schema_version","mount_receipt_id","action","domain_app_ref","domain_app_runtime_ref","domain_app_runtime_owner_ref","domain_app_runtime_revision","domain_app_runtime_content_hash","domain_app_admitted_head_before","approval_request_ref","release_control_ref","state_root","at","does_not_assert"],"properties":{"schema_version":{"const":"ioi.domain-app-mount-receipt.v2"},"mount_receipt_id":{"type":"string","pattern":"^mount-receipt://mrcpt_[0-9a-f]{16}$","description":"One scheme-prefixed identity, derived from the caller's owner, idempotency key and this transition's action — so a replayed transition resolves to the receipt it already emitted rather than appending a second one that attests the same fact under a different id."},"action":{"enum":["domain_app.mount","domain_app.serve_start","domain_app.serve_stop","domain_app.unmount","domain_app.kill_stop_serving","domain_app.kill_unmount"],"description":"Canon's six. Governance enforcement drives the same transitions and emits the same receipt family as a voluntary stop, so an enforced stop leaves exactly the record a voluntary one does, distinguished only by the action name."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"domain_app_runtime_ref":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{16}$","description":"THE FIELD v1 DID NOT HAVE. Required, never nullable: a transition always has a runtime, and a receipt that could omit it would reintroduce exactly the ambiguity this version exists to remove."},"domain_app_runtime_owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"OWNER-QUALIFIED IDENTITY. The runtime ref alone is an id in a namespace; the owner is what makes it resolvable to one runtime rather than to whichever runtime a reader happens to look up."},"domain_app_runtime_revision":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Which admitted transition of that runtime this receipt attests. A mount is revision 0 by construction, since a mount creates the runtime it transitions."},"domain_app_runtime_content_hash":{"$ref":"#/$defs/sha256","description":"The `content_hash` of the runtime record this transition PRODUCED, not of the one it started from. It is what makes 'this receipt is about this runtime state' checkable from bytes: substitute the runtime and the hash stops matching; edit the runtime and it stops matching too."},"domain_app_admitted_head_before":{"type":"string","pattern":"^[0-9a-f]{16,128}$","description":"The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"state_root":{"$ref":"#/$defs/sha256","description":"A canonical-JSON SHA-256 over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. v1's preimage was the five values joined with pipes, which is ambiguous under any component containing a pipe and commits nothing about the runtime; this one commits the whole receipt including the three runtime bindings above."},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of the transition, taken from the admitted operation rather than from the wall clock, so a replayed transition re-emits a byte-identical receipt."},"does_not_assert":{"type":"array","minItems":4,"maxItems":8,"uniqueItems":true,"items":{"enum":["app_behaviour","semantic_validity","external_surface_exists","domain_action_ran","authority","registration","launchability","package_admission"]},"allOf":[{"contains":{"const":"app_behaviour"}},{"contains":{"const":"semantic_validity"}},{"contains":{"const":"external_surface_exists"}},{"contains":{"const":"domain_action_ran"}}],"description":"Canon's four nonclaims, carried as fields so the receipt states its own limits in the bytes a relying party reads: it does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran."}},"allOf":[{"title":"a mount receipt attests the runtime's genesis revision","if":{"required":["action"],"properties":{"action":{"const":"domain_app.mount"}}},"then":{"properties":{"domain_app_runtime_revision":{"type":"integer","minimum":0,"maximum":0,"description":"A mount creates the runtime it transitions, so its receipt attests revision 0 and nothing else."}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DomainAppMountReceiptV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mount_receipt_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mount_receipt_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mount_receipt_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action: serde_json::from_value::<DomainAppMountReceiptV2Action>(
+                object
+                    .remove(r#"action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_runtime_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_runtime_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"domain_app_runtime_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_runtime_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_runtime_owner_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"domain_app_runtime_owner_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_runtime_revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"domain_app_runtime_revision"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"domain_app_runtime_revision"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_runtime_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_runtime_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"domain_app_runtime_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            domain_app_admitted_head_before: serde_json::from_value::<String>(
+                object
+                    .remove(r#"domain_app_admitted_head_before"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"domain_app_admitted_head_before"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_request_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"approval_request_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_request_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_control_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"release_control_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_control_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            state_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"state_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"state_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert:
+                serde_json::from_value::<Vec<DomainAppMountReceiptV2DoesNotAssertItem>>(
+                    object
+                        .remove(r#"does_not_assert"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppMountReceiptV2SchemaVersion {
+    #[serde(rename = r#"ioi.domain-app-mount-receipt.v2"#)]
+    IoiDomainAppMountReceiptV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppMountReceiptV2Action {
+    #[serde(rename = r#"domain_app.mount"#)]
+    DomainAppMount,
+    #[serde(rename = r#"domain_app.serve_start"#)]
+    DomainAppServeStart,
+    #[serde(rename = r#"domain_app.serve_stop"#)]
+    DomainAppServeStop,
+    #[serde(rename = r#"domain_app.unmount"#)]
+    DomainAppUnmount,
+    #[serde(rename = r#"domain_app.kill_stop_serving"#)]
+    DomainAppKillStopServing,
+    #[serde(rename = r#"domain_app.kill_unmount"#)]
+    DomainAppKillUnmount,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DomainAppMountReceiptV2DoesNotAssertItem {
+    #[serde(rename = r#"app_behaviour"#)]
+    AppBehaviour,
+    #[serde(rename = r#"semantic_validity"#)]
+    SemanticValidity,
+    #[serde(rename = r#"external_surface_exists"#)]
+    ExternalSurfaceExists,
+    #[serde(rename = r#"domain_action_ran"#)]
+    DomainActionRan,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"registration"#)]
+    Registration,
+    #[serde(rename = r#"launchability"#)]
+    Launchability,
+    #[serde(rename = r#"package_admission"#)]
+    PackageAdmission,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -115844,6 +118062,494 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/assurance-transition-receipt/v2",
         path: "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("odk_manifest.content_hash.commits_the_whole_manifest"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("domain_app.content_hash.commits_the_whole_app"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("domain_app_runtime.content_hash.commits_the_whole_runtime"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-runtime/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("domain_app_mount_receipt.state_root.commits_the_whole_receipt"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("domain_app_mount_receipt.state_root.commits_the_whole_receipt"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -127919,6 +130625,677 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-runtime/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/domain-app-mount-receipt/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -129546,6 +132923,14 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/semantic-mapping-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/semantic-mapping-decision/v1","title":"SemanticMappingDecision","description":"An OntologyMappingEnvelope carrying mapping_record_profile semantic_mapping_decision: one immutable, receipted, challengeable APPLICATION of one exact OntologyCrosswalk revision to one concrete target. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. It is a decision object, not a config row: it binds the exact crosswalk revision and hash, both endpoint revisions and hashes carried verbatim from that crosswalk, named reviewer lineage with per-reviewer decisions, an explicit acceptance of the declared mapping risk, and an explicit disposition for every ambiguous and every unmapped term the crosswalk named. Deciding is not being right and is not being permitted: the decision asserts no correctness, no legal conformity and no authority, and a cross-domain decision binds only under accepted terms (INV-30).","x-ioi-schema-version":"ioi.semantic-mapping-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_mapping_id","mapping_family_ref","mapping_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","applied_crosswalk_ref","applied_crosswalk_binding","crosswalk_resolved_by","source_ontology_ref","target_ontology_ref","source_and_target_version_refs","source_binding","target_binding","domain_relationship","application_target_refs","decided_by_ref","decision_timestamp","reviewer_lineage","mapping_risk_acceptance","ambiguity_dispositions","unmapped_term_dispositions","terms_acceptance","compatibility_result","policy_bound_view_refs","validation_and_challenge_refs","policy_hash","valid_time","transaction_time","migration","admission","mapping_decision_receipt_ref","challenge_state","correctness_nonclaim","authority_nonclaim","legal_conformity_claim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.semantic-mapping-decision.v1"},"ontology_mapping_id":{"$ref":"#/$defs/decisionRevisionRef"},"mapping_family_ref":{"$ref":"#/$defs/decisionFamilyRef"},"mapping_record_profile":{"const":"semantic_mapping_decision"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"applied_crosswalk_ref":{"description":"The canonical OntologyMappingEnvelope field, pinned to an EXACT crosswalk revision. A decision that applied 'the crosswalk' rather than one revision of it cannot say afterwards what it applied.","$ref":"#/$defs/crosswalkRevisionRef"},"applied_crosswalk_binding":{"type":"object","additionalProperties":false,"required":["mapping_family_ref","ontology_mapping_id","content_hash","revision_ordinal","compatibility_result","risk_class","declared_loss","challenge_standing"],"properties":{"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"challenge_standing":{"description":"The crosswalk's standing AS OF THIS DECISION, resolved from the crosswalk owner's chain. It is inside the content commitment, so 'we applied a mapping nobody had challenged' becomes a checkable historical claim rather than a memory.","enum":["unchallenged","challenged","upheld","rejected"]}}},"crosswalk_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"source_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"target_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"source_and_target_version_refs":{"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/endpointRevisionRef"}},"source_binding":{"$ref":"#/$defs/endpointBinding"},"target_binding":{"$ref":"#/$defs/endpointBinding"},"domain_relationship":{"enum":["in_domain","cross_domain"]},"application_target_refs":{"description":"The concrete things this decision was applied to. Non-empty by construction: an application with no target is a declaration wearing a decision's clothes.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$"}},"decided_by_ref":{"description":"Server-resolved from the authenticated principal. A caller may assert it and may never author it.","type":"string","pattern":"^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$"},"decision_timestamp":{"$ref":"#/$defs/dateTime"},"reviewer_lineage":{"description":"Who reviewed, in which role, when, and what they decided. Non-empty by construction, and a rejected review cannot coexist with an active decision.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["reviewer_ref","review_role","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"review_role":{"enum":["source_domain_reviewer","target_domain_reviewer","mapping_owner","independent_verifier"]},"reviewed_at":{"$ref":"#/$defs/dateTime"},"review_decision":{"enum":["approved","approved_with_conditions","rejected","abstained"]}}}},"mapping_risk_acceptance":{"description":"The declared risk the decider accepted, carried verbatim from the crosswalk. Accepting a risk is not reducing it, and it is not a claim that the loss did not happen.","type":"object","additionalProperties":false,"required":["accepted_risk_class","accepted_loss","accepted_by_ref","residual_risk_refs"],"properties":{"accepted_risk_class":{"enum":["low","moderate","high"]},"accepted_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"accepted_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}},"ambiguity_dispositions":{"description":"One entry for every ambiguous term the applied crosswalk named. An unadjudicated ambiguity is refused before admission; 'refused_ambiguous' is a real disposition that keeps the term out of the applied projection rather than guessing it.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition","adjudicated_by_ref"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["adjudicated_exact","adjudicated_broader","adjudicated_narrower","refused_ambiguous"]},"adjudicated_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"}}}},"unmapped_term_dispositions":{"description":"One entry for every source term the crosswalk left unmapped. Dropping a term silently is the defect this list exists to prevent.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated"]}}}},"terms_acceptance":{"description":"INV-30. In-domain application binds nothing across a boundary and carries null. Cross-domain application requires each required party's governed decision over the exact terms root, whose owner is M11.1; this build has no landed acceptance resolver, so a cross-domain decision is refused by name at admission rather than admitted on the strength of a caller-supplied acceptance. The shape is registered now so the resolver can land behind it without a wire change.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["collaboration_terms_ref","terms_body_root","accepting_domain_refs","acceptance_resolved_by"],"properties":{"collaboration_terms_ref":{"type":"string","pattern":"^collaboration-terms://[^\\s]{1,240}$"},"terms_body_root":{"$ref":"#/$defs/sha256"},"accepting_domain_refs":{"type":"array","minItems":2,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"}},"acceptance_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}]},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"policy_bound_view_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:view|restricted_view)://[^\\s]{1,240}$"}},"validation_and_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:test|verifier-challenge|evidence)://[^\\s]{1,240}$"}},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"$ref":"#/$defs/mappingAdmission"},"mapping_decision_receipt_ref":{"description":"The canonical decision receipt: the admitting batch's own Agentgres receipt, server-resolved. It attests that this domain admitted this decision, and nothing about whether the mapping is right.","oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"challenge_state":{"$ref":"#/$defs/challengeState"},"correctness_nonclaim":{"const":"semantic_mapping_decision_is_not_a_correctness_claim"},"authority_nonclaim":{"const":"semantic_mapping_decision_grants_no_authority"},"legal_conformity_claim":{"const":"not_determined"},"global_canonicality_nonclaim":{"const":"semantic_mapping_decision_asserts_no_globally_canonical_ontology"},"status":{"enum":["proposed","validated","active","challenged","deprecated","revoked"]}},"allOf":[{"description":"An in-domain decision crosses no boundary and therefore accepts no terms; a null here is the absence being stated rather than omitted.","if":{"properties":{"domain_relationship":{"const":"in_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"null"}}}},{"description":"INV-30. A cross-domain decision without a resolved terms acceptance is unrepresentable, so an admitted record can never be the evidence that terms were accepted when they were not.","if":{"properties":{"domain_relationship":{"const":"cross_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"object"}}}},{"description":"A rejected review cannot coexist with an active decision. Retaining the rejection is the point; presenting it as agreement is the defect.","if":{"properties":{"reviewer_lineage":{"type":"array","contains":{"type":"object","properties":{"review_decision":{"const":"rejected"}},"required":["review_decision"]}}},"required":["reviewer_lineage"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"An incompatible or unacceptably risky application is never active, exactly as for the crosswalk it applies.","if":{"properties":{"compatibility_result":{"const":"incompatible"}},"required":["compatibility_result"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"Applying a crosswalk that is under challenge, or one whose challenge was upheld, cannot produce an active decision: the standing it recorded is the standing it must live with.","if":{"properties":{"applied_crosswalk_binding":{"type":"object","properties":{"challenge_standing":{"enum":["challenged","upheld"]}},"required":["challenge_standing"]}},"required":["applied_crosswalk_binding"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"challenged"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"revoked"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"enum":["validated","active"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"},"mapping_decision_receipt_ref":{"type":"string"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"decisionFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"},"decisionRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"},"crosswalkFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"endpointFamilyRef":{"description":"Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.","type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"},"endpointRevisionRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"},"anyTermRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"},"endpointBinding":{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}},"challengeState":{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}},"mappingAdmission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]}}}"##),
     ("schema://ioi/foundations/ontology-assertion/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion/v2","title":"ProvenanceAssertion","description":"An OntologyAssertionEnvelope carrying assertion_profile provenance_assertion, as an immutable revision on its own owner-qualified chain. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope. v2 is the EXPLICIT successor of v1 and reinterprets nothing: v1 records remain valid, addressable and unaltered at v1, and the bounded exact-single-source oracle admission that produces them keeps its own contract. What v2 adds is the general plane v1 could not express -- an exact bitemporal revision chain, affirmative AND negative polarity, structured uncertainty, retained contradiction, per-source and per-evidence lineage, supersession, and challenge standing resolved through VerifierChallengeEnvelope v2 and AssuranceTransitionReceipt v2. Admission records that this domain holds the claim as operational truth. It never makes the proposition universally true, and it grants no authority.","x-ioi-schema-version":"ioi.ontology-assertion.v2","type":"object","additionalProperties":false,"required":["schema_version","assertion_id","assertion_family_ref","assertion_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","ontology_ref","ontology_binding","ontology_resolved_by","fact_class_ref","subject_ref","predicate_ref","object_or_value_ref","polarity","valid_time","transaction_time","source_attribution","evidence_lineage","uncertainty","contradiction_state","supersession","applicability_scope_ref","permitted_consequence_scope_refs","causal_or_counterfactual_context_ref","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","predecessor_contract_ref","reinterpretation_nonclaim","policy_hash","migration","admission","challenge_state","universality_nonclaim","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-assertion.v2"},"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"assertion_family_ref":{"$ref":"#/$defs/assertionFamilyRef"},"assertion_profile":{"const":"provenance_assertion"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_ref":{"description":"The canonical OntologyAssertionEnvelope field: the ontology FAMILY whose vocabulary this assertion speaks.","$ref":"#/$defs/ontologyFamilyRef"},"ontology_binding":{"description":"The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.","type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}},"ontology_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"fact_class_ref":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"predicate_ref":{"description":"A term of the BOUND revision, checked for membership against that revision's own declared vocabulary rather than for shape alone. A well-formed, correctly namespaced term the revision never declared is refused.","$ref":"#/$defs/termRef"},"object_or_value_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":2048},{"type":"number","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"boolean"},{"type":"null"}]},"polarity":{"description":"v2's first structural addition. An affirmative assertion claims the proposition holds; a negative assertion claims it does NOT. Both are recorded claims with sources and evidence, and neither is the absence of a record -- collapsing 'asserted false' into 'nothing asserted' is the loss this member exists to prevent.","enum":["affirmative","negative"]},"valid_time":{"description":"When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.","type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"description":"When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"source_attribution":{"description":"Who or what said so. Non-empty by construction: an unattributed assertion is a rendering of a log, which is exactly what this object exists instead of.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_ref","source_class","observed_at"],"properties":{"source_ref":{"$ref":"#/$defs/canonicalRef"},"source_class":{"enum":["observation","oracle","human_reviewer","worker","derived","external_system","self_report"]},"observed_at":{"$ref":"#/$defs/dateTime"}}}},"evidence_lineage":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["evidence_ref","evidence_class","supports"],"properties":{"evidence_ref":{"type":"string","pattern":"^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"},"evidence_class":{"enum":["direct","corroborating","contradicting","inconclusive"]},"supports":{"description":"Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.","enum":["affirmative","negative","neither"]}}}},"uncertainty":{"description":"Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.","type":"object","additionalProperties":false,"required":["uncertainty_kind","confidence","estimator_ref"],"properties":{"uncertainty_kind":{"enum":["point_confidence","qualitative","unknown","disputed_estimate"]},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"estimator_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"contradiction_state":{"description":"Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.","type":"object","additionalProperties":false,"required":["contradiction_class","contradicting_assertion_refs","retained"],"properties":{"contradiction_class":{"enum":["none","direct_negation","value_conflict","scope_conflict","temporal_conflict"]},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,240}$"}},"retained":{"const":true}}},"supersession":{"type":"object","additionalProperties":false,"required":["supersedes_ref","supersession_reason"],"properties":{"supersedes_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"supersession_reason":{"enum":["none","corrected","refined","retracted","reclassified","superseded_by_evidence"]}}},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"}},"causal_or_counterfactual_context_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|finding)://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_profile_ref":{"description":"Retained from v1 so a v1-shaped oracle assertion has a v2 home without either record reinterpreting the other. Null on the general path; a v2 record carrying a profile must also carry that profile's admission receipt.","oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"predecessor_contract_ref":{"description":"The exact predecessor contract this version succeeds. Naming it inside the record is what makes the succession auditable from the bytes rather than only from a registry entry.","const":"schema://ioi/foundations/ontology-assertion/v1"},"reinterpretation_nonclaim":{"const":"provenance_assertion_v2_does_not_reinterpret_v1_records"},"policy_hash":{"$ref":"#/$defs/sha256"},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["assertion_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-provenance-assertions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"challenge_state":{"description":"A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.","type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref","resolution_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"resolution_contract_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v2","description":"The exact registered contract a resolution's receipt is admitted under. Pinned to v2 because v1 structurally cannot bind the verifier-challenge:// identity being resolved, so a v1 receipt could never prove it resolved THIS challenge."}}},"universality_nonclaim":{"const":"provenance_assertion_admission_is_not_universal_truth"},"authority_nonclaim":{"const":"provenance_assertion_grants_no_authority"},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","contradicted","superseded","disputed","rejected"]}},"allOf":[{"description":"A held_unknown assertion is the one state where the domain declines to claim. Its uncertainty must say so rather than encode a number, and it carries no consequence scope.","if":{"properties":{"status":{"const":"held_unknown"}},"required":["status"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"unknown"},"confidence":{"type":"null"}}},"permitted_consequence_scope_refs":{"type":"array","maxItems":0}}}},{"description":"A point confidence is a number; declaring the kind and omitting the number is an estimate that cannot be read.","if":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"point_confidence"}},"required":["uncertainty_kind"]}},"required":["uncertainty"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"confidence":{"type":"number"},"estimator_ref":{"type":"string"}}}}}},{"description":"A contradicted assertion names what contradicts it. A status that says 'contradicted' over an empty contradiction set is a label rather than a finding.","if":{"properties":{"status":{"const":"contradicted"}},"required":["status"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","minItems":1},"contradiction_class":{"enum":["direct_negation","value_conflict","scope_conflict","temporal_conflict"]}}}}}},{"description":"And the converse: naming contradictions and calling the record clean is the same defect from the other side.","if":{"properties":{"contradiction_state":{"type":"object","properties":{"contradiction_class":{"const":"none"}},"required":["contradiction_class"]}},"required":["contradiction_state"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","maxItems":0}}},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","superseded","disputed","rejected"]}}}},{"description":"A superseded assertion names what it superseded or was superseded by, with a stated reason. Supersession without a reason is a deletion with extra steps.","if":{"properties":{"status":{"const":"superseded"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"string"}}}}}},{"description":"A record that names a supersession target states why; 'none' is reserved for a record that supersedes nothing.","if":{"properties":{"supersession":{"type":"object","properties":{"supersedes_ref":{"type":"string"}},"required":["supersedes_ref"]}},"required":["supersession"]},"then":{"properties":{"supersession":{"type":"object","properties":{"supersession_reason":{"enum":["corrected","refined","retracted","reclassified","superseded_by_evidence"]}}}}}},{"description":"A disputed assertion has an open challenge; a challenge that changed nothing about standing did not happen.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"disputed"}}}},{"description":"An upheld challenge rejects the assertion it upheld, and the resolution is receipted through the assurance ladder rather than asserted here.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"rejected"}}}},{"description":"A rejected challenge is retained beside the assertion it failed to unseat.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"description":"A v1-profile oracle assertion carried into v2 keeps BOTH of v1's requirements: the profile and its qualified admission receipt travel together or neither is present.","if":{"properties":{"oracle_evidence_profile_ref":{"type":"string"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"string"},"fact_class_ref":{"type":"string"}}}},{"if":{"properties":{"oracle_evidence_profile_ref":{"type":"null"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"null"}}}},{"description":"An admitted assertion carries at least one piece of evidence and a bounded consequence scope. Admission with neither is a belief the domain has agreed to act on for no stated reason.","if":{"properties":{"status":{"const":"admitted"}},"required":["status"]},"then":{"properties":{"evidence_lineage":{"type":"array","minItems":1},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"assertionFamilyRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"assertionRevisionRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,240}$"}}}"##),
     ("schema://ioi/foundations/assurance-transition-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/assurance-transition-receipt/v2","title":"AssuranceTransitionReceipt","description":"One step of the canonical assurance ladder as an immutable, exact-head object over an owner-resolved subject. v2 is the EXPLICIT successor of v1 and reinterprets nothing: every v1 property, enumeration, nullability and conditional is preserved byte-for-byte, v1 records remain valid and addressable at v1, and the stage member set stays frozen by canonical-enums.md. The single addition is challenge_resolution, because v1 structurally cannot carry the fact a semantic-plane challenge resolution has to state: its evidenceRef grammar admits only evidence|assurance-evidence|artifact|receipt and therefore cannot bind the exact verifier-challenge:// identity being resolved, and it has no typed resolution outcome or adjudicator lineage. Widening a registered grammar is a new version, not an edit. The receipt names its actor, its evidence and what it does not assert; it is not a verdict and grants no authority.","x-ioi-schema-version":"ioi.assurance-transition-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","receipt_profile_ref","transition_id","subject_ref","subject_family","subject_content_hash","subject_resolved_by","from_stage","to_stage","to_stage_ordinal","transition_ordinal","outcome_class","actor_ref","evidence_refs","does_not_assert","valid_time","transaction_time","expected_predecessor_transition_ref","expected_predecessor_transition_hash","resulting_stage_head_hash","content_hash","authority_nonclaim","verdict_nonclaim","admission","challenge_resolution","predecessor_contract_ref"],"properties":{"schema_version":{"const":"ioi.assurance-transition-receipt.v2"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"assurance_transition"},"receipt_profile_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v2"},"transition_id":{"type":"string","pattern":"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"},"subject_ref":{"$ref":"#/$defs/subjectRef"},"subject_family":{"description":"The closed discriminator naming which owner is entitled to resolve subject_ref. Present so a later unit can add its own resolver without reinterpreting a v1 record: an unresolvable family is refused by name, never admitted on the strength of its URI prefix.","enum":["work_result","ontology_revision","ontology_mapping_revision","ontology_assertion","finding","attempt"]},"subject_content_hash":{"description":"The subject owner's committed content hash, carried verbatim from that owner's own resolution. Never recomputed here and never asserted by the caller.","$ref":"#/$defs/sha256"},"subject_resolved_by":{"description":"The exact owner seam that re-resolved the subject for this transition. A record that names no resolver is a record whose subject was taken on faith. Deliberately a pattern rather than a closed enum: a later unit adds its own resolver and emits its own seam name without a v1 wire change, while the set of families this build can actually resolve stays a runtime fact that fails closed by name.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"from_stage":{"oneOf":[{"$ref":"#/$defs/assuranceStage"},{"type":"null"}]},"to_stage":{"$ref":"#/$defs/assuranceStage"},"to_stage_ordinal":{"description":"The ladder position of to_stage, 1-based in canonical order. It exists so that 'no stage skips' is a PORTABLE check rather than a runtime habit: a registered invariant pins it equal to transition_ordinal, and transition_ordinal is derived from the subject's own chain length. A transition that jumps attested -> verified therefore carries ordinal 3 at chain position 2 and fails offline, with no daemon present.","type":"integer","minimum":1,"maximum":6},"transition_ordinal":{"type":"integer","minimum":1,"maximum":6},"outcome_class":{"description":"ACC-8 clause 2. Retained verbatim; no consumer or projection may collapse a non-positive member into positive.","enum":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"]},"actor_ref":{"description":"Who stands behind this stage. Server-resolved from the authenticated principal; a caller may assert it but never author it.","$ref":"#/$defs/principalRef"},"evidence_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/evidenceRef"}},"does_not_assert":{"description":"The explicit nonclaim set. Non-empty by construction: a transition that disclaims nothing is the collapse of NN 20 into a bare success flag.","type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["correctness","external_world_occurrence","causality","acceptance","adjudication","settlement","economic_value","authority"]}},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/canonicalDateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}},"transaction_time":{"description":"Admission time, deliberately outside the content commitment. When the stage was claimed true is content; when it was recorded is admission.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/canonicalDateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}},"expected_predecessor_transition_ref":{"oneOf":[{"type":"string","pattern":"^assurance-transition://[^\\s]{1,460}$"},{"type":"null"}]},"expected_predecessor_transition_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"resulting_stage_head_hash":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admission":{"description":"Server-resolved admission evidence from the owner-scoped Agentgres chain. Explicitly null on a portable record rather than absent, because the registered admission invariants are defined over null-or-object and an absent key would leave them silently unevaluated.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["transition_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"transition_id":{"type":"string","pattern":"^assurance-transition://[^\\s]{1,460}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-assurance-transitions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"The admitting batch's receipt ref. It is a receipt:// ref, not an agentgres:// one, because that is what the substrate's own ref builder emits.","type":"string","pattern":"^receipt://[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,460}$"},"authority_nonclaim":{"const":"assurance_transition_grants_no_authority"},"verdict_nonclaim":{"const":"assurance_transition_is_not_a_verdict"},"predecessor_contract_ref":{"description":"The exact predecessor contract this version succeeds, repeated inside the record so the succession is auditable from the bytes rather than only from a registry entry.","const":"schema://ioi/foundations/assurance-transition-receipt/v1"},"challenge_resolution":{"description":"Present exactly when this transition ADJUDICATES a named challenge. It binds the challenge by its exact verifier-challenge:// identity and re-states the challenged subject and the owner-resolved hash this receipt already carries, so a consumer can check the receipt is about the subject and the challenge it claims without trusting the caller who cited it. Null on an ordinary ladder step.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["verifier_challenge_id","challenged_subject_ref","challenged_subject_content_hash","resolution","adjudicator_ref","adjudicator_policy_ref","reviewer_lineage","challenge_contract_ref","challenge_resolved_by"],"properties":{"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,460}$"},"challenged_subject_ref":{"$ref":"#/$defs/subjectRef"},"challenged_subject_content_hash":{"$ref":"#/$defs/sha256"},"resolution":{"description":"The typed outcome of the challenge itself, which is a different fact from outcome_class: outcome_class describes the SUBJECT's standing, resolution describes what happened to the CHALLENGE.","enum":["upheld","rejected"]},"adjudicator_ref":{"$ref":"#/$defs/principalRef"},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,460}$"},"reviewer_lineage":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["reviewer_ref","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"$ref":"#/$defs/principalRef"},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"review_decision":{"enum":["upheld","rejected","abstained"]}}}},"challenge_contract_ref":{"description":"Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes a semantic-plane subject nameable at all.","const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"challenge_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}]}},"allOf":[{"description":"attested is ladder position 1 and is the entry member: it advances from nothing.","if":{"properties":{"to_stage":{"const":"attested"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[1]},"from_stage":{"type":"null"}}}},{"description":"evidenced is ladder position 2 and advances only from attested.","if":{"properties":{"to_stage":{"const":"evidenced"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[2]},"from_stage":{"const":"attested"}}}},{"description":"verified is ladder position 3 and advances only from evidenced.","if":{"properties":{"to_stage":{"const":"verified"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[3]},"from_stage":{"const":"evidenced"}}}},{"description":"accepted is ladder position 4 and advances only from verified.","if":{"properties":{"to_stage":{"const":"accepted"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[4]},"from_stage":{"const":"verified"}}}},{"description":"adjudicated is ladder position 5 and advances only from accepted.","if":{"properties":{"to_stage":{"const":"adjudicated"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[5]},"from_stage":{"const":"accepted"}}}},{"description":"settled is ladder position 6 and advances only from adjudicated. v1 represents no no-contest shortcut to settlement; introducing one is a later owner ruling with its own evidence, not an omission to be read in here.","if":{"properties":{"to_stage":{"const":"settled"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[6]},"from_stage":{"const":"adjudicated"}}}},{"description":"The first transition of a subject enters the ladder at its narrowest member and names no predecessor.","if":{"properties":{"from_stage":{"type":"null"}},"required":["from_stage"]},"then":{"properties":{"to_stage":{"const":"attested"},"transition_ordinal":{"type":"integer","enum":[1]},"expected_predecessor_transition_ref":{"type":"null"},"expected_predecessor_transition_hash":{"type":"null"}}}},{"description":"A successor names the exact predecessor it advanced from; a stage that arrives without one is an unlinked claim.","if":{"properties":{"from_stage":{"type":"string"}},"required":["from_stage"]},"then":{"properties":{"transition_ordinal":{"type":"integer","minimum":2,"maximum":6},"expected_predecessor_transition_ref":{"type":"string"},"expected_predecessor_transition_hash":{"type":"string"}}}},{"description":"A stage short of acceptance may not omit the acceptance nonclaim, and one short of settlement may not omit the settlement nonclaim. This is the schema-level half of NN 20; the ordered no-skip rule itself is a portable invariant.","if":{"properties":{"to_stage":{"enum":["attested","evidenced","verified"]}},"required":["to_stage"]},"then":{"properties":{"does_not_assert":{"type":"array","allOf":[{"type":"array","contains":{"const":"acceptance"}},{"type":"array","contains":{"const":"settlement"}}]}}}},{"description":"A challenge resolution IS an adjudication. Binding it to that exact stage is what stops 'resolved' from being claimable at any rung of the ladder. The converse is deliberately NOT required: an adjudication for some reason other than a named challenge stays representable, so this addition narrows nothing v1 allowed.","if":{"properties":{"challenge_resolution":{"type":"object"}},"required":["challenge_resolution"]},"then":{"properties":{"to_stage":{"const":"adjudicated"}}}},{"description":"An UPHELD challenge is not a positive outcome for the subject it unseated, and a REJECTED one is not a negative one. Coupling the two keeps a receipt from reporting a sustained finding as a clean pass.","if":{"properties":{"challenge_resolution":{"type":"object","properties":{"resolution":{"const":"upheld"}},"required":["resolution"]}},"required":["challenge_resolution"]},"then":{"properties":{"outcome_class":{"enum":["negative","invalid","exploit","disputed"]}}}},{"if":{"properties":{"challenge_resolution":{"type":"object","properties":{"resolution":{"const":"rejected"}},"required":["resolution"]}},"required":["challenge_resolution"]},"then":{"properties":{"outcome_class":{"enum":["positive","no_fault","inconclusive"]}}}}],"$defs":{"assuranceStage":{"description":"Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This contract registers and drives the ladder; it does not choose its members.","enum":["attested","evidenced","verified","accepted","adjudicated","settled"]},"subjectRef":{"type":"string","pattern":"^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,460}$"},"principalRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact|receipt)://[^\\s]{1,460}$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","title":"OntologyDevelopmentKitManifestV1","description":"THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK manifest lane minted while no `_meta/schemas/` entry existed for any ODK family and `ioi.hypervisor.odk.manifest.v1` was a local Rust constant. It diverges from the canonical `OntologyDevelopmentKitManifestEnvelope` in five ways that a successor has to fix rather than paper over: the identity field is a bare `id` plus a separate `ref` where canon carries one `odk_manifest_id`; the recipe binding is `recipe_refs`, the unqualified name the term-boundary ruling forbids, where canon carries `data_recipe_refs`; `mcp_operator_contracts` folds two canonical members (`operator_contract_refs` and `mcp_contract_refs`) into one list; canon's `canonical_object_model_refs`, `ontology_projection_refs`, `workflow_schema_refs`, `benchmark_profile_refs`, `conformance_profile_refs`, `package_refs` and `receipt_obligations` are absent entirely; and `status` never advances past `draft` because nothing writes it. It is registered for the same three reasons the v1 descriptor is: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the canonical member set' is a checked expectation with fixtures rather than a claim in prose. AUTHORING AT v1 IS CLOSED — the daemon refuses `schema_version: ioi.hypervisor.odk.manifest.v1` on create. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","ontology_refs","recipe_refs","surface_descriptor_refs","connector_mappings","policy_bound_views","eval_refs","worker_plan_refs","mcp_operator_contracts","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"object":{"const":"ioi.hypervisor.odk.manifest"},"id":{"type":"string","pattern":"^odk_[0-9a-f]{16}$","description":"Derived from owner plus caller idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted."},"ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$","description":"v1 carried identity twice, as a bare id and as a scheme-prefixed ref. v2 carries `odk_manifest_id` once, in canon's own scheme-prefixed form."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PINNED VALUE. Canon's vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."},"ontology_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","maxLength":512},"description":"Locally resolvable ontology refs. v1 checks resolvability only: no owner resolution, no committed hash, and no requirement that a ref name an exact admitted revision."},"recipe_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"THE UNQUALIFIED NAME. Canon's member is `data_recipe_refs`; `recipe_refs` is the generic spelling the term-boundary ruling calls a defect. v2 renames it and refuses this spelling on an authoring request rather than translating it."},"surface_descriptor_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"connector_mappings":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"A PASSTHROUGH FIELD, REGISTERED AS THE REF LIST IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed at the owner seam with a typed refusal. That population needs an explicit convergence, which this contract records rather than performs; canon's member is `connector_mapping_refs`."},"policy_bound_views":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"The same passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."},"eval_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"v1's single evaluation list. Canon splits it into `evaluation_dataset_refs` and `benchmark_profile_refs`, which are different objects with different owners."},"worker_plan_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"mcp_operator_contracts":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"TWO CANONICAL MEMBERS FOLDED INTO ONE. Canon carries `operator_contract_refs` and `mcp_contract_refs` separately because an operator contract and an MCP profile are different contracts with different consumers. v1 cannot tell them apart, which is why a convergence cannot split this list without the author saying which is which."},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
+    ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","title":"OntologyDevelopmentKitManifestV2","description":"THE CANONICAL ODK MANIFEST, REGISTERED. Non-negotiable 10 says an ODK manifest can scaffold surfaces, domain apps, evals, workers and packages but cannot become runtime truth, permission truth, semantic truth or marketplace truth by itself. Until this contract landed, that boundary had no wire form: `ioi.hypervisor.odk.manifest.v1` was a Rust string literal, no `_meta/schemas/` entry existed for any ODK family, and G-4 therefore forbade every surface from claiming one. This version carries canon's sixteen member lists under canon's own names, splits the three places v1 folded distinct members together (`recipe_refs` into `data_recipe_refs`; `eval_refs` into `evaluation_dataset_refs` and `benchmark_profile_refs`; `mcp_operator_contracts` into `operator_contract_refs` and `mcp_contract_refs`), and carries the nonclaims as fields so a relying party holding only the bytes can check what the manifest declines to assert. A manifest is a builder and conformance object: it packages contracts, and packaging is not admission.","x-ioi-schema-version":"ioi.ontology-development-kit-manifest.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"manifestRef":{"type":"string","pattern":"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","odk_manifest_id","name","version","owner_ref","ontology_refs","canonical_object_model_refs","data_recipe_refs","connector_mapping_refs","policy_bound_data_view_refs","ontology_projection_refs","surface_descriptor_refs","workflow_schema_refs","evaluation_dataset_refs","benchmark_profile_refs","worker_plan_refs","operator_contract_refs","mcp_contract_refs","conformance_profile_refs","package_refs","receipt_obligations","status","migration","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.ontology-development-kit-manifest.v2"},"odk_manifest_id":{"$ref":"#/$defs/manifestRef","description":"ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `id` and a separate `ref` that could disagree with each other; canon carries `odk_manifest_id: odk://…` once."},"name":{"type":"string","minLength":1,"maxLength":200},"version":{"type":"string","minLength":1,"maxLength":128,"description":"Canon's `semver_or_hash`. A manifest version is the builder's own declared version of the package it describes; it is not the version of any ontology it binds, and advancing it re-means nothing downstream."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"The owner the admission was scoped to. A manifest is owned; it is not a global registry entry."},"ontology_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"At least one owning ontology. A kit manifest that binds no meaning is packaging nothing this layer owns."},"canonical_object_model_refs":{"$ref":"#/$defs/refList"},"data_recipe_refs":{"$ref":"#/$defs/refList","description":"THE QUALIFIED NAME. v1 called this `recipe_refs`; the term-boundary ruling makes a generic executable recipe family a defect, so every recipe is owner-qualified. An authoring request naming `recipe_refs` is refused rather than translated."},"connector_mapping_refs":{"$ref":"#/$defs/refList"},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList"},"ontology_projection_refs":{"$ref":"#/$defs/refList"},"surface_descriptor_refs":{"$ref":"#/$defs/refList","description":"The descriptors this manifest packages. Packaging a descriptor neither admits it nor registers it: the composable-application journey admits each stage's own fact and a generator that appears to skip one has skipped an admission."},"workflow_schema_refs":{"$ref":"#/$defs/refList"},"evaluation_dataset_refs":{"$ref":"#/$defs/refList","description":"One half of v1's single `eval_refs` list. A dataset and a benchmark profile are different objects with different owners, and a convergence cannot split the legacy list without the author saying which member is which."},"benchmark_profile_refs":{"$ref":"#/$defs/refList"},"worker_plan_refs":{"$ref":"#/$defs/refList","description":"An `OntologyToWorkerPlan` can propose workers, tools, schemas, evals and manifests. Naming one here proposes; it grants no authority (non-negotiable 9)."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList","description":"The other half of v1's folded `mcp_operator_contracts`. An operator contract and an MCP profile have different consumers, so they are different members."},"conformance_profile_refs":{"$ref":"#/$defs/refList"},"package_refs":{"$ref":"#/$defs/refList","description":"Artifact refs for the packaged bytes. A package ref is not a local package admission and not a marketplace listing."},"receipt_obligations":{"$ref":"#/$defs/refList","description":"What a consumer of this manifest owes receipts for. An obligation stated here is a requirement on the consumer, never a permission granted to it."},"status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four members, verbatim. INVENTORY STATUS ONLY (G-6): it says where this manifest sits in its own lifecycle and says nothing about whether anything it packages is mounted, serving, installed or launchable. Those are other planes' state, on other objects."},"migration":{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A manifest authored fresh at v2 has no predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Independently nullable fields would admit partial tuples that READ AS COMPLETE — `converged_from_v1` with a null hash claims a provenance while naming no bytes anyone could check — so the two conditionals below partition the compatibility enum exactly and a partial or mixed block is a SCHEMA refusal.","required":["from_schema_version","from_manifest_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.manifest.v1"},{"type":"null"}]},"from_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 manifests the same commitment."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_manifest_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"from_manifest_ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"authority_nonclaim":{"const":"ontology_development_kit_manifest_grants_no_authority"},"truth_nonclaim":{"const":"ontology_development_kit_manifest_is_not_runtime_or_semantic_truth","description":"Non-negotiable 10, as a field."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_lease_crossing","runtime_truth","semantic_truth","permission_truth","marketplace_truth","package_admission","installation","registration","conformance_result"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_lease_crossing"}},{"contains":{"const":"runtime_truth"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"permission_truth"}},{"contains":{"const":"marketplace_truth"}},{"contains":{"const":"package_admission"}}],"description":"Seven mandatory members. `package_admission` is the one this family needs that the descriptor's list does not: a manifest is the packaging object, and 'packaged' reading as 'admitted' is the exact stage-skip the composable-application journey calls a defect."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."}}}"##),
+    ("schema://ioi/foundations/objects/domain-app/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app/v1","title":"DomainAppV1","description":"THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the record the Domain Apps foundation cut minted while `ioi.hypervisor.domain-app.v1` was a Rust string literal with no registered contract behind it. Three divergences from `DomainAppEnvelope` are byte-verified rather than asserted, and this contract states each one so it is checkable. First, `status` is written as the literal `draft` at create and NO path advances it: the four other canonical states (`admitted`, `installed`, `deprecated`, `revoked`) are unreachable, so the field records a pin rather than a lifecycle. Second, the four composable-application stage bindings canon requires — `surface_registration_ref`, `package_release_ref`, `installation_ref`, `system_binding_refs` — do not exist as fields at all, so 'this app has no admitted registration' and 'this record cannot express a registration' are the same absence. Third, the derived provenance snapshot covers ontology, data-recipe and MCP refs only; canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` are absent, so a v1 DomainApp over a descriptor that binds eight object models records none of them. AUTHORING AT v1 IS CLOSED. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.domain-app.v1","type":"object","additionalProperties":false,"$defs":{"refList":{"type":"array","maxItems":128,"items":{"type":"string","maxLength":512}},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","object","domain_app_id","domain_app_ref","name","description","status","surface_descriptor_ref","odk_manifest_ref","project_ref","owner_ref","visibility","ontology_refs","data_recipe_refs","mcp_contract_refs","authority_requirement_refs","operator_contract_refs","receipt_obligations","generated_artifact_refs","runtime_posture"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app.v1"},"object":{"const":"ioi.hypervisor.domain_app"},"domain_app_id":{"type":"string","pattern":"^dapp_[0-9a-f]{16}$","description":"A BARE ID WHERE CANON CARRIES A REF. Canon's `domain_app_id` is `domain-app://…`; v1 puts the unprefixed id here and the ref in a second field beside it, so two fields can disagree about one identity. Derived from owner plus caller idempotency key by `replay_stable_id`, sixteen hex digits wide."},"domain_app_ref":{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PIN, REGISTERED AS A PIN. The producer writes the literal `draft` and no transition — not mount, not serve, not registration, not admission — ever moves it. Canon's vocabulary is draft | admitted | installed | deprecated | revoked; four of those five are unreachable in this contract, which is exactly what makes 'status is pinned' a checked fact here rather than a claim in a delta row."},"surface_descriptor_ref":{"type":"string","pattern":"^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. That half of the contract was already correct at v1."},"odk_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"project_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"A PASSTHROUGH FIELD, REGISTERED AS THE REF IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying a structured value here does not satisfy this contract and fails closed at the owner seam rather than being silently repaired."},"owner_ref":{"type":"string","minLength":1,"maxLength":256,"description":"Resolved from the authenticated caller at create. The v1 PATCH path also copies a caller-supplied `owner_ref` straight onto the record, which is why this field is typed as a string rather than as the owner-scheme pattern v2 requires."},"visibility":{"enum":["private","org","marketplace_candidate"],"description":"`marketplace_candidate` is a flag on a draft, never a publication."},"ontology_refs":{"$ref":"#/$defs/refList","description":"Half of the derived snapshot canon defines. `canonical_object_model_refs` and `policy_bound_data_view_refs` have no field in this contract, so a descriptor's object-model and policy-view bindings are dropped on the floor at create."},"data_recipe_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList"},"authority_requirement_refs":{"$ref":"#/$defs/refList","description":"Author-supplied and unresolved. Declaring an authority requirement is a statement of what the app will owe; it grants nothing (non-negotiable 9)."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"receipt_obligations":{"$ref":"#/$defs/refList"},"generated_artifact_refs":{"$ref":"#/$defs/refList"},"runtime_posture":{"type":"object","additionalProperties":false,"required":["mounted","route","note"],"description":"The backlink projection of the runtime. v1's version is the union of the key sets five different writers put here — create, mount, serve, unmount and kill enforcement each write their own shape — which is why `serving` and `mount_ref` are optional: a record written by the create path has neither, and a reader cannot tell 'not serving' from 'this writer did not say'.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"note":{"type":"string","maxLength":512},"mount_ref":{"type":"string","maxLength":512},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512}}},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/timestamp"},"admitted_head":{"type":"string","maxLength":256,"description":"The head the NEXT writer must present. It is a fact about the stream projected onto the row, not part of the admitted payload — the payload has it removed before admission so a successor is not byte-different from its own replay."}}}"##),
+    ("schema://ioi/foundations/objects/domain-app/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app/v2","title":"DomainAppV2","description":"THE CANONICAL DOMAIN APP, WITH INVENTORY STATUS AND RUNTIME STATE STRUCTURALLY SEPARATED (G-6). v1 pinned `status` to `draft` forever and had no field for any stage of the composable-application journey, so 'this app was never registered' and 'this record cannot say whether it was registered' were the same bytes. This version makes the two state kinds different fields with different writers and enforces their coupling in the schema. `status` is INVENTORY: it advances only when the stage binding that produced it is named — `admitted` requires the immutable package release, `installed` requires the installation binding and the surface registration beside it — and no mount, serve, stop, unmount or kill transition may move it. `runtime_posture` is a BACKLINK PROJECTION of the `DomainAppRuntime` that owns mounted/serving state, and it must name the exact runtime it projects whenever it claims either. The two cannot be confused by a reader because neither field's vocabulary appears in the other. `launch_posture` carries canon's System-binding bound as a field: an app with no admitted System binding is `inspect_only`, and the schema refuses a record that claims otherwise while binding nothing. The derived snapshot is complete — canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` were absent from v1 entirely — and it is bound to the EXACT descriptor bytes it was derived from, so a snapshot cannot silently belong to a different revision of its own source.","x-ioi-schema-version":"ioi.domain-app.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"domainAppRef":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"runtimeRef":{"type":"string","pattern":"^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","domain_app_id","name","description","surface_descriptor_ref","surface_descriptor_schema_version","surface_descriptor_content_hash","odk_manifest_ref","owner_ref","project_ref","visibility","ontology_refs","canonical_object_model_refs","data_recipe_refs","policy_bound_data_view_refs","operator_contract_refs","mcp_contract_refs","authority_requirement_refs","receipt_obligations","generated_artifact_refs","surface_registration_ref","package_release_ref","installation_ref","system_binding_refs","launch_posture","status","runtime_posture","migration","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.domain-app.v2"},"domain_app_id":{"$ref":"#/$defs/domainAppRef","description":"ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `domain_app_id` and a separate `domain_app_ref` that could disagree."},"name":{"type":"string","minLength":1,"maxLength":200},"description":{"type":"string","maxLength":2000},"surface_descriptor_ref":{"type":"string","pattern":"^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. A DomainApp without a resolving app-shaped descriptor is a defect, not a draft."},"surface_descriptor_schema_version":{"enum":["ioi.ontology-surface-descriptor.v2","ioi.hypervisor.odk.surface-descriptor.v1"],"description":"WHICH REGISTERED CONTRACT THE SNAPSHOT WAS READ UNDER. Both versions are readable; neither is reinterpreted as the other. Recording the version is what lets a reader tell a snapshot that is empty because the descriptor binds nothing from one that is empty because the consumer read the wrong field names — the exact defect the v1 lineage read had, where `ontology_ref` and `recipe_refs` were read off a v2 record that carries neither and the empty result was recorded as provenance."},"surface_descriptor_content_hash":{"$ref":"#/$defs/sha256","description":"The EXACT descriptor bytes this snapshot was derived from, hashed under that descriptor version's own domain separator. A descriptor that advances leaves this app's snapshot bound to the revision it actually read, so 'the snapshot is current' is decidable offline rather than assumed."},"odk_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"Optional packaging provenance. When present it must itself name this descriptor, so packaging provenance cannot disagree with the app-shape contract."},"owner_ref":{"$ref":"#/$defs/ownerRef","description":"Server-resolved from the authenticated caller, never copied from the request body. v1's PATCH path accepted a caller-supplied owner_ref, which is how a record's owner could stop being the owner its admission was scoped to."},"project_ref":{"oneOf":[{"type":"string","pattern":"^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}]},"visibility":{"enum":["private","org","marketplace_candidate"],"description":"Distribution intent, and nothing else. `marketplace_candidate` is a flag on a record, never a publication and never a local package admission."},"ontology_refs":{"$ref":"#/$defs/refList","description":"Derived snapshot member. The four snapshot lists are a projection of the bound descriptor and manifest, not independent authorship: a DomainApp cannot widen the ontology, object-model, recipe or view set its descriptor declares."},"canonical_object_model_refs":{"$ref":"#/$defs/refList","description":"ABSENT FROM v1 ENTIRELY. A v1 DomainApp over a descriptor binding eight object models recorded none of them, and nothing failed."},"data_recipe_refs":{"$ref":"#/$defs/refList"},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList","description":"ABSENT FROM v1 ENTIRELY. Policy-bound views gate read, transform, distill, train, evaluate, export, publish and route use of governed data; an app whose record could not name the views its descriptor binds could not be checked against them."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList"},"authority_requirement_refs":{"$ref":"#/$defs/refList","description":"What this app will OWE when it acts. Declaring a requirement grants nothing (non-negotiable 9): a consequential action still passes capability, policy, authority, daemon, evidence and verification gates."},"receipt_obligations":{"$ref":"#/$defs/refList"},"generated_artifact_refs":{"$ref":"#/$defs/refList"},"surface_registration_ref":{"oneOf":[{"type":"string","pattern":"^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Stage 7 of the composable-application journey: the `HypervisorApplicationSurfaceRegistration` that makes this app launchable as an `extension_application`. Mounting is a runtime fact and registration is an inventory fact; they are never substitutes."},"package_release_ref":{"oneOf":[{"type":"string","pattern":"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Stage 6: the immutable release local Packages admission produced."},"installation_ref":{"oneOf":[{"type":"string","pattern":"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"Stage 7: the installation binding. Admission does not install; installation does not expose."},"system_binding_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"description":"Stage 9: admitted System/context bindings. Their absence bounds the app to inspect-only use rather than silently permitting effects."},"launch_posture":{"enum":["inspect_only","system_bound"],"description":"CANON'S SYSTEM-BINDING BOUND, AS A FIELD A RELYING PARTY CAN READ. It is not independent authorship: the two conditionals below tie it to `system_binding_refs` exactly, so a record claiming `system_bound` while binding no System is a SCHEMA refusal rather than something a reader has to notice."},"status":{"enum":["draft","admitted","installed","deprecated","revoked"],"description":"INVENTORY STATUS — canon's five members, and the field v1 pinned to `draft`. It answers where this app sits in the composable-application journey and NOTHING about whether it is mounted or serving. The conditionals below make each advance carry the stage binding that produced it, so `admitted` cannot be written by a route that admitted nothing."},"runtime_posture":{"type":"object","additionalProperties":false,"required":["mounted","serving","route","mount_ref"],"description":"RUNTIME STATE — a backlink PROJECTION of the `DomainAppRuntime`, never a second source of truth. All four keys are required at every revision, so a reader can never confuse 'not serving' with 'this writer did not say', which is exactly what v1's union-of-five-writers shape allowed. The conditionals bind the projection to a real runtime: claiming mounted or serving without naming the runtime is refused.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"The INTERNAL route only. External ingress is a separate admission recorded on the runtime, and it is never a consequence of serving."},"mount_ref":{"oneOf":[{"$ref":"#/$defs/runtimeRef"},{"type":"null"}]}},"allOf":[{"title":"serving implies mounted","if":{"required":["serving"],"properties":{"serving":{"const":true}}},"then":{"properties":{"mounted":{"const":true}}}},{"title":"a live posture names the runtime it projects","if":{"required":["mounted"],"properties":{"mounted":{"const":true}}},"then":{"properties":{"mount_ref":{"$ref":"#/$defs/runtimeRef"}}}},{"title":"an unmounted posture projects nothing","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"serving":{"const":false},"route":{"type":"null"},"mount_ref":{"type":"null"}}}}]},"migration":{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — and exactly two admissible tuples, partitioned by `compatibility`.","required":["from_schema_version","from_domain_app_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.domain-app.v1"},{"type":"null"}]},"from_domain_app_ref":{"oneOf":[{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_domain_app_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.domain-app.v1"},"from_domain_app_ref":{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"authority_nonclaim":{"const":"domain_app_grants_no_authority"},"truth_nonclaim":{"const":"domain_app_is_not_registration_admission_or_runtime_truth","description":"A DomainApp is not a runtime (`DomainAppRuntime` owns mounted/serving state), not a catalog registration, not an admission, and not semantic truth. A DomainApp with no admitted registration is a candidate, not durable product inventory."},"does_not_assert":{"type":"array","minItems":7,"maxItems":11,"uniqueItems":true,"items":{"enum":["authority","capability_lease_crossing","runtime_truth","semantic_truth","permission_truth","marketplace_truth","registration","package_admission","installation","launchability","external_ingress"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"runtime_truth"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"permission_truth"}},{"contains":{"const":"marketplace_truth"}},{"contains":{"const":"registration"}},{"contains":{"const":"launchability"}}],"description":"Seven mandatory members. `registration` and `launchability` are the two this family needs most: a mounted, serving Domain App is still not product inventory, and the record has to say so in its own bytes."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, recomputable offline by a relying party holding only the bytes."}},"allOf":[{"title":"no System binding means inspect-only","if":{"required":["system_binding_refs"],"properties":{"system_binding_refs":{"type":"array","maxItems":0}}},"then":{"properties":{"launch_posture":{"const":"inspect_only"}}}},{"title":"a system-bound posture names at least one admitted System binding","if":{"required":["launch_posture"],"properties":{"launch_posture":{"const":"system_bound"}}},"then":{"properties":{"system_binding_refs":{"type":"array","minItems":1}}}},{"title":"a draft has completed no journey stage","if":{"required":["status"],"properties":{"status":{"const":"draft"}}},"then":{"properties":{"surface_registration_ref":{"type":"null"},"package_release_ref":{"type":"null"},"installation_ref":{"type":"null"}}}},{"title":"admitted names the immutable release that admitted it, and nothing further","if":{"required":["status"],"properties":{"status":{"const":"admitted"}}},"then":{"properties":{"package_release_ref":{"type":"string","pattern":"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"installation_ref":{"type":"null"},"surface_registration_ref":{"type":"null"}}}},{"title":"installed names release, installation and registration together","if":{"required":["status"],"properties":{"status":{"const":"installed"}}},"then":{"properties":{"package_release_ref":{"type":"string","pattern":"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"installation_ref":{"type":"string","pattern":"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"surface_registration_ref":{"type":"string","pattern":"^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"}}}}]}"##),
+    ("schema://ioi/foundations/objects/domain-app-runtime/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-runtime/v1","title":"DomainAppRuntimeV1","description":"THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the runtime record the governed mount ladder minted while `ioi.hypervisor.domain-app-runtime.v1` was a Rust string literal. Four divergences from `DomainAppRuntimeEnvelope` are byte-verified. Identity is a bare `id` plus a separate `ref` where canon carries one `domain_app_runtime_id`. `rollback` is canon's `rollback_posture` under a different name. `external_ingress_ref` DOES NOT EXIST as a field, so canon's rule that internal route and external ingress are distinct admissions has no wire form here — serving and ingress are not separable in the record, and the only honest reading of a v1 runtime is that its ingress state is unknown rather than absent. And the record carries no owner and no revision, so a mount receipt could not have bound the exact runtime revision it transitioned even if it had tried. There is also a dead `route` key that the mount writes as null and no transition ever sets: the serving route lives in `internal_route_ref`, which means a reader taking `route` at face value sees an unrouted runtime while it serves. AUTHORING AT v1 IS CLOSED. Stored v1 runtimes remain readable exactly as admitted.","x-ioi-schema-version":"ioi.hypervisor.domain-app-runtime.v1","type":"object","additionalProperties":false,"$defs":{"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refList":{"type":"array","maxItems":128,"items":{"type":"string","maxLength":512}}},"required":["schema_version","object","id","ref","domain_app_ref","mounted","state","serving","route","approval_request_ref","release_control_ref","authority_refs","receipt_refs","rollback","note","mounted_at","unmounted_at","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app-runtime.v1"},"object":{"const":"ioi.hypervisor.domain_app_runtime"},"id":{"type":"string","pattern":"^dartm_[0-9a-f]{1,32}$","description":"MINTED FROM THE WALL CLOCK. `format!(\"dartm_{:x}\", nanos())` — so the id is a function of when the mount happened rather than of what was requested, and a retried mount mints a SECOND runtime rather than resolving to the first. That is why the width here is a range: nothing about this id is derived, so nothing about it is fixed."},"ref":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{1,32}$"},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"mounted":{"type":"boolean"},"state":{"enum":["mounted","serving","unmounted","killed"],"description":"Canon's four runtime states. This half of the contract was already correct at v1: runtime state is the runtime's, and it is not the DomainApp's inventory status."},"serving":{"type":"boolean"},"route":{"type":"null","description":"THE DEAD KEY. The mount writes `null` here and no transition ever sets it; the serving route is written to `internal_route_ref` instead. Registering it as `null`-only is what turns 'this field is never populated' into a checked fact."},"internal_route_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"Present only once a serve transition has run. Absent on a runtime that has only ever been mounted, which is why it is optional here and required-with-an-explicit-null in v2."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"authority_refs":{"$ref":"#/$defs/refList","description":"Copied verbatim from the admitting ApprovalRequest's `required_authority_refs` without validation, so a legacy record carrying structured members here does not satisfy this contract and fails closed rather than being silently repaired."},"receipt_refs":{"$ref":"#/$defs/refList","description":"The receipt chain, appended one entry per transition."},"rollback":{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's `rollback_posture`, under v1's shorter name.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}},"note":{"type":"string","maxLength":1024},"mounted_at":{"$ref":"#/$defs/timestamp"},"serve_started_at":{"$ref":"#/$defs/timestamp"},"serve_stopped_at":{"$ref":"#/$defs/timestamp"},"unmounted_at":{"oneOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]},"unmount_reason":{"type":"string","maxLength":512},"killed":{"type":"boolean"},"killed_at":{"$ref":"#/$defs/timestamp"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/timestamp"}}}"##),
+    ("schema://ioi/foundations/objects/domain-app-runtime/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-runtime/v2","title":"DomainAppRuntimeV2","description":"THE CANONICAL RUNTIME, AND THE OBJECT A MOUNT RECEIPT CAN NOW NAME EXACTLY. The runtime — never the DomainApp — owns mounted/serving state, the governance refs that permitted it, its route and its receipt chain. Four things v1 could not express are structural here. Identity is one scheme-prefixed `domain_app_runtime_id` derived from the caller's owner and idempotency key, so a retried mount resolves to the runtime it already created instead of minting a second one from the wall clock. `revision` counts this runtime's admitted transitions, so a receipt can bind the exact revision it attests rather than merely the app. `external_ingress_ref` exists as its own required field, so canon's rule that internal route and external ingress are DISTINCT admissions has a wire form: serving assigns the internal route and leaves ingress null, and a record where ingress appeared as a consequence of serving is refused by the conditionals below. And `content_hash` commits the whole runtime, which is the value a receipt binds so a relying party can check offline that the receipt and the runtime describe the same state.","x-ioi-schema-version":"ioi.domain-app-runtime.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"nullableTimestamp":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","domain_app_runtime_id","domain_app_ref","owner_ref","revision","state","mounted","serving","internal_route_ref","external_ingress_ref","approval_request_ref","release_control_ref","authority_refs","receipt_refs","rollback_posture","mounted_at","serve_started_at","serve_stopped_at","unmounted_at","unmount_reason","killed_at","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.domain-app-runtime.v2"},"domain_app_runtime_id":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{16}$","description":"ONE IDENTITY FIELD, AND A DERIVED ONE. Sixteen hex digits from the caller's owner and idempotency key, so the same logical mount submitted twice resolves to one runtime. v1 minted this from `nanos()`, which made every retry a second runtime and made replay impossible to distinguish from a genuine second mount."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The app this runtime is one governed mount of. At most one runtime per DomainApp may be mounted at a time."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"Server-resolved from the authenticated caller that admitted the mount. It is what makes the runtime identity a mount receipt binds OWNER-QUALIFIED: two owners can hold runtimes whose ids collide only if they also share an owner, which they do not."},"revision":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"This runtime's own transition counter: 0 at mount, and one higher at every admitted transition after it. A mount receipt binds the exact revision it attests, so an app with several runtimes and a runtime with several transitions are both addressable."},"state":{"enum":["mounted","serving","unmounted","killed"],"description":"RUNTIME STATE — never the DomainApp's inventory status. The two vocabularies are disjoint on purpose (G-6): no member of this enum appears in `DomainApp.status` and no member of that one appears here, so a reader cannot conflate 'admitted' with 'running'."},"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"internal_route_ref":{"oneOf":[{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},{"type":"null"}],"description":"Assigning an internal route is part of the mount's governance. Required at every revision with an explicit null so 'not routed' can never be read out of an absent key."},"external_ingress_ref":{"oneOf":[{"type":"string","pattern":"^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},{"type":"null"}],"description":"A SEPARATE ADMISSION THIS ENVELOPE RECORDS BUT DOES NOT GRANT. v1 had no field at all, so serving and ingress were inseparable in the record. Here serving leaves it null and the conditional below refuses a record that acquired ingress merely by serving."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Re-read and re-checked live at each serve transition. A mount's earlier permission is never inherited forward as standing permission to serve."},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"authority_refs":{"$ref":"#/$defs/refList","description":"The authority refs the admitting ApprovalRequest recorded. Recording them is evidence of what permitted the mount; it is not a grant."},"receipt_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"description":"At least one: a runtime exists because a mount was receipted, so there is no unreceipted path onto this ladder."},"rollback_posture":{"type":"object","additionalProperties":false,"required":["unmountable","note"],"description":"Canon's own name for what v1 called `rollback`.","properties":{"unmountable":{"type":"boolean"},"note":{"type":"string","maxLength":512}}},"mounted_at":{"$ref":"#/$defs/timestamp","description":"The ADMISSION stamp of the mount, taken from the admitted operation rather than from the wall clock, so a replayed mount is byte-identical to the one it replays."},"serve_started_at":{"$ref":"#/$defs/nullableTimestamp"},"serve_stopped_at":{"$ref":"#/$defs/nullableTimestamp"},"unmounted_at":{"$ref":"#/$defs/nullableTimestamp"},"unmount_reason":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"killed_at":{"$ref":"#/$defs/nullableTimestamp"},"authority_nonclaim":{"const":"domain_app_runtime_grants_no_authority"},"truth_nonclaim":{"const":"domain_app_runtime_is_not_registration_or_launchability","description":"A mounted, serving Domain App is still not product inventory. It becomes launchable only through the ordinary `extension_application` registration and the product-surface compiler."},"does_not_assert":{"type":"array","minItems":5,"maxItems":9,"uniqueItems":true,"items":{"enum":["authority","registration","launchability","external_ingress","app_behaviour","semantic_validity","package_admission","installation","marketplace_truth"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"registration"}},{"contains":{"const":"launchability"}},{"contains":{"const":"external_ingress"}},{"contains":{"const":"app_behaviour"}}],"description":"Five mandatory members. `external_ingress` is the one this family needs that no other does: the whole point of the separate field is that a serving runtime asserts nothing about ingress."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator. It is the value a `DomainAppMountReceipt` binds, so a relying party can check offline that the receipt and the runtime describe the same admitted state."}},"allOf":[{"title":"serving implies mounted, and names its internal route","if":{"required":["serving"],"properties":{"serving":{"const":true}}},"then":{"properties":{"mounted":{"const":true},"state":{"const":"serving"},"internal_route_ref":{"type":"string","pattern":"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}}}},{"title":"a runtime that is not serving holds no internal route","if":{"required":["serving"],"properties":{"serving":{"const":false}}},"then":{"properties":{"internal_route_ref":{"type":"null"}}}},{"title":"an unmounted runtime is not serving and records when the mount ended","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"serving":{"const":false},"unmounted_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}},{"title":"the killed state is terminal and stamped","if":{"required":["state"],"properties":{"state":{"const":"killed"}}},"then":{"properties":{"mounted":{"const":false},"serving":{"const":false},"killed_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}},{"title":"external ingress is never a consequence of the mount admission alone","if":{"required":["mounted"],"properties":{"mounted":{"const":false}}},"then":{"properties":{"external_ingress_ref":{"type":"null"}}}}]}"##),
+    ("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v1","title":"DomainAppMountReceiptV1","description":"THE PREDECESSOR, REGISTERED SO THE DIVERGENCE IT CARRIES CAN BE NAMED — DEPRECATED AND READ-ONLY. `DomainAppMountReceiptEnvelope` requires `domain_app_runtime_ref` and says why in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. THIS CONTRACT HAS NO SUCH FIELD. Every v1 receipt names the app, the approval and the release control, and is silent about the runtime — so the whole receipt chain of a twice-mounted app is one undifferentiated set, and a `domain_app.serve_stop` receipt cannot be attributed to the mount it stopped. Its `state_root` compounds the gap: the preimage is the five values pipe-joined as text, so it commits exactly what the receipt already says and nothing about the runtime state the transition produced, and a pipe inside any component makes two different transitions share a preimage. AUTHORING AT v1 IS CLOSED. Stored v1 receipts remain readable exactly as admitted; they are immutable evidence that a transition happened, and they stay exactly as unable to say which runtime it happened to.","x-ioi-schema-version":"ioi.hypervisor.domain-app-mount-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","action","domain_app_ref","approval_request_ref","release_control_ref","state_root","at"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app-mount-receipt.v1"},"object":{"const":"ioi.hypervisor.domain_app_mount_receipt"},"id":{"type":"string","pattern":"^mrcpt_[0-9a-f]{1,32}$","description":"Minted from `nanos()`, so a replayed transition emits a second receipt with a different id rather than resolving to the one already admitted."},"ref":{"type":"string","pattern":"^mount-receipt://mrcpt_[0-9a-f]{1,32}$"},"action":{"enum":["domain_app.mount","domain_app.serve_start","domain_app.serve_stop","domain_app.unmount","domain_app.kill_stop_serving","domain_app.kill_unmount"],"description":"Canon's six. Enforcement emits the same receipt family as a voluntary stop, distinguished only by the action name — this half was already correct at v1."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The app. And, at v1, the only object this receipt can name."},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512},"state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"A digest over `action|domain_app_ref|approval_request_ref|release_control_ref|at` joined with pipes. It commits the receipt's own visible fields and nothing else — not the runtime, not its revision, not the state the transition produced — so recomputing it proves the four strings were not edited and proves nothing about what was admitted."},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"Wall-clock at receipt construction, not the admission stamp, which is why a v1 receipt for a replayed transition is byte-different from the receipt it replays."}}}"#),
+    ("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","title":"DomainAppMountReceiptV2","description":"THE RECEIPT THAT BINDS THE RUNTIME IT TRANSITIONED. Canon requires `domain_app_runtime_ref` and gives the reason in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. v1 had no such field, so this contract adds it and then adds the three facts that make the binding EXACT rather than merely present. `domain_app_runtime_owner_ref` makes the runtime identity owner-qualified, so a receipt cannot be read against a same-named runtime under another owner. `domain_app_runtime_revision` names which transition of that runtime this receipt attests, so a serve-stop receipt is attributable to the serve it stopped. `domain_app_runtime_content_hash` commits the runtime state the transition PRODUCED, so a relying party holding the receipt and the runtime can check offline that they describe the same admitted state instead of trusting that they do. `domain_app_admitted_head_before` names the exact chain position the transition was admitted against, which is what makes the receipt locatable in the app's own admitted history rather than merely consistent with it. `state_root` is a canonical-JSON commitment over every other field under a domain separator — a real commitment a verifier recomputes, replacing v1's pipe-joined text digest whose preimage was ambiguous and whose material said nothing about the runtime. It attests that a named transition was admitted for a named runtime under a named approval and release control at a named time. It does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran.","x-ioi-schema-version":"ioi.domain-app-mount-receipt.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"required":["schema_version","mount_receipt_id","action","domain_app_ref","domain_app_runtime_ref","domain_app_runtime_owner_ref","domain_app_runtime_revision","domain_app_runtime_content_hash","domain_app_admitted_head_before","approval_request_ref","release_control_ref","state_root","at","does_not_assert"],"properties":{"schema_version":{"const":"ioi.domain-app-mount-receipt.v2"},"mount_receipt_id":{"type":"string","pattern":"^mount-receipt://mrcpt_[0-9a-f]{16}$","description":"One scheme-prefixed identity, derived from the caller's owner, idempotency key and this transition's action — so a replayed transition resolves to the receipt it already emitted rather than appending a second one that attests the same fact under a different id."},"action":{"enum":["domain_app.mount","domain_app.serve_start","domain_app.serve_stop","domain_app.unmount","domain_app.kill_stop_serving","domain_app.kill_unmount"],"description":"Canon's six. Governance enforcement drives the same transitions and emits the same receipt family as a voluntary stop, so an enforced stop leaves exactly the record a voluntary one does, distinguished only by the action name."},"domain_app_ref":{"type":"string","pattern":"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"domain_app_runtime_ref":{"type":"string","pattern":"^domain-app-runtime://dartm_[0-9a-f]{16}$","description":"THE FIELD v1 DID NOT HAVE. Required, never nullable: a transition always has a runtime, and a receipt that could omit it would reintroduce exactly the ambiguity this version exists to remove."},"domain_app_runtime_owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"OWNER-QUALIFIED IDENTITY. The runtime ref alone is an id in a namespace; the owner is what makes it resolvable to one runtime rather than to whichever runtime a reader happens to look up."},"domain_app_runtime_revision":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Which admitted transition of that runtime this receipt attests. A mount is revision 0 by construction, since a mount creates the runtime it transitions."},"domain_app_runtime_content_hash":{"$ref":"#/$defs/sha256","description":"The `content_hash` of the runtime record this transition PRODUCED, not of the one it started from. It is what makes 'this receipt is about this runtime state' checkable from bytes: substitute the runtime and the hash stops matching; edit the runtime and it stops matching too."},"domain_app_admitted_head_before":{"type":"string","pattern":"^[0-9a-f]{16,128}$","description":"The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."},"approval_request_ref":{"type":"string","pattern":"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"release_control_ref":{"type":"string","pattern":"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"state_root":{"$ref":"#/$defs/sha256","description":"A canonical-JSON SHA-256 over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. v1's preimage was the five values joined with pipes, which is ambiguous under any component containing a pipe and commits nothing about the runtime; this one commits the whole receipt including the three runtime bindings above."},"at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$","description":"The ADMISSION stamp of the transition, taken from the admitted operation rather than from the wall clock, so a replayed transition re-emits a byte-identical receipt."},"does_not_assert":{"type":"array","minItems":4,"maxItems":8,"uniqueItems":true,"items":{"enum":["app_behaviour","semantic_validity","external_surface_exists","domain_action_ran","authority","registration","launchability","package_admission"]},"allOf":[{"contains":{"const":"app_behaviour"}},{"contains":{"const":"semantic_validity"}},{"contains":{"const":"external_surface_exists"}},{"contains":{"const":"domain_action_ran"}}],"description":"Canon's four nonclaims, carried as fields so the receipt states its own limits in the bytes a relying party reads: it does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran."}},"allOf":[{"title":"a mount receipt attests the runtime's genesis revision","if":{"required":["action"],"properties":{"action":{"const":"domain_app.mount"}}},"then":{"properties":{"domain_app_runtime_revision":{"type":"integer","minimum":0,"maximum":0,"description":"A mount creates the runtime it transitions, so its receipt attests revision 0 and nothing else."}}}}]}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -129782,6 +133167,14 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/semantic-mapping-decision/v1", r#"[{"rule_id":"semantic_mapping_decision.identity.binds_family_revision_path","description":"A decision revision id is its decision family's ref plus an explicit revision path. The /decision/ segment is what keeps an application from ever being addressed as the crosswalk it applied.","expression":{"operator":"field_starts_with_path","path":"$.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"semantic_mapping_decision.family.binds_owner_namespace","description":"Identity is owner-qualified: the decision family ref opens with the owning namespace.","expression":{"operator":"field_starts_with_path","path":"$.mapping_family_ref","prefix":"ontology-mapping://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"semantic_mapping_decision.identity.binds_version_label","description":"The readable version label is the revision segment of the identity.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.ontology_mapping_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time","description":"The content hash commits identity, lineage, the exact applied crosswalk revision and its hash, both endpoint bindings, every reviewer and their individual decision, the accepted risk, every ambiguity and unmapped-term disposition, the terms-acceptance binding and VALID time. Transaction time, admission, the decision receipt, challenge standing and status are excluded: what was decided is content, when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.semantic-mapping-decision-content-commitment-jcs-sha256.v1"},"ontology_mapping_id":{"path":"$.ontology_mapping_id"},"mapping_family_ref":{"path":"$.mapping_family_ref"},"mapping_record_profile":{"path":"$.mapping_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"applied_crosswalk_ref":{"path":"$.applied_crosswalk_ref"},"applied_crosswalk_binding":{"path":"$.applied_crosswalk_binding"},"crosswalk_resolved_by":{"path":"$.crosswalk_resolved_by"},"source_ontology_ref":{"path":"$.source_ontology_ref"},"target_ontology_ref":{"path":"$.target_ontology_ref"},"source_and_target_version_refs":{"path":"$.source_and_target_version_refs"},"source_binding":{"path":"$.source_binding"},"target_binding":{"path":"$.target_binding"},"domain_relationship":{"path":"$.domain_relationship"},"application_target_refs":{"path":"$.application_target_refs"},"decided_by_ref":{"path":"$.decided_by_ref"},"decision_timestamp":{"path":"$.decision_timestamp"},"reviewer_lineage":{"path":"$.reviewer_lineage"},"mapping_risk_acceptance":{"path":"$.mapping_risk_acceptance"},"ambiguity_dispositions":{"path":"$.ambiguity_dispositions"},"unmapped_term_dispositions":{"path":"$.unmapped_term_dispositions"},"terms_acceptance":{"path":"$.terms_acceptance"},"compatibility_result":{"path":"$.compatibility_result"},"policy_bound_view_refs":{"path":"$.policy_bound_view_refs"},"validation_and_challenge_refs":{"path":"$.validation_and_challenge_refs"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"},"migration":{"path":"$.migration"},"correctness_nonclaim":{"path":"$.correctness_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"global_canonicality_nonclaim":{"path":"$.global_canonicality_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"semantic_mapping_decision.applied_crosswalk.is_the_bound_revision","description":"The canonical applied_crosswalk_ref field and the hash-bearing crosswalk binding name the SAME revision. A decision that cites one crosswalk and binds another's bytes applied something other than what it says it applied.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_ref","$.applied_crosswalk_binding.ontology_mapping_id"]}},{"rule_id":"semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path","description":"The applied crosswalk revision opens with the crosswalk family the binding claims, so the two cannot be edited apart.","expression":{"operator":"field_starts_with_path","path":"$.applied_crosswalk_binding.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.applied_crosswalk_binding.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions","description":"The declared endpoint list and the two hash-bearing endpoint bindings are the SAME set; both are carried verbatim from the applied crosswalk rather than re-asserted by the decider.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.source_and_target_version_refs","required_paths":["$.source_binding.ontology_version_ref","$.target_binding.ontology_version_ref"],"required_array_paths":[]}},{"rule_id":"semantic_mapping_decision.source_binding.binds_its_declared_family","description":"The source endpoint's exact revision is a revision OF the declared source family.","expression":{"operator":"fields_equal","paths":["$.source_ontology_ref","$.source_binding.ontology_ref"]}},{"rule_id":"semantic_mapping_decision.target_binding.binds_its_declared_family","description":"The target endpoint's exact revision is a revision OF the declared target family.","expression":{"operator":"fields_equal","paths":["$.target_ontology_ref","$.target_binding.ontology_ref"]}},{"rule_id":"semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss","description":"The accepted loss is the loss the applied crosswalk declared. Accepting a smaller loss than the crosswalk declared is a decision about a different mapping.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.declared_loss","$.mapping_risk_acceptance.accepted_loss"]}},{"rule_id":"semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class","description":"And the accepted risk class is the crosswalk's declared class, so a high-risk map cannot be applied under a low-risk acceptance.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.risk_class","$.mapping_risk_acceptance.accepted_risk_class"]}},{"rule_id":"semantic_mapping_decision.compatibility.is_the_crosswalks_own_result","description":"A decision reports the compatibility its crosswalk computed; relabelling a lossy map as exact at application time is the silent field equivalence canon forbids.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.compatibility_result","$.compatibility_result"]}},{"rule_id":"semantic_mapping_decision.reviewers.are_named_once_each_per_role","description":"One reviewer holds one role in one lineage. A repeated row would let a single reviewer stand in for a quorum of roles.","expression":{"operator":"array_unique_by_fields","array_path":"$.reviewer_lineage","fields":["reviewer_ref","review_role"]}},{"rule_id":"semantic_mapping_decision.ambiguity_dispositions.name_each_term_once","description":"One ambiguous term receives one disposition. Two dispositions for one term is the ambiguity restated rather than adjudicated.","expression":{"operator":"array_unique_by_fields","array_path":"$.ambiguity_dispositions","fields":["source_term_id"]}},{"rule_id":"semantic_mapping_decision.unmapped_dispositions.name_each_term_once","description":"One unmapped term receives one disposition.","expression":{"operator":"array_unique_by_fields","array_path":"$.unmapped_term_dispositions","fields":["source_term_id"]}},{"rule_id":"semantic_mapping_decision.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"semantic_mapping_decision.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor decision cannot reinterpret the decision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"semantic_mapping_decision.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"semantic_mapping_decision.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not a new decision.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"semantic_mapping_decision.admission.binds_this_revision","description":"Admission evidence names this exact decision revision.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_mapping_id","expected_path":"$.ontology_mapping_id"}},{"rule_id":"semantic_mapping_decision.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}},{"rule_id":"semantic_mapping_decision.receipt.is_the_admitting_batch_receipt","description":"The canonical mapping decision receipt is the admitting batch's own Agentgres receipt, not a second receipt minted beside it. Binding them together is what stops a decision from citing a receipt that attests some other admission.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"agentgres_receipt_ref","expected_path":"$.mapping_decision_receipt_ref"}}]"#),
     ("schema://ioi/foundations/ontology-assertion/v2", r#"[{"rule_id":"provenance_assertion.identity.binds_family_revision_path","description":"An assertion revision id is its family's ref plus an explicit revision path; it can never name another assertion lineage.","expression":{"operator":"field_starts_with_path","path":"$.assertion_id","prefix":"ontology-assertion://","expected_path":"$.assertion_family_ref","strip_prefix":"ontology-assertion://","suffix":"/revision/"}},{"rule_id":"provenance_assertion.family.binds_owner_namespace","description":"Identity is owner-qualified: the assertion family ref opens with the owning namespace, so two domains may assert about the same-named subject without either becoming the other's truth.","expression":{"operator":"field_starts_with_path","path":"$.assertion_family_ref","prefix":"ontology-assertion://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"provenance_assertion.family.binds_local_name","description":"The assertion family ref carries this lineage's own local name verbatim.","expression":{"operator":"field_ends_with","path":"$.assertion_family_ref","expected_path":"$.name"}},{"rule_id":"provenance_assertion.identity.binds_version_label","description":"The readable version label is the revision segment of the identity.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.assertion_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time","description":"The content hash commits identity, lineage, the exact bound ontology revision and its owner's hash, the claim itself with its POLARITY, every attributed source, every piece of evidence with which side it bears on, the structured uncertainty, the retained contradiction set, the supersession statement and VALID time. Transaction time, admission, challenge standing and status are excluded: what was claimed is content; when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.provenance-assertion-content-commitment-jcs-sha256.v2"},"assertion_id":{"path":"$.assertion_id"},"assertion_family_ref":{"path":"$.assertion_family_ref"},"assertion_profile":{"path":"$.assertion_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"ontology_ref":{"path":"$.ontology_ref"},"ontology_binding":{"path":"$.ontology_binding"},"ontology_resolved_by":{"path":"$.ontology_resolved_by"},"fact_class_ref":{"path":"$.fact_class_ref"},"subject_ref":{"path":"$.subject_ref"},"predicate_ref":{"path":"$.predicate_ref"},"object_or_value_ref":{"path":"$.object_or_value_ref"},"polarity":{"path":"$.polarity"},"valid_time":{"path":"$.valid_time"},"source_attribution":{"path":"$.source_attribution"},"evidence_lineage":{"path":"$.evidence_lineage"},"uncertainty":{"path":"$.uncertainty"},"contradiction_state":{"path":"$.contradiction_state"},"supersession":{"path":"$.supersession"},"applicability_scope_ref":{"path":"$.applicability_scope_ref"},"permitted_consequence_scope_refs":{"path":"$.permitted_consequence_scope_refs"},"causal_or_counterfactual_context_ref":{"path":"$.causal_or_counterfactual_context_ref"},"oracle_evidence_profile_ref":{"path":"$.oracle_evidence_profile_ref"},"oracle_evidence_admission_receipt_ref":{"path":"$.oracle_evidence_admission_receipt_ref"},"predecessor_contract_ref":{"path":"$.predecessor_contract_ref"},"reinterpretation_nonclaim":{"path":"$.reinterpretation_nonclaim"},"policy_hash":{"path":"$.policy_hash"},"migration":{"path":"$.migration"},"universality_nonclaim":{"path":"$.universality_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"provenance_assertion.ontology_binding.binds_the_declared_family","description":"The bound revision is a revision OF the declared ontology family. A well-formed revision of some other family would give the predicate a different meaning while the record still read as though it had not moved.","expression":{"operator":"field_starts_with_path","path":"$.ontology_binding.ontology_version_ref","prefix":"ontology://","expected_path":"$.ontology_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"provenance_assertion.predicate.is_a_term_of_the_bound_family","description":"The predicate is a term of the SAME family the assertion bound. Shape alone cannot say this: a canonical term of another domain's namespace is well-formed and still means nothing here.","expression":{"operator":"field_starts_with_path","path":"$.predicate_ref","prefix":"ontology://","expected_path":"$.ontology_ref","strip_prefix":"ontology://","suffix":"/term/"}},{"rule_id":"provenance_assertion.ontology_binding.binds_the_owning_namespace","description":"The bound revision's namespace is the one the binding names, so an assertion cannot silently attribute its vocabulary to a domain that never declared it.","expression":{"operator":"field_starts_with_path","path":"$.ontology_ref","prefix":"ontology://","expected_path":"$.ontology_binding.namespace","suffix":"/"}},{"rule_id":"provenance_assertion.supersession.does_not_supersede_itself","description":"An assertion that supersedes itself is a cycle, not a correction.","expression":{"operator":"fields_not_equal","paths":["$.assertion_id","$.supersession.supersedes_ref"]}},{"rule_id":"provenance_assertion.sources.are_attributed_once_each","description":"One source contributes one attribution row per revision; a repeated source would let a single observation read as corroboration.","expression":{"operator":"array_unique_by_fields","array_path":"$.source_attribution","fields":["source_ref"]}},{"rule_id":"provenance_assertion.evidence.is_named_once_each","description":"One piece of evidence appears once. Counting the same artifact twice is how a thin evidence set looks thick.","expression":{"operator":"array_unique_by_fields","array_path":"$.evidence_lineage","fields":["evidence_ref"]}},{"rule_id":"provenance_assertion.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"provenance_assertion.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor assertion cannot reinterpret the revision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"provenance_assertion.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"provenance_assertion.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not a corrected claim.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"provenance_assertion.admission.binds_this_revision","description":"Admission evidence names this exact assertion revision; a borrowed admission cannot make another claim durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"assertion_id","expected_path":"$.assertion_id"}},{"rule_id":"provenance_assertion.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
     ("schema://ioi/foundations/assurance-transition-receipt/v2", r#"[{"rule_id":"assurance_transition.ladder.position_matches_chain_position","description":"THE NO-SKIP RULE, PORTABLY. The ladder position of to_stage must equal the transition's position in its subject's own chain. transition_ordinal is derived from the durable chain length and to_stage_ordinal is pinned to to_stage by the schema, so a transition that jumps a member carries a ladder position its chain position cannot support and fails with no daemon present. This is the offline half of ACC-8 clause 1: a stage nobody stood behind cannot be reached by skipping the one before it.","expression":{"operator":"fields_equal","paths":["$.to_stage_ordinal","$.transition_ordinal"]}},{"rule_id":"assurance_transition.content_hash.commits_subject_stage_outcome_challenge_and_valid_time","description":"The content hash commits everything v1 committed PLUS the challenge resolution, so a receipt cannot have the challenge it adjudicated, its typed outcome or its adjudicator lineage swapped after admission. Transaction time and the admission block stay outside, exactly as in v1.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.assurance-transition-content-commitment-jcs-sha256.v2"},"transition_id":{"path":"$.transition_id"},"subject_ref":{"path":"$.subject_ref"},"subject_family":{"path":"$.subject_family"},"subject_content_hash":{"path":"$.subject_content_hash"},"subject_resolved_by":{"path":"$.subject_resolved_by"},"from_stage":{"path":"$.from_stage"},"to_stage":{"path":"$.to_stage"},"to_stage_ordinal":{"path":"$.to_stage_ordinal"},"transition_ordinal":{"path":"$.transition_ordinal"},"outcome_class":{"path":"$.outcome_class"},"actor_ref":{"path":"$.actor_ref"},"evidence_refs":{"path":"$.evidence_refs"},"does_not_assert":{"path":"$.does_not_assert"},"expected_predecessor_transition_ref":{"path":"$.expected_predecessor_transition_ref"},"expected_predecessor_transition_hash":{"path":"$.expected_predecessor_transition_hash"},"valid_time":{"path":"$.valid_time"},"challenge_resolution":{"path":"$.challenge_resolution"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"assurance_transition.identity.binds_subject_family","description":"A transition id names the family of the subject it moves, so a record cannot be lifted onto another family's ladder while keeping its identity.","expression":{"operator":"field_starts_with_path","path":"$.transition_id","prefix":"assurance-transition://","expected_path":"$.subject_family","suffix":"/"}},{"rule_id":"assurance_transition.subject_hash.is_not_this_records_own_hash","description":"The subject's committed hash is the SUBJECT OWNER's, carried verbatim. An implementation that echoes this record's own content hash into the subject slot would satisfy every shape check while binding nothing, so the two are required to differ.","expression":{"operator":"fields_not_equal","paths":["$.subject_content_hash","$.content_hash"]}},{"rule_id":"assurance_transition.predecessor.is_not_this_record","description":"A successor whose predecessor hash equals its own content hash is a self-linked record, not a step; the chain would close into a loop that reads as history.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.expected_predecessor_transition_hash"]}},{"rule_id":"assurance_transition.nonclaims.does_not_assert_is_non_empty","description":"NN 20 as a checkable field. A transition that disclaims nothing has collapsed 'who stands behind what' into a bare success flag, which is the exact reading this ladder exists to refuse.","expression":{"operator":"non_empty","path":"$.does_not_assert"}},{"rule_id":"assurance_transition.evidence.is_non_empty","description":"Each transition names its evidence. A stage asserted with no evidence ref is prose wearing a receipt's shape.","expression":{"operator":"non_empty","path":"$.evidence_refs"}},{"rule_id":"assurance_transition.admission.binds_this_transition","description":"Admission evidence names this exact transition; a borrowed admission cannot make another record durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"transition_id","expected_path":"$.transition_id"}},{"rule_id":"assurance_transition.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}},{"rule_id":"assurance_transition.challenge_resolution.binds_this_receipts_own_subject","description":"The challenge this receipt adjudicates is a challenge against the subject this receipt is ABOUT. Without this, a well-formed receipt over subject A could be cited as the resolution of a challenge against subject B, and every shape check would pass.","expression":{"operator":"optional_field_equals","optional_object_path":"$.challenge_resolution","field":"challenged_subject_ref","expected_path":"$.subject_ref"}},{"rule_id":"assurance_transition.challenge_resolution.binds_the_owner_resolved_subject_hash","description":"And it binds the exact bytes the subject owner resolved, carried verbatim from this receipt's own subject_content_hash — so a resolution cannot be re-pointed at a later revision of the same subject.","expression":{"operator":"optional_field_equals","optional_object_path":"$.challenge_resolution","field":"challenged_subject_content_hash","expected_path":"$.subject_content_hash"}}]"#),
+    ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", r#"[{"rule_id":"odk_manifest.content_hash.commits_the_whole_manifest","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map. A relying party holding only the bytes recomputes it; a stale or substituted hash fails offline, with no daemon consulted.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-development-kit-manifest-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"odk_manifest_id":{"path":"$.odk_manifest_id"},"name":{"path":"$.name"},"version":{"path":"$.version"},"owner_ref":{"path":"$.owner_ref"},"ontology_refs":{"path":"$.ontology_refs"},"canonical_object_model_refs":{"path":"$.canonical_object_model_refs"},"data_recipe_refs":{"path":"$.data_recipe_refs"},"connector_mapping_refs":{"path":"$.connector_mapping_refs"},"policy_bound_data_view_refs":{"path":"$.policy_bound_data_view_refs"},"ontology_projection_refs":{"path":"$.ontology_projection_refs"},"surface_descriptor_refs":{"path":"$.surface_descriptor_refs"},"workflow_schema_refs":{"path":"$.workflow_schema_refs"},"evaluation_dataset_refs":{"path":"$.evaluation_dataset_refs"},"benchmark_profile_refs":{"path":"$.benchmark_profile_refs"},"worker_plan_refs":{"path":"$.worker_plan_refs"},"operator_contract_refs":{"path":"$.operator_contract_refs"},"mcp_contract_refs":{"path":"$.mcp_contract_refs"},"conformance_profile_refs":{"path":"$.conformance_profile_refs"},"package_refs":{"path":"$.package_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"status":{"path":"$.status"},"migration":{"path":"$.migration"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/foundations/objects/domain-app/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/domain-app/v2", r#"[{"rule_id":"domain_app.content_hash.commits_the_whole_app","description":"THE COMMITMENT COVERS BOTH STATE KINDS AT ONCE. The material includes `status` (inventory) and `runtime_posture` (the runtime backlink) together with the four stage bindings, so a record whose inventory status was advanced without its stage binding, or whose runtime backlink was edited to claim a mount that never happened, fails the recomputation offline. Separating the two state kinds into different fields is what makes them distinguishable; committing them in one hash is what makes editing either one detectable.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.domain-app-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"domain_app_id":{"path":"$.domain_app_id"},"name":{"path":"$.name"},"description":{"path":"$.description"},"surface_descriptor_ref":{"path":"$.surface_descriptor_ref"},"surface_descriptor_schema_version":{"path":"$.surface_descriptor_schema_version"},"surface_descriptor_content_hash":{"path":"$.surface_descriptor_content_hash"},"odk_manifest_ref":{"path":"$.odk_manifest_ref"},"owner_ref":{"path":"$.owner_ref"},"project_ref":{"path":"$.project_ref"},"visibility":{"path":"$.visibility"},"ontology_refs":{"path":"$.ontology_refs"},"canonical_object_model_refs":{"path":"$.canonical_object_model_refs"},"data_recipe_refs":{"path":"$.data_recipe_refs"},"policy_bound_data_view_refs":{"path":"$.policy_bound_data_view_refs"},"operator_contract_refs":{"path":"$.operator_contract_refs"},"mcp_contract_refs":{"path":"$.mcp_contract_refs"},"authority_requirement_refs":{"path":"$.authority_requirement_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"generated_artifact_refs":{"path":"$.generated_artifact_refs"},"surface_registration_ref":{"path":"$.surface_registration_ref"},"package_release_ref":{"path":"$.package_release_ref"},"installation_ref":{"path":"$.installation_ref"},"system_binding_refs":{"path":"$.system_binding_refs"},"launch_posture":{"path":"$.launch_posture"},"status":{"path":"$.status"},"runtime_posture":{"path":"$.runtime_posture"},"migration":{"path":"$.migration"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/foundations/objects/domain-app-runtime/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/domain-app-runtime/v2", r#"[{"rule_id":"domain_app_runtime.content_hash.commits_the_whole_runtime","description":"THE VALUE A MOUNT RECEIPT BINDS. Because this commitment covers every field including `revision`, `state`, `internal_route_ref` and `external_ingress_ref`, a receipt that carries this hash is bound to one exact runtime state. Substituting the runtime, editing its state, or advancing its revision all move the hash, so 'the receipt and the runtime describe the same admitted state' is decidable from the two records alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.domain-app-runtime-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"domain_app_runtime_id":{"path":"$.domain_app_runtime_id"},"domain_app_ref":{"path":"$.domain_app_ref"},"owner_ref":{"path":"$.owner_ref"},"revision":{"path":"$.revision"},"state":{"path":"$.state"},"mounted":{"path":"$.mounted"},"serving":{"path":"$.serving"},"internal_route_ref":{"path":"$.internal_route_ref"},"external_ingress_ref":{"path":"$.external_ingress_ref"},"approval_request_ref":{"path":"$.approval_request_ref"},"release_control_ref":{"path":"$.release_control_ref"},"authority_refs":{"path":"$.authority_refs"},"receipt_refs":{"path":"$.receipt_refs"},"rollback_posture":{"path":"$.rollback_posture"},"mounted_at":{"path":"$.mounted_at"},"serve_started_at":{"path":"$.serve_started_at"},"serve_stopped_at":{"path":"$.serve_stopped_at"},"unmounted_at":{"path":"$.unmounted_at"},"unmount_reason":{"path":"$.unmount_reason"},"killed_at":{"path":"$.killed_at"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", r#"[]"#),
+    ("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", r#"[{"rule_id":"domain_app_mount_receipt.state_root.commits_the_whole_receipt","description":"A REAL COMMITMENT, REPLACING A PIPE-JOINED TEXT DIGEST. v1's state_root hashed `action|domain_app_ref|approval|release|at` as one string: ambiguous under any component containing a pipe, and silent about the runtime because the runtime was not in the receipt at all. This rule commits every field of v2 under a domain separator over canonical JSON, so the three runtime bindings — ref, owner, revision and the runtime's own content hash — are inside the commitment. Editing which runtime a receipt names now breaks the state_root, offline, with nothing but the bytes.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.domain-app-mount-receipt-state-root-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"mount_receipt_id":{"path":"$.mount_receipt_id"},"action":{"path":"$.action"},"domain_app_ref":{"path":"$.domain_app_ref"},"domain_app_runtime_ref":{"path":"$.domain_app_runtime_ref"},"domain_app_runtime_owner_ref":{"path":"$.domain_app_runtime_owner_ref"},"domain_app_runtime_revision":{"path":"$.domain_app_runtime_revision"},"domain_app_runtime_content_hash":{"path":"$.domain_app_runtime_content_hash"},"domain_app_admitted_head_before":{"path":"$.domain_app_admitted_head_before"},"approval_request_ref":{"path":"$.approval_request_ref"},"release_control_ref":{"path":"$.release_control_ref"},"at":{"path":"$.at"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.state_root","expected_encoding":"sha256_string"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -130333,6 +133726,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:org|project|system|user|ioi)://[^\s]{1,500}$"#,
         r#"^(?:org|project|system|user|ioi)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^(?:origin-binding|origin)://[^\s]{1,500}$"#,
@@ -130894,6 +134291,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^/\S*$"#,
         r#"^/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
+    (
+        r#"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
     (r#"^[ -~]{1,2048}$"#, r#"^[ -~]{1,2048}$"#),
     (r#"^[ -~]{1,256}$"#, r#"^[ -~]{1,256}$"#),
     (
@@ -130913,6 +134314,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+Z$"#,
     ),
     (r#"^[0-9a-f]{128}$"#, r#"^[0-9a-f]{128}$"#),
+    (r#"^[0-9a-f]{16,128}$"#, r#"^[0-9a-f]{16,128}$"#),
     (r#"^[0-9a-f]{40}$"#, r#"^[0-9a-f]{40}$"#),
     (r#"^[0-9a-f]{64}$"#, r#"^[0-9a-f]{64}$"#),
     (r#"^[A-Z]{3}$"#, r#"^[A-Z]{3}$"#),
@@ -131200,6 +134602,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^approval-ceremony-context://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
         r#"^approval://[A-Za-z0-9._~:/-]+$"#,
         r#"^approval://[A-Za-z0-9._~:/-]+$"#,
     ),
@@ -131476,6 +134882,8 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^controller-binding://[^\s]+$"#,
         r#"^controller-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (r#"^dapp_[0-9a-f]{16}$"#, r#"^dapp_[0-9a-f]{16}$"#),
+    (r#"^dartm_[0-9a-f]{1,32}$"#, r#"^dartm_[0-9a-f]{1,32}$"#),
     (
         r#"^data-recipe://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^data-recipe://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -131559,6 +134967,26 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^doc://\S*$"#,
         r#"^doc://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^domain-app-runtime://dartm_[0-9a-f]{1,32}$"#,
+        r#"^domain-app-runtime://dartm_[0-9a-f]{1,32}$"#,
+    ),
+    (
+        r#"^domain-app-runtime://dartm_[0-9a-f]{16}$"#,
+        r#"^domain-app-runtime://dartm_[0-9a-f]{16}$"#,
+    ),
+    (
+        r#"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^domain-app://dapp_[0-9a-f]{16}$"#,
+        r#"^domain-app://dapp_[0-9a-f]{16}$"#,
     ),
     (
         r#"^download-intent://[A-Za-z0-9._:-]+$"#,
@@ -131822,6 +135250,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^incident://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^install://\S*$"#,
         r#"^install://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
@@ -131836,6 +135268,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^install://automation/[^\s?#\\]{1,140}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^install://automation/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,140}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^invariant://[^\s]{1,240}$"#,
@@ -131958,6 +135394,19 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^model-route:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^mount-receipt://mrcpt_[0-9a-f]{1,32}$"#,
+        r#"^mount-receipt://mrcpt_[0-9a-f]{1,32}$"#,
+    ),
+    (
+        r#"^mount-receipt://mrcpt_[0-9a-f]{16}$"#,
+        r#"^mount-receipt://mrcpt_[0-9a-f]{16}$"#,
+    ),
+    (r#"^mrcpt_[0-9a-f]{1,32}$"#, r#"^mrcpt_[0-9a-f]{1,32}$"#),
+    (
         r#"^network-enrollment://[^\s]{1,248}$"#,
         r#"^network-enrollment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -131989,6 +135438,12 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^observation://\S*$"#,
         r#"^observation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
+    (
+        r#"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+    ),
+    (r#"^odk://odk_[0-9a-f]{16}$"#, r#"^odk://odk_[0-9a-f]{16}$"#),
+    (r#"^odk_[0-9a-f]{16}$"#, r#"^odk_[0-9a-f]{16}$"#),
     (
         r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
         r#"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"#,
@@ -132107,6 +135562,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^package-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
     (
+        r#"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^package://[^\s?#\\]{1,160}/release/[^\s?#\\]{1,160}$"#,
         r#"^package://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/release/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}$"#,
     ),
@@ -132216,6 +135675,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^profile://[^\s]{1,500}$"#,
         r#"^profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^project://[^\s?#\\]+$"#,
@@ -132365,6 +135828,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^reference://[^\s]{1,248}$"#,
         r#"^reference://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
+        r#"^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
     ),
     (
         r#"^release://[^\s]{1,500}$"#,
@@ -132650,6 +136117,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^surface-serving://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
     ),
     (
+        r#"^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^surface://[^\s]{1,240}$"#,
         r#"^surface://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -132668,6 +136139,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^system-activation-state://[^\s]{1,248}$"#,
         r#"^system-activation-state://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^system-home-domain-binding://[A-Za-z0-9._:/-]+$"#,
@@ -135018,6 +138493,67 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json"))),
     ("docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json"))),
     ("docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -136186,6 +139722,46 @@ mod tests {
         },
         "schema://ioi/foundations/assurance-transition-receipt/v2" => {
             serde_json::from_value::<AssuranceTransitionReceiptV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1" => {
+            serde_json::from_value::<OntologyDevelopmentKitManifestV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2" => {
+            serde_json::from_value::<OntologyDevelopmentKitManifestV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app/v1" => {
+            serde_json::from_value::<DomainAppV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app/v2" => {
+            serde_json::from_value::<DomainAppV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-runtime/v1" => {
+            serde_json::from_value::<DomainAppRuntimeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-runtime/v2" => {
+            serde_json::from_value::<DomainAppRuntimeV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-mount-receipt/v1" => {
+            serde_json::from_value::<DomainAppMountReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-mount-receipt/v2" => {
+            serde_json::from_value::<DomainAppMountReceiptV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -137360,6 +140936,46 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1" => {
+            let projection = serde_json::from_value::<OntologyDevelopmentKitManifestV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2" => {
+            let projection = serde_json::from_value::<OntologyDevelopmentKitManifestV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app/v1" => {
+            let projection = serde_json::from_value::<DomainAppV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app/v2" => {
+            let projection = serde_json::from_value::<DomainAppV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-runtime/v1" => {
+            let projection = serde_json::from_value::<DomainAppRuntimeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-runtime/v2" => {
+            let projection = serde_json::from_value::<DomainAppRuntimeV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-mount-receipt/v1" => {
+            let projection = serde_json::from_value::<DomainAppMountReceiptV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/domain-app-mount-receipt/v2" => {
+            let projection = serde_json::from_value::<DomainAppMountReceiptV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -137496,8 +141112,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            953,
-            "the registered golden corpus must remain the explicit 953-fixture bar",
+            1014,
+            "the registered golden corpus must remain the explicit 1014-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -137739,7 +141355,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 815,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 840,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

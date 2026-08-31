@@ -9961,6 +9961,234 @@ export type AssuranceTransitionReceiptV2 = {
     };
 };
 
+export type OntologyDevelopmentKitManifestV1 = {
+  schema_version: "ioi.hypervisor.odk.manifest.v1";
+  object: "ioi.hypervisor.odk.manifest";
+  id: string;
+  ref: string;
+  name: string;
+  description: string;
+  status: "draft";
+  ontology_refs: Array<string>;
+  recipe_refs: Array<string>;
+  surface_descriptor_refs: Array<string>;
+  connector_mappings: Array<string>;
+  policy_bound_views: Array<string>;
+  eval_refs: Array<string>;
+  worker_plan_refs: Array<string>;
+  mcp_operator_contracts: Array<string>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OntologyDevelopmentKitManifestV2 = {
+  schema_version: "ioi.ontology-development-kit-manifest.v2";
+  odk_manifest_id: string;
+  name: string;
+  version: string;
+  owner_ref: string;
+  ontology_refs: Array<string>;
+  canonical_object_model_refs: Array<string>;
+  data_recipe_refs: Array<string>;
+  connector_mapping_refs: Array<string>;
+  policy_bound_data_view_refs: Array<string>;
+  ontology_projection_refs: Array<string>;
+  surface_descriptor_refs: Array<string>;
+  workflow_schema_refs: Array<string>;
+  evaluation_dataset_refs: Array<string>;
+  benchmark_profile_refs: Array<string>;
+  worker_plan_refs: Array<string>;
+  operator_contract_refs: Array<string>;
+  mcp_contract_refs: Array<string>;
+  conformance_profile_refs: Array<string>;
+  package_refs: Array<string>;
+  receipt_obligations: Array<string>;
+  status: "draft" | "active" | "deprecated" | "revoked";
+  migration: {
+      from_schema_version: "ioi.hypervisor.odk.manifest.v1" | null;
+      from_manifest_ref: string | null;
+      from_content_hash: string | null;
+      compatibility: "initial" | "converged_from_v1";
+      reinterprets_predecessor: false;
+    };
+  authority_nonclaim: "ontology_development_kit_manifest_grants_no_authority";
+  truth_nonclaim: "ontology_development_kit_manifest_is_not_runtime_or_semantic_truth";
+  does_not_assert: Array<"authority" | "capability_lease_crossing" | "runtime_truth" | "semantic_truth" | "permission_truth" | "marketplace_truth" | "package_admission" | "installation" | "registration" | "conformance_result">;
+  content_hash: string;
+};
+
+export type DomainAppV1 = {
+  schema_version: "ioi.hypervisor.domain-app.v1";
+  object: "ioi.hypervisor.domain_app";
+  domain_app_id: string;
+  domain_app_ref: string;
+  name: string;
+  description: string;
+  status: "draft";
+  surface_descriptor_ref: string;
+  odk_manifest_ref: string | null;
+  project_ref: string | null;
+  owner_ref: string;
+  visibility: "private" | "org" | "marketplace_candidate";
+  ontology_refs: Array<string>;
+  data_recipe_refs: Array<string>;
+  mcp_contract_refs: Array<string>;
+  authority_requirement_refs: Array<string>;
+  operator_contract_refs: Array<string>;
+  receipt_obligations: Array<string>;
+  generated_artifact_refs: Array<string>;
+  runtime_posture: {
+      mounted: boolean;
+      serving?: boolean;
+      route: string | null;
+      note: string;
+      mount_ref?: string;
+      approval_request_ref?: string;
+      release_control_ref?: string;
+    };
+  created_at?: string;
+  updated_at?: string;
+  admitted_head?: string;
+};
+
+export type DomainAppV2 = {
+  schema_version: "ioi.domain-app.v2";
+  domain_app_id: string;
+  name: string;
+  description: string;
+  surface_descriptor_ref: string;
+  surface_descriptor_schema_version: "ioi.ontology-surface-descriptor.v2" | "ioi.hypervisor.odk.surface-descriptor.v1";
+  surface_descriptor_content_hash: string;
+  odk_manifest_ref: string | null;
+  owner_ref: string;
+  project_ref: string | null;
+  visibility: "private" | "org" | "marketplace_candidate";
+  ontology_refs: Array<string>;
+  canonical_object_model_refs: Array<string>;
+  data_recipe_refs: Array<string>;
+  policy_bound_data_view_refs: Array<string>;
+  operator_contract_refs: Array<string>;
+  mcp_contract_refs: Array<string>;
+  authority_requirement_refs: Array<string>;
+  receipt_obligations: Array<string>;
+  generated_artifact_refs: Array<string>;
+  surface_registration_ref: string | null;
+  package_release_ref: string | null;
+  installation_ref: string | null;
+  system_binding_refs: Array<string>;
+  launch_posture: "inspect_only" | "system_bound";
+  status: "draft" | "admitted" | "installed" | "deprecated" | "revoked";
+  runtime_posture: {
+      mounted: boolean;
+      serving: boolean;
+      route: string | null;
+      mount_ref: string | null;
+    };
+  migration: {
+      from_schema_version: "ioi.hypervisor.domain-app.v1" | null;
+      from_domain_app_ref: string | null;
+      from_content_hash: string | null;
+      compatibility: "initial" | "converged_from_v1";
+      reinterprets_predecessor: false;
+    };
+  authority_nonclaim: "domain_app_grants_no_authority";
+  truth_nonclaim: "domain_app_is_not_registration_admission_or_runtime_truth";
+  does_not_assert: Array<"authority" | "capability_lease_crossing" | "runtime_truth" | "semantic_truth" | "permission_truth" | "marketplace_truth" | "registration" | "package_admission" | "installation" | "launchability" | "external_ingress">;
+  content_hash: string;
+};
+
+export type DomainAppRuntimeV1 = {
+  schema_version: "ioi.hypervisor.domain-app-runtime.v1";
+  object: "ioi.hypervisor.domain_app_runtime";
+  id: string;
+  ref: string;
+  domain_app_ref: string;
+  mounted: boolean;
+  state: "mounted" | "serving" | "unmounted" | "killed";
+  serving: boolean;
+  route: null;
+  internal_route_ref?: string | null;
+  approval_request_ref: string;
+  release_control_ref: string;
+  authority_refs: Array<string>;
+  receipt_refs: Array<string>;
+  rollback: {
+      unmountable: boolean;
+      note: string;
+    };
+  note: string;
+  mounted_at: string;
+  serve_started_at?: string;
+  serve_stopped_at?: string;
+  unmounted_at: string | null;
+  unmount_reason?: string;
+  killed?: boolean;
+  killed_at?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DomainAppRuntimeV2 = {
+  schema_version: "ioi.domain-app-runtime.v2";
+  domain_app_runtime_id: string;
+  domain_app_ref: string;
+  owner_ref: string;
+  revision: number;
+  state: "mounted" | "serving" | "unmounted" | "killed";
+  mounted: boolean;
+  serving: boolean;
+  internal_route_ref: string | null;
+  external_ingress_ref: string | null;
+  approval_request_ref: string;
+  release_control_ref: string;
+  authority_refs: Array<string>;
+  receipt_refs: Array<string>;
+  rollback_posture: {
+      unmountable: boolean;
+      note: string;
+    };
+  mounted_at: string;
+  serve_started_at: string | null;
+  serve_stopped_at: string | null;
+  unmounted_at: string | null;
+  unmount_reason: string | null;
+  killed_at: string | null;
+  authority_nonclaim: "domain_app_runtime_grants_no_authority";
+  truth_nonclaim: "domain_app_runtime_is_not_registration_or_launchability";
+  does_not_assert: Array<"authority" | "registration" | "launchability" | "external_ingress" | "app_behaviour" | "semantic_validity" | "package_admission" | "installation" | "marketplace_truth">;
+  content_hash: string;
+};
+
+export type DomainAppMountReceiptV1 = {
+  schema_version: "ioi.hypervisor.domain-app-mount-receipt.v1";
+  object: "ioi.hypervisor.domain_app_mount_receipt";
+  id: string;
+  ref: string;
+  action: "domain_app.mount" | "domain_app.serve_start" | "domain_app.serve_stop" | "domain_app.unmount" | "domain_app.kill_stop_serving" | "domain_app.kill_unmount";
+  domain_app_ref: string;
+  approval_request_ref: string;
+  release_control_ref: string;
+  state_root: string;
+  at: string;
+};
+
+export type DomainAppMountReceiptV2 = {
+  schema_version: "ioi.domain-app-mount-receipt.v2";
+  mount_receipt_id: string;
+  action: "domain_app.mount" | "domain_app.serve_start" | "domain_app.serve_stop" | "domain_app.unmount" | "domain_app.kill_stop_serving" | "domain_app.kill_unmount";
+  domain_app_ref: string;
+  domain_app_runtime_ref: string;
+  domain_app_runtime_owner_ref: string;
+  domain_app_runtime_revision: number;
+  domain_app_runtime_content_hash: string;
+  domain_app_admitted_head_before: string;
+  approval_request_ref: string;
+  release_control_ref: string;
+  state_root: string;
+  at: string;
+  does_not_assert: Array<"app_behaviour" | "semantic_validity" | "external_surface_exists" | "domain_action_ran" | "authority" | "registration" | "launchability" | "package_admission">;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -17590,6 +17818,494 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "odk_manifest.content_hash.commits_the_whole_manifest"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "domain_app.content_hash.commits_the_whole_app"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "domain_app_runtime.content_hash.commits_the_whole_runtime"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "domain_app_mount_receipt.state_root.commits_the_whole_receipt"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "domain_app_mount_receipt.state_root.commits_the_whole_receipt"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -26851,6 +27567,433 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
     "value_json": null
   },
   {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json",
+    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
+    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json",
+    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json",
+    "mutation_id": null,
+    "value_json": null
+  },
+  {
     "id": "mutation:sequence-zero-receipt-timestamp-detached",
     "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
     "source_fixture_path": null,
@@ -27858,6 +29001,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$",
   "^(?:org|project|system|user)://[^\\s]{1,500}$",
   "^(?:org|project|system|user|ioi)://[^\\s]{1,500}$",
+  "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^(?:origin-binding|origin)://[^\\s]{1,500}$",
   "^(?:outcome-room|user|org)://[^\\s]{1,500}$",
   "^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$",
@@ -27998,6 +29142,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
   "^/[^\\s]{0,200}$",
   "^/\\S*$",
+  "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[ -~]{1,2048}$",
   "^[ -~]{1,256}$",
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
@@ -28005,6 +29150,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
+  "^[0-9a-f]{16,128}$",
   "^[0-9a-f]{40}$",
   "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
@@ -28090,6 +29236,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
   "^approval-ceremony-context://[^\\s]{1,500}$",
+  "^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^approval://[A-Za-z0-9._~:/-]+$",
   "^arr_[0-9a-f]+$",
   "^artifact-availability-incident://[^\\s]+$",
@@ -28160,6 +29307,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^context_lease://[^\\s]{1,500}$",
   "^contract://[^\\s]{1,240}$",
   "^controller-binding://[^\\s]+$",
+  "^dapp_[0-9a-f]{16}$",
+  "^dartm_[0-9a-f]{1,32}$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^data-recipe://[^\\s]{1,200}/revision/[^\\s]{1,64}$",
   "^data-recipe://[^\\s]{1,500}$",
@@ -28181,6 +29330,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^dissolution-disposition://[^\\s]{1,248}$",
   "^dissolution-receipt://[^\\s]{1,248}$",
   "^doc://\\S*$",
+  "^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^domain-app-runtime://dartm_[0-9a-f]{1,32}$",
+  "^domain-app-runtime://dartm_[0-9a-f]{16}$",
+  "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^domain-app://dapp_[0-9a-f]{16}$",
   "^download-intent://[A-Za-z0-9._:-]+$",
   "^effect://[^\\s]+$",
   "^effect://[^\\s]{1,500}$",
@@ -28247,10 +29401,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ifc-label://[^\\s]{1,500}$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
+  "^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^install://\\S*$",
   "^install://automation/[^\\s/?#\\\\]{1,160}$",
   "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
+  "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^invariant://[^\\s]{1,240}$",
   "^invariant://[^\\s]{1,248}$",
   "^ioi://publisher/[^\\s]{1,224}$",
@@ -28281,6 +29437,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^model-endpoint:[^\\s]{1,240}$",
   "^model-instance:[^\\s]{1,240}$",
   "^model-route:[^\\s]{1,240}$",
+  "^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^mount-receipt://mrcpt_[0-9a-f]{1,32}$",
+  "^mount-receipt://mrcpt_[0-9a-f]{16}$",
+  "^mrcpt_[0-9a-f]{1,32}$",
   "^network-enrollment://[^\\s]{1,248}$",
   "^network-enrollment://[^\\s]{1,500}$",
   "^node-enforcement://[^\\s]{1,248}$",
@@ -28289,6 +29449,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^object-model://[^\\s]{1,240}$",
   "^object://[^\\s]{1,248}$",
   "^observation://\\S*$",
+  "^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^odk://odk_[0-9a-f]{16}$",
+  "^odk_[0-9a-f]{16}$",
   "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
   "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
   "^ontology-assertion://[^\\s]{1,248}$",
@@ -28319,6 +29482,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^outcome-room://[^\\s]{1,500}$",
   "^pacc_[0-9a-f]{16}$",
   "^package-binding://\\S*$",
+  "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^package://[^\\s?#\\\\]{1,160}/release/[^\\s?#\\\\]{1,160}$",
   "^package://[^\\s?#\\\\]{1,160}/release/sha256:[0-9a-f]{64}$",
   "^package://[^\\s]{1,248}$",
@@ -28349,6 +29513,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^profile://[^\\s]{1,240}$",
   "^profile://[^\\s]{1,248}$",
   "^profile://[^\\s]{1,500}$",
+  "^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^project://[^\\s?#\\\\]+$",
   "^project://\\S*$",
   "^project:[^\\s]{1,200}$",
@@ -28387,6 +29552,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt[^\\s]{1,260}$",
   "^recipe_[0-9a-f]{1,32}$",
   "^reference://[^\\s]{1,248}$",
+  "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^release://[^\\s]{1,500}$",
   "^repository://[^\\s]{1,224}$",
   "^reso_[0-9a-f]{1,32}$",
@@ -28463,11 +29629,13 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^surface-descriptor://sd_[0-9a-f]{17}$",
   "^surface-serving://\\S*$",
+  "^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^surface://[^\\s]{1,240}$",
   "^surface://[^\\s]{1,500}$",
   "^surface://\\S*$",
   "^system-(?:activation|lifecycle)-state://[^\\s]{1,248}$",
   "^system-activation-state://[^\\s]{1,248}$",
+  "^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^system-home-domain-binding://[A-Za-z0-9._:/-]+$",
   "^system-home-domain-binding://[^\\s?#\\\\]{1,160}/sha256:[0-9a-f]{64}$",
   "^system-lifecycle-authority-consumption://[A-Za-z0-9._:/-]+$",
@@ -28770,7 +29938,15 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/ontology-crosswalk/v1": "sha256:a7abed71d27df9794f5d63e0ec5f6a8bcda3b24ba6e29557d24b3912a6900d99",
   "schema://ioi/foundations/semantic-mapping-decision/v1": "sha256:a35f12979fc1f3f4d9b70f498464b8aff0af33b02e82999aa2d98c98a0b2c8b9",
   "schema://ioi/foundations/ontology-assertion/v2": "sha256:96b4877140e1a0f091332bc306927a8c1e7ca886f38caa7a015cba6876639712",
-  "schema://ioi/foundations/assurance-transition-receipt/v2": "sha256:366535c143fb479d1a375ef44a863961baa133cd663582351d9b2a396f704a5c"
+  "schema://ioi/foundations/assurance-transition-receipt/v2": "sha256:366535c143fb479d1a375ef44a863961baa133cd663582351d9b2a396f704a5c",
+  "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1": "sha256:03cc0996970dba20c7259bdbfedae89c89e1b49d8d0844d0725169360c2c0476",
+  "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2": "sha256:80b79d3440f7aff4483eb88dd3951c27b23f33a391d82a437f053d50d5285fa9",
+  "schema://ioi/foundations/objects/domain-app/v1": "sha256:ff30212b40a5b1309e9fadbb48b99f1e738c2baf9622992fdda48c03d9624693",
+  "schema://ioi/foundations/objects/domain-app/v2": "sha256:8c64d503e48b4905b5cdfef363e737abefebb3870dbb516685ceb033136a6c30",
+  "schema://ioi/foundations/objects/domain-app-runtime/v1": "sha256:2e455269a381c59e808be5238d96aad05442e7bb131075fbb80a0fe048624d73",
+  "schema://ioi/foundations/objects/domain-app-runtime/v2": "sha256:da120e17bc1bff39eb7c6c2cdf0f16363fa387fc45769ec0e353c0352f735c8f",
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v1": "sha256:b009b108a377b45b5875f1dd25824e9cf2dc74dc654a879f8db9b237cf0cd2df",
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v2": "sha256:a5f884b7a49085387e24f0aef90d1dd2895e04db851bacc20457eed3e70959a1"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -104468,6 +105644,2120 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
+  },
+  "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
+    "title": "OntologyDevelopmentKitManifestV1",
+    "description": "THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK manifest lane minted while no `_meta/schemas/` entry existed for any ODK family and `ioi.hypervisor.odk.manifest.v1` was a local Rust constant. It diverges from the canonical `OntologyDevelopmentKitManifestEnvelope` in five ways that a successor has to fix rather than paper over: the identity field is a bare `id` plus a separate `ref` where canon carries one `odk_manifest_id`; the recipe binding is `recipe_refs`, the unqualified name the term-boundary ruling forbids, where canon carries `data_recipe_refs`; `mcp_operator_contracts` folds two canonical members (`operator_contract_refs` and `mcp_contract_refs`) into one list; canon's `canonical_object_model_refs`, `ontology_projection_refs`, `workflow_schema_refs`, `benchmark_profile_refs`, `conformance_profile_refs`, `package_refs` and `receipt_obligations` are absent entirely; and `status` never advances past `draft` because nothing writes it. It is registered for the same three reasons the v1 descriptor is: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the canonical member set' is a checked expectation with fixtures rather than a claim in prose. AUTHORING AT v1 IS CLOSED — the daemon refuses `schema_version: ioi.hypervisor.odk.manifest.v1` on create. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.",
+    "x-ioi-schema-version": "ioi.hypervisor.odk.manifest.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "ref",
+      "name",
+      "description",
+      "status",
+      "ontology_refs",
+      "recipe_refs",
+      "surface_descriptor_refs",
+      "connector_mappings",
+      "policy_bound_views",
+      "eval_refs",
+      "worker_plan_refs",
+      "mcp_operator_contracts",
+      "created_at",
+      "updated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.odk.manifest.v1"
+      },
+      "object": {
+        "const": "ioi.hypervisor.odk.manifest"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^odk_[0-9a-f]{16}$",
+        "description": "Derived from owner plus caller idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted."
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^odk://odk_[0-9a-f]{16}$",
+        "description": "v1 carried identity twice, as a bare id and as a scheme-prefixed ref. v2 carries `odk_manifest_id` once, in canon's own scheme-prefixed form."
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "status": {
+        "enum": [
+          "draft"
+        ],
+        "description": "THE PINNED VALUE. Canon's vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."
+      },
+      "ontology_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": "Locally resolvable ontology refs. v1 checks resolvability only: no owner resolution, no committed hash, and no requirement that a ref name an exact admitted revision."
+      },
+      "recipe_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": "THE UNQUALIFIED NAME. Canon's member is `data_recipe_refs`; `recipe_refs` is the generic spelling the term-boundary ruling calls a defect. v2 renames it and refuses this spelling on an authoring request rather than translating it."
+      },
+      "surface_descriptor_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "connector_mappings": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": "A PASSTHROUGH FIELD, REGISTERED AS THE REF LIST IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed at the owner seam with a typed refusal. That population needs an explicit convergence, which this contract records rather than performs; canon's member is `connector_mapping_refs`."
+      },
+      "policy_bound_views": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": "The same passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."
+      },
+      "eval_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": "v1's single evaluation list. Canon splits it into `evaluation_dataset_refs` and `benchmark_profile_refs`, which are different objects with different owners."
+      },
+      "worker_plan_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "mcp_operator_contracts": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "description": "TWO CANONICAL MEMBERS FOLDED INTO ONE. Canon carries `operator_contract_refs` and `mcp_contract_refs` separately because an operator contract and an MCP profile are different contracts with different consumers. v1 cannot tell them apart, which is why a convergence cannot split this list without the author saying which is which."
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+    "title": "OntologyDevelopmentKitManifestV2",
+    "description": "THE CANONICAL ODK MANIFEST, REGISTERED. Non-negotiable 10 says an ODK manifest can scaffold surfaces, domain apps, evals, workers and packages but cannot become runtime truth, permission truth, semantic truth or marketplace truth by itself. Until this contract landed, that boundary had no wire form: `ioi.hypervisor.odk.manifest.v1` was a Rust string literal, no `_meta/schemas/` entry existed for any ODK family, and G-4 therefore forbade every surface from claiming one. This version carries canon's sixteen member lists under canon's own names, splits the three places v1 folded distinct members together (`recipe_refs` into `data_recipe_refs`; `eval_refs` into `evaluation_dataset_refs` and `benchmark_profile_refs`; `mcp_operator_contracts` into `operator_contract_refs` and `mcp_contract_refs`), and carries the nonclaims as fields so a relying party holding only the bytes can check what the manifest declines to assert. A manifest is a builder and conformance object: it packages contracts, and packaging is not admission.",
+    "x-ioi-schema-version": "ioi.ontology-development-kit-manifest.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "manifestRef": {
+        "type": "string",
+        "pattern": "^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "required": [
+      "schema_version",
+      "odk_manifest_id",
+      "name",
+      "version",
+      "owner_ref",
+      "ontology_refs",
+      "canonical_object_model_refs",
+      "data_recipe_refs",
+      "connector_mapping_refs",
+      "policy_bound_data_view_refs",
+      "ontology_projection_refs",
+      "surface_descriptor_refs",
+      "workflow_schema_refs",
+      "evaluation_dataset_refs",
+      "benchmark_profile_refs",
+      "worker_plan_refs",
+      "operator_contract_refs",
+      "mcp_contract_refs",
+      "conformance_profile_refs",
+      "package_refs",
+      "receipt_obligations",
+      "status",
+      "migration",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.ontology-development-kit-manifest.v2"
+      },
+      "odk_manifest_id": {
+        "$ref": "#/$defs/manifestRef",
+        "description": "ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `id` and a separate `ref` that could disagree with each other; canon carries `odk_manifest_id: odk://…` once."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "version": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "description": "Canon's `semver_or_hash`. A manifest version is the builder's own declared version of the package it describes; it is not the version of any ontology it binds, and advancing it re-means nothing downstream."
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+        "description": "The owner the admission was scoped to. A manifest is owned; it is not a global registry entry."
+      },
+      "ontology_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "description": "At least one owning ontology. A kit manifest that binds no meaning is packaging nothing this layer owns."
+      },
+      "canonical_object_model_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "data_recipe_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "THE QUALIFIED NAME. v1 called this `recipe_refs`; the term-boundary ruling makes a generic executable recipe family a defect, so every recipe is owner-qualified. An authoring request naming `recipe_refs` is refused rather than translated."
+      },
+      "connector_mapping_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "policy_bound_data_view_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "ontology_projection_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "surface_descriptor_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The descriptors this manifest packages. Packaging a descriptor neither admits it nor registers it: the composable-application journey admits each stage's own fact and a generator that appears to skip one has skipped an admission."
+      },
+      "workflow_schema_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "evaluation_dataset_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "One half of v1's single `eval_refs` list. A dataset and a benchmark profile are different objects with different owners, and a convergence cannot split the legacy list without the author saying which member is which."
+      },
+      "benchmark_profile_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "worker_plan_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "An `OntologyToWorkerPlan` can propose workers, tools, schemas, evals and manifests. Naming one here proposes; it grants no authority (non-negotiable 9)."
+      },
+      "operator_contract_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "mcp_contract_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The other half of v1's folded `mcp_operator_contracts`. An operator contract and an MCP profile have different consumers, so they are different members."
+      },
+      "conformance_profile_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "package_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Artifact refs for the packaged bytes. A package ref is not a local package admission and not a marketplace listing."
+      },
+      "receipt_obligations": {
+        "$ref": "#/$defs/refList",
+        "description": "What a consumer of this manifest owes receipts for. An obligation stated here is a requirement on the consumer, never a permission granted to it."
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "deprecated",
+          "revoked"
+        ],
+        "description": "Canon's four members, verbatim. INVENTORY STATUS ONLY (G-6): it says where this manifest sits in its own lifecycle and says nothing about whether anything it packages is mounted, serving, installed or launchable. Those are other planes' state, on other objects."
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A manifest authored fresh at v2 has no predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Independently nullable fields would admit partial tuples that READ AS COMPLETE — `converged_from_v1` with a null hash claims a provenance while naming no bytes anyone could check — so the two conditionals below partition the compatibility enum exactly and a partial or mixed block is a SCHEMA refusal.",
+        "required": [
+          "from_schema_version",
+          "from_manifest_ref",
+          "from_content_hash",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_schema_version": {
+            "oneOf": [
+              {
+                "const": "ioi.hypervisor.odk.manifest.v1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_manifest_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^odk://odk_[0-9a-f]{16}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 manifests the same commitment."
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "converged_from_v1"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        },
+        "allOf": [
+          {
+            "title": "authored fresh at v2 — all three provenance slots are null together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "type": "null"
+                },
+                "from_manifest_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "title": "converged from a stored v1 — all three provenance slots are present together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "converged_from_v1"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "const": "ioi.hypervisor.odk.manifest.v1"
+                },
+                "from_manifest_ref": {
+                  "type": "string",
+                  "pattern": "^odk://odk_[0-9a-f]{16}$"
+                },
+                "from_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "authority_nonclaim": {
+        "const": "ontology_development_kit_manifest_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "ontology_development_kit_manifest_is_not_runtime_or_semantic_truth",
+        "description": "Non-negotiable 10, as a field."
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "capability_lease_crossing",
+            "runtime_truth",
+            "semantic_truth",
+            "permission_truth",
+            "marketplace_truth",
+            "package_admission",
+            "installation",
+            "registration",
+            "conformance_result"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            }
+          },
+          {
+            "contains": {
+              "const": "capability_lease_crossing"
+            }
+          },
+          {
+            "contains": {
+              "const": "runtime_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "semantic_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "permission_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "marketplace_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "package_admission"
+            }
+          }
+        ],
+        "description": "Seven mandatory members. `package_admission` is the one this family needs that the descriptor's list does not: a manifest is the packaging object, and 'packaged' reading as 'admitted' is the exact stage-skip the composable-application journey calls a defect."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/domain-app/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/domain-app/v1",
+    "title": "DomainAppV1",
+    "description": "THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the record the Domain Apps foundation cut minted while `ioi.hypervisor.domain-app.v1` was a Rust string literal with no registered contract behind it. Three divergences from `DomainAppEnvelope` are byte-verified rather than asserted, and this contract states each one so it is checkable. First, `status` is written as the literal `draft` at create and NO path advances it: the four other canonical states (`admitted`, `installed`, `deprecated`, `revoked`) are unreachable, so the field records a pin rather than a lifecycle. Second, the four composable-application stage bindings canon requires — `surface_registration_ref`, `package_release_ref`, `installation_ref`, `system_binding_refs` — do not exist as fields at all, so 'this app has no admitted registration' and 'this record cannot express a registration' are the same absence. Third, the derived provenance snapshot covers ontology, data-recipe and MCP refs only; canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` are absent, so a v1 DomainApp over a descriptor that binds eight object models records none of them. AUTHORING AT v1 IS CLOSED. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.",
+    "x-ioi-schema-version": "ioi.hypervisor.domain-app.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "refList": {
+        "type": "array",
+        "maxItems": 128,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "object",
+      "domain_app_id",
+      "domain_app_ref",
+      "name",
+      "description",
+      "status",
+      "surface_descriptor_ref",
+      "odk_manifest_ref",
+      "project_ref",
+      "owner_ref",
+      "visibility",
+      "ontology_refs",
+      "data_recipe_refs",
+      "mcp_contract_refs",
+      "authority_requirement_refs",
+      "operator_contract_refs",
+      "receipt_obligations",
+      "generated_artifact_refs",
+      "runtime_posture"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.domain-app.v1"
+      },
+      "object": {
+        "const": "ioi.hypervisor.domain_app"
+      },
+      "domain_app_id": {
+        "type": "string",
+        "pattern": "^dapp_[0-9a-f]{16}$",
+        "description": "A BARE ID WHERE CANON CARRIES A REF. Canon's `domain_app_id` is `domain-app://…`; v1 puts the unprefixed id here and the ref in a second field beside it, so two fields can disagree about one identity. Derived from owner plus caller idempotency key by `replay_stable_id`, sixteen hex digits wide."
+      },
+      "domain_app_ref": {
+        "type": "string",
+        "pattern": "^domain-app://dapp_[0-9a-f]{16}$"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 200
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "status": {
+        "enum": [
+          "draft"
+        ],
+        "description": "THE PIN, REGISTERED AS A PIN. The producer writes the literal `draft` and no transition — not mount, not serve, not registration, not admission — ever moves it. Canon's vocabulary is draft | admitted | installed | deprecated | revoked; four of those five are unreachable in this contract, which is exactly what makes 'status is pinned' a checked fact here rather than a claim in a delta row."
+      },
+      "surface_descriptor_ref": {
+        "type": "string",
+        "pattern": "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. That half of the contract was already correct at v1."
+      },
+      "odk_manifest_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^odk://odk_[0-9a-f]{16}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "project_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "A PASSTHROUGH FIELD, REGISTERED AS THE REF IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying a structured value here does not satisfy this contract and fails closed at the owner seam rather than being silently repaired."
+      },
+      "owner_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "description": "Resolved from the authenticated caller at create. The v1 PATCH path also copies a caller-supplied `owner_ref` straight onto the record, which is why this field is typed as a string rather than as the owner-scheme pattern v2 requires."
+      },
+      "visibility": {
+        "enum": [
+          "private",
+          "org",
+          "marketplace_candidate"
+        ],
+        "description": "`marketplace_candidate` is a flag on a draft, never a publication."
+      },
+      "ontology_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Half of the derived snapshot canon defines. `canonical_object_model_refs` and `policy_bound_data_view_refs` have no field in this contract, so a descriptor's object-model and policy-view bindings are dropped on the floor at create."
+      },
+      "data_recipe_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "mcp_contract_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "authority_requirement_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Author-supplied and unresolved. Declaring an authority requirement is a statement of what the app will owe; it grants nothing (non-negotiable 9)."
+      },
+      "operator_contract_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "receipt_obligations": {
+        "$ref": "#/$defs/refList"
+      },
+      "generated_artifact_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "runtime_posture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mounted",
+          "route",
+          "note"
+        ],
+        "description": "The backlink projection of the runtime. v1's version is the union of the key sets five different writers put here — create, mount, serve, unmount and kill enforcement each write their own shape — which is why `serving` and `mount_ref` are optional: a record written by the create path has neither, and a reader cannot tell 'not serving' from 'this writer did not say'.",
+        "properties": {
+          "mounted": {
+            "type": "boolean"
+          },
+          "serving": {
+            "type": "boolean"
+          },
+          "route": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "mount_ref": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "approval_request_ref": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "release_control_ref": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "created_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "updated_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "admitted_head": {
+        "type": "string",
+        "maxLength": 256,
+        "description": "The head the NEXT writer must present. It is a fact about the stream projected onto the row, not part of the admitted payload — the payload has it removed before admission so a successor is not byte-different from its own replay."
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/domain-app/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/domain-app/v2",
+    "title": "DomainAppV2",
+    "description": "THE CANONICAL DOMAIN APP, WITH INVENTORY STATUS AND RUNTIME STATE STRUCTURALLY SEPARATED (G-6). v1 pinned `status` to `draft` forever and had no field for any stage of the composable-application journey, so 'this app was never registered' and 'this record cannot say whether it was registered' were the same bytes. This version makes the two state kinds different fields with different writers and enforces their coupling in the schema. `status` is INVENTORY: it advances only when the stage binding that produced it is named — `admitted` requires the immutable package release, `installed` requires the installation binding and the surface registration beside it — and no mount, serve, stop, unmount or kill transition may move it. `runtime_posture` is a BACKLINK PROJECTION of the `DomainAppRuntime` that owns mounted/serving state, and it must name the exact runtime it projects whenever it claims either. The two cannot be confused by a reader because neither field's vocabulary appears in the other. `launch_posture` carries canon's System-binding bound as a field: an app with no admitted System binding is `inspect_only`, and the schema refuses a record that claims otherwise while binding nothing. The derived snapshot is complete — canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` were absent from v1 entirely — and it is bound to the EXACT descriptor bytes it was derived from, so a snapshot cannot silently belong to a different revision of its own source.",
+    "x-ioi-schema-version": "ioi.domain-app.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "domainAppRef": {
+        "type": "string",
+        "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "runtimeRef": {
+        "type": "string",
+        "pattern": "^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "required": [
+      "schema_version",
+      "domain_app_id",
+      "name",
+      "description",
+      "surface_descriptor_ref",
+      "surface_descriptor_schema_version",
+      "surface_descriptor_content_hash",
+      "odk_manifest_ref",
+      "owner_ref",
+      "project_ref",
+      "visibility",
+      "ontology_refs",
+      "canonical_object_model_refs",
+      "data_recipe_refs",
+      "policy_bound_data_view_refs",
+      "operator_contract_refs",
+      "mcp_contract_refs",
+      "authority_requirement_refs",
+      "receipt_obligations",
+      "generated_artifact_refs",
+      "surface_registration_ref",
+      "package_release_ref",
+      "installation_ref",
+      "system_binding_refs",
+      "launch_posture",
+      "status",
+      "runtime_posture",
+      "migration",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.domain-app.v2"
+      },
+      "domain_app_id": {
+        "$ref": "#/$defs/domainAppRef",
+        "description": "ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `domain_app_id` and a separate `domain_app_ref` that could disagree."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "surface_descriptor_ref": {
+        "type": "string",
+        "pattern": "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. A DomainApp without a resolving app-shaped descriptor is a defect, not a draft."
+      },
+      "surface_descriptor_schema_version": {
+        "enum": [
+          "ioi.ontology-surface-descriptor.v2",
+          "ioi.hypervisor.odk.surface-descriptor.v1"
+        ],
+        "description": "WHICH REGISTERED CONTRACT THE SNAPSHOT WAS READ UNDER. Both versions are readable; neither is reinterpreted as the other. Recording the version is what lets a reader tell a snapshot that is empty because the descriptor binds nothing from one that is empty because the consumer read the wrong field names — the exact defect the v1 lineage read had, where `ontology_ref` and `recipe_refs` were read off a v2 record that carries neither and the empty result was recorded as provenance."
+      },
+      "surface_descriptor_content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The EXACT descriptor bytes this snapshot was derived from, hashed under that descriptor version's own domain separator. A descriptor that advances leaves this app's snapshot bound to the revision it actually read, so 'the snapshot is current' is decidable offline rather than assumed."
+      },
+      "odk_manifest_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Optional packaging provenance. When present it must itself name this descriptor, so packaging provenance cannot disagree with the app-shape contract."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "Server-resolved from the authenticated caller, never copied from the request body. v1's PATCH path accepted a caller-supplied owner_ref, which is how a record's owner could stop being the owner its admission was scoped to."
+      },
+      "project_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "visibility": {
+        "enum": [
+          "private",
+          "org",
+          "marketplace_candidate"
+        ],
+        "description": "Distribution intent, and nothing else. `marketplace_candidate` is a flag on a record, never a publication and never a local package admission."
+      },
+      "ontology_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Derived snapshot member. The four snapshot lists are a projection of the bound descriptor and manifest, not independent authorship: a DomainApp cannot widen the ontology, object-model, recipe or view set its descriptor declares."
+      },
+      "canonical_object_model_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "ABSENT FROM v1 ENTIRELY. A v1 DomainApp over a descriptor binding eight object models recorded none of them, and nothing failed."
+      },
+      "data_recipe_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "policy_bound_data_view_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "ABSENT FROM v1 ENTIRELY. Policy-bound views gate read, transform, distill, train, evaluate, export, publish and route use of governed data; an app whose record could not name the views its descriptor binds could not be checked against them."
+      },
+      "operator_contract_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "mcp_contract_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "authority_requirement_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "What this app will OWE when it acts. Declaring a requirement grants nothing (non-negotiable 9): a consequential action still passes capability, policy, authority, daemon, evidence and verification gates."
+      },
+      "receipt_obligations": {
+        "$ref": "#/$defs/refList"
+      },
+      "generated_artifact_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "surface_registration_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stage 7 of the composable-application journey: the `HypervisorApplicationSurfaceRegistration` that makes this app launchable as an `extension_application`. Mounting is a runtime fact and registration is an inventory fact; they are never substitutes."
+      },
+      "package_release_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stage 6: the immutable release local Packages admission produced."
+      },
+      "installation_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Stage 7: the installation binding. Admission does not install; installation does not expose."
+      },
+      "system_binding_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        "description": "Stage 9: admitted System/context bindings. Their absence bounds the app to inspect-only use rather than silently permitting effects."
+      },
+      "launch_posture": {
+        "enum": [
+          "inspect_only",
+          "system_bound"
+        ],
+        "description": "CANON'S SYSTEM-BINDING BOUND, AS A FIELD A RELYING PARTY CAN READ. It is not independent authorship: the two conditionals below tie it to `system_binding_refs` exactly, so a record claiming `system_bound` while binding no System is a SCHEMA refusal rather than something a reader has to notice."
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "admitted",
+          "installed",
+          "deprecated",
+          "revoked"
+        ],
+        "description": "INVENTORY STATUS — canon's five members, and the field v1 pinned to `draft`. It answers where this app sits in the composable-application journey and NOTHING about whether it is mounted or serving. The conditionals below make each advance carry the stage binding that produced it, so `admitted` cannot be written by a route that admitted nothing."
+      },
+      "runtime_posture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mounted",
+          "serving",
+          "route",
+          "mount_ref"
+        ],
+        "description": "RUNTIME STATE — a backlink PROJECTION of the `DomainAppRuntime`, never a second source of truth. All four keys are required at every revision, so a reader can never confuse 'not serving' with 'this writer did not say', which is exactly what v1's union-of-five-writers shape allowed. The conditionals bind the projection to a real runtime: claiming mounted or serving without naming the runtime is refused.",
+        "properties": {
+          "mounted": {
+            "type": "boolean"
+          },
+          "serving": {
+            "type": "boolean"
+          },
+          "route": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The INTERNAL route only. External ingress is a separate admission recorded on the runtime, and it is never a consequence of serving."
+          },
+          "mount_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/runtimeRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "title": "serving implies mounted",
+            "if": {
+              "required": [
+                "serving"
+              ],
+              "properties": {
+                "serving": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "mounted": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "title": "a live posture names the runtime it projects",
+            "if": {
+              "required": [
+                "mounted"
+              ],
+              "properties": {
+                "mounted": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "mount_ref": {
+                  "$ref": "#/$defs/runtimeRef"
+                }
+              }
+            }
+          },
+          {
+            "title": "an unmounted posture projects nothing",
+            "if": {
+              "required": [
+                "mounted"
+              ],
+              "properties": {
+                "mounted": {
+                  "const": false
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "serving": {
+                  "const": false
+                },
+                "route": {
+                  "type": "null"
+                },
+                "mount_ref": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — and exactly two admissible tuples, partitioned by `compatibility`.",
+        "required": [
+          "from_schema_version",
+          "from_domain_app_ref",
+          "from_content_hash",
+          "compatibility",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "from_schema_version": {
+            "oneOf": [
+              {
+                "const": "ioi.hypervisor.domain-app.v1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_domain_app_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^domain-app://dapp_[0-9a-f]{16}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator."
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "converged_from_v1"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          }
+        },
+        "allOf": [
+          {
+            "title": "authored fresh at v2 — all three provenance slots are null together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "type": "null"
+                },
+                "from_domain_app_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "title": "converged from a stored v1 — all three provenance slots are present together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "converged_from_v1"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "const": "ioi.hypervisor.domain-app.v1"
+                },
+                "from_domain_app_ref": {
+                  "type": "string",
+                  "pattern": "^domain-app://dapp_[0-9a-f]{16}$"
+                },
+                "from_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "authority_nonclaim": {
+        "const": "domain_app_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "domain_app_is_not_registration_admission_or_runtime_truth",
+        "description": "A DomainApp is not a runtime (`DomainAppRuntime` owns mounted/serving state), not a catalog registration, not an admission, and not semantic truth. A DomainApp with no admitted registration is a candidate, not durable product inventory."
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 7,
+        "maxItems": 11,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "capability_lease_crossing",
+            "runtime_truth",
+            "semantic_truth",
+            "permission_truth",
+            "marketplace_truth",
+            "registration",
+            "package_admission",
+            "installation",
+            "launchability",
+            "external_ingress"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            }
+          },
+          {
+            "contains": {
+              "const": "runtime_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "semantic_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "permission_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "marketplace_truth"
+            }
+          },
+          {
+            "contains": {
+              "const": "registration"
+            }
+          },
+          {
+            "contains": {
+              "const": "launchability"
+            }
+          }
+        ],
+        "description": "Seven mandatory members. `registration` and `launchability` are the two this family needs most: a mounted, serving Domain App is still not product inventory, and the record has to say so in its own bytes."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, recomputable offline by a relying party holding only the bytes."
+      }
+    },
+    "allOf": [
+      {
+        "title": "no System binding means inspect-only",
+        "if": {
+          "required": [
+            "system_binding_refs"
+          ],
+          "properties": {
+            "system_binding_refs": {
+              "type": "array",
+              "maxItems": 0
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "launch_posture": {
+              "const": "inspect_only"
+            }
+          }
+        }
+      },
+      {
+        "title": "a system-bound posture names at least one admitted System binding",
+        "if": {
+          "required": [
+            "launch_posture"
+          ],
+          "properties": {
+            "launch_posture": {
+              "const": "system_bound"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "system_binding_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        }
+      },
+      {
+        "title": "a draft has completed no journey stage",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "draft"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "surface_registration_ref": {
+              "type": "null"
+            },
+            "package_release_ref": {
+              "type": "null"
+            },
+            "installation_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "title": "admitted names the immutable release that admitted it, and nothing further",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "admitted"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "package_release_ref": {
+              "type": "string",
+              "pattern": "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+            },
+            "installation_ref": {
+              "type": "null"
+            },
+            "surface_registration_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "title": "installed names release, installation and registration together",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "installed"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "package_release_ref": {
+              "type": "string",
+              "pattern": "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+            },
+            "installation_ref": {
+              "type": "string",
+              "pattern": "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+            },
+            "surface_registration_ref": {
+              "type": "string",
+              "pattern": "^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/domain-app-runtime/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+    "title": "DomainAppRuntimeV1",
+    "description": "THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the runtime record the governed mount ladder minted while `ioi.hypervisor.domain-app-runtime.v1` was a Rust string literal. Four divergences from `DomainAppRuntimeEnvelope` are byte-verified. Identity is a bare `id` plus a separate `ref` where canon carries one `domain_app_runtime_id`. `rollback` is canon's `rollback_posture` under a different name. `external_ingress_ref` DOES NOT EXIST as a field, so canon's rule that internal route and external ingress are distinct admissions has no wire form here — serving and ingress are not separable in the record, and the only honest reading of a v1 runtime is that its ingress state is unknown rather than absent. And the record carries no owner and no revision, so a mount receipt could not have bound the exact runtime revision it transitioned even if it had tried. There is also a dead `route` key that the mount writes as null and no transition ever sets: the serving route lives in `internal_route_ref`, which means a reader taking `route` at face value sees an unrouted runtime while it serves. AUTHORING AT v1 IS CLOSED. Stored v1 runtimes remain readable exactly as admitted.",
+    "x-ioi-schema-version": "ioi.hypervisor.domain-app-runtime.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 128,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "ref",
+      "domain_app_ref",
+      "mounted",
+      "state",
+      "serving",
+      "route",
+      "approval_request_ref",
+      "release_control_ref",
+      "authority_refs",
+      "receipt_refs",
+      "rollback",
+      "note",
+      "mounted_at",
+      "unmounted_at",
+      "created_at",
+      "updated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.domain-app-runtime.v1"
+      },
+      "object": {
+        "const": "ioi.hypervisor.domain_app_runtime"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^dartm_[0-9a-f]{1,32}$",
+        "description": "MINTED FROM THE WALL CLOCK. `format!(\"dartm_{:x}\", nanos())` — so the id is a function of when the mount happened rather than of what was requested, and a retried mount mints a SECOND runtime rather than resolving to the first. That is why the width here is a range: nothing about this id is derived, so nothing about it is fixed."
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^domain-app-runtime://dartm_[0-9a-f]{1,32}$"
+      },
+      "domain_app_ref": {
+        "type": "string",
+        "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "mounted": {
+        "type": "boolean"
+      },
+      "state": {
+        "enum": [
+          "mounted",
+          "serving",
+          "unmounted",
+          "killed"
+        ],
+        "description": "Canon's four runtime states. This half of the contract was already correct at v1: runtime state is the runtime's, and it is not the DomainApp's inventory status."
+      },
+      "serving": {
+        "type": "boolean"
+      },
+      "route": {
+        "type": "null",
+        "description": "THE DEAD KEY. The mount writes `null` here and no transition ever sets it; the serving route is written to `internal_route_ref` instead. Registering it as `null`-only is what turns 'this field is never populated' into a checked fact."
+      },
+      "internal_route_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Present only once a serve transition has run. Absent on a runtime that has only ever been mounted, which is why it is optional here and required-with-an-explicit-null in v2."
+      },
+      "approval_request_ref": {
+        "type": "string",
+        "pattern": "^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "release_control_ref": {
+        "type": "string",
+        "pattern": "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "authority_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Copied verbatim from the admitting ApprovalRequest's `required_authority_refs` without validation, so a legacy record carrying structured members here does not satisfy this contract and fails closed rather than being silently repaired."
+      },
+      "receipt_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The receipt chain, appended one entry per transition."
+      },
+      "rollback": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unmountable",
+          "note"
+        ],
+        "description": "Canon's `rollback_posture`, under v1's shorter name.",
+        "properties": {
+          "unmountable": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1024
+      },
+      "mounted_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "serve_started_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "serve_stopped_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "unmounted_at": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/timestamp"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "unmount_reason": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "killed": {
+        "type": "boolean"
+      },
+      "killed_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "created_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "updated_at": {
+        "$ref": "#/$defs/timestamp"
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/domain-app-runtime/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+    "title": "DomainAppRuntimeV2",
+    "description": "THE CANONICAL RUNTIME, AND THE OBJECT A MOUNT RECEIPT CAN NOW NAME EXACTLY. The runtime — never the DomainApp — owns mounted/serving state, the governance refs that permitted it, its route and its receipt chain. Four things v1 could not express are structural here. Identity is one scheme-prefixed `domain_app_runtime_id` derived from the caller's owner and idempotency key, so a retried mount resolves to the runtime it already created instead of minting a second one from the wall clock. `revision` counts this runtime's admitted transitions, so a receipt can bind the exact revision it attests rather than merely the app. `external_ingress_ref` exists as its own required field, so canon's rule that internal route and external ingress are DISTINCT admissions has a wire form: serving assigns the internal route and leaves ingress null, and a record where ingress appeared as a consequence of serving is refused by the conditionals below. And `content_hash` commits the whole runtime, which is the value a receipt binds so a relying party can check offline that the receipt and the runtime describe the same state.",
+    "x-ioi-schema-version": "ioi.domain-app-runtime.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "nullableTimestamp": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "required": [
+      "schema_version",
+      "domain_app_runtime_id",
+      "domain_app_ref",
+      "owner_ref",
+      "revision",
+      "state",
+      "mounted",
+      "serving",
+      "internal_route_ref",
+      "external_ingress_ref",
+      "approval_request_ref",
+      "release_control_ref",
+      "authority_refs",
+      "receipt_refs",
+      "rollback_posture",
+      "mounted_at",
+      "serve_started_at",
+      "serve_stopped_at",
+      "unmounted_at",
+      "unmount_reason",
+      "killed_at",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.domain-app-runtime.v2"
+      },
+      "domain_app_runtime_id": {
+        "type": "string",
+        "pattern": "^domain-app-runtime://dartm_[0-9a-f]{16}$",
+        "description": "ONE IDENTITY FIELD, AND A DERIVED ONE. Sixteen hex digits from the caller's owner and idempotency key, so the same logical mount submitted twice resolves to one runtime. v1 minted this from `nanos()`, which made every retry a second runtime and made replay impossible to distinguish from a genuine second mount."
+      },
+      "domain_app_ref": {
+        "type": "string",
+        "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "The app this runtime is one governed mount of. At most one runtime per DomainApp may be mounted at a time."
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+        "description": "Server-resolved from the authenticated caller that admitted the mount. It is what makes the runtime identity a mount receipt binds OWNER-QUALIFIED: two owners can hold runtimes whose ids collide only if they also share an owner, which they do not."
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "This runtime's own transition counter: 0 at mount, and one higher at every admitted transition after it. A mount receipt binds the exact revision it attests, so an app with several runtimes and a runtime with several transitions are both addressable."
+      },
+      "state": {
+        "enum": [
+          "mounted",
+          "serving",
+          "unmounted",
+          "killed"
+        ],
+        "description": "RUNTIME STATE — never the DomainApp's inventory status. The two vocabularies are disjoint on purpose (G-6): no member of this enum appears in `DomainApp.status` and no member of that one appears here, so a reader cannot conflate 'admitted' with 'running'."
+      },
+      "mounted": {
+        "type": "boolean"
+      },
+      "serving": {
+        "type": "boolean"
+      },
+      "internal_route_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Assigning an internal route is part of the mount's governance. Required at every revision with an explicit null so 'not routed' can never be read out of an absent key."
+      },
+      "external_ingress_ref": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "A SEPARATE ADMISSION THIS ENVELOPE RECORDS BUT DOES NOT GRANT. v1 had no field at all, so serving and ingress were inseparable in the record. Here serving leaves it null and the conditional below refuses a record that acquired ingress merely by serving."
+      },
+      "approval_request_ref": {
+        "type": "string",
+        "pattern": "^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "Re-read and re-checked live at each serve transition. A mount's earlier permission is never inherited forward as standing permission to serve."
+      },
+      "release_control_ref": {
+        "type": "string",
+        "pattern": "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "authority_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The authority refs the admitting ApprovalRequest recorded. Recording them is evidence of what permitted the mount; it is not a grant."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "description": "At least one: a runtime exists because a mount was receipted, so there is no unreceipted path onto this ladder."
+      },
+      "rollback_posture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unmountable",
+          "note"
+        ],
+        "description": "Canon's own name for what v1 called `rollback`.",
+        "properties": {
+          "unmountable": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      },
+      "mounted_at": {
+        "$ref": "#/$defs/timestamp",
+        "description": "The ADMISSION stamp of the mount, taken from the admitted operation rather than from the wall clock, so a replayed mount is byte-identical to the one it replays."
+      },
+      "serve_started_at": {
+        "$ref": "#/$defs/nullableTimestamp"
+      },
+      "serve_stopped_at": {
+        "$ref": "#/$defs/nullableTimestamp"
+      },
+      "unmounted_at": {
+        "$ref": "#/$defs/nullableTimestamp"
+      },
+      "unmount_reason": {
+        "oneOf": [
+          {
+            "type": "string",
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "killed_at": {
+        "$ref": "#/$defs/nullableTimestamp"
+      },
+      "authority_nonclaim": {
+        "const": "domain_app_runtime_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "domain_app_runtime_is_not_registration_or_launchability",
+        "description": "A mounted, serving Domain App is still not product inventory. It becomes launchable only through the ordinary `extension_application` registration and the product-surface compiler."
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 9,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "registration",
+            "launchability",
+            "external_ingress",
+            "app_behaviour",
+            "semantic_validity",
+            "package_admission",
+            "installation",
+            "marketplace_truth"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            }
+          },
+          {
+            "contains": {
+              "const": "registration"
+            }
+          },
+          {
+            "contains": {
+              "const": "launchability"
+            }
+          },
+          {
+            "contains": {
+              "const": "external_ingress"
+            }
+          },
+          {
+            "contains": {
+              "const": "app_behaviour"
+            }
+          }
+        ],
+        "description": "Five mandatory members. `external_ingress` is the one this family needs that no other does: the whole point of the separate field is that a serving runtime asserts nothing about ingress."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator. It is the value a `DomainAppMountReceipt` binds, so a relying party can check offline that the receipt and the runtime describe the same admitted state."
+      }
+    },
+    "allOf": [
+      {
+        "title": "serving implies mounted, and names its internal route",
+        "if": {
+          "required": [
+            "serving"
+          ],
+          "properties": {
+            "serving": {
+              "const": true
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "mounted": {
+              "const": true
+            },
+            "state": {
+              "const": "serving"
+            },
+            "internal_route_ref": {
+              "type": "string",
+              "pattern": "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            }
+          }
+        }
+      },
+      {
+        "title": "a runtime that is not serving holds no internal route",
+        "if": {
+          "required": [
+            "serving"
+          ],
+          "properties": {
+            "serving": {
+              "const": false
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "internal_route_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "title": "an unmounted runtime is not serving and records when the mount ended",
+        "if": {
+          "required": [
+            "mounted"
+          ],
+          "properties": {
+            "mounted": {
+              "const": false
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "serving": {
+              "const": false
+            },
+            "unmounted_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            }
+          }
+        }
+      },
+      {
+        "title": "the killed state is terminal and stamped",
+        "if": {
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "killed"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "mounted": {
+              "const": false
+            },
+            "serving": {
+              "const": false
+            },
+            "killed_at": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            }
+          }
+        }
+      },
+      {
+        "title": "external ingress is never a consequence of the mount admission alone",
+        "if": {
+          "required": [
+            "mounted"
+          ],
+          "properties": {
+            "mounted": {
+              "const": false
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "external_ingress_ref": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+    "title": "DomainAppMountReceiptV1",
+    "description": "THE PREDECESSOR, REGISTERED SO THE DIVERGENCE IT CARRIES CAN BE NAMED — DEPRECATED AND READ-ONLY. `DomainAppMountReceiptEnvelope` requires `domain_app_runtime_ref` and says why in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. THIS CONTRACT HAS NO SUCH FIELD. Every v1 receipt names the app, the approval and the release control, and is silent about the runtime — so the whole receipt chain of a twice-mounted app is one undifferentiated set, and a `domain_app.serve_stop` receipt cannot be attributed to the mount it stopped. Its `state_root` compounds the gap: the preimage is the five values pipe-joined as text, so it commits exactly what the receipt already says and nothing about the runtime state the transition produced, and a pipe inside any component makes two different transitions share a preimage. AUTHORING AT v1 IS CLOSED. Stored v1 receipts remain readable exactly as admitted; they are immutable evidence that a transition happened, and they stay exactly as unable to say which runtime it happened to.",
+    "x-ioi-schema-version": "ioi.hypervisor.domain-app-mount-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "ref",
+      "action",
+      "domain_app_ref",
+      "approval_request_ref",
+      "release_control_ref",
+      "state_root",
+      "at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.domain-app-mount-receipt.v1"
+      },
+      "object": {
+        "const": "ioi.hypervisor.domain_app_mount_receipt"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^mrcpt_[0-9a-f]{1,32}$",
+        "description": "Minted from `nanos()`, so a replayed transition emits a second receipt with a different id rather than resolving to the one already admitted."
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^mount-receipt://mrcpt_[0-9a-f]{1,32}$"
+      },
+      "action": {
+        "enum": [
+          "domain_app.mount",
+          "domain_app.serve_start",
+          "domain_app.serve_stop",
+          "domain_app.unmount",
+          "domain_app.kill_stop_serving",
+          "domain_app.kill_unmount"
+        ],
+        "description": "Canon's six. Enforcement emits the same receipt family as a voluntary stop, distinguished only by the action name — this half was already correct at v1."
+      },
+      "domain_app_ref": {
+        "type": "string",
+        "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "The app. And, at v1, the only object this receipt can name."
+      },
+      "approval_request_ref": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "release_control_ref": {
+        "type": "string",
+        "maxLength": 512
+      },
+      "state_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "A digest over `action|domain_app_ref|approval_request_ref|release_control_ref|at` joined with pipes. It commits the receipt's own visible fields and nothing else — not the runtime, not its revision, not the state the transition produced — so recomputing it proves the four strings were not edited and proves nothing about what was admitted."
+      },
+      "at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+        "description": "Wall-clock at receipt construction, not the admission stamp, which is why a v1 receipt for a replayed transition is byte-different from the receipt it replays."
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+    "title": "DomainAppMountReceiptV2",
+    "description": "THE RECEIPT THAT BINDS THE RUNTIME IT TRANSITIONED. Canon requires `domain_app_runtime_ref` and gives the reason in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. v1 had no such field, so this contract adds it and then adds the three facts that make the binding EXACT rather than merely present. `domain_app_runtime_owner_ref` makes the runtime identity owner-qualified, so a receipt cannot be read against a same-named runtime under another owner. `domain_app_runtime_revision` names which transition of that runtime this receipt attests, so a serve-stop receipt is attributable to the serve it stopped. `domain_app_runtime_content_hash` commits the runtime state the transition PRODUCED, so a relying party holding the receipt and the runtime can check offline that they describe the same admitted state instead of trusting that they do. `domain_app_admitted_head_before` names the exact chain position the transition was admitted against, which is what makes the receipt locatable in the app's own admitted history rather than merely consistent with it. `state_root` is a canonical-JSON commitment over every other field under a domain separator — a real commitment a verifier recomputes, replacing v1's pipe-joined text digest whose preimage was ambiguous and whose material said nothing about the runtime. It attests that a named transition was admitted for a named runtime under a named approval and release control at a named time. It does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran.",
+    "x-ioi-schema-version": "ioi.domain-app-mount-receipt.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "mount_receipt_id",
+      "action",
+      "domain_app_ref",
+      "domain_app_runtime_ref",
+      "domain_app_runtime_owner_ref",
+      "domain_app_runtime_revision",
+      "domain_app_runtime_content_hash",
+      "domain_app_admitted_head_before",
+      "approval_request_ref",
+      "release_control_ref",
+      "state_root",
+      "at",
+      "does_not_assert"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.domain-app-mount-receipt.v2"
+      },
+      "mount_receipt_id": {
+        "type": "string",
+        "pattern": "^mount-receipt://mrcpt_[0-9a-f]{16}$",
+        "description": "One scheme-prefixed identity, derived from the caller's owner, idempotency key and this transition's action — so a replayed transition resolves to the receipt it already emitted rather than appending a second one that attests the same fact under a different id."
+      },
+      "action": {
+        "enum": [
+          "domain_app.mount",
+          "domain_app.serve_start",
+          "domain_app.serve_stop",
+          "domain_app.unmount",
+          "domain_app.kill_stop_serving",
+          "domain_app.kill_unmount"
+        ],
+        "description": "Canon's six. Governance enforcement drives the same transitions and emits the same receipt family as a voluntary stop, so an enforced stop leaves exactly the record a voluntary one does, distinguished only by the action name."
+      },
+      "domain_app_ref": {
+        "type": "string",
+        "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "domain_app_runtime_ref": {
+        "type": "string",
+        "pattern": "^domain-app-runtime://dartm_[0-9a-f]{16}$",
+        "description": "THE FIELD v1 DID NOT HAVE. Required, never nullable: a transition always has a runtime, and a receipt that could omit it would reintroduce exactly the ambiguity this version exists to remove."
+      },
+      "domain_app_runtime_owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+        "description": "OWNER-QUALIFIED IDENTITY. The runtime ref alone is an id in a namespace; the owner is what makes it resolvable to one runtime rather than to whichever runtime a reader happens to look up."
+      },
+      "domain_app_runtime_revision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991,
+        "description": "Which admitted transition of that runtime this receipt attests. A mount is revision 0 by construction, since a mount creates the runtime it transitions."
+      },
+      "domain_app_runtime_content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The `content_hash` of the runtime record this transition PRODUCED, not of the one it started from. It is what makes 'this receipt is about this runtime state' checkable from bytes: substitute the runtime and the hash stops matching; edit the runtime and it stops matching too."
+      },
+      "domain_app_admitted_head_before": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{16,128}$",
+        "description": "The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."
+      },
+      "approval_request_ref": {
+        "type": "string",
+        "pattern": "^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "release_control_ref": {
+        "type": "string",
+        "pattern": "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "state_root": {
+        "$ref": "#/$defs/sha256",
+        "description": "A canonical-JSON SHA-256 over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. v1's preimage was the five values joined with pipes, which is ambiguous under any component containing a pipe and commits nothing about the runtime; this one commits the whole receipt including the three runtime bindings above."
+      },
+      "at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+        "description": "The ADMISSION stamp of the transition, taken from the admitted operation rather than from the wall clock, so a replayed transition re-emits a byte-identical receipt."
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "app_behaviour",
+            "semantic_validity",
+            "external_surface_exists",
+            "domain_action_ran",
+            "authority",
+            "registration",
+            "launchability",
+            "package_admission"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "app_behaviour"
+            }
+          },
+          {
+            "contains": {
+              "const": "semantic_validity"
+            }
+          },
+          {
+            "contains": {
+              "const": "external_surface_exists"
+            }
+          },
+          {
+            "contains": {
+              "const": "domain_action_ran"
+            }
+          }
+        ],
+        "description": "Canon's four nonclaims, carried as fields so the receipt states its own limits in the bytes a relying party reads: it does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran."
+      }
+    },
+    "allOf": [
+      {
+        "title": "a mount receipt attests the runtime's genesis revision",
+        "if": {
+          "required": [
+            "action"
+          ],
+          "properties": {
+            "action": {
+              "const": "domain_app.mount"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "domain_app_runtime_revision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0,
+              "description": "A mount creates the runtime it transitions, so its receipt attests revision 0 and nothing else."
+            }
+          }
+        }
+      }
+    ]
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -116417,6 +119707,360 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_path": "$.subject_content_hash"
       }
     }
+  ],
+  "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1": [],
+  "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2": [
+    {
+      "rule_id": "odk_manifest.content_hash.commits_the_whole_manifest",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map. A relying party holding only the bytes recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-development-kit-manifest-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "odk_manifest_id": {
+            "path": "$.odk_manifest_id"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "ontology_refs": {
+            "path": "$.ontology_refs"
+          },
+          "canonical_object_model_refs": {
+            "path": "$.canonical_object_model_refs"
+          },
+          "data_recipe_refs": {
+            "path": "$.data_recipe_refs"
+          },
+          "connector_mapping_refs": {
+            "path": "$.connector_mapping_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "ontology_projection_refs": {
+            "path": "$.ontology_projection_refs"
+          },
+          "surface_descriptor_refs": {
+            "path": "$.surface_descriptor_refs"
+          },
+          "workflow_schema_refs": {
+            "path": "$.workflow_schema_refs"
+          },
+          "evaluation_dataset_refs": {
+            "path": "$.evaluation_dataset_refs"
+          },
+          "benchmark_profile_refs": {
+            "path": "$.benchmark_profile_refs"
+          },
+          "worker_plan_refs": {
+            "path": "$.worker_plan_refs"
+          },
+          "operator_contract_refs": {
+            "path": "$.operator_contract_refs"
+          },
+          "mcp_contract_refs": {
+            "path": "$.mcp_contract_refs"
+          },
+          "conformance_profile_refs": {
+            "path": "$.conformance_profile_refs"
+          },
+          "package_refs": {
+            "path": "$.package_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/domain-app/v1": [],
+  "schema://ioi/foundations/objects/domain-app/v2": [
+    {
+      "rule_id": "domain_app.content_hash.commits_the_whole_app",
+      "description": "THE COMMITMENT COVERS BOTH STATE KINDS AT ONCE. The material includes `status` (inventory) and `runtime_posture` (the runtime backlink) together with the four stage bindings, so a record whose inventory status was advanced without its stage binding, or whose runtime backlink was edited to claim a mount that never happened, fails the recomputation offline. Separating the two state kinds into different fields is what makes them distinguishable; committing them in one hash is what makes editing either one detectable.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.domain-app-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "domain_app_id": {
+            "path": "$.domain_app_id"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "description": {
+            "path": "$.description"
+          },
+          "surface_descriptor_ref": {
+            "path": "$.surface_descriptor_ref"
+          },
+          "surface_descriptor_schema_version": {
+            "path": "$.surface_descriptor_schema_version"
+          },
+          "surface_descriptor_content_hash": {
+            "path": "$.surface_descriptor_content_hash"
+          },
+          "odk_manifest_ref": {
+            "path": "$.odk_manifest_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "project_ref": {
+            "path": "$.project_ref"
+          },
+          "visibility": {
+            "path": "$.visibility"
+          },
+          "ontology_refs": {
+            "path": "$.ontology_refs"
+          },
+          "canonical_object_model_refs": {
+            "path": "$.canonical_object_model_refs"
+          },
+          "data_recipe_refs": {
+            "path": "$.data_recipe_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "operator_contract_refs": {
+            "path": "$.operator_contract_refs"
+          },
+          "mcp_contract_refs": {
+            "path": "$.mcp_contract_refs"
+          },
+          "authority_requirement_refs": {
+            "path": "$.authority_requirement_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "generated_artifact_refs": {
+            "path": "$.generated_artifact_refs"
+          },
+          "surface_registration_ref": {
+            "path": "$.surface_registration_ref"
+          },
+          "package_release_ref": {
+            "path": "$.package_release_ref"
+          },
+          "installation_ref": {
+            "path": "$.installation_ref"
+          },
+          "system_binding_refs": {
+            "path": "$.system_binding_refs"
+          },
+          "launch_posture": {
+            "path": "$.launch_posture"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "runtime_posture": {
+            "path": "$.runtime_posture"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/domain-app-runtime/v1": [],
+  "schema://ioi/foundations/objects/domain-app-runtime/v2": [
+    {
+      "rule_id": "domain_app_runtime.content_hash.commits_the_whole_runtime",
+      "description": "THE VALUE A MOUNT RECEIPT BINDS. Because this commitment covers every field including `revision`, `state`, `internal_route_ref` and `external_ingress_ref`, a receipt that carries this hash is bound to one exact runtime state. Substituting the runtime, editing its state, or advancing its revision all move the hash, so 'the receipt and the runtime describe the same admitted state' is decidable from the two records alone.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.domain-app-runtime-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "domain_app_runtime_id": {
+            "path": "$.domain_app_runtime_id"
+          },
+          "domain_app_ref": {
+            "path": "$.domain_app_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "state": {
+            "path": "$.state"
+          },
+          "mounted": {
+            "path": "$.mounted"
+          },
+          "serving": {
+            "path": "$.serving"
+          },
+          "internal_route_ref": {
+            "path": "$.internal_route_ref"
+          },
+          "external_ingress_ref": {
+            "path": "$.external_ingress_ref"
+          },
+          "approval_request_ref": {
+            "path": "$.approval_request_ref"
+          },
+          "release_control_ref": {
+            "path": "$.release_control_ref"
+          },
+          "authority_refs": {
+            "path": "$.authority_refs"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          },
+          "rollback_posture": {
+            "path": "$.rollback_posture"
+          },
+          "mounted_at": {
+            "path": "$.mounted_at"
+          },
+          "serve_started_at": {
+            "path": "$.serve_started_at"
+          },
+          "serve_stopped_at": {
+            "path": "$.serve_stopped_at"
+          },
+          "unmounted_at": {
+            "path": "$.unmounted_at"
+          },
+          "unmount_reason": {
+            "path": "$.unmount_reason"
+          },
+          "killed_at": {
+            "path": "$.killed_at"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v1": [],
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v2": [
+    {
+      "rule_id": "domain_app_mount_receipt.state_root.commits_the_whole_receipt",
+      "description": "A REAL COMMITMENT, REPLACING A PIPE-JOINED TEXT DIGEST. v1's state_root hashed `action|domain_app_ref|approval|release|at` as one string: ambiguous under any component containing a pipe, and silent about the runtime because the runtime was not in the receipt at all. This rule commits every field of v2 under a domain separator over canonical JSON, so the three runtime bindings — ref, owner, revision and the runtime's own content hash — are inside the commitment. Editing which runtime a receipt names now breaks the state_root, offline, with nothing but the bytes.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.domain-app-mount-receipt-state-root-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "mount_receipt_id": {
+            "path": "$.mount_receipt_id"
+          },
+          "action": {
+            "path": "$.action"
+          },
+          "domain_app_ref": {
+            "path": "$.domain_app_ref"
+          },
+          "domain_app_runtime_ref": {
+            "path": "$.domain_app_runtime_ref"
+          },
+          "domain_app_runtime_owner_ref": {
+            "path": "$.domain_app_runtime_owner_ref"
+          },
+          "domain_app_runtime_revision": {
+            "path": "$.domain_app_runtime_revision"
+          },
+          "domain_app_runtime_content_hash": {
+            "path": "$.domain_app_runtime_content_hash"
+          },
+          "domain_app_admitted_head_before": {
+            "path": "$.domain_app_admitted_head_before"
+          },
+          "approval_request_ref": {
+            "path": "$.approval_request_ref"
+          },
+          "release_control_ref": {
+            "path": "$.release_control_ref"
+          },
+          "at": {
+            "path": "$.at"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.state_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
   ]
 };
 
@@ -118686,4 +122330,52 @@ export function validateAssuranceTransitionReceiptV2(
   value: unknown,
 ): value is AssuranceTransitionReceiptV2 {
   return validateArchitectureContract("schema://ioi/foundations/assurance-transition-receipt/v2", value).ok;
+}
+
+export function validateOntologyDevelopmentKitManifestV1(
+  value: unknown,
+): value is OntologyDevelopmentKitManifestV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", value).ok;
+}
+
+export function validateOntologyDevelopmentKitManifestV2(
+  value: unknown,
+): value is OntologyDevelopmentKitManifestV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", value).ok;
+}
+
+export function validateDomainAppV1(
+  value: unknown,
+): value is DomainAppV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/domain-app/v1", value).ok;
+}
+
+export function validateDomainAppV2(
+  value: unknown,
+): value is DomainAppV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/domain-app/v2", value).ok;
+}
+
+export function validateDomainAppRuntimeV1(
+  value: unknown,
+): value is DomainAppRuntimeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/domain-app-runtime/v1", value).ok;
+}
+
+export function validateDomainAppRuntimeV2(
+  value: unknown,
+): value is DomainAppRuntimeV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/domain-app-runtime/v2", value).ok;
+}
+
+export function validateDomainAppMountReceiptV1(
+  value: unknown,
+): value is DomainAppMountReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/domain-app-mount-receipt/v1", value).ok;
+}
+
+export function validateDomainAppMountReceiptV2(
+  value: unknown,
+): value is DomainAppMountReceiptV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/domain-app-mount-receipt/v2", value).ok;
 }

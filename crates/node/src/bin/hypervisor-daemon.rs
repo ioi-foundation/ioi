@@ -2579,6 +2579,13 @@ async fn async_main() -> anyhow::Result<()> {
                 .patch(domain_apps_routes::handle_domain_apps_patch)
                 .delete(domain_apps_routes::handle_domain_apps_delete),
         )
+        // M05.6 — the INVENTORY status advance, deliberately off the mount ladder (G-6). It moves
+        // draft -> admitted -> installed and each advance must name the stage binding that produced
+        // it. No runtime transition can reach this field, and this route cannot reach runtime state.
+        .route(
+            "/v1/hypervisor/domain-apps/:id/inventory-status",
+            post(domain_apps_routes::handle_domain_app_inventory_status),
+        )
         // Domain-App runtime mount (effectful cut A: governed mount admission, NOT serving). Mount
         // requires an approved ApprovalRequest + open ReleaseControl targeting the domain app; emits a
         // receipt + durable DomainAppRuntime record (mounted:true). No process/URL/ingress/publish.

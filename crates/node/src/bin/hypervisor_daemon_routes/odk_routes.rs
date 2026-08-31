@@ -1397,6 +1397,9 @@ pub(crate) async fn handle_odk_recipe_create(
         "created_at": now,
         "updated_at": now
     });
+    if let Err(response) = manifest_registered_valid(&record) {
+        return response;
+    }
     odk_admit(
         &st.data_dir,
         &headers,
@@ -1516,6 +1519,64 @@ pub(crate) async fn handle_odk_manifest_list(State(st): State<Arc<DaemonState>>)
     Json(json!({ "ok": true, "manifests": items }))
 }
 
+// ==================== M05.6 · THE ODK MANIFEST FAMILY, UNDER A REGISTERED CONTRACT ===============
+//
+// G-4 forbids a surface, client or projection from claiming an object family until that family's
+// wire contract is registered. `ioi.hypervisor.odk.manifest.v1` was a local Rust string with no
+// `_meta/schemas/` entry behind it, so every ODK manifest claim rested on a constant. The contract
+// is now registered — as the record this lane ACTUALLY mints, divergences and all — and this route
+// validates what it writes against it before admitting.
+//
+// TWO THINGS THAT DID NOT HAPPEN HERE, DELIBERATELY. The canonical successor
+// `ioi.ontology-development-kit-manifest.v2` is registered beside v1, with canon's sixteen member
+// lists under canon's own names; this build does not yet AUTHOR it, because the split of v1's folded
+// members — `recipe_refs` into `data_recipe_refs`, `eval_refs` into dataset and benchmark refs,
+// `mcp_operator_contracts` into operator and MCP refs — cannot be performed by a migration: a v1
+// record does not record which member is which, so only the author can say. And v1's wire contract
+// is not narrowed by stealth: the two passthrough fields keep their names and their meaning. What
+// changes is that a record this route cannot project is REFUSED at authoring instead of admitted and
+// then unreadable, and the refusal names the failing field.
+const ODK_MANIFEST_V1_SCHEMA_VERSION: &str = "ioi.hypervisor.odk.manifest.v1";
+const ODK_MANIFEST_V2_SCHEMA_VERSION: &str = "ioi.ontology-development-kit-manifest.v2";
+const ODK_MANIFEST_V1_CONTRACT_ID: &str =
+    "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1";
+
+/// Refuse an authoring request naming any manifest contract this build does not write.
+fn require_manifest_authored_version(body: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    match body.get("schema_version") {
+        None | Some(Value::Null) => Ok(()),
+        Some(Value::String(declared)) if declared == ODK_MANIFEST_V1_SCHEMA_VERSION => Ok(()),
+        Some(Value::String(declared)) if declared == ODK_MANIFEST_V2_SCHEMA_VERSION => Err(bad(
+            "odk_manifest_successor_not_authored_here",
+            &format!(
+                "'{ODK_MANIFEST_V2_SCHEMA_VERSION}' is registered canon but this build does not author it: v1 folds three pairs of canonical members into single lists and no migration can say which member is which. Authoring a successor is an explicit act by the author who knows"
+            ),
+        )),
+        Some(declared) => Err(bad(
+            "odk_manifest_contract_unsupported",
+            &format!(
+                "this build authors {ODK_MANIFEST_V1_SCHEMA_VERSION} only; {declared} is refused rather than downgraded"
+            ),
+        )),
+    }
+}
+
+/// Validate one assembled manifest against its REGISTERED contract before it can be admitted.
+fn manifest_registered_valid(record: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        ODK_MANIFEST_V1_CONTRACT_ID,
+        record,
+    )
+    .map_err(|reason| {
+        bad(
+            "odk_manifest_not_registered_valid",
+            &format!(
+                "the manifest this request builds is not valid against {ODK_MANIFEST_V1_CONTRACT_ID}: {reason}"
+            ),
+        )
+    })
+}
+
 /// POST /v1/hypervisor/odk/manifests — create an OntologyDevelopmentKitManifest DRAFT bundling
 /// ontology refs (required, ≥1) + recipe + surface-descriptor refs + named contract refs.
 pub(crate) async fn handle_odk_manifest_create(
@@ -1523,6 +1584,9 @@ pub(crate) async fn handle_odk_manifest_create(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_manifest_authored_version(&body) {
+        return response;
+    }
     let ontology_refs = str_refs(&body, "ontology_refs");
     if let Err((c, m)) = require_local_ref_list(
         &st.data_dir,
@@ -1614,6 +1678,9 @@ pub(crate) async fn handle_odk_manifest_patch(
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    if let Err(response) = require_manifest_authored_version(&body) {
+        return response;
+    }
     let Some(mut man) = load(&st.data_dir, KIND_MANIFEST, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -1678,6 +1745,9 @@ pub(crate) async fn handle_odk_manifest_patch(
         if let Some(v) = body.get(key) {
             man[key] = v.clone();
         }
+    }
+    if let Err(response) = manifest_registered_valid(&man) {
+        return response;
     }
     let previous = load(&st.data_dir, KIND_MANIFEST, &id).unwrap_or_else(|| json!({}));
     odk_admit(
@@ -3052,6 +3122,26 @@ fn descriptor_content_hash(record: &Value) -> String {
     )
 }
 
+/// M05.6 — THE COMMITMENT A CONSUMER BINDS, DISPATCHED BY THE VERSION IT WAS ADMITTED UNDER.
+///
+/// A DomainApp's derived snapshot is a projection of one descriptor's bytes, so the app records
+/// WHICH bytes. That number has to come from the descriptor owner, because only this module knows
+/// that a v1 record is hashed over the v1 contract's four material fields under the v1 domain
+/// separator and a v2 over the v2 contract's thirty-two under its own. A consumer computing it
+/// itself would be a second producer of the same commitment, and the two would drift the first time
+/// either contract gained a field.
+///
+/// Returns `None` for a record this build does not recognise. There is no default arm: a snapshot
+/// bound to a hash produced by guessing which contract a record satisfies is worse than no binding,
+/// because it reads exactly like a real one.
+pub(crate) fn descriptor_content_commitment(record: &Value) -> Option<String> {
+    match record.get("schema_version").and_then(Value::as_str) {
+        Some(DESCRIPTOR_V2_SCHEMA_VERSION) => Some(descriptor_content_hash(record)),
+        Some(DESCRIPTOR_V1_SCHEMA_VERSION) => Some(descriptor_v1_content_hash(record)),
+        _ => None,
+    }
+}
+
 /// THE PREDECESSOR IS HASHED UNDER ITS OWN CONTRACT, NOT UNDER ITS SUCCESSOR'S.
 ///
 /// A convergence commits the exact bytes it came from, and `descriptor_content_hash` cannot produce
@@ -3095,7 +3185,11 @@ fn descriptor_v1_content_hash(record: &Value) -> String {
 ///
 /// Flat and enumerated because that is what the portable invariant language can reproduce: a nested
 /// preimage is a number only its producer can recompute, which is not a commitment.
-fn domain_separated_hash(record: &Value, domain: &str, fields: &[&str]) -> String {
+///
+/// M05.6 — SHARED WITH THE DOMAIN-APP FAMILIES RATHER THAN COPIED. The DomainApp, DomainAppRuntime
+/// and DomainAppMountReceipt contracts commit themselves the same way, and a second implementation
+/// of a commitment is a second answer waiting to disagree with the first.
+pub(crate) fn domain_separated_hash(record: &Value, domain: &str, fields: &[&str]) -> String {
     use sha2::Digest;
     let mut material = serde_json::Map::new();
     material.insert("domain".into(), json!(domain));
