@@ -162,6 +162,8 @@ mod outcome_room_system_routes;
 mod package_registry_routes;
 #[path = "hypervisor_daemon_routes/placement_failover_routes.rs"]
 mod placement_failover_routes;
+#[path = "hypervisor_daemon_routes/policy_bound_data_view_revision_routes.rs"]
+mod policy_bound_data_view_revision_routes;
 #[path = "hypervisor_daemon_routes/policy_bound_data_view_routes.rs"]
 mod policy_bound_data_view_routes;
 #[path = "hypervisor_daemon_routes/portal_session_exchange_routes.rs"]
@@ -1733,6 +1735,26 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/learning-egress-receipts",
             get(institutional_learning_boundary_routes::handle_learning_egress_receipt_query)
                 .post(institutional_learning_boundary_routes::handle_learning_egress_receipt_emit),
+        )
+        // M05.8 — the runtime-enforced PolicyBoundDataView. The first route admits one immutable
+        // owner-qualified revision whose permitted-use set is a SUBTRACTION over resolved inputs
+        // rather than a field a caller supplies. The second is the ENFORCEMENT POINT: it is the
+        // only place a bounded row/field/time projection is granted, and it revalidates authority,
+        // rights, revocation, expiry, retention/hold, residency, destination and consent against
+        // their owners at the materialization instant rather than trusting what the view recorded
+        // when it was compiled. The predecessor's inert declarative family stays at
+        // /v1/hypervisor/odk/policy-bound-data-views and is untouched.
+        .route(
+            "/v1/hypervisor/policy-bound-data-views",
+            get(policy_bound_data_view_revision_routes::handle_policy_bound_data_view_query)
+                .post(policy_bound_data_view_revision_routes::handle_policy_bound_data_view_admit),
+        )
+        .route(
+            "/v1/hypervisor/policy-bound-data-view-materializations",
+            get(
+                policy_bound_data_view_revision_routes::handle_policy_bound_data_view_materialization_query,
+            )
+            .post(policy_bound_data_view_revision_routes::handle_policy_bound_data_view_materialize),
         )
         // WS-D: harness session binding admission.
         .route(

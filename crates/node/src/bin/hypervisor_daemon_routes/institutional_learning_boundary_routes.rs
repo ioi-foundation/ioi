@@ -402,6 +402,18 @@ impl ResolvedSourceRightsClaim {
         self.list("unresolved_right_uses")
     }
 
+    /// The bases this claim rests on — `contract:// | terms:// | policy:// | grant:// | authority://
+    /// | evidence://`.
+    ///
+    /// CONSENT IS A BASIS ON THIS CLAIM, NOT A FAMILY OF ITS OWN. Canon mints no `ConsentClaim` and
+    /// no `consent://` scheme, so a consumer that needs to revalidate a consent's revocation and
+    /// expiry does it by finding the claim revision that carries the consent as a basis and reading
+    /// this family's `is_live()` and `expires_before()`. Exposing the list here is what lets M05.8
+    /// prove that coverage instead of trusting a `consent_state` a caller attested.
+    pub(crate) fn rights_basis_refs(&self) -> Vec<String> {
+        self.list("rights_basis_refs")
+    }
+
     /// A claim carries permissions only while it is `asserted` or `admitted`. The registered
     /// contract already empties `permitted_uses` in every other state, so this is the reason a
     /// reader can state rather than a second enforcement of the same rule.

@@ -212,7 +212,8 @@ fn contract_tenant_ref(owner_ref: &str) -> String {
 }
 
 /// The owner schemes the two definition contracts and the run contract admit, verbatim.
-const CONTRACT_OWNER_SCHEMES: &[&str] = &["org://", "user://", "system://", "project://", "domain://"];
+const CONTRACT_OWNER_SCHEMES: &[&str] =
+    &["org://", "user://", "system://", "project://", "domain://"];
 
 fn contract_owner_ref(owner_ref: &str) -> Result<(), Reply> {
     if CONTRACT_OWNER_SCHEMES
@@ -317,8 +318,12 @@ fn project_admitted(spec: &FamilySpec, entry: &ExactProjection) -> Result<Admitt
             spec.code_prefix
         ));
     }
-    validate_architecture_contract(spec.contract_id, &record)
-        .map_err(|reason| format!("projected {} is not registered-valid: {reason}", spec.code_prefix))?;
+    validate_architecture_contract(spec.contract_id, &record).map_err(|reason| {
+        format!(
+            "projected {} is not registered-valid: {reason}",
+            spec.code_prefix
+        )
+    })?;
     let tail = stream_tail(spec.resource_kind, entry_resource(payload));
     let admission = json!({
         "owner_namespace": spec.owner_namespace,
@@ -416,7 +421,10 @@ static PROJECTION_CACHE: OnceLock<Mutex<BTreeMap<String, (String, usize)>>> = On
 /// answer is also consistent with a cache that was never dropped, which would prove nothing.
 fn projection_cache_state(key: &str, stream: &[AdmittedRecord]) -> &'static str {
     let observed = (
-        stream.last().map(|last| last.head.clone()).unwrap_or_default(),
+        stream
+            .last()
+            .map(|last| last.head.clone())
+            .unwrap_or_default(),
         stream.len(),
     );
     let Ok(mut cache) = PROJECTION_CACHE
@@ -706,7 +714,10 @@ fn finish_admission(
     if let Err(reason) = validate_architecture_contract(spec.contract_id, &record) {
         return refuse(
             &spec.code("not_registered_valid"),
-            format!("this admission does not satisfy {}: {reason}", spec.contract_id),
+            format!(
+                "this admission does not satisfy {}: {reason}",
+                spec.contract_id
+            ),
         );
     }
     let payload = json!({
@@ -799,7 +810,6 @@ impl V1Custody {
             _ => Value::Null,
         }
     }
-
 }
 
 #[derive(serde::Deserialize)]
@@ -1342,7 +1352,9 @@ fn canonical_field_mappings(body: &Value) -> Result<Value, Reply> {
         if !targets.insert(target.to_owned()) {
             return Err(refuse(
                 "connector_mapping_target_property_targeted_twice",
-                format!("'{target}' is targeted by more than one binding; one property has one source"),
+                format!(
+                    "'{target}' is targeted by more than one binding; one property has one source"
+                ),
             ));
         }
         canonical.push(json!({
@@ -1537,7 +1549,15 @@ pub(crate) async fn handle_connector_mapping_admit(
     // REPLAY BEFORE PRECONDITIONS. A retry after an ambiguous response necessarily observes a newer
     // head than the one it originally compare-and-swapped against, so checking `expected_head`
     // first would turn every real duplicate into a conflict and make the idempotency key unusable.
-    match replay_for_key(&CMAP, &st, &caller, &scope, &resource, &stream, "connector_mapping") {
+    match replay_for_key(
+        &CMAP,
+        &st,
+        &caller,
+        &scope,
+        &resource,
+        &stream,
+        "connector_mapping",
+    ) {
         Ok(Some(reply)) => return reply,
         Ok(None) => {}
         Err(response) => return response,
@@ -1684,7 +1704,10 @@ pub(crate) async fn handle_connector_mapping_admit(
     }
 
     // The snapshot covers EXACTLY canon's own list for this family, in the invariant's own order.
-    let mut components = vec![source_schema_ref.clone(), resolved_ontology.ontology_id.clone()];
+    let mut components = vec![
+        source_schema_ref.clone(),
+        resolved_ontology.ontology_id.clone(),
+    ];
     if let Some(policy) = redaction_policy_ref.as_str() {
         components.push(policy.to_owned());
     }
@@ -1783,7 +1806,14 @@ pub(crate) async fn handle_connector_mapping_query(
     headers: HeaderMap,
     Query(query): Query<StreamQuery>,
 ) -> Reply {
-    family_query(&CMAP, "connector_mappings", "mapping://", st, &headers, query)
+    family_query(
+        &CMAP,
+        "connector_mappings",
+        "mapping://",
+        st,
+        &headers,
+        query,
+    )
 }
 
 // ============================================================ DataRecipe v2 — the definition half
@@ -1838,7 +1868,14 @@ const RECIPE_V1_CONTRACT: &str = "schema://ioi/foundations/objects/data-recipe/v
 const REFUSED_GENERIC_RECIPE_SCHEME: &str = "recipe://";
 const INPUT_SOURCE_TYPES: &[&str] = &["connector", "document", "trace", "dataset", "artifact"];
 const TRANSFORMATION_STEPS: &[&str] = &[
-    "extract", "redact", "normalize", "dedupe", "validate", "map", "link", "export",
+    "extract",
+    "redact",
+    "normalize",
+    "dedupe",
+    "validate",
+    "map",
+    "link",
+    "export",
 ];
 const RECEIPT_OBLIGATIONS: &[&str] = &[
     "data_recipe_run",
@@ -1944,7 +1981,10 @@ pub(crate) fn resolve_admitted_data_recipe(
         revision_ref: field("revision_ref"),
         data_recipe_id: field("data_recipe_id"),
         content_hash: field("content_hash"),
-        family_head: stream.last().map(|last| last.head.clone()).unwrap_or_default(),
+        family_head: stream
+            .last()
+            .map(|last| last.head.clone())
+            .unwrap_or_default(),
         snapshot_ref: field("semantic_component_set_snapshot_ref"),
         set_hash: field("semantic_component_set_hash"),
         connector_mapping_revision_refs: ref_vec(&entry.record, "connector_mapping_revision_refs"),
@@ -1952,6 +1992,107 @@ pub(crate) fn resolve_admitted_data_recipe(
         policy_bound_data_view_refs: ref_vec(&entry.record, "policy_bound_data_view_refs"),
         registry_status: field("registry_status"),
     })
+}
+
+/// One admitted TransformationRun, reduced to what a consumer needs to BIND it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedTransformationRun {
+    pub(crate) transformation_run_id: String,
+    pub(crate) content_hash: String,
+    pub(crate) data_recipe_family_ref: String,
+    pub(crate) family_head: String,
+    pub(crate) execution_status: String,
+    pub(crate) output_object_refs: Vec<String>,
+    pub(crate) output_dataset_refs: Vec<String>,
+}
+
+impl ResolvedTransformationRun {
+    /// A run's outputs are bindable only once the run actually completed. A queued, running, failed
+    /// or rejected run produced nothing a projection could be over, so treating it as a source would
+    /// bind a projection to material that does not exist.
+    pub(crate) fn is_completed(&self) -> bool {
+        self.execution_status == "completed"
+    }
+}
+
+/// Resolve one EXACT admitted TransformationRun for a caller entitled to see it.
+///
+/// THE THIRD OWNER SEAM OF THIS MODULE, and the one M05.8 was missing. A `TransformationRun` is the
+/// object that PRODUCED the ontology-bound material a policy-bound view projects over, so a view
+/// binding produced material had nothing to resolve it through: `resolve_admitted_connector_mapping`
+/// and `resolve_admitted_data_recipe` answer for the shape and the definition, and neither answers
+/// for the execution. Written here, beside its two siblings, for the reason the ontology seam records
+/// in its own header — each consumer writing its own reader is how a family acquires a second
+/// interpretation of its own truth.
+///
+/// LOOKED UP BY RUN ID ACROSS THE CALLER'S OWN FAMILIES. A run lives on its DataRecipe family's
+/// stream, but a consumer binding a source names only `transform://trun_…`, so this walks the recipe
+/// families this caller is already authorized on and returns the one that holds it. Families the
+/// caller has no scope on are never opened, so this cannot be used as an existence oracle for another
+/// principal's lineage: an unauthorized run and a never-existed run return the same typed absence.
+pub(crate) fn resolve_admitted_transformation_run(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    transformation_run_id: &str,
+) -> Result<ResolvedTransformationRun, Reply> {
+    // The registered identity, checked here rather than repaired: `transform://trun_<32 lowercase
+    // hex>`. A spelling that needs normalising is refused, because two spellings resolving to one run
+    // would let a view claim it bound something other than what it bound.
+    let canonical = transformation_run_id
+        .strip_prefix("transform://trun_")
+        .is_some_and(|digest| {
+            digest.len() == 32
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        });
+    if !canonical {
+        return Err(refuse(
+            "transformation_run_id_not_exact",
+            "a transformation run is addressed as 'transform://trun_<32 lowercase hex>'; a family head, a mutable latest, or a spelling that needs normalising is refused rather than repaired",
+        ));
+    }
+    let families = authorized_request_resource_refs(data_dir, identity, RUN.resource_kind)
+        .map_err(scope_refusal_reply)?;
+    for resource in families {
+        let stream = match authorized_stream(&RUN, data_dir, identity, &resource) {
+            Ok(stream) => stream,
+            // A family this caller cannot currently project is skipped rather than fatal: another
+            // family may still hold the run, and surfacing one family's refusal here would leak
+            // which families exist.
+            Err(_) => continue,
+        };
+        let Some(entry) = stream.iter().find(|entry| {
+            entry.record.get("transformation_run_id") == Some(&json!(transformation_run_id))
+        }) else {
+            continue;
+        };
+        let field = |key: &str| {
+            entry
+                .record
+                .get(key)
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_owned()
+        };
+        return Ok(ResolvedTransformationRun {
+            transformation_run_id: field("transformation_run_id"),
+            content_hash: field("content_hash"),
+            data_recipe_family_ref: resource.clone(),
+            family_head: stream
+                .last()
+                .map(|last| last.head.clone())
+                .unwrap_or_default(),
+            execution_status: field("execution_status"),
+            output_object_refs: ref_vec(&entry.record, "output_object_refs"),
+            output_dataset_refs: ref_vec(&entry.record, "output_dataset_refs"),
+        });
+    }
+    Err(bad(
+        StatusCode::NOT_FOUND,
+        "transformation_run_absent",
+        "no admitted transformation run resolves to this id for this caller — an absent run and a run on a family this caller cannot see are the same typed absence, and neither reveals a coordinate",
+    ))
 }
 
 /// POST /v1/hypervisor/data-recipe-revisions — admit one immutable, content-addressed definition
@@ -2019,7 +2160,15 @@ pub(crate) async fn handle_data_recipe_admit(
         Ok(stream) => stream,
         Err(response) => return response,
     };
-    match replay_for_key(&RECIPE, &st, &caller, &scope, &resource, &stream, "data_recipe") {
+    match replay_for_key(
+        &RECIPE,
+        &st,
+        &caller,
+        &scope,
+        &resource,
+        &stream,
+        "data_recipe",
+    ) {
         Ok(Some(reply)) => return reply,
         Ok(None) => {}
         Err(response) => return response,
@@ -2036,7 +2185,10 @@ pub(crate) async fn handle_data_recipe_admit(
     // ------------------------------------------------------------------ content, checked before use
     let name = str_field(&body, "name").to_owned();
     if name.is_empty() || name.len() > 200 {
-        return refuse("data_recipe_body_invalid", "a recipe revision declares a name");
+        return refuse(
+            "data_recipe_body_invalid",
+            "a recipe revision declares a name",
+        );
     }
     let ontology_refs = match string_list(&body, "ontology_revision_refs", 64) {
         Ok(refs) => refs,
@@ -2061,11 +2213,11 @@ pub(crate) async fn handle_data_recipe_admit(
             Err(response) => return response,
         }
     }
-    let input_source_types =
-        match enum_list(&body, "input_source_types", INPUT_SOURCE_TYPES, 1, 5) {
-            Ok(items) => items,
-            Err(response) => return response,
-        };
+    let input_source_types = match enum_list(&body, "input_source_types", INPUT_SOURCE_TYPES, 1, 5)
+    {
+        Ok(items) => items,
+        Err(response) => return response,
+    };
     let mapping_refs = match string_list(&body, "connector_mapping_revision_refs", 64) {
         Ok(refs) => refs,
         Err(response) => return response,
@@ -2083,11 +2235,11 @@ pub(crate) async fn handle_data_recipe_admit(
         Ok(refs) => refs,
         Err(response) => return response,
     };
-    let output_dataset_contract_refs =
-        match string_list(&body, "output_dataset_contract_refs", 128) {
-            Ok(refs) => refs,
-            Err(response) => return response,
-        };
+    let output_dataset_contract_refs = match string_list(&body, "output_dataset_contract_refs", 128)
+    {
+        Ok(refs) => refs,
+        Err(response) => return response,
+    };
     let transformation_steps =
         match enum_list(&body, "transformation_steps", TRANSFORMATION_STEPS, 1, 8) {
             Ok(items) => items,
@@ -2102,8 +2254,12 @@ pub(crate) async fn handle_data_recipe_admit(
             Ok(items) => items,
             Err(response) => return response,
         };
-    if !receipt_obligations.iter().any(|item| item == "data_recipe_run")
-        || !receipt_obligations.iter().any(|item| item == "transformation")
+    if !receipt_obligations
+        .iter()
+        .any(|item| item == "data_recipe_run")
+        || !receipt_obligations
+            .iter()
+            .any(|item| item == "transformation")
     {
         return refuse(
             "data_recipe_receipt_obligations_incomplete",
@@ -2175,17 +2331,11 @@ pub(crate) async fn handle_data_recipe_admit(
             Err(reason) => return refuse("data_recipe_semantic_snapshot_invalid", reason),
         };
 
-    let (migration, custody) = match converge_v1(
-        V1Family::DataRecipe,
-        &st,
-        &caller,
-        &body,
-        &[],
-        &[],
-    ) {
-        Ok(resolved) => resolved,
-        Err(response) => return response,
-    };
+    let (migration, custody) =
+        match converge_v1(V1Family::DataRecipe, &st, &caller, &body, &[], &[]) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
 
     let recorded_at_ms = now_ms();
     let record = json!({
@@ -2256,7 +2406,14 @@ pub(crate) async fn handle_data_recipe_query(
     headers: HeaderMap,
     Query(query): Query<StreamQuery>,
 ) -> Reply {
-    family_query(&RECIPE, "data_recipes", "data-recipe://", st, &headers, query)
+    family_query(
+        &RECIPE,
+        "data_recipes",
+        "data-recipe://",
+        st,
+        &headers,
+        query,
+    )
 }
 
 // ======================================================== TransformationRun v2 — one execution
@@ -2326,8 +2483,11 @@ const OUTPUT_INTENTS: &[&str] = &[
 /// The three intents that FEED LEARNING, and therefore oblige the boundary profile and the composed
 /// effective-policy hash. The nullability of those two fields exists for the other three intents
 /// and is not a way to skip the boundary on these.
-const LEARNING_BEARING_INTENTS: &[&str] =
-    &["evaluation_dataset", "training_material", "distilled_dataset"];
+const LEARNING_BEARING_INTENTS: &[&str] = &[
+    "evaluation_dataset",
+    "training_material",
+    "distilled_dataset",
+];
 const EXECUTION_STATUSES: &[&str] = &["queued", "running", "completed", "failed", "rejected"];
 /// v1's four lifecycle words. They are members of NO v2 vocabulary and are not translated into one.
 const RUN_V1_LIFECYCLE_WORDS: &[&str] = &["planned", "dry_run_ready", "blocked", "cancelled"];
@@ -2416,7 +2576,10 @@ pub(crate) async fn handle_transformation_run_admit(
         Ok(recipe) => recipe,
         Err(response) => return response,
     };
-    if let Some(asserted) = body.get("expected_data_recipe_content_hash").and_then(Value::as_str) {
+    if let Some(asserted) = body
+        .get("expected_data_recipe_content_hash")
+        .and_then(Value::as_str)
+    {
         if asserted != recipe.content_hash {
             return refuse(
                 "transformation_run_recipe_content_hash_substituted",
@@ -2436,11 +2599,11 @@ pub(crate) async fn handle_transformation_run_admit(
             )
         }
     };
-    let mut resolved_mappings = match string_list(&body, "resolved_connector_mapping_revision_refs", 64)
-    {
-        Ok(refs) => refs,
-        Err(response) => return response,
-    };
+    let mut resolved_mappings =
+        match string_list(&body, "resolved_connector_mapping_revision_refs", 64) {
+            Ok(refs) => refs,
+            Err(response) => return response,
+        };
     if mode == "current_head" {
         if !resolved_mappings.is_empty() {
             return refuse(
@@ -2487,7 +2650,8 @@ pub(crate) async fn handle_transformation_run_admit(
     let mut tail_components = recipe.policy_bound_data_view_refs.clone();
     // The recipe's committed set also covers its output contracts; the run re-derives the same set
     // by asking the recipe for its own snapshot rather than guessing the middle members.
-    let resolved_set_hash = if mode == "current_head" && resolved_mappings != recipe.connector_mapping_revision_refs
+    let resolved_set_hash = if mode == "current_head"
+        && resolved_mappings != recipe.connector_mapping_revision_refs
     {
         // Unreachable while the substitution rule above holds; kept so the drift path has its own
         // computed answer rather than inheriting the committed one by construction.
@@ -2803,7 +2967,9 @@ pub(crate) async fn handle_transformation_run_query(
         return match authorized_request_resource_refs(&st.data_dir, &identity, RUN.resource_kind) {
             Ok(refs) => (
                 StatusCode::OK,
-                Json(json!({ "ok": true, "recipe_families": refs.into_iter().collect::<Vec<_>>() })),
+                Json(
+                    json!({ "ok": true, "recipe_families": refs.into_iter().collect::<Vec<_>>() }),
+                ),
             ),
             Err(error) => scope_refusal_reply(error),
         };
@@ -2901,8 +3067,14 @@ mod tests {
     #[test]
     fn content_commitments_agree_with_the_registered_corpus() {
         for (spec, path) in [
-            (&RECIPE, "data-recipe-v2/positive-genesis-authored-at-v2.json"),
-            (&CMAP, "connector-mapping-v2/positive-successor-converged-from-v1.json"),
+            (
+                &RECIPE,
+                "data-recipe-v2/positive-genesis-authored-at-v2.json",
+            ),
+            (
+                &CMAP,
+                "connector-mapping-v2/positive-successor-converged-from-v1.json",
+            ),
             (
                 &RUN,
                 "transformation-run-v2/positive-completed-run-freezes-the-recipe-tuple.json",
@@ -2927,8 +3099,14 @@ mod tests {
     #[test]
     fn registered_positives_validate_against_their_contracts() {
         for (spec, path) in [
-            (&RECIPE, "data-recipe-v2/positive-successor-converged-from-v1.json"),
-            (&CMAP, "connector-mapping-v2/positive-genesis-authored-at-v2.json"),
+            (
+                &RECIPE,
+                "data-recipe-v2/positive-successor-converged-from-v1.json",
+            ),
+            (
+                &CMAP,
+                "connector-mapping-v2/positive-genesis-authored-at-v2.json",
+            ),
             (
                 &RUN,
                 "transformation-run-v2/positive-rejected-run-converged-from-v1.json",
@@ -2949,10 +3127,10 @@ mod tests {
             Some(("acme.intake".to_owned(), 7))
         );
         for refused in [
-            "data-recipe://acme.intake",            // family head
-            "data-recipe://acme.intake/revision/0", // zero
-            "data-recipe://acme.intake/revision/07", // zero-padded: one revision, one spelling
-            "data-recipe://acme.intake/revision/7/", // trailing segment
+            "data-recipe://acme.intake",                // family head
+            "data-recipe://acme.intake/revision/0",     // zero
+            "data-recipe://acme.intake/revision/07",    // zero-padded: one revision, one spelling
+            "data-recipe://acme.intake/revision/7/",    // trailing segment
             "data-recipe://acme.intake/revision/7?x=1", // query tail
             "data-recipe://acme.intake/revision/-1",
             "data-recipe://ACME.intake/revision/7", // non-canonical family token
@@ -2985,7 +3163,10 @@ mod tests {
     /// something.
     #[test]
     fn the_semantic_snapshot_commits_its_exact_members() {
-        let base = ["ontology://a/b/revision/1".to_owned(), "mapping://m/revision/2".to_owned()];
+        let base = [
+            "ontology://a/b/revision/1".to_owned(),
+            "mapping://m/revision/2".to_owned(),
+        ];
         let (hash, refs, count) = semantic_snapshot("artifact://s/1", &base).expect("snapshot");
         assert_eq!(count, 2);
         assert_eq!(refs.len(), 2);

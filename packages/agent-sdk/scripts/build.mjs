@@ -19,6 +19,7 @@ const packageEntryPoints = [
   "src/workbench-integration.ts",
   "src/options.ts",
   "src/errors.ts",
+  "src/policy-bound-data-view.ts",
   "src/substrate-client.ts",
   "src/testing.ts",
 ].map((entry) => path.join(root, entry));

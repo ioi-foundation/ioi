@@ -36,6 +36,15 @@ export {
 } from "./workbench-integration.js";
 export { createRuntimeSubstrateClient, runtimeThreadEventFromEnvelope } from "./substrate-client.js";
 export {
+  PolicyBoundDataViewClient,
+  PolicyBoundDataViewRefusal,
+  createPolicyBoundDataViewClient,
+} from "./policy-bound-data-view.js";
+export type {
+  PolicyBoundDataViewClientOptions,
+  PolicyBoundDataViewQueryInput,
+} from "./policy-bound-data-view.js";
+export {
   RUNTIME_APPROVAL_MODES,
   RUNTIME_EVENT_SOURCES,
   RUNTIME_ITEM_ACTORS,

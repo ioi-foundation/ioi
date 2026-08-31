@@ -18,6 +18,7 @@ pub mod models;
 pub mod node;
 pub mod pii;
 pub mod policy;
+pub mod policy_bound_data_view;
 pub mod query;
 pub mod receipts;
 pub mod routes;

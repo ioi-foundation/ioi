@@ -101,6 +101,11 @@ enum Commands {
     /// Policy management tools.
     Policy(policy::PolicyArgs),
 
+    /// Admit, query, and materialize PolicyBoundDataView revisions through the daemon owner route.
+    /// A thin pass-through: the daemon makes every decision and its typed refusals print unchanged.
+    #[clap(name = "policy-bound-data-view")]
+    PolicyBoundDataView(policy_bound_data_view::PolicyBoundDataViewArgs),
+
     /// Manage and inspect configured MCP servers.
     Mcp(mcp::McpArgs),
 
@@ -169,6 +174,8 @@ async fn main() -> Result<()> {
 
         // --- Policy ---
         Commands::Policy(args) => policy::run(args).await,
+
+        Commands::PolicyBoundDataView(args) => policy_bound_data_view::run(args).await,
 
         // --- MCP ---
         Commands::Mcp(args) => mcp::run(args).await,
