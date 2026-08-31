@@ -2006,6 +2006,17 @@ mod tests {
             .unwrap_or_else(|error| panic!("fixture {} is JSON: {error}", path.display()))
     }
 
+    /// Load one registered successor fixture without reinterpreting the predecessor corpus.
+    fn registered_successor_fixture(name: &str) -> Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2")
+            .join(format!("{name}.json"));
+        let bytes = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("fixture {} is readable: {error}", path.display()));
+        serde_json::from_str(&bytes)
+            .unwrap_or_else(|error| panic!("fixture {} is JSON: {error}", path.display()))
+    }
+
     /// EVERY REGISTERED FIXTURE, THROUGH THE GENERATED RUST PROJECTION.
     ///
     /// This exists because `npm run check:architecture-contracts` does NOT validate fixtures — it
@@ -2023,9 +2034,9 @@ mod tests {
         ] {
             let document = registered_fixture(name);
             assert!(
-                validate_architecture_contract(CONTRACT_ID, &document).is_ok(),
-                "positive fixture {name} must be registered-valid: {:?}",
-                validate_architecture_contract(CONTRACT_ID, &document),
+                validate_architecture_contract(PREDECESSOR_CONTRACT_ID, &document).is_ok(),
+                "positive predecessor fixture {name} must remain registered-valid: {:?}",
+                validate_architecture_contract(PREDECESSOR_CONTRACT_ID, &document),
             );
         }
         for name in [
@@ -2046,8 +2057,43 @@ mod tests {
         ] {
             let document = registered_fixture(name);
             assert!(
+                validate_architecture_contract(PREDECESSOR_CONTRACT_ID, &document).is_err(),
+                "negative predecessor fixture {name} must be refused by its registered contract",
+            );
+        }
+
+        for name in [
+            "positive-adjudication-without-a-named-challenge",
+            "positive-genesis-attested-preserves-v1-semantics",
+            "positive-rejected-challenge-resolution-is-retained",
+            "positive-upheld-challenge-resolution",
+        ] {
+            let document = registered_successor_fixture(name);
+            assert!(
+                validate_architecture_contract(CONTRACT_ID, &document).is_ok(),
+                "positive successor fixture {name} must be registered-valid: {:?}",
+                validate_architecture_contract(CONTRACT_ID, &document),
+            );
+        }
+        for name in [
+            "negative-content-hash-omits-the-challenge-resolution",
+            "negative-rejected-challenge-reported-as-negative",
+            "negative-resolution-challenge-ref-is-not-a-challenge",
+            "negative-resolution-names-another-revisions-bytes",
+            "negative-resolution-names-another-subject",
+            "negative-resolution-omits-its-resolver-seam",
+            "negative-resolution-outside-adjudication",
+            "negative-resolution-with-no-reviewer",
+            "negative-successor-contract-ref-substituted",
+            "negative-upheld-challenge-reported-as-positive",
+            "negative-v1-challenge-envelope-in-the-resolution",
+            "negative-v1-receipt-profile-on-v2",
+            "negative-v1-schema-version-on-v2",
+        ] {
+            let document = registered_successor_fixture(name);
+            assert!(
                 validate_architecture_contract(CONTRACT_ID, &document).is_err(),
-                "negative fixture {name} must be refused by the registered contract",
+                "negative successor fixture {name} must be refused by its registered contract",
             );
         }
     }
@@ -2247,7 +2293,8 @@ mod tests {
     /// lives here instead of being claimed there.
     #[test]
     fn subject_hash_echo_rule_fires_on_its_own_finding() {
-        let mut document = registered_fixture("positive-genesis-attested");
+        let mut document =
+            registered_successor_fixture("positive-genesis-attested-preserves-v1-semantics");
         let echoed = document["content_hash"].clone();
         document["subject_content_hash"] = echoed;
         let error = validate_architecture_contract(CONTRACT_ID, &document)
