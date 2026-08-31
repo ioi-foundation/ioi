@@ -71,13 +71,49 @@ const OWNER_NAMESPACE: &str = "hypervisor-assurance-transitions";
 const RESOURCE_KIND: &str = "assurance-transition-subject";
 const ADMIT_OP: &str = "assurance_transition.stage.admit";
 const ADMISSION_PAYLOAD_SCHEMA: &str = "ioi.hypervisor.assurance-transition-admission.v1";
-const CONTRACT_ID: &str = "schema://ioi/foundations/assurance-transition-receipt/v1";
-const CONTENT_COMMITMENT_DOMAIN: &str = "ioi.assurance-transition-content-commitment-jcs-sha256.v1";
+/// THE CONTRACT THIS BUILD EMITS. v1 remains registered, remains valid, and remains READABLE off the
+/// chain below: a frame written before this build is projected and validated AS v1, never coerced
+/// into v2. Emitting v2 is a forward choice; reinterpreting v1 would be a rewrite of history.
+const CONTRACT_ID: &str = "schema://ioi/foundations/assurance-transition-receipt/v2";
+const PREDECESSOR_CONTRACT_ID: &str = "schema://ioi/foundations/assurance-transition-receipt/v1";
+const CONTENT_COMMITMENT_DOMAIN: &str = "ioi.assurance-transition-content-commitment-jcs-sha256.v2";
+const PREDECESSOR_COMMITMENT_DOMAIN: &str =
+    "ioi.assurance-transition-content-commitment-jcs-sha256.v1";
 /// The exact wire contract this build implements. A caller naming any other version is refused, not
 /// downgraded — see the first gate in `validate_proposal`.
-const SCHEMA_VERSION: &str = "ioi.assurance-transition-receipt.v1";
+const SCHEMA_VERSION: &str = "ioi.assurance-transition-receipt.v2";
+const PREDECESSOR_SCHEMA_VERSION: &str = "ioi.assurance-transition-receipt.v1";
 const RECEIPT_TYPE: &str = "assurance_transition";
-const RECEIPT_PROFILE_REF: &str = "schema://ioi/foundations/assurance-transition-receipt/v1";
+const RECEIPT_PROFILE_REF: &str = "schema://ioi/foundations/assurance-transition-receipt/v2";
+/// The exact registered challenge contract a resolution may cite. v1 cannot address a semantic-plane
+/// subject at all, so it is refused by name rather than downgraded into.
+const CHALLENGE_CONTRACT: &str = "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
+const CHALLENGE_RESOLVER: &str =
+    "assurance_transition_routes::resolve_challenge_resolution_receipt";
+const ADJUDICATED_STAGE: &str = "adjudicated";
+const RESOLUTIONS: &[&str] = &["upheld", "rejected"];
+const REVIEW_DECISIONS: &[&str] = &["upheld", "rejected", "abstained"];
+const UPHELD_OUTCOMES: &[&str] = &["negative", "invalid", "exploit", "disputed"];
+const REJECTED_OUTCOMES: &[&str] = &["positive", "no_fault", "inconclusive"];
+const MAX_REVIEWERS: usize = 32;
+/// The registered `principalRef` scheme set, transcribed from the contract this module emits. Only
+/// the resolution block needs it: `actor_ref` is taken from the authenticated identity and is never
+/// a field a request authors.
+const PRINCIPAL_SCHEMES: &[&str] = &[
+    "system://",
+    "user://",
+    "wallet://",
+    "org://",
+    "project://",
+    "domain://",
+    "worker://",
+    "agent://",
+    "service://",
+    "provider://",
+    "policy://",
+    "governance://",
+    "runtime://",
+];
 const AUTHORITY_NONCLAIM: &str = "assurance_transition_grants_no_authority";
 const VERDICT_NONCLAIM: &str = "assurance_transition_is_not_a_verdict";
 
@@ -341,6 +377,29 @@ const CONTENT_MATERIAL_FIELDS: &[&str] = &[
     "expected_predecessor_transition_ref",
     "expected_predecessor_transition_hash",
     "valid_time",
+    "challenge_resolution",
+];
+
+/// v1's material, unchanged. Kept so a v1 frame on the chain is re-derived with the SAME commitment
+/// it was written under: re-hashing an old record with v2's material would report every v1 frame as
+/// tampered, which is reinterpretation by another name.
+const PREDECESSOR_CONTENT_MATERIAL_FIELDS: &[&str] = &[
+    "transition_id",
+    "subject_ref",
+    "subject_family",
+    "subject_content_hash",
+    "subject_resolved_by",
+    "from_stage",
+    "to_stage",
+    "to_stage_ordinal",
+    "transition_ordinal",
+    "outcome_class",
+    "actor_ref",
+    "evidence_refs",
+    "does_not_assert",
+    "expected_predecessor_transition_ref",
+    "expected_predecessor_transition_hash",
+    "valid_time",
 ];
 
 fn digest_over(record: &Value, domain: &str, fields: &[&str]) -> Result<String, String> {
@@ -359,6 +418,18 @@ fn digest_over(record: &Value, domain: &str, fields: &[&str]) -> Result<String, 
 
 fn content_hash(record: &Value) -> Result<String, String> {
     digest_over(record, CONTENT_COMMITMENT_DOMAIN, CONTENT_MATERIAL_FIELDS)
+}
+
+/// Re-derive one admitted record's hash under the commitment ITS OWN version declared.
+fn content_hash_for_version(record: &Value, schema_version: &str) -> Result<String, String> {
+    if schema_version == PREDECESSOR_SCHEMA_VERSION {
+        return digest_over(
+            record,
+            PREDECESSOR_COMMITMENT_DOMAIN,
+            PREDECESSOR_CONTENT_MATERIAL_FIELDS,
+        );
+    }
+    content_hash(record)
 }
 
 fn parse_time(value: &str) -> Option<u64> {
@@ -417,6 +488,9 @@ fn str_field<'a>(body: &'a Value, key: &str) -> &'a str {
 /// authored about the system's own state — that distinction is INV-37, and it is why `actor_ref`,
 /// the stages, the ordinals and every hash are absent from this struct.
 struct ProposedTransition {
+    /// `Value::Null` on an ordinary ladder step; a validated resolution object when this transition
+    /// adjudicates a named challenge.
+    challenge_resolution: Value,
     subject_ref: String,
     outcome_class: String,
     evidence_refs: Value,
@@ -532,6 +606,229 @@ fn validate_assertion_types(body: &Value) -> Result<(), Reply> {
         }
     }
     Ok(())
+}
+
+/// Validate the optional challenge-resolution block, or refuse it.
+///
+/// WHAT THIS BLOCK IS FOR. A challenge against a semantic-plane subject is resolved by ADJUDICATION,
+/// and "adjudicated" is a rung of the canonical ladder. v1 could carry the stage but not the fact:
+/// its `evidence_refs` grammar admits only `evidence|assurance-evidence|artifact|receipt`, so the
+/// exact `verifier-challenge://` identity being resolved was unrepresentable, and it had no typed
+/// resolution or adjudicator lineage. v2 adds exactly that and nothing else.
+///
+/// THE SUBJECT IS NOT TAKEN FROM HERE. `challenged_subject_ref` and `challenged_subject_content_hash`
+/// are RE-STATED by the caller and then overwritten below with the values this transition's own
+/// owner-resolved subject already carries, so the two can never disagree; the registered invariants
+/// then pin that agreement portably. A caller that asserts a different subject is refused by name
+/// rather than silently corrected.
+fn validate_challenge_resolution(body: &Value, to_stage: &str) -> Result<Value, Reply> {
+    let block = match body.get("challenge_resolution") {
+        None | Some(Value::Null) => return Ok(Value::Null),
+        Some(Value::Object(_)) => body
+            .get("challenge_resolution")
+            .cloned()
+            .unwrap_or(Value::Null),
+        Some(_) => {
+            return Err(refuse(
+                "assurance_transition_challenge_resolution_malformed",
+                "challenge_resolution must be an object or null",
+            ))
+        }
+    };
+    if to_stage != ADJUDICATED_STAGE {
+        return Err(refuse(
+            "assurance_transition_challenge_resolution_outside_adjudication",
+            format!(
+                "a challenge resolution IS an adjudication; this transition advances to '{to_stage}', and 'resolved' is not claimable at another rung of the ladder"
+            ),
+        ));
+    }
+    let permitted = [
+        "verifier_challenge_id",
+        "challenged_subject_ref",
+        "challenged_subject_content_hash",
+        "resolution",
+        "adjudicator_ref",
+        "adjudicator_policy_ref",
+        "reviewer_lineage",
+        "challenge_contract_ref",
+        "challenge_resolved_by",
+    ];
+    let Some(object) = block.as_object() else {
+        return Err(refuse(
+            "assurance_transition_challenge_resolution_malformed",
+            "challenge_resolution must be an object",
+        ));
+    };
+    if let Some(unknown) = object.keys().find(|key| !permitted.contains(&key.as_str())) {
+        return Err(refuse(
+            "assurance_transition_challenge_resolution_unknown_field",
+            format!(
+                "challenge_resolution carries '{unknown}', which the registered contract does not define"
+            ),
+        ));
+    }
+    let field = |key: &str| {
+        block
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_owned()
+    };
+    let challenge_id = field("verifier_challenge_id");
+    if !challenge_id.starts_with("verifier-challenge://")
+        || challenge_id.len() > 480
+        || challenge_id
+            .bytes()
+            .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control() || !byte.is_ascii())
+    {
+        return Err(refuse(
+            "assurance_transition_challenge_id_not_canonical",
+            "verifier_challenge_id must be an exact 'verifier-challenge://' identity",
+        ));
+    }
+    let resolution = field("resolution");
+    if !RESOLUTIONS.contains(&resolution.as_str()) {
+        return Err(refuse(
+            "assurance_transition_challenge_resolution_unknown",
+            format!("resolution must be one of {RESOLUTIONS:?}"),
+        ));
+    }
+    // AN UPHELD CHALLENGE IS NOT A CLEAN PASS. Coupling the typed resolution to the subject's own
+    // outcome class is what stops a sustained finding being recorded as a positive step.
+    let outcome_class = str_field(body, "outcome_class");
+    let permitted_outcomes = if resolution == "upheld" {
+        UPHELD_OUTCOMES
+    } else {
+        REJECTED_OUTCOMES
+    };
+    if !permitted_outcomes.contains(&outcome_class) {
+        return Err(refuse(
+            "assurance_transition_resolution_outcome_disagreement",
+            format!(
+                "a '{resolution}' challenge resolution cannot carry outcome_class '{outcome_class}'; permitted here: {permitted_outcomes:?}"
+            ),
+        ));
+    }
+    let adjudicator_ref = field("adjudicator_ref");
+    if !PRINCIPAL_SCHEMES
+        .iter()
+        .any(|scheme| adjudicator_ref.starts_with(scheme))
+    {
+        return Err(refuse(
+            "assurance_transition_adjudicator_not_canonical",
+            "adjudicator_ref must be a canonical principal ref",
+        ));
+    }
+    let policy_ref = field("adjudicator_policy_ref");
+    if !policy_ref.starts_with("policy://") || policy_ref.len() > 480 {
+        return Err(refuse(
+            "assurance_transition_adjudicator_policy_not_canonical",
+            "adjudicator_policy_ref must be a 'policy://' ref",
+        ));
+    }
+    let declared_contract = field("challenge_contract_ref");
+    if !declared_contract.is_empty() && declared_contract != CHALLENGE_CONTRACT {
+        return Err(refuse(
+            "assurance_transition_challenge_contract_unsupported",
+            format!(
+                "a resolution cites {CHALLENGE_CONTRACT}; '{declared_contract}' is refused rather than downgraded into, because the v1 challenged_ref pattern cannot address a semantic-plane subject at all"
+            ),
+        ));
+    }
+    let rows = block
+        .get("reviewer_lineage")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if rows.is_empty() || rows.len() > MAX_REVIEWERS {
+        return Err(refuse(
+            "assurance_transition_resolution_reviewer_required",
+            "a resolution names at least one reviewer and at most 32; an unreviewed adjudication is a verdict nobody stands behind",
+        ));
+    }
+    let mut seen: Vec<String> = Vec::with_capacity(rows.len());
+    let mut lineage = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let Some(entry) = row.as_object() else {
+            return Err(refuse(
+                "assurance_transition_resolution_reviewer_malformed",
+                "each reviewer_lineage entry is {reviewer_ref,reviewed_at,review_decision}",
+            ));
+        };
+        if entry.len() != 3
+            || !entry.contains_key("reviewer_ref")
+            || !entry.contains_key("reviewed_at")
+            || !entry.contains_key("review_decision")
+        {
+            return Err(refuse(
+                "assurance_transition_resolution_reviewer_malformed",
+                "each reviewer_lineage entry is exactly {reviewer_ref,reviewed_at,review_decision}",
+            ));
+        }
+        let reviewer_ref = row
+            .get("reviewer_ref")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let reviewed_at = row
+            .get("reviewed_at")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let decision = row
+            .get("review_decision")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        if !PRINCIPAL_SCHEMES
+            .iter()
+            .any(|scheme| reviewer_ref.starts_with(scheme))
+        {
+            return Err(refuse(
+                "assurance_transition_resolution_reviewer_not_canonical",
+                "reviewer_ref must be a canonical principal ref",
+            ));
+        }
+        if parse_time(&reviewed_at).is_none() {
+            return Err(refuse(
+                "assurance_transition_resolution_review_time_not_canonical",
+                "reviewed_at must be an RFC3339 instant",
+            ));
+        }
+        if !REVIEW_DECISIONS.contains(&decision.as_str()) {
+            return Err(refuse(
+                "assurance_transition_resolution_review_decision_unknown",
+                format!("review_decision must be one of {REVIEW_DECISIONS:?}"),
+            ));
+        }
+        if seen.iter().any(|previous| previous == &reviewer_ref) {
+            return Err(refuse(
+                "assurance_transition_resolution_reviewer_counted_twice",
+                format!("'{reviewer_ref}' already appears in this resolution's lineage"),
+            ));
+        }
+        seen.push(reviewer_ref.clone());
+        lineage.push(json!({
+            "reviewer_ref": reviewer_ref,
+            "reviewed_at": reviewed_at,
+            "review_decision": decision,
+        }));
+    }
+    // REBUILT, not forwarded. The subject fields are filled in by the caller of this function from
+    // the owner-resolved subject, so nothing the request sent about the subject reaches the chain.
+    Ok(json!({
+        "verifier_challenge_id": challenge_id,
+        "challenged_subject_ref": Value::Null,
+        "challenged_subject_content_hash": Value::Null,
+        "resolution": resolution,
+        "adjudicator_ref": adjudicator_ref,
+        "adjudicator_policy_ref": policy_ref,
+        "reviewer_lineage": lineage,
+        "challenge_contract_ref": CHALLENGE_CONTRACT,
+        "challenge_resolved_by": CHALLENGE_RESOLVER,
+    }))
 }
 
 fn validate_proposal(body: &Value) -> Result<ProposedTransition, Reply> {
@@ -669,6 +966,12 @@ fn validate_proposal(body: &Value) -> Result<ProposedTransition, Reply> {
         evidence_refs: json!(evidence_refs),
         does_not_assert: json!(does_not_assert),
         valid_time,
+        // Carried verbatim; it cannot be checked yet because whether this transition IS an
+        // adjudication is a fact about the subject's chain position, not about the request.
+        challenge_resolution: body
+            .get("challenge_resolution")
+            .cloned()
+            .unwrap_or(Value::Null),
     })
 }
 
@@ -689,6 +992,9 @@ const REPLAY_INTENT_FIELDS: &[&str] = &[
     "evidence_refs",
     "does_not_assert",
     "valid_time",
+    // Reusing one key to resolve a DIFFERENT challenge, or to flip upheld to rejected, is a
+    // different logical command wearing the same key.
+    "challenge_resolution",
 ];
 
 /// Compare a prior admitted transition against the intent of the request now replaying its key.
@@ -708,6 +1014,7 @@ fn replay_intent_divergence(
         "evidence_refs": proposal.evidence_refs,
         "does_not_assert": proposal.does_not_assert,
         "valid_time": proposal.valid_time,
+        "challenge_resolution": proposal.challenge_resolution,
     });
     if let Some(field) = REPLAY_INTENT_FIELDS
         .iter()
@@ -807,6 +1114,9 @@ fn replay_assertion_divergence(prior: &Value, body: &Value) -> Option<Reply> {
 
 /// One admitted transition, exactly as the chain holds it.
 struct AdmittedTransition {
+    /// The contract version this frame was WRITTEN under, carried so the projection validates each
+    /// record against its own registered contract instead of the current one.
+    version: String,
     record: Value,
     head: String,
     seq: u64,
@@ -833,22 +1143,29 @@ fn project_admitted(entry: &ExactProjection) -> Result<AdmittedTransition, Strin
         .ok_or_else(|| "assurance-transition admission carries no transition record".to_string())?;
     // THE READ SIDE REFUSES AN UNKNOWN CONTRACT VERSION TOO. A frame written by a build this one does
     // not implement is reported as unreadable rather than projected as though it were v1.
-    if record.get("schema_version").and_then(Value::as_str) != Some(SCHEMA_VERSION)
+    let version = record
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    if (version != SCHEMA_VERSION && version != PREDECESSOR_SCHEMA_VERSION)
         || record.get("receipt_type").and_then(Value::as_str) != Some(RECEIPT_TYPE)
     {
         return Err(format!(
-            "assurance-transition chain holds a record this build does not implement (expected {SCHEMA_VERSION} / {RECEIPT_TYPE})"
+            "assurance-transition chain holds a record this build does not implement (expected {SCHEMA_VERSION} or {PREDECESSOR_SCHEMA_VERSION} / {RECEIPT_TYPE})"
         ));
     }
-    // The served content hash is RE-DERIVED, never trusted: a tampered log frame cannot make this
-    // module serve bytes that do not hash to what they claim.
-    let derived = content_hash(&record)?;
+    // The served content hash is RE-DERIVED, never trusted, and re-derived under the commitment the
+    // record's OWN version declared — so an older frame is checked as what it is rather than
+    // reported as tampered for not being the current version.
+    let derived = content_hash_for_version(&record, &version)?;
     if record.get("content_hash").and_then(Value::as_str) != Some(derived.as_str()) {
         return Err(
             "assurance-transition admitted content does not match its committed hash".into(),
         );
     }
     Ok(AdmittedTransition {
+        version,
         record,
         head: entry.head.clone(),
         seq: entry.seq,
@@ -911,7 +1228,12 @@ fn contract_document(
     });
     document["authority_nonclaim"] = json!(AUTHORITY_NONCLAIM);
     document["verdict_nonclaim"] = json!(VERDICT_NONCLAIM);
-    validate_architecture_contract(CONTRACT_ID, &document).map_err(|reason| {
+    let contract = if transition.version == PREDECESSOR_SCHEMA_VERSION {
+        PREDECESSOR_CONTRACT_ID
+    } else {
+        CONTRACT_ID
+    };
+    validate_architecture_contract(contract, &document).map_err(|reason| {
         format!("projected assurance transition is not registered-valid: {reason}")
     })?;
     Ok(document)
@@ -1226,6 +1548,39 @@ pub(crate) async fn handle_assurance_transition_admit(
         );
     }
     let to_stage = STAGES[ordinal - 1];
+    // THE RESOLUTION IS CHECKED WHERE THE STAGE IS KNOWN, and its subject fields are then filled in
+    // from the OWNER-RESOLVED subject rather than from the request, so the receipt's own subject and
+    // the subject it claims to have adjudicated cannot disagree even in principle.
+    let mut challenge_resolution = match validate_challenge_resolution(&body, to_stage) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    if challenge_resolution.is_object() {
+        challenge_resolution["challenged_subject_ref"] = json!(proposal.subject_ref);
+        challenge_resolution["challenged_subject_content_hash"] = json!(subject.content_hash);
+        if let Some(asserted) = body
+            .pointer("/challenge_resolution/challenged_subject_ref")
+            .and_then(Value::as_str)
+        {
+            if asserted != proposal.subject_ref {
+                return refuse(
+                    "assurance_transition_resolution_subject_substituted",
+                    "challenged_subject_ref does not name the subject this transition is about; a resolution of a challenge against another subject is a different fact",
+                );
+            }
+        }
+        if let Some(asserted) = body
+            .pointer("/challenge_resolution/challenged_subject_content_hash")
+            .and_then(Value::as_str)
+        {
+            if asserted != subject.content_hash {
+                return refuse(
+                    "assurance_transition_resolution_subject_hash_substituted",
+                    "challenged_subject_content_hash does not match the bytes the subject owner resolved for this subject",
+                );
+            }
+        }
+    }
     let from_stage = if ordinal == 1 {
         Value::Null
     } else {
@@ -1361,6 +1716,8 @@ pub(crate) async fn handle_assurance_transition_admit(
         "valid_time": proposal.valid_time,
         "expected_predecessor_transition_ref": predecessor_ref,
         "expected_predecessor_transition_hash": predecessor_hash,
+        "predecessor_contract_ref": PREDECESSOR_CONTRACT_ID,
+        "challenge_resolution": challenge_resolution,
     });
     let derived_hash = match content_hash(&record) {
         Ok(hash) => hash,
@@ -1951,4 +2308,142 @@ mod tests {
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"outcome_class"));
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"does_not_assert"));
     }
+}
+
+// ------------------------------------------------- the challenge-resolution consumption seam (M06.1)
+
+/// One admitted challenge resolution, reduced to what a semantic-plane owner needs to change a
+/// mapping's or an assertion's standing.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ResolvedChallengeResolution {
+    pub(crate) receipt_ref: String,
+    pub(crate) transition_id: String,
+    pub(crate) subject_ref: String,
+    pub(crate) subject_content_hash: String,
+    pub(crate) verifier_challenge_id: String,
+    pub(crate) resolution: String,
+    pub(crate) outcome_class: String,
+    pub(crate) actor_ref: String,
+}
+
+/// Resolve one EXACT admitted challenge-resolution receipt for a caller entitled to see it.
+///
+/// WHY THIS EXISTS. Before it, a semantic-plane resolution accepted any string beginning `receipt://`
+/// and called the standing change receipted. That is caller-authored evidence: the exact defect INV-37
+/// exists to prevent, and the one this seam closes. A receipt is now a RECORD THIS DAEMON ADMITTED,
+/// found on the subject's own assurance chain, or the resolution refuses.
+///
+/// IT LIVES HERE, IN THE RECEIPT OWNER. M05.2 and M05.3 could each have re-read this chain; then the
+/// assurance ladder would have three interpretations of its own truth. It has one, it is this
+/// function, and it reads through the same owner-scoped projection the query route serves from —
+/// same scope check, same content-hash re-derivation, same contract validation.
+///
+/// WHAT IT BINDS, AND WHY EACH IS NECESSARY:
+///   * THE SUBJECT. The receipt must be about the exact revision whose standing is changing. A
+///     well-formed receipt over a neighbouring subject would otherwise resolve this one.
+///   * THE SUBJECT'S BYTES. The owner-resolved hash must match, so a resolution cannot be re-pointed
+///     at a later revision of the same lineage.
+///   * THE CHALLENGE. The receipt must name the exact `verifier-challenge://` identity being
+///     resolved. This is the binding v1 structurally could not carry, and it is why v2 exists.
+///   * THE TENANT. The read is owner-scoped, so a receipt admitted under another tenant is not
+///     merely mismatched — it is unreachable, and the refusal is the same one an absent subject
+///     gives, so this cannot be used as an existence oracle.
+///   * THE STAGE. Only an `adjudicated` transition carries a resolution at all, which the contract
+///     already pins; a receipt from any other rung has no resolution block to find.
+///
+/// IT IS NOT A VERDICT AND GRANTS NOTHING. It returns what the ladder recorded. Whether that
+/// resolution SHOULD change a mapping's standing is the semantic owner's rule, not this seam's.
+pub(crate) fn resolve_challenge_resolution_receipt(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    receipt_ref: &str,
+    expected_subject_ref: &str,
+    expected_subject_hash: &str,
+    expected_challenge_id: &str,
+) -> Result<ResolvedChallengeResolution, Reply> {
+    if !receipt_ref.starts_with("receipt://")
+        || receipt_ref.len() > 480
+        || receipt_ref
+            .bytes()
+            .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control() || !byte.is_ascii())
+    {
+        return Err(refuse(
+            "assurance_transition_receipt_ref_not_canonical",
+            "resolution_receipt_ref must be an exact 'receipt://' identity admitted by this daemon",
+        ));
+    }
+    // THE SUBJECT DECIDES THE STREAM. A receipt is looked for on the ladder of the subject whose
+    // standing is changing, so a receipt that exists somewhere else is simply not found here — there
+    // is no global receipt lookup to widen and no second index to consult.
+    let (ladder, _scope) = authorized_ladder_as_of(data_dir, identity, expected_subject_ref, None)?;
+    let Some(document) = ladder.iter().find(|entry| {
+        entry
+            .pointer("/admission/agentgres_receipt_ref")
+            .and_then(Value::as_str)
+            == Some(receipt_ref)
+    }) else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "assurance_transition_receipt_absent",
+            format!(
+                "no transition on this subject's assurance ladder was admitted under '{receipt_ref}' — a receipt-shaped string is not a receipt, and an absent one is a typed absence rather than an accepted resolution"
+            ),
+        ));
+    };
+    let field = |key: &str| {
+        document
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let pointer = |path: &str| {
+        document
+            .pointer(path)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let resolution = pointer("/challenge_resolution/resolution");
+    if resolution.is_empty() {
+        return Err(refuse(
+            "assurance_transition_receipt_resolves_no_challenge",
+            format!(
+                "'{receipt_ref}' is an admitted assurance transition, but it adjudicates no named challenge; an ordinary ladder step is not the resolution of a dispute"
+            ),
+        ));
+    }
+    let subject_ref = field("subject_ref");
+    let subject_content_hash = field("subject_content_hash");
+    let challenge_id = pointer("/challenge_resolution/verifier_challenge_id");
+    if subject_ref != expected_subject_ref {
+        return Err(refuse(
+            "assurance_transition_receipt_subject_mismatch",
+            format!("'{receipt_ref}' adjudicates '{subject_ref}', not the subject being resolved"),
+        ));
+    }
+    if subject_content_hash != expected_subject_hash {
+        return Err(refuse(
+            "assurance_transition_receipt_subject_hash_mismatch",
+            "the receipt binds a different revision's bytes than the one whose standing is changing; a resolution cannot be re-pointed at a later revision of the same lineage",
+        ));
+    }
+    if challenge_id != expected_challenge_id {
+        return Err(refuse(
+            "assurance_transition_receipt_challenge_mismatch",
+            format!(
+                "'{receipt_ref}' resolves '{challenge_id}', not the challenge being resolved; this is the binding v1 could not carry and the reason v2 exists"
+            ),
+        ));
+    }
+    Ok(ResolvedChallengeResolution {
+        receipt_ref: receipt_ref.to_owned(),
+        transition_id: field("transition_id"),
+        subject_ref,
+        subject_content_hash,
+        verifier_challenge_id: challenge_id,
+        resolution,
+        outcome_class: field("outcome_class"),
+        actor_ref: field("actor_ref"),
+    })
 }

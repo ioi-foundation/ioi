@@ -71,6 +71,7 @@ use sha2::{Digest, Sha256};
 use agentgres::mux::ExactProjection;
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 
+use super::assurance_transition_routes::resolve_challenge_resolution_receipt;
 use super::mutation_event_foundation::{
     admit_owner_scoped_mutation, admitted_stamp, mutation_refusal_reply,
     prior_admission_for_key_on_stream, read_owner_scoped_history, require_write_caller,
@@ -127,7 +128,7 @@ const DECISION_NONCLAIM: &str = "semantic_mapping_decision_grants_no_authority";
 const CHALLENGE_CONTRACT: &str = "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
 /// The exact registered contract a resolution's receipt must come from. Naming it in the record is
 /// what keeps "resolved" from meaning "somebody said so".
-const RESOLUTION_CONTRACT: &str = "schema://ioi/foundations/assurance-transition-receipt/v1";
+const RESOLUTION_CONTRACT: &str = "schema://ioi/foundations/assurance-transition-receipt/v2";
 
 /// The owner seam every endpoint revision is re-resolved through. There is one reader per family and
 /// it belongs to that family's owner; a second reader would be a second interpretation of its truth.
@@ -3284,6 +3285,9 @@ async fn handle_challenge(
                 format!("a resolution is receipted under {RESOLUTION_CONTRACT}"),
             );
         }
+        // SHAPE ONLY, HERE. Whether this string names a receipt this daemon actually admitted is a
+        // question about the SUBJECT's assurance ladder, and the subject is not resolved yet; the
+        // owner seam is reached below, once it is.
         let receipt = match require_scoped_ref(&body, "resolution_receipt_ref", &["receipt://"]) {
             Ok(value) => value,
             Err(response) => return response,
@@ -3355,6 +3359,41 @@ async fn handle_challenge(
         );
     }
     let _ = standing;
+
+    // ------------------------------------------------------ the receipt becomes evidence, or refuses
+    //
+    // A `receipt://`-shaped string is not a receipt. Before this seam existed, a resolution accepted
+    // any such string and called the standing change receipted — caller-authored evidence, which is
+    // exactly what INV-37 forbids. The M06 owner now re-resolves it off the SUBJECT's own assurance
+    // ladder and binds the subject, the subject's owner-resolved bytes, and the exact challenge.
+    if op_kind == CHALLENGE_RESOLVE_OP {
+        let subject_hash = subject
+            .get("content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let resolved = match resolve_challenge_resolution_receipt(
+            &st.data_dir,
+            &caller.identity,
+            &receipt_ref,
+            &challenged_ref,
+            &subject_hash,
+            &challenge_id,
+        ) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
+        // The LADDER decides what the challenge resolved to; this route may not disagree with it.
+        if resolved.resolution != resolution {
+            return refuse(
+                "ontology_mapping_resolution_disagrees_with_its_receipt",
+                format!(
+                    "this request resolves the challenge '{resolution}' while '{}' records '{}'; the receipt is the evidence, not the request",
+                    resolved.receipt_ref, resolved.resolution
+                ),
+            );
+        }
+    }
 
     let payload = json!({
         "schema_version": CHALLENGE_PAYLOAD_SCHEMA,

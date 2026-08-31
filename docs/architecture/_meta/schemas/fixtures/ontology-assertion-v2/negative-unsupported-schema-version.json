@@ -99,7 +99,7 @@
     "resolved_challenge_refs": [],
     "resolution_receipt_refs": [],
     "challenge_contract_ref": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "resolution_contract_ref": "schema://ioi/foundations/assurance-transition-receipt/v1"
+    "resolution_contract_ref": "schema://ioi/foundations/assurance-transition-receipt/v2"
   },
   "universality_nonclaim": "provenance_assertion_admission_is_not_universal_truth",
   "authority_nonclaim": "provenance_assertion_grants_no_authority",

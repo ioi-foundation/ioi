@@ -49,6 +49,10 @@ const OWNER_SEAM_SOURCE = path.join(
   "crates/node/src/bin/hypervisor_daemon_routes/ontology_version_routes.rs",
 );
 const INVARIANTS = path.join(ROOT, "docs/architecture/_meta/schemas/invariants");
+const RECEIPT_OWNER_SOURCE = path.join(
+  ROOT,
+  "crates/node/src/bin/hypervisor_daemon_routes/assurance_transition_routes.rs",
+);
 const REGISTRY = path.join(
   ROOT,
   "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
@@ -56,6 +60,8 @@ const REGISTRY = path.join(
 
 const MUTATE = process.argv.includes("--mutate");
 const SUMMARIZE = process.argv.includes("--summarize");
+/// Pre-flight the battery anchors without planting or rebuilding anything.
+const ANCHORS = process.argv.includes("--anchors");
 const ONLY = (process.argv.find((argument) => argument.startsWith("--only=")) ?? "")
   .slice("--only=".length)
   .split(",")
@@ -233,6 +239,66 @@ async function req(method, route, body, { as = "A" } = {}) {
 const OV = "/v1/hypervisor/ontology-versions";
 const PA = "/v1/hypervisor/provenance-assertions";
 const PAC = "/v1/hypervisor/provenance-assertions/challenges";
+const AT = "/v1/hypervisor/assurance-transitions";
+
+/// Climb the canonical ladder over one subject and return the ADJUDICATION receipt.
+///
+/// A challenge resolution IS an adjudication, so the subject really climbs attested -> evidenced ->
+/// verified -> accepted before it can be adjudicated. The receipt this returns is a record the
+/// daemon admitted, which is the whole point: a `receipt://`-shaped string the gate invented would
+/// prove nothing about the resolution it is handed to.
+async function climbLadderToAdjudication(subject, challengeId, resolution, keyPrefix, outcome) {
+  const stages = [
+    ["attested", ["correctness", "acceptance", "settlement", "authority"]],
+    ["evidenced", ["correctness", "acceptance", "settlement", "authority"]],
+    ["verified", ["correctness", "acceptance", "settlement", "authority"]],
+    ["accepted", ["correctness", "settlement", "authority"]],
+  ];
+  let head = null;
+  for (const [stage, nonclaims] of stages) {
+    const body = {
+      owner_ref: "org://local",
+      idempotency_key: `${keyPrefix}-${stage}`,
+      subject_ref: subject,
+      outcome_class: "positive",
+      evidence_refs: [`evidence://${NS}/${keyPrefix}-${stage}`],
+      does_not_assert: nonclaims,
+      valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+    };
+    if (head !== null) body.expected_head = head;
+    const step = await req("POST", AT, body);
+    if (step.status !== 201) return { failedAt: stage, response: step };
+    head = step.j?.expected_head_for_successor ?? null;
+  }
+  const adjudication = await req("POST", AT, {
+    owner_ref: "org://local",
+    idempotency_key: `${keyPrefix}-adjudicated`,
+    subject_ref: subject,
+    outcome_class: outcome,
+    evidence_refs: [`evidence://${NS}/${keyPrefix}-adjudication`],
+    does_not_assert: ["correctness", "settlement", "authority"],
+    valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+    expected_head: head,
+    challenge_resolution: {
+      verifier_challenge_id: challengeId,
+      resolution,
+      adjudicator_ref: "org://local",
+      adjudicator_policy_ref: `policy://${NS}/assertion-adjudication`,
+      reviewer_lineage: [
+        {
+          reviewer_ref: `user://${NS}/charge-nurse`,
+          reviewed_at: "2026-09-05T10:00:00Z",
+          review_decision: resolution,
+        },
+      ],
+    },
+  });
+  return {
+    receipt: adjudication.j?.assurance_transition?.admission?.agentgres_receipt_ref ?? null,
+    record: adjudication.j?.assurance_transition ?? null,
+    response: adjudication,
+  };
+}
 
 const NS = "acme-clinic";
 const FOREIGN_NS = "harbor-labs";
@@ -850,11 +916,11 @@ async function runGraph(ctx) {
     `${successor.content_hash} -> ${disputed.content_hash}`,
   );
   ok(
-    "CHALLENGE: the record pins BOTH registered contracts — the v2 envelope it admits and the AssuranceTransitionReceipt v1 a resolution is receipted under",
+    "CHALLENGE: the record pins BOTH registered contracts — the v2 challenge envelope it admits and the AssuranceTransitionReceipt v2 successor a resolution is receipted under",
     disputed.challenge_state?.challenge_contract_ref ===
       "schema://ioi/foundations/objects/verifier-challenge-envelope/v2" &&
       disputed.challenge_state?.resolution_contract_ref ===
-        "schema://ioi/foundations/assurance-transition-receipt/v1",
+        "schema://ioi/foundations/assurance-transition-receipt/v2",
     JSON.stringify(disputed.challenge_state ?? null),
   );
   ok(
@@ -864,32 +930,117 @@ async function runGraph(ctx) {
     opened.j?.verdict_nonclaim ?? "",
   );
 
-  const unreceipted = await req("POST", PAC, {
-    owner_ref: "org://local",
-    idempotency_key: "m053-challenge-unreceipted",
-    challenged_ref: target,
-    verifier_challenge_id: CHALLENGE,
-    challenger_ref: `user://${NS}/charge-nurse`,
-    challenge_kind: "evidence",
-    adjudicator_policy_ref: `policy://${NS}/assertion-adjudication`,
-    resolution: "upheld",
-  });
+  const resolveWith = (key, overrides) =>
+    req("POST", PAC, {
+      owner_ref: "org://local",
+      idempotency_key: key,
+      challenged_ref: target,
+      verifier_challenge_id: CHALLENGE,
+      challenger_ref: `user://${NS}/charge-nurse`,
+      challenge_kind: "evidence",
+      adjudicator_policy_ref: `policy://${NS}/assertion-adjudication`,
+      resolution: "upheld",
+      ...overrides,
+    });
+
+  const unreceipted = await resolveWith("m053-challenge-unreceipted", {});
   ok(
     "RESOLUTION REFUSES: a standing that changed with no assurance receipt is a verdict nobody stands behind",
     unreceipted.status >= 400 && code(unreceipted.j) === "provenance_assertion_ref_not_canonical",
     `status ${unreceipted.status} code ${code(unreceipted.j)}`,
   );
 
-  const upheld = await req("POST", PAC, {
-    owner_ref: "org://local",
-    idempotency_key: "m053-challenge-upheld",
-    challenged_ref: target,
-    verifier_challenge_id: CHALLENGE,
-    challenger_ref: `user://${NS}/charge-nurse`,
-    challenge_kind: "evidence",
-    adjudicator_policy_ref: `policy://${NS}/assertion-adjudication`,
-    resolution: "upheld",
+  const noLadder = await resolveWith("m053-challenge-no-ladder", {
     resolution_receipt_ref: `receipt://${NS}/assurance/batch/11`,
+  });
+  ok(
+    "RESOLUTION REFUSES: a subject with NO assurance ladder at all cannot be resolved — the refusal is the M06 owner scope's, reached before any receipt comparison",
+    noLadder.status >= 400 && noLadder.status !== 201,
+    `status ${noLadder.status} code ${code(noLadder.j)}`,
+  );
+
+  // The REAL ladder over this exact assertion revision, through M06's own route.
+  const ladder = await climbLadderToAdjudication(
+    target,
+    CHALLENGE,
+    "upheld",
+    "m053-assertion",
+    "disputed",
+  );
+  ok(
+    "M06 LADDER: the challenged assertion revision really climbs to adjudication through M06's own route, and the adjudication binds this exact challenge and this subject's owner-resolved bytes",
+    ladder.response?.status === 201 &&
+      ladder.record?.to_stage === "adjudicated" &&
+      ladder.record?.challenge_resolution?.verifier_challenge_id === CHALLENGE &&
+      ladder.record?.challenge_resolution?.challenged_subject_ref === target &&
+      ladder.record?.challenge_resolution?.challenged_subject_content_hash ===
+        ladder.record?.subject_content_hash &&
+      ladder.record?.subject_resolved_by ===
+        "provenance_assertion_routes::resolve_admitted_assertion",
+    `status ${ladder.response?.status} stage ${ladder.record?.to_stage}`,
+  );
+  ok(
+    "M06 OUTCOME COUPLING: an UPHELD challenge cannot be recorded as a clean pass — the ladder carries a disputed outcome class beside the sustained finding",
+    ladder.record?.outcome_class === "disputed" &&
+      ladder.record?.challenge_resolution?.resolution === "upheld",
+    `${ladder.record?.outcome_class}`,
+  );
+
+  const forged = await resolveWith("m053-challenge-forged", {
+    resolution_receipt_ref: `receipt://${NS}/assurance/batch/11`,
+  });
+  ok(
+    "RESOLUTION REFUSES: with a REAL ladder present, a receipt-SHAPED string this daemon never admitted is still not on it — caller-authored evidence is not evidence (INV-37)",
+    forged.status === 404 && code(forged.j) === "assurance_transition_receipt_absent",
+    `status ${forged.status} code ${code(forged.j)}`,
+  );
+
+  const wrongSubjectLadder = await climbLadderToAdjudication(
+    record.assertion_id,
+    CHALLENGE,
+    "upheld",
+    "m053-other-subject",
+    "disputed",
+  );
+  const wrongSubject = await resolveWith("m053-challenge-wrong-subject", {
+    resolution_receipt_ref: wrongSubjectLadder.receipt,
+  });
+  ok(
+    "RESOLUTION REFUSES: a REAL admitted receipt adjudicating a DIFFERENT subject — a receipt over a neighbouring revision cannot resolve this one",
+    wrongSubject.status >= 400 &&
+      ["assurance_transition_receipt_absent", "assurance_transition_receipt_subject_mismatch"].includes(
+        code(wrongSubject.j),
+      ),
+    `status ${wrongSubject.status} code ${code(wrongSubject.j)}`,
+  );
+
+  const wrongChallenge = await resolveWith("m053-challenge-wrong-challenge", {
+    verifier_challenge_id: `verifier-challenge://${NS}/a-different-dispute`,
+    resolution_receipt_ref: ladder.receipt,
+  });
+  ok(
+    "RESOLUTION REFUSES: a REAL admitted receipt that resolves a DIFFERENT challenge — the binding v1 could not carry",
+    wrongChallenge.status >= 400 &&
+      [
+        "assurance_transition_receipt_challenge_mismatch",
+        "provenance_assertion_challenge_not_open",
+      ].includes(code(wrongChallenge.j)),
+    `status ${wrongChallenge.status} code ${code(wrongChallenge.j)}`,
+  );
+
+  const wrongOutcome = await resolveWith("m053-challenge-wrong-outcome", {
+    resolution: "rejected",
+    resolution_receipt_ref: ladder.receipt,
+  });
+  ok(
+    "RESOLUTION REFUSES: the request cannot claim an outcome the LADDER did not record",
+    wrongOutcome.status >= 400 &&
+      code(wrongOutcome.j) === "provenance_assertion_resolution_disagrees_with_its_receipt",
+    `status ${wrongOutcome.status} code ${code(wrongOutcome.j)}`,
+  );
+
+  const upheld = await resolveWith("m053-challenge-upheld", {
+    resolution_receipt_ref: ladder.receipt,
   });
   const rejectedClaim = upheld.j?.provenance_assertion ?? {};
   ok(
@@ -1058,6 +1209,45 @@ function runSourceClaims() {
 /// the gate, so a mutant that reddens something else — or nothing — fails the battery.
 const MUTANTS = [
   {
+    id: "any-receipt-shaped-string-resolves",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent",',
+    replace: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent_MUTATED",',
+    target:
+      "RESOLUTION REFUSES: with a REAL ladder present, a receipt-SHAPED string this daemon never admitted is still not on it — caller-authored evidence is not evidence (INV-37)",
+  },
+  {
+    id: "a-receipt-over-another-subject-resolves",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '    if subject_ref != expected_subject_ref {',
+    replace: '    if false && subject_ref != expected_subject_ref {',
+    target:
+      "RESOLUTION REFUSES: a REAL admitted receipt adjudicating a DIFFERENT subject — a receipt over a neighbouring revision cannot resolve this one",
+  },
+  {
+    id: "an-ordinary-ladder-step-resolves-a-challenge",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '    if resolution.is_empty() {',
+    replace: '    if false && resolution.is_empty() {',
+    target:
+      "RESOLUTION REFUSES: a REAL admitted receipt that resolves a DIFFERENT challenge — the binding v1 could not carry",
+  },
+  {
+    id: "the-request-may-outvote-its-receipt",
+    file: ROUTE_SOURCE,
+    find: '        if resolved.resolution != resolution {',
+    replace: '        if false && resolved.resolution != resolution {',
+    target: "RESOLUTION REFUSES: the request cannot claim an outcome the LADDER did not record",
+  },
+  {
+    id: "an-upheld-challenge-may-be-a-clean-pass",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '    if !permitted_outcomes.contains(&outcome_class) {',
+    replace: '    if false && !permitted_outcomes.contains(&outcome_class) {',
+    target:
+      "M06 OUTCOME COUPLING: an UPHELD challenge cannot be recorded as a clean pass — the ladder carries a disputed outcome class beside the sustained finding",
+  },
+  {
     id: "an-undeclared-predicate-resolves",
     file: OWNER_SEAM_SOURCE,
     find: '            "ontology_version_term_absent",',
@@ -1100,8 +1290,8 @@ const MUTANTS = [
   {
     id: "contradictions-need-not-be-retained",
     file: ROUTE_SOURCE,
-    find: '    if block.get("retained").is_some_and(|value| value != &json!(true)) {',
-    replace: '    if false {',
+    find: '    if block\n        .get("retained")\n        .is_some_and(|value| value != &json!(true))\n    {',
+    replace: '    if false\n    {',
     target:
       "ASSERTION REFUSES: a record that drops a contradiction has not resolved it — retention is not optional",
   },
@@ -1272,7 +1462,33 @@ async function runAll() {
   runSourceClaims();
 }
 
+/// Pre-flight the battery's own anchors WITHOUT running it.
+///
+/// A stale anchor is a mutant that silently tests nothing, and discovering one costs a full rebuild
+/// per mutant if the battery finds it. This reads the SAME array the battery plants from — no
+/// parsing, no second copy — and reports any anchor that does not appear exactly once in its target.
+/// Exactly once matters: `String.replace` plants at the first match, so an ambiguous anchor may
+/// mutate a site other than the one its target names.
+function checkAnchors() {
+  const seen = new Map();
+  let problems = 0;
+  for (const mutant of MUTANTS) {
+    if (!seen.has(mutant.file)) seen.set(mutant.file, fs.readFileSync(mutant.file, "utf8"));
+    const text = seen.get(mutant.file);
+    const count = text.split(mutant.find).length - 1;
+    if (count !== 1) {
+      problems += 1;
+      process.stdout.write(
+        `  ${count === 0 ? "STALE" : `AMBIGUOUS(${count})`}  ${mutant.id}\n`,
+      );
+    }
+  }
+  process.stdout.write(`\n${MUTANTS.length} mutants, ${problems} anchor problems\n`);
+  process.exit(problems === 0 ? 0 : 1);
+}
+
 async function main() {
+  if (ANCHORS) return checkAnchors();
   if (SUMMARIZE) return summarize();
   if (MUTATE) return runMutationBattery();
   try {

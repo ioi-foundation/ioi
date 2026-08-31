@@ -10531,7 +10531,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -11497,6 +11497,108 @@
         },
         {
           "path": "fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
+      "canonical_name": "AssuranceTransitionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#assurance-transition-receipt",
+      "schema_version": "ioi.assurance-transition-receipt.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/assurance-transition-receipt/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "assurance-transition-receipt.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/assurance-transition-receipt/challenge-bound-ladder/v2",
+          "path": "invariants/assurance-transition-receipt.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "AssuranceTransitionReceiptV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "AssuranceTransitionReceiptV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/assurance-transition-receipt-v2/positive-genesis-attested-preserves-v1-semantics.json",
+        "fixtures/assurance-transition-receipt-v2/positive-upheld-challenge-resolution.json",
+        "fixtures/assurance-transition-receipt-v2/positive-rejected-challenge-resolution-is-retained.json",
+        "fixtures/assurance-transition-receipt-v2/positive-adjudication-without-a-named-challenge.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-content-hash-omits-the-challenge-resolution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.content_hash.commits_subject_stage_outcome_challenge_and_valid_time"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-subject.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.challenge_resolution.binds_this_receipts_own_subject"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-revisions-bytes.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "assurance_transition.challenge_resolution.binds_the_owner_resolved_subject_hash"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-resolution-outside-adjudication.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-upheld-challenge-reported-as-positive.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-rejected-challenge-reported-as-negative.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-v1-schema-version-on-v2.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-v1-receipt-profile-on-v2.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-v1-challenge-envelope-in-the-resolution.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-resolution-with-no-reviewer.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json",
           "expected_failure": "schema"
         }
       ]

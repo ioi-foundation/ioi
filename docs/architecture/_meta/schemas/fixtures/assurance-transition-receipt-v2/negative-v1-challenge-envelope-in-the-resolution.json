@@ -1,0 +1,71 @@
+{
+  "schema_version": "ioi.assurance-transition-receipt.v2",
+  "receipt_id": "receipt://event-stream/hypervisor-assurance-transitions/assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/batch/4",
+  "receipt_type": "assurance_transition",
+  "receipt_profile_ref": "schema://ioi/foundations/assurance-transition-receipt/v2",
+  "transition_id": "assurance-transition://ontology_mapping_revision/ontology-mapping-acme-clinic-intake-v1-to-v2-crosswalk-revision-1~a98712913b0b42d4/transition/5",
+  "subject_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+  "subject_family": "ontology_mapping_revision",
+  "subject_content_hash": "sha256:19636dead46095fd3f427bda944eb9e2e306450b42ec46e8bb3973c7f40f2f8c",
+  "subject_resolved_by": "semantic_mapping_routes::resolve_admitted_mapping_revision",
+  "from_stage": "accepted",
+  "to_stage": "adjudicated",
+  "to_stage_ordinal": 5,
+  "transition_ordinal": 5,
+  "outcome_class": "disputed",
+  "actor_ref": "org://acme-clinic",
+  "evidence_refs": [
+    "evidence://acme-clinic/ladder-step-5"
+  ],
+  "does_not_assert": [
+    "correctness",
+    "acceptance",
+    "settlement",
+    "authority"
+  ],
+  "valid_time": {
+    "starts_at": "2026-09-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-05T09:00:00Z",
+    "superseded_at": null
+  },
+  "expected_predecessor_transition_ref": "assurance-transition://ontology_mapping_revision/ontology-mapping-acme-clinic-intake-v1-to-v2-crosswalk-revision-1~a98712913b0b42d4/transition/4",
+  "expected_predecessor_transition_hash": "sha256:71b7dfb0fd2c5b5fbc3b60598548b2610e3cdf769d2b5251227312881cec0a73",
+  "resulting_stage_head_hash": "sha256:b8e24bdd6ec08290e04381a12ce68d2c7ad5df8993e324b8b77e27ed28031da5",
+  "content_hash": "sha256:6d2ad79b9830943365bcf5d1c6724f6877790891394c8c47c1f14dc8610dac62",
+  "predecessor_contract_ref": "schema://ioi/foundations/assurance-transition-receipt/v1",
+  "challenge_resolution": {
+    "verifier_challenge_id": "verifier-challenge://acme-clinic/triage-band-is-not-narrower",
+    "challenged_subject_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+    "challenged_subject_content_hash": "sha256:19636dead46095fd3f427bda944eb9e2e306450b42ec46e8bb3973c7f40f2f8c",
+    "resolution": "upheld",
+    "adjudicator_ref": "org://acme-clinic",
+    "adjudicator_policy_ref": "policy://acme-clinic/mapping-adjudication",
+    "reviewer_lineage": [
+      {
+        "reviewer_ref": "user://acme-clinic/informatics-lead",
+        "reviewed_at": "2026-09-05T10:00:00Z",
+        "review_decision": "upheld"
+      }
+    ],
+    "challenge_contract_ref": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+    "challenge_resolved_by": "assurance_transition_routes::resolve_challenge_resolution_receipt"
+  },
+  "admission": {
+    "transition_id": "assurance-transition://ontology_mapping_revision/ontology-mapping-acme-clinic-intake-v1-to-v2-crosswalk-revision-1~a98712913b0b42d4/transition/5",
+    "content_hash": "sha256:6d2ad79b9830943365bcf5d1c6724f6877790891394c8c47c1f14dc8610dac62",
+    "owner_namespace": "hypervisor-assurance-transitions",
+    "stream_tail": "assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-assurance-transitions/assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/operation/4",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-assurance-transitions/assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/batch/4",
+    "admission_seq": 4,
+    "admission_head": "sha256:7dc614be39348fdb96cbcea4a5f84668685e58afdfbfed25c474f11ef783bc2b",
+    "admission_root": "sha256:318dd35ac2b81ca95ecf85252f11f39911feb259c1200a18a5d1ac3d5ed605fb",
+    "expected_predecessor_head": "sha256:41a32b4aa9a7e76aa29c3903a14d450dcf6eeb2301b7066184e1cff9e1a041b8"
+  },
+  "admission_domain_ref": "agentgres://domain/hypervisor-assurance-transitions.assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "authority_nonclaim": "assurance_transition_grants_no_authority",
+  "verdict_nonclaim": "assurance_transition_is_not_a_verdict"
+}

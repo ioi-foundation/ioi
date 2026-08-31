@@ -61,6 +61,7 @@ use sha2::{Digest, Sha256};
 use agentgres::mux::ExactProjection;
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 
+use super::assurance_transition_routes::resolve_challenge_resolution_receipt;
 use super::mutation_event_foundation::{
     admit_owner_scoped_mutation, admitted_stamp, mutation_refusal_reply,
     prior_admission_for_key_on_stream, read_owner_scoped_history, require_write_caller,
@@ -89,7 +90,7 @@ const AUTHORITY_NONCLAIM: &str = "provenance_assertion_grants_no_authority";
 const UNIVERSALITY_NONCLAIM: &str = "provenance_assertion_admission_is_not_universal_truth";
 const REINTERPRETATION_NONCLAIM: &str = "provenance_assertion_v2_does_not_reinterpret_v1_records";
 const CHALLENGE_CONTRACT: &str = "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
-const RESOLUTION_CONTRACT: &str = "schema://ioi/foundations/assurance-transition-receipt/v1";
+const RESOLUTION_CONTRACT: &str = "schema://ioi/foundations/assurance-transition-receipt/v2";
 const ONTOLOGY_RESOLVER: &str = "ontology_version_routes::resolve_admitted_term";
 
 const MAX_ORDINAL: u64 = 999_999_999;
@@ -1844,7 +1845,8 @@ pub(crate) async fn handle_provenance_assertion_challenge(
                 format!("a resolution is receipted under {RESOLUTION_CONTRACT}"),
             );
         }
-        // A standing that changed with no receipt is a verdict nobody stands behind.
+        // SHAPE ONLY, HERE; the owner seam is reached below, once the subject is resolved. A
+        // standing that changed with no ADMITTED receipt is a verdict nobody stands behind.
         let receipt = match require_scoped_ref(&body, "resolution_receipt_ref", &["receipt://"]) {
             Ok(value) => value,
             Err(response) => return response,
@@ -1908,6 +1910,39 @@ pub(crate) async fn handle_provenance_assertion_challenge(
                 "'{challenge_id}' is not an open challenge against this revision; resolving a challenge that was never admitted would change a standing nobody contested"
             ),
         );
+    }
+
+    // ------------------------------------------------------ the receipt becomes evidence, or refuses
+    //
+    // Same seam, same discipline as the mapping plane: the M06 owner re-resolves the receipt off the
+    // SUBJECT's own assurance ladder and binds subject, bytes and the exact challenge. A
+    // `receipt://`-shaped string the caller invented resolves nothing.
+    if op_kind == CHALLENGE_RESOLVE_OP {
+        let subject_hash = subject
+            .get("content_hash")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let resolved = match resolve_challenge_resolution_receipt(
+            &st.data_dir,
+            &caller.identity,
+            &receipt_ref,
+            &challenged_ref,
+            &subject_hash,
+            &challenge_id,
+        ) {
+            Ok(resolved) => resolved,
+            Err(response) => return response,
+        };
+        if resolved.resolution != resolution {
+            return refuse(
+                "provenance_assertion_resolution_disagrees_with_its_receipt",
+                format!(
+                    "this request resolves the challenge '{resolution}' while '{}' records '{}'; the receipt is the evidence, not the request",
+                    resolved.receipt_ref, resolved.resolution
+                ),
+            );
+        }
     }
 
     let payload = json!({

@@ -1,0 +1,55 @@
+{
+  "schema_version": "ioi.assurance-transition-receipt.v2",
+  "receipt_id": "receipt://event-stream/hypervisor-assurance-transitions/assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/batch/0",
+  "receipt_type": "assurance_transition",
+  "receipt_profile_ref": "schema://ioi/foundations/assurance-transition-receipt/v2",
+  "transition_id": "assurance-transition://ontology_mapping_revision/ontology-mapping-acme-clinic-intake-v1-to-v2-crosswalk-revision-1~a98712913b0b42d4/transition/1",
+  "subject_ref": "ontology-mapping://acme-clinic/intake-v1-to-v2/crosswalk/revision/1",
+  "subject_family": "ontology_mapping_revision",
+  "subject_content_hash": "sha256:19636dead46095fd3f427bda944eb9e2e306450b42ec46e8bb3973c7f40f2f8c",
+  "subject_resolved_by": "semantic_mapping_routes::resolve_admitted_mapping_revision",
+  "from_stage": null,
+  "to_stage": "attested",
+  "to_stage_ordinal": 1,
+  "transition_ordinal": 1,
+  "outcome_class": "positive",
+  "actor_ref": "org://acme-clinic",
+  "evidence_refs": [
+    "evidence://acme-clinic/ladder-step-1"
+  ],
+  "does_not_assert": [
+    "correctness",
+    "acceptance",
+    "settlement",
+    "authority"
+  ],
+  "valid_time": {
+    "starts_at": "2026-09-01T00:00:00Z",
+    "ends_at": null
+  },
+  "transaction_time": {
+    "recorded_at": "2026-09-01T09:00:00Z",
+    "superseded_at": null
+  },
+  "expected_predecessor_transition_ref": null,
+  "expected_predecessor_transition_hash": null,
+  "resulting_stage_head_hash": "sha256:cfbb1bd931398ff0271d54bab1bc6c1d1969677382e35baf65710d039e7d8467",
+  "content_hash": "sha256:0073fb79e1b9726fa5ce848856e99544a040c8ac3814d55644b9e07fda237c33",
+  "predecessor_contract_ref": "schema://ioi/foundations/assurance-transition-receipt/v1",
+  "challenge_resolution": null,
+  "admission": {
+    "transition_id": "assurance-transition://ontology_mapping_revision/ontology-mapping-acme-clinic-intake-v1-to-v2-crosswalk-revision-1~a98712913b0b42d4/transition/1",
+    "content_hash": "sha256:0073fb79e1b9726fa5ce848856e99544a040c8ac3814d55644b9e07fda237c33",
+    "owner_namespace": "hypervisor-assurance-transitions",
+    "stream_tail": "assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "agentgres_operation_ref": "agentgres://event-stream/hypervisor-assurance-transitions/assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/operation/0",
+    "agentgres_receipt_ref": "receipt://event-stream/hypervisor-assurance-transitions/assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/batch/0",
+    "admission_seq": 0,
+    "admission_head": "sha256:82383e0c3ef61612b8eca95b80cdf294e98970c3e31163a28608f07302ad67ee",
+    "admission_root": "sha256:2c5d66bcc2d9da012bfa25eb75565f134370c33994f9611b1f79e606946427b4",
+    "expected_predecessor_head": null
+  },
+  "admission_domain_ref": "agentgres://domain/hypervisor-assurance-transitions.assurance-transition-subject.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "authority_nonclaim": "assurance_transition_grants_no_authority",
+  "verdict_nonclaim": "assurance_transition_is_not_a_verdict"
+}

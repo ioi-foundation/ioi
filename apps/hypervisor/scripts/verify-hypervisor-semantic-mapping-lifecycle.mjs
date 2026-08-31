@@ -57,6 +57,10 @@ const OWNER_SEAM_SOURCE = path.join(
   "crates/node/src/bin/hypervisor_daemon_routes/ontology_version_routes.rs",
 );
 const INVARIANTS = path.join(ROOT, "docs/architecture/_meta/schemas/invariants");
+const RECEIPT_OWNER_SOURCE = path.join(
+  ROOT,
+  "crates/node/src/bin/hypervisor_daemon_routes/assurance_transition_routes.rs",
+);
 const REGISTRY = path.join(
   ROOT,
   "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
@@ -64,6 +68,8 @@ const REGISTRY = path.join(
 
 const MUTATE = process.argv.includes("--mutate");
 const SUMMARIZE = process.argv.includes("--summarize");
+/// Pre-flight the battery anchors without planting or rebuilding anything.
+const ANCHORS = process.argv.includes("--anchors");
 const ONLY = (process.argv.find((argument) => argument.startsWith("--only=")) ?? "")
   .slice("--only=".length)
   .split(",")
@@ -244,6 +250,66 @@ const XW = "/v1/hypervisor/ontology-crosswalks";
 const XWC = "/v1/hypervisor/ontology-crosswalks/challenges";
 const DEC = "/v1/hypervisor/semantic-mapping-decisions";
 const DECC = "/v1/hypervisor/semantic-mapping-decisions/challenges";
+const AT = "/v1/hypervisor/assurance-transitions";
+
+/// Climb the canonical ladder over one subject and return the ADJUDICATION receipt.
+///
+/// A challenge resolution IS an adjudication, and adjudication is rung five, so the subject must
+/// really have been attested, evidenced, verified and accepted first. Driving the whole ladder here
+/// is what makes the receipt the gate hands to M05.2 a record this daemon actually admitted rather
+/// than a string this file invented.
+async function climbLadderToAdjudication(subject, challengeId, resolution, keyPrefix, outcome) {
+  const stages = [
+    ["attested", "positive", ["correctness", "acceptance", "settlement", "authority"]],
+    ["evidenced", "positive", ["correctness", "acceptance", "settlement", "authority"]],
+    ["verified", "positive", ["correctness", "acceptance", "settlement", "authority"]],
+    ["accepted", "positive", ["correctness", "settlement", "authority"]],
+  ];
+  let head = null;
+  for (const [stage, outcomeClass, nonclaims] of stages) {
+    const body = {
+      owner_ref: "org://local",
+      idempotency_key: `${keyPrefix}-${stage}`,
+      subject_ref: subject,
+      outcome_class: outcomeClass,
+      evidence_refs: [`evidence://acme-clinic/${keyPrefix}-${stage}`],
+      does_not_assert: nonclaims,
+      valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+    };
+    if (head !== null) body.expected_head = head;
+    const step = await req("POST", AT, body);
+    if (step.status !== 201) return { failedAt: stage, response: step };
+    head = step.j?.expected_head_for_successor ?? null;
+  }
+  const adjudication = await req("POST", AT, {
+    owner_ref: "org://local",
+    idempotency_key: `${keyPrefix}-adjudicated`,
+    subject_ref: subject,
+    outcome_class: outcome,
+    evidence_refs: [`evidence://acme-clinic/${keyPrefix}-adjudication`],
+    does_not_assert: ["correctness", "settlement", "authority"],
+    valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+    expected_head: head,
+    challenge_resolution: {
+      verifier_challenge_id: challengeId,
+      resolution,
+      adjudicator_ref: "org://local",
+      adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
+      reviewer_lineage: [
+        {
+          reviewer_ref: `user://${NS}/informatics-lead`,
+          reviewed_at: "2026-09-05T10:00:00Z",
+          review_decision: resolution,
+        },
+      ],
+    },
+  });
+  return {
+    receipt: adjudication.j?.assurance_transition?.admission?.agentgres_receipt_ref ?? null,
+    record: adjudication.j?.assurance_transition ?? null,
+    response: adjudication,
+  };
+}
 
 const NS = "acme-clinic";
 const FOREIGN_NS = "harbor-labs";
@@ -1064,17 +1130,112 @@ async function runChallenges(ctx) {
     `${appliedUnderChallenge.status} ${appliedUnderChallenge.j?.semantic_mapping_decision?.status}`,
   );
 
-  const resolved = await req("POST", XWC, {
-    owner_ref: "org://local",
-    idempotency_key: "m052-challenge-resolve",
-    challenged_ref: XW_R1,
-    verifier_challenge_id: CHALLENGE,
-    challenger_ref: `user://${NS}/intake-clinician`,
-    challenge_kind: "mapping",
-    adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
-    resolution: "rejected",
+  // ------------------------------------------- the receipt is a record, or the resolution refuses
+  //
+  // The gate no longer hands this route a `receipt://`-shaped string it invented. It climbs the REAL
+  // canonical ladder over this exact crosswalk revision — attested, evidenced, verified, accepted,
+  // adjudicated — through M06's own route, and resolves with the adjudication receipt that produced.
+  const ladder = await climbLadderToAdjudication(
+    XW_R1,
+    CHALLENGE,
+    "rejected",
+    "m052-xwalk",
+    "no_fault",
+  );
+  ok(
+    "M06 LADDER: the challenged crosswalk revision really climbs attested -> evidenced -> verified -> accepted -> adjudicated through M06's own route, and the adjudication binds this exact challenge",
+    ladder.response?.status === 201 &&
+      ladder.record?.to_stage === "adjudicated" &&
+      ladder.record?.challenge_resolution?.verifier_challenge_id === CHALLENGE &&
+      ladder.record?.challenge_resolution?.resolution === "rejected" &&
+      ladder.receipt?.startsWith("receipt://"),
+    `status ${ladder.response?.status} stage ${ladder.record?.to_stage}`,
+  );
+  ok(
+    "M06 LADDER: the receipt binds the SUBJECT and the exact bytes the mapping owner resolved, filled in from the owner-resolved subject rather than from the request",
+    ladder.record?.challenge_resolution?.challenged_subject_ref === XW_R1 &&
+      ladder.record?.challenge_resolution?.challenged_subject_content_hash ===
+        ladder.record?.subject_content_hash &&
+      ladder.record?.subject_resolved_by ===
+        "semantic_mapping_routes::resolve_admitted_mapping_revision",
+    `${ladder.record?.challenge_resolution?.challenged_subject_ref}`,
+  );
+  ok(
+    "M06 SUCCESSION: the adjudication is admitted under the v2 successor and names v1 as its predecessor contract, so the succession is auditable from the receipt's own bytes",
+    ladder.record?.schema_version === "ioi.assurance-transition-receipt.v2" &&
+      ladder.record?.receipt_profile_ref ===
+        "schema://ioi/foundations/assurance-transition-receipt/v2" &&
+      ladder.record?.predecessor_contract_ref ===
+        "schema://ioi/foundations/assurance-transition-receipt/v1",
+    ladder.record?.schema_version ?? "",
+  );
+
+  const resolveWith = (key, overrides) =>
+    req("POST", XWC, {
+      owner_ref: "org://local",
+      idempotency_key: key,
+      challenged_ref: XW_R1,
+      verifier_challenge_id: CHALLENGE,
+      challenger_ref: `user://${NS}/intake-clinician`,
+      challenge_kind: "mapping",
+      adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
+      resolution: "rejected",
+      resolution_receipt_ref: ladder.receipt,
+      ...overrides,
+    });
+
+  const forged = await resolveWith("m052-resolve-forged", {
     resolution_receipt_ref: `receipt://${NS}/assurance/batch/7`,
   });
+  ok(
+    "RESOLUTION REFUSES: a receipt-SHAPED string this daemon never admitted resolves nothing — the defect this seam exists to close, and the exact shape the gate itself used to hand in",
+    forged.status === 404 && code(forged.j) === "assurance_transition_receipt_absent",
+    `status ${forged.status} code ${code(forged.j)}`,
+  );
+
+  const wrongChallenge = await resolveWith("m052-resolve-wrong-challenge", {
+    verifier_challenge_id: `verifier-challenge://${NS}/some-other-dispute`,
+  });
+  ok(
+    "RESOLUTION REFUSES: a REAL admitted receipt that resolves a DIFFERENT challenge — the binding v1 structurally could not carry, and the reason the v2 successor exists",
+    wrongChallenge.status >= 400 &&
+      ["assurance_transition_receipt_challenge_mismatch", "ontology_mapping_challenge_not_open"].includes(
+        code(wrongChallenge.j),
+      ),
+    `status ${wrongChallenge.status} code ${code(wrongChallenge.j)}`,
+  );
+
+  const wrongOutcome = await resolveWith("m052-resolve-wrong-outcome", { resolution: "upheld" });
+  ok(
+    "RESOLUTION REFUSES: the request cannot claim an outcome the LADDER did not record — the receipt is the evidence, not the request",
+    wrongOutcome.status >= 400 &&
+      code(wrongOutcome.j) === "ontology_mapping_resolution_disagrees_with_its_receipt",
+    `status ${wrongOutcome.status} code ${code(wrongOutcome.j)}`,
+  );
+
+  const foreignResolve = await req(
+    "POST",
+    XWC,
+    {
+      owner_ref: "org://local",
+      idempotency_key: "m052-resolve-cross-tenant",
+      challenged_ref: XW_R1,
+      verifier_challenge_id: CHALLENGE,
+      challenger_ref: `user://${NS}/intake-clinician`,
+      challenge_kind: "mapping",
+      adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
+      resolution: "rejected",
+      resolution_receipt_ref: ladder.receipt,
+    },
+    { as: "B" },
+  );
+  ok(
+    "RESOLUTION REFUSES: a principal outside this tenant cannot resolve with a receipt it cannot reach — the refusal is the owner scope's, so the route is no existence oracle for another tenant's receipts",
+    foreignResolve.status >= 400 && foreignResolve.status !== 201,
+    `status ${foreignResolve.status} code ${code(foreignResolve.j)}`,
+  );
+
+  const resolved = await resolveWith("m052-challenge-resolve", {});
   const settled = resolved.j?.ontology_crosswalk ?? {};
   ok(
     "CHALLENGE: a REJECTED challenge is RETAINED beside the mapping it failed to unseat — the resolved set and its receipt stay addressable, and the mapping returns to standing",
@@ -1369,6 +1530,38 @@ function runSourceClaims() {
 /// nothing, is a failure of the battery — an off-target kill proves the harness, not the gate.
 const MUTANTS = [
   {
+    id: "any-receipt-shaped-string-resolves",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent",',
+    replace: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent_MUTATED",',
+    target:
+      "RESOLUTION REFUSES: a receipt-SHAPED string this daemon never admitted resolves nothing — the defect this seam exists to close, and the exact shape the gate itself used to hand in",
+  },
+  {
+    id: "a-receipt-may-resolve-another-challenge",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '    if challenge_id != expected_challenge_id {',
+    replace: '    if false && challenge_id != expected_challenge_id {',
+    target:
+      "RESOLUTION REFUSES: a REAL admitted receipt that resolves a DIFFERENT challenge — the binding v1 structurally could not carry, and the reason the v2 successor exists",
+  },
+  {
+    id: "the-request-may-outvote-its-receipt",
+    file: ROUTE_SOURCE,
+    find: '        if resolved.resolution != resolution {',
+    replace: '        if false && resolved.resolution != resolution {',
+    target:
+      "RESOLUTION REFUSES: the request cannot claim an outcome the LADDER did not record — the receipt is the evidence, not the request",
+  },
+  {
+    id: "the-resolution-subject-is-taken-from-the-request",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '        challenge_resolution["challenged_subject_ref"] = json!(proposal.subject_ref);',
+    replace: '        if challenge_resolution["challenged_subject_ref"].is_null() {\n            challenge_resolution["challenged_subject_ref"] = json!(proposal.subject_ref);\n        }',
+    target:
+      "M06 LADDER: the receipt binds the SUBJECT and the exact bytes the mapping owner resolved, filled in from the owner-resolved subject rather than from the request",
+  },
+  {
     id: "overlay-accepts-a-base-term",
     file: ROUTE_SOURCE,
     // The fence is a `let ... else` whose refusal names the fork; weakening the prefix it strips is
@@ -1468,8 +1661,10 @@ const MUTANTS = [
   {
     id: "an-absent-base-revision-resolves",
     file: OWNER_SEAM_SOURCE,
-    find: '            "ontology_version_revision_absent",',
-    replace: '            "ontology_version_revision_absent_MUTATED",',
+    // Anchored on the RESOLVER seam's own refusal, not the query route's: the two share a code and
+    // the shorter anchor is a substring of both.
+    find: '            "ontology_version_revision_absent",\n            format!(\n                "this family has no revision {} — an absent revision is a typed absence, never an empty success",',
+    replace: '            "ontology_version_revision_absent_MUTATED",\n            format!(\n                "this family has no revision {} — an absent revision is a typed absence, never an empty success",',
     target:
       "OVERLAY REFUSES: a well-formed base revision this chain never admitted is a typed absence, not an empty success — the defect no byte-level fixture can catch",
   },
@@ -1580,7 +1775,33 @@ async function runAll() {
   runSourceClaims();
 }
 
+/// Pre-flight the battery's own anchors WITHOUT running it.
+///
+/// A stale anchor is a mutant that silently tests nothing, and discovering one costs a full rebuild
+/// per mutant if the battery finds it. This reads the SAME array the battery plants from — no
+/// parsing, no second copy — and reports any anchor that does not appear exactly once in its target.
+/// Exactly once matters: `String.replace` plants at the first match, so an ambiguous anchor may
+/// mutate a site other than the one its target names.
+function checkAnchors() {
+  const seen = new Map();
+  let problems = 0;
+  for (const mutant of MUTANTS) {
+    if (!seen.has(mutant.file)) seen.set(mutant.file, fs.readFileSync(mutant.file, "utf8"));
+    const text = seen.get(mutant.file);
+    const count = text.split(mutant.find).length - 1;
+    if (count !== 1) {
+      problems += 1;
+      process.stdout.write(
+        `  ${count === 0 ? "STALE" : `AMBIGUOUS(${count})`}  ${mutant.id}\n`,
+      );
+    }
+  }
+  process.stdout.write(`\n${MUTANTS.length} mutants, ${problems} anchor problems\n`);
+  process.exit(problems === 0 ? 0 : 1);
+}
+
 async function main() {
+  if (ANCHORS) return checkAnchors();
   if (SUMMARIZE) return summarize();
   if (MUTATE) return runMutationBattery();
   try {
