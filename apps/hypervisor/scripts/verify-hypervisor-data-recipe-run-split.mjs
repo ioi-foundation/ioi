@@ -1686,7 +1686,13 @@ async function runMutationBattery() {
         const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
           cwd: ROOT,
           encoding: "utf8",
-          env: { ...process.env, IOI_VERIFIER_CENSUS_DIR: "" },
+          env: {
+            ...process.env,
+            IOI_VERIFIER_CENSUS_DIR: "",
+            // The parent just built this exact mutant. Rebuilding in the child would only
+            // duplicate work; ordinary verifier invocations still build current source below.
+            IOI_DATA_RECIPE_RUN_SPLIT_DAEMON_PREBUILT: "1",
+          },
           maxBuffer: 64 * 1024 * 1024,
         });
         const output = `${child.stdout ?? ""}${child.stderr ?? ""}`;
@@ -1727,7 +1733,14 @@ if (MUTATE) {
     process.exit(1);
   });
 } else {
-  run()
+  Promise.resolve()
+    .then(() => {
+      // A blocking verifier must not silently exercise a stale target/debug binary. The
+      // mutation parent is the sole exception because it built the exact planted source
+      // immediately before spawning this child.
+      if (process.env.IOI_DATA_RECIPE_RUN_SPLIT_DAEMON_PREBUILT !== "1") rebuildDaemon();
+      return run();
+    })
     .catch((error) => {
       ok("the verifier ran to completion", false, String(error?.stack || error));
     })
