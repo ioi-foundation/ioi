@@ -1,0 +1,108 @@
+{
+  "$id": "invariant://ioi/foundations/objects/dataset-split-manifest/frozen-leakage-resistant-membership/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+  "rules": [
+    {
+      "rule_id": "dataset_split_manifest.content_hash.commits_the_whole_revision",
+      "description": "Every field except the hash itself, committed under a domain separator — the member rows with their episode hashes and partition keys, the declared per-class counts, the enumerated membership and the leakage controls. Freezing membership means nothing if the freeze is not itself committed.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "split_manifest_id": { "path": "$.split_manifest_id" },
+          "revision_ref": { "path": "$.revision_ref" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "tenant_ref": { "path": "$.tenant_ref" },
+          "principal_resolution": { "path": "$.principal_resolution" },
+          "resolved_principal_ref": { "path": "$.resolved_principal_ref" },
+          "members": { "path": "$.members" },
+          "splits": { "path": "$.splits" },
+          "all_member_episode_revision_refs": { "path": "$.all_member_episode_revision_refs" },
+          "member_count": { "path": "$.member_count" },
+          "membership_is_immutable": { "path": "$.membership_is_immutable" },
+          "leakage_controls": { "path": "$.leakage_controls" },
+          "registry_status": { "path": "$.registry_status" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "succession": { "path": "$.succession" },
+          "migration": { "path": "$.migration" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "manifest_selects_no_evaluation_evidence_for_its_own_producer": { "path": "$.manifest_selects_no_evaluation_evidence_for_its_own_producer" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.splits.membership_is_an_exact_partition",
+      "description": "THE EXCLUSIVITY RULE. The enumerated membership must be covered EXACTLY by the per-episode rows — same members, same count. Because coverage compares lengths as well as members, an episode assigned to two splits makes the covering long and refuses, and an episode assigned to none makes it short and refuses. Silence is inadmissible here for the same reason it is in the view's use algebra: an omitted member is a leak that reads as a smaller dataset.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.all_member_episode_revision_refs",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          { "path": "$.members", "field": "episode_revision_ref" }
+        ]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.members.no_episode_is_a_member_twice",
+      "description": "The second, independent statement of exclusivity. Double membership is the leakage ACC-16 clause 8 names, and it is refused directly rather than inferred from a count.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.members",
+        "fields": ["episode_revision_ref"]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.splits.each_class_is_declared_once",
+      "description": "A split class declared twice would let two different member counts both look authoritative.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.splits",
+        "fields": ["split_class"]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.members.count_matches_the_enumerated_set",
+      "description": "Two independent statements about one set, so a member removed from the readable list after the fact leaves the count disagreeing.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.all_member_episode_revision_refs",
+        "count_path": "$.member_count"
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.leakage.training_ends_before_the_temporal_cut",
+      "description": "FUTURE-FRAME LEAKAGE REFUSES. The latest training tick must fall strictly before the temporal cut; an inverted or equal comparison is exactly the mutation ACC-16 clause 8 requires to fail.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.leakage_controls.max_train_tick", "$.leakage_controls.temporal_cut_tick"]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut",
+      "description": "The other half of the temporal fence: a holdout that began before the cut would be scoring the model on material it could have trained on.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.leakage_controls.temporal_cut_tick", "$.leakage_controls.min_temporal_holdout_tick"]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.split_manifest_id",
+        "prefix": "split-manifest://",
+        "strip_prefix": "split-manifest://",
+        "suffix": "/revision/"
+      }
+    }
+  ]
+}

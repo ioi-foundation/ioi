@@ -1,0 +1,118 @@
+{
+  "schema_version": "ioi.dataset-split-manifest.v1",
+  "split_manifest_id": "split-manifest://acme.desk-v1",
+  "revision_ref": "split-manifest://acme.desk-v1/revision/1",
+  "owner_ref": "owner://acme",
+  "tenant_ref": "tenant://acme",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "principal://acme.capture-operator",
+  "members": [
+    {
+      "episode_revision_ref": "episode://acme.desk-tasks/revision/1",
+      "episode_content_hash": "sha256:0c4c4b249d945101cc05fa8922dbf6405fa3fafb4f920ac0f707093d3be41f18",
+      "split_class": "train",
+      "actor_partition_key": "actor-a",
+      "world_partition_key": "world-a",
+      "max_tick": 400000
+    },
+    {
+      "episode_revision_ref": "episode://acme.desk-tasks/revision/2",
+      "episode_content_hash": "sha256:f91c39739b914d5d916804097e21871b9a86ef9b96bb4db5f185f1c6387353f1",
+      "split_class": "validation",
+      "actor_partition_key": "actor-a",
+      "world_partition_key": "world-a",
+      "max_tick": 401000
+    },
+    {
+      "episode_revision_ref": "episode://acme.desk-tasks/revision/3",
+      "episode_content_hash": "sha256:82a1b7b150783645c4ff8c4ab4348e3863272f71b590863117f9c55f8a2c70b2",
+      "split_class": "temporal_holdout",
+      "actor_partition_key": "actor-a",
+      "world_partition_key": "world-a",
+      "max_tick": 402000
+    },
+    {
+      "episode_revision_ref": "episode://acme.desk-tasks/revision/4",
+      "episode_content_hash": "sha256:fd20125d8e1201a822c4cb7eb86d5550396cdf1859e45e782c2c00a508dc7c34",
+      "split_class": "actor_holdout",
+      "actor_partition_key": "actor-e",
+      "world_partition_key": "world-e",
+      "max_tick": 403000
+    },
+    {
+      "episode_revision_ref": "episode://acme.desk-tasks/revision/5",
+      "episode_content_hash": "sha256:60cca1c1e40667f82239d05611313737c532afc405a7b6009fa67fc98758faf8",
+      "split_class": "world_holdout",
+      "actor_partition_key": "actor-f",
+      "world_partition_key": "world-f",
+      "max_tick": 404000
+    },
+    {
+      "episode_revision_ref": "episode://acme.desk-tasks/revision/6",
+      "episode_content_hash": "sha256:814f2651366f85c6b6e2b13cff1bcd698d562239e641a8824bc98546f82bb06f",
+      "split_class": "adversarial",
+      "actor_partition_key": "actor-g",
+      "world_partition_key": "world-g",
+      "max_tick": 405000
+    }
+  ],
+  "splits": [
+    {
+      "split_class": "train",
+      "member_count": 1
+    },
+    {
+      "split_class": "validation",
+      "member_count": 1
+    },
+    {
+      "split_class": "temporal_holdout",
+      "member_count": 1
+    },
+    {
+      "split_class": "actor_holdout",
+      "member_count": 1
+    },
+    {
+      "split_class": "world_holdout",
+      "member_count": 1
+    },
+    {
+      "split_class": "adversarial",
+      "member_count": 1
+    }
+  ],
+  "all_member_episode_revision_refs": [
+    "episode://acme.desk-tasks/revision/1",
+    "episode://acme.desk-tasks/revision/2",
+    "episode://acme.desk-tasks/revision/3",
+    "episode://acme.desk-tasks/revision/4",
+    "episode://acme.desk-tasks/revision/5",
+    "episode://acme.desk-tasks/revision/99"
+  ],
+  "member_count": 6,
+  "membership_is_immutable": true,
+  "leakage_controls": {
+    "near_duplicate_exclusion_method": "perceptual-frame-hash-hamming-8",
+    "near_duplicate_excluded_count": 11,
+    "temporal_cut_tick": 500000,
+    "max_train_tick": 460000,
+    "min_temporal_holdout_tick": 520000
+  },
+  "registry_status": "active",
+  "admitted_at": "2026-08-31T12:10:00Z",
+  "succession": {
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null
+  },
+  "migration": {
+    "compatibility": "initial",
+    "downgrade_to_predecessor": "refused"
+  },
+  "constants": {
+    "commitment_domain": "ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"
+  },
+  "authority_nonclaim": "dataset_split_manifest_grants_no_authority",
+  "manifest_selects_no_evaluation_evidence_for_its_own_producer": true,
+  "content_hash": "sha256:b4bb3fb8aa415046290c16b242387135056805024916b82c0bdfe9ad6efb2dc1"
+}

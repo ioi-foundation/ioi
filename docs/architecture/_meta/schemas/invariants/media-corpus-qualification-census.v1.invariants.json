@@ -1,0 +1,115 @@
+{
+  "$id": "invariant://ioi/foundations/objects/media-corpus-qualification-census/honest-two-lane-census/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+  "rules": [
+    {
+      "rule_id": "media_corpus_qualification_census.content_hash.commits_the_whole_census",
+      "description": "Every field except the hash itself, committed under a domain separator — the claimed scale and profile, the raw/accepted/rejected/deduplicated counts, every per-file disposition, the required and observed label vocabularies, the pinned floors and ceilings, and the runtime evidence. A census whose numbers can move without moving its hash is a report, not a certificate.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "corpus_census_id": { "path": "$.corpus_census_id" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "tenant_ref": { "path": "$.tenant_ref" },
+          "principal_resolution": { "path": "$.principal_resolution" },
+          "resolved_principal_ref": { "path": "$.resolved_principal_ref" },
+          "claimed_scale": { "path": "$.claimed_scale" },
+          "profile": { "path": "$.profile" },
+          "corpus_content_root": { "path": "$.corpus_content_root" },
+          "raw": { "path": "$.raw" },
+          "accepted": { "path": "$.accepted" },
+          "rejected": { "path": "$.rejected" },
+          "deduplicated": { "path": "$.deduplicated" },
+          "file_dispositions": { "path": "$.file_dispositions" },
+          "profile_required_label_classes": { "path": "$.profile_required_label_classes" },
+          "observed_label_classes": { "path": "$.observed_label_classes" },
+          "floors": { "path": "$.floors" },
+          "ceilings": { "path": "$.ceilings" },
+          "runtime_evidence": { "path": "$.runtime_evidence" },
+          "degeneracy_findings": { "path": "$.degeneracy_findings" },
+          "distinct_content_hash_count": { "path": "$.distinct_content_hash_count" },
+          "does_not_claim_hours_scale_qualification": { "path": "$.does_not_claim_hours_scale_qualification" },
+          "does_not_claim_throughput_or_latency": { "path": "$.does_not_claim_throughput_or_latency" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition",
+      "description": "THE PARTITION CLOSURE. One disposition row per raw file, pinned against the raw file count. A file with no disposition makes the row set short and refuses; a file counted twice makes it long and refuses. This is how the census closes arithmetically without an arithmetic operator the portable invariant language does not have.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.file_dispositions",
+        "count_path": "$.raw.file_count"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct",
+      "description": "PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5). A repeated content digest in the disposition rows is a corpus inflating its own census by restating the same bytes.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.file_dispositions",
+        "fields": ["content_sha256"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.labels.every_profile_required_class_is_observed",
+      "description": "EVERY PROFILE-REQUIRED ACTION, FIELD AND EXCEPTION LABEL CLASS. The required vocabulary must be covered exactly by the observed one: a corpus missing a required class leaves the covering short and refuses, so a high label count over a narrow vocabulary cannot stand in for coverage.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.profile_required_label_classes",
+        "required_paths": [],
+        "required_array_paths": ["$.observed_label_classes"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time",
+      "description": "Accepted time after exact and near-duplicate exclusion cannot exceed the time before it. An 'after' larger than its 'before' is the arithmetic a padded corpus produces when exclusion is declared but not performed.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.accepted.seconds_after_deduplication", "$.accepted.seconds_before_deduplication"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time",
+      "description": "The outer closure: no lane may accept more source time than it ingested.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.accepted.seconds_before_deduplication", "$.raw.source_seconds"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling",
+      "description": "The 2 GiB ceiling, checked against the pinned value rather than a verifier constant, so a relying party holding only these bytes can check it. The ceiling is part of why the scheduled lane needs no GPU runner, object storage or metered service.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.accepted.byte_count", "$.ceilings.corpus_byte_count"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.degeneracy.distinct_content_matches_the_disposition_rows",
+      "description": "The declared distinct-digest count is checked against the enumerated rows. Two independent statements about one set is what stops a repeated file being absorbed into a count nobody cross-checks.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.file_dispositions",
+        "count_path": "$.distinct_content_hash_count"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root",
+      "description": "INTERRUPTION/RESTART EQUIVALENCE IS RECORDED AS A COMPARISON, NOT A CLAIM. The two roots must be equal; a census that carried only a boolean would let a run that compared nothing report success.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.runtime_evidence.restart_equivalence.pre_restart_root", "$.runtime_evidence.restart_equivalence.post_restart_root"]
+      }
+    }
+  ]
+}

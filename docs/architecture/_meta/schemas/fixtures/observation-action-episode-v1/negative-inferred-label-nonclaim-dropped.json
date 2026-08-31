@@ -1,0 +1,101 @@
+{
+  "schema_version": "ioi.observation-action-episode.v1",
+  "episode_id": "episode://acme.desk-tasks",
+  "revision_ref": "episode://acme.desk-tasks/revision/1",
+  "owner_ref": "owner://acme",
+  "tenant_ref": "tenant://acme",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "principal://acme.capture-operator",
+  "media_snapshot_revision_ref": "media-snapshot://acme.support-desk/revision/1",
+  "media_snapshot_content_hash": "sha256:d838c093cc8bfd59c51741b3007e0af3ac00abe02fe1efeac0a5dab557e48909",
+  "session_ref": "session://acme.desk-2026-08-31-a",
+  "bounds": {
+    "timebase_id": "acme-desk-tb-1",
+    "start_tick": 120000,
+    "end_tick": 486000,
+    "boundary_evidence_ref": "artifact://acme.desk/ep-1-bounds"
+  },
+  "streams": [
+    {
+      "stream_role": "observation",
+      "schema_ref": "schema://acme/desk-frame/v1",
+      "channel": "screen",
+      "sample_count": 10980,
+      "sync_evidence_ref": "artifact://acme.desk/sync-1"
+    },
+    {
+      "stream_role": "action",
+      "schema_ref": "schema://acme/desk-action/v1",
+      "channel": "controller",
+      "sample_count": 412,
+      "sync_evidence_ref": "artifact://acme.desk/sync-1"
+    }
+  ],
+  "synchronization": {
+    "method": "shared_timebase",
+    "frame_action_offset_ticks": -16,
+    "max_observed_skew_ticks": 22,
+    "declared_skew_envelope_ticks": 40
+  },
+  "labels": [
+    {
+      "label_ref": "label://acme.desk/ep-1/click-0007",
+      "label_class": "label-class://acme/action/click",
+      "value_ref": "value://acme.desk/click-0007",
+      "label_provenance_class": "controller_recorded",
+      "epistemic_status": "controller_ground_truth",
+      "is_controller_ground_truth": true,
+      "confidence": null,
+      "uncertainty_kind": "none",
+      "attributed_to_ref": "device://acme.workstation-07",
+      "corrected_by_ref": null
+    },
+    {
+      "label_ref": "label://acme.desk/ep-1/inferred-0011",
+      "label_class": "label-class://acme/action/scroll",
+      "value_ref": "value://acme.desk/scroll-0011",
+      "label_provenance_class": "video_inferred",
+      "epistemic_status": "uncertain_attributed_label",
+      "is_controller_ground_truth": false,
+      "confidence": 0.71,
+      "uncertainty_kind": "model",
+      "attributed_to_ref": "model://acme.vision-labeler/v3",
+      "corrected_by_ref": null
+    }
+  ],
+  "ground_truth_eligible_label_refs": [
+    "label://acme.desk/ep-1/click-0007"
+  ],
+  "controller_recorded_label_refs": [
+    "label://acme.desk/ep-1/click-0007"
+  ],
+  "exception_labels": [
+    {
+      "exception_class": "operator_abort",
+      "at_tick": 470000,
+      "evidence_ref": "artifact://acme.desk/abort-1"
+    }
+  ],
+  "determinism": {
+    "determinism_class": "seeded_deterministic",
+    "preprocessor_code_root": "sha256:5c642922748877a0560a081a15f8a4ed03fa91f9c83a0b0d9c3531b8b0009b55",
+    "preprocessor_config_root": "sha256:0be92449fe1870728c0e86a2c64ffeb6204a0ec595ab8f64094afbcf3b164114",
+    "declared_randomness_seed": "acme-desk-seed-1"
+  },
+  "registry_status": "active",
+  "admitted_at": "2026-08-31T12:05:00Z",
+  "succession": {
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null
+  },
+  "migration": {
+    "compatibility": "initial",
+    "downgrade_to_predecessor": "refused"
+  },
+  "constants": {
+    "commitment_domain": "ioi.observation-action-episode-content-commitment-jcs-sha256.v1"
+  },
+  "authority_nonclaim": "observation_action_episode_grants_no_authority",
+  "episode_is_not_a_skill_or_workflow": true,
+  "content_hash": "sha256:de73bd33e38696d0d3ad9a953710974feb05ea1f72824a1577e75445174cd79d"
+}

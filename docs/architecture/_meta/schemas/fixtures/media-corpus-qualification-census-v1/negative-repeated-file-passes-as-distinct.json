@@ -1,0 +1,175 @@
+{
+  "schema_version": "ioi.media-corpus-qualification-census.v1",
+  "corpus_census_id": "corpus-census://acme.desk/cc697a6583013185bce6be6c1cd39ed42cb0285ea78ae087a59ba4a568ce5d10",
+  "owner_ref": "owner://acme",
+  "tenant_ref": "tenant://acme",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "principal://acme.capture-operator",
+  "claimed_scale": "compact_deterministic_fixture",
+  "profile": "interactive-learned",
+  "corpus_content_root": "sha256:b00da08f0e8990456a8f363c9bf7b6fe04b0ae5b106961aaa4b61c9e0bee0df9",
+  "raw": {
+    "source_seconds": 1440,
+    "file_count": 12,
+    "byte_count": 48000000,
+    "frame_or_sample_count": 43200,
+    "chunk_count": 144
+  },
+  "accepted": {
+    "seconds_before_deduplication": 1080,
+    "seconds_after_deduplication": 960,
+    "file_count": 8,
+    "byte_count": 32000000,
+    "frame_or_sample_count": 28800,
+    "chunk_count": 96,
+    "bounded_episode_count": 4,
+    "task_count": 4,
+    "source_session_count": 2,
+    "label_count": 640
+  },
+  "rejected": {
+    "source_seconds": 120,
+    "file_count": 1,
+    "byte_count": 4000000,
+    "frame_or_sample_count": 3600,
+    "chunk_count": 12,
+    "reason_classes": [
+      "corrupt"
+    ]
+  },
+  "deduplicated": {
+    "source_seconds": 360,
+    "file_count": 3,
+    "byte_count": 12000000,
+    "frame_or_sample_count": 10800,
+    "chunk_count": 36,
+    "reason_classes": [
+      "near_duplicate",
+      "exact_duplicate"
+    ]
+  },
+  "file_dispositions": [
+    {
+      "content_sha256": "sha256:af1e90719ed1e347f01f5eded9e3fb00d66b7a79e479d5312c81ed55cc5a7af0",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:722f542337120bcac5f8cc611f6e47eab2f8685e59c965929673a924eac54fda",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:b7b24d0ce6d1f5c3ab52a60b557fbb5f35373f05aa0abd856b21c0f45b7f4315",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:a8c93ae23dc62046b2c3ac1f3237f1abd68d6509deeef269951a9f2a9e832ee6",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:7f581cacbbcc9d7f83ea7ebdf6aca9cf227e2725ae634e338fe1985a1f4fbbd0",
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:af1e90719ed1e347f01f5eded9e3fb00d66b7a79e479d5312c81ed55cc5a7af0",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:2ac77365d30fe9b7348e19a7d6b461629e75940126822a2c51c6b2d4e8925a1e",
+      "disposition": "rejected",
+      "reason_class": "corrupt",
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:f2da6c5ebe9c830e15dedbd878dc00e8af3fce53b636783caf719ba26c98189e",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:9cbd79023c2420124a89adf896903e21935a7e766088ed10db364f8db5912e54",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:9b874e592130d53dc38701f8acbcb6858d3d82a00c09be9c07fb126b7d7ad2aa",
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:d5ccff5e2586938df5d8e7797c43aa06c77abf52a52c755ea71f516217dbe06b",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "content_sha256": "sha256:19055394b4dfb01a451d4efaa7da2110ed69808348cf7e247aef7101b0cc7dd6",
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    }
+  ],
+  "profile_required_label_classes": [
+    "label-class://acme/action/click",
+    "label-class://acme/action/scroll",
+    "label-class://acme/field/ticket-id",
+    "label-class://acme/exception/operator-abort"
+  ],
+  "observed_label_classes": [
+    "label-class://acme/action/click",
+    "label-class://acme/action/scroll",
+    "label-class://acme/field/ticket-id",
+    "label-class://acme/exception/operator-abort"
+  ],
+  "floors": {
+    "accepted_seconds_after_deduplication": 7200,
+    "bounded_episode_count": 8,
+    "source_session_count": 2
+  },
+  "ceilings": {
+    "corpus_byte_count": 2147483648
+  },
+  "runtime_evidence": {
+    "peak_resident_bytes": 402653184,
+    "projection_subscription_lease_ref": "projection-subscription-lease://acme.desk-ingest/1",
+    "max_undelivered_events_declared": 4096,
+    "queue_high_water": 3871,
+    "backpressure_lag_outcomes": [
+      "typed_gap"
+    ],
+    "durability_class_achieved": "replicated_same_host",
+    "interruption_count": 1,
+    "resume_count": 1,
+    "restart_equivalence": {
+      "pre_restart_root": "sha256:a5346f9d28792a563ca4138ee3ed5481632afde8e59769d12b2e390e4a3083e3",
+      "post_restart_root": "sha256:a5346f9d28792a563ca4138ee3ed5481632afde8e59769d12b2e390e4a3083e3",
+      "roots_equal": true
+    },
+    "corrupt_inputs_refused": 1,
+    "truncated_inputs_refused": 1,
+    "variable_rate_inputs_handled": 1
+  },
+  "degeneracy_findings": [],
+  "distinct_content_hash_count": 12,
+  "does_not_claim_hours_scale_qualification": true,
+  "does_not_claim_throughput_or_latency": true,
+  "admitted_at": "2026-08-31T12:20:00Z",
+  "constants": {
+    "commitment_domain": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"
+  },
+  "authority_nonclaim": "media_corpus_qualification_census_grants_no_authority",
+  "content_hash": "sha256:ac08eaff4027b8f8c7fd55bea007e944f85591626875739ba8f5f6456aa77ab1"
+}

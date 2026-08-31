@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+  "title": "MediaCorpusQualificationCensusV1",
+  "description": "THE CERTIFICATE BOTH LANES EMIT, CARRYING ITS OWN HONESTY ABOUT WHICH LANE PRODUCED IT. The deterministic lane emits `compact_deterministic_fixture` and pins `does_not_claim_hours_scale_qualification` — an empty claim nobody can fill is a stronger statement than an absent field, which is what lets ACC-19 clause 5 say the deterministic lane 'claims no hours-scale qualification' and have it be checkable. The scheduled lane emits `hours_scale_qualification` and must satisfy every floor by invariant. The floors are FUNCTIONAL (duration, diversity, census closure) and cannot shrink. NUMERIC THROUGHPUT AND LATENCY LIMITS ARE DELIBERATELY ABSENT: per ADR 0039's own acceptance record they wait for repeated matched release-host baselines and a planted slowdown mutation.",
+  "x-ioi-schema-version": "ioi.media-corpus-qualification-census.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "censusRef": { "type": "string", "pattern": "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$" },
+    "ownerRef": { "type": "string", "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "principalRef": { "type": "string", "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "seconds": { "type": "integer", "minimum": 0, "maximum": 100000000 },
+    "count": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+    "byteCount": { "type": "integer", "minimum": 0, "maximum": 2199023255552 },
+    "labelClassRef": { "type": "string", "pattern": "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$" },
+    "reasonClass": { "enum": ["corrupt", "truncated", "variable_rate", "padded", "repeated", "out_of_rights", "quarantined", "near_duplicate", "exact_duplicate", "below_quality_floor"] }
+  },
+  "required": [
+    "schema_version",
+    "corpus_census_id",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "claimed_scale",
+    "profile",
+    "corpus_content_root",
+    "raw",
+    "accepted",
+    "rejected",
+    "deduplicated",
+    "file_dispositions",
+    "profile_required_label_classes",
+    "observed_label_classes",
+    "floors",
+    "ceilings",
+    "runtime_evidence",
+    "degeneracy_findings",
+    "distinct_content_hash_count",
+    "does_not_claim_hours_scale_qualification",
+    "does_not_claim_throughput_or_latency",
+    "admitted_at",
+    "constants",
+    "authority_nonclaim",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.media-corpus-qualification-census.v1" },
+    "corpus_census_id": {
+      "$ref": "#/$defs/censusRef",
+      "description": "CONTENT-ADDRESSED rather than numbered: the census IS its corpus's digest, so two runs over the same corpus collide by construction and a shortened corpus cannot hide behind a fresh identity."
+    },
+    "owner_ref": { "$ref": "#/$defs/ownerRef" },
+    "tenant_ref": { "$ref": "#/$defs/tenantRef" },
+    "principal_resolution": { "const": "server_resolved" },
+    "resolved_principal_ref": { "$ref": "#/$defs/principalRef" },
+    "claimed_scale": {
+      "enum": ["compact_deterministic_fixture", "hours_scale_qualification"],
+      "description": "WHICH LANE PRODUCED THIS. Neither lane may claim the other's coverage (ACC-16 Evidence, ACC-19 Evidence)."
+    },
+    "profile": {
+      "enum": ["composed-model-harness", "interactive-learned", "synthetic-learned-sensitive"],
+      "description": "The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."
+    },
+    "corpus_content_root": { "$ref": "#/$defs/sha256" },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count"],
+      "properties": {
+        "source_seconds": { "$ref": "#/$defs/seconds" },
+        "file_count": { "$ref": "#/$defs/count" },
+        "byte_count": { "$ref": "#/$defs/byteCount" },
+        "frame_or_sample_count": { "$ref": "#/$defs/count" },
+        "chunk_count": { "$ref": "#/$defs/count" }
+      }
+    },
+    "accepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seconds_before_deduplication", "seconds_after_deduplication", "file_count", "byte_count", "frame_or_sample_count", "chunk_count", "bounded_episode_count", "task_count", "source_session_count", "label_count"],
+      "description": "The accepted half of the census. `seconds_after_deduplication` is the floor-bearing number: two hours of accepted source time AFTER exact and near-duplicate exclusion, never before it.",
+      "properties": {
+        "seconds_before_deduplication": { "$ref": "#/$defs/seconds" },
+        "seconds_after_deduplication": { "$ref": "#/$defs/seconds" },
+        "file_count": { "$ref": "#/$defs/count" },
+        "byte_count": { "$ref": "#/$defs/byteCount" },
+        "frame_or_sample_count": { "$ref": "#/$defs/count" },
+        "chunk_count": { "$ref": "#/$defs/count" },
+        "bounded_episode_count": { "$ref": "#/$defs/count" },
+        "task_count": { "$ref": "#/$defs/count" },
+        "source_session_count": { "$ref": "#/$defs/count" },
+        "label_count": { "$ref": "#/$defs/count" }
+      }
+    },
+    "rejected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count", "reason_classes"],
+      "properties": {
+        "source_seconds": { "$ref": "#/$defs/seconds" },
+        "file_count": { "$ref": "#/$defs/count" },
+        "byte_count": { "$ref": "#/$defs/byteCount" },
+        "frame_or_sample_count": { "$ref": "#/$defs/count" },
+        "chunk_count": { "$ref": "#/$defs/count" },
+        "reason_classes": { "type": "array", "items": { "$ref": "#/$defs/reasonClass" }, "maxItems": 32 }
+      }
+    },
+    "deduplicated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count", "reason_classes"],
+      "properties": {
+        "source_seconds": { "$ref": "#/$defs/seconds" },
+        "file_count": { "$ref": "#/$defs/count" },
+        "byte_count": { "$ref": "#/$defs/byteCount" },
+        "frame_or_sample_count": { "$ref": "#/$defs/count" },
+        "chunk_count": { "$ref": "#/$defs/count" },
+        "reason_classes": { "type": "array", "items": { "$ref": "#/$defs/reasonClass" }, "maxItems": 32 }
+      }
+    },
+    "file_dispositions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "description": "ONE ROW PER RAW FILE. This is how the census closes arithmetically without an arithmetic operator the invariant DSL does not have: `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over the content hash refuses a padded or repeated corpus. Every raw file therefore has exactly one disposition, and a file with none is missing from the count rather than silently absorbed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["content_sha256", "disposition", "reason_class", "source_seconds"],
+        "properties": {
+          "content_sha256": { "$ref": "#/$defs/sha256" },
+          "disposition": { "enum": ["accepted", "rejected", "deduplicated"] },
+          "reason_class": { "oneOf": [{ "$ref": "#/$defs/reasonClass" }, { "type": "null" }] },
+          "source_seconds": { "$ref": "#/$defs/seconds" }
+        }
+      }
+    },
+    "profile_required_label_classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": { "$ref": "#/$defs/labelClassRef" },
+      "description": "Every profile-required ACTION, FIELD and EXCEPTION label class. Covered exactly by the observed set below, so a corpus missing a required class refuses rather than reporting a high count over a narrow vocabulary."
+    },
+    "observed_label_classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": { "$ref": "#/$defs/labelClassRef" }
+    },
+    "floors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted_seconds_after_deduplication", "bounded_episode_count", "source_session_count"],
+      "description": "PINNED IN THE SCHEMA AS SINGLE-MEMBER NUMERIC ENUMS, which is this repo's numeric pin (a numeric `const` is banned by the ajv-strict authoring convention). Pinning them in the record rather than only in the verifier is what makes 'the floors cannot shrink' checkable offline by a relying party holding only these bytes.",
+      "properties": {
+        "accepted_seconds_after_deduplication": {
+          "type": "integer",
+          "enum": [7200],
+          "description": "At least two hours of accepted source time after exact AND near-duplicate exclusion (ACC-19 clause 5)."
+        },
+        "bounded_episode_count": {
+          "type": "integer",
+          "enum": [8],
+          "description": "At least eight independently bounded episodes or tasks."
+        },
+        "source_session_count": {
+          "type": "integer",
+          "enum": [2],
+          "description": "From at least two source Sessions."
+        }
+      }
+    },
+    "ceilings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corpus_byte_count"],
+      "properties": {
+        "corpus_byte_count": {
+          "type": "integer",
+          "enum": [2147483648],
+          "description": "2 GiB. Duration and diversity are the floors; fidelity is not, which is part of why the scheduled lane needs no GPU runner, object storage or metered service."
+        }
+      }
+    },
+    "runtime_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["peak_resident_bytes", "projection_subscription_lease_ref", "max_undelivered_events_declared", "queue_high_water", "backpressure_lag_outcomes", "durability_class_achieved", "interruption_count", "resume_count", "restart_equivalence", "corrupt_inputs_refused", "truncated_inputs_refused", "variable_rate_inputs_handled"],
+      "description": "What the run ACTUALLY did. The backpressure half reuses the registered ProjectionSubscriptionLease v1 vocabulary, so 'exceeding the bound produces a typed outcome; it never silently drops an accepted event' is inherited rather than restated.",
+      "properties": {
+        "peak_resident_bytes": { "$ref": "#/$defs/byteCount" },
+        "projection_subscription_lease_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "max_undelivered_events_declared": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+        "queue_high_water": { "$ref": "#/$defs/count" },
+        "backpressure_lag_outcomes": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": { "enum": ["typed_gap", "typed_rebase", "lease_revoked"] }
+        },
+        "durability_class_achieved": {
+          "enum": ["local_only", "replicated_same_host", "quorum_replicated"],
+          "description": "THE CLASS THE WRITER REACHED, never the one requested. The mux caps same-host links at `replicated_same_host` and refuses to fake a replicated class."
+        },
+        "interruption_count": { "$ref": "#/$defs/count" },
+        "resume_count": { "$ref": "#/$defs/count" },
+        "restart_equivalence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pre_restart_root", "post_restart_root", "roots_equal"],
+          "properties": {
+            "pre_restart_root": { "$ref": "#/$defs/sha256" },
+            "post_restart_root": { "$ref": "#/$defs/sha256" },
+            "roots_equal": { "const": true }
+          }
+        },
+        "corrupt_inputs_refused": { "$ref": "#/$defs/count" },
+        "truncated_inputs_refused": { "$ref": "#/$defs/count" },
+        "variable_rate_inputs_handled": { "$ref": "#/$defs/count" }
+      }
+    },
+    "degeneracy_findings": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_class", "affected_file_count", "evidence_ref"],
+        "properties": {
+          "finding_class": { "enum": ["padded_span", "repeated_file", "single_actor_corpus", "single_session_corpus", "degenerate_label_vocabulary", "constant_frame_content"] },
+          "affected_file_count": { "$ref": "#/$defs/count" },
+          "evidence_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "distinct_content_hash_count": { "$ref": "#/$defs/count" },
+    "does_not_claim_hours_scale_qualification": { "type": "boolean" },
+    "does_not_claim_throughput_or_latency": {
+      "const": true,
+      "description": "PINNED ON BOTH LANES. No throughput, latency or time-to-quality number is claimed by this contract in this cut."
+    },
+    "admitted_at": { "$ref": "#/$defs/canonicalTimestamp" },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_domain"],
+      "properties": {
+        "commitment_domain": { "const": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1" }
+      }
+    },
+    "authority_nonclaim": { "const": "media_corpus_qualification_census_grants_no_authority" },
+    "content_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "title": "the compact deterministic lane claims no hours-scale qualification",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["claimed_scale"],
+        "properties": { "claimed_scale": { "const": "compact_deterministic_fixture" } }
+      },
+      "then": {
+        "type": "object",
+        "properties": { "does_not_claim_hours_scale_qualification": { "const": true } }
+      }
+    },
+    {
+      "title": "the hours-scale lane makes that claim and therefore owes every floor",
+      "description": "THE FLOORS BIND TO THE LANE THAT CLAIMS THEM. They are expressed here as a schema conditional because the portable invariant language has no conditional numeric operator, and an unconditional floor rule would refuse the compact deterministic fixture that ACC-19 clause 5 explicitly permits. The compact lane is bounded instead by its own pinned nonclaim above, so neither lane can borrow the other's coverage.",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["claimed_scale"],
+        "properties": { "claimed_scale": { "const": "hours_scale_qualification" } }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "does_not_claim_hours_scale_qualification": { "const": false },
+          "accepted": {
+            "type": "object",
+            "properties": {
+              "seconds_after_deduplication": { "type": "integer", "minimum": 7200, "maximum": 100000000 },
+              "bounded_episode_count": { "type": "integer", "minimum": 8, "maximum": 1000000000000 },
+              "task_count": { "type": "integer", "minimum": 8, "maximum": 1000000000000 },
+              "source_session_count": { "type": "integer", "minimum": 2, "maximum": 1000000000000 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

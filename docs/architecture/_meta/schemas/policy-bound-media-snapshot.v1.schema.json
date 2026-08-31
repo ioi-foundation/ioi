@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+  "title": "PolicyBoundMediaSnapshotV1",
+  "description": "The immutable Data-owned snapshot of ONE imported recording or ONE live-demonstration segment set. OBSERVATION IS NOT CONSENT: this record says what was captured, under which rights, on which timebase, and it grants nothing. Every binding is an EXACT revision rather than a family head, because a snapshot that named `view://acme.intake` would read through whichever policy that family last carried. The bytes themselves stay behind an ArtifactRef in the artifact plane; this contract binds their hash and never inlines them.",
+  "x-ioi-schema-version": "ioi.policy-bound-media-snapshot.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "snapshotFamilyRef": { "type": "string", "pattern": "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$" },
+    "snapshotRevisionRef": { "type": "string", "pattern": "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "viewRevisionRef": { "type": "string", "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "claimRevisionRef": { "type": "string", "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "dataRecipeRevisionRef": { "type": "string", "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "mappingRevisionRef": { "type": "string", "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "runRevisionRef": { "type": "string", "pattern": "^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "ownerRef": { "type": "string", "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "principalRef": { "type": "string", "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "refList": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 320 }, "maxItems": 256 },
+    "tickCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000 }
+  },
+  "required": [
+    "schema_version",
+    "media_snapshot_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "acquisition_class",
+    "capture_binding",
+    "source_rights",
+    "policy_bound_data_view_revision_refs",
+    "timebase",
+    "valid_time",
+    "artifact_bindings",
+    "availability",
+    "information_flow_label_refs",
+    "quarantine",
+    "redaction",
+    "deduplication",
+    "quality_findings",
+    "source_impact_lineage",
+    "raw_census",
+    "accepted_census",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "artifact_authority",
+    "capture_authority_does_not_travel_into_replay",
+    "demonstration_is_not_consent",
+    "snapshot_is_not_a_skill_or_workflow",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.policy-bound-media-snapshot.v1",
+      "description": "Pinned so no neighbouring media or dataset shape can validate here."
+    },
+    "media_snapshot_id": { "$ref": "#/$defs/snapshotFamilyRef" },
+    "revision_ref": {
+      "$ref": "#/$defs/snapshotRevisionRef",
+      "description": "ONE IMMUTABLE REVISION. The `/revision/` segment refuses a family head where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."
+    },
+    "owner_ref": { "$ref": "#/$defs/ownerRef" },
+    "tenant_ref": { "$ref": "#/$defs/tenantRef" },
+    "principal_resolution": {
+      "const": "server_resolved",
+      "description": "PINNED. The capturing principal is resolved from the authenticated request identity; a caller that authors it is refused by name (INV-37)."
+    },
+    "resolved_principal_ref": { "$ref": "#/$defs/principalRef" },
+    "acquisition_class": {
+      "enum": ["imported_recording", "live_demonstration"],
+      "description": "Imported media must not silently become a live-capture dependency, and a live demonstration must not borrow an import's rights posture."
+    },
+    "capture_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actor_ref", "session_ref", "device_ref", "environment_ref", "application_ref", "world_revision_ref"],
+      "description": "WHO, WHERE AND IN WHICH WORLD. Every member is an exact ref; a mutable world or application version is the drift ACC-16 names.",
+      "properties": {
+        "actor_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "session_ref": { "type": "string", "pattern": "^session://[a-z0-9][a-z0-9._:-]{0,190}$" },
+        "device_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "environment_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "application_ref": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 320 }, { "type": "null" }] },
+        "world_revision_ref": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 320 }, { "type": "null" }] }
+      }
+    },
+    "source_rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture_rights_revision_ref", "learning_source_rights_claim_revision_refs", "consent_bindings", "permits_learned_use"],
+      "description": "ACC-16 CLAUSE 1. Missing capture rights refuses EVERY profile; missing training or secondary-use rights refuses only the learned claim, never the procedural one.",
+      "properties": {
+        "capture_rights_revision_ref": { "$ref": "#/$defs/claimRevisionRef" },
+        "learning_source_rights_claim_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/claimRevisionRef" }, "maxItems": 64 },
+        "consent_bindings": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["consent_ref", "consent_state", "consent_subject_ref", "valid_until"],
+            "properties": {
+              "consent_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+              "consent_state": { "enum": ["active", "expired", "revoked", "unknown"] },
+              "consent_subject_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+              "valid_until": { "$ref": "#/$defs/canonicalTimestamp" }
+            }
+          }
+        },
+        "permits_learned_use": {
+          "type": "boolean",
+          "description": "Derived from the resolved claims, never authored. False leaves a learned or combined claim inadmissible while the procedural path remains open."
+        }
+      }
+    },
+    "policy_bound_data_view_revision_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/viewRevisionRef" },
+      "maxItems": 64,
+      "description": "OWNER-RESOLVED THROUGH M05.8's SEAM, never shape-checked here. A snapshot naming a view nothing resolves is a record asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse. DELIBERATELY NOT `minItems: 1`: a procedural-only capture owes no policy-bound view (ACC-16 clause 1 refuses the learned claim, not the procedural profile), and pinning a floor here would make the paired registered invariant unfalsifiable — a rule that cannot fail is not a rule. The floor is therefore conditioned on `permits_learned_use` by that invariant instead."
+    },
+    "timebase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temporal_verification_profile_ref", "profile_hash", "timebase_id", "clock_class", "epoch_ref", "tick_unit", "declared_monotonic", "discontinuities"],
+      "description": "ACC-16 CLAUSE 3. One declared timebase. Per INV-39 the wall-clock anchor is AUTHENTICATED, never caller-asserted; a straddling interval is indeterminate rather than rounded toward the caller.",
+      "properties": {
+        "temporal_verification_profile_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "profile_hash": { "$ref": "#/$defs/sha256" },
+        "timebase_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+        "clock_class": { "enum": ["authenticated_wallet_time", "device_monotonic", "capture_sequence"] },
+        "epoch_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "tick_unit": { "enum": ["nanosecond", "microsecond", "millisecond", "sample", "frame"] },
+        "declared_monotonic": {
+          "const": true,
+          "description": "PINNED. A non-monotonic timebase is not repaired into one; the discontinuity is recorded below instead."
+        },
+        "discontinuities": {
+          "type": "array",
+          "maxItems": 4096,
+          "description": "DETECTED AND RETAINED, NEVER NORMALIZED AWAY. Reordering, gaps and clock regression are findings; a run that sorts them into order has destroyed the evidence ACC-16 clause 3 asks for.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "at_tick", "span_ticks", "evidence_ref"],
+            "properties": {
+              "kind": { "enum": ["gap", "reorder", "clock_regression", "rate_change"] },
+              "at_tick": { "$ref": "#/$defs/tickCount" },
+              "span_ticks": { "$ref": "#/$defs/tickCount" },
+              "evidence_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+            }
+          }
+        }
+      }
+    },
+    "valid_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "description": "INSIDE the content commitment, exactly as OntologyVersion (M05.1) splits it, so a predecessor's transaction interval can close while its bytes and hash stay frozen. Transaction time lives OUTSIDE this contract, beside the admitted operation.",
+      "properties": {
+        "from": { "$ref": "#/$defs/canonicalTimestamp" },
+        "to": { "oneOf": [{ "$ref": "#/$defs/canonicalTimestamp" }, { "type": "null" }] }
+      }
+    },
+    "artifact_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "description": "The content-addressed payload handles. Per ADR 0039 CAS may hold the bytes but is not authority: a missing or mismatched payload fails closed.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_ref", "sha256", "media_type", "size_bytes", "manifest_root", "role"],
+        "properties": {
+          "artifact_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "media_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "size_bytes": { "type": "integer", "minimum": 0, "maximum": 2199023255552 },
+          "manifest_root": { "$ref": "#/$defs/sha256" },
+          "role": { "enum": ["dataset", "screenshot", "trace", "checkpoint", "recording", "control_stream"] }
+        }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["availability_manifest_ref", "retention_class_ref", "verifier_contract_ref", "failure_behavior"],
+      "description": "ADR 0039 requires a checkpoint to bind exactly this trio for every referenced payload. These are the REGISTERED AvailabilityManifest v1 / RetentionClass v1 contracts, not a bespoke corpus-availability vocabulary.",
+      "properties": {
+        "availability_manifest_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "retention_class_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "verifier_contract_ref": { "type": "string", "pattern": "^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$" },
+        "failure_behavior": { "const": "fail_closed" }
+      }
+    },
+    "information_flow_label_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$" },
+      "minItems": 1,
+      "maxItems": 64,
+      "description": "Data classes are REGISTERED InformationFlowLabel refs inheriting under the existing non-widening rule. M05.9 mints no classification vocabulary and declassification stays Governance-owned through DeclassificationApproval."
+    },
+    "quarantine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quarantine_state", "pii_decision_receipt_refs", "rejected_segment_count"],
+      "description": "ACC-16 CLAUSE 2, routed through the scanner that already exists (crates/pii + the cloud airlock), not a new quarantine object. Rejected bytes never reach a dataset.",
+      "properties": {
+        "quarantine_state": { "enum": ["pending_review", "accepted", "rejected", "quarantined"] },
+        "pii_decision_receipt_refs": { "$ref": "#/$defs/refList" },
+        "rejected_segment_count": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipe_revision_ref", "creates_permission", "severs_lineage", "source_privacy_class", "output_privacy_class"],
+      "description": "REDACTION REDUCES EXPOSURE AND CREATES NOTHING. Its recipe is a DataRecipe revision because DataRecipe v2's transformation-step enum already has a `redact` member; a separate RedactionRecipe family would be a second spine.",
+      "properties": {
+        "recipe_revision_ref": { "$ref": "#/$defs/dataRecipeRevisionRef" },
+        "creates_permission": { "const": false },
+        "severs_lineage": { "const": false },
+        "source_privacy_class": { "enum": ["public", "internal", "confidential", "restricted", "regulated", "safety_critical"] },
+        "output_privacy_class": { "enum": ["public", "internal", "confidential", "restricted", "regulated", "safety_critical"] }
+      }
+    },
+    "deduplication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_key_algorithm", "near_duplicate_method", "excluded_count"],
+      "properties": {
+        "exact_key_algorithm": { "const": "jcs_sha256" },
+        "near_duplicate_method": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "excluded_count": { "type": "integer", "minimum": 0, "maximum": 100000000 }
+      }
+    },
+    "quality_findings": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_class", "severity", "evidence_ref"],
+        "properties": {
+          "finding_class": { "enum": ["corrupt_chunk", "truncated_file", "variable_rate_segment", "padded_span", "repeated_file", "low_signal"] },
+          "severity": { "enum": ["refused", "excluded", "retained_with_finding"] },
+          "evidence_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "source_impact_lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["data_recipe_revision_refs", "connector_mapping_revision_refs", "transformation_run_revision_refs"],
+      "description": "Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.",
+      "properties": {
+        "data_recipe_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/dataRecipeRevisionRef" }, "maxItems": 128 },
+        "connector_mapping_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/mappingRevisionRef" }, "maxItems": 128 },
+        "transformation_run_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/runRevisionRef" }, "maxItems": 128 }
+      }
+    },
+    "raw_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count"],
+      "properties": {
+        "source_seconds": { "type": "integer", "minimum": 0, "maximum": 100000000 },
+        "file_count": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+        "byte_count": { "type": "integer", "minimum": 0, "maximum": 2199023255552 },
+        "frame_or_sample_count": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+        "chunk_count": { "type": "integer", "minimum": 0, "maximum": 100000000 }
+      }
+    },
+    "accepted_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count"],
+      "properties": {
+        "source_seconds": { "type": "integer", "minimum": 0, "maximum": 100000000 },
+        "file_count": { "type": "integer", "minimum": 0, "maximum": 10000000 },
+        "byte_count": { "type": "integer", "minimum": 0, "maximum": 2199023255552 },
+        "frame_or_sample_count": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+        "chunk_count": { "type": "integer", "minimum": 0, "maximum": 100000000 }
+      }
+    },
+    "registry_status": { "enum": ["draft", "active", "suspended", "expired", "superseded", "revoked"] },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp",
+      "description": "Taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predecessor_revision_ref", "predecessor_content_hash"],
+      "properties": {
+        "predecessor_revision_ref": { "oneOf": [{ "$ref": "#/$defs/snapshotRevisionRef" }, { "type": "null" }] },
+        "predecessor_content_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility", "downgrade_to_predecessor"],
+      "description": "GENESIS-AT-V1. There is no v1 predecessor corpus to converge, so `compatibility` admits only `initial` and the absence of convergence machinery is ASSERTED rather than assumed.",
+      "properties": {
+        "compatibility": { "const": "initial" },
+        "downgrade_to_predecessor": { "const": "refused" }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_domain"],
+      "properties": {
+        "commitment_domain": { "const": "ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1" }
+      }
+    },
+    "authority_nonclaim": { "const": "policy_bound_media_snapshot_grants_no_authority" },
+    "artifact_authority": {
+      "const": "none — an active ArtifactRef names bytes and grants no read, no replay, no current authority",
+      "description": "The strongest machine-checked passivity statement available, and it matters here precisely because ArtifactRef v1 itself carries NO invariant profile."
+    },
+    "capture_authority_does_not_travel_into_replay": { "const": true },
+    "demonstration_is_not_consent": { "const": true },
+    "snapshot_is_not_a_skill_or_workflow": { "const": true },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field under a domain separator, so a relying party holding only these bytes recomputes it and a stale or substituted hash fails offline."
+    }
+  },
+  "allOf": [
+    {
+      "title": "a snapshot that is not active permits no learned use",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["registry_status"],
+        "properties": { "registry_status": { "enum": ["draft", "suspended", "expired", "superseded", "revoked"] } }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "source_rights": {
+            "type": "object",
+            "properties": { "permits_learned_use": { "const": false } }
+          }
+        }
+      }
+    },
+    {
+      "title": "a genesis revision carries no predecessor",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["migration"],
+        "properties": {
+          "migration": {
+            "type": "object",
+            "required": ["compatibility"],
+            "properties": { "compatibility": { "const": "initial" } }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "succession": {
+            "type": "object",
+            "properties": {
+              "predecessor_revision_ref": { "type": "null" },
+              "predecessor_content_hash": { "type": "null" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "a rejected or quarantined capture permits no learned use",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["quarantine"],
+        "properties": {
+          "quarantine": {
+            "type": "object",
+            "required": ["quarantine_state"],
+            "properties": { "quarantine_state": { "enum": ["pending_review", "rejected", "quarantined"] } }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "source_rights": {
+            "type": "object",
+            "properties": { "permits_learned_use": { "const": false } }
+          }
+        }
+      }
+    }
+  ]
+}

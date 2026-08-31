@@ -297,6 +297,10 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/model-route-rights-contract/v1", "sha256:c3be645b42c6bfa6751613faa1fe5c5fa697db63c147d8d5ce7c043f4180b91a"),
     ("schema://ioi/foundations/objects/policy-bound-data-view/v1", "sha256:f1db8ff95f3c0cc10c7c6da1154bf9224c906161ed1eced95ba810ad91c0d640"),
     ("schema://ioi/foundations/objects/policy-bound-data-view/v2", "sha256:ae0c53473b1a4d1d6b79d71bf9e3202f1f768577463c47538e7177f26c9d73af"),
+    ("schema://ioi/foundations/objects/policy-bound-media-snapshot/v1", "sha256:8f48224adf5c8c43731ef9336c6eb7f546ecd3da33bbc2870917bda0de7e7a97"),
+    ("schema://ioi/foundations/objects/observation-action-episode/v1", "sha256:6dd128b648e3c4728244e5609813b972f987adf7591373b5a0af63b85df52737"),
+    ("schema://ioi/foundations/objects/dataset-split-manifest/v1", "sha256:d3e159c13c73b9245806150204232357e0cfd50c210c42d95fe1bc90738fdf2a"),
+    ("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", "sha256:22777f1796a8434850fc844071aef54588331eb8c09e6b8497118b1e63ad8eb1"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -123681,6 +123685,4556 @@ pub enum PolicyBoundDataViewV2DoesNotAssertItem {
     RuntimeEnforcement,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1 {
+    pub schema_version: PolicyBoundMediaSnapshotV1SchemaVersion,
+    pub media_snapshot_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub principal_resolution: PolicyBoundMediaSnapshotV1PrincipalResolution,
+    pub resolved_principal_ref: String,
+    pub acquisition_class: PolicyBoundMediaSnapshotV1AcquisitionClass,
+    pub capture_binding: PolicyBoundMediaSnapshotV1CaptureBinding,
+    pub source_rights: PolicyBoundMediaSnapshotV1SourceRights,
+    pub policy_bound_data_view_revision_refs: Vec<String>,
+    pub timebase: PolicyBoundMediaSnapshotV1Timebase,
+    pub valid_time: PolicyBoundMediaSnapshotV1ValidTime,
+    pub artifact_bindings: Vec<PolicyBoundMediaSnapshotV1ArtifactBindingsItem>,
+    pub availability: PolicyBoundMediaSnapshotV1Availability,
+    pub information_flow_label_refs: Vec<String>,
+    pub quarantine: PolicyBoundMediaSnapshotV1Quarantine,
+    pub redaction: PolicyBoundMediaSnapshotV1Redaction,
+    pub deduplication: PolicyBoundMediaSnapshotV1Deduplication,
+    pub quality_findings: Vec<PolicyBoundMediaSnapshotV1QualityFindingsItem>,
+    pub source_impact_lineage: PolicyBoundMediaSnapshotV1SourceImpactLineage,
+    pub raw_census: PolicyBoundMediaSnapshotV1RawCensus,
+    pub accepted_census: PolicyBoundMediaSnapshotV1AcceptedCensus,
+    pub registry_status: PolicyBoundMediaSnapshotV1RegistryStatus,
+    pub admitted_at: String,
+    pub succession: PolicyBoundMediaSnapshotV1Succession,
+    pub migration: PolicyBoundMediaSnapshotV1Migration,
+    pub constants: PolicyBoundMediaSnapshotV1Constants,
+    pub authority_nonclaim: PolicyBoundMediaSnapshotV1AuthorityNonclaim,
+    pub artifact_authority: PolicyBoundMediaSnapshotV1ArtifactAuthority,
+    pub capture_authority_does_not_travel_into_replay:
+        PolicyBoundMediaSnapshotV1CaptureAuthorityDoesNotTravelIntoReplay,
+    pub demonstration_is_not_consent: PolicyBoundMediaSnapshotV1DemonstrationIsNotConsent,
+    pub snapshot_is_not_a_skill_or_workflow:
+        PolicyBoundMediaSnapshotV1SnapshotIsNotASkillOrWorkflow,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","title":"PolicyBoundMediaSnapshotV1","description":"The immutable Data-owned snapshot of ONE imported recording or ONE live-demonstration segment set. OBSERVATION IS NOT CONSENT: this record says what was captured, under which rights, on which timebase, and it grants nothing. Every binding is an EXACT revision rather than a family head, because a snapshot that named `view://acme.intake` would read through whichever policy that family last carried. The bytes themselves stay behind an ArtifactRef in the artifact plane; this contract binds their hash and never inlines them.","x-ioi-schema-version":"ioi.policy-bound-media-snapshot.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"snapshotFamilyRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$"},"snapshotRevisionRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"claimRevisionRef":{"type":"string","pattern":"^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"mappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"runRevisionRef":{"type":"string","pattern":"^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refList":{"type":"array","items":{"type":"string","minLength":1,"maxLength":320},"maxItems":256},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000}},"required":["schema_version","media_snapshot_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","acquisition_class","capture_binding","source_rights","policy_bound_data_view_revision_refs","timebase","valid_time","artifact_bindings","availability","information_flow_label_refs","quarantine","redaction","deduplication","quality_findings","source_impact_lineage","raw_census","accepted_census","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","artifact_authority","capture_authority_does_not_travel_into_replay","demonstration_is_not_consent","snapshot_is_not_a_skill_or_workflow","content_hash"],"properties":{"schema_version":{"const":"ioi.policy-bound-media-snapshot.v1","description":"Pinned so no neighbouring media or dataset shape can validate here."},"media_snapshot_id":{"$ref":"#/$defs/snapshotFamilyRef"},"revision_ref":{"$ref":"#/$defs/snapshotRevisionRef","description":"ONE IMMUTABLE REVISION. The `/revision/` segment refuses a family head where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved","description":"PINNED. The capturing principal is resolved from the authenticated request identity; a caller that authors it is refused by name (INV-37)."},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"acquisition_class":{"enum":["imported_recording","live_demonstration"],"description":"Imported media must not silently become a live-capture dependency, and a live demonstration must not borrow an import's rights posture."},"capture_binding":{"type":"object","additionalProperties":false,"required":["actor_ref","session_ref","device_ref","environment_ref","application_ref","world_revision_ref"],"description":"WHO, WHERE AND IN WHICH WORLD. Every member is an exact ref; a mutable world or application version is the drift ACC-16 names.","properties":{"actor_ref":{"type":"string","minLength":1,"maxLength":320},"session_ref":{"type":"string","pattern":"^session://[a-z0-9][a-z0-9._:-]{0,190}$"},"device_ref":{"type":"string","minLength":1,"maxLength":320},"environment_ref":{"type":"string","minLength":1,"maxLength":320},"application_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]},"world_revision_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}}},"source_rights":{"type":"object","additionalProperties":false,"required":["capture_rights_revision_ref","learning_source_rights_claim_revision_refs","consent_bindings","permits_learned_use"],"description":"ACC-16 CLAUSE 1. Missing capture rights refuses EVERY profile; missing training or secondary-use rights refuses only the learned claim, never the procedural one.","properties":{"capture_rights_revision_ref":{"$ref":"#/$defs/claimRevisionRef"},"learning_source_rights_claim_revision_refs":{"type":"array","items":{"$ref":"#/$defs/claimRevisionRef"},"maxItems":64},"consent_bindings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["consent_ref","consent_state","consent_subject_ref","valid_until"],"properties":{"consent_ref":{"type":"string","minLength":1,"maxLength":320},"consent_state":{"enum":["active","expired","revoked","unknown"]},"consent_subject_ref":{"type":"string","minLength":1,"maxLength":320},"valid_until":{"$ref":"#/$defs/canonicalTimestamp"}}}},"permits_learned_use":{"type":"boolean","description":"Derived from the resolved claims, never authored. False leaves a learned or combined claim inadmissible while the procedural path remains open."}}},"policy_bound_data_view_revision_refs":{"type":"array","items":{"$ref":"#/$defs/viewRevisionRef"},"maxItems":64,"description":"OWNER-RESOLVED THROUGH M05.8's SEAM, never shape-checked here. A snapshot naming a view nothing resolves is a record asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse. DELIBERATELY NOT `minItems: 1`: a procedural-only capture owes no policy-bound view (ACC-16 clause 1 refuses the learned claim, not the procedural profile), and pinning a floor here would make the paired registered invariant unfalsifiable — a rule that cannot fail is not a rule. The floor is therefore conditioned on `permits_learned_use` by that invariant instead."},"timebase":{"type":"object","additionalProperties":false,"required":["temporal_verification_profile_ref","profile_hash","timebase_id","clock_class","epoch_ref","tick_unit","declared_monotonic","discontinuities"],"description":"ACC-16 CLAUSE 3. One declared timebase. Per INV-39 the wall-clock anchor is AUTHENTICATED, never caller-asserted; a straddling interval is indeterminate rather than rounded toward the caller.","properties":{"temporal_verification_profile_ref":{"type":"string","minLength":1,"maxLength":320},"profile_hash":{"$ref":"#/$defs/sha256"},"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"clock_class":{"enum":["authenticated_wallet_time","device_monotonic","capture_sequence"]},"epoch_ref":{"type":"string","minLength":1,"maxLength":320},"tick_unit":{"enum":["nanosecond","microsecond","millisecond","sample","frame"]},"declared_monotonic":{"const":true,"description":"PINNED. A non-monotonic timebase is not repaired into one; the discontinuity is recorded below instead."},"discontinuities":{"type":"array","maxItems":4096,"description":"DETECTED AND RETAINED, NEVER NORMALIZED AWAY. Reordering, gaps and clock regression are findings; a run that sorts them into order has destroyed the evidence ACC-16 clause 3 asks for.","items":{"type":"object","additionalProperties":false,"required":["kind","at_tick","span_ticks","evidence_ref"],"properties":{"kind":{"enum":["gap","reorder","clock_regression","rate_change"]},"at_tick":{"$ref":"#/$defs/tickCount"},"span_ticks":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}}}},"valid_time":{"type":"object","additionalProperties":false,"required":["from","to"],"description":"INSIDE the content commitment, exactly as OntologyVersion (M05.1) splits it, so a predecessor's transaction interval can close while its bytes and hash stay frozen. Transaction time lives OUTSIDE this contract, beside the admitted operation.","properties":{"from":{"$ref":"#/$defs/canonicalTimestamp"},"to":{"oneOf":[{"$ref":"#/$defs/canonicalTimestamp"},{"type":"null"}]}}},"artifact_bindings":{"type":"array","minItems":1,"maxItems":4096,"description":"The content-addressed payload handles. Per ADR 0039 CAS may hold the bytes but is not authority: a missing or mismatched payload fails closed.","items":{"type":"object","additionalProperties":false,"required":["artifact_ref","sha256","media_type","size_bytes","manifest_root","role"],"properties":{"artifact_ref":{"type":"string","minLength":1,"maxLength":320},"sha256":{"$ref":"#/$defs/sha256"},"media_type":{"type":"string","minLength":1,"maxLength":128},"size_bytes":{"type":"integer","minimum":0,"maximum":2199023255552},"manifest_root":{"$ref":"#/$defs/sha256"},"role":{"enum":["dataset","screenshot","trace","checkpoint","recording","control_stream"]}}}},"availability":{"type":"object","additionalProperties":false,"required":["availability_manifest_ref","retention_class_ref","verifier_contract_ref","failure_behavior"],"description":"ADR 0039 requires a checkpoint to bind exactly this trio for every referenced payload. These are the REGISTERED AvailabilityManifest v1 / RetentionClass v1 contracts, not a bespoke corpus-availability vocabulary.","properties":{"availability_manifest_ref":{"type":"string","minLength":1,"maxLength":320},"retention_class_ref":{"type":"string","minLength":1,"maxLength":320},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$"},"failure_behavior":{"const":"fail_closed"}}},"information_flow_label_refs":{"type":"array","items":{"type":"string","pattern":"^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"},"minItems":1,"maxItems":64,"description":"Data classes are REGISTERED InformationFlowLabel refs inheriting under the existing non-widening rule. M05.9 mints no classification vocabulary and declassification stays Governance-owned through DeclassificationApproval."},"quarantine":{"type":"object","additionalProperties":false,"required":["quarantine_state","pii_decision_receipt_refs","rejected_segment_count"],"description":"ACC-16 CLAUSE 2, routed through the scanner that already exists (crates/pii + the cloud airlock), not a new quarantine object. Rejected bytes never reach a dataset.","properties":{"quarantine_state":{"enum":["pending_review","accepted","rejected","quarantined"]},"pii_decision_receipt_refs":{"$ref":"#/$defs/refList"},"rejected_segment_count":{"type":"integer","minimum":0,"maximum":1000000}}},"redaction":{"type":"object","additionalProperties":false,"required":["recipe_revision_ref","creates_permission","severs_lineage","source_privacy_class","output_privacy_class"],"description":"REDACTION REDUCES EXPOSURE AND CREATES NOTHING. Its recipe is a DataRecipe revision because DataRecipe v2's transformation-step enum already has a `redact` member; a separate RedactionRecipe family would be a second spine.","properties":{"recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"creates_permission":{"const":false},"severs_lineage":{"const":false},"source_privacy_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]},"output_privacy_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]}}},"deduplication":{"type":"object","additionalProperties":false,"required":["exact_key_algorithm","near_duplicate_method","excluded_count"],"properties":{"exact_key_algorithm":{"const":"jcs_sha256"},"near_duplicate_method":{"type":"string","minLength":1,"maxLength":128},"excluded_count":{"type":"integer","minimum":0,"maximum":100000000}}},"quality_findings":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["finding_class","severity","evidence_ref"],"properties":{"finding_class":{"enum":["corrupt_chunk","truncated_file","variable_rate_segment","padded_span","repeated_file","low_signal"]},"severity":{"enum":["refused","excluded","retained_with_finding"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"source_impact_lineage":{"type":"object","additionalProperties":false,"required":["data_recipe_revision_refs","connector_mapping_revision_refs","transformation_run_revision_refs"],"description":"Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.","properties":{"data_recipe_revision_refs":{"type":"array","items":{"$ref":"#/$defs/dataRecipeRevisionRef"},"maxItems":128},"connector_mapping_revision_refs":{"type":"array","items":{"$ref":"#/$defs/mappingRevisionRef"},"maxItems":128},"transformation_run_revision_refs":{"type":"array","items":{"$ref":"#/$defs/runRevisionRef"},"maxItems":128}}},"raw_census":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"type":"integer","minimum":0,"maximum":100000000},"file_count":{"type":"integer","minimum":0,"maximum":10000000},"byte_count":{"type":"integer","minimum":0,"maximum":2199023255552},"frame_or_sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"chunk_count":{"type":"integer","minimum":0,"maximum":100000000}}},"accepted_census":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"type":"integer","minimum":0,"maximum":100000000},"file_count":{"type":"integer","minimum":0,"maximum":10000000},"byte_count":{"type":"integer","minimum":0,"maximum":2199023255552},"frame_or_sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"chunk_count":{"type":"integer","minimum":0,"maximum":100000000}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp","description":"Taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`."},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/snapshotRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"description":"GENESIS-AT-V1. There is no v1 predecessor corpus to converge, so `compatibility` admits only `initial` and the absence of convergence machinery is ASSERTED rather than assumed.","properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"policy_bound_media_snapshot_grants_no_authority"},"artifact_authority":{"const":"none — an active ArtifactRef names bytes and grants no read, no replay, no current authority","description":"The strongest machine-checked passivity statement available, and it matters here precisely because ArtifactRef v1 itself carries NO invariant profile."},"capture_authority_does_not_travel_into_replay":{"const":true},"demonstration_is_not_consent":{"const":true},"snapshot_is_not_a_skill_or_workflow":{"const":true},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field under a domain separator, so a relying party holding only these bytes recomputes it and a stale or substituted hash fails offline."}},"allOf":[{"title":"a snapshot that is not active permits no learned use","type":"object","if":{"type":"object","required":["registry_status"],"properties":{"registry_status":{"enum":["draft","suspended","expired","superseded","revoked"]}}},"then":{"type":"object","properties":{"source_rights":{"type":"object","properties":{"permits_learned_use":{"const":false}}}}}},{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}},{"title":"a rejected or quarantined capture permits no learned use","type":"object","if":{"type":"object","required":["quarantine"],"properties":{"quarantine":{"type":"object","required":["quarantine_state"],"properties":{"quarantine_state":{"enum":["pending_review","rejected","quarantined"]}}}}},"then":{"type":"object","properties":{"source_rights":{"type":"object","properties":{"permits_learned_use":{"const":false}}}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<PolicyBoundMediaSnapshotV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            media_snapshot_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"media_snapshot_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"media_snapshot_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_resolution: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1PrincipalResolution,
+            >(
+                object
+                    .remove(r#"principal_resolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_resolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acquisition_class:
+                serde_json::from_value::<PolicyBoundMediaSnapshotV1AcquisitionClass>(
+                    object
+                        .remove(r#"acquisition_class"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"acquisition_class"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            capture_binding: serde_json::from_value::<PolicyBoundMediaSnapshotV1CaptureBinding>(
+                object
+                    .remove(r#"capture_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capture_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_rights: serde_json::from_value::<PolicyBoundMediaSnapshotV1SourceRights>(
+                object
+                    .remove(r#"source_rights"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_rights"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_bound_data_view_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            timebase: serde_json::from_value::<PolicyBoundMediaSnapshotV1Timebase>(
+                object
+                    .remove(r#"timebase"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timebase"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_time: serde_json::from_value::<PolicyBoundMediaSnapshotV1ValidTime>(
+                object
+                    .remove(r#"valid_time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_bindings: serde_json::from_value::<
+                Vec<PolicyBoundMediaSnapshotV1ArtifactBindingsItem>,
+            >(
+                object
+                    .remove(r#"artifact_bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            availability: serde_json::from_value::<PolicyBoundMediaSnapshotV1Availability>(
+                object
+                    .remove(r#"availability"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"availability"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            information_flow_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"information_flow_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"information_flow_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quarantine: serde_json::from_value::<PolicyBoundMediaSnapshotV1Quarantine>(
+                object
+                    .remove(r#"quarantine"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quarantine"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction: serde_json::from_value::<PolicyBoundMediaSnapshotV1Redaction>(
+                object
+                    .remove(r#"redaction"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deduplication: serde_json::from_value::<PolicyBoundMediaSnapshotV1Deduplication>(
+                object
+                    .remove(r#"deduplication"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deduplication"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quality_findings: serde_json::from_value::<
+                Vec<PolicyBoundMediaSnapshotV1QualityFindingsItem>,
+            >(
+                object
+                    .remove(r#"quality_findings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quality_findings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_impact_lineage: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1SourceImpactLineage,
+            >(
+                object
+                    .remove(r#"source_impact_lineage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_impact_lineage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            raw_census: serde_json::from_value::<PolicyBoundMediaSnapshotV1RawCensus>(
+                object
+                    .remove(r#"raw_census"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"raw_census"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted_census: serde_json::from_value::<PolicyBoundMediaSnapshotV1AcceptedCensus>(
+                object
+                    .remove(r#"accepted_census"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted_census"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<PolicyBoundMediaSnapshotV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<PolicyBoundMediaSnapshotV1Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<PolicyBoundMediaSnapshotV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<PolicyBoundMediaSnapshotV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim:
+                serde_json::from_value::<PolicyBoundMediaSnapshotV1AuthorityNonclaim>(
+                    object
+                        .remove(r#"authority_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            artifact_authority:
+                serde_json::from_value::<PolicyBoundMediaSnapshotV1ArtifactAuthority>(
+                    object
+                        .remove(r#"artifact_authority"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_authority"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            capture_authority_does_not_travel_into_replay: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1CaptureAuthorityDoesNotTravelIntoReplay,
+            >(
+                object
+                    .remove(r#"capture_authority_does_not_travel_into_replay"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"capture_authority_does_not_travel_into_replay"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            demonstration_is_not_consent: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1DemonstrationIsNotConsent,
+            >(
+                object
+                    .remove(r#"demonstration_is_not_consent"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"demonstration_is_not_consent"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            snapshot_is_not_a_skill_or_workflow: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1SnapshotIsNotASkillOrWorkflow,
+            >(
+                object
+                    .remove(r#"snapshot_is_not_a_skill_or_workflow"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"snapshot_is_not_a_skill_or_workflow"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1SchemaVersion {
+    #[serde(rename = r#"ioi.policy-bound-media-snapshot.v1"#)]
+    IoiPolicyBoundMediaSnapshotV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1PrincipalResolution {
+    #[serde(rename = r#"server_resolved"#)]
+    ServerResolved,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1AcquisitionClass {
+    #[serde(rename = r#"imported_recording"#)]
+    ImportedRecording,
+    #[serde(rename = r#"live_demonstration"#)]
+    LiveDemonstration,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1CaptureBinding {
+    pub actor_ref: String,
+    pub session_ref: String,
+    pub device_ref: String,
+    pub environment_ref: String,
+    pub application_ref: Option<String>,
+    pub world_revision_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1CaptureBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["actor_ref","session_ref","device_ref","environment_ref","application_ref","world_revision_ref"],"description":"WHO, WHERE AND IN WHICH WORLD. Every member is an exact ref; a mutable world or application version is the drift ACC-16 names.","properties":{"actor_ref":{"type":"string","minLength":1,"maxLength":320},"session_ref":{"type":"string","pattern":"^session://[a-z0-9][a-z0-9._:-]{0,190}$"},"device_ref":{"type":"string","minLength":1,"maxLength":320},"environment_ref":{"type":"string","minLength":1,"maxLength":320},"application_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]},"world_revision_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            actor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            device_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"device_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"device_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            application_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"application_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"application_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            world_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"world_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"world_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1SourceRights {
+    pub capture_rights_revision_ref: String,
+    pub learning_source_rights_claim_revision_refs: Vec<String>,
+    pub consent_bindings: Vec<PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItem>,
+    pub permits_learned_use: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1SourceRights {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["capture_rights_revision_ref","learning_source_rights_claim_revision_refs","consent_bindings","permits_learned_use"],"description":"ACC-16 CLAUSE 1. Missing capture rights refuses EVERY profile; missing training or secondary-use rights refuses only the learned claim, never the procedural one.","properties":{"capture_rights_revision_ref":{"$ref":"#/$defs/claimRevisionRef"},"learning_source_rights_claim_revision_refs":{"type":"array","items":{"$ref":"#/$defs/claimRevisionRef"},"maxItems":64},"consent_bindings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["consent_ref","consent_state","consent_subject_ref","valid_until"],"properties":{"consent_ref":{"type":"string","minLength":1,"maxLength":320},"consent_state":{"enum":["active","expired","revoked","unknown"]},"consent_subject_ref":{"type":"string","minLength":1,"maxLength":320},"valid_until":{"$ref":"#/$defs/canonicalTimestamp"}}}},"permits_learned_use":{"type":"boolean","description":"Derived from the resolved claims, never authored. False leaves a learned or combined claim inadmissible while the procedural path remains open."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            capture_rights_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capture_rights_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capture_rights_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            learning_source_rights_claim_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"learning_source_rights_claim_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"learning_source_rights_claim_revision_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consent_bindings: serde_json::from_value::<
+                Vec<PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItem>,
+            >(
+                object
+                    .remove(r#"consent_bindings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consent_bindings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permits_learned_use: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"permits_learned_use"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"permits_learned_use"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItem {
+    pub consent_ref: String,
+    pub consent_state: PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItemConsentState,
+    pub consent_subject_ref: String,
+    pub valid_until: String,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["consent_ref","consent_state","consent_subject_ref","valid_until"],"properties":{"consent_ref":{"type":"string","minLength":1,"maxLength":320},"consent_state":{"enum":["active","expired","revoked","unknown"]},"consent_subject_ref":{"type":"string","minLength":1,"maxLength":320},"valid_until":{"$ref":"#/$defs/canonicalTimestamp"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            consent_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"consent_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consent_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consent_state: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItemConsentState,
+            >(
+                object
+                    .remove(r#"consent_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consent_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consent_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"consent_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consent_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_until: serde_json::from_value::<String>(
+                object
+                    .remove(r#"valid_until"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_until"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1SourceRightsConsentBindingsItemConsentState {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"unknown"#)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Timebase {
+    pub temporal_verification_profile_ref: String,
+    pub profile_hash: String,
+    pub timebase_id: String,
+    pub clock_class: PolicyBoundMediaSnapshotV1TimebaseClockClass,
+    pub epoch_ref: String,
+    pub tick_unit: PolicyBoundMediaSnapshotV1TimebaseTickUnit,
+    pub declared_monotonic: PolicyBoundMediaSnapshotV1TimebaseDeclaredMonotonic,
+    pub discontinuities: Vec<PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Timebase {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["temporal_verification_profile_ref","profile_hash","timebase_id","clock_class","epoch_ref","tick_unit","declared_monotonic","discontinuities"],"description":"ACC-16 CLAUSE 3. One declared timebase. Per INV-39 the wall-clock anchor is AUTHENTICATED, never caller-asserted; a straddling interval is indeterminate rather than rounded toward the caller.","properties":{"temporal_verification_profile_ref":{"type":"string","minLength":1,"maxLength":320},"profile_hash":{"$ref":"#/$defs/sha256"},"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"clock_class":{"enum":["authenticated_wallet_time","device_monotonic","capture_sequence"]},"epoch_ref":{"type":"string","minLength":1,"maxLength":320},"tick_unit":{"enum":["nanosecond","microsecond","millisecond","sample","frame"]},"declared_monotonic":{"const":true,"description":"PINNED. A non-monotonic timebase is not repaired into one; the discontinuity is recorded below instead."},"discontinuities":{"type":"array","maxItems":4096,"description":"DETECTED AND RETAINED, NEVER NORMALIZED AWAY. Reordering, gaps and clock regression are findings; a run that sorts them into order has destroyed the evidence ACC-16 clause 3 asks for.","items":{"type":"object","additionalProperties":false,"required":["kind","at_tick","span_ticks","evidence_ref"],"properties":{"kind":{"enum":["gap","reorder","clock_regression","rate_change"]},"at_tick":{"$ref":"#/$defs/tickCount"},"span_ticks":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            temporal_verification_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"temporal_verification_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"temporal_verification_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            timebase_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"timebase_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timebase_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            clock_class: serde_json::from_value::<PolicyBoundMediaSnapshotV1TimebaseClockClass>(
+                object
+                    .remove(r#"clock_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"clock_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tick_unit: serde_json::from_value::<PolicyBoundMediaSnapshotV1TimebaseTickUnit>(
+                object
+                    .remove(r#"tick_unit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tick_unit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_monotonic: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1TimebaseDeclaredMonotonic,
+            >(
+                object
+                    .remove(r#"declared_monotonic"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_monotonic"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            discontinuities: serde_json::from_value::<
+                Vec<PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItem>,
+            >(
+                object
+                    .remove(r#"discontinuities"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"discontinuities"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1TimebaseClockClass {
+    #[serde(rename = r#"authenticated_wallet_time"#)]
+    AuthenticatedWalletTime,
+    #[serde(rename = r#"device_monotonic"#)]
+    DeviceMonotonic,
+    #[serde(rename = r#"capture_sequence"#)]
+    CaptureSequence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1TimebaseTickUnit {
+    #[serde(rename = r#"nanosecond"#)]
+    Nanosecond,
+    #[serde(rename = r#"microsecond"#)]
+    Microsecond,
+    #[serde(rename = r#"millisecond"#)]
+    Millisecond,
+    #[serde(rename = r#"sample"#)]
+    Sample,
+    #[serde(rename = r#"frame"#)]
+    Frame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyBoundMediaSnapshotV1TimebaseDeclaredMonotonic {
+    True,
+}
+
+impl serde::Serialize for PolicyBoundMediaSnapshotV1TimebaseDeclaredMonotonic {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1TimebaseDeclaredMonotonic {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItem {
+    pub kind: PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItemKind,
+    pub at_tick: ArchitectureContractInteger,
+    pub span_ticks: ArchitectureContractInteger,
+    pub evidence_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","at_tick","span_ticks","evidence_ref"],"properties":{"kind":{"enum":["gap","reorder","clock_regression","rate_change"]},"at_tick":{"$ref":"#/$defs/tickCount"},"span_ticks":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind:
+                serde_json::from_value::<PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItemKind>(
+                    object
+                        .remove(r#"kind"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            at_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"at_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            span_ticks: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"span_ticks"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"span_ticks"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1TimebaseDiscontinuitiesItemKind {
+    #[serde(rename = r#"gap"#)]
+    Gap,
+    #[serde(rename = r#"reorder"#)]
+    Reorder,
+    #[serde(rename = r#"clock_regression"#)]
+    ClockRegression,
+    #[serde(rename = r#"rate_change"#)]
+    RateChange,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1ValidTime {
+    pub from: String,
+    pub to: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1ValidTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from","to"],"description":"INSIDE the content commitment, exactly as OntologyVersion (M05.1) splits it, so a predecessor's transaction interval can close while its bytes and hash stay frozen. Transaction time lives OUTSIDE this contract, beside the admitted operation.","properties":{"from":{"$ref":"#/$defs/canonicalTimestamp"},"to":{"oneOf":[{"$ref":"#/$defs/canonicalTimestamp"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            to: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"to"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"to"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1ArtifactBindingsItem {
+    pub artifact_ref: String,
+    pub sha256: String,
+    pub media_type: String,
+    pub size_bytes: ArchitectureContractInteger,
+    pub manifest_root: String,
+    pub role: PolicyBoundMediaSnapshotV1ArtifactBindingsItemRole,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1ArtifactBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["artifact_ref","sha256","media_type","size_bytes","manifest_root","role"],"properties":{"artifact_ref":{"type":"string","minLength":1,"maxLength":320},"sha256":{"$ref":"#/$defs/sha256"},"media_type":{"type":"string","minLength":1,"maxLength":128},"size_bytes":{"type":"integer","minimum":0,"maximum":2199023255552},"manifest_root":{"$ref":"#/$defs/sha256"},"role":{"enum":["dataset","screenshot","trace","checkpoint","recording","control_stream"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            media_type: serde_json::from_value::<String>(
+                object
+                    .remove(r#"media_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"media_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            size_bytes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"size_bytes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"size_bytes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role: serde_json::from_value::<PolicyBoundMediaSnapshotV1ArtifactBindingsItemRole>(
+                object
+                    .remove(r#"role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1ArtifactBindingsItemRole {
+    #[serde(rename = r#"dataset"#)]
+    Dataset,
+    #[serde(rename = r#"screenshot"#)]
+    Screenshot,
+    #[serde(rename = r#"trace"#)]
+    Trace,
+    #[serde(rename = r#"checkpoint"#)]
+    Checkpoint,
+    #[serde(rename = r#"recording"#)]
+    Recording,
+    #[serde(rename = r#"control_stream"#)]
+    ControlStream,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Availability {
+    pub availability_manifest_ref: String,
+    pub retention_class_ref: String,
+    pub verifier_contract_ref: String,
+    pub failure_behavior: PolicyBoundMediaSnapshotV1AvailabilityFailureBehavior,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Availability {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["availability_manifest_ref","retention_class_ref","verifier_contract_ref","failure_behavior"],"description":"ADR 0039 requires a checkpoint to bind exactly this trio for every referenced payload. These are the REGISTERED AvailabilityManifest v1 / RetentionClass v1 contracts, not a bespoke corpus-availability vocabulary.","properties":{"availability_manifest_ref":{"type":"string","minLength":1,"maxLength":320},"retention_class_ref":{"type":"string","minLength":1,"maxLength":320},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$"},"failure_behavior":{"const":"fail_closed"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            availability_manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"availability_manifest_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"availability_manifest_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retention_class_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"retention_class_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention_class_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_contract_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_behavior: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1AvailabilityFailureBehavior,
+            >(
+                object
+                    .remove(r#"failure_behavior"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_behavior"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1AvailabilityFailureBehavior {
+    #[serde(rename = r#"fail_closed"#)]
+    FailClosed,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Quarantine {
+    pub quarantine_state: PolicyBoundMediaSnapshotV1QuarantineQuarantineState,
+    pub pii_decision_receipt_refs: Vec<String>,
+    pub rejected_segment_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Quarantine {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["quarantine_state","pii_decision_receipt_refs","rejected_segment_count"],"description":"ACC-16 CLAUSE 2, routed through the scanner that already exists (crates/pii + the cloud airlock), not a new quarantine object. Rejected bytes never reach a dataset.","properties":{"quarantine_state":{"enum":["pending_review","accepted","rejected","quarantined"]},"pii_decision_receipt_refs":{"$ref":"#/$defs/refList"},"rejected_segment_count":{"type":"integer","minimum":0,"maximum":1000000}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            quarantine_state: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1QuarantineQuarantineState,
+            >(
+                object
+                    .remove(r#"quarantine_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quarantine_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pii_decision_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"pii_decision_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"pii_decision_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rejected_segment_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"rejected_segment_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rejected_segment_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1QuarantineQuarantineState {
+    #[serde(rename = r#"pending_review"#)]
+    PendingReview,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Redaction {
+    pub recipe_revision_ref: String,
+    pub creates_permission: PolicyBoundMediaSnapshotV1RedactionCreatesPermission,
+    pub severs_lineage: PolicyBoundMediaSnapshotV1RedactionSeversLineage,
+    pub source_privacy_class: PolicyBoundMediaSnapshotV1RedactionSourcePrivacyClass,
+    pub output_privacy_class: PolicyBoundMediaSnapshotV1RedactionOutputPrivacyClass,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Redaction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["recipe_revision_ref","creates_permission","severs_lineage","source_privacy_class","output_privacy_class"],"description":"REDACTION REDUCES EXPOSURE AND CREATES NOTHING. Its recipe is a DataRecipe revision because DataRecipe v2's transformation-step enum already has a `redact` member; a separate RedactionRecipe family would be a second spine.","properties":{"recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"creates_permission":{"const":false},"severs_lineage":{"const":false},"source_privacy_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]},"output_privacy_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            recipe_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipe_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipe_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            creates_permission: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1RedactionCreatesPermission,
+            >(
+                object
+                    .remove(r#"creates_permission"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"creates_permission"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            severs_lineage: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1RedactionSeversLineage,
+            >(
+                object
+                    .remove(r#"severs_lineage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"severs_lineage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_privacy_class: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1RedactionSourcePrivacyClass,
+            >(
+                object
+                    .remove(r#"source_privacy_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_privacy_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            output_privacy_class: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1RedactionOutputPrivacyClass,
+            >(
+                object
+                    .remove(r#"output_privacy_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_privacy_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyBoundMediaSnapshotV1RedactionCreatesPermission {
+    False,
+}
+
+impl serde::Serialize for PolicyBoundMediaSnapshotV1RedactionCreatesPermission {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1RedactionCreatesPermission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyBoundMediaSnapshotV1RedactionSeversLineage {
+    False,
+}
+
+impl serde::Serialize for PolicyBoundMediaSnapshotV1RedactionSeversLineage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1RedactionSeversLineage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1RedactionSourcePrivacyClass {
+    #[serde(rename = r#"public"#)]
+    Public,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"confidential"#)]
+    Confidential,
+    #[serde(rename = r#"restricted"#)]
+    Restricted,
+    #[serde(rename = r#"regulated"#)]
+    Regulated,
+    #[serde(rename = r#"safety_critical"#)]
+    SafetyCritical,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1RedactionOutputPrivacyClass {
+    #[serde(rename = r#"public"#)]
+    Public,
+    #[serde(rename = r#"internal"#)]
+    Internal,
+    #[serde(rename = r#"confidential"#)]
+    Confidential,
+    #[serde(rename = r#"restricted"#)]
+    Restricted,
+    #[serde(rename = r#"regulated"#)]
+    Regulated,
+    #[serde(rename = r#"safety_critical"#)]
+    SafetyCritical,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Deduplication {
+    pub exact_key_algorithm: PolicyBoundMediaSnapshotV1DeduplicationExactKeyAlgorithm,
+    pub near_duplicate_method: String,
+    pub excluded_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Deduplication {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["exact_key_algorithm","near_duplicate_method","excluded_count"],"properties":{"exact_key_algorithm":{"const":"jcs_sha256"},"near_duplicate_method":{"type":"string","minLength":1,"maxLength":128},"excluded_count":{"type":"integer","minimum":0,"maximum":100000000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            exact_key_algorithm: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1DeduplicationExactKeyAlgorithm,
+            >(
+                object
+                    .remove(r#"exact_key_algorithm"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exact_key_algorithm"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            near_duplicate_method: serde_json::from_value::<String>(
+                object
+                    .remove(r#"near_duplicate_method"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"near_duplicate_method"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            excluded_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"excluded_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"excluded_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1DeduplicationExactKeyAlgorithm {
+    #[serde(rename = r#"jcs_sha256"#)]
+    JcsSha256,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1QualityFindingsItem {
+    pub finding_class: PolicyBoundMediaSnapshotV1QualityFindingsItemFindingClass,
+    pub severity: PolicyBoundMediaSnapshotV1QualityFindingsItemSeverity,
+    pub evidence_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1QualityFindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["finding_class","severity","evidence_ref"],"properties":{"finding_class":{"enum":["corrupt_chunk","truncated_file","variable_rate_segment","padded_span","repeated_file","low_signal"]},"severity":{"enum":["refused","excluded","retained_with_finding"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            finding_class: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1QualityFindingsItemFindingClass,
+            >(
+                object
+                    .remove(r#"finding_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            severity:
+                serde_json::from_value::<PolicyBoundMediaSnapshotV1QualityFindingsItemSeverity>(
+                    object
+                        .remove(r#"severity"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"severity"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1QualityFindingsItemFindingClass {
+    #[serde(rename = r#"corrupt_chunk"#)]
+    CorruptChunk,
+    #[serde(rename = r#"truncated_file"#)]
+    TruncatedFile,
+    #[serde(rename = r#"variable_rate_segment"#)]
+    VariableRateSegment,
+    #[serde(rename = r#"padded_span"#)]
+    PaddedSpan,
+    #[serde(rename = r#"repeated_file"#)]
+    RepeatedFile,
+    #[serde(rename = r#"low_signal"#)]
+    LowSignal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1QualityFindingsItemSeverity {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"excluded"#)]
+    Excluded,
+    #[serde(rename = r#"retained_with_finding"#)]
+    RetainedWithFinding,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1SourceImpactLineage {
+    pub data_recipe_revision_refs: Vec<String>,
+    pub connector_mapping_revision_refs: Vec<String>,
+    pub transformation_run_revision_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1SourceImpactLineage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["data_recipe_revision_refs","connector_mapping_revision_refs","transformation_run_revision_refs"],"description":"Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.","properties":{"data_recipe_revision_refs":{"type":"array","items":{"$ref":"#/$defs/dataRecipeRevisionRef"},"maxItems":128},"connector_mapping_revision_refs":{"type":"array","items":{"$ref":"#/$defs/mappingRevisionRef"},"maxItems":128},"transformation_run_revision_refs":{"type":"array","items":{"$ref":"#/$defs/runRevisionRef"},"maxItems":128}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            data_recipe_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"data_recipe_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_recipe_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"connector_mapping_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_mapping_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transformation_run_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"transformation_run_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transformation_run_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1RawCensus {
+    pub source_seconds: ArchitectureContractInteger,
+    pub file_count: ArchitectureContractInteger,
+    pub byte_count: ArchitectureContractInteger,
+    pub frame_or_sample_count: ArchitectureContractInteger,
+    pub chunk_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1RawCensus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"type":"integer","minimum":0,"maximum":100000000},"file_count":{"type":"integer","minimum":0,"maximum":10000000},"byte_count":{"type":"integer","minimum":0,"maximum":2199023255552},"frame_or_sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"chunk_count":{"type":"integer","minimum":0,"maximum":100000000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byte_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_or_sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"frame_or_sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frame_or_sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chunk_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"chunk_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chunk_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1AcceptedCensus {
+    pub source_seconds: ArchitectureContractInteger,
+    pub file_count: ArchitectureContractInteger,
+    pub byte_count: ArchitectureContractInteger,
+    pub frame_or_sample_count: ArchitectureContractInteger,
+    pub chunk_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1AcceptedCensus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"type":"integer","minimum":0,"maximum":100000000},"file_count":{"type":"integer","minimum":0,"maximum":10000000},"byte_count":{"type":"integer","minimum":0,"maximum":2199023255552},"frame_or_sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"chunk_count":{"type":"integer","minimum":0,"maximum":100000000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byte_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_or_sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"frame_or_sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frame_or_sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chunk_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"chunk_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chunk_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Succession {
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/snapshotRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Migration {
+    pub compatibility: PolicyBoundMediaSnapshotV1MigrationCompatibility,
+    pub downgrade_to_predecessor: PolicyBoundMediaSnapshotV1MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"description":"GENESIS-AT-V1. There is no v1 predecessor corpus to converge, so `compatibility` admits only `initial` and the absence of convergence machinery is ASSERTED rather than assumed.","properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            compatibility:
+                serde_json::from_value::<PolicyBoundMediaSnapshotV1MigrationCompatibility>(
+                    object
+                        .remove(r#"compatibility"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PolicyBoundMediaSnapshotV1Constants {
+    pub commitment_domain: PolicyBoundMediaSnapshotV1ConstantsCommitmentDomain,
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            commitment_domain: serde_json::from_value::<
+                PolicyBoundMediaSnapshotV1ConstantsCommitmentDomain,
+            >(
+                object
+                    .remove(r#"commitment_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commitment_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1ConstantsCommitmentDomain {
+    #[serde(rename = r#"ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"#)]
+    IoiPolicyBoundMediaSnapshotContentCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1AuthorityNonclaim {
+    #[serde(rename = r#"policy_bound_media_snapshot_grants_no_authority"#)]
+    PolicyBoundMediaSnapshotGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PolicyBoundMediaSnapshotV1ArtifactAuthority {
+    #[serde(
+        rename = r#"none — an active ArtifactRef names bytes and grants no read, no replay, no current authority"#
+    )]
+    NoneAnActiveArtifactRefNamesBytesAndGrantsNoReadNoReplayNoCurrentAuthority,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyBoundMediaSnapshotV1CaptureAuthorityDoesNotTravelIntoReplay {
+    True,
+}
+
+impl serde::Serialize for PolicyBoundMediaSnapshotV1CaptureAuthorityDoesNotTravelIntoReplay {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for PolicyBoundMediaSnapshotV1CaptureAuthorityDoesNotTravelIntoReplay
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyBoundMediaSnapshotV1DemonstrationIsNotConsent {
+    True,
+}
+
+impl serde::Serialize for PolicyBoundMediaSnapshotV1DemonstrationIsNotConsent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1DemonstrationIsNotConsent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyBoundMediaSnapshotV1SnapshotIsNotASkillOrWorkflow {
+    True,
+}
+
+impl serde::Serialize for PolicyBoundMediaSnapshotV1SnapshotIsNotASkillOrWorkflow {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for PolicyBoundMediaSnapshotV1SnapshotIsNotASkillOrWorkflow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1 {
+    pub schema_version: ObservationActionEpisodeV1SchemaVersion,
+    pub episode_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub principal_resolution: ObservationActionEpisodeV1PrincipalResolution,
+    pub resolved_principal_ref: String,
+    pub media_snapshot_revision_ref: String,
+    pub media_snapshot_content_hash: String,
+    pub session_ref: String,
+    pub bounds: ObservationActionEpisodeV1Bounds,
+    pub streams: Vec<ObservationActionEpisodeV1StreamsItem>,
+    pub synchronization: ObservationActionEpisodeV1Synchronization,
+    pub labels: Vec<ObservationActionEpisodeV1LabelsItem>,
+    pub ground_truth_eligible_label_refs: Vec<String>,
+    pub controller_recorded_label_refs: Vec<String>,
+    pub exception_labels: Vec<ObservationActionEpisodeV1ExceptionLabelsItem>,
+    pub determinism: ObservationActionEpisodeV1Determinism,
+    pub registry_status: ObservationActionEpisodeV1RegistryStatus,
+    pub admitted_at: String,
+    pub succession: ObservationActionEpisodeV1Succession,
+    pub migration: ObservationActionEpisodeV1Migration,
+    pub constants: ObservationActionEpisodeV1Constants,
+    pub authority_nonclaim: ObservationActionEpisodeV1AuthorityNonclaim,
+    pub inferred_label_is_never_ground_truth:
+        ObservationActionEpisodeV1InferredLabelIsNeverGroundTruth,
+    pub episode_is_not_a_skill_or_workflow: ObservationActionEpisodeV1EpisodeIsNotASkillOrWorkflow,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/observation-action-episode/v1","title":"ObservationActionEpisodeV1","description":"ONE INDEPENDENTLY BOUNDED episode or task, drawn from exactly one PolicyBoundMediaSnapshot revision. THE LOAD-BEARING RULE OF THIS CONTRACT: a video-inferred or model-inferred action label remains an UNCERTAIN ATTRIBUTED LABEL and never silently becomes controller ground truth. That rule is expressed three ways so no single edit defeats it — a schema conditional here, a registered coverage invariant beside it, and a runtime refusal in the admitting module. Recorded-video accuracy cannot substitute for closed-loop control evidence (ACC-16 clause 10, ACC-19 clause 5).","x-ioi-schema-version":"ioi.observation-action-episode.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"episodeFamilyRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}$"},"episodeRevisionRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"snapshotRevisionRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000},"labelClassRef":{"type":"string","pattern":"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"}},"required":["schema_version","episode_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","media_snapshot_revision_ref","media_snapshot_content_hash","session_ref","bounds","streams","synchronization","labels","ground_truth_eligible_label_refs","controller_recorded_label_refs","exception_labels","determinism","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","inferred_label_is_never_ground_truth","episode_is_not_a_skill_or_workflow","content_hash"],"properties":{"schema_version":{"const":"ioi.observation-action-episode.v1"},"episode_id":{"$ref":"#/$defs/episodeFamilyRef"},"revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"media_snapshot_revision_ref":{"$ref":"#/$defs/snapshotRevisionRef","description":"The EXACT snapshot revision this episode was cut from — never a family head."},"media_snapshot_content_hash":{"$ref":"#/$defs/sha256","description":"THE BYTES, NOT JUST THE REF. A ref names a location that may since have been re-admitted; the hash names what was actually bound, so a silent re-admission underneath this episode is detectable offline."},"session_ref":{"type":"string","pattern":"^session://[a-z0-9][a-z0-9._:-]{0,190}$","description":"Invariant-equal to the snapshot's. Session is Hypervisor-substrate-owned; M05.9 binds it by ref and owns no session object."},"bounds":{"type":"object","additionalProperties":false,"required":["timebase_id","start_tick","end_tick","boundary_evidence_ref"],"description":"INDEPENDENTLY BOUNDED. `timebase_id` is invariant-equal to the snapshot's: an episode that inherited a different timebase would be measuring its own bounds on a clock nobody declared.","properties":{"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"start_tick":{"$ref":"#/$defs/tickCount"},"end_tick":{"$ref":"#/$defs/tickCount"},"boundary_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}},"streams":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["stream_role","schema_ref","channel","sample_count","sync_evidence_ref"],"properties":{"stream_role":{"enum":["observation","action","reward","label"]},"schema_ref":{"type":"string","minLength":1,"maxLength":320},"channel":{"type":"string","minLength":1,"maxLength":128},"sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"sync_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"synchronization":{"type":"object","additionalProperties":false,"required":["method","frame_action_offset_ticks","max_observed_skew_ticks","declared_skew_envelope_ticks"],"description":"FRAME/ACTION SYNCHRONIZATION. Observed skew beyond the declared envelope is a refusal, not a rounding: an action attributed to the wrong frame is a mislabel that reads as data.","properties":{"method":{"enum":["shared_timebase","clapper_marker","control_stream_correlation","declared_offset"]},"frame_action_offset_ticks":{"type":"integer","minimum":-1000000000,"maximum":1000000000},"max_observed_skew_ticks":{"$ref":"#/$defs/tickCount"},"declared_skew_envelope_ticks":{"$ref":"#/$defs/tickCount"}}},"labels":{"type":"array","minItems":1,"maxItems":100000,"description":"Every label carries its own provenance and epistemic status. `attributed_to_ref` is who or what asserted it; `corrected_by_ref` is the governed correction that superseded it, retained rather than overwritten (ACC-16 clause 12).","items":{"type":"object","additionalProperties":false,"required":["label_ref","label_class","value_ref","label_provenance_class","epistemic_status","is_controller_ground_truth","confidence","uncertainty_kind","attributed_to_ref","corrected_by_ref"],"properties":{"label_ref":{"type":"string","minLength":1,"maxLength":320},"label_class":{"$ref":"#/$defs/labelClassRef"},"value_ref":{"type":"string","minLength":1,"maxLength":320},"label_provenance_class":{"enum":["controller_recorded","operator_annotated","video_inferred","model_inferred","derived"],"description":"WHERE THE LABEL CAME FROM. `controller_recorded` is the only class an admitted controller stream can support; the rest are attributions."},"epistemic_status":{"enum":["controller_ground_truth","uncertain_attributed_label"]},"is_controller_ground_truth":{"type":"boolean"},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"uncertainty_kind":{"enum":["none","measurement","model","annotation","ambiguous_reference","incomplete_evidence"]},"attributed_to_ref":{"type":"string","minLength":1,"maxLength":320},"corrected_by_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}},"allOf":[{"title":"an inferred label is an uncertain attributed label and is never controller ground truth","type":"object","if":{"type":"object","required":["label_provenance_class"],"properties":{"label_provenance_class":{"enum":["video_inferred","model_inferred"]}}},"then":{"type":"object","properties":{"epistemic_status":{"const":"uncertain_attributed_label"},"is_controller_ground_truth":{"const":false}}}},{"title":"only a controller-recorded label may claim controller ground truth","type":"object","if":{"type":"object","required":["is_controller_ground_truth"],"properties":{"is_controller_ground_truth":{"const":true}}},"then":{"type":"object","properties":{"label_provenance_class":{"const":"controller_recorded"},"epistemic_status":{"const":"controller_ground_truth"}}}}]}},"ground_truth_eligible_label_refs":{"type":"array","maxItems":100000,"items":{"type":"string","minLength":1,"maxLength":320},"description":"The label set this episode offers as controller ground truth. A registered coverage invariant requires it to be covered EXACTLY by the `controller_recorded` subset — a video-inferred label smuggled in leaves the covering long and refuses, and a controller label omitted leaves it short and refuses."},"controller_recorded_label_refs":{"type":"array","maxItems":100000,"items":{"type":"string","minLength":1,"maxLength":320},"description":"The `controller_recorded` subset, enumerated independently so the coverage above compares two statements rather than one statement with itself."},"exception_labels":{"type":"array","maxItems":10000,"description":"The closed exception vocabulary. An exception class outside it is refused rather than filed under `other`.","items":{"type":"object","additionalProperties":false,"required":["exception_class","at_tick","evidence_ref"],"properties":{"exception_class":{"enum":["operator_abort","controller_disconnect","environment_fault","policy_refusal","timeout","out_of_scope_action","ambiguous_intent"]},"at_tick":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"determinism":{"type":"object","additionalProperties":false,"required":["determinism_class","preprocessor_code_root","preprocessor_config_root","declared_randomness_seed"],"description":"ACC-16 CLAUSE 7. Identical admitted inputs replay under the declared determinism class; a changed preprocessor produces a SUCCESSOR rather than a run that resolves differently and reports success.","properties":{"determinism_class":{"enum":["bitwise_deterministic","seeded_deterministic","nondeterministic_declared"]},"preprocessor_code_root":{"$ref":"#/$defs/sha256"},"preprocessor_config_root":{"$ref":"#/$defs/sha256"},"declared_randomness_seed":{"oneOf":[{"type":"string","minLength":1,"maxLength":128},{"type":"null"}]}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/episodeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"observation_action_episode_grants_no_authority"},"inferred_label_is_never_ground_truth":{"const":true},"episode_is_not_a_skill_or_workflow":{"const":true},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ObservationActionEpisodeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            episode_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"episode_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"episode_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_resolution: serde_json::from_value::<
+                ObservationActionEpisodeV1PrincipalResolution,
+            >(
+                object
+                    .remove(r#"principal_resolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_resolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            media_snapshot_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"media_snapshot_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"media_snapshot_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            media_snapshot_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"media_snapshot_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"media_snapshot_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            session_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bounds: serde_json::from_value::<ObservationActionEpisodeV1Bounds>(
+                object
+                    .remove(r#"bounds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bounds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            streams: serde_json::from_value::<Vec<ObservationActionEpisodeV1StreamsItem>>(
+                object
+                    .remove(r#"streams"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"streams"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            synchronization: serde_json::from_value::<ObservationActionEpisodeV1Synchronization>(
+                object
+                    .remove(r#"synchronization"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"synchronization"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            labels: serde_json::from_value::<Vec<ObservationActionEpisodeV1LabelsItem>>(
+                object
+                    .remove(r#"labels"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"labels"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ground_truth_eligible_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ground_truth_eligible_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"ground_truth_eligible_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            controller_recorded_label_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"controller_recorded_label_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"controller_recorded_label_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exception_labels: serde_json::from_value::<
+                Vec<ObservationActionEpisodeV1ExceptionLabelsItem>,
+            >(
+                object
+                    .remove(r#"exception_labels"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exception_labels"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            determinism: serde_json::from_value::<ObservationActionEpisodeV1Determinism>(
+                object
+                    .remove(r#"determinism"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"determinism"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<ObservationActionEpisodeV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<ObservationActionEpisodeV1Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<ObservationActionEpisodeV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<ObservationActionEpisodeV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim:
+                serde_json::from_value::<ObservationActionEpisodeV1AuthorityNonclaim>(
+                    object
+                        .remove(r#"authority_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            inferred_label_is_never_ground_truth: serde_json::from_value::<
+                ObservationActionEpisodeV1InferredLabelIsNeverGroundTruth,
+            >(
+                object
+                    .remove(r#"inferred_label_is_never_ground_truth"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"inferred_label_is_never_ground_truth"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            episode_is_not_a_skill_or_workflow: serde_json::from_value::<
+                ObservationActionEpisodeV1EpisodeIsNotASkillOrWorkflow,
+            >(
+                object
+                    .remove(r#"episode_is_not_a_skill_or_workflow"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"episode_is_not_a_skill_or_workflow"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1SchemaVersion {
+    #[serde(rename = r#"ioi.observation-action-episode.v1"#)]
+    IoiObservationActionEpisodeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1PrincipalResolution {
+    #[serde(rename = r#"server_resolved"#)]
+    ServerResolved,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1Bounds {
+    pub timebase_id: String,
+    pub start_tick: ArchitectureContractInteger,
+    pub end_tick: ArchitectureContractInteger,
+    pub boundary_evidence_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1Bounds {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["timebase_id","start_tick","end_tick","boundary_evidence_ref"],"description":"INDEPENDENTLY BOUNDED. `timebase_id` is invariant-equal to the snapshot's: an episode that inherited a different timebase would be measuring its own bounds on a clock nobody declared.","properties":{"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"start_tick":{"$ref":"#/$defs/tickCount"},"end_tick":{"$ref":"#/$defs/tickCount"},"boundary_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            timebase_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"timebase_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"timebase_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            start_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"start_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"start_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            end_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"end_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"end_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary_evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"boundary_evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"boundary_evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1StreamsItem {
+    pub stream_role: ObservationActionEpisodeV1StreamsItemStreamRole,
+    pub schema_ref: String,
+    pub channel: String,
+    pub sample_count: ArchitectureContractInteger,
+    pub sync_evidence_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1StreamsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["stream_role","schema_ref","channel","sample_count","sync_evidence_ref"],"properties":{"stream_role":{"enum":["observation","action","reward","label"]},"schema_ref":{"type":"string","minLength":1,"maxLength":320},"channel":{"type":"string","minLength":1,"maxLength":128},"sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"sync_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            stream_role: serde_json::from_value::<ObservationActionEpisodeV1StreamsItemStreamRole>(
+                object
+                    .remove(r#"stream_role"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stream_role"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            schema_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"schema_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            channel: serde_json::from_value::<String>(
+                object
+                    .remove(r#"channel"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"channel"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sync_evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"sync_evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sync_evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1StreamsItemStreamRole {
+    #[serde(rename = r#"observation"#)]
+    Observation,
+    #[serde(rename = r#"action"#)]
+    Action,
+    #[serde(rename = r#"reward"#)]
+    Reward,
+    #[serde(rename = r#"label"#)]
+    Label,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1Synchronization {
+    pub method: ObservationActionEpisodeV1SynchronizationMethod,
+    pub frame_action_offset_ticks: ArchitectureContractSignedInteger,
+    pub max_observed_skew_ticks: ArchitectureContractInteger,
+    pub declared_skew_envelope_ticks: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1Synchronization {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["method","frame_action_offset_ticks","max_observed_skew_ticks","declared_skew_envelope_ticks"],"description":"FRAME/ACTION SYNCHRONIZATION. Observed skew beyond the declared envelope is a refusal, not a rounding: an action attributed to the wrong frame is a mislabel that reads as data.","properties":{"method":{"enum":["shared_timebase","clapper_marker","control_stream_correlation","declared_offset"]},"frame_action_offset_ticks":{"type":"integer","minimum":-1000000000,"maximum":1000000000},"max_observed_skew_ticks":{"$ref":"#/$defs/tickCount"},"declared_skew_envelope_ticks":{"$ref":"#/$defs/tickCount"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            method: serde_json::from_value::<ObservationActionEpisodeV1SynchronizationMethod>(
+                object
+                    .remove(r#"method"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"method"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_action_offset_ticks: serde_json::from_value::<ArchitectureContractSignedInteger>(
+                object
+                    .remove(r#"frame_action_offset_ticks"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"frame_action_offset_ticks"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_observed_skew_ticks: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_observed_skew_ticks"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_observed_skew_ticks"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_skew_envelope_ticks: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"declared_skew_envelope_ticks"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_skew_envelope_ticks"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1SynchronizationMethod {
+    #[serde(rename = r#"shared_timebase"#)]
+    SharedTimebase,
+    #[serde(rename = r#"clapper_marker"#)]
+    ClapperMarker,
+    #[serde(rename = r#"control_stream_correlation"#)]
+    ControlStreamCorrelation,
+    #[serde(rename = r#"declared_offset"#)]
+    DeclaredOffset,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1LabelsItem {
+    pub label_ref: String,
+    pub label_class: String,
+    pub value_ref: String,
+    pub label_provenance_class: ObservationActionEpisodeV1LabelsItemLabelProvenanceClass,
+    pub epistemic_status: ObservationActionEpisodeV1LabelsItemEpistemicStatus,
+    pub is_controller_ground_truth: bool,
+    pub confidence: Option<f64>,
+    pub uncertainty_kind: ObservationActionEpisodeV1LabelsItemUncertaintyKind,
+    pub attributed_to_ref: String,
+    pub corrected_by_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1LabelsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["label_ref","label_class","value_ref","label_provenance_class","epistemic_status","is_controller_ground_truth","confidence","uncertainty_kind","attributed_to_ref","corrected_by_ref"],"properties":{"label_ref":{"type":"string","minLength":1,"maxLength":320},"label_class":{"$ref":"#/$defs/labelClassRef"},"value_ref":{"type":"string","minLength":1,"maxLength":320},"label_provenance_class":{"enum":["controller_recorded","operator_annotated","video_inferred","model_inferred","derived"],"description":"WHERE THE LABEL CAME FROM. `controller_recorded` is the only class an admitted controller stream can support; the rest are attributions."},"epistemic_status":{"enum":["controller_ground_truth","uncertain_attributed_label"]},"is_controller_ground_truth":{"type":"boolean"},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"uncertainty_kind":{"enum":["none","measurement","model","annotation","ambiguous_reference","incomplete_evidence"]},"attributed_to_ref":{"type":"string","minLength":1,"maxLength":320},"corrected_by_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}},"allOf":[{"title":"an inferred label is an uncertain attributed label and is never controller ground truth","type":"object","if":{"type":"object","required":["label_provenance_class"],"properties":{"label_provenance_class":{"enum":["video_inferred","model_inferred"]}}},"then":{"type":"object","properties":{"epistemic_status":{"const":"uncertain_attributed_label"},"is_controller_ground_truth":{"const":false}}}},{"title":"only a controller-recorded label may claim controller ground truth","type":"object","if":{"type":"object","required":["is_controller_ground_truth"],"properties":{"is_controller_ground_truth":{"const":true}}},"then":{"type":"object","properties":{"label_provenance_class":{"const":"controller_recorded"},"epistemic_status":{"const":"controller_ground_truth"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            label_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            value_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"value_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"value_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label_provenance_class: serde_json::from_value::<
+                ObservationActionEpisodeV1LabelsItemLabelProvenanceClass,
+            >(
+                object
+                    .remove(r#"label_provenance_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_provenance_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epistemic_status: serde_json::from_value::<
+                ObservationActionEpisodeV1LabelsItemEpistemicStatus,
+            >(
+                object
+                    .remove(r#"epistemic_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epistemic_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            is_controller_ground_truth: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"is_controller_ground_truth"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"is_controller_ground_truth"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confidence: serde_json::from_value::<Option<f64>>(
+                object
+                    .remove(r#"confidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"confidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uncertainty_kind: serde_json::from_value::<
+                ObservationActionEpisodeV1LabelsItemUncertaintyKind,
+            >(
+                object
+                    .remove(r#"uncertainty_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attributed_to_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attributed_to_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attributed_to_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            corrected_by_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"corrected_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"corrected_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1LabelsItemLabelProvenanceClass {
+    #[serde(rename = r#"controller_recorded"#)]
+    ControllerRecorded,
+    #[serde(rename = r#"operator_annotated"#)]
+    OperatorAnnotated,
+    #[serde(rename = r#"video_inferred"#)]
+    VideoInferred,
+    #[serde(rename = r#"model_inferred"#)]
+    ModelInferred,
+    #[serde(rename = r#"derived"#)]
+    Derived,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1LabelsItemEpistemicStatus {
+    #[serde(rename = r#"controller_ground_truth"#)]
+    ControllerGroundTruth,
+    #[serde(rename = r#"uncertain_attributed_label"#)]
+    UncertainAttributedLabel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1LabelsItemUncertaintyKind {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"measurement"#)]
+    Measurement,
+    #[serde(rename = r#"model"#)]
+    Model,
+    #[serde(rename = r#"annotation"#)]
+    Annotation,
+    #[serde(rename = r#"ambiguous_reference"#)]
+    AmbiguousReference,
+    #[serde(rename = r#"incomplete_evidence"#)]
+    IncompleteEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1ExceptionLabelsItem {
+    pub exception_class: ObservationActionEpisodeV1ExceptionLabelsItemExceptionClass,
+    pub at_tick: ArchitectureContractInteger,
+    pub evidence_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1ExceptionLabelsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["exception_class","at_tick","evidence_ref"],"properties":{"exception_class":{"enum":["operator_abort","controller_disconnect","environment_fault","policy_refusal","timeout","out_of_scope_action","ambiguous_intent"]},"at_tick":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            exception_class: serde_json::from_value::<
+                ObservationActionEpisodeV1ExceptionLabelsItemExceptionClass,
+            >(
+                object
+                    .remove(r#"exception_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exception_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            at_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"at_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1ExceptionLabelsItemExceptionClass {
+    #[serde(rename = r#"operator_abort"#)]
+    OperatorAbort,
+    #[serde(rename = r#"controller_disconnect"#)]
+    ControllerDisconnect,
+    #[serde(rename = r#"environment_fault"#)]
+    EnvironmentFault,
+    #[serde(rename = r#"policy_refusal"#)]
+    PolicyRefusal,
+    #[serde(rename = r#"timeout"#)]
+    Timeout,
+    #[serde(rename = r#"out_of_scope_action"#)]
+    OutOfScopeAction,
+    #[serde(rename = r#"ambiguous_intent"#)]
+    AmbiguousIntent,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1Determinism {
+    pub determinism_class: ObservationActionEpisodeV1DeterminismDeterminismClass,
+    pub preprocessor_code_root: String,
+    pub preprocessor_config_root: String,
+    pub declared_randomness_seed: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1Determinism {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["determinism_class","preprocessor_code_root","preprocessor_config_root","declared_randomness_seed"],"description":"ACC-16 CLAUSE 7. Identical admitted inputs replay under the declared determinism class; a changed preprocessor produces a SUCCESSOR rather than a run that resolves differently and reports success.","properties":{"determinism_class":{"enum":["bitwise_deterministic","seeded_deterministic","nondeterministic_declared"]},"preprocessor_code_root":{"$ref":"#/$defs/sha256"},"preprocessor_config_root":{"$ref":"#/$defs/sha256"},"declared_randomness_seed":{"oneOf":[{"type":"string","minLength":1,"maxLength":128},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            determinism_class: serde_json::from_value::<
+                ObservationActionEpisodeV1DeterminismDeterminismClass,
+            >(
+                object
+                    .remove(r#"determinism_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"determinism_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preprocessor_code_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"preprocessor_code_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"preprocessor_code_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            preprocessor_config_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"preprocessor_config_root"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"preprocessor_config_root"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_randomness_seed: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"declared_randomness_seed"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_randomness_seed"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1DeterminismDeterminismClass {
+    #[serde(rename = r#"bitwise_deterministic"#)]
+    BitwiseDeterministic,
+    #[serde(rename = r#"seeded_deterministic"#)]
+    SeededDeterministic,
+    #[serde(rename = r#"nondeterministic_declared"#)]
+    NondeterministicDeclared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1Succession {
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/episodeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1Migration {
+    pub compatibility: ObservationActionEpisodeV1MigrationCompatibility,
+    pub downgrade_to_predecessor: ObservationActionEpisodeV1MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            compatibility:
+                serde_json::from_value::<ObservationActionEpisodeV1MigrationCompatibility>(
+                    object
+                        .remove(r#"compatibility"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                ObservationActionEpisodeV1MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ObservationActionEpisodeV1Constants {
+    pub commitment_domain: ObservationActionEpisodeV1ConstantsCommitmentDomain,
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            commitment_domain: serde_json::from_value::<
+                ObservationActionEpisodeV1ConstantsCommitmentDomain,
+            >(
+                object
+                    .remove(r#"commitment_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commitment_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1ConstantsCommitmentDomain {
+    #[serde(rename = r#"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"#)]
+    IoiObservationActionEpisodeContentCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ObservationActionEpisodeV1AuthorityNonclaim {
+    #[serde(rename = r#"observation_action_episode_grants_no_authority"#)]
+    ObservationActionEpisodeGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservationActionEpisodeV1InferredLabelIsNeverGroundTruth {
+    True,
+}
+
+impl serde::Serialize for ObservationActionEpisodeV1InferredLabelIsNeverGroundTruth {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1InferredLabelIsNeverGroundTruth {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObservationActionEpisodeV1EpisodeIsNotASkillOrWorkflow {
+    True,
+}
+
+impl serde::Serialize for ObservationActionEpisodeV1EpisodeIsNotASkillOrWorkflow {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ObservationActionEpisodeV1EpisodeIsNotASkillOrWorkflow {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1 {
+    pub schema_version: DatasetSplitManifestV1SchemaVersion,
+    pub split_manifest_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub principal_resolution: DatasetSplitManifestV1PrincipalResolution,
+    pub resolved_principal_ref: String,
+    pub members: Vec<DatasetSplitManifestV1MembersItem>,
+    pub splits: Vec<DatasetSplitManifestV1SplitsItem>,
+    pub all_member_episode_revision_refs: Vec<String>,
+    pub member_count: ArchitectureContractInteger,
+    pub membership_is_immutable: DatasetSplitManifestV1MembershipIsImmutable,
+    pub leakage_controls: DatasetSplitManifestV1LeakageControls,
+    pub registry_status: DatasetSplitManifestV1RegistryStatus,
+    pub admitted_at: String,
+    pub succession: DatasetSplitManifestV1Succession,
+    pub migration: DatasetSplitManifestV1Migration,
+    pub constants: DatasetSplitManifestV1Constants,
+    pub authority_nonclaim: DatasetSplitManifestV1AuthorityNonclaim,
+    pub manifest_selects_no_evaluation_evidence_for_its_own_producer:
+        DatasetSplitManifestV1ManifestSelectsNoEvaluationEvidenceForItsOwnProducer,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","title":"DatasetSplitManifestV1","description":"FROZEN, LEAKAGE-RESISTANT MEMBERSHIP over ObservationActionEpisode revisions. Membership is carried as a FLAT row set — one row per episode, naming its split — rather than a member array per split, because exact-partition closure is then directly checkable: an episode in two splits makes the covering long and refuses, an episode in none makes it short and refuses. Distinct from the Foundry-owned `dataset-snapshot://foundry/...`, which is a flat train/validation/test shape this one does not reuse.","x-ioi-schema-version":"ioi.dataset-split-manifest.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"manifestFamilyRef":{"type":"string","pattern":"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"},"manifestRevisionRef":{"type":"string","pattern":"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"episodeRevisionRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"splitClass":{"enum":["train","validation","temporal_holdout","actor_holdout","world_holdout","adversarial"]},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000}},"required":["schema_version","split_manifest_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","members","splits","all_member_episode_revision_refs","member_count","membership_is_immutable","leakage_controls","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","manifest_selects_no_evaluation_evidence_for_its_own_producer","content_hash"],"properties":{"schema_version":{"const":"ioi.dataset-split-manifest.v1"},"split_manifest_id":{"$ref":"#/$defs/manifestFamilyRef"},"revision_ref":{"$ref":"#/$defs/manifestRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"members":{"type":"array","minItems":1,"maxItems":100000,"description":"ONE ROW PER EPISODE. `array_unique_by_fields` over `episode_revision_ref` refuses double membership outright, and the coverage rule below refuses omission — two independent statements about one set, which is the cheapest tell that a member was moved after the fact.","items":{"type":"object","additionalProperties":false,"required":["episode_revision_ref","episode_content_hash","split_class","actor_partition_key","world_partition_key","max_tick"],"properties":{"episode_revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"episode_content_hash":{"$ref":"#/$defs/sha256"},"split_class":{"$ref":"#/$defs/splitClass"},"actor_partition_key":{"type":"string","minLength":1,"maxLength":128},"world_partition_key":{"type":"string","minLength":1,"maxLength":128},"max_tick":{"$ref":"#/$defs/tickCount"}}}},"splits":{"type":"array","minItems":1,"maxItems":6,"description":"The declared per-class counts. A class declared twice is refused by uniqueness; a count disagreeing with the rows is refused by the registered invariant.","items":{"type":"object","additionalProperties":false,"required":["split_class","member_count"],"properties":{"split_class":{"$ref":"#/$defs/splitClass"},"member_count":{"type":"integer","minimum":0,"maximum":100000}}}},"all_member_episode_revision_refs":{"type":"array","minItems":1,"maxItems":100000,"items":{"$ref":"#/$defs/episodeRevisionRef"},"description":"The enumerated membership, covered EXACTLY by the rows above. Coverage compares members and count, so both double-membership and omission refuse."},"member_count":{"type":"integer","minimum":1,"maximum":100000},"membership_is_immutable":{"const":true,"description":"PINNED. A split manifest whose membership can move is not a holdout; it is a suggestion."},"leakage_controls":{"type":"object","additionalProperties":false,"required":["near_duplicate_exclusion_method","near_duplicate_excluded_count","temporal_cut_tick","max_train_tick","min_temporal_holdout_tick"],"description":"ACC-16 CLAUSE 8. Near-duplicate and future-frame leakage are refused by comparison rather than declared absent: `max_train_tick < temporal_cut_tick <= min_temporal_holdout_tick`, and the actor/world partition keys must not straddle a holdout boundary.","properties":{"near_duplicate_exclusion_method":{"type":"string","minLength":1,"maxLength":128},"near_duplicate_excluded_count":{"type":"integer","minimum":0,"maximum":100000000},"temporal_cut_tick":{"$ref":"#/$defs/tickCount"},"max_train_tick":{"$ref":"#/$defs/tickCount"},"min_temporal_holdout_tick":{"$ref":"#/$defs/tickCount"}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/manifestRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"dataset_split_manifest_grants_no_authority"},"manifest_selects_no_evaluation_evidence_for_its_own_producer":{"const":true,"description":"ACC-16's negative clause: the training process cannot select its own evaluation evidence. Independent evaluation binds this manifest by exact ref; the manifest never promotes itself."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DatasetSplitManifestV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            split_manifest_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"split_manifest_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"split_manifest_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_resolution:
+                serde_json::from_value::<DatasetSplitManifestV1PrincipalResolution>(
+                    object.remove(r#"principal_resolution"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_resolution"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            resolved_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            members: serde_json::from_value::<Vec<DatasetSplitManifestV1MembersItem>>(
+                object
+                    .remove(r#"members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            splits: serde_json::from_value::<Vec<DatasetSplitManifestV1SplitsItem>>(
+                object
+                    .remove(r#"splits"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"splits"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            all_member_episode_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"all_member_episode_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"all_member_episode_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            member_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"member_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            membership_is_immutable: serde_json::from_value::<
+                DatasetSplitManifestV1MembershipIsImmutable,
+            >(
+                object
+                    .remove(r#"membership_is_immutable"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"membership_is_immutable"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            leakage_controls: serde_json::from_value::<DatasetSplitManifestV1LeakageControls>(
+                object
+                    .remove(r#"leakage_controls"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"leakage_controls"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<DatasetSplitManifestV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<DatasetSplitManifestV1Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<DatasetSplitManifestV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<DatasetSplitManifestV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<DatasetSplitManifestV1AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            manifest_selects_no_evaluation_evidence_for_its_own_producer: serde_json::from_value::<
+                DatasetSplitManifestV1ManifestSelectsNoEvaluationEvidenceForItsOwnProducer,
+            >(
+                object
+                    .remove(r#"manifest_selects_no_evaluation_evidence_for_its_own_producer"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"manifest_selects_no_evaluation_evidence_for_its_own_producer"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1SchemaVersion {
+    #[serde(rename = r#"ioi.dataset-split-manifest.v1"#)]
+    IoiDatasetSplitManifestV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1PrincipalResolution {
+    #[serde(rename = r#"server_resolved"#)]
+    ServerResolved,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1MembersItem {
+    pub episode_revision_ref: String,
+    pub episode_content_hash: String,
+    pub split_class: DatasetSplitManifestV1MembersItemSplitClass,
+    pub actor_partition_key: String,
+    pub world_partition_key: String,
+    pub max_tick: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1MembersItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["episode_revision_ref","episode_content_hash","split_class","actor_partition_key","world_partition_key","max_tick"],"properties":{"episode_revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"episode_content_hash":{"$ref":"#/$defs/sha256"},"split_class":{"$ref":"#/$defs/splitClass"},"actor_partition_key":{"type":"string","minLength":1,"maxLength":128},"world_partition_key":{"type":"string","minLength":1,"maxLength":128},"max_tick":{"$ref":"#/$defs/tickCount"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            episode_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"episode_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"episode_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            episode_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"episode_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"episode_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            split_class: serde_json::from_value::<DatasetSplitManifestV1MembersItemSplitClass>(
+                object
+                    .remove(r#"split_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"split_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actor_partition_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"actor_partition_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actor_partition_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            world_partition_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"world_partition_key"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"world_partition_key"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1MembersItemSplitClass {
+    #[serde(rename = r#"train"#)]
+    Train,
+    #[serde(rename = r#"validation"#)]
+    Validation,
+    #[serde(rename = r#"temporal_holdout"#)]
+    TemporalHoldout,
+    #[serde(rename = r#"actor_holdout"#)]
+    ActorHoldout,
+    #[serde(rename = r#"world_holdout"#)]
+    WorldHoldout,
+    #[serde(rename = r#"adversarial"#)]
+    Adversarial,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1SplitsItem {
+    pub split_class: DatasetSplitManifestV1SplitsItemSplitClass,
+    pub member_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1SplitsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["split_class","member_count"],"properties":{"split_class":{"$ref":"#/$defs/splitClass"},"member_count":{"type":"integer","minimum":0,"maximum":100000}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            split_class: serde_json::from_value::<DatasetSplitManifestV1SplitsItemSplitClass>(
+                object
+                    .remove(r#"split_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"split_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            member_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"member_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1SplitsItemSplitClass {
+    #[serde(rename = r#"train"#)]
+    Train,
+    #[serde(rename = r#"validation"#)]
+    Validation,
+    #[serde(rename = r#"temporal_holdout"#)]
+    TemporalHoldout,
+    #[serde(rename = r#"actor_holdout"#)]
+    ActorHoldout,
+    #[serde(rename = r#"world_holdout"#)]
+    WorldHoldout,
+    #[serde(rename = r#"adversarial"#)]
+    Adversarial,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DatasetSplitManifestV1MembershipIsImmutable {
+    True,
+}
+
+impl serde::Serialize for DatasetSplitManifestV1MembershipIsImmutable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1MembershipIsImmutable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1LeakageControls {
+    pub near_duplicate_exclusion_method: String,
+    pub near_duplicate_excluded_count: ArchitectureContractInteger,
+    pub temporal_cut_tick: ArchitectureContractInteger,
+    pub max_train_tick: ArchitectureContractInteger,
+    pub min_temporal_holdout_tick: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1LeakageControls {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["near_duplicate_exclusion_method","near_duplicate_excluded_count","temporal_cut_tick","max_train_tick","min_temporal_holdout_tick"],"description":"ACC-16 CLAUSE 8. Near-duplicate and future-frame leakage are refused by comparison rather than declared absent: `max_train_tick < temporal_cut_tick <= min_temporal_holdout_tick`, and the actor/world partition keys must not straddle a holdout boundary.","properties":{"near_duplicate_exclusion_method":{"type":"string","minLength":1,"maxLength":128},"near_duplicate_excluded_count":{"type":"integer","minimum":0,"maximum":100000000},"temporal_cut_tick":{"$ref":"#/$defs/tickCount"},"max_train_tick":{"$ref":"#/$defs/tickCount"},"min_temporal_holdout_tick":{"$ref":"#/$defs/tickCount"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            near_duplicate_exclusion_method: serde_json::from_value::<String>(
+                object
+                    .remove(r#"near_duplicate_exclusion_method"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"near_duplicate_exclusion_method"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            near_duplicate_excluded_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"near_duplicate_excluded_count"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"near_duplicate_excluded_count"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            temporal_cut_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"temporal_cut_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"temporal_cut_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_train_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_train_tick"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_train_tick"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            min_temporal_holdout_tick: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"min_temporal_holdout_tick"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"min_temporal_holdout_tick"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1Succession {
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/manifestRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1Migration {
+    pub compatibility: DatasetSplitManifestV1MigrationCompatibility,
+    pub downgrade_to_predecessor: DatasetSplitManifestV1MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            compatibility: serde_json::from_value::<DatasetSplitManifestV1MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                DatasetSplitManifestV1MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DatasetSplitManifestV1Constants {
+    pub commitment_domain: DatasetSplitManifestV1ConstantsCommitmentDomain,
+}
+
+impl<'de> serde::Deserialize<'de> for DatasetSplitManifestV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            commitment_domain: serde_json::from_value::<
+                DatasetSplitManifestV1ConstantsCommitmentDomain,
+            >(
+                object
+                    .remove(r#"commitment_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commitment_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1ConstantsCommitmentDomain {
+    #[serde(rename = r#"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"#)]
+    IoiDatasetSplitManifestContentCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DatasetSplitManifestV1AuthorityNonclaim {
+    #[serde(rename = r#"dataset_split_manifest_grants_no_authority"#)]
+    DatasetSplitManifestGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DatasetSplitManifestV1ManifestSelectsNoEvaluationEvidenceForItsOwnProducer {
+    True,
+}
+
+impl serde::Serialize
+    for DatasetSplitManifestV1ManifestSelectsNoEvaluationEvidenceForItsOwnProducer
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for DatasetSplitManifestV1ManifestSelectsNoEvaluationEvidenceForItsOwnProducer
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1 {
+    pub schema_version: MediaCorpusQualificationCensusV1SchemaVersion,
+    pub corpus_census_id: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub principal_resolution: MediaCorpusQualificationCensusV1PrincipalResolution,
+    pub resolved_principal_ref: String,
+    pub claimed_scale: MediaCorpusQualificationCensusV1ClaimedScale,
+    pub profile: MediaCorpusQualificationCensusV1Profile,
+    pub corpus_content_root: String,
+    pub raw: MediaCorpusQualificationCensusV1Raw,
+    pub accepted: MediaCorpusQualificationCensusV1Accepted,
+    pub rejected: MediaCorpusQualificationCensusV1Rejected,
+    pub deduplicated: MediaCorpusQualificationCensusV1Deduplicated,
+    pub file_dispositions: Vec<MediaCorpusQualificationCensusV1FileDispositionsItem>,
+    pub profile_required_label_classes: Vec<String>,
+    pub observed_label_classes: Vec<String>,
+    pub floors: MediaCorpusQualificationCensusV1Floors,
+    pub ceilings: MediaCorpusQualificationCensusV1Ceilings,
+    pub runtime_evidence: MediaCorpusQualificationCensusV1RuntimeEvidence,
+    pub degeneracy_findings: Vec<MediaCorpusQualificationCensusV1DegeneracyFindingsItem>,
+    pub distinct_content_hash_count: ArchitectureContractInteger,
+    pub does_not_claim_hours_scale_qualification: bool,
+    pub does_not_claim_throughput_or_latency:
+        MediaCorpusQualificationCensusV1DoesNotClaimThroughputOrLatency,
+    pub admitted_at: String,
+    pub constants: MediaCorpusQualificationCensusV1Constants,
+    pub authority_nonclaim: MediaCorpusQualificationCensusV1AuthorityNonclaim,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","title":"MediaCorpusQualificationCensusV1","description":"THE CERTIFICATE BOTH LANES EMIT, CARRYING ITS OWN HONESTY ABOUT WHICH LANE PRODUCED IT. The deterministic lane emits `compact_deterministic_fixture` and pins `does_not_claim_hours_scale_qualification` — an empty claim nobody can fill is a stronger statement than an absent field, which is what lets ACC-19 clause 5 say the deterministic lane 'claims no hours-scale qualification' and have it be checkable. The scheduled lane emits `hours_scale_qualification` and must satisfy every floor by invariant. The floors are FUNCTIONAL (duration, diversity, census closure) and cannot shrink. NUMERIC THROUGHPUT AND LATENCY LIMITS ARE DELIBERATELY ABSENT: per ADR 0039's own acceptance record they wait for repeated matched release-host baselines and a planted slowdown mutation.","x-ioi-schema-version":"ioi.media-corpus-qualification-census.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"censusRef":{"type":"string","pattern":"^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"seconds":{"type":"integer","minimum":0,"maximum":100000000},"count":{"type":"integer","minimum":0,"maximum":1000000000000},"byteCount":{"type":"integer","minimum":0,"maximum":2199023255552},"labelClassRef":{"type":"string","pattern":"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"reasonClass":{"enum":["corrupt","truncated","variable_rate","padded","repeated","out_of_rights","quarantined","near_duplicate","exact_duplicate","below_quality_floor"]}},"required":["schema_version","corpus_census_id","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","claimed_scale","profile","corpus_content_root","raw","accepted","rejected","deduplicated","file_dispositions","profile_required_label_classes","observed_label_classes","floors","ceilings","runtime_evidence","degeneracy_findings","distinct_content_hash_count","does_not_claim_hours_scale_qualification","does_not_claim_throughput_or_latency","admitted_at","constants","authority_nonclaim","content_hash"],"properties":{"schema_version":{"const":"ioi.media-corpus-qualification-census.v1"},"corpus_census_id":{"$ref":"#/$defs/censusRef","description":"CONTENT-ADDRESSED rather than numbered: the census IS its corpus's digest, so two runs over the same corpus collide by construction and a shortened corpus cannot hide behind a fresh identity."},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"claimed_scale":{"enum":["compact_deterministic_fixture","hours_scale_qualification"],"description":"WHICH LANE PRODUCED THIS. Neither lane may claim the other's coverage (ACC-16 Evidence, ACC-19 Evidence)."},"profile":{"enum":["composed-model-harness","interactive-learned","synthetic-learned-sensitive"],"description":"The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."},"corpus_content_root":{"$ref":"#/$defs/sha256"},"raw":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"}}},"accepted":{"type":"object","additionalProperties":false,"required":["seconds_before_deduplication","seconds_after_deduplication","file_count","byte_count","frame_or_sample_count","chunk_count","bounded_episode_count","task_count","source_session_count","label_count"],"description":"The accepted half of the census. `seconds_after_deduplication` is the floor-bearing number: two hours of accepted source time AFTER exact and near-duplicate exclusion, never before it.","properties":{"seconds_before_deduplication":{"$ref":"#/$defs/seconds"},"seconds_after_deduplication":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"bounded_episode_count":{"$ref":"#/$defs/count"},"task_count":{"$ref":"#/$defs/count"},"source_session_count":{"$ref":"#/$defs/count"},"label_count":{"$ref":"#/$defs/count"}}},"rejected":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}},"deduplicated":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}},"file_dispositions":{"type":"array","minItems":1,"maxItems":1000000,"description":"ONE ROW PER RAW FILE. This is how the census closes arithmetically without an arithmetic operator the invariant DSL does not have: `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over the content hash refuses a padded or repeated corpus. Every raw file therefore has exactly one disposition, and a file with none is missing from the count rather than silently absorbed.","items":{"type":"object","additionalProperties":false,"required":["content_sha256","disposition","reason_class","source_seconds"],"properties":{"content_sha256":{"$ref":"#/$defs/sha256"},"disposition":{"enum":["accepted","rejected","deduplicated"]},"reason_class":{"oneOf":[{"$ref":"#/$defs/reasonClass"},{"type":"null"}]},"source_seconds":{"$ref":"#/$defs/seconds"}}}},"profile_required_label_classes":{"type":"array","minItems":1,"maxItems":512,"items":{"$ref":"#/$defs/labelClassRef"},"description":"Every profile-required ACTION, FIELD and EXCEPTION label class. Covered exactly by the observed set below, so a corpus missing a required class refuses rather than reporting a high count over a narrow vocabulary."},"observed_label_classes":{"type":"array","minItems":1,"maxItems":512,"items":{"$ref":"#/$defs/labelClassRef"}},"floors":{"type":"object","additionalProperties":false,"required":["accepted_seconds_after_deduplication","bounded_episode_count","source_session_count"],"description":"PINNED IN THE SCHEMA AS SINGLE-MEMBER NUMERIC ENUMS, which is this repo's numeric pin (a numeric `const` is banned by the ajv-strict authoring convention). Pinning them in the record rather than only in the verifier is what makes 'the floors cannot shrink' checkable offline by a relying party holding only these bytes.","properties":{"accepted_seconds_after_deduplication":{"type":"integer","enum":[7200],"description":"At least two hours of accepted source time after exact AND near-duplicate exclusion (ACC-19 clause 5)."},"bounded_episode_count":{"type":"integer","enum":[8],"description":"At least eight independently bounded episodes or tasks."},"source_session_count":{"type":"integer","enum":[2],"description":"From at least two source Sessions."}}},"ceilings":{"type":"object","additionalProperties":false,"required":["corpus_byte_count"],"properties":{"corpus_byte_count":{"type":"integer","enum":[2147483648],"description":"2 GiB. Duration and diversity are the floors; fidelity is not, which is part of why the scheduled lane needs no GPU runner, object storage or metered service."}}},"runtime_evidence":{"type":"object","additionalProperties":false,"required":["peak_resident_bytes","projection_subscription_lease_ref","max_undelivered_events_declared","queue_high_water","backpressure_lag_outcomes","durability_class_achieved","interruption_count","resume_count","restart_equivalence","corrupt_inputs_refused","truncated_inputs_refused","variable_rate_inputs_handled"],"description":"What the run ACTUALLY did. The backpressure half reuses the registered ProjectionSubscriptionLease v1 vocabulary, so 'exceeding the bound produces a typed outcome; it never silently drops an accepted event' is inherited rather than restated.","properties":{"peak_resident_bytes":{"$ref":"#/$defs/byteCount"},"projection_subscription_lease_ref":{"type":"string","minLength":1,"maxLength":320},"max_undelivered_events_declared":{"type":"integer","minimum":1,"maximum":1048576},"queue_high_water":{"$ref":"#/$defs/count"},"backpressure_lag_outcomes":{"type":"array","maxItems":4096,"items":{"enum":["typed_gap","typed_rebase","lease_revoked"]}},"durability_class_achieved":{"enum":["local_only","replicated_same_host","quorum_replicated"],"description":"THE CLASS THE WRITER REACHED, never the one requested. The mux caps same-host links at `replicated_same_host` and refuses to fake a replicated class."},"interruption_count":{"$ref":"#/$defs/count"},"resume_count":{"$ref":"#/$defs/count"},"restart_equivalence":{"type":"object","additionalProperties":false,"required":["pre_restart_root","post_restart_root","roots_equal"],"properties":{"pre_restart_root":{"$ref":"#/$defs/sha256"},"post_restart_root":{"$ref":"#/$defs/sha256"},"roots_equal":{"const":true}}},"corrupt_inputs_refused":{"$ref":"#/$defs/count"},"truncated_inputs_refused":{"$ref":"#/$defs/count"},"variable_rate_inputs_handled":{"$ref":"#/$defs/count"}}},"degeneracy_findings":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["finding_class","affected_file_count","evidence_ref"],"properties":{"finding_class":{"enum":["padded_span","repeated_file","single_actor_corpus","single_session_corpus","degenerate_label_vocabulary","constant_frame_content"]},"affected_file_count":{"$ref":"#/$defs/count"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"distinct_content_hash_count":{"$ref":"#/$defs/count"},"does_not_claim_hours_scale_qualification":{"type":"boolean"},"does_not_claim_throughput_or_latency":{"const":true,"description":"PINNED ON BOTH LANES. No throughput, latency or time-to-quality number is claimed by this contract in this cut."},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"media_corpus_qualification_census_grants_no_authority"},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"the compact deterministic lane claims no hours-scale qualification","type":"object","if":{"type":"object","required":["claimed_scale"],"properties":{"claimed_scale":{"const":"compact_deterministic_fixture"}}},"then":{"type":"object","properties":{"does_not_claim_hours_scale_qualification":{"const":true}}}},{"title":"the hours-scale lane makes that claim and therefore owes every floor","description":"THE FLOORS BIND TO THE LANE THAT CLAIMS THEM. They are expressed here as a schema conditional because the portable invariant language has no conditional numeric operator, and an unconditional floor rule would refuse the compact deterministic fixture that ACC-19 clause 5 explicitly permits. The compact lane is bounded instead by its own pinned nonclaim above, so neither lane can borrow the other's coverage.","type":"object","if":{"type":"object","required":["claimed_scale"],"properties":{"claimed_scale":{"const":"hours_scale_qualification"}}},"then":{"type":"object","properties":{"does_not_claim_hours_scale_qualification":{"const":false},"accepted":{"type":"object","properties":{"seconds_after_deduplication":{"type":"integer","minimum":7200,"maximum":100000000},"bounded_episode_count":{"type":"integer","minimum":8,"maximum":1000000000000},"task_count":{"type":"integer","minimum":8,"maximum":1000000000000},"source_session_count":{"type":"integer","minimum":2,"maximum":1000000000000}}}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<MediaCorpusQualificationCensusV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            corpus_census_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"corpus_census_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"corpus_census_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_resolution: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1PrincipalResolution,
+            >(
+                object
+                    .remove(r#"principal_resolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_resolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            claimed_scale: serde_json::from_value::<MediaCorpusQualificationCensusV1ClaimedScale>(
+                object
+                    .remove(r#"claimed_scale"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"claimed_scale"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile: serde_json::from_value::<MediaCorpusQualificationCensusV1Profile>(
+                object
+                    .remove(r#"profile"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            corpus_content_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"corpus_content_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"corpus_content_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            raw: serde_json::from_value::<MediaCorpusQualificationCensusV1Raw>(
+                object
+                    .remove(r#"raw"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"raw"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accepted: serde_json::from_value::<MediaCorpusQualificationCensusV1Accepted>(
+                object
+                    .remove(r#"accepted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accepted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rejected: serde_json::from_value::<MediaCorpusQualificationCensusV1Rejected>(
+                object
+                    .remove(r#"rejected"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rejected"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deduplicated: serde_json::from_value::<MediaCorpusQualificationCensusV1Deduplicated>(
+                object
+                    .remove(r#"deduplicated"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deduplicated"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_dispositions: serde_json::from_value::<
+                Vec<MediaCorpusQualificationCensusV1FileDispositionsItem>,
+            >(
+                object
+                    .remove(r#"file_dispositions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_dispositions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_required_label_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"profile_required_label_classes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"profile_required_label_classes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_label_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"observed_label_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_label_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            floors: serde_json::from_value::<MediaCorpusQualificationCensusV1Floors>(
+                object
+                    .remove(r#"floors"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"floors"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ceilings: serde_json::from_value::<MediaCorpusQualificationCensusV1Ceilings>(
+                object
+                    .remove(r#"ceilings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ceilings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_evidence: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1RuntimeEvidence,
+            >(
+                object
+                    .remove(r#"runtime_evidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_evidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            degeneracy_findings: serde_json::from_value::<
+                Vec<MediaCorpusQualificationCensusV1DegeneracyFindingsItem>,
+            >(
+                object
+                    .remove(r#"degeneracy_findings"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"degeneracy_findings"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            distinct_content_hash_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"distinct_content_hash_count"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"distinct_content_hash_count"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_claim_hours_scale_qualification: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"does_not_claim_hours_scale_qualification"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"does_not_claim_hours_scale_qualification"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_claim_throughput_or_latency: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1DoesNotClaimThroughputOrLatency,
+            >(
+                object
+                    .remove(r#"does_not_claim_throughput_or_latency"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"does_not_claim_throughput_or_latency"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<MediaCorpusQualificationCensusV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1AuthorityNonclaim,
+            >(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1SchemaVersion {
+    #[serde(rename = r#"ioi.media-corpus-qualification-census.v1"#)]
+    IoiMediaCorpusQualificationCensusV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1PrincipalResolution {
+    #[serde(rename = r#"server_resolved"#)]
+    ServerResolved,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1ClaimedScale {
+    #[serde(rename = r#"compact_deterministic_fixture"#)]
+    CompactDeterministicFixture,
+    #[serde(rename = r#"hours_scale_qualification"#)]
+    HoursScaleQualification,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1Profile {
+    #[serde(rename = r#"composed-model-harness"#)]
+    ComposedModelHarness,
+    #[serde(rename = r#"interactive-learned"#)]
+    InteractiveLearned,
+    #[serde(rename = r#"synthetic-learned-sensitive"#)]
+    SyntheticLearnedSensitive,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Raw {
+    pub source_seconds: ArchitectureContractInteger,
+    pub file_count: ArchitectureContractInteger,
+    pub byte_count: ArchitectureContractInteger,
+    pub frame_or_sample_count: ArchitectureContractInteger,
+    pub chunk_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Raw {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byte_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_or_sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"frame_or_sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frame_or_sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chunk_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"chunk_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chunk_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Accepted {
+    pub seconds_before_deduplication: ArchitectureContractInteger,
+    pub seconds_after_deduplication: ArchitectureContractInteger,
+    pub file_count: ArchitectureContractInteger,
+    pub byte_count: ArchitectureContractInteger,
+    pub frame_or_sample_count: ArchitectureContractInteger,
+    pub chunk_count: ArchitectureContractInteger,
+    pub bounded_episode_count: ArchitectureContractInteger,
+    pub task_count: ArchitectureContractInteger,
+    pub source_session_count: ArchitectureContractInteger,
+    pub label_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Accepted {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["seconds_before_deduplication","seconds_after_deduplication","file_count","byte_count","frame_or_sample_count","chunk_count","bounded_episode_count","task_count","source_session_count","label_count"],"description":"The accepted half of the census. `seconds_after_deduplication` is the floor-bearing number: two hours of accepted source time AFTER exact and near-duplicate exclusion, never before it.","properties":{"seconds_before_deduplication":{"$ref":"#/$defs/seconds"},"seconds_after_deduplication":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"bounded_episode_count":{"$ref":"#/$defs/count"},"task_count":{"$ref":"#/$defs/count"},"source_session_count":{"$ref":"#/$defs/count"},"label_count":{"$ref":"#/$defs/count"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            seconds_before_deduplication: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"seconds_before_deduplication"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"seconds_before_deduplication"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            seconds_after_deduplication: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"seconds_after_deduplication"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"seconds_after_deduplication"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byte_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_or_sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"frame_or_sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frame_or_sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chunk_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"chunk_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chunk_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bounded_episode_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"bounded_episode_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bounded_episode_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            task_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"task_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_session_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_session_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_session_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"label_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Rejected {
+    pub source_seconds: ArchitectureContractInteger,
+    pub file_count: ArchitectureContractInteger,
+    pub byte_count: ArchitectureContractInteger,
+    pub frame_or_sample_count: ArchitectureContractInteger,
+    pub chunk_count: ArchitectureContractInteger,
+    pub reason_classes: Vec<MediaCorpusQualificationCensusV1RejectedReasonClassesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Rejected {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byte_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_or_sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"frame_or_sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frame_or_sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chunk_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"chunk_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chunk_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_classes: serde_json::from_value::<
+                Vec<MediaCorpusQualificationCensusV1RejectedReasonClassesItem>,
+            >(
+                object
+                    .remove(r#"reason_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1RejectedReasonClassesItem {
+    #[serde(rename = r#"corrupt"#)]
+    Corrupt,
+    #[serde(rename = r#"truncated"#)]
+    Truncated,
+    #[serde(rename = r#"variable_rate"#)]
+    VariableRate,
+    #[serde(rename = r#"padded"#)]
+    Padded,
+    #[serde(rename = r#"repeated"#)]
+    Repeated,
+    #[serde(rename = r#"out_of_rights"#)]
+    OutOfRights,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"near_duplicate"#)]
+    NearDuplicate,
+    #[serde(rename = r#"exact_duplicate"#)]
+    ExactDuplicate,
+    #[serde(rename = r#"below_quality_floor"#)]
+    BelowQualityFloor,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Deduplicated {
+    pub source_seconds: ArchitectureContractInteger,
+    pub file_count: ArchitectureContractInteger,
+    pub byte_count: ArchitectureContractInteger,
+    pub frame_or_sample_count: ArchitectureContractInteger,
+    pub chunk_count: ArchitectureContractInteger,
+    pub reason_classes: Vec<MediaCorpusQualificationCensusV1DeduplicatedReasonClassesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Deduplicated {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            byte_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            frame_or_sample_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"frame_or_sample_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"frame_or_sample_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            chunk_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"chunk_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"chunk_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_classes: serde_json::from_value::<
+                Vec<MediaCorpusQualificationCensusV1DeduplicatedReasonClassesItem>,
+            >(
+                object
+                    .remove(r#"reason_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1DeduplicatedReasonClassesItem {
+    #[serde(rename = r#"corrupt"#)]
+    Corrupt,
+    #[serde(rename = r#"truncated"#)]
+    Truncated,
+    #[serde(rename = r#"variable_rate"#)]
+    VariableRate,
+    #[serde(rename = r#"padded"#)]
+    Padded,
+    #[serde(rename = r#"repeated"#)]
+    Repeated,
+    #[serde(rename = r#"out_of_rights"#)]
+    OutOfRights,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"near_duplicate"#)]
+    NearDuplicate,
+    #[serde(rename = r#"exact_duplicate"#)]
+    ExactDuplicate,
+    #[serde(rename = r#"below_quality_floor"#)]
+    BelowQualityFloor,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1FileDispositionsItem {
+    pub content_sha256: String,
+    pub disposition: MediaCorpusQualificationCensusV1FileDispositionsItemDisposition,
+    pub reason_class: Option<MediaCorpusQualificationCensusV1FileDispositionsItemReasonClass>,
+    pub source_seconds: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1FileDispositionsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["content_sha256","disposition","reason_class","source_seconds"],"properties":{"content_sha256":{"$ref":"#/$defs/sha256"},"disposition":{"enum":["accepted","rejected","deduplicated"]},"reason_class":{"oneOf":[{"$ref":"#/$defs/reasonClass"},{"type":"null"}]},"source_seconds":{"$ref":"#/$defs/seconds"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            content_sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1FileDispositionsItemDisposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_class: serde_json::from_value::<
+                Option<MediaCorpusQualificationCensusV1FileDispositionsItemReasonClass>,
+            >(
+                object
+                    .remove(r#"reason_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_seconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"source_seconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_seconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1FileDispositionsItemDisposition {
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"deduplicated"#)]
+    Deduplicated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1FileDispositionsItemReasonClass {
+    #[serde(rename = r#"corrupt"#)]
+    Corrupt,
+    #[serde(rename = r#"truncated"#)]
+    Truncated,
+    #[serde(rename = r#"variable_rate"#)]
+    VariableRate,
+    #[serde(rename = r#"padded"#)]
+    Padded,
+    #[serde(rename = r#"repeated"#)]
+    Repeated,
+    #[serde(rename = r#"out_of_rights"#)]
+    OutOfRights,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"near_duplicate"#)]
+    NearDuplicate,
+    #[serde(rename = r#"exact_duplicate"#)]
+    ExactDuplicate,
+    #[serde(rename = r#"below_quality_floor"#)]
+    BelowQualityFloor,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Floors {
+    pub accepted_seconds_after_deduplication:
+        MediaCorpusQualificationCensusV1FloorsAcceptedSecondsAfterDeduplication,
+    pub bounded_episode_count: MediaCorpusQualificationCensusV1FloorsBoundedEpisodeCount,
+    pub source_session_count: MediaCorpusQualificationCensusV1FloorsSourceSessionCount,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Floors {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["accepted_seconds_after_deduplication","bounded_episode_count","source_session_count"],"description":"PINNED IN THE SCHEMA AS SINGLE-MEMBER NUMERIC ENUMS, which is this repo's numeric pin (a numeric `const` is banned by the ajv-strict authoring convention). Pinning them in the record rather than only in the verifier is what makes 'the floors cannot shrink' checkable offline by a relying party holding only these bytes.","properties":{"accepted_seconds_after_deduplication":{"type":"integer","enum":[7200],"description":"At least two hours of accepted source time after exact AND near-duplicate exclusion (ACC-19 clause 5)."},"bounded_episode_count":{"type":"integer","enum":[8],"description":"At least eight independently bounded episodes or tasks."},"source_session_count":{"type":"integer","enum":[2],"description":"From at least two source Sessions."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            accepted_seconds_after_deduplication: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1FloorsAcceptedSecondsAfterDeduplication,
+            >(
+                object
+                    .remove(r#"accepted_seconds_after_deduplication"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"accepted_seconds_after_deduplication"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bounded_episode_count: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1FloorsBoundedEpisodeCount,
+            >(
+                object
+                    .remove(r#"bounded_episode_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bounded_episode_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_session_count: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1FloorsSourceSessionCount,
+            >(
+                object
+                    .remove(r#"source_session_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_session_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MediaCorpusQualificationCensusV1FloorsAcceptedSecondsAfterDeduplication {
+    Positive7200,
+}
+
+impl MediaCorpusQualificationCensusV1FloorsAcceptedSecondsAfterDeduplication {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Positive7200 => 7200_i64,
+        }
+    }
+}
+
+impl serde::Serialize for MediaCorpusQualificationCensusV1FloorsAcceptedSecondsAfterDeduplication {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for MediaCorpusQualificationCensusV1FloorsAcceptedSecondsAfterDeduplication
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            7200_i64 => Ok(Self::Positive7200),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 7200"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MediaCorpusQualificationCensusV1FloorsBoundedEpisodeCount {
+    Positive8,
+}
+
+impl MediaCorpusQualificationCensusV1FloorsBoundedEpisodeCount {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Positive8 => 8_i64,
+        }
+    }
+}
+
+impl serde::Serialize for MediaCorpusQualificationCensusV1FloorsBoundedEpisodeCount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1FloorsBoundedEpisodeCount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            8_i64 => Ok(Self::Positive8),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 8"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MediaCorpusQualificationCensusV1FloorsSourceSessionCount {
+    Positive2,
+}
+
+impl MediaCorpusQualificationCensusV1FloorsSourceSessionCount {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Positive2 => 2_i64,
+        }
+    }
+}
+
+impl serde::Serialize for MediaCorpusQualificationCensusV1FloorsSourceSessionCount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1FloorsSourceSessionCount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            2_i64 => Ok(Self::Positive2),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 2"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Ceilings {
+    pub corpus_byte_count: MediaCorpusQualificationCensusV1CeilingsCorpusByteCount,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Ceilings {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["corpus_byte_count"],"properties":{"corpus_byte_count":{"type":"integer","enum":[2147483648],"description":"2 GiB. Duration and diversity are the floors; fidelity is not, which is part of why the scheduled lane needs no GPU runner, object storage or metered service."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            corpus_byte_count: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1CeilingsCorpusByteCount,
+            >(
+                object
+                    .remove(r#"corpus_byte_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"corpus_byte_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MediaCorpusQualificationCensusV1CeilingsCorpusByteCount {
+    Positive2147483648,
+}
+
+impl MediaCorpusQualificationCensusV1CeilingsCorpusByteCount {
+    pub const fn as_i64(self) -> i64 {
+        match self {
+            Self::Positive2147483648 => 2147483648_i64,
+        }
+    }
+}
+
+impl serde::Serialize for MediaCorpusQualificationCensusV1CeilingsCorpusByteCount {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_i64(self.as_i64())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1CeilingsCorpusByteCount {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value =
+            <ArchitectureContractSignedInteger as serde::Deserialize>::deserialize(deserializer)?;
+        match value.0 {
+            2147483648_i64 => Ok(Self::Positive2147483648),
+            _ => Err(serde::de::Error::custom(
+                r#"expected one of the closed integer values 2147483648"#,
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1RuntimeEvidence {
+    pub peak_resident_bytes: ArchitectureContractInteger,
+    pub projection_subscription_lease_ref: String,
+    pub max_undelivered_events_declared: ArchitectureContractInteger,
+    pub queue_high_water: ArchitectureContractInteger,
+    pub backpressure_lag_outcomes:
+        Vec<MediaCorpusQualificationCensusV1RuntimeEvidenceBackpressureLagOutcomesItem>,
+    pub durability_class_achieved:
+        MediaCorpusQualificationCensusV1RuntimeEvidenceDurabilityClassAchieved,
+    pub interruption_count: ArchitectureContractInteger,
+    pub resume_count: ArchitectureContractInteger,
+    pub restart_equivalence: MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalence,
+    pub corrupt_inputs_refused: ArchitectureContractInteger,
+    pub truncated_inputs_refused: ArchitectureContractInteger,
+    pub variable_rate_inputs_handled: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1RuntimeEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["peak_resident_bytes","projection_subscription_lease_ref","max_undelivered_events_declared","queue_high_water","backpressure_lag_outcomes","durability_class_achieved","interruption_count","resume_count","restart_equivalence","corrupt_inputs_refused","truncated_inputs_refused","variable_rate_inputs_handled"],"description":"What the run ACTUALLY did. The backpressure half reuses the registered ProjectionSubscriptionLease v1 vocabulary, so 'exceeding the bound produces a typed outcome; it never silently drops an accepted event' is inherited rather than restated.","properties":{"peak_resident_bytes":{"$ref":"#/$defs/byteCount"},"projection_subscription_lease_ref":{"type":"string","minLength":1,"maxLength":320},"max_undelivered_events_declared":{"type":"integer","minimum":1,"maximum":1048576},"queue_high_water":{"$ref":"#/$defs/count"},"backpressure_lag_outcomes":{"type":"array","maxItems":4096,"items":{"enum":["typed_gap","typed_rebase","lease_revoked"]}},"durability_class_achieved":{"enum":["local_only","replicated_same_host","quorum_replicated"],"description":"THE CLASS THE WRITER REACHED, never the one requested. The mux caps same-host links at `replicated_same_host` and refuses to fake a replicated class."},"interruption_count":{"$ref":"#/$defs/count"},"resume_count":{"$ref":"#/$defs/count"},"restart_equivalence":{"type":"object","additionalProperties":false,"required":["pre_restart_root","post_restart_root","roots_equal"],"properties":{"pre_restart_root":{"$ref":"#/$defs/sha256"},"post_restart_root":{"$ref":"#/$defs/sha256"},"roots_equal":{"const":true}}},"corrupt_inputs_refused":{"$ref":"#/$defs/count"},"truncated_inputs_refused":{"$ref":"#/$defs/count"},"variable_rate_inputs_handled":{"$ref":"#/$defs/count"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            peak_resident_bytes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"peak_resident_bytes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"peak_resident_bytes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection_subscription_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"projection_subscription_lease_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"projection_subscription_lease_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_undelivered_events_declared: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"max_undelivered_events_declared"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"max_undelivered_events_declared"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            queue_high_water: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"queue_high_water"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"queue_high_water"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backpressure_lag_outcomes: serde_json::from_value::<
+                Vec<MediaCorpusQualificationCensusV1RuntimeEvidenceBackpressureLagOutcomesItem>,
+            >(
+                object
+                    .remove(r#"backpressure_lag_outcomes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backpressure_lag_outcomes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            durability_class_achieved: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1RuntimeEvidenceDurabilityClassAchieved,
+            >(
+                object
+                    .remove(r#"durability_class_achieved"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"durability_class_achieved"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interruption_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"interruption_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interruption_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resume_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"resume_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resume_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restart_equivalence: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalence,
+            >(
+                object
+                    .remove(r#"restart_equivalence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restart_equivalence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            corrupt_inputs_refused: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"corrupt_inputs_refused"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"corrupt_inputs_refused"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truncated_inputs_refused: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"truncated_inputs_refused"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"truncated_inputs_refused"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            variable_rate_inputs_handled: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"variable_rate_inputs_handled"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"variable_rate_inputs_handled"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1RuntimeEvidenceBackpressureLagOutcomesItem {
+    #[serde(rename = r#"typed_gap"#)]
+    TypedGap,
+    #[serde(rename = r#"typed_rebase"#)]
+    TypedRebase,
+    #[serde(rename = r#"lease_revoked"#)]
+    LeaseRevoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1RuntimeEvidenceDurabilityClassAchieved {
+    #[serde(rename = r#"local_only"#)]
+    LocalOnly,
+    #[serde(rename = r#"replicated_same_host"#)]
+    ReplicatedSameHost,
+    #[serde(rename = r#"quorum_replicated"#)]
+    QuorumReplicated,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalence {
+    pub pre_restart_root: String,
+    pub post_restart_root: String,
+    pub roots_equal: MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalenceRootsEqual,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalence
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["pre_restart_root","post_restart_root","roots_equal"],"properties":{"pre_restart_root":{"$ref":"#/$defs/sha256"},"post_restart_root":{"$ref":"#/$defs/sha256"},"roots_equal":{"const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            pre_restart_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pre_restart_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pre_restart_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            post_restart_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"post_restart_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"post_restart_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            roots_equal: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalenceRootsEqual,
+            >(
+                object
+                    .remove(r#"roots_equal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"roots_equal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalenceRootsEqual {
+    True,
+}
+
+impl serde::Serialize
+    for MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalenceRootsEqual
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for MediaCorpusQualificationCensusV1RuntimeEvidenceRestartEquivalenceRootsEqual
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1DegeneracyFindingsItem {
+    pub finding_class: MediaCorpusQualificationCensusV1DegeneracyFindingsItemFindingClass,
+    pub affected_file_count: ArchitectureContractInteger,
+    pub evidence_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1DegeneracyFindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["finding_class","affected_file_count","evidence_ref"],"properties":{"finding_class":{"enum":["padded_span","repeated_file","single_actor_corpus","single_session_corpus","degenerate_label_vocabulary","constant_frame_content"]},"affected_file_count":{"$ref":"#/$defs/count"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            finding_class: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1DegeneracyFindingsItemFindingClass,
+            >(
+                object
+                    .remove(r#"finding_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"finding_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            affected_file_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"affected_file_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"affected_file_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1DegeneracyFindingsItemFindingClass {
+    #[serde(rename = r#"padded_span"#)]
+    PaddedSpan,
+    #[serde(rename = r#"repeated_file"#)]
+    RepeatedFile,
+    #[serde(rename = r#"single_actor_corpus"#)]
+    SingleActorCorpus,
+    #[serde(rename = r#"single_session_corpus"#)]
+    SingleSessionCorpus,
+    #[serde(rename = r#"degenerate_label_vocabulary"#)]
+    DegenerateLabelVocabulary,
+    #[serde(rename = r#"constant_frame_content"#)]
+    ConstantFrameContent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaCorpusQualificationCensusV1DoesNotClaimThroughputOrLatency {
+    True,
+}
+
+impl serde::Serialize for MediaCorpusQualificationCensusV1DoesNotClaimThroughputOrLatency {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for MediaCorpusQualificationCensusV1DoesNotClaimThroughputOrLatency
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct MediaCorpusQualificationCensusV1Constants {
+    pub commitment_domain: MediaCorpusQualificationCensusV1ConstantsCommitmentDomain,
+}
+
+impl<'de> serde::Deserialize<'de> for MediaCorpusQualificationCensusV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            commitment_domain: serde_json::from_value::<
+                MediaCorpusQualificationCensusV1ConstantsCommitmentDomain,
+            >(
+                object
+                    .remove(r#"commitment_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commitment_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1ConstantsCommitmentDomain {
+    #[serde(rename = r#"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"#)]
+    IoiMediaCorpusQualificationCensusContentCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MediaCorpusQualificationCensusV1AuthorityNonclaim {
+    #[serde(rename = r#"media_corpus_qualification_census_grants_no_authority"#)]
+    MediaCorpusQualificationCensusGrantsNoAuthority,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -133171,6 +137725,478 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("policy_bound_data_view.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.redaction.does_not_declassify"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.census.accepted_never_exceeds_raw"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.artifacts.every_binding_is_distinct"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.rights.a_learned_use_names_at_least_one_claim"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.views.a_learned_use_names_at_least_one_policy_bound_view"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("policy_bound_media_snapshot.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.bounds.the_episode_is_bounded_forward"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.labels.every_label_is_distinct"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/observation-action-episode/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("observation_action_episode.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.members.no_episode_is_a_member_twice"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.splits.membership_is_an_exact_partition"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.leakage.training_ends_before_the_temporal_cut"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.members.count_matches_the_enumerated_set"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.splits.each_class_is_declared_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("dataset_split_manifest.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.labels.every_profile_required_class_is_observed"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("media_corpus_qualification_census.content_hash.commits_the_whole_census"),
     },
 ];
 
@@ -147829,6 +152855,655 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/observation-action-episode/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/dataset-split-manifest/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/objects/media-corpus-qualification-census/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -149495,6 +155170,10 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/model-route-rights-contract/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","title":"ModelRouteRightsContractV1","description":"THE ROUTE-RIGHTS HALF OF THE MOST-RESTRICTIVE INTERSECTION, AND THE SMALLEST CONTRACT THAT CAN CARRY IT HONESTLY. Canon requires every candidate route to resolve a versioned commercial AND technical rights contract before it is eligible, naming unattended automation, capture, training, publication, downstream and reseller use; the credential principal and its permitted actions; data classes, region and residency; provider human-review and secondary-use terms; retention; and customer-output use — with MISSING OR UNKNOWN RIGHTS FAILING CLOSED. This contract registers exactly that and nothing wider: it is the owner-correct prerequisite the compiled learning boundary and the policy-bound view need in order to intersect against something real, not a route runtime, a router, a price plane or an eligibility decision. FAIL-CLOSED IS A SHAPE HERE TOO. The record declares the closed route-use vocabulary once, partitions it into permitted and prohibited, and registered multiset-coverage invariants require the vocabulary to be covered exactly once each, the prohibitions to be covered exactly by the affirmative ones plus the unresolved ones, and the unresolved set to be the exact projection of the unresolved-rights findings. A contract that records an unknown right and still permits that use cannot be admitted. THE PRINCIPAL IS RESOLVED, NOT SUPPLIED. `principal_resolution` is pinned to `server_resolved`: a caller-passed subject constant is the defect this estate removed everywhere else, and a rights contract whose principal could be asserted by its consumer would authorize whatever the consumer named. AN AGGREGATOR IS A SUPPLY ADAPTER, NOT THE TRUST BOUNDARY: naming an intermediary obliges naming the upstream terms it resolves against, so an aggregator cannot become an excuse to stop reading the underlying contract. PROVIDER FALLBACK IS A SEMANTIC SUBSTITUTION with its own rights resolution, pinned in the bytes, never a transparent retry. REVOCATION FAILS CLOSED: a suspended or revoked contract empties its permitted set by schema and names when, why and under whose authority. AND POSSESSION IS NOT PERMISSION — a platform account or API credential proves possession only; `does_not_assert` carries that as a field, because it is the single most common way a route is treated as eligible when nothing established that it was.","x-ioi-schema-version":"ioi.model-route-rights-contract.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"routeRightsFamilyRef":{"type":"string","pattern":"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$"},"routeRightsRevisionRef":{"type":"string","pattern":"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"routeUse":{"enum":["model_inference","unattended_automation","screen_or_session_capture","demonstration_training","model_or_worker_training","publication","downstream_use","oem_or_reseller_use","interactive_control","browser_or_account_use","connector_use","commercial_use"]},"routeUseList":{"type":"array","maxItems":12,"uniqueItems":true,"items":{"$ref":"#/$defs/routeUse"}},"providerUsePosture":{"enum":["prohibited","transient_only","security_incident_only","contract_limited","explicitly_permitted","not_applicable"]},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"nonEmptyRefList":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"optionalRef":{"oneOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}]},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"optionalTimestamp":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}},"required":["schema_version","model_route_rights_contract_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","credential_principal_ref","route_binding","purposes","data_classes","declared_route_use_vocabulary","permitted_route_uses","prohibited_route_uses","declared_prohibited_route_uses","unresolved_route_uses","unresolved_rights_findings","destination_and_egress","customer_output_rights","provider_use_of_customer_material","retention_posture","retention_policy_ref","commercial_terms_refs","technical_terms_refs","fallback_substitution","validity","revocation","status","admitted_at","succession","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.model-route-rights-contract.v1"},"model_route_rights_contract_id":{"$ref":"#/$defs/routeRightsFamilyRef","description":"THE FAMILY. Terms are restated as a provider's contract changes, so the lineage is the aggregate and a revision is what a route resolution may cite. Nothing resolves through the family head: a route that followed the family would silently inherit whichever terms the provider published last."},"revision_ref":{"$ref":"#/$defs/routeRightsRevisionRef","description":"ONE IMMUTABLE REVISION OF THAT FAMILY, and the thing an egress receipt and a compiled boundary bind. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own contract id."},"owner_ref":{"$ref":"#/$defs/ownerRef","description":"OWNER-QUALIFIED IDENTITY. Who resolved and stands behind this rights reading. Two institutions on the same provider may hold materially different terms, so an unqualified route-rights record is not one anyone may rely on."},"tenant_ref":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"The tenancy the resolution belongs to. Carried so a route resolved for one tenant is a checkable mismatch when read by another rather than a silent reuse."},"principal_resolution":{"const":"server_resolved","description":"PINNED. The acting principal is resolved server-side, never taken from a caller-passed constant. A rights contract whose principal could be asserted by the consumer of the route would authorize whatever that consumer named, which is the exact defect the estate removed from its lease subjects and must not re-enter through the rights plane."},"resolved_principal_ref":{"$ref":"#/$defs/principalRef","description":"The principal these rights are resolved FOR, as resolved. Distinct from the credential principal: the party whose work is being done and the identity the provider sees are frequently different, and conflating them is how one party's terms get applied to another's material."},"credential_principal_ref":{"$ref":"#/$defs/principalRef","description":"The identity the provider actually sees on the wire, and the permitted-action surface it carries. Canon's rule is blunt: a platform account or API credential proves POSSESSION only. It does not prove that automation, capture, demonstration training, submission or resale is permitted, and `does_not_assert` carries that as a field."},"route_binding":{"type":"object","additionalProperties":false,"description":"THE EXACT ROUTE THESE RIGHTS ARE ABOUT. Model, provider, route and — when present — the intermediary. Naming an intermediary obliges naming the upstream terms it resolves against: an aggregator is a REPLACEABLE SUPPLY ADAPTER, not a new rights or privacy boundary, and not an excuse to stop reading the underlying contract.","required":["route_ref","provider_ref","model_ref","model_revision_ref","intermediary_ref","upstream_terms_ref","intermediary_is_supply_adapter_not_trust_boundary"],"properties":{"route_ref":{"type":"string","minLength":1,"maxLength":512},"provider_ref":{"type":"string","minLength":1,"maxLength":512},"model_ref":{"type":"string","minLength":1,"maxLength":512},"model_revision_ref":{"type":"string","minLength":1,"maxLength":512,"description":"The exact model revision the terms were resolved against. A model family head moves; terms resolved against a head describe whichever model the provider is serving today."},"intermediary_ref":{"$ref":"#/$defs/optionalRef"},"upstream_terms_ref":{"$ref":"#/$defs/optionalRef","description":"The underlying provider terms an intermediary resolves against. Mandatory whenever an intermediary is named, by the conditional below."},"intermediary_is_supply_adapter_not_trust_boundary":{"const":true}},"allOf":[{"title":"an intermediary names the upstream terms it resolves against","if":{"required":["intermediary_ref"],"properties":{"intermediary_ref":{"type":"string","minLength":1}},"type":"object"},"then":{"properties":{"upstream_terms_ref":{"type":"string","minLength":1,"maxLength":512}},"type":"object"}}]},"purposes":{"type":"array","minItems":1,"maxItems":7,"uniqueItems":true,"items":{"enum":["inference_service_delivery","hosted_training","hosted_evaluation","support","audit_export","publication","cross_domain_reuse"]},"description":"What this route may be used FOR, from the same closed purpose vocabulary an egress receipt records. Purpose is bound because rights resolved for one purpose are not rights for another, and permission does not travel between them."},"data_classes":{"type":"array","minItems":1,"maxItems":12,"uniqueItems":true,"items":{"enum":["source_data","prompts_and_completions","connector_and_tool_io","work_graphs_traces_and_receipts","corrections_and_reviewer_judgments","evaluations_rubrics_holdouts_and_canaries","memory_context_procedures_workflows_and_skills","datasets_embeddings_and_indexes","adapters_checkpoints_weights_and_packages","router_verifier_authority_and_governance_policy","analytics_crash_support_and_security_telemetry","embodied_sensor_actuator_mission_and_operator_telemetry"]},"description":"Which material classes these rights cover, from the same twelve the boundary profile and the egress receipt use — which is what lets a class-level denial in one compose with a class-level permission in another instead of being argued about."},"declared_route_use_vocabulary":{"$ref":"#/$defs/routeUseList","description":"THE CLOSED ROUTE-USE VOCABULARY, CARRIED IN THE RECORD. A registered invariant pins its length to `constants.route_use_vocabulary_size`; the item enum and uniqueness make it exactly the twelve canonical uses. Canon's list is deliberately wider than model inference — the existing model-route gate proves only its own narrow class, and lending that pass to capture, training, browser, control, connector, publication or commercial use is the defect this vocabulary exists to prevent."},"permitted_route_uses":{"$ref":"#/$defs/routeUseList","description":"What the resolved commercial and technical terms actually support. A CEILING INPUT to the most-restrictive intersection, never a grant: a use permitted here that the source-rights claim, the boundary profile, the custody posture or the policy-bound view denies does not survive the intersection."},"prohibited_route_uses":{"$ref":"#/$defs/routeUseList","description":"The complement over the declared vocabulary, and where the fail-closed rules land. A registered invariant requires the vocabulary to be covered by the permitted/prohibited pair exactly once each, so a use can be neither both nor neither."},"declared_prohibited_route_uses":{"$ref":"#/$defs/routeUseList","description":"The prohibitions the terms state affirmatively, kept separate from the ones the fail-closed default produces. A contract that forbids resale and an unanswered question about resale are different facts, and a merged list would erase which one an operator has to go and resolve."},"unresolved_route_uses":{"$ref":"#/$defs/routeUseList","description":"THE FAIL-CLOSED LANE. A registered invariant requires this to be the exact projection of `unresolved_rights_findings`, and a second requires the prohibitions to be covered exactly by the affirmative ones plus these. MISSING OR UNKNOWN RIGHTS FAIL CLOSED becomes inadmissibility rather than a runtime branch: a contract recording an unresolved right and still permitting that use cannot be admitted at all."},"unresolved_rights_findings":{"type":"array","maxItems":12,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["route_use","resolution","unresolved_term_ref"],"properties":{"route_use":{"$ref":"#/$defs/routeUse"},"resolution":{"enum":["missing","unknown","conflicting","expired","revoked","unsupported","upstream_unread"],"description":"`upstream_unread` is the aggregator case named explicitly: an intermediary's own terms resolving cleanly while the underlying provider terms went unread is not a resolved right, and calling it one is how a supply adapter becomes a trust boundary by accident."},"unresolved_term_ref":{"type":"string","minLength":1,"maxLength":512}}}},"destination_and_egress":{"type":"object","additionalProperties":false,"description":"WHERE MATERIAL MAY GO AND IN WHAT FORM. Region and residency are separate axes — one is whose law reaches the bytes, the other is where they sit — and the egress ceiling is a CEILING: a route may carry less than it permits and never more.","required":["permitted_destination_classes","egress_ceiling","region_refs","residency_refs","cross_border_transfer_basis_ref"],"properties":{"permitted_destination_classes":{"type":"array","minItems":1,"maxItems":5,"uniqueItems":true,"items":{"enum":["model_provider","external_processor","cross_organization","public_export","support_operator"]}},"egress_ceiling":{"enum":["no_egress","redacted_only","synthetic_only","declassified_only","sealed_ciphertext_only","protected_plaintext_permitted"],"description":"The most exposing representation this route may carry. `redacted_only` records that a transformation is required before the crossing; it does not record that redaction created a right, which it never does."},"region_refs":{"$ref":"#/$defs/refList"},"residency_refs":{"$ref":"#/$defs/refList"},"cross_border_transfer_basis_ref":{"$ref":"#/$defs/optionalRef"}}},"customer_output_rights":{"type":"object","additionalProperties":false,"description":"THE FIRST DIRECTIONAL QUESTION: what the institution may do with outputs produced for its work, including retention, evaluation, replay, fine-tuning, distillation, competing-model training, packaging, commercialization, export and publication. Recorded here so the answer is resolved rather than assumed from the fact that the work was ours.","required":["intended_customer_output_uses","effective_customer_output_rights_hash","competing_model_training_permitted"],"properties":{"intended_customer_output_uses":{"$ref":"#/$defs/refList"},"effective_customer_output_rights_hash":{"$ref":"#/$defs/sha256"},"competing_model_training_permitted":{"type":"boolean","description":"Called out as its own field because it is the output right most often assumed and most often contractually excluded, and because a compiled boundary that guessed it would guess in the institution's favour."}}},"provider_use_of_customer_material":{"type":"object","additionalProperties":false,"description":"THE SECOND DIRECTIONAL QUESTION: what the provider or intermediary may do with institutional material. Provider secondary use and cross-customer learning are DENIED BY DEFAULT for protected material — registered invariants require each of those two members to read `prohibited` unless a named contractual basis ref is present, so an account-level opt-in, a broad service default or a changed term cannot enter the record as a resolved right.","required":["request_or_prompt_logging","human_review","abuse_and_security_processing","service_improvement","provider_model_training","provider_model_training_basis_ref","cross_customer_aggregation","cross_customer_aggregation_basis_ref","publication"],"properties":{"request_or_prompt_logging":{"$ref":"#/$defs/providerUsePosture"},"human_review":{"$ref":"#/$defs/providerUsePosture"},"abuse_and_security_processing":{"$ref":"#/$defs/providerUsePosture"},"service_improvement":{"$ref":"#/$defs/providerUsePosture"},"provider_model_training":{"$ref":"#/$defs/providerUsePosture"},"provider_model_training_basis_ref":{"$ref":"#/$defs/optionalRef"},"cross_customer_aggregation":{"$ref":"#/$defs/providerUsePosture"},"cross_customer_aggregation_basis_ref":{"$ref":"#/$defs/optionalRef"},"publication":{"$ref":"#/$defs/providerUsePosture"}}},"retention_posture":{"enum":["zero_retention","transient_processing","contract_bounded","provider_default","not_applicable"],"description":"The retention term the institution admitted. Canon is explicit that a zero-retention promise is a valuable provider-trust control and not a custody proof; `does_not_assert` carries `provider_non_learning` so the record cannot be read as the stronger claim."},"retention_policy_ref":{"type":"string","minLength":1,"maxLength":512},"commercial_terms_refs":{"$ref":"#/$defs/nonEmptyRefList","description":"The commercial half of the versioned contract. At least one, because canon requires BOTH halves resolved before a route is eligible and a record naming only technical terms has resolved half a contract."},"technical_terms_refs":{"$ref":"#/$defs/nonEmptyRefList","description":"The technical half. Separate from the commercial half so that a technical integration document cannot stand in for a licence, which is the substitution that makes an unlicensed route look resolved."},"fallback_substitution":{"type":"object","additionalProperties":false,"description":"PROVIDER FALLBACK IS A SEMANTIC SUBSTITUTION, NEVER A TRANSPARENT RETRY. A substitute route is a different provider under different terms; recording it as a retry would let a request resolved against one rights contract be served under another nobody resolved. The flag is pinned and the substitute names its own rights revision.","required":["fallback_is_semantic_substitution","fallback_route_rights_revision_ref"],"properties":{"fallback_is_semantic_substitution":{"const":true},"fallback_route_rights_revision_ref":{"oneOf":[{"$ref":"#/$defs/routeRightsRevisionRef"},{"type":"null"}],"description":"The substitute route's OWN resolved rights revision, or null when no fallback is admitted. A fallback naming no rights revision is an unresolved route wearing a resolved one's identity."}}},"validity":{"type":"object","additionalProperties":false,"required":["valid_from","valid_until"],"properties":{"valid_from":{"$ref":"#/$defs/canonicalTimestamp"},"valid_until":{"$ref":"#/$defs/optionalTimestamp","description":"Null means open-ended under the current terms, not permanent. An elapsed expiry is recorded by moving `status` to `expired`, which empties the permitted set by schema."}}},"revocation":{"type":"object","additionalProperties":false,"description":"REVOCATION FAILS CLOSED AND NAMES ITSELF. A suspended or revoked contract empties its permitted route uses by the schema conditional below and states when, why and under whose authority — because a revocation that narrows use without naming its author is a change nobody can audit or reverse.","required":["revocation_state","revoked_at","revocation_reason","revocation_authority_ref"],"properties":{"revocation_state":{"enum":["live","suspended","revoked"]},"revoked_at":{"$ref":"#/$defs/optionalTimestamp"},"revocation_reason":{"oneOf":[{"enum":["terms_withdrawn","terms_changed","credential_revoked","custody_posture_lost","jurisdiction_change","incident_hold","owner_decision"]},{"type":"null"}]},"revocation_authority_ref":{"$ref":"#/$defs/optionalRef"}},"allOf":[{"title":"a revoked or suspended contract names when, why and under whose authority","if":{"required":["revocation_state"],"properties":{"revocation_state":{"enum":["suspended","revoked"]}},"type":"object"},"then":{"properties":{"revoked_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_reason":{"enum":["terms_withdrawn","terms_changed","credential_revoked","custody_posture_lost","jurisdiction_change","incident_hold","owner_decision"]},"revocation_authority_ref":{"type":"string","minLength":1,"maxLength":512}},"type":"object"},"else":{"properties":{"revoked_at":{"type":"null"},"revocation_reason":{"type":"null"},"revocation_authority_ref":{"type":"null"}},"type":"object"}}]},"status":{"enum":["draft","active","superseded","expired","revoked"],"description":"Registry state of this revision. Only `active` may carry permitted route uses; the other four empty the set by schema, which is how an expired or superseded contract stops being eligible without waiting for a reader to compare timestamps."},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp","description":"The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically."},"succession":{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple is a SCHEMA refusal.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","commercial_terms_change","technical_terms_change","model_revision_change","principal_change","destination_or_residency_change","retention_change","unresolved_right_resolved","revocation_or_expiry","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/routeRightsRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"},"reinterprets_predecessor":{"const":false,"description":"Pinned. A changed provider term produces a successor revision; it does not re-read the terms an earlier route resolution was actually admitted under. Receipts already bound to the predecessor stay bound to the predecessor."}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}},"type":"object"},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}},"type":"object"},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/routeRightsRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}},"type":"object"}}]},"constants":{"type":"object","additionalProperties":false,"required":["lifecycle_id","route_use_vocabulary_size","provider_use_prohibited_token","nonclaim_authority_token","nonclaim_possession_token"],"properties":{"lifecycle_id":{"const":"model_route_rights_contract_lifecycle.v1","description":"Names WHICH lifecycle `status` is drawn from, so a projection cannot let a rights contract's registry state be read as a route's operational availability."},"route_use_vocabulary_size":{"type":"integer","minimum":12,"maximum":12},"provider_use_prohibited_token":{"const":"prohibited"},"nonclaim_authority_token":{"const":"authority"},"nonclaim_possession_token":{"const":"possession_proves_permission"}}},"authority_nonclaim":{"const":"model_route_rights_contract_grants_no_authority"},"truth_nonclaim":{"const":"model_route_rights_contract_is_a_resolved_terms_reading_not_provider_behaviour"},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","possession_proves_permission","provider_non_learning","provider_deletion","source_rights","route_availability","price_or_quota","cryptographic_privacy","legal_conformity","capability_lease_crossing"]},"allOf":[{"contains":{"const":"authority"},"type":"array"},{"contains":{"const":"possession_proves_permission"},"type":"array"},{"contains":{"const":"provider_non_learning"},"type":"array"},{"contains":{"const":"source_rights"},"type":"array"},{"contains":{"const":"route_availability"},"type":"array"},{"contains":{"const":"cryptographic_privacy"},"type":"array"}],"description":"Six mandatory members. `possession_proves_permission` is the one this family exists to state: an account or API credential proves possession only. `source_rights` is the companion — resolving what a provider permits says nothing about whether the institution had the right to send the material in the first place, and the two halves must both hold for a use to survive the intersection."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."}},"allOf":[{"title":"a contract that is not active and live permits no route use","if":{"required":["status"],"properties":{"status":{"enum":["draft","superseded","expired","revoked"]}},"type":"object"},"then":{"properties":{"permitted_route_uses":{"maxItems":0,"type":"array"}},"type":"object"}},{"title":"a suspended or revoked contract permits no route use","if":{"required":["revocation"],"properties":{"revocation":{"required":["revocation_state"],"properties":{"revocation_state":{"enum":["suspended","revoked"]}},"type":"object"}},"type":"object"},"then":{"properties":{"permitted_route_uses":{"maxItems":0,"type":"array"}},"type":"object"}}]}"##),
     ("schema://ioi/foundations/objects/policy-bound-data-view/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","title":"PolicyBoundDataViewV1","description":"THE LEGACY STORED SHAPE, REGISTERED AS THE EXACT PREDECESSOR IT IS. This contract does not describe what a policy-bound view should be; it describes what the inert declaration lane actually persists today, so the v2 successor can name a predecessor that exists rather than one it invented. Registering it is what makes the migration checkable in both directions: a stored v1 record can be validated as v1, a v2 record can commit this predecessor's exact bytes, and neither can be quietly read as the other. WHAT V1 CANNOT DO IS THE POINT. It is MUTABLE — `revision` is a counter that is bumped in place and `updated_at` moves with it, so no reader can tell whether the bytes in front of them are the bytes a decision was made under. It carries NO CONTENT COMMITMENT, so nothing about it is verifiable offline. Its identity is a WALL-CLOCK-DERIVED opaque id under the `policy-bound-data-view://pbdv_…` scheme with no revision segment, so there is nothing to pin and every reference is a family head. It binds a connector mapping by MUTABLE ID rather than by exact revision and content hash, so the shape it claims to scope can change underneath it. It carries a single `ontology_ref` with no revision segment. And it has NO principal, tenant, purpose-bound row/field/time minimization, data classes, source-rights or consent binding, jurisdiction or residency, redaction recipe or findings, retention/hold state, destination/egress ceiling, or effective learning-boundary hash — which is the complete list of what the successor adds and the reason `additionalProperties` is false here: a v2 member appearing in a v1 record is a SCHEMA REFUSAL rather than a tolerated extension. The `authority.crossed` flag is pinned false and `health.status` is honest about the family being declarative only: v1 authorizes nothing to run, and registering it claims no runtime enforcement of anything it declares.","x-ioi-schema-version":"ioi.hypervisor.odk.policy-bound-data-view.v1","type":"object","additionalProperties":false,"$defs":{"shortString":{"type":"string","minLength":1,"maxLength":512},"stringList":{"type":"array","maxItems":128,"items":{"type":"string","maxLength":512}},"legacyTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","object","id","ref","name","description","status","revision","connector_mapping_id","connector_mapping_ref","ontology_ref","object_type_id","allowed_operations","authority_subjects","purpose","property_scope","retention_posture","export_posture","training_posture","evaluation_posture","publish_route_posture","receipt_obligations","receipt_refs","receipt_binding","history","health","authority","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.policy-bound-data-view.v1","description":"The legacy wire version as it is ACTUALLY STORED, in the `ioi.hypervisor.odk.` namespace the successor leaves behind. Pinned as a const so a v2 record cannot be validated here and a v1 record cannot claim the successor's version."},"object":{"const":"ioi.hypervisor.odk.policy_bound_data_view"},"id":{"type":"string","pattern":"^pbdv_[0-9a-f]{1,32}$","description":"A WALL-CLOCK-DERIVED OPAQUE ID. The stored form is a hex nanosecond stamp, which means identity depends on when the record was created rather than on what it contains — so a replayed declaration produces a different view and two identical policies are two unrelated objects."},"ref":{"type":"string","pattern":"^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$","description":"The addressable form, WITH NO REVISION SEGMENT. Every reference to a v1 view is therefore a family-head reference: a consumer that resolves it gets whatever the record says now, which is the mutable-head problem the successor's `/revision/` segment exists to end."},"name":{"type":"string","minLength":1,"maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft","declared"],"description":"The only two states the legacy lane persists. There is deliberately no `active`, `expired` or `revoked` member: v1 has no expiry, no revocation and no revalidation, so a status suggesting any of them would be a claim the stored record cannot support."},"revision":{"type":"integer","minimum":1,"maximum":999999999,"description":"A COUNTER BUMPED IN PLACE, not an immutable revision. This is the mutability tell: the same `ref` at two moments is two different policies, and nothing in the record distinguishes them."},"connector_mapping_id":{"$ref":"#/$defs/shortString","description":"The mapping bound by MUTABLE ID. The mapped shape this view claims to scope can change underneath it without the view changing at all, which is why the successor binds an exact mapping revision and its content hash instead."},"connector_mapping_ref":{"$ref":"#/$defs/shortString"},"ontology_ref":{"$ref":"#/$defs/shortString","description":"One ontology reference with no revision segment, copied from the bound mapping. A v1 view follows its ontology's head wherever it goes."},"object_type_id":{"$ref":"#/$defs/shortString"},"allowed_operations":{"type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["read","transform","distill","train","evaluate","export","publish","route"]},"description":"The eight operations the legacy lane recognises. Declaring one is not being granted it — v1 is inert and nothing revalidates authority, rights, revocation or expiry before a read, which is the whole gap the successor closes."},"authority_subjects":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/shortString"},"description":"Free-form subject strings, NOT resolved principals. The legacy lane accepts whatever the caller names, including wildcard spellings it can only downgrade to `draft` rather than refuse — which is exactly why the successor pins server-side principal resolution."},"purpose":{"type":"string","maxLength":1000,"description":"A free-text purpose. Not an enumerated, bound purpose that a read can be checked against: v1 records the intention and enforces nothing about it."},"property_scope":{"$ref":"#/$defs/stringList","description":"The property ids this view claims, checked at declaration against the mapping's mapped properties. There is no row predicate and no time range beside it, so field minimization is the only minimization v1 can express at all."},"object_scope":{"description":"An unconstrained passthrough of whatever the caller sent. An opaque scope is a scope nobody can check, and it is preserved here as an optional member precisely so a stored record carrying one still validates as the v1 it is."},"retention_posture":{"enum":["ephemeral","bounded","durable"]},"export_posture":{"enum":["no_export","receipted_export_only"]},"training_posture":{"enum":["no_training","receipted_training_only"]},"evaluation_posture":{"enum":["no_evaluation","receipted_evaluation_only"]},"publish_route_posture":{"enum":["no_publish_route","receipted_publish_route_only"]},"receipt_obligations":{"$ref":"#/$defs/stringList","description":"Free-form obligation strings rather than a closed vocabulary, so no consumer can check that an obligation was discharged by the right kind of receipt."},"receipt_refs":{"$ref":"#/$defs/stringList","description":"Starts empty by construction: the receipt for a declaration cannot exist until the record is durable, and embedding a ref before its receipt is durable is the dangling-evidence defect the legacy lane deliberately avoids. The join lives in the receipt store, not here."},"receipt_binding":{"type":"string","maxLength":1000},"history":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["revision","op","at","summary"],"properties":{"revision":{"type":"integer","minimum":1,"maximum":999999999},"op":{"type":"string","minLength":1,"maxLength":64},"at":{"$ref":"#/$defs/legacyTimestamp"},"summary":{"type":"string","maxLength":1000}}},"description":"An in-record audit trail, which is the honest signal that the record itself is edited in place. An immutable revision needs no history because its predecessor is still addressable."},"health":{"type":"object","additionalProperties":false,"required":["status","gaps","authorized_subjects","allowed_operations","scoped_properties","object_instances","missing_contracts","note"],"properties":{"status":{"enum":["incomplete","ready"]},"gaps":{"$ref":"#/$defs/stringList"},"authorized_subjects":{"type":"integer","minimum":0,"maximum":999999999},"allowed_operations":{"type":"integer","minimum":0,"maximum":999999999},"scoped_properties":{"type":"integer","minimum":0,"maximum":999999999},"object_instances":{"description":"Pinned zero. A v1 view holds no materialized instances, and a nonzero count would be a claim the inert lane cannot make.","type":"integer","minimum":0,"maximum":0},"missing_contracts":{"$ref":"#/$defs/stringList"},"note":{"type":"string","maxLength":1000}},"description":"The legacy lane's own honest self-report: a declarative gate only, with the downstream contracts it still lacks named in the record."},"authority":{"type":"object","additionalProperties":false,"required":["crossed","note"],"properties":{"crossed":{"const":false,"description":"Pinned false. Declaring a view crosses no CapabilityLease and no AuthorityGrant, and executes nothing."},"note":{"type":"string","maxLength":1000}}},"created_at":{"$ref":"#/$defs/legacyTimestamp"},"updated_at":{"$ref":"#/$defs/legacyTimestamp","description":"THE MUTABILITY TELL. An immutable revision has one stamp; a record with a second one is a record that is expected to change, and the successor deliberately carries no `updated_at` at all."}}}"##),
     ("schema://ioi/foundations/objects/policy-bound-data-view/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","title":"PolicyBoundDataViewV2","description":"THE ONLY LEARNING AND RUNTIME PROJECTION OF PROTECTED SOURCE DATA, AS AN IMMUTABLE REVISION THAT CAN BE CHECKED FROM ITS OWN BYTES. The predecessor was a mutable declaration: a bumped counter, a wall-clock id, a family-head reference, a connector mapping bound by mutable id, and no commitment over anything. This contract binds what canon requires an immutable view revision to bind — EXACT SOURCE REVISIONS with their content hashes, the resolved PRINCIPAL and TENANT, the bound PURPOSE, the allowed ROWS, FIELDS and TIME RANGE, the DATA CLASSES, the SOURCE-RIGHTS and CONSENT claims, JURISDICTION and RESIDENCY, the REDACTION/DE-IDENTIFICATION recipe and its findings, RETENTION and HOLD state, the DESTINATION and EGRESS CEILING, and the EFFECTIVE LEARNING-BOUNDARY HASH — and then makes six specific refusals structural rather than aspirational. CROSS-TENANT: every bound source carries its own tenant ref and a registered invariant requires all of them to equal the view's, so a source from another tenant is inadmissible rather than merely unusual. EXCESS-FIELD: the allowed field set must be covered exactly by the per-field minimization decisions, so a field admitted without its own justification leaves the covering short and refuses. EXPIRED-CONSENT: every consent binding must read `active`, so a view carrying an expired or revoked consent cannot be admitted at all. STALE-POLICY: the effective learning-boundary hash the view was compiled under must equal the hash it requires of a materialization, so moving one without the other refuses. DECLASSIFICATION: the redaction output's privacy class must equal the source classification's, so a transformation cannot lower a class — reducing exposure is not reclassification. REDACTION-AS-PERMISSION: `allowed_uses` must be covered exactly by the RIGHTS-DERIVED uses plus a redaction-derived list the schema pins EMPTY, so no use can enter this record by way of a transformation. Redaction reduces exposure; it creates no right and it never severs lineage, and both facts are pinned fields. READS REVALIDATE: the materialization precondition requires current authority, rights, revocation and expiry to be rechecked before bytes move, as four mandatory members rather than a sentence in a comment. THE PRINCIPAL IS RESOLVED, NOT SUPPLIED. MIGRATION IS EXPLICIT AND DOWNGRADE IS REFUSED IN THE BYTES: a view authored fresh at v2 says so in all three provenance slots at once, one converged from a stored v1 names that predecessor's schema version, its `policy-bound-data-view://pbdv_…` ref AND its exact content hash, and `downgrade_to_predecessor` is pinned `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the source revisions, the minimization decisions, the rights bindings and the commitment — a lossy re-encoding that would present a weaker record as the same fact. This is a projection, not a permission: it grants no authority, it is not consent, and registering it claims no runtime enforcement of what it declares.","x-ioi-schema-version":"ioi.policy-bound-data-view.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"viewFamilyRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"legacyViewRef":{"type":"string","pattern":"^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$"},"boundaryRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"claimRevisionRef":{"type":"string","pattern":"^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"routeRightsRevisionRef":{"type":"string","pattern":"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"viewUse":{"enum":["read","transform","distill","train","evaluate","export","publish","route"]},"viewUseList":{"type":"array","maxItems":8,"uniqueItems":true,"items":{"$ref":"#/$defs/viewUse"}},"privacyClass":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]},"refList":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"nonEmptyRefList":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"optionalRef":{"oneOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}]},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"optionalTimestamp":{"oneOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}},"required":["schema_version","policy_bound_data_view_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","purpose","purpose_binding_ref","source_bindings","source_binding_count","ontology_revision_refs","connector_mapping_revision_refs","object_model_refs","row_scope","field_scope","time_scope","data_classes","privacy_class","source_rights_claim_revision_refs","consent_bindings","route_rights_revision_refs","jurisdiction_refs","residency_refs","redaction","retention_and_hold","destination_and_egress","effective_boundary_binding","materialization_precondition","allowed_uses","rights_derived_allowed_uses","redaction_derived_allowed_uses","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.policy-bound-data-view.v2","description":"The successor's version, out of the `ioi.hypervisor.odk.` namespace the predecessor sat in. Pinned as a const so a v1 record cannot validate here and a v2 record cannot claim the predecessor's version."},"policy_bound_data_view_id":{"$ref":"#/$defs/viewFamilyRef","description":"THE FAMILY, IN CANON'S OWN `view://` SCHEME. A view is restated as sources, rights, policy or minimization change, so the lineage is the aggregate. Nothing materializes against the family head: a read that resolved the family would read through whichever policy the family last carried."},"revision_ref":{"$ref":"#/$defs/viewRevisionRef","description":"ONE IMMUTABLE REVISION OF THAT FAMILY, and the thing every recipe, run, eligibility decision and egress receipt binds. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."},"owner_ref":{"$ref":"#/$defs/ownerRef","description":"OWNER-QUALIFIED IDENTITY. The predecessor derived an owner and did not store one, so a stored v1 view cannot say who owns it. The owner is what makes the revision resolvable to one view rather than to whichever same-named view a reader happens to look up."},"tenant_ref":{"$ref":"#/$defs/tenantRef","description":"THE TENANCY BOUNDARY, AND THE ANCHOR OF THE CROSS-TENANT REFUSAL. Every bound source carries its own tenant ref and a registered invariant requires all of them to equal this one, so a source belonging to another tenant is inadmissible rather than merely surprising."},"principal_resolution":{"const":"server_resolved","description":"PINNED. The principal a view reads for is resolved server-side, never taken from a caller-passed constant. The predecessor accepted free-form subject strings — including wildcard spellings it could only downgrade to `draft` rather than refuse — which is exactly the default this pin removes."},"resolved_principal_ref":{"$ref":"#/$defs/principalRef","description":"The principal this projection is bound to, as resolved. A view without a principal is a view that reads for whoever asks, which is the widest possible scope wearing the language of a narrow one."},"purpose":{"enum":["operational_read","transformation","evaluation","dataset_generation","model_or_worker_training","distillation","analytics","audit_or_export","publication","routing"],"description":"THE BOUND PURPOSE, from a closed vocabulary rather than the predecessor's free text. Purpose-binding is what makes minimization meaningful: a field set justified for evaluation is not a field set justified for training, and a purpose nobody can check cannot narrow anything."},"purpose_binding_ref":{"type":"string","minLength":1,"maxLength":512,"description":"The policy or decision that bound this purpose. A purpose asserted by the record alone is a label; one bound to a decision is a commitment someone made."},"source_bindings":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_ref","source_revision_ref","source_content_hash","source_tenant_ref","source_owner_ref","source_class"],"properties":{"source_ref":{"type":"string","minLength":1,"maxLength":512},"source_revision_ref":{"type":"string","minLength":1,"maxLength":512,"description":"THE EXACT SOURCE REVISION. Not a family head: a view bound to a head projects whatever the source becomes, which is the same drift the recipe family closed one level up."},"source_content_hash":{"$ref":"#/$defs/sha256","description":"The source revision's exact bytes. A ref names a location that may since have been re-admitted; the hash names what was actually bound."},"source_tenant_ref":{"$ref":"#/$defs/tenantRef","description":"THE CROSS-TENANT ANCHOR. A registered invariant requires this to equal the view's `tenant_ref` on every row, so a cross-tenant source is a refusal at admission rather than a discovery at materialization."},"source_owner_ref":{"$ref":"#/$defs/ownerRef"},"source_class":{"enum":["employee","contractor","customer","patient","partner","vendor","licensed","purchased","public","synthetic","provider_output","machine_generated","mixed","unknown"],"description":"Carried per source because a mixed projection inherits the intersection of its contributors, and a single view-level class would erase which contributor is the restrictive one."}}},"description":"EXACT PROTECTED-SOURCE REVISIONS, one row each. At least one: a projection over no source is not a projection, and admitting one would let an audit count an empty view as coverage."},"source_binding_count":{"type":"integer","minimum":1,"maximum":64,"description":"The declared size of that set, checked against it by a registered invariant. Two independent statements about one set is the cheapest tell that a source was removed from the readable list after the fact."},"ontology_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/ontologyRevisionRef"},"description":"EXACT ADMITTED ONTOLOGY REVISIONS, never family refs. The predecessor carried one head-following `ontology_ref` copied from its mapping."},"connector_mapping_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/connectorMappingRevisionRef"},"description":"EXACT MAPPING REVISIONS. The predecessor bound a mapping by mutable id, so the shape a view claimed to scope could change underneath it without the view changing at all."},"object_model_refs":{"$ref":"#/$defs/refList"},"row_scope":{"type":"object","additionalProperties":false,"description":"ROW MINIMIZATION, WHICH THE PREDECESSOR COULD NOT EXPRESS AT ALL. The predicate is bound by ref AND by hash, because a predicate that can be edited after admission is a scope that widens silently.","required":["row_predicate_ref","row_predicate_hash","max_row_count"],"properties":{"row_predicate_ref":{"type":"string","minLength":1,"maxLength":512},"row_predicate_hash":{"$ref":"#/$defs/sha256"},"max_row_count":{"oneOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}],"description":"An optional hard ceiling. Null means the predicate alone bounds the rows; it does not mean unbounded, because the predicate is itself committed."}}},"field_scope":{"type":"object","additionalProperties":false,"description":"FIELD MINIMIZATION, AND THE EXCESS-FIELD REFUSAL. Every allowed field must be covered exactly by a per-field minimization decision naming which source binding it comes from and why the purpose needs it. A field admitted without its own justification leaves the covering short and the record is refused; a decision for a field the view does not allow makes it long and is refused too.","required":["allowed_field_refs","allowed_field_count","field_minimization_decisions"],"properties":{"allowed_field_refs":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}},"allowed_field_count":{"type":"integer","minimum":1,"maximum":256},"field_minimization_decisions":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["field_ref","source_ref","necessity_basis","data_class"],"properties":{"field_ref":{"type":"string","minLength":1,"maxLength":512},"source_ref":{"type":"string","minLength":1,"maxLength":512},"necessity_basis":{"enum":["required_by_purpose","required_by_ontology_contract","required_by_join_key","required_by_evaluation_label","required_by_regulatory_obligation"],"description":"WHY THE PURPOSE NEEDS THIS FIELD. A closed vocabulary rather than free text, because 'useful' is not a minimization basis and an unenumerated reason is one nobody can review."},"data_class":{"enum":["identifier","quasi_identifier","sensitive_attribute","financial","health","biometric","location","content","derived_label","operational_metadata"]}}}}}},"time_scope":{"type":"object","additionalProperties":false,"description":"TIME MINIMIZATION. A view over all of history is not minimized no matter how few fields it names, and the predecessor had no way to say otherwise.","required":["timebase","from","until"],"properties":{"timebase":{"enum":["source_event_time","ingest_time","admission_time"],"description":"Which clock the range is measured on. Named because event time and ingest time disagree, and a range read on the wrong one silently widens or narrows the projection."},"from":{"$ref":"#/$defs/canonicalTimestamp"},"until":{"$ref":"#/$defs/optionalTimestamp","description":"Null means open-ended forward under the current policy, not permanent: the view's own expiry and the retention state still bound it."}}},"data_classes":{"type":"array","minItems":1,"maxItems":12,"uniqueItems":true,"items":{"enum":["source_data","prompts_and_completions","connector_and_tool_io","work_graphs_traces_and_receipts","corrections_and_reviewer_judgments","evaluations_rubrics_holdouts_and_canaries","memory_context_procedures_workflows_and_skills","datasets_embeddings_and_indexes","adapters_checkpoints_weights_and_packages","router_verifier_authority_and_governance_policy","analytics_crash_support_and_security_telemetry","embodied_sensor_actuator_mission_and_operator_telemetry"]},"description":"The protected material classes this projection carries, from the same twelve the boundary profile and the egress receipt use — which is what lets a class-level denial upstream compose with this view instead of being argued about."},"privacy_class":{"$ref":"#/$defs/privacyClass","description":"THE SOURCE CLASSIFICATION, AND THE ANCHOR OF THE DECLASSIFICATION REFUSAL. A registered invariant requires the redaction output's class to equal this one: a transformation reduces exposure and does not reclassify, so a redacted projection of restricted material is still restricted."},"source_rights_claim_revision_refs":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/claimRevisionRef"},"description":"EXACT SOURCE-RIGHTS CLAIM REVISIONS. At least one: a projection of protected data with no rights claim behind it has no basis to narrow against, and the predecessor bound none at all."},"consent_bindings":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["consent_ref","consent_state","consent_subject_ref","valid_until"],"properties":{"consent_ref":{"type":"string","minLength":1,"maxLength":512},"consent_state":{"enum":["active","expired","revoked","withdrawn","unknown"],"description":"THE EXPIRED-CONSENT REFUSAL LIVES HERE. A registered invariant requires EVERY row to read `active`, so a view carrying an expired, revoked, withdrawn or unknown consent cannot be admitted at all. The non-active members exist so the state can be recorded honestly on the way to a successor revision, never so that a view can carry one."},"consent_subject_ref":{"type":"string","minLength":1,"maxLength":512},"valid_until":{"$ref":"#/$defs/optionalTimestamp"}}}},"route_rights_revision_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"$ref":"#/$defs/routeRightsRevisionRef"},"description":"The exact route-rights contract revisions that bound any onward route for this projection. Revision-exact, because terms that moved after admission did not move this view."},"jurisdiction_refs":{"$ref":"#/$defs/nonEmptyRefList","description":"Whose law reaches this projection. At least one, because an unstated jurisdiction is not an absent obligation."},"residency_refs":{"$ref":"#/$defs/nonEmptyRefList","description":"Where the projected bytes may reside. A separate axis from jurisdiction, because conflating them is how a compliant-looking view permits a move neither would allow."},"redaction":{"type":"object","additionalProperties":false,"description":"REDACTION AND DE-IDENTIFICATION: RECIPE, FINDINGS, AND TWO PINNED FACTS. The recipe is bound by exact revision AND content hash so the transformation that produced this projection is reproducible. `creates_permission` and `severs_lineage` are both pinned false in the bytes, and the output privacy class is required by invariant to equal the source classification — together they are canon's rule that redaction reduces exposure but creates no right and never severs lineage, stated three different ways so no single edit defeats it.","required":["recipe_revision_ref","recipe_content_hash","techniques","findings","output_privacy_class","creates_permission","severs_lineage","reidentification_risk_assessed"],"properties":{"recipe_revision_ref":{"type":"string","minLength":1,"maxLength":512},"recipe_content_hash":{"$ref":"#/$defs/sha256"},"techniques":{"type":"array","minItems":1,"maxItems":12,"uniqueItems":true,"items":{"enum":["field_suppression","masking","tokenization","hashing","generalization","bucketing","noise_addition","k_anonymity","differential_privacy","synthetic_substitution","entity_replacement","no_transformation"]},"description":"`no_transformation` is a real member rather than an empty list: a view that redacts nothing should say so, because an absent technique list reads as an unanswered question and an unanswered question about exposure is not a low-exposure claim."},"findings":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["finding_kind","field_ref","residual_exposure"],"properties":{"finding_kind":{"enum":["residual_identifier","quasi_identifier_combination","linkage_risk","insufficient_generalization","free_text_leakage","reidentification_demonstrated"]},"field_ref":{"type":"string","minLength":1,"maxLength":512},"residual_exposure":{"enum":["none","low","material","unresolved"]}}},"description":"The findings the recipe produced, carried in the record rather than in a report nobody fetches. A finding is a fact about what survived the transformation; it never authorizes the projection, and a clean finding set does not either."},"output_privacy_class":{"$ref":"#/$defs/privacyClass","description":"REQUIRED BY INVARIANT TO EQUAL `privacy_class`. This is the declassification refusal: lowering a class through a transformation would be reclassification without a declassification approval, which canon treats as its own governed act with its own rights and receipts."},"creates_permission":{"const":false},"severs_lineage":{"const":false},"reidentification_risk_assessed":{"type":"boolean","description":"Whether a re-identification assessment was actually performed. A boolean rather than an inference from the technique list, because applying k-anonymity and assessing whether it held are different acts and only the second supports a low-risk claim."}}},"retention_and_hold":{"type":"object","additionalProperties":false,"description":"RETENTION AND HOLD STATE, ON THE VIEW. A hold narrows disposal and can narrow use; it never widens either, and a hold that lives only in a policy the reader has to fetch is a hold the offline verifier cannot see.","required":["retention_policy_ref","retention_state","hold_state","expires_at","deletion_or_forget_policy_ref"],"properties":{"retention_policy_ref":{"type":"string","minLength":1,"maxLength":512},"retention_state":{"enum":["within_retention","retention_elapsed","pending_deletion","deleted"]},"hold_state":{"enum":["none","legal_hold","audit_hold","incident_hold"]},"expires_at":{"$ref":"#/$defs/optionalTimestamp"},"deletion_or_forget_policy_ref":{"type":"string","minLength":1,"maxLength":512}}},"destination_and_egress":{"type":"object","additionalProperties":false,"description":"THE DESTINATION AND EGRESS CEILING. A ceiling, not an instruction: a materialization may carry less than this permits and never more, and a crossing of an institutional boundary still needs its own egress receipt.","required":["permitted_destination_classes","egress_ceiling","permitted_region_refs","cross_tenant_read_permitted","declassification_permitted_without_approval"],"properties":{"permitted_destination_classes":{"type":"array","minItems":1,"maxItems":6,"uniqueItems":true,"items":{"enum":["in_boundary_only","model_provider","external_processor","cross_organization","public_export","support_operator"]}},"egress_ceiling":{"enum":["no_egress","redacted_only","synthetic_only","declassified_only","sealed_ciphertext_only","protected_plaintext_permitted"]},"permitted_region_refs":{"$ref":"#/$defs/nonEmptyRefList"},"cross_tenant_read_permitted":{"const":false,"description":"Pinned. Cross-tenant learning and reuse are default-deny at the boundary and this view is not the place they become available; a cohort program binds its own separate objects."},"declassification_permitted_without_approval":{"const":false,"description":"Pinned. Moving protected material — including parameters, gradients, adapters, embeddings or distillates of it — across a sovereign boundary is a declassification event requiring its own approval, rights and receipts. A view can never be the approval."}}},"effective_boundary_binding":{"type":"object","additionalProperties":false,"description":"THE EFFECTIVE LEARNING-BOUNDARY HASH, AND THE ANCHOR OF THE STALE-POLICY REFUSAL. The view binds the exact compiled boundary revision, its exact content hash and the effective policy hash it was compiled under; a registered invariant then requires that policy hash to equal the one the materialization precondition demands. Moving one without the other is a stale binding and refuses.","required":["boundary_profile_revision_ref","boundary_profile_content_hash","effective_learning_boundary_hash","boundary_status_at_binding"],"properties":{"boundary_profile_revision_ref":{"$ref":"#/$defs/boundaryRevisionRef"},"boundary_profile_content_hash":{"$ref":"#/$defs/sha256"},"effective_learning_boundary_hash":{"$ref":"#/$defs/sha256"},"boundary_status_at_binding":{"const":"active","description":"Pinned. A view cannot be compiled against a draft, suspended, superseded or revoked boundary: those states carry no permitted uses, so a projection bound to one would be bound to nothing while looking bound to something."}}},"materialization_precondition":{"type":"object","additionalProperties":false,"description":"READS REVALIDATE BEFORE BYTES MOVE. Canon requires current authority, rights, revocation and expiry to be rechecked before materialization; here that is four mandatory members of a closed list plus a pinned flag, so a projection cannot be admitted while declaring that it revalidates nothing. The required policy hash is compared against the binding above by invariant, which is what makes a stale policy a refusal rather than a race.","required":["revalidate_before_materialization","revalidated_facts","required_effective_learning_boundary_hash","fails_closed_on_missing_or_conflicting_policy"],"properties":{"revalidate_before_materialization":{"const":true},"revalidated_facts":{"type":"array","minItems":4,"maxItems":8,"uniqueItems":true,"items":{"enum":["current_authority","current_rights","revocation_state","expiry","retention_and_hold","residency","destination_class","consent_state"]},"allOf":[{"contains":{"const":"current_authority"},"type":"array"},{"contains":{"const":"current_rights"},"type":"array"},{"contains":{"const":"revocation_state"},"type":"array"},{"contains":{"const":"expiry"},"type":"array"}]},"required_effective_learning_boundary_hash":{"$ref":"#/$defs/sha256"},"fails_closed_on_missing_or_conflicting_policy":{"const":true,"description":"Pinned. Missing or conflicting policy denies the disputed read; it does not fall back to the last known permission, and it does not resolve in the reader's favour."}}},"allowed_uses":{"type":"array","maxItems":8,"uniqueItems":true,"items":{"$ref":"#/$defs/viewUse"},"description":"What may be done through this projection. Empty is the correct shape for a view that is not active or whose retention has elapsed, and the conditionals below require at least one member exactly when the view IS active — so an active view that allows nothing is as inadmissible as a revoked one that still allows something. A registered invariant requires it to be covered exactly by the rights-derived uses plus the redaction-derived ones — and the schema pins the redaction-derived list EMPTY — so every use present traces to a right and none can enter by way of a transformation."},"rights_derived_allowed_uses":{"$ref":"#/$defs/viewUseList","description":"The uses the bound source-rights claims, consents and route contracts actually support. This is the only lawful origin of a member of `allowed_uses`."},"redaction_derived_allowed_uses":{"type":"array","maxItems":0,"uniqueItems":true,"items":{"$ref":"#/$defs/viewUse"},"description":"PINNED EMPTY, AND PRESENT ON PURPOSE. The field exists so the redaction-as-permission claim has somewhere to be made and be refused: `maxItems: 0` makes any member a schema refusal, and the coverage invariant above means a use added to `allowed_uses` without a matching right leaves the covering short. An empty list that no one can fill is a stronger statement than an absent field, because an absent field is silence and silence is what let the claim be made informally in the first place."},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"],"description":"INVENTORY STATUS ONLY. Only `active` may carry allowed uses; the other five empty the set by schema, which is how expiry, suspension, supersession and revocation narrow immediately instead of waiting for a reader to compare timestamps."},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp","description":"The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp, and a second one is the mutability tell the predecessor carried."},"succession":{"type":"object","additionalProperties":false,"description":"WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple reads as a complete lineage while naming nothing anyone could check, so a partial tuple is a SCHEMA refusal.","required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor","reinterprets_predecessor"],"properties":{"succession_reason":{"enum":["genesis","source_revision_change","minimization_change","rights_or_consent_change","boundary_revision_change","redaction_recipe_change","retention_or_hold_change","destination_or_residency_change","revocation_or_expiry","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/viewRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"},"reinterprets_predecessor":{"const":false,"description":"Pinned. A narrowed view does not retroactively unmake a read that was admitted under the wider one; it blocks future materialization and leaves the historical evidence exactly as admitted, which is what keeps an impact graph honest about residual exposure."}},"allOf":[{"title":"a genesis revision has no predecessor, in both slots at once","if":{"required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}},"type":"object"},"then":{"properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}},"type":"object"},"else":{"properties":{"predecessor_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"predecessor_content_hash":{"$ref":"#/$defs/sha256"}},"type":"object"}}]},"migration":{"type":"object","additionalProperties":false,"description":"CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A view authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's schema version, its `policy-bound-data-view://pbdv_…` ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the exact source revisions, the per-field minimization decisions, the rights and consent bindings, the effective-boundary hash and the commitment — a lossy re-encoding that would present a materially weaker record as the same fact, which is the precise move an attacker or a tired migration script would both want to make.","required":["from_schema_version","from_view_ref","from_content_hash","compatibility","reinterprets_predecessor","downgrade_to_predecessor","downgrade_refusal_reason"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.policy-bound-data-view.v1"},{"type":"null"}]},"from_view_ref":{"oneOf":[{"$ref":"#/$defs/legacyViewRef"},{"type":"null"}],"description":"The predecessor named in the scheme it was ACTUALLY STORED UNDER. Rewriting it into `view://` here would be reinterpreting v1, which is the one thing a convergence may not do — and it would also erase the fact that the predecessor had no revision segment to convert."},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The exact predecessor bytes the convergence read. v1 carries no commitment of its own, so this hash is computed over the stored record by the converging operation — which is what makes a convergence checkable at all."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false},"downgrade_to_predecessor":{"const":"refused"},"downgrade_refusal_reason":{"const":"v1_cannot_express_revision_identity_source_revisions_field_minimization_rights_consent_boundary_hash_or_commitment","description":"The refusal stated in the bytes rather than in a comment, naming exactly which members would be lost. A downgrade path that says only `refused` invites someone to argue the loss is acceptable; one that enumerates the loss makes the argument concrete."}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}},"type":"object"},"then":{"properties":{"from_schema_version":{"type":"null"},"from_view_ref":{"type":"null"},"from_content_hash":{"type":"null"}},"type":"object"},"else":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.policy-bound-data-view.v1"},"from_view_ref":{"$ref":"#/$defs/legacyViewRef"},"from_content_hash":{"$ref":"#/$defs/sha256"}},"type":"object"}}]},"constants":{"type":"object","additionalProperties":false,"description":"Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.","required":["lifecycle_id","consent_state_active_token","refused_legacy_view_scheme","nonclaim_authority_token","nonclaim_redaction_permission_token","nonclaim_consent_token"],"properties":{"lifecycle_id":{"const":"policy_bound_data_view_registry_lifecycle.v2","description":"Names WHICH lifecycle `registry_status` is drawn from. The predecessor pinned a different, disjoint vocabulary, so a reader cannot mistake a v1 `declared` for a v2 `active` even when a projection calls both `status`."},"consent_state_active_token":{"const":"active","description":"The only admissible consent state, named in the bytes so the expired-consent invariant can require it without carrying a literal of its own."},"refused_legacy_view_scheme":{"const":"policy-bound-data-view://","description":"The predecessor's identity scheme, named here as the REFUSED form for a v2 identity. It appears legitimately in exactly one place — `migration.from_view_ref` — as the honest record of what a converged predecessor was stored as."},"nonclaim_authority_token":{"const":"authority"},"nonclaim_redaction_permission_token":{"const":"redaction_creates_permission"},"nonclaim_consent_token":{"const":"consent"}}},"authority_nonclaim":{"const":"policy_bound_data_view_grants_no_authority"},"truth_nonclaim":{"const":"policy_bound_data_view_is_a_bounded_projection_not_consent_permission_or_semantic_truth"},"does_not_assert":{"type":"array","minItems":7,"maxItems":12,"uniqueItems":true,"items":{"enum":["authority","consent","redaction_creates_permission","declassification","source_rights","semantic_truth","cross_tenant_reuse","capability_lease_crossing","provider_non_learning","verified_unlearning","materialized_payload_custody","runtime_enforcement"]},"allOf":[{"contains":{"const":"authority"},"type":"array"},{"contains":{"const":"consent"},"type":"array"},{"contains":{"const":"redaction_creates_permission"},"type":"array"},{"contains":{"const":"declassification"},"type":"array"},{"contains":{"const":"source_rights"},"type":"array"},{"contains":{"const":"semantic_truth"},"type":"array"},{"contains":{"const":"cross_tenant_reuse"},"type":"array"}],"description":"Seven mandatory members. `redaction_creates_permission` and `declassification` are the two this family needs that no other carries: a transformation reduces exposure and creates no right, and reducing exposure is not the governed act of moving protected material across a boundary. `consent` is the third — binding a consent ref records that one was resolved, it does not make this record the consent."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered — and it is the single largest thing the predecessor could not do."}},"allOf":[{"title":"a view that is not active allows nothing","if":{"required":["registry_status"],"properties":{"registry_status":{"enum":["draft","suspended","expired","superseded","revoked"]}},"type":"object"},"then":{"properties":{"allowed_uses":{"maxItems":0,"type":"array"},"rights_derived_allowed_uses":{"maxItems":0,"type":"array"}},"type":"object"}},{"title":"elapsed retention, pending deletion or deletion allows nothing","if":{"required":["retention_and_hold"],"properties":{"retention_and_hold":{"required":["retention_state"],"properties":{"retention_state":{"enum":["retention_elapsed","pending_deletion","deleted"]}},"type":"object"}},"type":"object"},"then":{"properties":{"allowed_uses":{"maxItems":0,"type":"array"},"rights_derived_allowed_uses":{"maxItems":0,"type":"array"}},"type":"object"}},{"title":"an active view within retention allows at least one use","if":{"required":["registry_status","retention_and_hold"],"properties":{"registry_status":{"const":"active"},"retention_and_hold":{"required":["retention_state"],"properties":{"retention_state":{"const":"within_retention"}},"type":"object"}},"type":"object"},"then":{"properties":{"allowed_uses":{"minItems":1,"type":"array"},"rights_derived_allowed_uses":{"minItems":1,"type":"array"}},"type":"object"}}]}"##),
+    ("schema://ioi/foundations/objects/policy-bound-media-snapshot/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","title":"PolicyBoundMediaSnapshotV1","description":"The immutable Data-owned snapshot of ONE imported recording or ONE live-demonstration segment set. OBSERVATION IS NOT CONSENT: this record says what was captured, under which rights, on which timebase, and it grants nothing. Every binding is an EXACT revision rather than a family head, because a snapshot that named `view://acme.intake` would read through whichever policy that family last carried. The bytes themselves stay behind an ArtifactRef in the artifact plane; this contract binds their hash and never inlines them.","x-ioi-schema-version":"ioi.policy-bound-media-snapshot.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"snapshotFamilyRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$"},"snapshotRevisionRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"claimRevisionRef":{"type":"string","pattern":"^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"mappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"runRevisionRef":{"type":"string","pattern":"^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"refList":{"type":"array","items":{"type":"string","minLength":1,"maxLength":320},"maxItems":256},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000}},"required":["schema_version","media_snapshot_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","acquisition_class","capture_binding","source_rights","policy_bound_data_view_revision_refs","timebase","valid_time","artifact_bindings","availability","information_flow_label_refs","quarantine","redaction","deduplication","quality_findings","source_impact_lineage","raw_census","accepted_census","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","artifact_authority","capture_authority_does_not_travel_into_replay","demonstration_is_not_consent","snapshot_is_not_a_skill_or_workflow","content_hash"],"properties":{"schema_version":{"const":"ioi.policy-bound-media-snapshot.v1","description":"Pinned so no neighbouring media or dataset shape can validate here."},"media_snapshot_id":{"$ref":"#/$defs/snapshotFamilyRef"},"revision_ref":{"$ref":"#/$defs/snapshotRevisionRef","description":"ONE IMMUTABLE REVISION. The `/revision/` segment refuses a family head where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved","description":"PINNED. The capturing principal is resolved from the authenticated request identity; a caller that authors it is refused by name (INV-37)."},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"acquisition_class":{"enum":["imported_recording","live_demonstration"],"description":"Imported media must not silently become a live-capture dependency, and a live demonstration must not borrow an import's rights posture."},"capture_binding":{"type":"object","additionalProperties":false,"required":["actor_ref","session_ref","device_ref","environment_ref","application_ref","world_revision_ref"],"description":"WHO, WHERE AND IN WHICH WORLD. Every member is an exact ref; a mutable world or application version is the drift ACC-16 names.","properties":{"actor_ref":{"type":"string","minLength":1,"maxLength":320},"session_ref":{"type":"string","pattern":"^session://[a-z0-9][a-z0-9._:-]{0,190}$"},"device_ref":{"type":"string","minLength":1,"maxLength":320},"environment_ref":{"type":"string","minLength":1,"maxLength":320},"application_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]},"world_revision_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}}},"source_rights":{"type":"object","additionalProperties":false,"required":["capture_rights_revision_ref","learning_source_rights_claim_revision_refs","consent_bindings","permits_learned_use"],"description":"ACC-16 CLAUSE 1. Missing capture rights refuses EVERY profile; missing training or secondary-use rights refuses only the learned claim, never the procedural one.","properties":{"capture_rights_revision_ref":{"$ref":"#/$defs/claimRevisionRef"},"learning_source_rights_claim_revision_refs":{"type":"array","items":{"$ref":"#/$defs/claimRevisionRef"},"maxItems":64},"consent_bindings":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["consent_ref","consent_state","consent_subject_ref","valid_until"],"properties":{"consent_ref":{"type":"string","minLength":1,"maxLength":320},"consent_state":{"enum":["active","expired","revoked","unknown"]},"consent_subject_ref":{"type":"string","minLength":1,"maxLength":320},"valid_until":{"$ref":"#/$defs/canonicalTimestamp"}}}},"permits_learned_use":{"type":"boolean","description":"Derived from the resolved claims, never authored. False leaves a learned or combined claim inadmissible while the procedural path remains open."}}},"policy_bound_data_view_revision_refs":{"type":"array","items":{"$ref":"#/$defs/viewRevisionRef"},"maxItems":64,"description":"OWNER-RESOLVED THROUGH M05.8's SEAM, never shape-checked here. A snapshot naming a view nothing resolves is a record asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse. DELIBERATELY NOT `minItems: 1`: a procedural-only capture owes no policy-bound view (ACC-16 clause 1 refuses the learned claim, not the procedural profile), and pinning a floor here would make the paired registered invariant unfalsifiable — a rule that cannot fail is not a rule. The floor is therefore conditioned on `permits_learned_use` by that invariant instead."},"timebase":{"type":"object","additionalProperties":false,"required":["temporal_verification_profile_ref","profile_hash","timebase_id","clock_class","epoch_ref","tick_unit","declared_monotonic","discontinuities"],"description":"ACC-16 CLAUSE 3. One declared timebase. Per INV-39 the wall-clock anchor is AUTHENTICATED, never caller-asserted; a straddling interval is indeterminate rather than rounded toward the caller.","properties":{"temporal_verification_profile_ref":{"type":"string","minLength":1,"maxLength":320},"profile_hash":{"$ref":"#/$defs/sha256"},"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"clock_class":{"enum":["authenticated_wallet_time","device_monotonic","capture_sequence"]},"epoch_ref":{"type":"string","minLength":1,"maxLength":320},"tick_unit":{"enum":["nanosecond","microsecond","millisecond","sample","frame"]},"declared_monotonic":{"const":true,"description":"PINNED. A non-monotonic timebase is not repaired into one; the discontinuity is recorded below instead."},"discontinuities":{"type":"array","maxItems":4096,"description":"DETECTED AND RETAINED, NEVER NORMALIZED AWAY. Reordering, gaps and clock regression are findings; a run that sorts them into order has destroyed the evidence ACC-16 clause 3 asks for.","items":{"type":"object","additionalProperties":false,"required":["kind","at_tick","span_ticks","evidence_ref"],"properties":{"kind":{"enum":["gap","reorder","clock_regression","rate_change"]},"at_tick":{"$ref":"#/$defs/tickCount"},"span_ticks":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}}}},"valid_time":{"type":"object","additionalProperties":false,"required":["from","to"],"description":"INSIDE the content commitment, exactly as OntologyVersion (M05.1) splits it, so a predecessor's transaction interval can close while its bytes and hash stay frozen. Transaction time lives OUTSIDE this contract, beside the admitted operation.","properties":{"from":{"$ref":"#/$defs/canonicalTimestamp"},"to":{"oneOf":[{"$ref":"#/$defs/canonicalTimestamp"},{"type":"null"}]}}},"artifact_bindings":{"type":"array","minItems":1,"maxItems":4096,"description":"The content-addressed payload handles. Per ADR 0039 CAS may hold the bytes but is not authority: a missing or mismatched payload fails closed.","items":{"type":"object","additionalProperties":false,"required":["artifact_ref","sha256","media_type","size_bytes","manifest_root","role"],"properties":{"artifact_ref":{"type":"string","minLength":1,"maxLength":320},"sha256":{"$ref":"#/$defs/sha256"},"media_type":{"type":"string","minLength":1,"maxLength":128},"size_bytes":{"type":"integer","minimum":0,"maximum":2199023255552},"manifest_root":{"$ref":"#/$defs/sha256"},"role":{"enum":["dataset","screenshot","trace","checkpoint","recording","control_stream"]}}}},"availability":{"type":"object","additionalProperties":false,"required":["availability_manifest_ref","retention_class_ref","verifier_contract_ref","failure_behavior"],"description":"ADR 0039 requires a checkpoint to bind exactly this trio for every referenced payload. These are the REGISTERED AvailabilityManifest v1 / RetentionClass v1 contracts, not a bespoke corpus-availability vocabulary.","properties":{"availability_manifest_ref":{"type":"string","minLength":1,"maxLength":320},"retention_class_ref":{"type":"string","minLength":1,"maxLength":320},"verifier_contract_ref":{"type":"string","pattern":"^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$"},"failure_behavior":{"const":"fail_closed"}}},"information_flow_label_refs":{"type":"array","items":{"type":"string","pattern":"^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"},"minItems":1,"maxItems":64,"description":"Data classes are REGISTERED InformationFlowLabel refs inheriting under the existing non-widening rule. M05.9 mints no classification vocabulary and declassification stays Governance-owned through DeclassificationApproval."},"quarantine":{"type":"object","additionalProperties":false,"required":["quarantine_state","pii_decision_receipt_refs","rejected_segment_count"],"description":"ACC-16 CLAUSE 2, routed through the scanner that already exists (crates/pii + the cloud airlock), not a new quarantine object. Rejected bytes never reach a dataset.","properties":{"quarantine_state":{"enum":["pending_review","accepted","rejected","quarantined"]},"pii_decision_receipt_refs":{"$ref":"#/$defs/refList"},"rejected_segment_count":{"type":"integer","minimum":0,"maximum":1000000}}},"redaction":{"type":"object","additionalProperties":false,"required":["recipe_revision_ref","creates_permission","severs_lineage","source_privacy_class","output_privacy_class"],"description":"REDACTION REDUCES EXPOSURE AND CREATES NOTHING. Its recipe is a DataRecipe revision because DataRecipe v2's transformation-step enum already has a `redact` member; a separate RedactionRecipe family would be a second spine.","properties":{"recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"creates_permission":{"const":false},"severs_lineage":{"const":false},"source_privacy_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]},"output_privacy_class":{"enum":["public","internal","confidential","restricted","regulated","safety_critical"]}}},"deduplication":{"type":"object","additionalProperties":false,"required":["exact_key_algorithm","near_duplicate_method","excluded_count"],"properties":{"exact_key_algorithm":{"const":"jcs_sha256"},"near_duplicate_method":{"type":"string","minLength":1,"maxLength":128},"excluded_count":{"type":"integer","minimum":0,"maximum":100000000}}},"quality_findings":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["finding_class","severity","evidence_ref"],"properties":{"finding_class":{"enum":["corrupt_chunk","truncated_file","variable_rate_segment","padded_span","repeated_file","low_signal"]},"severity":{"enum":["refused","excluded","retained_with_finding"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"source_impact_lineage":{"type":"object","additionalProperties":false,"required":["data_recipe_revision_refs","connector_mapping_revision_refs","transformation_run_revision_refs"],"description":"Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.","properties":{"data_recipe_revision_refs":{"type":"array","items":{"$ref":"#/$defs/dataRecipeRevisionRef"},"maxItems":128},"connector_mapping_revision_refs":{"type":"array","items":{"$ref":"#/$defs/mappingRevisionRef"},"maxItems":128},"transformation_run_revision_refs":{"type":"array","items":{"$ref":"#/$defs/runRevisionRef"},"maxItems":128}}},"raw_census":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"type":"integer","minimum":0,"maximum":100000000},"file_count":{"type":"integer","minimum":0,"maximum":10000000},"byte_count":{"type":"integer","minimum":0,"maximum":2199023255552},"frame_or_sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"chunk_count":{"type":"integer","minimum":0,"maximum":100000000}}},"accepted_census":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"type":"integer","minimum":0,"maximum":100000000},"file_count":{"type":"integer","minimum":0,"maximum":10000000},"byte_count":{"type":"integer","minimum":0,"maximum":2199023255552},"frame_or_sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"chunk_count":{"type":"integer","minimum":0,"maximum":100000000}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp","description":"Taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`."},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/snapshotRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"description":"GENESIS-AT-V1. There is no v1 predecessor corpus to converge, so `compatibility` admits only `initial` and the absence of convergence machinery is ASSERTED rather than assumed.","properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"policy_bound_media_snapshot_grants_no_authority"},"artifact_authority":{"const":"none — an active ArtifactRef names bytes and grants no read, no replay, no current authority","description":"The strongest machine-checked passivity statement available, and it matters here precisely because ArtifactRef v1 itself carries NO invariant profile."},"capture_authority_does_not_travel_into_replay":{"const":true},"demonstration_is_not_consent":{"const":true},"snapshot_is_not_a_skill_or_workflow":{"const":true},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field under a domain separator, so a relying party holding only these bytes recomputes it and a stale or substituted hash fails offline."}},"allOf":[{"title":"a snapshot that is not active permits no learned use","type":"object","if":{"type":"object","required":["registry_status"],"properties":{"registry_status":{"enum":["draft","suspended","expired","superseded","revoked"]}}},"then":{"type":"object","properties":{"source_rights":{"type":"object","properties":{"permits_learned_use":{"const":false}}}}}},{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}},{"title":"a rejected or quarantined capture permits no learned use","type":"object","if":{"type":"object","required":["quarantine"],"properties":{"quarantine":{"type":"object","required":["quarantine_state"],"properties":{"quarantine_state":{"enum":["pending_review","rejected","quarantined"]}}}}},"then":{"type":"object","properties":{"source_rights":{"type":"object","properties":{"permits_learned_use":{"const":false}}}}}}]}"##),
+    ("schema://ioi/foundations/objects/observation-action-episode/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/observation-action-episode/v1","title":"ObservationActionEpisodeV1","description":"ONE INDEPENDENTLY BOUNDED episode or task, drawn from exactly one PolicyBoundMediaSnapshot revision. THE LOAD-BEARING RULE OF THIS CONTRACT: a video-inferred or model-inferred action label remains an UNCERTAIN ATTRIBUTED LABEL and never silently becomes controller ground truth. That rule is expressed three ways so no single edit defeats it — a schema conditional here, a registered coverage invariant beside it, and a runtime refusal in the admitting module. Recorded-video accuracy cannot substitute for closed-loop control evidence (ACC-16 clause 10, ACC-19 clause 5).","x-ioi-schema-version":"ioi.observation-action-episode.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"episodeFamilyRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}$"},"episodeRevisionRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"snapshotRevisionRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000},"labelClassRef":{"type":"string","pattern":"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"}},"required":["schema_version","episode_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","media_snapshot_revision_ref","media_snapshot_content_hash","session_ref","bounds","streams","synchronization","labels","ground_truth_eligible_label_refs","controller_recorded_label_refs","exception_labels","determinism","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","inferred_label_is_never_ground_truth","episode_is_not_a_skill_or_workflow","content_hash"],"properties":{"schema_version":{"const":"ioi.observation-action-episode.v1"},"episode_id":{"$ref":"#/$defs/episodeFamilyRef"},"revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"media_snapshot_revision_ref":{"$ref":"#/$defs/snapshotRevisionRef","description":"The EXACT snapshot revision this episode was cut from — never a family head."},"media_snapshot_content_hash":{"$ref":"#/$defs/sha256","description":"THE BYTES, NOT JUST THE REF. A ref names a location that may since have been re-admitted; the hash names what was actually bound, so a silent re-admission underneath this episode is detectable offline."},"session_ref":{"type":"string","pattern":"^session://[a-z0-9][a-z0-9._:-]{0,190}$","description":"Invariant-equal to the snapshot's. Session is Hypervisor-substrate-owned; M05.9 binds it by ref and owns no session object."},"bounds":{"type":"object","additionalProperties":false,"required":["timebase_id","start_tick","end_tick","boundary_evidence_ref"],"description":"INDEPENDENTLY BOUNDED. `timebase_id` is invariant-equal to the snapshot's: an episode that inherited a different timebase would be measuring its own bounds on a clock nobody declared.","properties":{"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"start_tick":{"$ref":"#/$defs/tickCount"},"end_tick":{"$ref":"#/$defs/tickCount"},"boundary_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}},"streams":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["stream_role","schema_ref","channel","sample_count","sync_evidence_ref"],"properties":{"stream_role":{"enum":["observation","action","reward","label"]},"schema_ref":{"type":"string","minLength":1,"maxLength":320},"channel":{"type":"string","minLength":1,"maxLength":128},"sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"sync_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"synchronization":{"type":"object","additionalProperties":false,"required":["method","frame_action_offset_ticks","max_observed_skew_ticks","declared_skew_envelope_ticks"],"description":"FRAME/ACTION SYNCHRONIZATION. Observed skew beyond the declared envelope is a refusal, not a rounding: an action attributed to the wrong frame is a mislabel that reads as data.","properties":{"method":{"enum":["shared_timebase","clapper_marker","control_stream_correlation","declared_offset"]},"frame_action_offset_ticks":{"type":"integer","minimum":-1000000000,"maximum":1000000000},"max_observed_skew_ticks":{"$ref":"#/$defs/tickCount"},"declared_skew_envelope_ticks":{"$ref":"#/$defs/tickCount"}}},"labels":{"type":"array","minItems":1,"maxItems":100000,"description":"Every label carries its own provenance and epistemic status. `attributed_to_ref` is who or what asserted it; `corrected_by_ref` is the governed correction that superseded it, retained rather than overwritten (ACC-16 clause 12).","items":{"type":"object","additionalProperties":false,"required":["label_ref","label_class","value_ref","label_provenance_class","epistemic_status","is_controller_ground_truth","confidence","uncertainty_kind","attributed_to_ref","corrected_by_ref"],"properties":{"label_ref":{"type":"string","minLength":1,"maxLength":320},"label_class":{"$ref":"#/$defs/labelClassRef"},"value_ref":{"type":"string","minLength":1,"maxLength":320},"label_provenance_class":{"enum":["controller_recorded","operator_annotated","video_inferred","model_inferred","derived"],"description":"WHERE THE LABEL CAME FROM. `controller_recorded` is the only class an admitted controller stream can support; the rest are attributions."},"epistemic_status":{"enum":["controller_ground_truth","uncertain_attributed_label"]},"is_controller_ground_truth":{"type":"boolean"},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"uncertainty_kind":{"enum":["none","measurement","model","annotation","ambiguous_reference","incomplete_evidence"]},"attributed_to_ref":{"type":"string","minLength":1,"maxLength":320},"corrected_by_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}},"allOf":[{"title":"an inferred label is an uncertain attributed label and is never controller ground truth","type":"object","if":{"type":"object","required":["label_provenance_class"],"properties":{"label_provenance_class":{"enum":["video_inferred","model_inferred"]}}},"then":{"type":"object","properties":{"epistemic_status":{"const":"uncertain_attributed_label"},"is_controller_ground_truth":{"const":false}}}},{"title":"only a controller-recorded label may claim controller ground truth","type":"object","if":{"type":"object","required":["is_controller_ground_truth"],"properties":{"is_controller_ground_truth":{"const":true}}},"then":{"type":"object","properties":{"label_provenance_class":{"const":"controller_recorded"},"epistemic_status":{"const":"controller_ground_truth"}}}}]}},"ground_truth_eligible_label_refs":{"type":"array","maxItems":100000,"items":{"type":"string","minLength":1,"maxLength":320},"description":"The label set this episode offers as controller ground truth. A registered coverage invariant requires it to be covered EXACTLY by the `controller_recorded` subset — a video-inferred label smuggled in leaves the covering long and refuses, and a controller label omitted leaves it short and refuses."},"controller_recorded_label_refs":{"type":"array","maxItems":100000,"items":{"type":"string","minLength":1,"maxLength":320},"description":"The `controller_recorded` subset, enumerated independently so the coverage above compares two statements rather than one statement with itself."},"exception_labels":{"type":"array","maxItems":10000,"description":"The closed exception vocabulary. An exception class outside it is refused rather than filed under `other`.","items":{"type":"object","additionalProperties":false,"required":["exception_class","at_tick","evidence_ref"],"properties":{"exception_class":{"enum":["operator_abort","controller_disconnect","environment_fault","policy_refusal","timeout","out_of_scope_action","ambiguous_intent"]},"at_tick":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"determinism":{"type":"object","additionalProperties":false,"required":["determinism_class","preprocessor_code_root","preprocessor_config_root","declared_randomness_seed"],"description":"ACC-16 CLAUSE 7. Identical admitted inputs replay under the declared determinism class; a changed preprocessor produces a SUCCESSOR rather than a run that resolves differently and reports success.","properties":{"determinism_class":{"enum":["bitwise_deterministic","seeded_deterministic","nondeterministic_declared"]},"preprocessor_code_root":{"$ref":"#/$defs/sha256"},"preprocessor_config_root":{"$ref":"#/$defs/sha256"},"declared_randomness_seed":{"oneOf":[{"type":"string","minLength":1,"maxLength":128},{"type":"null"}]}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/episodeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"observation_action_episode_grants_no_authority"},"inferred_label_is_never_ground_truth":{"const":true},"episode_is_not_a_skill_or_workflow":{"const":true},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}}]}"##),
+    ("schema://ioi/foundations/objects/dataset-split-manifest/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","title":"DatasetSplitManifestV1","description":"FROZEN, LEAKAGE-RESISTANT MEMBERSHIP over ObservationActionEpisode revisions. Membership is carried as a FLAT row set — one row per episode, naming its split — rather than a member array per split, because exact-partition closure is then directly checkable: an episode in two splits makes the covering long and refuses, an episode in none makes it short and refuses. Distinct from the Foundry-owned `dataset-snapshot://foundry/...`, which is a flat train/validation/test shape this one does not reuse.","x-ioi-schema-version":"ioi.dataset-split-manifest.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"manifestFamilyRef":{"type":"string","pattern":"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"},"manifestRevisionRef":{"type":"string","pattern":"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"episodeRevisionRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"splitClass":{"enum":["train","validation","temporal_holdout","actor_holdout","world_holdout","adversarial"]},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000}},"required":["schema_version","split_manifest_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","members","splits","all_member_episode_revision_refs","member_count","membership_is_immutable","leakage_controls","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","manifest_selects_no_evaluation_evidence_for_its_own_producer","content_hash"],"properties":{"schema_version":{"const":"ioi.dataset-split-manifest.v1"},"split_manifest_id":{"$ref":"#/$defs/manifestFamilyRef"},"revision_ref":{"$ref":"#/$defs/manifestRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"members":{"type":"array","minItems":1,"maxItems":100000,"description":"ONE ROW PER EPISODE. `array_unique_by_fields` over `episode_revision_ref` refuses double membership outright, and the coverage rule below refuses omission — two independent statements about one set, which is the cheapest tell that a member was moved after the fact.","items":{"type":"object","additionalProperties":false,"required":["episode_revision_ref","episode_content_hash","split_class","actor_partition_key","world_partition_key","max_tick"],"properties":{"episode_revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"episode_content_hash":{"$ref":"#/$defs/sha256"},"split_class":{"$ref":"#/$defs/splitClass"},"actor_partition_key":{"type":"string","minLength":1,"maxLength":128},"world_partition_key":{"type":"string","minLength":1,"maxLength":128},"max_tick":{"$ref":"#/$defs/tickCount"}}}},"splits":{"type":"array","minItems":1,"maxItems":6,"description":"The declared per-class counts. A class declared twice is refused by uniqueness; a count disagreeing with the rows is refused by the registered invariant.","items":{"type":"object","additionalProperties":false,"required":["split_class","member_count"],"properties":{"split_class":{"$ref":"#/$defs/splitClass"},"member_count":{"type":"integer","minimum":0,"maximum":100000}}}},"all_member_episode_revision_refs":{"type":"array","minItems":1,"maxItems":100000,"items":{"$ref":"#/$defs/episodeRevisionRef"},"description":"The enumerated membership, covered EXACTLY by the rows above. Coverage compares members and count, so both double-membership and omission refuse."},"member_count":{"type":"integer","minimum":1,"maximum":100000},"membership_is_immutable":{"const":true,"description":"PINNED. A split manifest whose membership can move is not a holdout; it is a suggestion."},"leakage_controls":{"type":"object","additionalProperties":false,"required":["near_duplicate_exclusion_method","near_duplicate_excluded_count","temporal_cut_tick","max_train_tick","min_temporal_holdout_tick"],"description":"ACC-16 CLAUSE 8. Near-duplicate and future-frame leakage are refused by comparison rather than declared absent: `max_train_tick < temporal_cut_tick <= min_temporal_holdout_tick`, and the actor/world partition keys must not straddle a holdout boundary.","properties":{"near_duplicate_exclusion_method":{"type":"string","minLength":1,"maxLength":128},"near_duplicate_excluded_count":{"type":"integer","minimum":0,"maximum":100000000},"temporal_cut_tick":{"$ref":"#/$defs/tickCount"},"max_train_tick":{"$ref":"#/$defs/tickCount"},"min_temporal_holdout_tick":{"$ref":"#/$defs/tickCount"}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/manifestRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"dataset_split_manifest_grants_no_authority"},"manifest_selects_no_evaluation_evidence_for_its_own_producer":{"const":true,"description":"ACC-16's negative clause: the training process cannot select its own evaluation evidence. Independent evaluation binds this manifest by exact ref; the manifest never promotes itself."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}}]}"##),
+    ("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","title":"MediaCorpusQualificationCensusV1","description":"THE CERTIFICATE BOTH LANES EMIT, CARRYING ITS OWN HONESTY ABOUT WHICH LANE PRODUCED IT. The deterministic lane emits `compact_deterministic_fixture` and pins `does_not_claim_hours_scale_qualification` — an empty claim nobody can fill is a stronger statement than an absent field, which is what lets ACC-19 clause 5 say the deterministic lane 'claims no hours-scale qualification' and have it be checkable. The scheduled lane emits `hours_scale_qualification` and must satisfy every floor by invariant. The floors are FUNCTIONAL (duration, diversity, census closure) and cannot shrink. NUMERIC THROUGHPUT AND LATENCY LIMITS ARE DELIBERATELY ABSENT: per ADR 0039's own acceptance record they wait for repeated matched release-host baselines and a planted slowdown mutation.","x-ioi-schema-version":"ioi.media-corpus-qualification-census.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"censusRef":{"type":"string","pattern":"^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"},"principalRef":{"type":"string","pattern":"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"seconds":{"type":"integer","minimum":0,"maximum":100000000},"count":{"type":"integer","minimum":0,"maximum":1000000000000},"byteCount":{"type":"integer","minimum":0,"maximum":2199023255552},"labelClassRef":{"type":"string","pattern":"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"reasonClass":{"enum":["corrupt","truncated","variable_rate","padded","repeated","out_of_rights","quarantined","near_duplicate","exact_duplicate","below_quality_floor"]}},"required":["schema_version","corpus_census_id","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","claimed_scale","profile","corpus_content_root","raw","accepted","rejected","deduplicated","file_dispositions","profile_required_label_classes","observed_label_classes","floors","ceilings","runtime_evidence","degeneracy_findings","distinct_content_hash_count","does_not_claim_hours_scale_qualification","does_not_claim_throughput_or_latency","admitted_at","constants","authority_nonclaim","content_hash"],"properties":{"schema_version":{"const":"ioi.media-corpus-qualification-census.v1"},"corpus_census_id":{"$ref":"#/$defs/censusRef","description":"CONTENT-ADDRESSED rather than numbered: the census IS its corpus's digest, so two runs over the same corpus collide by construction and a shortened corpus cannot hide behind a fresh identity."},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"claimed_scale":{"enum":["compact_deterministic_fixture","hours_scale_qualification"],"description":"WHICH LANE PRODUCED THIS. Neither lane may claim the other's coverage (ACC-16 Evidence, ACC-19 Evidence)."},"profile":{"enum":["composed-model-harness","interactive-learned","synthetic-learned-sensitive"],"description":"The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."},"corpus_content_root":{"$ref":"#/$defs/sha256"},"raw":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"}}},"accepted":{"type":"object","additionalProperties":false,"required":["seconds_before_deduplication","seconds_after_deduplication","file_count","byte_count","frame_or_sample_count","chunk_count","bounded_episode_count","task_count","source_session_count","label_count"],"description":"The accepted half of the census. `seconds_after_deduplication` is the floor-bearing number: two hours of accepted source time AFTER exact and near-duplicate exclusion, never before it.","properties":{"seconds_before_deduplication":{"$ref":"#/$defs/seconds"},"seconds_after_deduplication":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"bounded_episode_count":{"$ref":"#/$defs/count"},"task_count":{"$ref":"#/$defs/count"},"source_session_count":{"$ref":"#/$defs/count"},"label_count":{"$ref":"#/$defs/count"}}},"rejected":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}},"deduplicated":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}},"file_dispositions":{"type":"array","minItems":1,"maxItems":1000000,"description":"ONE ROW PER RAW FILE. This is how the census closes arithmetically without an arithmetic operator the invariant DSL does not have: `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over the content hash refuses a padded or repeated corpus. Every raw file therefore has exactly one disposition, and a file with none is missing from the count rather than silently absorbed.","items":{"type":"object","additionalProperties":false,"required":["content_sha256","disposition","reason_class","source_seconds"],"properties":{"content_sha256":{"$ref":"#/$defs/sha256"},"disposition":{"enum":["accepted","rejected","deduplicated"]},"reason_class":{"oneOf":[{"$ref":"#/$defs/reasonClass"},{"type":"null"}]},"source_seconds":{"$ref":"#/$defs/seconds"}}}},"profile_required_label_classes":{"type":"array","minItems":1,"maxItems":512,"items":{"$ref":"#/$defs/labelClassRef"},"description":"Every profile-required ACTION, FIELD and EXCEPTION label class. Covered exactly by the observed set below, so a corpus missing a required class refuses rather than reporting a high count over a narrow vocabulary."},"observed_label_classes":{"type":"array","minItems":1,"maxItems":512,"items":{"$ref":"#/$defs/labelClassRef"}},"floors":{"type":"object","additionalProperties":false,"required":["accepted_seconds_after_deduplication","bounded_episode_count","source_session_count"],"description":"PINNED IN THE SCHEMA AS SINGLE-MEMBER NUMERIC ENUMS, which is this repo's numeric pin (a numeric `const` is banned by the ajv-strict authoring convention). Pinning them in the record rather than only in the verifier is what makes 'the floors cannot shrink' checkable offline by a relying party holding only these bytes.","properties":{"accepted_seconds_after_deduplication":{"type":"integer","enum":[7200],"description":"At least two hours of accepted source time after exact AND near-duplicate exclusion (ACC-19 clause 5)."},"bounded_episode_count":{"type":"integer","enum":[8],"description":"At least eight independently bounded episodes or tasks."},"source_session_count":{"type":"integer","enum":[2],"description":"From at least two source Sessions."}}},"ceilings":{"type":"object","additionalProperties":false,"required":["corpus_byte_count"],"properties":{"corpus_byte_count":{"type":"integer","enum":[2147483648],"description":"2 GiB. Duration and diversity are the floors; fidelity is not, which is part of why the scheduled lane needs no GPU runner, object storage or metered service."}}},"runtime_evidence":{"type":"object","additionalProperties":false,"required":["peak_resident_bytes","projection_subscription_lease_ref","max_undelivered_events_declared","queue_high_water","backpressure_lag_outcomes","durability_class_achieved","interruption_count","resume_count","restart_equivalence","corrupt_inputs_refused","truncated_inputs_refused","variable_rate_inputs_handled"],"description":"What the run ACTUALLY did. The backpressure half reuses the registered ProjectionSubscriptionLease v1 vocabulary, so 'exceeding the bound produces a typed outcome; it never silently drops an accepted event' is inherited rather than restated.","properties":{"peak_resident_bytes":{"$ref":"#/$defs/byteCount"},"projection_subscription_lease_ref":{"type":"string","minLength":1,"maxLength":320},"max_undelivered_events_declared":{"type":"integer","minimum":1,"maximum":1048576},"queue_high_water":{"$ref":"#/$defs/count"},"backpressure_lag_outcomes":{"type":"array","maxItems":4096,"items":{"enum":["typed_gap","typed_rebase","lease_revoked"]}},"durability_class_achieved":{"enum":["local_only","replicated_same_host","quorum_replicated"],"description":"THE CLASS THE WRITER REACHED, never the one requested. The mux caps same-host links at `replicated_same_host` and refuses to fake a replicated class."},"interruption_count":{"$ref":"#/$defs/count"},"resume_count":{"$ref":"#/$defs/count"},"restart_equivalence":{"type":"object","additionalProperties":false,"required":["pre_restart_root","post_restart_root","roots_equal"],"properties":{"pre_restart_root":{"$ref":"#/$defs/sha256"},"post_restart_root":{"$ref":"#/$defs/sha256"},"roots_equal":{"const":true}}},"corrupt_inputs_refused":{"$ref":"#/$defs/count"},"truncated_inputs_refused":{"$ref":"#/$defs/count"},"variable_rate_inputs_handled":{"$ref":"#/$defs/count"}}},"degeneracy_findings":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["finding_class","affected_file_count","evidence_ref"],"properties":{"finding_class":{"enum":["padded_span","repeated_file","single_actor_corpus","single_session_corpus","degenerate_label_vocabulary","constant_frame_content"]},"affected_file_count":{"$ref":"#/$defs/count"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"distinct_content_hash_count":{"$ref":"#/$defs/count"},"does_not_claim_hours_scale_qualification":{"type":"boolean"},"does_not_claim_throughput_or_latency":{"const":true,"description":"PINNED ON BOTH LANES. No throughput, latency or time-to-quality number is claimed by this contract in this cut."},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"media_corpus_qualification_census_grants_no_authority"},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"the compact deterministic lane claims no hours-scale qualification","type":"object","if":{"type":"object","required":["claimed_scale"],"properties":{"claimed_scale":{"const":"compact_deterministic_fixture"}}},"then":{"type":"object","properties":{"does_not_claim_hours_scale_qualification":{"const":true}}}},{"title":"the hours-scale lane makes that claim and therefore owes every floor","description":"THE FLOORS BIND TO THE LANE THAT CLAIMS THEM. They are expressed here as a schema conditional because the portable invariant language has no conditional numeric operator, and an unconditional floor rule would refuse the compact deterministic fixture that ACC-19 clause 5 explicitly permits. The compact lane is bounded instead by its own pinned nonclaim above, so neither lane can borrow the other's coverage.","type":"object","if":{"type":"object","required":["claimed_scale"],"properties":{"claimed_scale":{"const":"hours_scale_qualification"}}},"then":{"type":"object","properties":{"does_not_claim_hours_scale_qualification":{"const":false},"accepted":{"type":"object","properties":{"seconds_after_deduplication":{"type":"integer","minimum":7200,"maximum":100000000},"bounded_episode_count":{"type":"integer","minimum":8,"maximum":1000000000000},"task_count":{"type":"integer","minimum":8,"maximum":1000000000000},"source_session_count":{"type":"integer","minimum":2,"maximum":1000000000000}}}}}}]}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -149752,6 +155431,10 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/model-route-rights-contract/v1", r#"[{"rule_id":"model_route_rights_contract.content_hash.commits_the_whole_revision","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the route binding, the use partition, the destination ceiling and the revocation block. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, which is what lets an egress receipt bind this revision and mean it.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.model-route-rights-contract-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"model_route_rights_contract_id":{"path":"$.model_route_rights_contract_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"credential_principal_ref":{"path":"$.credential_principal_ref"},"route_binding":{"path":"$.route_binding"},"purposes":{"path":"$.purposes"},"data_classes":{"path":"$.data_classes"},"declared_route_use_vocabulary":{"path":"$.declared_route_use_vocabulary"},"permitted_route_uses":{"path":"$.permitted_route_uses"},"prohibited_route_uses":{"path":"$.prohibited_route_uses"},"declared_prohibited_route_uses":{"path":"$.declared_prohibited_route_uses"},"unresolved_route_uses":{"path":"$.unresolved_route_uses"},"unresolved_rights_findings":{"path":"$.unresolved_rights_findings"},"destination_and_egress":{"path":"$.destination_and_egress"},"customer_output_rights":{"path":"$.customer_output_rights"},"provider_use_of_customer_material":{"path":"$.provider_use_of_customer_material"},"retention_posture":{"path":"$.retention_posture"},"retention_policy_ref":{"path":"$.retention_policy_ref"},"commercial_terms_refs":{"path":"$.commercial_terms_refs"},"technical_terms_refs":{"path":"$.technical_terms_refs"},"fallback_substitution":{"path":"$.fallback_substitution"},"validity":{"path":"$.validity"},"revocation":{"path":"$.revocation"},"status":{"path":"$.status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"model_route_rights_contract.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES. Nothing in the schema alone stops a revision of one provider's terms from being filed under another provider's contract id, and a route resolving the family would then read terms that never governed it. This rule requires `revision_ref` to begin with the contract id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.model_route_rights_contract_id","prefix":"model-route-rights://","strip_prefix":"model-route-rights://","suffix":"/revision/"}},{"rule_id":"model_route_rights_contract.vocabulary.is_the_whole_closed_set","description":"The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set. A contract that dropped `oem_or_reseller_use` from its vocabulary could partition the remainder perfectly and never decide resale at all — which is precisely how a narrow model-inference pass gets lent to a use nobody resolved.","expression":{"operator":"array_length_equals","array_path":"$.declared_route_use_vocabulary","count_path":"$.constants.route_use_vocabulary_size"}},{"rule_id":"model_route_rights_contract.uses.permitted_and_prohibited_partition_the_vocabulary","description":"EVERY ROUTE USE IS DECIDED, AND NO USE IS DECIDED TWICE. Multiset coverage buys both halves: a use in both lists makes the covering longer than the vocabulary and fails, a use in neither makes it shorter and fails. Silence about capture, training, control, connector, publication or commercial use is therefore inadmissible rather than permissive.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.declared_route_use_vocabulary","required_paths":[],"required_array_paths":["$.permitted_route_uses","$.prohibited_route_uses"]}},{"rule_id":"model_route_rights_contract.prohibitions.are_declared_or_unresolved_never_invented","description":"MISSING OR UNKNOWN RIGHTS FAIL CLOSED, AS AN EQUALITY. The prohibitions must be covered exactly by the affirmative ones plus the unresolved ones, so a contract that records an unresolved right and still permits that use leaves the covering short and refuses. Multiset semantics also forbid counting one use as both affirmatively prohibited and unresolved, which keeps the remediation answer single-valued.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.prohibited_route_uses","required_paths":[],"required_array_paths":["$.declared_prohibited_route_uses","$.unresolved_route_uses"]}},{"rule_id":"model_route_rights_contract.unresolved_uses.match_their_findings_exactly","description":"THE FAIL-CLOSED SET IS THE EVIDENCE, NOT A PARALLEL ASSERTION. `unresolved_route_uses` must be the exact projection of the `route_use` field of every unresolved-rights finding. Deleting a finding to make a permission fit changes the projection and breaks the covering above; adding a use without a finding breaks this one.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.unresolved_route_uses","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.unresolved_rights_findings","field":"route_use"}]}},{"rule_id":"model_route_rights_contract.provider_model_training.is_prohibited_without_a_named_basis","description":"PROVIDER SECONDARY USE IS DENIED BY DEFAULT. Either the field reads `prohibited`, or the contract names the exact term that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch and cannot enter the record as a resolved right.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.provider_use_of_customer_material.provider_model_training","$.constants.provider_use_prohibited_token"]},{"operator":"non_empty","path":"$.provider_use_of_customer_material.provider_model_training_basis_ref"}]}},{"rule_id":"model_route_rights_contract.cross_customer_aggregation.is_prohibited_without_a_named_basis","description":"The other half of the default-deny posture, and the one an aggregator is most likely to inherit from an upstream service default rather than a term the institution accepted.","expression":{"operator":"any_of","expressions":[{"operator":"fields_equal","paths":["$.provider_use_of_customer_material.cross_customer_aggregation","$.constants.provider_use_prohibited_token"]},{"operator":"non_empty","path":"$.provider_use_of_customer_material.cross_customer_aggregation_basis_ref"}]}},{"rule_id":"model_route_rights_contract.succession.a_revision_is_never_its_own_predecessor","description":"A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.","expression":{"operator":"fields_not_equal","paths":["$.revision_ref","$.succession.predecessor_revision_ref"]}},{"rule_id":"model_route_rights_contract.succession.a_successor_names_its_predecessor_revision","description":"Every succession reason other than `genesis` is a statement that the resolved terms moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_revision_ref","when_path":"$.succession.succession_reason","values":["commercial_terms_change","technical_terms_change","model_revision_change","principal_change","destination_or_residency_change","retention_change","unresolved_right_resolved","revocation_or_expiry","correction"]}},{"rule_id":"model_route_rights_contract.succession.a_successor_names_its_predecessor_bytes","description":"A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash, a receipt bound to the predecessor cannot be checked against the terms it was actually admitted under once the provider's contract has moved.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_content_hash","when_path":"$.succession.succession_reason","values":["commercial_terms_change","technical_terms_change","model_revision_change","principal_change","destination_or_residency_change","retention_change","unresolved_right_resolved","revocation_or_expiry","correction"]}},{"rule_id":"model_route_rights_contract.nonclaims.authority_is_never_omitted","description":"Resolving what terms permit is not the power to act. Eligibility still passes ordinary authority, policy and runtime admission, and the record says so itself.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_authority_token"}},{"rule_id":"model_route_rights_contract.nonclaims.possession_is_never_permission","description":"A platform account or API credential proves possession only. Dropping this nonclaim would let a working credential be read as evidence that automation, capture, demonstration training, submission or resale is permitted — the exact substitution canon names and the reason this contract exists separately from the credential that reaches the route.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_possession_token"}}]"#),
     ("schema://ioi/foundations/objects/policy-bound-data-view/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/policy-bound-data-view/v2", r#"[{"rule_id":"policy_bound_data_view.content_hash.commits_the_whole_revision","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED, AND IT IS THE SINGLE LARGEST THING THE PREDECESSOR COULD NOT DO. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — the source bindings with their exact revisions and hashes, the row/field/time minimization, the rights and consent bindings, the redaction recipe and findings, the retention and hold state, the destination ceiling and the effective learning-boundary hash. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted. This is what makes the view content-addressed rather than merely numbered.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.policy-bound-data-view-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"policy_bound_data_view_id":{"path":"$.policy_bound_data_view_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"purpose":{"path":"$.purpose"},"purpose_binding_ref":{"path":"$.purpose_binding_ref"},"source_bindings":{"path":"$.source_bindings"},"source_binding_count":{"path":"$.source_binding_count"},"ontology_revision_refs":{"path":"$.ontology_revision_refs"},"connector_mapping_revision_refs":{"path":"$.connector_mapping_revision_refs"},"object_model_refs":{"path":"$.object_model_refs"},"row_scope":{"path":"$.row_scope"},"field_scope":{"path":"$.field_scope"},"time_scope":{"path":"$.time_scope"},"data_classes":{"path":"$.data_classes"},"privacy_class":{"path":"$.privacy_class"},"source_rights_claim_revision_refs":{"path":"$.source_rights_claim_revision_refs"},"consent_bindings":{"path":"$.consent_bindings"},"route_rights_revision_refs":{"path":"$.route_rights_revision_refs"},"jurisdiction_refs":{"path":"$.jurisdiction_refs"},"residency_refs":{"path":"$.residency_refs"},"redaction":{"path":"$.redaction"},"retention_and_hold":{"path":"$.retention_and_hold"},"destination_and_egress":{"path":"$.destination_and_egress"},"effective_boundary_binding":{"path":"$.effective_boundary_binding"},"materialization_precondition":{"path":"$.materialization_precondition"},"allowed_uses":{"path":"$.allowed_uses"},"rights_derived_allowed_uses":{"path":"$.rights_derived_allowed_uses"},"redaction_derived_allowed_uses":{"path":"$.redaction_derived_allowed_uses"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"policy_bound_data_view.revision_ref.extends_its_own_family","description":"A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one view from being filed under another view's id — and a recipe or run resolving the family would then read through a policy that never belonged to it. This rule requires `revision_ref` to begin with `policy_bound_data_view_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot: a bare `view://acme.intake` has no such segment.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.policy_bound_data_view_id","prefix":"view://","strip_prefix":"view://","suffix":"/revision/"}},{"rule_id":"policy_bound_data_view.sources.are_all_inside_the_views_tenant","description":"THE CROSS-TENANT REFUSAL. Every source binding carries its own tenant ref and this rule requires all of them to equal the view's. A source belonging to another tenant is therefore inadmissible at registration rather than a discovery at materialization time — which matters because by materialization the protected bytes are already moving. Canon's rule that cross-tenant reuse is default-deny is enforced here at the projection, not only at the boundary that composes it.","expression":{"operator":"array_field_equals","array_path":"$.source_bindings","field":"source_tenant_ref","expected_path":"$.tenant_ref"}},{"rule_id":"policy_bound_data_view.sources.count_matches_the_enumerated_set","description":"The declared source count and the enumerated bindings are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that a source was added to or removed from the readable list after the fact.","expression":{"operator":"array_length_equals","array_path":"$.source_bindings","count_path":"$.source_binding_count"}},{"rule_id":"policy_bound_data_view.fields.every_allowed_field_is_individually_justified","description":"THE EXCESS-FIELD REFUSAL. The allowed field set must be covered EXACTLY by the per-field minimization decisions — same members, same count. A field admitted without its own decision leaves the covering short and refuses; a decision for a field the view does not allow makes it long and refuses. Minimization stops being a claim the record makes about itself and becomes a property anyone can check offline, one field at a time.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.field_scope.allowed_field_refs","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.field_scope.field_minimization_decisions","field":"field_ref"}]}},{"rule_id":"policy_bound_data_view.fields.count_matches_the_enumerated_set","description":"The declared field count and the enumerated allowed set are two independent statements about the same minimization, and a disagreement is the cheapest tell that one was edited without the other.","expression":{"operator":"array_length_equals","array_path":"$.field_scope.allowed_field_refs","count_path":"$.field_scope.allowed_field_count"}},{"rule_id":"policy_bound_data_view.consent.every_binding_is_active","description":"THE EXPIRED-CONSENT REFUSAL. Every consent binding must read `active`. A view carrying an expired, revoked, withdrawn or unknown consent cannot be admitted at all — the non-active members exist so a state can be recorded honestly on the way to a successor revision, never so that a live projection can carry one. The admissible token is pinned in `constants` so this rule requires it without the invariant language carrying a literal of its own.","expression":{"operator":"array_field_equals","array_path":"$.consent_bindings","field":"consent_state","expected_path":"$.constants.consent_state_active_token"}},{"rule_id":"policy_bound_data_view.policy.binding_and_materialization_precondition_agree","description":"THE STALE-POLICY REFUSAL. The effective learning-boundary hash this view was compiled under must equal the hash it requires of a materialization. Moving one without the other is exactly what a stale binding looks like — a view that still names a live-looking boundary revision while demanding a policy state that no longer matches it — and this rule makes that combination inadmissible rather than a race a reader has to notice.","expression":{"operator":"fields_equal","paths":["$.effective_boundary_binding.effective_learning_boundary_hash","$.materialization_precondition.required_effective_learning_boundary_hash"]}},{"rule_id":"policy_bound_data_view.redaction.does_not_declassify","description":"THE DECLASSIFICATION REFUSAL. The redaction output's privacy class must equal the source classification. Lowering a class through a transformation is reclassification, and reclassification is a governed act with its own approval, rights and receipts — never a side effect of masking a column. A redacted projection of restricted material is still restricted, and the record cannot say otherwise.","expression":{"operator":"fields_equal","paths":["$.redaction.output_privacy_class","$.privacy_class"]}},{"rule_id":"policy_bound_data_view.uses.every_allowed_use_traces_to_a_right","description":"THE REDACTION-AS-PERMISSION REFUSAL. `allowed_uses` must be covered exactly, as a multiset, by the RIGHTS-DERIVED uses plus the redaction-derived ones — and the schema pins the redaction-derived list to zero members. Every use present therefore traces to a right that was actually resolved, and no use can enter this record by way of a transformation. Multiset semantics additionally forbid listing a use twice across the two lanes, so a use cannot be attributed to a right and to redaction at the same time. Redaction reduces exposure; it creates no right, and here that is an equality rather than a sentence.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.allowed_uses","required_paths":[],"required_array_paths":["$.rights_derived_allowed_uses","$.redaction_derived_allowed_uses"]}},{"rule_id":"policy_bound_data_view.succession.a_revision_is_never_its_own_predecessor","description":"A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.","expression":{"operator":"fields_not_equal","paths":["$.revision_ref","$.succession.predecessor_revision_ref"]}},{"rule_id":"policy_bound_data_view.succession.a_successor_names_its_predecessor_revision","description":"Every succession reason other than `genesis` is a statement that the projection changed relative to a prior revision. A successor that names no prior revision has claimed a change against nothing, and a consumer holding an older read cannot tell what moved.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_revision_ref","when_path":"$.succession.succession_reason","values":["source_revision_change","minimization_change","rights_or_consent_change","boundary_revision_change","redaction_recipe_change","retention_or_hold_change","destination_or_residency_change","revocation_or_expiry","correction"]}},{"rule_id":"policy_bound_data_view.succession.a_successor_names_its_predecessor_bytes","description":"A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, and a narrowing that a later reader needs to trust becomes uncheckable exactly when it matters — which for a projection over protected data is the moment someone asks what a past read was allowed to see.","expression":{"operator":"non_empty_when_in","path":"$.succession.predecessor_content_hash","when_path":"$.succession.succession_reason","values":["source_revision_change","minimization_change","rights_or_consent_change","boundary_revision_change","redaction_recipe_change","retention_or_hold_change","destination_or_residency_change","revocation_or_expiry","correction"]}},{"rule_id":"policy_bound_data_view.migration.a_converged_revision_names_its_source_bytes","description":"A convergence from the v1 lane must commit the EXACT predecessor bytes. `converged_from_v1` with no source hash claims a provenance while naming nothing anyone could check, which is worse than claiming none — v1 carries no commitment of its own, so this hash is the only thing that makes the convergence auditable at all.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_content_hash","when_path":"$.migration.compatibility","values":["converged_from_v1"]}},{"rule_id":"policy_bound_data_view.migration.a_converged_revision_names_its_predecessor_ref","description":"The predecessor is named in the scheme it was ACTUALLY STORED UNDER. A convergence that carries the bytes but not the ref has committed to a record nobody can locate, and rewriting the ref into the successor's scheme would be reinterpreting v1 — the one thing a convergence may not do.","expression":{"operator":"non_empty_when_in","path":"$.migration.from_view_ref","when_path":"$.migration.compatibility","values":["converged_from_v1"]}},{"rule_id":"policy_bound_data_view.nonclaims.authority_is_never_omitted","description":"A bounded projection is not the power to read through it. Every materialization revalidates current authority, rights, revocation and expiry, and this record asserts none of them.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_authority_token"}},{"rule_id":"policy_bound_data_view.nonclaims.redaction_is_never_permission","description":"The nonclaim that this family exists to carry. A transformation reduces exposure, creates no right and severs no lineage; dropping the token would let a heavily redacted view be read as a widely permitted one, which is the exact inference the redaction-as-permission refusal above is built to defeat.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_redaction_permission_token"}},{"rule_id":"policy_bound_data_view.nonclaims.consent_is_never_manufactured","description":"Binding a consent ref records that a consent was resolved; it does not make this record the consent. Dropping the token would let a view be presented as the basis it is only supposed to reference.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.nonclaim_consent_token"}}]"#),
+    ("schema://ioi/foundations/objects/policy-bound-media-snapshot/v1", r#"[{"rule_id":"policy_bound_media_snapshot.content_hash.commits_the_whole_revision","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself is committed under a domain separator over a flat canonical-JSON material map — the capture binding, the source rights and consent bindings, the resolved view refs, the timebase and its retained discontinuities, the artifact bindings with their exact digests, the availability trio, the labels, the quarantine state, the redaction declaration and the source-impact lineage. A relying party holding only the record recomputes it; a stale or substituted hash fails offline with no daemon consulted.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"media_snapshot_id":{"path":"$.media_snapshot_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"acquisition_class":{"path":"$.acquisition_class"},"capture_binding":{"path":"$.capture_binding"},"source_rights":{"path":"$.source_rights"},"policy_bound_data_view_revision_refs":{"path":"$.policy_bound_data_view_revision_refs"},"timebase":{"path":"$.timebase"},"valid_time":{"path":"$.valid_time"},"artifact_bindings":{"path":"$.artifact_bindings"},"availability":{"path":"$.availability"},"information_flow_label_refs":{"path":"$.information_flow_label_refs"},"quarantine":{"path":"$.quarantine"},"redaction":{"path":"$.redaction"},"deduplication":{"path":"$.deduplication"},"quality_findings":{"path":"$.quality_findings"},"source_impact_lineage":{"path":"$.source_impact_lineage"},"raw_census":{"path":"$.raw_census"},"accepted_census":{"path":"$.accepted_census"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"artifact_authority":{"path":"$.artifact_authority"},"capture_authority_does_not_travel_into_replay":{"path":"$.capture_authority_does_not_travel_into_replay"},"demonstration_is_not_consent":{"path":"$.demonstration_is_not_consent"},"snapshot_is_not_a_skill_or_workflow":{"path":"$.snapshot_is_not_a_skill_or_workflow"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"policy_bound_media_snapshot.revision_ref.extends_its_own_family","description":"A revision must extend the family it names. A revision ref pointing into another family would let a snapshot inherit a lineage it never had.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.media_snapshot_id","prefix":"media-snapshot://","strip_prefix":"media-snapshot://","suffix":"/revision/"}},{"rule_id":"policy_bound_media_snapshot.redaction.does_not_declassify","description":"REDACTION REDUCES EXPOSURE AND CREATES NOTHING. The output privacy class must equal the source class: a redaction that lowered the class would be a declassification that happened and was not recorded, and declassification is Governance-owned through DeclassificationApproval rather than a side effect of a transformation step.","expression":{"operator":"fields_equal","paths":["$.redaction.source_privacy_class","$.redaction.output_privacy_class"]}},{"rule_id":"policy_bound_media_snapshot.census.accepted_never_exceeds_raw","description":"The accepted source time cannot exceed the raw source time it was drawn from. An accepted census larger than its raw census is padding wearing an acceptance's clothes.","expression":{"operator":"numbers_lte","paths":["$.accepted_census.source_seconds","$.raw_census.source_seconds"]}},{"rule_id":"policy_bound_media_snapshot.census.accepted_bytes_never_exceed_raw_bytes","description":"The same closure on bytes, so a corpus cannot grow across acceptance.","expression":{"operator":"numbers_lte","paths":["$.accepted_census.byte_count","$.raw_census.byte_count"]}},{"rule_id":"policy_bound_media_snapshot.census.accepted_file_count_matches_the_bound_artifacts","description":"The declared accepted file count is checked against the artifact bindings actually enumerated. Two independent statements about one set is the cheapest tell that a file was removed from the readable list after the fact, and this count is what an erasure or a rights revocation has to walk.","expression":{"operator":"array_length_equals","array_path":"$.artifact_bindings","count_path":"$.accepted_census.file_count"}},{"rule_id":"policy_bound_media_snapshot.artifacts.every_binding_is_distinct","description":"NO PADDING OR REPETITION. A repeated artifact digest inside one snapshot is a degenerate corpus, and it is refused here rather than discovered at qualification time.","expression":{"operator":"array_unique_by_fields","array_path":"$.artifact_bindings","fields":["sha256"]}},{"rule_id":"policy_bound_media_snapshot.rights.a_learned_use_names_at_least_one_claim","description":"ACC-16 CLAUSE 1. A snapshot that permits learned use must name the source-rights claims that permit it. Missing capture rights refuses every profile; missing training or secondary-use rights leaves only the learned claim inadmissible, which is why this is conditioned on the learned permission rather than asserted unconditionally.","expression":{"operator":"non_empty_when_in","path":"$.source_rights.learning_source_rights_claim_revision_refs","when_path":"$.source_rights.permits_learned_use","values":[true]}},{"rule_id":"policy_bound_media_snapshot.views.a_learned_use_names_at_least_one_policy_bound_view","description":"The bytes a learned use reads ride a PROVED view. A snapshot that permitted learning while naming no view would be asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse.","expression":{"operator":"non_empty_when_in","path":"$.policy_bound_data_view_revision_refs","when_path":"$.source_rights.permits_learned_use","values":[true]}}]"#),
+    ("schema://ioi/foundations/objects/observation-action-episode/v1", r#"[{"rule_id":"observation_action_episode.content_hash.commits_the_whole_revision","description":"Every field except the hash itself, committed under a domain separator — the snapshot binding and its exact content hash, the bounds, the streams, the synchronization envelope, every label with its provenance and epistemic status, the exception labels and the determinism declaration. A relying party holding only the record recomputes it.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"episode_id":{"path":"$.episode_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"media_snapshot_revision_ref":{"path":"$.media_snapshot_revision_ref"},"media_snapshot_content_hash":{"path":"$.media_snapshot_content_hash"},"session_ref":{"path":"$.session_ref"},"bounds":{"path":"$.bounds"},"streams":{"path":"$.streams"},"synchronization":{"path":"$.synchronization"},"labels":{"path":"$.labels"},"ground_truth_eligible_label_refs":{"path":"$.ground_truth_eligible_label_refs"},"controller_recorded_label_refs":{"path":"$.controller_recorded_label_refs"},"exception_labels":{"path":"$.exception_labels"},"determinism":{"path":"$.determinism"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"inferred_label_is_never_ground_truth":{"path":"$.inferred_label_is_never_ground_truth"},"episode_is_not_a_skill_or_workflow":{"path":"$.episode_is_not_a_skill_or_workflow"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth","description":"THE LOAD-BEARING RULE, AND THE SECOND OF ITS THREE EXPRESSIONS. The ground-truth-eligible label set must be covered EXACTLY by the independently enumerated `controller_recorded` subset — same members, same count. A video-inferred or model-inferred label smuggled into the eligible set leaves the covering long and refuses; a controller-recorded label dropped from the subset leaves it short and refuses. Coverage compares lengths as well as members, so an equal-count substitution cannot pass. The schema conditional refuses the per-label claim and the admitting module refuses it again at runtime; no single edit defeats all three. ACC-16 clause 10 and ACC-19 clause 5.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.ground_truth_eligible_label_refs","required_paths":[],"required_array_paths":["$.controller_recorded_label_refs"]}},{"rule_id":"observation_action_episode.revision_ref.extends_its_own_family","description":"A revision must extend the family it names.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.episode_id","prefix":"episode://","strip_prefix":"episode://","suffix":"/revision/"}},{"rule_id":"observation_action_episode.bounds.the_episode_is_bounded_forward","description":"AN EPISODE IS AN INTERVAL, NOT A POINT OR A REVERSAL. A start tick at or after the end tick is a bound nobody can measure against, and it is the shape a reordered timebase produces when a run sorts a clock regression into order instead of retaining it.","expression":{"operator":"numbers_lt","paths":["$.bounds.start_tick","$.bounds.end_tick"]}},{"rule_id":"observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope","description":"TIMEBASE DRIFT REFUSES RATHER THAN ROUNDS. An observed frame/action skew beyond the declared envelope means actions are attributed to the wrong frames; absorbing it would produce a mislabel that reads as data.","expression":{"operator":"numbers_lte","paths":["$.synchronization.max_observed_skew_ticks","$.synchronization.declared_skew_envelope_ticks"]}},{"rule_id":"observation_action_episode.labels.every_label_is_distinct","description":"A repeated label ref would let one annotation be counted twice toward a required class, inflating a census over a narrower vocabulary than it claims.","expression":{"operator":"array_unique_by_fields","array_path":"$.labels","fields":["label_ref"]}},{"rule_id":"observation_action_episode.snapshot.binds_the_bytes_not_only_the_ref","description":"The bound snapshot's content hash must be present. A ref names a location that may since have been re-admitted; without the hash a silent re-admission underneath this episode is undetectable.","expression":{"operator":"non_empty","path":"$.media_snapshot_content_hash"}}]"#),
+    ("schema://ioi/foundations/objects/dataset-split-manifest/v1", r#"[{"rule_id":"dataset_split_manifest.content_hash.commits_the_whole_revision","description":"Every field except the hash itself, committed under a domain separator — the member rows with their episode hashes and partition keys, the declared per-class counts, the enumerated membership and the leakage controls. Freezing membership means nothing if the freeze is not itself committed.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"split_manifest_id":{"path":"$.split_manifest_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"members":{"path":"$.members"},"splits":{"path":"$.splits"},"all_member_episode_revision_refs":{"path":"$.all_member_episode_revision_refs"},"member_count":{"path":"$.member_count"},"membership_is_immutable":{"path":"$.membership_is_immutable"},"leakage_controls":{"path":"$.leakage_controls"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"manifest_selects_no_evaluation_evidence_for_its_own_producer":{"path":"$.manifest_selects_no_evaluation_evidence_for_its_own_producer"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"dataset_split_manifest.splits.membership_is_an_exact_partition","description":"THE EXCLUSIVITY RULE. The enumerated membership must be covered EXACTLY by the per-episode rows — same members, same count. Because coverage compares lengths as well as members, an episode assigned to two splits makes the covering long and refuses, and an episode assigned to none makes it short and refuses. Silence is inadmissible here for the same reason it is in the view's use algebra: an omitted member is a leak that reads as a smaller dataset.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.all_member_episode_revision_refs","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.members","field":"episode_revision_ref"}]}},{"rule_id":"dataset_split_manifest.members.no_episode_is_a_member_twice","description":"The second, independent statement of exclusivity. Double membership is the leakage ACC-16 clause 8 names, and it is refused directly rather than inferred from a count.","expression":{"operator":"array_unique_by_fields","array_path":"$.members","fields":["episode_revision_ref"]}},{"rule_id":"dataset_split_manifest.splits.each_class_is_declared_once","description":"A split class declared twice would let two different member counts both look authoritative.","expression":{"operator":"array_unique_by_fields","array_path":"$.splits","fields":["split_class"]}},{"rule_id":"dataset_split_manifest.members.count_matches_the_enumerated_set","description":"Two independent statements about one set, so a member removed from the readable list after the fact leaves the count disagreeing.","expression":{"operator":"array_length_equals","array_path":"$.all_member_episode_revision_refs","count_path":"$.member_count"}},{"rule_id":"dataset_split_manifest.leakage.training_ends_before_the_temporal_cut","description":"FUTURE-FRAME LEAKAGE REFUSES. The latest training tick must fall strictly before the temporal cut; an inverted or equal comparison is exactly the mutation ACC-16 clause 8 requires to fail.","expression":{"operator":"numbers_lt","paths":["$.leakage_controls.max_train_tick","$.leakage_controls.temporal_cut_tick"]}},{"rule_id":"dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut","description":"The other half of the temporal fence: a holdout that began before the cut would be scoring the model on material it could have trained on.","expression":{"operator":"numbers_lte","paths":["$.leakage_controls.temporal_cut_tick","$.leakage_controls.min_temporal_holdout_tick"]}},{"rule_id":"dataset_split_manifest.revision_ref.extends_its_own_family","description":"A revision must extend the family it names.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.split_manifest_id","prefix":"split-manifest://","strip_prefix":"split-manifest://","suffix":"/revision/"}}]"#),
+    ("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", r#"[{"rule_id":"media_corpus_qualification_census.content_hash.commits_the_whole_census","description":"Every field except the hash itself, committed under a domain separator — the claimed scale and profile, the raw/accepted/rejected/deduplicated counts, every per-file disposition, the required and observed label vocabularies, the pinned floors and ceilings, and the runtime evidence. A census whose numbers can move without moving its hash is a report, not a certificate.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"corpus_census_id":{"path":"$.corpus_census_id"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"claimed_scale":{"path":"$.claimed_scale"},"profile":{"path":"$.profile"},"corpus_content_root":{"path":"$.corpus_content_root"},"raw":{"path":"$.raw"},"accepted":{"path":"$.accepted"},"rejected":{"path":"$.rejected"},"deduplicated":{"path":"$.deduplicated"},"file_dispositions":{"path":"$.file_dispositions"},"profile_required_label_classes":{"path":"$.profile_required_label_classes"},"observed_label_classes":{"path":"$.observed_label_classes"},"floors":{"path":"$.floors"},"ceilings":{"path":"$.ceilings"},"runtime_evidence":{"path":"$.runtime_evidence"},"degeneracy_findings":{"path":"$.degeneracy_findings"},"distinct_content_hash_count":{"path":"$.distinct_content_hash_count"},"does_not_claim_hours_scale_qualification":{"path":"$.does_not_claim_hours_scale_qualification"},"does_not_claim_throughput_or_latency":{"path":"$.does_not_claim_throughput_or_latency"},"admitted_at":{"path":"$.admitted_at"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition","description":"THE PARTITION CLOSURE. One disposition row per raw file, pinned against the raw file count. A file with no disposition makes the row set short and refuses; a file counted twice makes it long and refuses. This is how the census closes arithmetically without an arithmetic operator the portable invariant language does not have.","expression":{"operator":"array_length_equals","array_path":"$.file_dispositions","count_path":"$.raw.file_count"}},{"rule_id":"media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct","description":"PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5). A repeated content digest in the disposition rows is a corpus inflating its own census by restating the same bytes.","expression":{"operator":"array_unique_by_fields","array_path":"$.file_dispositions","fields":["content_sha256"]}},{"rule_id":"media_corpus_qualification_census.labels.every_profile_required_class_is_observed","description":"EVERY PROFILE-REQUIRED ACTION, FIELD AND EXCEPTION LABEL CLASS. The required vocabulary must be covered exactly by the observed one: a corpus missing a required class leaves the covering short and refuses, so a high label count over a narrow vocabulary cannot stand in for coverage.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.profile_required_label_classes","required_paths":[],"required_array_paths":["$.observed_label_classes"]}},{"rule_id":"media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time","description":"Accepted time after exact and near-duplicate exclusion cannot exceed the time before it. An 'after' larger than its 'before' is the arithmetic a padded corpus produces when exclusion is declared but not performed.","expression":{"operator":"numbers_lte","paths":["$.accepted.seconds_after_deduplication","$.accepted.seconds_before_deduplication"]}},{"rule_id":"media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time","description":"The outer closure: no lane may accept more source time than it ingested.","expression":{"operator":"numbers_lte","paths":["$.accepted.seconds_before_deduplication","$.raw.source_seconds"]}},{"rule_id":"media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling","description":"The 2 GiB ceiling, checked against the pinned value rather than a verifier constant, so a relying party holding only these bytes can check it. The ceiling is part of why the scheduled lane needs no GPU runner, object storage or metered service.","expression":{"operator":"numbers_lte","paths":["$.accepted.byte_count","$.ceilings.corpus_byte_count"]}},{"rule_id":"media_corpus_qualification_census.degeneracy.distinct_content_matches_the_disposition_rows","description":"The declared distinct-digest count is checked against the enumerated rows. Two independent statements about one set is what stops a repeated file being absorbed into a count nobody cross-checks.","expression":{"operator":"array_length_equals","array_path":"$.file_dispositions","count_path":"$.distinct_content_hash_count"}},{"rule_id":"media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root","description":"INTERRUPTION/RESTART EQUIVALENCE IS RECORDED AS A COMPARISON, NOT A CLAIM. The two roots must be equal; a census that carried only a boolean would let a run that compared nothing report success.","expression":{"operator":"fields_equal","paths":["$.runtime_evidence.restart_equivalence.pre_restart_root","$.runtime_evidence.restart_equivalence.post_restart_root"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -150951,6 +156634,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^[a-z0-9][a-z0-9._-]*$"#, r#"^[a-z0-9][a-z0-9._-]*$"#),
     (
+        r#"^[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
         r#"^[a-z0-9][a-z0-9._-]{0,95}$"#,
         r#"^[a-z0-9][a-z0-9._-]{0,95}$"#,
     ),
@@ -151487,6 +157174,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^controller-binding://[^\s]+$"#,
         r#"^controller-binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
+    (
+        r#"^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$"#,
+        r#"^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$"#,
+    ),
     (r#"^dapp_[0-9a-f]{16}$"#, r#"^dapp_[0-9a-f]{16}$"#),
     (r#"^dartm_[0-9a-f]{1,32}$"#, r#"^dartm_[0-9a-f]{1,32}$"#),
     (
@@ -151678,6 +157369,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^environment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^episode://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^episode://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
         r#"^estop://[^\s]+$"#,
         r#"^estop://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -151863,6 +157562,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^ifc-label://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"#,
+        r#"^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"#,
+    ),
+    (
         r#"^improvement-governance-profile://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^improvement-governance-profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
     ),
@@ -151925,6 +157628,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^keyset://[^\s]{1,500}$"#,
         r#"^keyset://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+        r#"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
@@ -152013,6 +157720,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^measurement-policy://[^\s]{1,248}$"#,
         r#"^measurement-policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^membership-transition://[^\s]{1,248}$"#,
@@ -152225,6 +157940,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^outcome-room://[^\s]{1,500}$"#,
         r#"^outcome-room://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
+    (
+        r#"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+        r#"^owner://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+    ),
     (r#"^pacc_[0-9a-f]{16}$"#, r#"^pacc_[0-9a-f]{16}$"#),
     (
         r#"^package-binding://\S*$"#,
@@ -152337,6 +158056,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^prim:[a-z][a-z0-9._-]{0,127}$"#,
         r#"^prim:[a-z][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+        r#"^principal://[a-z0-9][a-z0-9._:-]{0,190}$"#,
     ),
     (
         r#"^privacy:[^\s]{1,200}$"#,
@@ -152706,6 +158429,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^session://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^session://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+        r#"^session://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+    ),
+    (
         r#"^settlement://[^\s]+$"#,
         r#"^settlement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -152746,6 +158473,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^snapshot://[^\s]{1,500}$"#,
         r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^staged-effect://[^\s]+$"#,
@@ -152928,6 +158663,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
     ),
     (
+        r#"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+        r#"^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"#,
+    ),
+    (
         r#"^terms://[^\s]{1,248}$"#,
         r#"^terms://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -152962,6 +158701,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^transform://trun_[0-9a-f]{32}$"#,
         r#"^transform://trun_[0-9a-f]{32}$"#,
+    ),
+    (
+        r#"^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
         r#"^transformation-run://trun_[0-9a-f]{12,32}$"#,
@@ -153004,6 +158747,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^verifier-contract://[^\s]{1,248}$"#,
         r#"^verifier-contract://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+        r#"^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^verifier-path://[^\s]{1,500}$"#,
@@ -155437,6 +161184,65 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json"))),
     ("docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -156710,6 +162516,26 @@ mod tests {
         },
         "schema://ioi/foundations/objects/policy-bound-data-view/v2" => {
             serde_json::from_value::<PolicyBoundDataViewV2>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1" => {
+            serde_json::from_value::<PolicyBoundMediaSnapshotV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/observation-action-episode/v1" => {
+            serde_json::from_value::<ObservationActionEpisodeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/dataset-split-manifest/v1" => {
+            serde_json::from_value::<DatasetSplitManifestV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/media-corpus-qualification-census/v1" => {
+            serde_json::from_value::<MediaCorpusQualificationCensusV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -157989,6 +163815,26 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1" => {
+            let projection = serde_json::from_value::<PolicyBoundMediaSnapshotV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/observation-action-episode/v1" => {
+            let projection = serde_json::from_value::<ObservationActionEpisodeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/dataset-split-manifest/v1" => {
+            let projection = serde_json::from_value::<DatasetSplitManifestV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/objects/media-corpus-qualification-census/v1" => {
+            let projection = serde_json::from_value::<MediaCorpusQualificationCensusV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -158125,8 +163971,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1185,
-            "the registered golden corpus must remain the explicit 1185-fixture bar",
+            1244,
+            "the registered golden corpus must remain the explicit 1244-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -158368,7 +164214,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 876,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 892,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

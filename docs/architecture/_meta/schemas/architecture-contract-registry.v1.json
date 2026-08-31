@@ -14318,6 +14318,422 @@
           "expected_rule_id": "policy_bound_data_view.content_hash.commits_the_whole_revision"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+      "canonical_name": "PolicyBoundMediaSnapshot",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#policyboundmediasnapshotenvelope",
+      "schema_version": "ioi.policy-bound-media-snapshot.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "policy-bound-media-snapshot.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/policy-bound-media-snapshot/immutable-policy-bound-capture/v1",
+          "path": "invariants/policy-bound-media-snapshot.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "PolicyBoundMediaSnapshotV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "PolicyBoundMediaSnapshotV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json",
+        "fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.redaction.does_not_declassify"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.census.accepted_never_exceeds_raw"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.artifacts.every_binding_is_distinct"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.rights.a_learned_use_names_at_least_one_claim"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.views.a_learned_use_names_at_least_one_policy_bound_view"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_media_snapshot.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+      "canonical_name": "ObservationActionEpisode",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#observationactionepisodeenvelope",
+      "schema_version": "ioi.observation-action-episode.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "observation-action-episode.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/observation-action-episode/bounded-attributed-episode/v1",
+          "path": "invariants/observation-action-episode.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ObservationActionEpisodeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ObservationActionEpisodeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json",
+        "fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.bounds.the_episode_is_bounded_forward"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-repeated-label-ref.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.labels.every_label_is_distinct"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/observation-action-episode-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "observation_action_episode.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+      "canonical_name": "DatasetSplitManifest",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#datasetsplitmanifestenvelope",
+      "schema_version": "ioi.dataset-split-manifest.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "dataset-split-manifest.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/dataset-split-manifest/frozen-leakage-resistant-membership/v1",
+          "path": "invariants/dataset-split-manifest.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "DatasetSplitManifestV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "DatasetSplitManifestV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/dataset-split-manifest-v1/positive-six-class-partition.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.members.no_episode_is_a_member_twice"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.splits.membership_is_an_exact_partition"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.leakage.training_ends_before_the_temporal_cut"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-member-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.members.count_matches_the_enumerated_set"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.splits.each_class_is_declared_once"
+        },
+        {
+          "path": "fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "dataset_split_manifest.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+      "canonical_name": "MediaCorpusQualificationCensus",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#mediacorpusqualificationcensusenvelope",
+      "schema_version": "ioi.media-corpus-qualification-census.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "media-corpus-qualification-census.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/media-corpus-qualification-census/honest-two-lane-census/v1",
+          "path": "invariants/media-corpus-qualification-census.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "MediaCorpusQualificationCensusV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "MediaCorpusQualificationCensusV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json",
+        "fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.labels.every_profile_required_class_is_observed"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.content_hash.commits_the_whole_census"
+        }
+      ]
     }
   ]
 }

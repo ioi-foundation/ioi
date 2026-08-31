@@ -1,0 +1,127 @@
+{
+  "$id": "invariant://ioi/foundations/objects/policy-bound-media-snapshot/immutable-policy-bound-capture/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+  "rules": [
+    {
+      "rule_id": "policy_bound_media_snapshot.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself is committed under a domain separator over a flat canonical-JSON material map — the capture binding, the source rights and consent bindings, the resolved view refs, the timebase and its retained discontinuities, the artifact bindings with their exact digests, the availability trio, the labels, the quarantine state, the redaction declaration and the source-impact lineage. A relying party holding only the record recomputes it; a stale or substituted hash fails offline with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "media_snapshot_id": { "path": "$.media_snapshot_id" },
+          "revision_ref": { "path": "$.revision_ref" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "tenant_ref": { "path": "$.tenant_ref" },
+          "principal_resolution": { "path": "$.principal_resolution" },
+          "resolved_principal_ref": { "path": "$.resolved_principal_ref" },
+          "acquisition_class": { "path": "$.acquisition_class" },
+          "capture_binding": { "path": "$.capture_binding" },
+          "source_rights": { "path": "$.source_rights" },
+          "policy_bound_data_view_revision_refs": { "path": "$.policy_bound_data_view_revision_refs" },
+          "timebase": { "path": "$.timebase" },
+          "valid_time": { "path": "$.valid_time" },
+          "artifact_bindings": { "path": "$.artifact_bindings" },
+          "availability": { "path": "$.availability" },
+          "information_flow_label_refs": { "path": "$.information_flow_label_refs" },
+          "quarantine": { "path": "$.quarantine" },
+          "redaction": { "path": "$.redaction" },
+          "deduplication": { "path": "$.deduplication" },
+          "quality_findings": { "path": "$.quality_findings" },
+          "source_impact_lineage": { "path": "$.source_impact_lineage" },
+          "raw_census": { "path": "$.raw_census" },
+          "accepted_census": { "path": "$.accepted_census" },
+          "registry_status": { "path": "$.registry_status" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "succession": { "path": "$.succession" },
+          "migration": { "path": "$.migration" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "artifact_authority": { "path": "$.artifact_authority" },
+          "capture_authority_does_not_travel_into_replay": { "path": "$.capture_authority_does_not_travel_into_replay" },
+          "demonstration_is_not_consent": { "path": "$.demonstration_is_not_consent" },
+          "snapshot_is_not_a_skill_or_workflow": { "path": "$.snapshot_is_not_a_skill_or_workflow" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names. A revision ref pointing into another family would let a snapshot inherit a lineage it never had.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.media_snapshot_id",
+        "prefix": "media-snapshot://",
+        "strip_prefix": "media-snapshot://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.redaction.does_not_declassify",
+      "description": "REDACTION REDUCES EXPOSURE AND CREATES NOTHING. The output privacy class must equal the source class: a redaction that lowered the class would be a declassification that happened and was not recorded, and declassification is Governance-owned through DeclassificationApproval rather than a side effect of a transformation step.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": ["$.redaction.source_privacy_class", "$.redaction.output_privacy_class"]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.census.accepted_never_exceeds_raw",
+      "description": "The accepted source time cannot exceed the raw source time it was drawn from. An accepted census larger than its raw census is padding wearing an acceptance's clothes.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.accepted_census.source_seconds", "$.raw_census.source_seconds"]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.census.accepted_bytes_never_exceed_raw_bytes",
+      "description": "The same closure on bytes, so a corpus cannot grow across acceptance.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.accepted_census.byte_count", "$.raw_census.byte_count"]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.census.accepted_file_count_matches_the_bound_artifacts",
+      "description": "The declared accepted file count is checked against the artifact bindings actually enumerated. Two independent statements about one set is the cheapest tell that a file was removed from the readable list after the fact, and this count is what an erasure or a rights revocation has to walk.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.artifact_bindings",
+        "count_path": "$.accepted_census.file_count"
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.artifacts.every_binding_is_distinct",
+      "description": "NO PADDING OR REPETITION. A repeated artifact digest inside one snapshot is a degenerate corpus, and it is refused here rather than discovered at qualification time.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.artifact_bindings",
+        "fields": ["sha256"]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.rights.a_learned_use_names_at_least_one_claim",
+      "description": "ACC-16 CLAUSE 1. A snapshot that permits learned use must name the source-rights claims that permit it. Missing capture rights refuses every profile; missing training or secondary-use rights leaves only the learned claim inadmissible, which is why this is conditioned on the learned permission rather than asserted unconditionally.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.source_rights.learning_source_rights_claim_revision_refs",
+        "when_path": "$.source_rights.permits_learned_use",
+        "values": [true]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.views.a_learned_use_names_at_least_one_policy_bound_view",
+      "description": "The bytes a learned use reads ride a PROVED view. A snapshot that permitted learning while naming no view would be asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.policy_bound_data_view_revision_refs",
+        "when_path": "$.source_rights.permits_learned_use",
+        "values": [true]
+      }
+    }
+  ]
+}

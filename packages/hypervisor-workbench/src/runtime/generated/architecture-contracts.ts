@@ -11092,6 +11092,348 @@ export type PolicyBoundDataViewV2 = {
   content_hash: string;
 };
 
+export type PolicyBoundMediaSnapshotV1 = {
+  schema_version: "ioi.policy-bound-media-snapshot.v1";
+  media_snapshot_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  principal_resolution: "server_resolved";
+  resolved_principal_ref: string;
+  acquisition_class: "imported_recording" | "live_demonstration";
+  capture_binding: {
+      actor_ref: string;
+      session_ref: string;
+      device_ref: string;
+      environment_ref: string;
+      application_ref: string | null;
+      world_revision_ref: string | null;
+    };
+  source_rights: {
+      capture_rights_revision_ref: string;
+      learning_source_rights_claim_revision_refs: Array<string>;
+      consent_bindings: Array<{
+              consent_ref: string;
+              consent_state: "active" | "expired" | "revoked" | "unknown";
+              consent_subject_ref: string;
+              valid_until: string;
+            }>;
+      permits_learned_use: boolean;
+    };
+  policy_bound_data_view_revision_refs: Array<string>;
+  timebase: {
+      temporal_verification_profile_ref: string;
+      profile_hash: string;
+      timebase_id: string;
+      clock_class: "authenticated_wallet_time" | "device_monotonic" | "capture_sequence";
+      epoch_ref: string;
+      tick_unit: "nanosecond" | "microsecond" | "millisecond" | "sample" | "frame";
+      declared_monotonic: true;
+      discontinuities: Array<{
+              kind: "gap" | "reorder" | "clock_regression" | "rate_change";
+              at_tick: number;
+              span_ticks: number;
+              evidence_ref: string;
+            }>;
+    };
+  valid_time: {
+      from: string;
+      to: string | null;
+    };
+  artifact_bindings: Array<{
+        artifact_ref: string;
+        sha256: string;
+        media_type: string;
+        size_bytes: number;
+        manifest_root: string;
+        role: "dataset" | "screenshot" | "trace" | "checkpoint" | "recording" | "control_stream";
+      }>;
+  availability: {
+      availability_manifest_ref: string;
+      retention_class_ref: string;
+      verifier_contract_ref: string;
+      failure_behavior: "fail_closed";
+    };
+  information_flow_label_refs: Array<string>;
+  quarantine: {
+      quarantine_state: "pending_review" | "accepted" | "rejected" | "quarantined";
+      pii_decision_receipt_refs: Array<string>;
+      rejected_segment_count: number;
+    };
+  redaction: {
+      recipe_revision_ref: string;
+      creates_permission: false;
+      severs_lineage: false;
+      source_privacy_class: "public" | "internal" | "confidential" | "restricted" | "regulated" | "safety_critical";
+      output_privacy_class: "public" | "internal" | "confidential" | "restricted" | "regulated" | "safety_critical";
+    };
+  deduplication: {
+      exact_key_algorithm: "jcs_sha256";
+      near_duplicate_method: string;
+      excluded_count: number;
+    };
+  quality_findings: Array<{
+        finding_class: "corrupt_chunk" | "truncated_file" | "variable_rate_segment" | "padded_span" | "repeated_file" | "low_signal";
+        severity: "refused" | "excluded" | "retained_with_finding";
+        evidence_ref: string;
+      }>;
+  source_impact_lineage: {
+      data_recipe_revision_refs: Array<string>;
+      connector_mapping_revision_refs: Array<string>;
+      transformation_run_revision_refs: Array<string>;
+    };
+  raw_census: {
+      source_seconds: number;
+      file_count: number;
+      byte_count: number;
+      frame_or_sample_count: number;
+      chunk_count: number;
+    };
+  accepted_census: {
+      source_seconds: number;
+      file_count: number;
+      byte_count: number;
+      frame_or_sample_count: number;
+      chunk_count: number;
+    };
+  registry_status: "draft" | "active" | "suspended" | "expired" | "superseded" | "revoked";
+  admitted_at: string;
+  succession: {
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+    };
+  migration: {
+      compatibility: "initial";
+      downgrade_to_predecessor: "refused";
+    };
+  constants: {
+      commitment_domain: "ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1";
+    };
+  authority_nonclaim: "policy_bound_media_snapshot_grants_no_authority";
+  artifact_authority: "none — an active ArtifactRef names bytes and grants no read, no replay, no current authority";
+  capture_authority_does_not_travel_into_replay: true;
+  demonstration_is_not_consent: true;
+  snapshot_is_not_a_skill_or_workflow: true;
+  content_hash: string;
+};
+
+export type ObservationActionEpisodeV1 = {
+  schema_version: "ioi.observation-action-episode.v1";
+  episode_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  principal_resolution: "server_resolved";
+  resolved_principal_ref: string;
+  media_snapshot_revision_ref: string;
+  media_snapshot_content_hash: string;
+  session_ref: string;
+  bounds: {
+      timebase_id: string;
+      start_tick: number;
+      end_tick: number;
+      boundary_evidence_ref: string;
+    };
+  streams: Array<{
+        stream_role: "observation" | "action" | "reward" | "label";
+        schema_ref: string;
+        channel: string;
+        sample_count: number;
+        sync_evidence_ref: string;
+      }>;
+  synchronization: {
+      method: "shared_timebase" | "clapper_marker" | "control_stream_correlation" | "declared_offset";
+      frame_action_offset_ticks: number;
+      max_observed_skew_ticks: number;
+      declared_skew_envelope_ticks: number;
+    };
+  labels: Array<{
+        label_ref: string;
+        label_class: string;
+        value_ref: string;
+        label_provenance_class: "controller_recorded" | "operator_annotated" | "video_inferred" | "model_inferred" | "derived";
+        epistemic_status: "controller_ground_truth" | "uncertain_attributed_label";
+        is_controller_ground_truth: boolean;
+        confidence: number | null;
+        uncertainty_kind: "none" | "measurement" | "model" | "annotation" | "ambiguous_reference" | "incomplete_evidence";
+        attributed_to_ref: string;
+        corrected_by_ref: string | null;
+      }>;
+  ground_truth_eligible_label_refs: Array<string>;
+  controller_recorded_label_refs: Array<string>;
+  exception_labels: Array<{
+        exception_class: "operator_abort" | "controller_disconnect" | "environment_fault" | "policy_refusal" | "timeout" | "out_of_scope_action" | "ambiguous_intent";
+        at_tick: number;
+        evidence_ref: string;
+      }>;
+  determinism: {
+      determinism_class: "bitwise_deterministic" | "seeded_deterministic" | "nondeterministic_declared";
+      preprocessor_code_root: string;
+      preprocessor_config_root: string;
+      declared_randomness_seed: string | null;
+    };
+  registry_status: "draft" | "active" | "suspended" | "expired" | "superseded" | "revoked";
+  admitted_at: string;
+  succession: {
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+    };
+  migration: {
+      compatibility: "initial";
+      downgrade_to_predecessor: "refused";
+    };
+  constants: {
+      commitment_domain: "ioi.observation-action-episode-content-commitment-jcs-sha256.v1";
+    };
+  authority_nonclaim: "observation_action_episode_grants_no_authority";
+  inferred_label_is_never_ground_truth: true;
+  episode_is_not_a_skill_or_workflow: true;
+  content_hash: string;
+};
+
+export type DatasetSplitManifestV1 = {
+  schema_version: "ioi.dataset-split-manifest.v1";
+  split_manifest_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  principal_resolution: "server_resolved";
+  resolved_principal_ref: string;
+  members: Array<{
+        episode_revision_ref: string;
+        episode_content_hash: string;
+        split_class: "train" | "validation" | "temporal_holdout" | "actor_holdout" | "world_holdout" | "adversarial";
+        actor_partition_key: string;
+        world_partition_key: string;
+        max_tick: number;
+      }>;
+  splits: Array<{
+        split_class: "train" | "validation" | "temporal_holdout" | "actor_holdout" | "world_holdout" | "adversarial";
+        member_count: number;
+      }>;
+  all_member_episode_revision_refs: Array<string>;
+  member_count: number;
+  membership_is_immutable: true;
+  leakage_controls: {
+      near_duplicate_exclusion_method: string;
+      near_duplicate_excluded_count: number;
+      temporal_cut_tick: number;
+      max_train_tick: number;
+      min_temporal_holdout_tick: number;
+    };
+  registry_status: "draft" | "active" | "suspended" | "expired" | "superseded" | "revoked";
+  admitted_at: string;
+  succession: {
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+    };
+  migration: {
+      compatibility: "initial";
+      downgrade_to_predecessor: "refused";
+    };
+  constants: {
+      commitment_domain: "ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1";
+    };
+  authority_nonclaim: "dataset_split_manifest_grants_no_authority";
+  manifest_selects_no_evaluation_evidence_for_its_own_producer: true;
+  content_hash: string;
+};
+
+export type MediaCorpusQualificationCensusV1 = {
+  schema_version: "ioi.media-corpus-qualification-census.v1";
+  corpus_census_id: string;
+  owner_ref: string;
+  tenant_ref: string;
+  principal_resolution: "server_resolved";
+  resolved_principal_ref: string;
+  claimed_scale: "compact_deterministic_fixture" | "hours_scale_qualification";
+  profile: "composed-model-harness" | "interactive-learned" | "synthetic-learned-sensitive";
+  corpus_content_root: string;
+  raw: {
+      source_seconds: number;
+      file_count: number;
+      byte_count: number;
+      frame_or_sample_count: number;
+      chunk_count: number;
+    };
+  accepted: {
+      seconds_before_deduplication: number;
+      seconds_after_deduplication: number;
+      file_count: number;
+      byte_count: number;
+      frame_or_sample_count: number;
+      chunk_count: number;
+      bounded_episode_count: number;
+      task_count: number;
+      source_session_count: number;
+      label_count: number;
+    };
+  rejected: {
+      source_seconds: number;
+      file_count: number;
+      byte_count: number;
+      frame_or_sample_count: number;
+      chunk_count: number;
+      reason_classes: Array<"corrupt" | "truncated" | "variable_rate" | "padded" | "repeated" | "out_of_rights" | "quarantined" | "near_duplicate" | "exact_duplicate" | "below_quality_floor">;
+    };
+  deduplicated: {
+      source_seconds: number;
+      file_count: number;
+      byte_count: number;
+      frame_or_sample_count: number;
+      chunk_count: number;
+      reason_classes: Array<"corrupt" | "truncated" | "variable_rate" | "padded" | "repeated" | "out_of_rights" | "quarantined" | "near_duplicate" | "exact_duplicate" | "below_quality_floor">;
+    };
+  file_dispositions: Array<{
+        content_sha256: string;
+        disposition: "accepted" | "rejected" | "deduplicated";
+        reason_class: "corrupt" | "truncated" | "variable_rate" | "padded" | "repeated" | "out_of_rights" | "quarantined" | "near_duplicate" | "exact_duplicate" | "below_quality_floor" | null;
+        source_seconds: number;
+      }>;
+  profile_required_label_classes: Array<string>;
+  observed_label_classes: Array<string>;
+  floors: {
+      accepted_seconds_after_deduplication: 7200;
+      bounded_episode_count: 8;
+      source_session_count: 2;
+    };
+  ceilings: {
+      corpus_byte_count: 2147483648;
+    };
+  runtime_evidence: {
+      peak_resident_bytes: number;
+      projection_subscription_lease_ref: string;
+      max_undelivered_events_declared: number;
+      queue_high_water: number;
+      backpressure_lag_outcomes: Array<"typed_gap" | "typed_rebase" | "lease_revoked">;
+      durability_class_achieved: "local_only" | "replicated_same_host" | "quorum_replicated";
+      interruption_count: number;
+      resume_count: number;
+      restart_equivalence: {
+            pre_restart_root: string;
+            post_restart_root: string;
+            roots_equal: true;
+          };
+      corrupt_inputs_refused: number;
+      truncated_inputs_refused: number;
+      variable_rate_inputs_handled: number;
+    };
+  degeneracy_findings: Array<{
+        finding_class: "padded_span" | "repeated_file" | "single_actor_corpus" | "single_session_corpus" | "degenerate_label_vocabulary" | "constant_frame_content";
+        affected_file_count: number;
+        evidence_ref: string;
+      }>;
+  distinct_content_hash_count: number;
+  does_not_claim_hours_scale_qualification: boolean;
+  does_not_claim_throughput_or_latency: true;
+  admitted_at: string;
+  constants: {
+      commitment_domain: "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1";
+    };
+  authority_nonclaim: "media_corpus_qualification_census_grants_no_authority";
+  content_hash: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -20581,6 +20923,478 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "policy_bound_data_view.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.redaction.does_not_declassify"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.census.accepted_never_exceeds_raw"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.artifacts.every_binding_is_distinct"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.rights.a_learned_use_names_at_least_one_claim"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.views.a_learned_use_names_at_least_one_policy_bound_view"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_media_snapshot.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.bounds.the_episode_is_bounded_forward"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.labels.every_label_is_distinct"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "observation_action_episode.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.members.no_episode_is_a_member_twice"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.splits.membership_is_an_exact_partition"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.leakage.training_ends_before_the_temporal_cut"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.members.count_matches_the_enumerated_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.splits.each_class_is_declared_once"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "dataset_split_manifest.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.labels.every_profile_required_class_is_observed"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.content_hash.commits_the_whole_census"
   }
 ] as const;
 
@@ -24419,6 +25233,65 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-imported-recording.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/positive-live-demonstration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-caller-supplied-principal-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-snapshot-binds-a-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-claims-it-creates-permission.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-timebase-declared-non-monotonic.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-availability-does-not-fail-closed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-converged-from-v1-compatibility.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-artifact-passivity-nonclaim-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-quarantined-capture-permits-learned-use.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-redaction-declassifies.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-accepted-time-exceeds-raw-time.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-repeated-artifact-digest.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-rights-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-learned-use-without-a-policy-bound-view.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/policy-bound-media-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-media-snapshot-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-controller-recorded-episode.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/positive-video-inferred-stays-uncertain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-ground-truth.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-video-inferred-label-claims-certain-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-ground-truth-claimed-by-an-operator-annotation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-nonclaim-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-binds-a-snapshot-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-caller-supplied-principal-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-inferred-label-in-the-ground-truth-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-controller-label-dropped-from-the-subset.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-episode-bounds-are-reversed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-observed-skew-exceeds-the-envelope.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-repeated-label-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/observation-action-episode/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/observation-action-episode-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/positive-six-class-partition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-membership-is-mutable.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-manifest-selects-its-own-evaluation-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-two-splits.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-episode-in-no-split.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-temporal-cut-is-inverted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-holdout-begins-before-the-cut.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-member-count-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-split-class-declared-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dataset-split-manifest-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-compact-deterministic-fixture.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/positive-hours-scale-qualification.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-compact-lane-drops-its-hours-scale-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-duration-floor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-episode-floor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-hours-scale-below-the-session-floor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-duration-floor-lowered.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-throughput-nonclaim-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -24893,6 +25766,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z0-9]+(?:-[a-z0-9]+)*$",
   "^[a-z0-9][a-z0-9-]{0,62}$",
   "^[a-z0-9][a-z0-9._-]*$",
+  "^[a-z0-9][a-z0-9._-]{0,127}$",
   "^[a-z0-9][a-z0-9._-]{0,95}$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
@@ -25034,6 +25908,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^context_lease://[^\\s]{1,500}$",
   "^contract://[^\\s]{1,240}$",
   "^controller-binding://[^\\s]+$",
+  "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$",
   "^dapp_[0-9a-f]{16}$",
   "^dartm_[0-9a-f]{1,32}$",
   "^data-recipe://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -25083,6 +25958,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^environment-service://[^\\s]{1,240}$",
   "^environment://[^\\s]{1,240}$",
   "^environment://[^\\s]{1,500}$",
+  "^episode://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^estop://[^\\s]+$",
   "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
   "^evidence://[^\\s]{1,240}$",
@@ -25130,6 +26007,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ifc-label://[A-Za-z0-9._~:/-]+$",
   "^ifc-label://[^\\s]+$",
   "^ifc-label://[^\\s]{1,500}$",
+  "^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^incident://[^\\s]+$",
   "^ingress://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
@@ -25146,6 +26024,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^key://[^\\s]{1,500}$",
   "^keyset://[^\\s]+$",
   "^keyset://[^\\s]{1,500}$",
+  "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}$",
   "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
@@ -25168,6 +26047,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-profile://[^\\s]{1,240}$",
   "^measurement-policy://[^\\s]{1,248}$",
+  "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^membership-transition://[^\\s]{1,248}$",
   "^migration-destination-acknowledgement://[^\\s]{1,248}$",
   "^model-config:[^\\s]{1,240}$",
@@ -25223,6 +26104,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^org://\\S+$",
   "^outcome-delta://[^\\s]{1,500}$",
   "^outcome-room://[^\\s]{1,500}$",
+  "^owner://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^pacc_[0-9a-f]{16}$",
   "^package-binding://\\S*$",
   "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
@@ -25255,6 +26137,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^prim:[a-z0-9._-]+$",
   "^prim:[a-z][a-z0-9._-]*$",
   "^prim:[a-z][a-z0-9._-]{0,127}$",
+  "^principal://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^privacy:[^\\s]{1,200}$",
   "^profile://[^\\s]{1,240}$",
   "^profile://[^\\s]{1,248}$",
@@ -25352,6 +26235,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^session-route:[^\\s]{1,240}$",
   "^session://[^\\s]{1,240}$",
   "^session://[^\\s]{1,500}$",
+  "^session://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^settlement://[^\\s]+$",
   "^settlement://[^\\s]{1,248}$",
   "^sha256:[0-9a-f]{64}$",
@@ -25364,6 +26248,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^snapshot://[^\\s]+$",
   "^snapshot://[^\\s]{1,248}$",
   "^snapshot://[^\\s]{1,500}$",
+  "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^staged-effect://[^\\s]+$",
   "^standing-envelope://[^\\s]{1,460}$",
   "^state-root://sha256:[0-9a-f]{64}$",
@@ -25409,6 +26295,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^temporal-evaluation://[^\\s]{1,248}$",
   "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$",
   "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^terms://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,500}$",
   "^tool://[A-Za-z0-9._~/-]{1,200}$",
@@ -25418,6 +26305,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^trainpipe://[^\\s]{1,500}$",
   "^transform://trun_[0-9a-f]{32}$",
+  "^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^transformation-run://trun_[0-9a-f]{12,32}$",
   "^transition://[^\\s]{1,248}$",
   "^transition://state-transition/sha256:[0-9a-f]{64}$",
@@ -25430,6 +26318,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^verifier-challenge://[^\\s]{1,460}$",
   "^verifier-challenge://[^\\s]{1,500}$",
   "^verifier-contract://[^\\s]{1,248}$",
+  "^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^verifier-path://[^\\s]{1,500}$",
   "^verifier://[^\\s]{1,248}$",
   "^view://[^\\s]{1,240}$",
@@ -25715,7 +26604,11 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/learning-egress-receipt/v1": "sha256:1bc3a65c01849911dd9fbf77f2e3895cb9de67750b4239c7f482f15712a03ea6",
   "schema://ioi/foundations/objects/model-route-rights-contract/v1": "sha256:c3be645b42c6bfa6751613faa1fe5c5fa697db63c147d8d5ce7c043f4180b91a",
   "schema://ioi/foundations/objects/policy-bound-data-view/v1": "sha256:f1db8ff95f3c0cc10c7c6da1154bf9224c906161ed1eced95ba810ad91c0d640",
-  "schema://ioi/foundations/objects/policy-bound-data-view/v2": "sha256:ae0c53473b1a4d1d6b79d71bf9e3202f1f768577463c47538e7177f26c9d73af"
+  "schema://ioi/foundations/objects/policy-bound-data-view/v2": "sha256:ae0c53473b1a4d1d6b79d71bf9e3202f1f768577463c47538e7177f26c9d73af",
+  "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1": "sha256:8f48224adf5c8c43731ef9336c6eb7f546ecd3da33bbc2870917bda0de7e7a97",
+  "schema://ioi/foundations/objects/observation-action-episode/v1": "sha256:6dd128b648e3c4728244e5609813b972f987adf7591373b5a0af63b85df52737",
+  "schema://ioi/foundations/objects/dataset-split-manifest/v1": "sha256:d3e159c13c73b9245806150204232357e0cfd50c210c42d95fe1bc90738fdf2a",
+  "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": "sha256:22777f1796a8434850fc844071aef54588331eb8c09e6b8497118b1e63ad8eb1"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -111837,6 +112730,2492 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     ]
+  },
+  "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1",
+    "title": "PolicyBoundMediaSnapshotV1",
+    "description": "The immutable Data-owned snapshot of ONE imported recording or ONE live-demonstration segment set. OBSERVATION IS NOT CONSENT: this record says what was captured, under which rights, on which timebase, and it grants nothing. Every binding is an EXACT revision rather than a family head, because a snapshot that named `view://acme.intake` would read through whichever policy that family last carried. The bytes themselves stay behind an ArtifactRef in the artifact plane; this contract binds their hash and never inlines them.",
+    "x-ioi-schema-version": "ioi.policy-bound-media-snapshot.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "snapshotFamilyRef": {
+        "type": "string",
+        "pattern": "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "snapshotRevisionRef": {
+        "type": "string",
+        "pattern": "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "viewRevisionRef": {
+        "type": "string",
+        "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "claimRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "dataRecipeRevisionRef": {
+        "type": "string",
+        "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "mappingRevisionRef": {
+        "type": "string",
+        "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "runRevisionRef": {
+        "type": "string",
+        "pattern": "^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "tenantRef": {
+        "type": "string",
+        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "refList": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320
+        },
+        "maxItems": 256
+      },
+      "tickCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000
+      }
+    },
+    "required": [
+      "schema_version",
+      "media_snapshot_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "principal_resolution",
+      "resolved_principal_ref",
+      "acquisition_class",
+      "capture_binding",
+      "source_rights",
+      "policy_bound_data_view_revision_refs",
+      "timebase",
+      "valid_time",
+      "artifact_bindings",
+      "availability",
+      "information_flow_label_refs",
+      "quarantine",
+      "redaction",
+      "deduplication",
+      "quality_findings",
+      "source_impact_lineage",
+      "raw_census",
+      "accepted_census",
+      "registry_status",
+      "admitted_at",
+      "succession",
+      "migration",
+      "constants",
+      "authority_nonclaim",
+      "artifact_authority",
+      "capture_authority_does_not_travel_into_replay",
+      "demonstration_is_not_consent",
+      "snapshot_is_not_a_skill_or_workflow",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.policy-bound-media-snapshot.v1",
+        "description": "Pinned so no neighbouring media or dataset shape can validate here."
+      },
+      "media_snapshot_id": {
+        "$ref": "#/$defs/snapshotFamilyRef"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/snapshotRevisionRef",
+        "description": "ONE IMMUTABLE REVISION. The `/revision/` segment refuses a family head where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "tenant_ref": {
+        "$ref": "#/$defs/tenantRef"
+      },
+      "principal_resolution": {
+        "const": "server_resolved",
+        "description": "PINNED. The capturing principal is resolved from the authenticated request identity; a caller that authors it is refused by name (INV-37)."
+      },
+      "resolved_principal_ref": {
+        "$ref": "#/$defs/principalRef"
+      },
+      "acquisition_class": {
+        "enum": [
+          "imported_recording",
+          "live_demonstration"
+        ],
+        "description": "Imported media must not silently become a live-capture dependency, and a live demonstration must not borrow an import's rights posture."
+      },
+      "capture_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "actor_ref",
+          "session_ref",
+          "device_ref",
+          "environment_ref",
+          "application_ref",
+          "world_revision_ref"
+        ],
+        "description": "WHO, WHERE AND IN WHICH WORLD. Every member is an exact ref; a mutable world or application version is the drift ACC-16 names.",
+        "properties": {
+          "actor_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "session_ref": {
+            "type": "string",
+            "pattern": "^session://[a-z0-9][a-z0-9._:-]{0,190}$"
+          },
+          "device_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "environment_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "application_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 320
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "world_revision_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 320
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "source_rights": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capture_rights_revision_ref",
+          "learning_source_rights_claim_revision_refs",
+          "consent_bindings",
+          "permits_learned_use"
+        ],
+        "description": "ACC-16 CLAUSE 1. Missing capture rights refuses EVERY profile; missing training or secondary-use rights refuses only the learned claim, never the procedural one.",
+        "properties": {
+          "capture_rights_revision_ref": {
+            "$ref": "#/$defs/claimRevisionRef"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/claimRevisionRef"
+            },
+            "maxItems": 64
+          },
+          "consent_bindings": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "consent_ref",
+                "consent_state",
+                "consent_subject_ref",
+                "valid_until"
+              ],
+              "properties": {
+                "consent_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                },
+                "consent_state": {
+                  "enum": [
+                    "active",
+                    "expired",
+                    "revoked",
+                    "unknown"
+                  ]
+                },
+                "consent_subject_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                },
+                "valid_until": {
+                  "$ref": "#/$defs/canonicalTimestamp"
+                }
+              }
+            }
+          },
+          "permits_learned_use": {
+            "type": "boolean",
+            "description": "Derived from the resolved claims, never authored. False leaves a learned or combined claim inadmissible while the procedural path remains open."
+          }
+        }
+      },
+      "policy_bound_data_view_revision_refs": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/viewRevisionRef"
+        },
+        "maxItems": 64,
+        "description": "OWNER-RESOLVED THROUGH M05.8's SEAM, never shape-checked here. A snapshot naming a view nothing resolves is a record asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse. DELIBERATELY NOT `minItems: 1`: a procedural-only capture owes no policy-bound view (ACC-16 clause 1 refuses the learned claim, not the procedural profile), and pinning a floor here would make the paired registered invariant unfalsifiable — a rule that cannot fail is not a rule. The floor is therefore conditioned on `permits_learned_use` by that invariant instead."
+      },
+      "timebase": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "temporal_verification_profile_ref",
+          "profile_hash",
+          "timebase_id",
+          "clock_class",
+          "epoch_ref",
+          "tick_unit",
+          "declared_monotonic",
+          "discontinuities"
+        ],
+        "description": "ACC-16 CLAUSE 3. One declared timebase. Per INV-39 the wall-clock anchor is AUTHENTICATED, never caller-asserted; a straddling interval is indeterminate rather than rounded toward the caller.",
+        "properties": {
+          "temporal_verification_profile_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "profile_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "timebase_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+          },
+          "clock_class": {
+            "enum": [
+              "authenticated_wallet_time",
+              "device_monotonic",
+              "capture_sequence"
+            ]
+          },
+          "epoch_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "tick_unit": {
+            "enum": [
+              "nanosecond",
+              "microsecond",
+              "millisecond",
+              "sample",
+              "frame"
+            ]
+          },
+          "declared_monotonic": {
+            "const": true,
+            "description": "PINNED. A non-monotonic timebase is not repaired into one; the discontinuity is recorded below instead."
+          },
+          "discontinuities": {
+            "type": "array",
+            "maxItems": 4096,
+            "description": "DETECTED AND RETAINED, NEVER NORMALIZED AWAY. Reordering, gaps and clock regression are findings; a run that sorts them into order has destroyed the evidence ACC-16 clause 3 asks for.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "at_tick",
+                "span_ticks",
+                "evidence_ref"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "gap",
+                    "reorder",
+                    "clock_regression",
+                    "rate_change"
+                  ]
+                },
+                "at_tick": {
+                  "$ref": "#/$defs/tickCount"
+                },
+                "span_ticks": {
+                  "$ref": "#/$defs/tickCount"
+                },
+                "evidence_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                }
+              }
+            }
+          }
+        }
+      },
+      "valid_time": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ],
+        "description": "INSIDE the content commitment, exactly as OntologyVersion (M05.1) splits it, so a predecessor's transaction interval can close while its bytes and hash stay frozen. Transaction time lives OUTSIDE this contract, beside the admitted operation.",
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/canonicalTimestamp"
+          },
+          "to": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/canonicalTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "artifact_bindings": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "description": "The content-addressed payload handles. Per ADR 0039 CAS may hold the bytes but is not authority: a missing or mismatched payload fails closed.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact_ref",
+            "sha256",
+            "media_type",
+            "size_bytes",
+            "manifest_root",
+            "role"
+          ],
+          "properties": {
+            "artifact_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "media_type": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2199023255552
+            },
+            "manifest_root": {
+              "$ref": "#/$defs/sha256"
+            },
+            "role": {
+              "enum": [
+                "dataset",
+                "screenshot",
+                "trace",
+                "checkpoint",
+                "recording",
+                "control_stream"
+              ]
+            }
+          }
+        }
+      },
+      "availability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "availability_manifest_ref",
+          "retention_class_ref",
+          "verifier_contract_ref",
+          "failure_behavior"
+        ],
+        "description": "ADR 0039 requires a checkpoint to bind exactly this trio for every referenced payload. These are the REGISTERED AvailabilityManifest v1 / RetentionClass v1 contracts, not a bespoke corpus-availability vocabulary.",
+        "properties": {
+          "availability_manifest_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "retention_class_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "verifier_contract_ref": {
+            "type": "string",
+            "pattern": "^verifier-contract://[a-z0-9][a-z0-9._/-]{0,190}$"
+          },
+          "failure_behavior": {
+            "const": "fail_closed"
+          }
+        }
+      },
+      "information_flow_label_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^ifc-label://[a-z0-9][a-z0-9._:/-]{0,190}$"
+        },
+        "minItems": 1,
+        "maxItems": 64,
+        "description": "Data classes are REGISTERED InformationFlowLabel refs inheriting under the existing non-widening rule. M05.9 mints no classification vocabulary and declassification stays Governance-owned through DeclassificationApproval."
+      },
+      "quarantine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "quarantine_state",
+          "pii_decision_receipt_refs",
+          "rejected_segment_count"
+        ],
+        "description": "ACC-16 CLAUSE 2, routed through the scanner that already exists (crates/pii + the cloud airlock), not a new quarantine object. Rejected bytes never reach a dataset.",
+        "properties": {
+          "quarantine_state": {
+            "enum": [
+              "pending_review",
+              "accepted",
+              "rejected",
+              "quarantined"
+            ]
+          },
+          "pii_decision_receipt_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "rejected_segment_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        }
+      },
+      "redaction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recipe_revision_ref",
+          "creates_permission",
+          "severs_lineage",
+          "source_privacy_class",
+          "output_privacy_class"
+        ],
+        "description": "REDACTION REDUCES EXPOSURE AND CREATES NOTHING. Its recipe is a DataRecipe revision because DataRecipe v2's transformation-step enum already has a `redact` member; a separate RedactionRecipe family would be a second spine.",
+        "properties": {
+          "recipe_revision_ref": {
+            "$ref": "#/$defs/dataRecipeRevisionRef"
+          },
+          "creates_permission": {
+            "const": false
+          },
+          "severs_lineage": {
+            "const": false
+          },
+          "source_privacy_class": {
+            "enum": [
+              "public",
+              "internal",
+              "confidential",
+              "restricted",
+              "regulated",
+              "safety_critical"
+            ]
+          },
+          "output_privacy_class": {
+            "enum": [
+              "public",
+              "internal",
+              "confidential",
+              "restricted",
+              "regulated",
+              "safety_critical"
+            ]
+          }
+        }
+      },
+      "deduplication": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "exact_key_algorithm",
+          "near_duplicate_method",
+          "excluded_count"
+        ],
+        "properties": {
+          "exact_key_algorithm": {
+            "const": "jcs_sha256"
+          },
+          "near_duplicate_method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "excluded_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          }
+        }
+      },
+      "quality_findings": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "finding_class",
+            "severity",
+            "evidence_ref"
+          ],
+          "properties": {
+            "finding_class": {
+              "enum": [
+                "corrupt_chunk",
+                "truncated_file",
+                "variable_rate_segment",
+                "padded_span",
+                "repeated_file",
+                "low_signal"
+              ]
+            },
+            "severity": {
+              "enum": [
+                "refused",
+                "excluded",
+                "retained_with_finding"
+              ]
+            },
+            "evidence_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            }
+          }
+        }
+      },
+      "source_impact_lineage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data_recipe_revision_refs",
+          "connector_mapping_revision_refs",
+          "transformation_run_revision_refs"
+        ],
+        "description": "Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.",
+        "properties": {
+          "data_recipe_revision_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/dataRecipeRevisionRef"
+            },
+            "maxItems": 128
+          },
+          "connector_mapping_revision_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/mappingRevisionRef"
+            },
+            "maxItems": 128
+          },
+          "transformation_run_revision_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/runRevisionRef"
+            },
+            "maxItems": 128
+          }
+        }
+      },
+      "raw_census": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_seconds",
+          "file_count",
+          "byte_count",
+          "frame_or_sample_count",
+          "chunk_count"
+        ],
+        "properties": {
+          "source_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "byte_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2199023255552
+          },
+          "frame_or_sample_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          }
+        }
+      },
+      "accepted_census": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_seconds",
+          "file_count",
+          "byte_count",
+          "frame_or_sample_count",
+          "chunk_count"
+        ],
+        "properties": {
+          "source_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "byte_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2199023255552
+          },
+          "frame_or_sample_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          }
+        }
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "active",
+          "suspended",
+          "expired",
+          "superseded",
+          "revoked"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "Taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`."
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predecessor_revision_ref",
+          "predecessor_content_hash"
+        ],
+        "properties": {
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/snapshotRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "compatibility",
+          "downgrade_to_predecessor"
+        ],
+        "description": "GENESIS-AT-V1. There is no v1 predecessor corpus to converge, so `compatibility` admits only `initial` and the absence of convergence machinery is ASSERTED rather than assumed.",
+        "properties": {
+          "compatibility": {
+            "const": "initial"
+          },
+          "downgrade_to_predecessor": {
+            "const": "refused"
+          }
+        }
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commitment_domain"
+        ],
+        "properties": {
+          "commitment_domain": {
+            "const": "ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "policy_bound_media_snapshot_grants_no_authority"
+      },
+      "artifact_authority": {
+        "const": "none — an active ArtifactRef names bytes and grants no read, no replay, no current authority",
+        "description": "The strongest machine-checked passivity statement available, and it matters here precisely because ArtifactRef v1 itself carries NO invariant profile."
+      },
+      "capture_authority_does_not_travel_into_replay": {
+        "const": true
+      },
+      "demonstration_is_not_consent": {
+        "const": true
+      },
+      "snapshot_is_not_a_skill_or_workflow": {
+        "const": true
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field under a domain separator, so a relying party holding only these bytes recomputes it and a stale or substituted hash fails offline."
+      }
+    },
+    "allOf": [
+      {
+        "title": "a snapshot that is not active permits no learned use",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "registry_status"
+          ],
+          "properties": {
+            "registry_status": {
+              "enum": [
+                "draft",
+                "suspended",
+                "expired",
+                "superseded",
+                "revoked"
+              ]
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "source_rights": {
+              "type": "object",
+              "properties": {
+                "permits_learned_use": {
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "title": "a genesis revision carries no predecessor",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "migration"
+          ],
+          "properties": {
+            "migration": {
+              "type": "object",
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "succession": {
+              "type": "object",
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "title": "a rejected or quarantined capture permits no learned use",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "quarantine"
+          ],
+          "properties": {
+            "quarantine": {
+              "type": "object",
+              "required": [
+                "quarantine_state"
+              ],
+              "properties": {
+                "quarantine_state": {
+                  "enum": [
+                    "pending_review",
+                    "rejected",
+                    "quarantined"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "source_rights": {
+              "type": "object",
+              "properties": {
+                "permits_learned_use": {
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/observation-action-episode/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+    "title": "ObservationActionEpisodeV1",
+    "description": "ONE INDEPENDENTLY BOUNDED episode or task, drawn from exactly one PolicyBoundMediaSnapshot revision. THE LOAD-BEARING RULE OF THIS CONTRACT: a video-inferred or model-inferred action label remains an UNCERTAIN ATTRIBUTED LABEL and never silently becomes controller ground truth. That rule is expressed three ways so no single edit defeats it — a schema conditional here, a registered coverage invariant beside it, and a runtime refusal in the admitting module. Recorded-video accuracy cannot substitute for closed-loop control evidence (ACC-16 clause 10, ACC-19 clause 5).",
+    "x-ioi-schema-version": "ioi.observation-action-episode.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "episodeFamilyRef": {
+        "type": "string",
+        "pattern": "^episode://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "episodeRevisionRef": {
+        "type": "string",
+        "pattern": "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "snapshotRevisionRef": {
+        "type": "string",
+        "pattern": "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "tenantRef": {
+        "type": "string",
+        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "tickCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000
+      },
+      "labelClassRef": {
+        "type": "string",
+        "pattern": "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "episode_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "principal_resolution",
+      "resolved_principal_ref",
+      "media_snapshot_revision_ref",
+      "media_snapshot_content_hash",
+      "session_ref",
+      "bounds",
+      "streams",
+      "synchronization",
+      "labels",
+      "ground_truth_eligible_label_refs",
+      "controller_recorded_label_refs",
+      "exception_labels",
+      "determinism",
+      "registry_status",
+      "admitted_at",
+      "succession",
+      "migration",
+      "constants",
+      "authority_nonclaim",
+      "inferred_label_is_never_ground_truth",
+      "episode_is_not_a_skill_or_workflow",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.observation-action-episode.v1"
+      },
+      "episode_id": {
+        "$ref": "#/$defs/episodeFamilyRef"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/episodeRevisionRef"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "tenant_ref": {
+        "$ref": "#/$defs/tenantRef"
+      },
+      "principal_resolution": {
+        "const": "server_resolved"
+      },
+      "resolved_principal_ref": {
+        "$ref": "#/$defs/principalRef"
+      },
+      "media_snapshot_revision_ref": {
+        "$ref": "#/$defs/snapshotRevisionRef",
+        "description": "The EXACT snapshot revision this episode was cut from — never a family head."
+      },
+      "media_snapshot_content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "THE BYTES, NOT JUST THE REF. A ref names a location that may since have been re-admitted; the hash names what was actually bound, so a silent re-admission underneath this episode is detectable offline."
+      },
+      "session_ref": {
+        "type": "string",
+        "pattern": "^session://[a-z0-9][a-z0-9._:-]{0,190}$",
+        "description": "Invariant-equal to the snapshot's. Session is Hypervisor-substrate-owned; M05.9 binds it by ref and owns no session object."
+      },
+      "bounds": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timebase_id",
+          "start_tick",
+          "end_tick",
+          "boundary_evidence_ref"
+        ],
+        "description": "INDEPENDENTLY BOUNDED. `timebase_id` is invariant-equal to the snapshot's: an episode that inherited a different timebase would be measuring its own bounds on a clock nobody declared.",
+        "properties": {
+          "timebase_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+          },
+          "start_tick": {
+            "$ref": "#/$defs/tickCount"
+          },
+          "end_tick": {
+            "$ref": "#/$defs/tickCount"
+          },
+          "boundary_evidence_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          }
+        }
+      },
+      "streams": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stream_role",
+            "schema_ref",
+            "channel",
+            "sample_count",
+            "sync_evidence_ref"
+          ],
+          "properties": {
+            "stream_role": {
+              "enum": [
+                "observation",
+                "action",
+                "reward",
+                "label"
+              ]
+            },
+            "schema_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "channel": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "sample_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000000
+            },
+            "sync_evidence_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            }
+          }
+        }
+      },
+      "synchronization": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "method",
+          "frame_action_offset_ticks",
+          "max_observed_skew_ticks",
+          "declared_skew_envelope_ticks"
+        ],
+        "description": "FRAME/ACTION SYNCHRONIZATION. Observed skew beyond the declared envelope is a refusal, not a rounding: an action attributed to the wrong frame is a mislabel that reads as data.",
+        "properties": {
+          "method": {
+            "enum": [
+              "shared_timebase",
+              "clapper_marker",
+              "control_stream_correlation",
+              "declared_offset"
+            ]
+          },
+          "frame_action_offset_ticks": {
+            "type": "integer",
+            "minimum": -1000000000,
+            "maximum": 1000000000
+          },
+          "max_observed_skew_ticks": {
+            "$ref": "#/$defs/tickCount"
+          },
+          "declared_skew_envelope_ticks": {
+            "$ref": "#/$defs/tickCount"
+          }
+        }
+      },
+      "labels": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 100000,
+        "description": "Every label carries its own provenance and epistemic status. `attributed_to_ref` is who or what asserted it; `corrected_by_ref` is the governed correction that superseded it, retained rather than overwritten (ACC-16 clause 12).",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "label_ref",
+            "label_class",
+            "value_ref",
+            "label_provenance_class",
+            "epistemic_status",
+            "is_controller_ground_truth",
+            "confidence",
+            "uncertainty_kind",
+            "attributed_to_ref",
+            "corrected_by_ref"
+          ],
+          "properties": {
+            "label_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "label_class": {
+              "$ref": "#/$defs/labelClassRef"
+            },
+            "value_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "label_provenance_class": {
+              "enum": [
+                "controller_recorded",
+                "operator_annotated",
+                "video_inferred",
+                "model_inferred",
+                "derived"
+              ],
+              "description": "WHERE THE LABEL CAME FROM. `controller_recorded` is the only class an admitted controller stream can support; the rest are attributions."
+            },
+            "epistemic_status": {
+              "enum": [
+                "controller_ground_truth",
+                "uncertain_attributed_label"
+              ]
+            },
+            "is_controller_ground_truth": {
+              "type": "boolean"
+            },
+            "confidence": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "uncertainty_kind": {
+              "enum": [
+                "none",
+                "measurement",
+                "model",
+                "annotation",
+                "ambiguous_reference",
+                "incomplete_evidence"
+              ]
+            },
+            "attributed_to_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "corrected_by_ref": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 320
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "title": "an inferred label is an uncertain attributed label and is never controller ground truth",
+              "type": "object",
+              "if": {
+                "type": "object",
+                "required": [
+                  "label_provenance_class"
+                ],
+                "properties": {
+                  "label_provenance_class": {
+                    "enum": [
+                      "video_inferred",
+                      "model_inferred"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "type": "object",
+                "properties": {
+                  "epistemic_status": {
+                    "const": "uncertain_attributed_label"
+                  },
+                  "is_controller_ground_truth": {
+                    "const": false
+                  }
+                }
+              }
+            },
+            {
+              "title": "only a controller-recorded label may claim controller ground truth",
+              "type": "object",
+              "if": {
+                "type": "object",
+                "required": [
+                  "is_controller_ground_truth"
+                ],
+                "properties": {
+                  "is_controller_ground_truth": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "type": "object",
+                "properties": {
+                  "label_provenance_class": {
+                    "const": "controller_recorded"
+                  },
+                  "epistemic_status": {
+                    "const": "controller_ground_truth"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ground_truth_eligible_label_refs": {
+        "type": "array",
+        "maxItems": 100000,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320
+        },
+        "description": "The label set this episode offers as controller ground truth. A registered coverage invariant requires it to be covered EXACTLY by the `controller_recorded` subset — a video-inferred label smuggled in leaves the covering long and refuses, and a controller label omitted leaves it short and refuses."
+      },
+      "controller_recorded_label_refs": {
+        "type": "array",
+        "maxItems": 100000,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320
+        },
+        "description": "The `controller_recorded` subset, enumerated independently so the coverage above compares two statements rather than one statement with itself."
+      },
+      "exception_labels": {
+        "type": "array",
+        "maxItems": 10000,
+        "description": "The closed exception vocabulary. An exception class outside it is refused rather than filed under `other`.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exception_class",
+            "at_tick",
+            "evidence_ref"
+          ],
+          "properties": {
+            "exception_class": {
+              "enum": [
+                "operator_abort",
+                "controller_disconnect",
+                "environment_fault",
+                "policy_refusal",
+                "timeout",
+                "out_of_scope_action",
+                "ambiguous_intent"
+              ]
+            },
+            "at_tick": {
+              "$ref": "#/$defs/tickCount"
+            },
+            "evidence_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            }
+          }
+        }
+      },
+      "determinism": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "determinism_class",
+          "preprocessor_code_root",
+          "preprocessor_config_root",
+          "declared_randomness_seed"
+        ],
+        "description": "ACC-16 CLAUSE 7. Identical admitted inputs replay under the declared determinism class; a changed preprocessor produces a SUCCESSOR rather than a run that resolves differently and reports success.",
+        "properties": {
+          "determinism_class": {
+            "enum": [
+              "bitwise_deterministic",
+              "seeded_deterministic",
+              "nondeterministic_declared"
+            ]
+          },
+          "preprocessor_code_root": {
+            "$ref": "#/$defs/sha256"
+          },
+          "preprocessor_config_root": {
+            "$ref": "#/$defs/sha256"
+          },
+          "declared_randomness_seed": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "active",
+          "suspended",
+          "expired",
+          "superseded",
+          "revoked"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predecessor_revision_ref",
+          "predecessor_content_hash"
+        ],
+        "properties": {
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/episodeRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "compatibility",
+          "downgrade_to_predecessor"
+        ],
+        "properties": {
+          "compatibility": {
+            "const": "initial"
+          },
+          "downgrade_to_predecessor": {
+            "const": "refused"
+          }
+        }
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commitment_domain"
+        ],
+        "properties": {
+          "commitment_domain": {
+            "const": "ioi.observation-action-episode-content-commitment-jcs-sha256.v1"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "observation_action_episode_grants_no_authority"
+      },
+      "inferred_label_is_never_ground_truth": {
+        "const": true
+      },
+      "episode_is_not_a_skill_or_workflow": {
+        "const": true
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "allOf": [
+      {
+        "title": "a genesis revision carries no predecessor",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "migration"
+          ],
+          "properties": {
+            "migration": {
+              "type": "object",
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "succession": {
+              "type": "object",
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/dataset-split-manifest/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+    "title": "DatasetSplitManifestV1",
+    "description": "FROZEN, LEAKAGE-RESISTANT MEMBERSHIP over ObservationActionEpisode revisions. Membership is carried as a FLAT row set — one row per episode, naming its split — rather than a member array per split, because exact-partition closure is then directly checkable: an episode in two splits makes the covering long and refuses, an episode in none makes it short and refuses. Distinct from the Foundry-owned `dataset-snapshot://foundry/...`, which is a flat train/validation/test shape this one does not reuse.",
+    "x-ioi-schema-version": "ioi.dataset-split-manifest.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "manifestFamilyRef": {
+        "type": "string",
+        "pattern": "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "manifestRevisionRef": {
+        "type": "string",
+        "pattern": "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "episodeRevisionRef": {
+        "type": "string",
+        "pattern": "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "tenantRef": {
+        "type": "string",
+        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "splitClass": {
+        "enum": [
+          "train",
+          "validation",
+          "temporal_holdout",
+          "actor_holdout",
+          "world_holdout",
+          "adversarial"
+        ]
+      },
+      "tickCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000
+      }
+    },
+    "required": [
+      "schema_version",
+      "split_manifest_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "principal_resolution",
+      "resolved_principal_ref",
+      "members",
+      "splits",
+      "all_member_episode_revision_refs",
+      "member_count",
+      "membership_is_immutable",
+      "leakage_controls",
+      "registry_status",
+      "admitted_at",
+      "succession",
+      "migration",
+      "constants",
+      "authority_nonclaim",
+      "manifest_selects_no_evaluation_evidence_for_its_own_producer",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.dataset-split-manifest.v1"
+      },
+      "split_manifest_id": {
+        "$ref": "#/$defs/manifestFamilyRef"
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/manifestRevisionRef"
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "tenant_ref": {
+        "$ref": "#/$defs/tenantRef"
+      },
+      "principal_resolution": {
+        "const": "server_resolved"
+      },
+      "resolved_principal_ref": {
+        "$ref": "#/$defs/principalRef"
+      },
+      "members": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 100000,
+        "description": "ONE ROW PER EPISODE. `array_unique_by_fields` over `episode_revision_ref` refuses double membership outright, and the coverage rule below refuses omission — two independent statements about one set, which is the cheapest tell that a member was moved after the fact.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "episode_revision_ref",
+            "episode_content_hash",
+            "split_class",
+            "actor_partition_key",
+            "world_partition_key",
+            "max_tick"
+          ],
+          "properties": {
+            "episode_revision_ref": {
+              "$ref": "#/$defs/episodeRevisionRef"
+            },
+            "episode_content_hash": {
+              "$ref": "#/$defs/sha256"
+            },
+            "split_class": {
+              "$ref": "#/$defs/splitClass"
+            },
+            "actor_partition_key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "world_partition_key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "max_tick": {
+              "$ref": "#/$defs/tickCount"
+            }
+          }
+        }
+      },
+      "splits": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 6,
+        "description": "The declared per-class counts. A class declared twice is refused by uniqueness; a count disagreeing with the rows is refused by the registered invariant.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "split_class",
+            "member_count"
+          ],
+          "properties": {
+            "split_class": {
+              "$ref": "#/$defs/splitClass"
+            },
+            "member_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          }
+        }
+      },
+      "all_member_episode_revision_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 100000,
+        "items": {
+          "$ref": "#/$defs/episodeRevisionRef"
+        },
+        "description": "The enumerated membership, covered EXACTLY by the rows above. Coverage compares members and count, so both double-membership and omission refuse."
+      },
+      "member_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100000
+      },
+      "membership_is_immutable": {
+        "const": true,
+        "description": "PINNED. A split manifest whose membership can move is not a holdout; it is a suggestion."
+      },
+      "leakage_controls": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "near_duplicate_exclusion_method",
+          "near_duplicate_excluded_count",
+          "temporal_cut_tick",
+          "max_train_tick",
+          "min_temporal_holdout_tick"
+        ],
+        "description": "ACC-16 CLAUSE 8. Near-duplicate and future-frame leakage are refused by comparison rather than declared absent: `max_train_tick < temporal_cut_tick <= min_temporal_holdout_tick`, and the actor/world partition keys must not straddle a holdout boundary.",
+        "properties": {
+          "near_duplicate_exclusion_method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "near_duplicate_excluded_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "temporal_cut_tick": {
+            "$ref": "#/$defs/tickCount"
+          },
+          "max_train_tick": {
+            "$ref": "#/$defs/tickCount"
+          },
+          "min_temporal_holdout_tick": {
+            "$ref": "#/$defs/tickCount"
+          }
+        }
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "active",
+          "suspended",
+          "expired",
+          "superseded",
+          "revoked"
+        ]
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predecessor_revision_ref",
+          "predecessor_content_hash"
+        ],
+        "properties": {
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/manifestRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "compatibility",
+          "downgrade_to_predecessor"
+        ],
+        "properties": {
+          "compatibility": {
+            "const": "initial"
+          },
+          "downgrade_to_predecessor": {
+            "const": "refused"
+          }
+        }
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commitment_domain"
+        ],
+        "properties": {
+          "commitment_domain": {
+            "const": "ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "dataset_split_manifest_grants_no_authority"
+      },
+      "manifest_selects_no_evaluation_evidence_for_its_own_producer": {
+        "const": true,
+        "description": "ACC-16's negative clause: the training process cannot select its own evaluation evidence. Independent evaluation binds this manifest by exact ref; the manifest never promotes itself."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "allOf": [
+      {
+        "title": "a genesis revision carries no predecessor",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "migration"
+          ],
+          "properties": {
+            "migration": {
+              "type": "object",
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "succession": {
+              "type": "object",
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "title": "MediaCorpusQualificationCensusV1",
+    "description": "THE CERTIFICATE BOTH LANES EMIT, CARRYING ITS OWN HONESTY ABOUT WHICH LANE PRODUCED IT. The deterministic lane emits `compact_deterministic_fixture` and pins `does_not_claim_hours_scale_qualification` — an empty claim nobody can fill is a stronger statement than an absent field, which is what lets ACC-19 clause 5 say the deterministic lane 'claims no hours-scale qualification' and have it be checkable. The scheduled lane emits `hours_scale_qualification` and must satisfy every floor by invariant. The floors are FUNCTIONAL (duration, diversity, census closure) and cannot shrink. NUMERIC THROUGHPUT AND LATENCY LIMITS ARE DELIBERATELY ABSENT: per ADR 0039's own acceptance record they wait for repeated matched release-host baselines and a planted slowdown mutation.",
+    "x-ioi-schema-version": "ioi.media-corpus-qualification-census.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "censusRef": {
+        "type": "string",
+        "pattern": "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "tenantRef": {
+        "type": "string",
+        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "seconds": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100000000
+      },
+      "count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000000000000
+      },
+      "byteCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 2199023255552
+      },
+      "labelClassRef": {
+        "type": "string",
+        "pattern": "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"
+      },
+      "reasonClass": {
+        "enum": [
+          "corrupt",
+          "truncated",
+          "variable_rate",
+          "padded",
+          "repeated",
+          "out_of_rights",
+          "quarantined",
+          "near_duplicate",
+          "exact_duplicate",
+          "below_quality_floor"
+        ]
+      }
+    },
+    "required": [
+      "schema_version",
+      "corpus_census_id",
+      "owner_ref",
+      "tenant_ref",
+      "principal_resolution",
+      "resolved_principal_ref",
+      "claimed_scale",
+      "profile",
+      "corpus_content_root",
+      "raw",
+      "accepted",
+      "rejected",
+      "deduplicated",
+      "file_dispositions",
+      "profile_required_label_classes",
+      "observed_label_classes",
+      "floors",
+      "ceilings",
+      "runtime_evidence",
+      "degeneracy_findings",
+      "distinct_content_hash_count",
+      "does_not_claim_hours_scale_qualification",
+      "does_not_claim_throughput_or_latency",
+      "admitted_at",
+      "constants",
+      "authority_nonclaim",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.media-corpus-qualification-census.v1"
+      },
+      "corpus_census_id": {
+        "$ref": "#/$defs/censusRef",
+        "description": "CONTENT-ADDRESSED rather than numbered: the census IS its corpus's digest, so two runs over the same corpus collide by construction and a shortened corpus cannot hide behind a fresh identity."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef"
+      },
+      "tenant_ref": {
+        "$ref": "#/$defs/tenantRef"
+      },
+      "principal_resolution": {
+        "const": "server_resolved"
+      },
+      "resolved_principal_ref": {
+        "$ref": "#/$defs/principalRef"
+      },
+      "claimed_scale": {
+        "enum": [
+          "compact_deterministic_fixture",
+          "hours_scale_qualification"
+        ],
+        "description": "WHICH LANE PRODUCED THIS. Neither lane may claim the other's coverage (ACC-16 Evidence, ACC-19 Evidence)."
+      },
+      "profile": {
+        "enum": [
+          "composed-model-harness",
+          "interactive-learned",
+          "synthetic-learned-sensitive"
+        ],
+        "description": "The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."
+      },
+      "corpus_content_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "raw": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_seconds",
+          "file_count",
+          "byte_count",
+          "frame_or_sample_count",
+          "chunk_count"
+        ],
+        "properties": {
+          "source_seconds": {
+            "$ref": "#/$defs/seconds"
+          },
+          "file_count": {
+            "$ref": "#/$defs/count"
+          },
+          "byte_count": {
+            "$ref": "#/$defs/byteCount"
+          },
+          "frame_or_sample_count": {
+            "$ref": "#/$defs/count"
+          },
+          "chunk_count": {
+            "$ref": "#/$defs/count"
+          }
+        }
+      },
+      "accepted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seconds_before_deduplication",
+          "seconds_after_deduplication",
+          "file_count",
+          "byte_count",
+          "frame_or_sample_count",
+          "chunk_count",
+          "bounded_episode_count",
+          "task_count",
+          "source_session_count",
+          "label_count"
+        ],
+        "description": "The accepted half of the census. `seconds_after_deduplication` is the floor-bearing number: two hours of accepted source time AFTER exact and near-duplicate exclusion, never before it.",
+        "properties": {
+          "seconds_before_deduplication": {
+            "$ref": "#/$defs/seconds"
+          },
+          "seconds_after_deduplication": {
+            "$ref": "#/$defs/seconds"
+          },
+          "file_count": {
+            "$ref": "#/$defs/count"
+          },
+          "byte_count": {
+            "$ref": "#/$defs/byteCount"
+          },
+          "frame_or_sample_count": {
+            "$ref": "#/$defs/count"
+          },
+          "chunk_count": {
+            "$ref": "#/$defs/count"
+          },
+          "bounded_episode_count": {
+            "$ref": "#/$defs/count"
+          },
+          "task_count": {
+            "$ref": "#/$defs/count"
+          },
+          "source_session_count": {
+            "$ref": "#/$defs/count"
+          },
+          "label_count": {
+            "$ref": "#/$defs/count"
+          }
+        }
+      },
+      "rejected": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_seconds",
+          "file_count",
+          "byte_count",
+          "frame_or_sample_count",
+          "chunk_count",
+          "reason_classes"
+        ],
+        "properties": {
+          "source_seconds": {
+            "$ref": "#/$defs/seconds"
+          },
+          "file_count": {
+            "$ref": "#/$defs/count"
+          },
+          "byte_count": {
+            "$ref": "#/$defs/byteCount"
+          },
+          "frame_or_sample_count": {
+            "$ref": "#/$defs/count"
+          },
+          "chunk_count": {
+            "$ref": "#/$defs/count"
+          },
+          "reason_classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/reasonClass"
+            },
+            "maxItems": 32
+          }
+        }
+      },
+      "deduplicated": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_seconds",
+          "file_count",
+          "byte_count",
+          "frame_or_sample_count",
+          "chunk_count",
+          "reason_classes"
+        ],
+        "properties": {
+          "source_seconds": {
+            "$ref": "#/$defs/seconds"
+          },
+          "file_count": {
+            "$ref": "#/$defs/count"
+          },
+          "byte_count": {
+            "$ref": "#/$defs/byteCount"
+          },
+          "frame_or_sample_count": {
+            "$ref": "#/$defs/count"
+          },
+          "chunk_count": {
+            "$ref": "#/$defs/count"
+          },
+          "reason_classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/reasonClass"
+            },
+            "maxItems": 32
+          }
+        }
+      },
+      "file_dispositions": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 1000000,
+        "description": "ONE ROW PER RAW FILE. This is how the census closes arithmetically without an arithmetic operator the invariant DSL does not have: `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over the content hash refuses a padded or repeated corpus. Every raw file therefore has exactly one disposition, and a file with none is missing from the count rather than silently absorbed.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "content_sha256",
+            "disposition",
+            "reason_class",
+            "source_seconds"
+          ],
+          "properties": {
+            "content_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "disposition": {
+              "enum": [
+                "accepted",
+                "rejected",
+                "deduplicated"
+              ]
+            },
+            "reason_class": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/reasonClass"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source_seconds": {
+              "$ref": "#/$defs/seconds"
+            }
+          }
+        }
+      },
+      "profile_required_label_classes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "items": {
+          "$ref": "#/$defs/labelClassRef"
+        },
+        "description": "Every profile-required ACTION, FIELD and EXCEPTION label class. Covered exactly by the observed set below, so a corpus missing a required class refuses rather than reporting a high count over a narrow vocabulary."
+      },
+      "observed_label_classes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "items": {
+          "$ref": "#/$defs/labelClassRef"
+        }
+      },
+      "floors": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accepted_seconds_after_deduplication",
+          "bounded_episode_count",
+          "source_session_count"
+        ],
+        "description": "PINNED IN THE SCHEMA AS SINGLE-MEMBER NUMERIC ENUMS, which is this repo's numeric pin (a numeric `const` is banned by the ajv-strict authoring convention). Pinning them in the record rather than only in the verifier is what makes 'the floors cannot shrink' checkable offline by a relying party holding only these bytes.",
+        "properties": {
+          "accepted_seconds_after_deduplication": {
+            "type": "integer",
+            "enum": [
+              7200
+            ],
+            "description": "At least two hours of accepted source time after exact AND near-duplicate exclusion (ACC-19 clause 5)."
+          },
+          "bounded_episode_count": {
+            "type": "integer",
+            "enum": [
+              8
+            ],
+            "description": "At least eight independently bounded episodes or tasks."
+          },
+          "source_session_count": {
+            "type": "integer",
+            "enum": [
+              2
+            ],
+            "description": "From at least two source Sessions."
+          }
+        }
+      },
+      "ceilings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "corpus_byte_count"
+        ],
+        "properties": {
+          "corpus_byte_count": {
+            "type": "integer",
+            "enum": [
+              2147483648
+            ],
+            "description": "2 GiB. Duration and diversity are the floors; fidelity is not, which is part of why the scheduled lane needs no GPU runner, object storage or metered service."
+          }
+        }
+      },
+      "runtime_evidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "peak_resident_bytes",
+          "projection_subscription_lease_ref",
+          "max_undelivered_events_declared",
+          "queue_high_water",
+          "backpressure_lag_outcomes",
+          "durability_class_achieved",
+          "interruption_count",
+          "resume_count",
+          "restart_equivalence",
+          "corrupt_inputs_refused",
+          "truncated_inputs_refused",
+          "variable_rate_inputs_handled"
+        ],
+        "description": "What the run ACTUALLY did. The backpressure half reuses the registered ProjectionSubscriptionLease v1 vocabulary, so 'exceeding the bound produces a typed outcome; it never silently drops an accepted event' is inherited rather than restated.",
+        "properties": {
+          "peak_resident_bytes": {
+            "$ref": "#/$defs/byteCount"
+          },
+          "projection_subscription_lease_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320
+          },
+          "max_undelivered_events_declared": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1048576
+          },
+          "queue_high_water": {
+            "$ref": "#/$defs/count"
+          },
+          "backpressure_lag_outcomes": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "enum": [
+                "typed_gap",
+                "typed_rebase",
+                "lease_revoked"
+              ]
+            }
+          },
+          "durability_class_achieved": {
+            "enum": [
+              "local_only",
+              "replicated_same_host",
+              "quorum_replicated"
+            ],
+            "description": "THE CLASS THE WRITER REACHED, never the one requested. The mux caps same-host links at `replicated_same_host` and refuses to fake a replicated class."
+          },
+          "interruption_count": {
+            "$ref": "#/$defs/count"
+          },
+          "resume_count": {
+            "$ref": "#/$defs/count"
+          },
+          "restart_equivalence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pre_restart_root",
+              "post_restart_root",
+              "roots_equal"
+            ],
+            "properties": {
+              "pre_restart_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "post_restart_root": {
+                "$ref": "#/$defs/sha256"
+              },
+              "roots_equal": {
+                "const": true
+              }
+            }
+          },
+          "corrupt_inputs_refused": {
+            "$ref": "#/$defs/count"
+          },
+          "truncated_inputs_refused": {
+            "$ref": "#/$defs/count"
+          },
+          "variable_rate_inputs_handled": {
+            "$ref": "#/$defs/count"
+          }
+        }
+      },
+      "degeneracy_findings": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "finding_class",
+            "affected_file_count",
+            "evidence_ref"
+          ],
+          "properties": {
+            "finding_class": {
+              "enum": [
+                "padded_span",
+                "repeated_file",
+                "single_actor_corpus",
+                "single_session_corpus",
+                "degenerate_label_vocabulary",
+                "constant_frame_content"
+              ]
+            },
+            "affected_file_count": {
+              "$ref": "#/$defs/count"
+            },
+            "evidence_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            }
+          }
+        }
+      },
+      "distinct_content_hash_count": {
+        "$ref": "#/$defs/count"
+      },
+      "does_not_claim_hours_scale_qualification": {
+        "type": "boolean"
+      },
+      "does_not_claim_throughput_or_latency": {
+        "const": true,
+        "description": "PINNED ON BOTH LANES. No throughput, latency or time-to-quality number is claimed by this contract in this cut."
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commitment_domain"
+        ],
+        "properties": {
+          "commitment_domain": {
+            "const": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "media_corpus_qualification_census_grants_no_authority"
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "allOf": [
+      {
+        "title": "the compact deterministic lane claims no hours-scale qualification",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "claimed_scale"
+          ],
+          "properties": {
+            "claimed_scale": {
+              "const": "compact_deterministic_fixture"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "does_not_claim_hours_scale_qualification": {
+              "const": true
+            }
+          }
+        }
+      },
+      {
+        "title": "the hours-scale lane makes that claim and therefore owes every floor",
+        "description": "THE FLOORS BIND TO THE LANE THAT CLAIMS THEM. They are expressed here as a schema conditional because the portable invariant language has no conditional numeric operator, and an unconditional floor rule would refuse the compact deterministic fixture that ACC-19 clause 5 explicitly permits. The compact lane is bounded instead by its own pinned nonclaim above, so neither lane can borrow the other's coverage.",
+        "type": "object",
+        "if": {
+          "type": "object",
+          "required": [
+            "claimed_scale"
+          ],
+          "properties": {
+            "claimed_scale": {
+              "const": "hours_scale_qualification"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "does_not_claim_hours_scale_qualification": {
+              "const": false
+            },
+            "accepted": {
+              "type": "object",
+              "properties": {
+                "seconds_after_deduplication": {
+                  "type": "integer",
+                  "minimum": 7200,
+                  "maximum": 100000000
+                },
+                "bounded_episode_count": {
+                  "type": "integer",
+                  "minimum": 8,
+                  "maximum": 1000000000000
+                },
+                "task_count": {
+                  "type": "integer",
+                  "minimum": 8,
+                  "maximum": 1000000000000
+                },
+                "source_session_count": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1000000000000
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -126706,6 +130085,709 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_path": "$.constants.nonclaim_consent_token"
       }
     }
+  ],
+  "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1": [
+    {
+      "rule_id": "policy_bound_media_snapshot.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. Every field of the contract except the hash itself is committed under a domain separator over a flat canonical-JSON material map — the capture binding, the source rights and consent bindings, the resolved view refs, the timebase and its retained discontinuities, the artifact bindings with their exact digests, the availability trio, the labels, the quarantine state, the redaction declaration and the source-impact lineage. A relying party holding only the record recomputes it; a stale or substituted hash fails offline with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "media_snapshot_id": {
+            "path": "$.media_snapshot_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "acquisition_class": {
+            "path": "$.acquisition_class"
+          },
+          "capture_binding": {
+            "path": "$.capture_binding"
+          },
+          "source_rights": {
+            "path": "$.source_rights"
+          },
+          "policy_bound_data_view_revision_refs": {
+            "path": "$.policy_bound_data_view_revision_refs"
+          },
+          "timebase": {
+            "path": "$.timebase"
+          },
+          "valid_time": {
+            "path": "$.valid_time"
+          },
+          "artifact_bindings": {
+            "path": "$.artifact_bindings"
+          },
+          "availability": {
+            "path": "$.availability"
+          },
+          "information_flow_label_refs": {
+            "path": "$.information_flow_label_refs"
+          },
+          "quarantine": {
+            "path": "$.quarantine"
+          },
+          "redaction": {
+            "path": "$.redaction"
+          },
+          "deduplication": {
+            "path": "$.deduplication"
+          },
+          "quality_findings": {
+            "path": "$.quality_findings"
+          },
+          "source_impact_lineage": {
+            "path": "$.source_impact_lineage"
+          },
+          "raw_census": {
+            "path": "$.raw_census"
+          },
+          "accepted_census": {
+            "path": "$.accepted_census"
+          },
+          "registry_status": {
+            "path": "$.registry_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "artifact_authority": {
+            "path": "$.artifact_authority"
+          },
+          "capture_authority_does_not_travel_into_replay": {
+            "path": "$.capture_authority_does_not_travel_into_replay"
+          },
+          "demonstration_is_not_consent": {
+            "path": "$.demonstration_is_not_consent"
+          },
+          "snapshot_is_not_a_skill_or_workflow": {
+            "path": "$.snapshot_is_not_a_skill_or_workflow"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names. A revision ref pointing into another family would let a snapshot inherit a lineage it never had.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.media_snapshot_id",
+        "prefix": "media-snapshot://",
+        "strip_prefix": "media-snapshot://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.redaction.does_not_declassify",
+      "description": "REDACTION REDUCES EXPOSURE AND CREATES NOTHING. The output privacy class must equal the source class: a redaction that lowered the class would be a declassification that happened and was not recorded, and declassification is Governance-owned through DeclassificationApproval rather than a side effect of a transformation step.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.redaction.source_privacy_class",
+          "$.redaction.output_privacy_class"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.census.accepted_never_exceeds_raw",
+      "description": "The accepted source time cannot exceed the raw source time it was drawn from. An accepted census larger than its raw census is padding wearing an acceptance's clothes.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.accepted_census.source_seconds",
+          "$.raw_census.source_seconds"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.census.accepted_bytes_never_exceed_raw_bytes",
+      "description": "The same closure on bytes, so a corpus cannot grow across acceptance.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.accepted_census.byte_count",
+          "$.raw_census.byte_count"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.census.accepted_file_count_matches_the_bound_artifacts",
+      "description": "The declared accepted file count is checked against the artifact bindings actually enumerated. Two independent statements about one set is the cheapest tell that a file was removed from the readable list after the fact, and this count is what an erasure or a rights revocation has to walk.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.artifact_bindings",
+        "count_path": "$.accepted_census.file_count"
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.artifacts.every_binding_is_distinct",
+      "description": "NO PADDING OR REPETITION. A repeated artifact digest inside one snapshot is a degenerate corpus, and it is refused here rather than discovered at qualification time.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.artifact_bindings",
+        "fields": [
+          "sha256"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.rights.a_learned_use_names_at_least_one_claim",
+      "description": "ACC-16 CLAUSE 1. A snapshot that permits learned use must name the source-rights claims that permit it. Missing capture rights refuses every profile; missing training or secondary-use rights leaves only the learned claim inadmissible, which is why this is conditioned on the learned permission rather than asserted unconditionally.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.source_rights.learning_source_rights_claim_revision_refs",
+        "when_path": "$.source_rights.permits_learned_use",
+        "values": [
+          true
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_media_snapshot.views.a_learned_use_names_at_least_one_policy_bound_view",
+      "description": "The bytes a learned use reads ride a PROVED view. A snapshot that permitted learning while naming no view would be asserting it is policy-bound, which is the exact failure ACC-16 clause 4 exists to refuse.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.policy_bound_data_view_revision_refs",
+        "when_path": "$.source_rights.permits_learned_use",
+        "values": [
+          true
+        ]
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/observation-action-episode/v1": [
+    {
+      "rule_id": "observation_action_episode.content_hash.commits_the_whole_revision",
+      "description": "Every field except the hash itself, committed under a domain separator — the snapshot binding and its exact content hash, the bounds, the streams, the synchronization envelope, every label with its provenance and epistemic status, the exception labels and the determinism declaration. A relying party holding only the record recomputes it.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.observation-action-episode-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "episode_id": {
+            "path": "$.episode_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "media_snapshot_revision_ref": {
+            "path": "$.media_snapshot_revision_ref"
+          },
+          "media_snapshot_content_hash": {
+            "path": "$.media_snapshot_content_hash"
+          },
+          "session_ref": {
+            "path": "$.session_ref"
+          },
+          "bounds": {
+            "path": "$.bounds"
+          },
+          "streams": {
+            "path": "$.streams"
+          },
+          "synchronization": {
+            "path": "$.synchronization"
+          },
+          "labels": {
+            "path": "$.labels"
+          },
+          "ground_truth_eligible_label_refs": {
+            "path": "$.ground_truth_eligible_label_refs"
+          },
+          "controller_recorded_label_refs": {
+            "path": "$.controller_recorded_label_refs"
+          },
+          "exception_labels": {
+            "path": "$.exception_labels"
+          },
+          "determinism": {
+            "path": "$.determinism"
+          },
+          "registry_status": {
+            "path": "$.registry_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "inferred_label_is_never_ground_truth": {
+            "path": "$.inferred_label_is_never_ground_truth"
+          },
+          "episode_is_not_a_skill_or_workflow": {
+            "path": "$.episode_is_not_a_skill_or_workflow"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth",
+      "description": "THE LOAD-BEARING RULE, AND THE SECOND OF ITS THREE EXPRESSIONS. The ground-truth-eligible label set must be covered EXACTLY by the independently enumerated `controller_recorded` subset — same members, same count. A video-inferred or model-inferred label smuggled into the eligible set leaves the covering long and refuses; a controller-recorded label dropped from the subset leaves it short and refuses. Coverage compares lengths as well as members, so an equal-count substitution cannot pass. The schema conditional refuses the per-label claim and the admitting module refuses it again at runtime; no single edit defeats all three. ACC-16 clause 10 and ACC-19 clause 5.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.ground_truth_eligible_label_refs",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.controller_recorded_label_refs"
+        ]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.episode_id",
+        "prefix": "episode://",
+        "strip_prefix": "episode://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.bounds.the_episode_is_bounded_forward",
+      "description": "AN EPISODE IS AN INTERVAL, NOT A POINT OR A REVERSAL. A start tick at or after the end tick is a bound nobody can measure against, and it is the shape a reordered timebase produces when a run sorts a clock regression into order instead of retaining it.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.bounds.start_tick",
+          "$.bounds.end_tick"
+        ]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope",
+      "description": "TIMEBASE DRIFT REFUSES RATHER THAN ROUNDS. An observed frame/action skew beyond the declared envelope means actions are attributed to the wrong frames; absorbing it would produce a mislabel that reads as data.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.synchronization.max_observed_skew_ticks",
+          "$.synchronization.declared_skew_envelope_ticks"
+        ]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.labels.every_label_is_distinct",
+      "description": "A repeated label ref would let one annotation be counted twice toward a required class, inflating a census over a narrower vocabulary than it claims.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.labels",
+        "fields": [
+          "label_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.snapshot.binds_the_bytes_not_only_the_ref",
+      "description": "The bound snapshot's content hash must be present. A ref names a location that may since have been re-admitted; without the hash a silent re-admission underneath this episode is undetectable.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.media_snapshot_content_hash"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/dataset-split-manifest/v1": [
+    {
+      "rule_id": "dataset_split_manifest.content_hash.commits_the_whole_revision",
+      "description": "Every field except the hash itself, committed under a domain separator — the member rows with their episode hashes and partition keys, the declared per-class counts, the enumerated membership and the leakage controls. Freezing membership means nothing if the freeze is not itself committed.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "split_manifest_id": {
+            "path": "$.split_manifest_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "members": {
+            "path": "$.members"
+          },
+          "splits": {
+            "path": "$.splits"
+          },
+          "all_member_episode_revision_refs": {
+            "path": "$.all_member_episode_revision_refs"
+          },
+          "member_count": {
+            "path": "$.member_count"
+          },
+          "membership_is_immutable": {
+            "path": "$.membership_is_immutable"
+          },
+          "leakage_controls": {
+            "path": "$.leakage_controls"
+          },
+          "registry_status": {
+            "path": "$.registry_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "manifest_selects_no_evaluation_evidence_for_its_own_producer": {
+            "path": "$.manifest_selects_no_evaluation_evidence_for_its_own_producer"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.splits.membership_is_an_exact_partition",
+      "description": "THE EXCLUSIVITY RULE. The enumerated membership must be covered EXACTLY by the per-episode rows — same members, same count. Because coverage compares lengths as well as members, an episode assigned to two splits makes the covering long and refuses, and an episode assigned to none makes it short and refuses. Silence is inadmissible here for the same reason it is in the view's use algebra: an omitted member is a leak that reads as a smaller dataset.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.all_member_episode_revision_refs",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.members",
+            "field": "episode_revision_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.members.no_episode_is_a_member_twice",
+      "description": "The second, independent statement of exclusivity. Double membership is the leakage ACC-16 clause 8 names, and it is refused directly rather than inferred from a count.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.members",
+        "fields": [
+          "episode_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.splits.each_class_is_declared_once",
+      "description": "A split class declared twice would let two different member counts both look authoritative.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.splits",
+        "fields": [
+          "split_class"
+        ]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.members.count_matches_the_enumerated_set",
+      "description": "Two independent statements about one set, so a member removed from the readable list after the fact leaves the count disagreeing.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.all_member_episode_revision_refs",
+        "count_path": "$.member_count"
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.leakage.training_ends_before_the_temporal_cut",
+      "description": "FUTURE-FRAME LEAKAGE REFUSES. The latest training tick must fall strictly before the temporal cut; an inverted or equal comparison is exactly the mutation ACC-16 clause 8 requires to fail.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": [
+          "$.leakage_controls.max_train_tick",
+          "$.leakage_controls.temporal_cut_tick"
+        ]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut",
+      "description": "The other half of the temporal fence: a holdout that began before the cut would be scoring the model on material it could have trained on.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.leakage_controls.temporal_cut_tick",
+          "$.leakage_controls.min_temporal_holdout_tick"
+        ]
+      }
+    },
+    {
+      "rule_id": "dataset_split_manifest.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.split_manifest_id",
+        "prefix": "split-manifest://",
+        "strip_prefix": "split-manifest://",
+        "suffix": "/revision/"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": [
+    {
+      "rule_id": "media_corpus_qualification_census.content_hash.commits_the_whole_census",
+      "description": "Every field except the hash itself, committed under a domain separator — the claimed scale and profile, the raw/accepted/rejected/deduplicated counts, every per-file disposition, the required and observed label vocabularies, the pinned floors and ceilings, and the runtime evidence. A census whose numbers can move without moving its hash is a report, not a certificate.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "corpus_census_id": {
+            "path": "$.corpus_census_id"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "claimed_scale": {
+            "path": "$.claimed_scale"
+          },
+          "profile": {
+            "path": "$.profile"
+          },
+          "corpus_content_root": {
+            "path": "$.corpus_content_root"
+          },
+          "raw": {
+            "path": "$.raw"
+          },
+          "accepted": {
+            "path": "$.accepted"
+          },
+          "rejected": {
+            "path": "$.rejected"
+          },
+          "deduplicated": {
+            "path": "$.deduplicated"
+          },
+          "file_dispositions": {
+            "path": "$.file_dispositions"
+          },
+          "profile_required_label_classes": {
+            "path": "$.profile_required_label_classes"
+          },
+          "observed_label_classes": {
+            "path": "$.observed_label_classes"
+          },
+          "floors": {
+            "path": "$.floors"
+          },
+          "ceilings": {
+            "path": "$.ceilings"
+          },
+          "runtime_evidence": {
+            "path": "$.runtime_evidence"
+          },
+          "degeneracy_findings": {
+            "path": "$.degeneracy_findings"
+          },
+          "distinct_content_hash_count": {
+            "path": "$.distinct_content_hash_count"
+          },
+          "does_not_claim_hours_scale_qualification": {
+            "path": "$.does_not_claim_hours_scale_qualification"
+          },
+          "does_not_claim_throughput_or_latency": {
+            "path": "$.does_not_claim_throughput_or_latency"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition",
+      "description": "THE PARTITION CLOSURE. One disposition row per raw file, pinned against the raw file count. A file with no disposition makes the row set short and refuses; a file counted twice makes it long and refuses. This is how the census closes arithmetically without an arithmetic operator the portable invariant language does not have.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.file_dispositions",
+        "count_path": "$.raw.file_count"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct",
+      "description": "PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5). A repeated content digest in the disposition rows is a corpus inflating its own census by restating the same bytes.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.file_dispositions",
+        "fields": [
+          "content_sha256"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.labels.every_profile_required_class_is_observed",
+      "description": "EVERY PROFILE-REQUIRED ACTION, FIELD AND EXCEPTION LABEL CLASS. The required vocabulary must be covered exactly by the observed one: a corpus missing a required class leaves the covering short and refuses, so a high label count over a narrow vocabulary cannot stand in for coverage.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.profile_required_label_classes",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.observed_label_classes"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time",
+      "description": "Accepted time after exact and near-duplicate exclusion cannot exceed the time before it. An 'after' larger than its 'before' is the arithmetic a padded corpus produces when exclusion is declared but not performed.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.accepted.seconds_after_deduplication",
+          "$.accepted.seconds_before_deduplication"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time",
+      "description": "The outer closure: no lane may accept more source time than it ingested.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.accepted.seconds_before_deduplication",
+          "$.raw.source_seconds"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling",
+      "description": "The 2 GiB ceiling, checked against the pinned value rather than a verifier constant, so a relying party holding only these bytes can check it. The ceiling is part of why the scheduled lane needs no GPU runner, object storage or metered service.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.accepted.byte_count",
+          "$.ceilings.corpus_byte_count"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.degeneracy.distinct_content_matches_the_disposition_rows",
+      "description": "The declared distinct-digest count is checked against the enumerated rows. Two independent statements about one set is what stops a repeated file being absorbed into a count nobody cross-checks.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.file_dispositions",
+        "count_path": "$.distinct_content_hash_count"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root",
+      "description": "INTERRUPTION/RESTART EQUIVALENCE IS RECORDED AS A COMPARISON, NOT A CLAIM. The two roots must be equal; a census that carried only a boolean would let a run that compared nothing report success.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.runtime_evidence.restart_equivalence.pre_restart_root",
+          "$.runtime_evidence.restart_equivalence.post_restart_root"
+        ]
+      }
+    }
   ]
 };
 
@@ -129101,4 +133183,28 @@ export function validatePolicyBoundDataViewV2(
   value: unknown,
 ): value is PolicyBoundDataViewV2 {
   return validateArchitectureContract("schema://ioi/foundations/objects/policy-bound-data-view/v2", value).ok;
+}
+
+export function validatePolicyBoundMediaSnapshotV1(
+  value: unknown,
+): value is PolicyBoundMediaSnapshotV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/policy-bound-media-snapshot/v1", value).ok;
+}
+
+export function validateObservationActionEpisodeV1(
+  value: unknown,
+): value is ObservationActionEpisodeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/observation-action-episode/v1", value).ok;
+}
+
+export function validateDatasetSplitManifestV1(
+  value: unknown,
+): value is DatasetSplitManifestV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/dataset-split-manifest/v1", value).ok;
+}
+
+export function validateMediaCorpusQualificationCensusV1(
+  value: unknown,
+): value is MediaCorpusQualificationCensusV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", value).ok;
 }

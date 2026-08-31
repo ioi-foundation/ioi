@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/dataset-split-manifest/v1",
+  "title": "DatasetSplitManifestV1",
+  "description": "FROZEN, LEAKAGE-RESISTANT MEMBERSHIP over ObservationActionEpisode revisions. Membership is carried as a FLAT row set — one row per episode, naming its split — rather than a member array per split, because exact-partition closure is then directly checkable: an episode in two splits makes the covering long and refuses, an episode in none makes it short and refuses. Distinct from the Foundry-owned `dataset-snapshot://foundry/...`, which is a flat train/validation/test shape this one does not reuse.",
+  "x-ioi-schema-version": "ioi.dataset-split-manifest.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "manifestFamilyRef": { "type": "string", "pattern": "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$" },
+    "manifestRevisionRef": { "type": "string", "pattern": "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "episodeRevisionRef": { "type": "string", "pattern": "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "ownerRef": { "type": "string", "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "principalRef": { "type": "string", "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "splitClass": { "enum": ["train", "validation", "temporal_holdout", "actor_holdout", "world_holdout", "adversarial"] },
+    "tickCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000 }
+  },
+  "required": [
+    "schema_version",
+    "split_manifest_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "members",
+    "splits",
+    "all_member_episode_revision_refs",
+    "member_count",
+    "membership_is_immutable",
+    "leakage_controls",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "manifest_selects_no_evaluation_evidence_for_its_own_producer",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.dataset-split-manifest.v1" },
+    "split_manifest_id": { "$ref": "#/$defs/manifestFamilyRef" },
+    "revision_ref": { "$ref": "#/$defs/manifestRevisionRef" },
+    "owner_ref": { "$ref": "#/$defs/ownerRef" },
+    "tenant_ref": { "$ref": "#/$defs/tenantRef" },
+    "principal_resolution": { "const": "server_resolved" },
+    "resolved_principal_ref": { "$ref": "#/$defs/principalRef" },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "description": "ONE ROW PER EPISODE. `array_unique_by_fields` over `episode_revision_ref` refuses double membership outright, and the coverage rule below refuses omission — two independent statements about one set, which is the cheapest tell that a member was moved after the fact.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["episode_revision_ref", "episode_content_hash", "split_class", "actor_partition_key", "world_partition_key", "max_tick"],
+        "properties": {
+          "episode_revision_ref": { "$ref": "#/$defs/episodeRevisionRef" },
+          "episode_content_hash": { "$ref": "#/$defs/sha256" },
+          "split_class": { "$ref": "#/$defs/splitClass" },
+          "actor_partition_key": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "world_partition_key": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "max_tick": { "$ref": "#/$defs/tickCount" }
+        }
+      }
+    },
+    "splits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "description": "The declared per-class counts. A class declared twice is refused by uniqueness; a count disagreeing with the rows is refused by the registered invariant.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["split_class", "member_count"],
+        "properties": {
+          "split_class": { "$ref": "#/$defs/splitClass" },
+          "member_count": { "type": "integer", "minimum": 0, "maximum": 100000 }
+        }
+      }
+    },
+    "all_member_episode_revision_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": { "$ref": "#/$defs/episodeRevisionRef" },
+      "description": "The enumerated membership, covered EXACTLY by the rows above. Coverage compares members and count, so both double-membership and omission refuse."
+    },
+    "member_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "membership_is_immutable": {
+      "const": true,
+      "description": "PINNED. A split manifest whose membership can move is not a holdout; it is a suggestion."
+    },
+    "leakage_controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["near_duplicate_exclusion_method", "near_duplicate_excluded_count", "temporal_cut_tick", "max_train_tick", "min_temporal_holdout_tick"],
+      "description": "ACC-16 CLAUSE 8. Near-duplicate and future-frame leakage are refused by comparison rather than declared absent: `max_train_tick < temporal_cut_tick <= min_temporal_holdout_tick`, and the actor/world partition keys must not straddle a holdout boundary.",
+      "properties": {
+        "near_duplicate_exclusion_method": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "near_duplicate_excluded_count": { "type": "integer", "minimum": 0, "maximum": 100000000 },
+        "temporal_cut_tick": { "$ref": "#/$defs/tickCount" },
+        "max_train_tick": { "$ref": "#/$defs/tickCount" },
+        "min_temporal_holdout_tick": { "$ref": "#/$defs/tickCount" }
+      }
+    },
+    "registry_status": { "enum": ["draft", "active", "suspended", "expired", "superseded", "revoked"] },
+    "admitted_at": { "$ref": "#/$defs/canonicalTimestamp" },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predecessor_revision_ref", "predecessor_content_hash"],
+      "properties": {
+        "predecessor_revision_ref": { "oneOf": [{ "$ref": "#/$defs/manifestRevisionRef" }, { "type": "null" }] },
+        "predecessor_content_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility", "downgrade_to_predecessor"],
+      "properties": {
+        "compatibility": { "const": "initial" },
+        "downgrade_to_predecessor": { "const": "refused" }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_domain"],
+      "properties": {
+        "commitment_domain": { "const": "ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1" }
+      }
+    },
+    "authority_nonclaim": { "const": "dataset_split_manifest_grants_no_authority" },
+    "manifest_selects_no_evaluation_evidence_for_its_own_producer": {
+      "const": true,
+      "description": "ACC-16's negative clause: the training process cannot select its own evaluation evidence. Independent evaluation binds this manifest by exact ref; the manifest never promotes itself."
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "title": "a genesis revision carries no predecessor",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["migration"],
+        "properties": {
+          "migration": {
+            "type": "object",
+            "required": ["compatibility"],
+            "properties": { "compatibility": { "const": "initial" } }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "succession": {
+            "type": "object",
+            "properties": {
+              "predecessor_revision_ref": { "type": "null" },
+              "predecessor_content_hash": { "type": "null" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

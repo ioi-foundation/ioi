@@ -509,3 +509,157 @@ Export does not sever inherited restrictions. The receiver gets only the rights
 and material that the bundle and its source claims admit. Revocation after an
 irreversible export records future-use restrictions and residual exposure; it
 must not rewrite history or claim remote deletion without evidence.
+
+## PolicyBoundMediaSnapshotEnvelope
+
+The immutable Data-owned snapshot of one imported recording or one
+live-demonstration segment set. Observation is not consent: this object records
+what was captured and under which rights, and grants nothing.
+
+```yaml
+PolicyBoundMediaSnapshotEnvelope:
+  media_snapshot_id: media-snapshot://...
+  revision_ref: media-snapshot://.../revision/...
+  acquisition_class: imported_recording | live_demonstration
+  capture_binding:
+    actor_ref: actor://...
+    session_ref: session://...
+    device_ref: device://...
+    environment_ref: environment://...
+    application_ref: application://... | null
+    world_revision_ref: world://.../revision/... | null
+  source_rights:
+    capture_rights_revision_ref: learning-source-rights://.../revision/...
+    learning_source_rights_claim_revision_refs:
+      - learning-source-rights://.../revision/...
+    consent_bindings:
+      - consent_ref: ... , consent_state: ... , valid_until: ...
+  policy_bound_data_view_revision_refs:
+    - view://.../revision/...
+  timebase:
+    temporal_verification_profile_ref: temporal-verification-profile://...
+    timebase_id: ...
+    clock_class: ...
+    declared_monotonic: true
+    discontinuities:
+      - kind: gap | reorder | clock_regression | rate_change
+  artifact_bindings:
+    - artifact_ref: artifact://... , sha256: hash , media_type: ...
+  availability:
+    availability_manifest_ref: availability-manifest://...
+    retention_class_ref: retention-class://...
+    verifier_contract_ref: verifier-contract://...
+  information_flow_label_refs:
+    - ifc-label://...
+  quarantine_state: pending | accepted | rejected | quarantined
+  content_hash: hash
+```
+
+A snapshot binds exact revisions, never family heads. Capture authority does not
+travel into replay, a demonstration is not consent, and an `active` ArtifactRef
+names bytes while granting no read, no replay and no current authority.
+
+## ObservationActionEpisodeEnvelope
+
+One independently bounded episode or task drawn from exactly one snapshot.
+
+```yaml
+ObservationActionEpisodeEnvelope:
+  episode_id: episode://...
+  revision_ref: episode://.../revision/...
+  media_snapshot_revision_ref: media-snapshot://.../revision/...
+  media_snapshot_content_hash: hash
+  bounds:
+    timebase_id: ...
+    start_tick: 0
+    end_tick: 0
+  streams:
+    - stream_role: observation | action | reward | label
+  synchronization:
+    frame_action_offset_ticks: 0
+    max_observed_skew_ticks: 0
+  labels:
+    - label_class: ...
+      label_provenance_class:
+        controller_recorded | operator_annotated | video_inferred |
+        model_inferred | derived
+      epistemic_status: controller_ground_truth | uncertain_attributed_label
+      is_controller_ground_truth: true | false
+  exception_labels: []
+  content_hash: hash
+```
+
+THE LOAD-BEARING RULE. A `video_inferred` or `model_inferred` label is an
+`uncertain_attributed_label` and is never controller ground truth. Recorded-video
+accuracy does not substitute for closed-loop control evidence.
+
+## DatasetSplitManifestEnvelope
+
+Frozen, leakage-resistant membership over episodes.
+
+```yaml
+DatasetSplitManifestEnvelope:
+  split_manifest_id: split-manifest://...
+  revision_ref: split-manifest://.../revision/...
+  splits:
+    - split_class:
+        train | validation | temporal_holdout | actor_holdout |
+        world_holdout | adversarial
+      member_episode_revision_refs:
+        - episode://.../revision/...
+  all_member_episode_revision_refs:
+    - episode://.../revision/...
+  membership_is_immutable: true
+  leakage_controls:
+    near_duplicate_exclusion_method: ...
+    temporal_cut_tick: 0
+    max_train_tick: 0
+    min_temporal_holdout_tick: 0
+  content_hash: hash
+```
+
+Membership is an exact partition: an episode in two splits makes the covering
+long and refuses, an episode in none makes it short and refuses.
+
+## MediaCorpusQualificationCensusEnvelope
+
+The content-addressed certificate a qualification lane emits, carrying its own
+honesty about which lane produced it.
+
+```yaml
+MediaCorpusQualificationCensusEnvelope:
+  corpus_census_id: corpus-census://.../<sha256hex>
+  claimed_scale: compact_deterministic_fixture | hours_scale_qualification
+  raw:
+    source_seconds: 0
+    file_count: 0
+    byte_count: 0
+    frame_or_sample_count: 0
+    chunk_count: 0
+  accepted:
+    seconds_before_deduplication: 0
+    seconds_after_deduplication: 0
+    bounded_episode_count: 0
+    task_count: 0
+    source_session_count: 0
+    label_count: 0
+  rejected: {...}
+  deduplicated: {...}
+  file_dispositions:
+    - content_sha256: hash
+      disposition: accepted | rejected | deduplicated
+  profile_required_label_classes: []
+  observed_label_classes: []
+  does_not_claim_hours_scale_qualification: true | false
+  content_hash: hash
+```
+
+The floors cannot shrink: at least 7200 accepted source seconds after exact and
+near-duplicate exclusion, at least 8 independently bounded episodes or tasks
+from at least 2 source sessions, and every profile-required action, field and
+exception label class observed. Padded, repeated or otherwise degenerate corpora
+refuse. The deterministic lane pins
+`does_not_claim_hours_scale_qualification: true` — an empty claim nobody can
+fill is a stronger statement than an absent field. Numeric throughput and
+latency limits are deliberately absent and wait for repeated matched
+release-host evidence and a planted slowdown.

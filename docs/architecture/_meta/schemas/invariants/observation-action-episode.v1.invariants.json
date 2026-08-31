@@ -1,0 +1,101 @@
+{
+  "$id": "invariant://ioi/foundations/objects/observation-action-episode/bounded-attributed-episode/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+  "rules": [
+    {
+      "rule_id": "observation_action_episode.content_hash.commits_the_whole_revision",
+      "description": "Every field except the hash itself, committed under a domain separator — the snapshot binding and its exact content hash, the bounds, the streams, the synchronization envelope, every label with its provenance and epistemic status, the exception labels and the determinism declaration. A relying party holding only the record recomputes it.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.observation-action-episode-content-commitment-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "episode_id": { "path": "$.episode_id" },
+          "revision_ref": { "path": "$.revision_ref" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "tenant_ref": { "path": "$.tenant_ref" },
+          "principal_resolution": { "path": "$.principal_resolution" },
+          "resolved_principal_ref": { "path": "$.resolved_principal_ref" },
+          "media_snapshot_revision_ref": { "path": "$.media_snapshot_revision_ref" },
+          "media_snapshot_content_hash": { "path": "$.media_snapshot_content_hash" },
+          "session_ref": { "path": "$.session_ref" },
+          "bounds": { "path": "$.bounds" },
+          "streams": { "path": "$.streams" },
+          "synchronization": { "path": "$.synchronization" },
+          "labels": { "path": "$.labels" },
+          "ground_truth_eligible_label_refs": { "path": "$.ground_truth_eligible_label_refs" },
+          "controller_recorded_label_refs": { "path": "$.controller_recorded_label_refs" },
+          "exception_labels": { "path": "$.exception_labels" },
+          "determinism": { "path": "$.determinism" },
+          "registry_status": { "path": "$.registry_status" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "succession": { "path": "$.succession" },
+          "migration": { "path": "$.migration" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "inferred_label_is_never_ground_truth": { "path": "$.inferred_label_is_never_ground_truth" },
+          "episode_is_not_a_skill_or_workflow": { "path": "$.episode_is_not_a_skill_or_workflow" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth",
+      "description": "THE LOAD-BEARING RULE, AND THE SECOND OF ITS THREE EXPRESSIONS. The ground-truth-eligible label set must be covered EXACTLY by the independently enumerated `controller_recorded` subset — same members, same count. A video-inferred or model-inferred label smuggled into the eligible set leaves the covering long and refuses; a controller-recorded label dropped from the subset leaves it short and refuses. Coverage compares lengths as well as members, so an equal-count substitution cannot pass. The schema conditional refuses the per-label claim and the admitting module refuses it again at runtime; no single edit defeats all three. ACC-16 clause 10 and ACC-19 clause 5.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.ground_truth_eligible_label_refs",
+        "required_paths": [],
+        "required_array_paths": ["$.controller_recorded_label_refs"]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.episode_id",
+        "prefix": "episode://",
+        "strip_prefix": "episode://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.bounds.the_episode_is_bounded_forward",
+      "description": "AN EPISODE IS AN INTERVAL, NOT A POINT OR A REVERSAL. A start tick at or after the end tick is a bound nobody can measure against, and it is the shape a reordered timebase produces when a run sorts a clock regression into order instead of retaining it.",
+      "expression": {
+        "operator": "numbers_lt",
+        "paths": ["$.bounds.start_tick", "$.bounds.end_tick"]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope",
+      "description": "TIMEBASE DRIFT REFUSES RATHER THAN ROUNDS. An observed frame/action skew beyond the declared envelope means actions are attributed to the wrong frames; absorbing it would produce a mislabel that reads as data.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": ["$.synchronization.max_observed_skew_ticks", "$.synchronization.declared_skew_envelope_ticks"]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.labels.every_label_is_distinct",
+      "description": "A repeated label ref would let one annotation be counted twice toward a required class, inflating a census over a narrower vocabulary than it claims.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.labels",
+        "fields": ["label_ref"]
+      }
+    },
+    {
+      "rule_id": "observation_action_episode.snapshot.binds_the_bytes_not_only_the_ref",
+      "description": "The bound snapshot's content hash must be present. A ref names a location that may since have been re-admitted; without the hash a silent re-admission underneath this episode is undetectable.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.media_snapshot_content_hash"
+      }
+    }
+  ]
+}

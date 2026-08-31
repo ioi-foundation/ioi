@@ -1,0 +1,159 @@
+{
+  "schema_version": "ioi.policy-bound-media-snapshot.v1",
+  "media_snapshot_id": "media-snapshot://acme.support-desk",
+  "revision_ref": "media-snapshot://acme.support-desk/revision/1",
+  "owner_ref": "owner://acme",
+  "tenant_ref": "tenant://acme",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "principal://acme.capture-operator",
+  "acquisition_class": "imported_recording",
+  "capture_binding": {
+    "actor_ref": "actor://acme.operator-01",
+    "session_ref": "session://acme.desk-2026-08-31-a",
+    "device_ref": "device://acme.workstation-07",
+    "environment_ref": "environment://acme.support-sandbox/revision/4",
+    "application_ref": "application://acme.ticket-console/revision/2",
+    "world_revision_ref": null
+  },
+  "source_rights": {
+    "capture_rights_revision_ref": "learning-source-rights://acme.desk-capture/revision/3",
+    "learning_source_rights_claim_revision_refs": [
+      "learning-source-rights://acme.desk-capture/revision/3",
+      "learning-source-rights://acme.secondary-use/revision/2"
+    ],
+    "consent_bindings": [
+      {
+        "consent_ref": "consent://acme.operator-01/2026-08",
+        "consent_state": "active",
+        "consent_subject_ref": "principal://acme.operator-01",
+        "valid_until": "2027-08-31T00:00:00Z"
+      }
+    ],
+    "permits_learned_use": true
+  },
+  "policy_bound_data_view_revision_refs": [],
+  "timebase": {
+    "temporal_verification_profile_ref": "temporal-verification-profile://acme.wallet-anchored/v1",
+    "profile_hash": "sha256:aa53c8d53440d430cef75cce13bc9b46f61a659a7b2fac69948251d29589abd8",
+    "timebase_id": "acme-desk-tb-1",
+    "clock_class": "authenticated_wallet_time",
+    "epoch_ref": "epoch://acme.desk-2026-08-31",
+    "tick_unit": "millisecond",
+    "declared_monotonic": true,
+    "discontinuities": [
+      {
+        "kind": "gap",
+        "at_tick": 412000,
+        "span_ticks": 1800,
+        "evidence_ref": "artifact://acme.desk/gap-1"
+      },
+      {
+        "kind": "rate_change",
+        "at_tick": 905000,
+        "span_ticks": 60,
+        "evidence_ref": "artifact://acme.desk/rate-1"
+      }
+    ]
+  },
+  "valid_time": {
+    "from": "2026-08-31T09:00:00Z",
+    "to": "2026-08-31T11:30:00Z"
+  },
+  "artifact_bindings": [
+    {
+      "artifact_ref": "artifact://acme.desk/recording-a",
+      "sha256": "sha256:38c1abf2af27afbe4331e8e8b5f7441ac973c93c886c5c299df093180af6c6ba",
+      "media_type": "video/mp4",
+      "size_bytes": 51200000,
+      "manifest_root": "sha256:b6fd458a7205924b78c0b1bcc6730fc69ee72e093dd49f56e106479057f9441d",
+      "role": "recording"
+    },
+    {
+      "artifact_ref": "artifact://acme.desk/control-a",
+      "sha256": "sha256:a25167a73735aff902ee11e46645c74f4f0fc96a45073fefcedb66639edacaf4",
+      "media_type": "application/jsonl",
+      "size_bytes": 240000,
+      "manifest_root": "sha256:6dec476472bd90854057c2a67a6bc6dc639bdc9ae4c4516ef5886bbacba1d82e",
+      "role": "control_stream"
+    }
+  ],
+  "availability": {
+    "availability_manifest_ref": "availability-manifest://acme.desk/1",
+    "retention_class_ref": "retention-class://bounded_retention",
+    "verifier_contract_ref": "verifier-contract://ioi/media-snapshot/v1",
+    "failure_behavior": "fail_closed"
+  },
+  "information_flow_label_refs": [
+    "ifc-label://acme/internal"
+  ],
+  "quarantine": {
+    "quarantine_state": "accepted",
+    "pii_decision_receipt_refs": [
+      "receipt://acme.pii/desk-1"
+    ],
+    "rejected_segment_count": 3
+  },
+  "redaction": {
+    "recipe_revision_ref": "data-recipe://acme.desk-redaction/revision/2",
+    "creates_permission": false,
+    "severs_lineage": false,
+    "source_privacy_class": "confidential",
+    "output_privacy_class": "confidential"
+  },
+  "deduplication": {
+    "exact_key_algorithm": "jcs_sha256",
+    "near_duplicate_method": "perceptual-frame-hash-hamming-8",
+    "excluded_count": 11
+  },
+  "quality_findings": [
+    {
+      "finding_class": "truncated_file",
+      "severity": "refused",
+      "evidence_ref": "artifact://acme.desk/trunc-1"
+    }
+  ],
+  "source_impact_lineage": {
+    "data_recipe_revision_refs": [
+      "data-recipe://acme.desk-redaction/revision/2"
+    ],
+    "connector_mapping_revision_refs": [
+      "mapping://acme.desk-ingest/revision/1"
+    ],
+    "transformation_run_revision_refs": [
+      "transformation-run://acme.desk-normalize/revision/7"
+    ]
+  },
+  "raw_census": {
+    "source_seconds": 9000,
+    "file_count": 5,
+    "byte_count": 71000000,
+    "frame_or_sample_count": 270000,
+    "chunk_count": 900
+  },
+  "accepted_census": {
+    "source_seconds": 8100,
+    "file_count": 2,
+    "byte_count": 51440000,
+    "frame_or_sample_count": 243000,
+    "chunk_count": 810
+  },
+  "registry_status": "active",
+  "admitted_at": "2026-08-31T12:00:00Z",
+  "succession": {
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null
+  },
+  "migration": {
+    "compatibility": "initial",
+    "downgrade_to_predecessor": "refused"
+  },
+  "constants": {
+    "commitment_domain": "ioi.policy-bound-media-snapshot-content-commitment-jcs-sha256.v1"
+  },
+  "authority_nonclaim": "policy_bound_media_snapshot_grants_no_authority",
+  "artifact_authority": "none — an active ArtifactRef names bytes and grants no read, no replay, no current authority",
+  "capture_authority_does_not_travel_into_replay": true,
+  "demonstration_is_not_consent": true,
+  "snapshot_is_not_a_skill_or_workflow": true,
+  "content_hash": "sha256:75facd0352e66e5efc27e2b5b739193069bb6a31c933eb85b4e5d5715a31e14b"
+}

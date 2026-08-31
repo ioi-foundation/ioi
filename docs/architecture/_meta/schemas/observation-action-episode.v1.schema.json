@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/observation-action-episode/v1",
+  "title": "ObservationActionEpisodeV1",
+  "description": "ONE INDEPENDENTLY BOUNDED episode or task, drawn from exactly one PolicyBoundMediaSnapshot revision. THE LOAD-BEARING RULE OF THIS CONTRACT: a video-inferred or model-inferred action label remains an UNCERTAIN ATTRIBUTED LABEL and never silently becomes controller ground truth. That rule is expressed three ways so no single edit defeats it — a schema conditional here, a registered coverage invariant beside it, and a runtime refusal in the admitting module. Recorded-video accuracy cannot substitute for closed-loop control evidence (ACC-16 clause 10, ACC-19 clause 5).",
+  "x-ioi-schema-version": "ioi.observation-action-episode.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "episodeFamilyRef": { "type": "string", "pattern": "^episode://[a-z0-9][a-z0-9._-]{0,127}$" },
+    "episodeRevisionRef": { "type": "string", "pattern": "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "snapshotRevisionRef": { "type": "string", "pattern": "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "ownerRef": { "type": "string", "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "principalRef": { "type": "string", "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "tickCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+    "labelClassRef": { "type": "string", "pattern": "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$" }
+  },
+  "required": [
+    "schema_version",
+    "episode_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "media_snapshot_revision_ref",
+    "media_snapshot_content_hash",
+    "session_ref",
+    "bounds",
+    "streams",
+    "synchronization",
+    "labels",
+    "ground_truth_eligible_label_refs",
+    "controller_recorded_label_refs",
+    "exception_labels",
+    "determinism",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "inferred_label_is_never_ground_truth",
+    "episode_is_not_a_skill_or_workflow",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.observation-action-episode.v1" },
+    "episode_id": { "$ref": "#/$defs/episodeFamilyRef" },
+    "revision_ref": { "$ref": "#/$defs/episodeRevisionRef" },
+    "owner_ref": { "$ref": "#/$defs/ownerRef" },
+    "tenant_ref": { "$ref": "#/$defs/tenantRef" },
+    "principal_resolution": { "const": "server_resolved" },
+    "resolved_principal_ref": { "$ref": "#/$defs/principalRef" },
+    "media_snapshot_revision_ref": {
+      "$ref": "#/$defs/snapshotRevisionRef",
+      "description": "The EXACT snapshot revision this episode was cut from — never a family head."
+    },
+    "media_snapshot_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "THE BYTES, NOT JUST THE REF. A ref names a location that may since have been re-admitted; the hash names what was actually bound, so a silent re-admission underneath this episode is detectable offline."
+    },
+    "session_ref": {
+      "type": "string",
+      "pattern": "^session://[a-z0-9][a-z0-9._:-]{0,190}$",
+      "description": "Invariant-equal to the snapshot's. Session is Hypervisor-substrate-owned; M05.9 binds it by ref and owns no session object."
+    },
+    "bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timebase_id", "start_tick", "end_tick", "boundary_evidence_ref"],
+      "description": "INDEPENDENTLY BOUNDED. `timebase_id` is invariant-equal to the snapshot's: an episode that inherited a different timebase would be measuring its own bounds on a clock nobody declared.",
+      "properties": {
+        "timebase_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+        "start_tick": { "$ref": "#/$defs/tickCount" },
+        "end_tick": { "$ref": "#/$defs/tickCount" },
+        "boundary_evidence_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+      }
+    },
+    "streams": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stream_role", "schema_ref", "channel", "sample_count", "sync_evidence_ref"],
+        "properties": {
+          "stream_role": { "enum": ["observation", "action", "reward", "label"] },
+          "schema_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "channel": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "sample_count": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
+          "sync_evidence_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "synchronization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "frame_action_offset_ticks", "max_observed_skew_ticks", "declared_skew_envelope_ticks"],
+      "description": "FRAME/ACTION SYNCHRONIZATION. Observed skew beyond the declared envelope is a refusal, not a rounding: an action attributed to the wrong frame is a mislabel that reads as data.",
+      "properties": {
+        "method": { "enum": ["shared_timebase", "clapper_marker", "control_stream_correlation", "declared_offset"] },
+        "frame_action_offset_ticks": { "type": "integer", "minimum": -1000000000, "maximum": 1000000000 },
+        "max_observed_skew_ticks": { "$ref": "#/$defs/tickCount" },
+        "declared_skew_envelope_ticks": { "$ref": "#/$defs/tickCount" }
+      }
+    },
+    "labels": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "description": "Every label carries its own provenance and epistemic status. `attributed_to_ref` is who or what asserted it; `corrected_by_ref` is the governed correction that superseded it, retained rather than overwritten (ACC-16 clause 12).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label_ref", "label_class", "value_ref", "label_provenance_class", "epistemic_status", "is_controller_ground_truth", "confidence", "uncertainty_kind", "attributed_to_ref", "corrected_by_ref"],
+        "properties": {
+          "label_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "label_class": { "$ref": "#/$defs/labelClassRef" },
+          "value_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "label_provenance_class": {
+            "enum": ["controller_recorded", "operator_annotated", "video_inferred", "model_inferred", "derived"],
+            "description": "WHERE THE LABEL CAME FROM. `controller_recorded` is the only class an admitted controller stream can support; the rest are attributions."
+          },
+          "epistemic_status": { "enum": ["controller_ground_truth", "uncertain_attributed_label"] },
+          "is_controller_ground_truth": { "type": "boolean" },
+          "confidence": { "oneOf": [{ "type": "number", "minimum": 0, "maximum": 1 }, { "type": "null" }] },
+          "uncertainty_kind": { "enum": ["none", "measurement", "model", "annotation", "ambiguous_reference", "incomplete_evidence"] },
+          "attributed_to_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "corrected_by_ref": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 320 }, { "type": "null" }] }
+        },
+        "allOf": [
+          {
+            "title": "an inferred label is an uncertain attributed label and is never controller ground truth",
+            "type": "object",
+            "if": {
+              "type": "object",
+              "required": ["label_provenance_class"],
+              "properties": { "label_provenance_class": { "enum": ["video_inferred", "model_inferred"] } }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "epistemic_status": { "const": "uncertain_attributed_label" },
+                "is_controller_ground_truth": { "const": false }
+              }
+            }
+          },
+          {
+            "title": "only a controller-recorded label may claim controller ground truth",
+            "type": "object",
+            "if": {
+              "type": "object",
+              "required": ["is_controller_ground_truth"],
+              "properties": { "is_controller_ground_truth": { "const": true } }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "label_provenance_class": { "const": "controller_recorded" },
+                "epistemic_status": { "const": "controller_ground_truth" }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "ground_truth_eligible_label_refs": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "type": "string", "minLength": 1, "maxLength": 320 },
+      "description": "The label set this episode offers as controller ground truth. A registered coverage invariant requires it to be covered EXACTLY by the `controller_recorded` subset — a video-inferred label smuggled in leaves the covering long and refuses, and a controller label omitted leaves it short and refuses."
+    },
+    "controller_recorded_label_refs": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "type": "string", "minLength": 1, "maxLength": 320 },
+      "description": "The `controller_recorded` subset, enumerated independently so the coverage above compares two statements rather than one statement with itself."
+    },
+    "exception_labels": {
+      "type": "array",
+      "maxItems": 10000,
+      "description": "The closed exception vocabulary. An exception class outside it is refused rather than filed under `other`.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["exception_class", "at_tick", "evidence_ref"],
+        "properties": {
+          "exception_class": { "enum": ["operator_abort", "controller_disconnect", "environment_fault", "policy_refusal", "timeout", "out_of_scope_action", "ambiguous_intent"] },
+          "at_tick": { "$ref": "#/$defs/tickCount" },
+          "evidence_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["determinism_class", "preprocessor_code_root", "preprocessor_config_root", "declared_randomness_seed"],
+      "description": "ACC-16 CLAUSE 7. Identical admitted inputs replay under the declared determinism class; a changed preprocessor produces a SUCCESSOR rather than a run that resolves differently and reports success.",
+      "properties": {
+        "determinism_class": { "enum": ["bitwise_deterministic", "seeded_deterministic", "nondeterministic_declared"] },
+        "preprocessor_code_root": { "$ref": "#/$defs/sha256" },
+        "preprocessor_config_root": { "$ref": "#/$defs/sha256" },
+        "declared_randomness_seed": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 128 }, { "type": "null" }] }
+      }
+    },
+    "registry_status": { "enum": ["draft", "active", "suspended", "expired", "superseded", "revoked"] },
+    "admitted_at": { "$ref": "#/$defs/canonicalTimestamp" },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predecessor_revision_ref", "predecessor_content_hash"],
+      "properties": {
+        "predecessor_revision_ref": { "oneOf": [{ "$ref": "#/$defs/episodeRevisionRef" }, { "type": "null" }] },
+        "predecessor_content_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility", "downgrade_to_predecessor"],
+      "properties": {
+        "compatibility": { "const": "initial" },
+        "downgrade_to_predecessor": { "const": "refused" }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_domain"],
+      "properties": {
+        "commitment_domain": { "const": "ioi.observation-action-episode-content-commitment-jcs-sha256.v1" }
+      }
+    },
+    "authority_nonclaim": { "const": "observation_action_episode_grants_no_authority" },
+    "inferred_label_is_never_ground_truth": { "const": true },
+    "episode_is_not_a_skill_or_workflow": { "const": true },
+    "content_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "title": "a genesis revision carries no predecessor",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["migration"],
+        "properties": {
+          "migration": {
+            "type": "object",
+            "required": ["compatibility"],
+            "properties": { "compatibility": { "const": "initial" } }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "succession": {
+            "type": "object",
+            "properties": {
+              "predecessor_revision_ref": { "type": "null" },
+              "predecessor_content_hash": { "type": "null" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
