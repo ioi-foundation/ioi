@@ -180,7 +180,7 @@ function evaluateRule(rule, document) {
     case "array_length_equals":
       return asArray(e.array_path).length === pointer(document, e.count_path);
     case "array_unique_by_fields": {
-      const keys = asArray(e.array_path).map((row) => e.fields.map((f) => row?.[f]).join(" "));
+      const keys = asArray(e.array_path).map((row) => e.fields.map((f) => row?.[f]).join("\0"));
       return new Set(keys).size === keys.length;
     }
     case "array_contains_value":

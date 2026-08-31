@@ -207,11 +207,11 @@ const RECORDED_PLANE = {
   "odk-connector-mappings": { admits: ["hypervisor_daemon_routes/connector_mapping_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_mapping_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-connector-session-receipts": { admits: ["hypervisor_daemon_routes/connector_session_routes.rs"], touches: ["hypervisor_daemon_routes/connector_session_routes.rs"] },
   "odk-connector-sessions": { admits: ["hypervisor_daemon_routes/connector_session_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_session_routes.rs"] },
-  "odk-data-recipes": { admits: [], touches: ["hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
-  "odk-domain-ontologies": { admits: ["hypervisor_daemon_routes/odk_routes.rs"], touches: ["hypervisor_daemon_routes/connector_mapping_routes.rs", "hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
+  "odk-data-recipes": { admits: [], touches: ["hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
+  "odk-domain-ontologies": { admits: ["hypervisor_daemon_routes/odk_routes.rs"], touches: ["hypervisor_daemon_routes/connector_mapping_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
   "odk-manifest": { admits: [], touches: ["hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-manifest://": { admits: [], touches: ["hypervisor_daemon_routes/odk_routes.rs"] },
-  "odk-manifests": { admits: [], touches: ["hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs", "hypervisor_daemon_routes/package_registry_routes.rs"] },
+  "odk-manifests": { admits: [], touches: ["hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-materialized-object-sets": { admits: ["hypervisor_daemon_routes/connector_execution_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/ontology_workbench_routes.rs", "hypervisor_daemon_routes/orchestration_routes.rs"] },
   "odk-materializing-run-receipts": { admits: ["hypervisor_daemon_routes/materializing_run_routes.rs"], touches: ["hypervisor_daemon_routes/materializing_run_routes.rs"] },
   "odk-materializing-runs": { admits: ["hypervisor_daemon_routes/materializing_run_routes.rs"], touches: ["hypervisor_daemon_routes/connector_execution_routes.rs", "hypervisor_daemon_routes/connector_session_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs"] },
@@ -223,7 +223,7 @@ const RECORDED_PLANE = {
   "odk-policy-bound-data-view-receipts": { admits: [], touches: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"] },
   "odk-policy-bound-data-views": { admits: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-saved-object-sets": { admits: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"], touches: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
-  "odk-surface-descriptors": { admits: [], touches: ["hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
+  "odk-surface-descriptors": { admits: [], touches: ["hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-transformation-run-receipts": { admits: ["hypervisor_daemon_routes/transformation_run_routes.rs"], touches: ["hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-transformation-runs": { admits: ["hypervisor_daemon_routes/transformation_run_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
 };
@@ -405,10 +405,8 @@ const PINNED = {
   // ontology terms/revisions through M05.1's published reader. This unchanged owner/admitter census
   // is the load-bearing result; the token/bucket increases merely keep traversal reach explicit.
   //
-  // M05.7 re-derivation (2026-08-31). THIS GATE WAS ALREADY RED AT THE BRANCH POINT, and the
-  // distinction matters, so it is measured and recorded before this unit's own delta rather than
-  // folded into it. Measured at `dbce74ba4` on an UNTOUCHED tree, before a byte of M05.7 runtime
-  // was written: 22/27, with five standing failures —
+  // M05.6/M05.7 integration re-derivation (2026-08-31). The M05.7 writer first measured the
+  // untouched `dbce74ba4` branch point at 22/27, proving five failures predated its runtime work:
   //
   //   * `opaque-initialiser` 2327 against a pin of 2280,
   //   * 137,055 source tokens against 135,713, and 279 family-resolving token positions against 288,
@@ -418,30 +416,18 @@ const PINNED = {
   //     `odk-manifests` no longer named by `package_registry_routes.rs`), and
   //   * 282 family mentions against 291.
   //
-  // Those five are INHERITED — the M05.6 commit that stopped `domain_apps_routes.rs` naming those
-  // families did not re-derive them — and they are DELIBERATELY LEFT AS THEY STAND. Re-deriving a
-  // number this unit did not move would let this commit absorb another commit's drift as its own,
-  // which is the exact failure mode the M06 row above records and refuses.
-  //
-  // What M05.7 itself moves is ONE pin, and it is the one re-derived here.
-  // `data_transformation_routes.rs` joins the reachable graph: +1 module, 105 -> 106. Against the
-  // already-red baselines it also adds 1,261 source tokens (137,055 -> 138,316) and 74 opaque
-  // initialisers (2327 -> 2401), which are recorded here and NOT repinned, because repinning them
-  // is what would silently swallow the inherited drift they sit on top of.
-  //
-  // The load-bearing result is what does NOT move: family mentions (282), judged family-resolving
-  // token positions (279), production filesystem calls (234), `include_str!` (81) and all three
-  // writer buckets are IDENTICAL either side of this unit. The new module names no ODK record
-  // family at all — it deliberately does not read the v1 record directories, which is why its
-  // v1 convergence takes caller-supplied predecessor bytes and carries an explicit custody
-  // nonclaim — and it persists solely through the shared owner-scoped Agentgres mutation boundary,
-  // resolving exact ontology revisions through M05.1's published reader. It mints no second
-  // admitter and moves no owner/admitter edge. After this re-derivation the gate returns to its
-  // inherited 22/27 rather than to green, which is the honest position.
+  // The integrator re-derived those M05.6 removals explicitly rather than silently inheriting the
+  // stale map: `domain_apps_routes.rs` no longer names four ODK families and
+  // `package_registry_routes.rs` no longer names manifests. This accounts for the nine fewer
+  // family mentions/resolving positions and the three additional registered-schema `include_str!`
+  // reads. Against that corrected baseline, `data_transformation_routes.rs` adds one reachable
+  // module, 1,261 source tokens and 74 opaque initialisers. It names no ODK record family and
+  // writes no file: all three M05.7 families persist through the shared owner-scoped Agentgres
+  // mutation boundary. The three writer buckets and 234 production filesystem calls remain exact.
   modules: 106,
-  familyMentions: 291,
-  tokenMentions: 135713,
-  judgedTokenPositions: 288,
+  familyMentions: 282,
+  tokenMentions: 138316,
+  judgedTokenPositions: 279,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
   /**
@@ -461,15 +447,15 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4339,
-    "opaque-initialiser": 2280,
+    "foreign-qualified": 4380,
+    "opaque-initialiser": 2401,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 78, dataBytes: 0, dataOpaqueArg: 13 },
+  includes: { splicedCode: 0, dataStr: 81, dataBytes: 0, dataOpaqueArg: 13 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
   compileAssembly: { production: 0, test: 15 },
 };
