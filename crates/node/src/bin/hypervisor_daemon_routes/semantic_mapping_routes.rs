@@ -1017,21 +1017,33 @@ fn projection_cache_state(cache_key: &str, lineage: &[Value]) -> &'static str {
 
 // ---------------------------------------------------------------------------------- read path helpers
 
-/// The projected revisions AND the true head of the stream they came from.
+/// One authorized read of a family's canonical stream: the projected revisions, AND the two facts
+/// about the STREAM those revisions were projected from.
 ///
-/// THE TWO ARE NOT THE SAME THING, and conflating them is a real defect this gate caught. A challenge
-/// is its own operation on this family's stream, so after one is admitted the stream head is the
-/// CHALLENGE's head while the last REVISION still carries the older one. Exact-head admission is
-/// about the chain, so every compare-and-swap below names the stream head; deriving it from the last
-/// revision would make the second challenge — and every successor after any challenge — conflict
-/// forever.
-fn read_lineage_and_head(
+/// THE REVISIONS AND THE STREAM ARE NOT THE SAME THING, and conflating them is a real defect this
+/// gate caught twice. A challenge is its own operation on this family's stream, so after one is
+/// admitted the stream head is the CHALLENGE's head while the last REVISION still carries the older
+/// one. That cost an exact-head bug the first time; the second time it meant a refusal could append
+/// a bad operation and no revision-shaped observable could see it. Both facts come from the SAME
+/// `read_owner_scoped_history` call the projection is built from — never from the process-local
+/// cache, which is not an answer source and would make "nothing was appended" a statement about a
+/// cache rather than about the chain.
+struct ChainRead {
+    lineage: Vec<Value>,
+    /// The head of the LAST operation of any kind, which is what every compare-and-swap names.
+    stream_head: Option<String>,
+    /// Every operation on this family's stream, of every kind — revisions, challenges, resolutions.
+    /// A refusal that appended nothing leaves this exactly where it was.
+    operation_count: usize,
+}
+
+fn read_chain(
     family: Family,
     data_dir: &str,
     identity: &RequestIdentity,
     scope: &RequestResourceScope,
     family_ref: &str,
-) -> Result<(Vec<Value>, Option<String>), Reply> {
+) -> Result<ChainRead, Reply> {
     let history = read_owner_scoped_history(
         data_dir,
         identity,
@@ -1043,6 +1055,7 @@ fn read_lineage_and_head(
     )
     .map_err(mutation_refusal_reply)?;
     let stream_head = history.last().map(|entry| entry.head.clone());
+    let operation_count = history.len();
     let lineage = project_lineage(family, &history, family_ref).map_err(|reason| {
         bad(
             StatusCode::BAD_GATEWAY,
@@ -1050,7 +1063,22 @@ fn read_lineage_and_head(
             reason,
         )
     })?;
-    Ok((lineage, stream_head))
+    Ok(ChainRead {
+        lineage,
+        stream_head,
+        operation_count,
+    })
+}
+
+fn read_lineage_and_head(
+    family: Family,
+    data_dir: &str,
+    identity: &RequestIdentity,
+    scope: &RequestResourceScope,
+    family_ref: &str,
+) -> Result<(Vec<Value>, Option<String>), Reply> {
+    read_chain(family, data_dir, identity, scope, family_ref)
+        .map(|read| (read.lineage, read.stream_head))
 }
 
 fn read_lineage(
@@ -1060,7 +1088,7 @@ fn read_lineage(
     scope: &RequestResourceScope,
     family_ref: &str,
 ) -> Result<Vec<Value>, Reply> {
-    read_lineage_and_head(family, data_dir, identity, scope, family_ref).map(|(lineage, _)| lineage)
+    read_chain(family, data_dir, identity, scope, family_ref).map(|read| read.lineage)
 }
 
 fn authorized_lineage(
@@ -3570,10 +3598,11 @@ async fn handle_query(
         Ok(scope) => scope,
         Err(error) => return scope_refusal_reply(error),
     };
-    let lineage = match read_lineage(family, &st.data_dir, &identity, &scope, &family_ref) {
-        Ok(lineage) => lineage,
+    let chain = match read_chain(family, &st.data_dir, &identity, &scope, &family_ref) {
+        Ok(chain) => chain,
         Err(response) => return response,
     };
+    let lineage = chain.lineage;
     let index_state = projection_cache_state(&projection_cache_key(&scope, &family_ref), &lineage);
 
     // TRANSACTION-TIME travel first: it decides which revisions had been RECORDED yet.
@@ -3639,6 +3668,14 @@ async fn handle_query(
             .and_then(|document| document.pointer("/admission/admission_head"))
             .cloned()
             .unwrap_or(Value::Null),
+        // THE STREAM, NOT THE REVISIONS. `current_head` and the counts above are about admitted
+        // REVISIONS; a challenge or a resolution is its own operation and moves neither. Without
+        // these two a consumer cannot tell "that refusal appended nothing" from "that refusal
+        // appended something no revision-shaped view can see", which is the difference between a
+        // refusal and a silent write. Both are read off the SAME authorized chain read the records
+        // came from — the process-local cache is reported separately below and is never an answer.
+        "stream_head": chain.stream_head.clone().map_or(Value::Null, Value::String),
+        "stream_operation_count": chain.operation_count,
         // POSITIVE detection of the rebuild. An unchanged answer is also consistent with a cache that
         // was never dropped, which would prove nothing; this reports which of the two happened.
         "projection_index_state": index_state,

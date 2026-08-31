@@ -389,6 +389,11 @@ async function chainState(route, query) {
   return {
     head: response.j?.current_head ?? null,
     count: response.j?.lineage_revision_count ?? -1,
+    // THE STREAM, not the revisions. A challenge and a resolution are operations that move neither
+    // `current_head` nor the revision count, so a refusal that appended one would be invisible to
+    // the pair above. These two come off the same authorized chain read the records did.
+    streamHead: response.j?.stream_head ?? null,
+    streamOps: response.j?.stream_operation_count ?? -1,
     status: response.status,
     j: response.j,
   };
@@ -1062,6 +1067,11 @@ async function runChallenges(ctx) {
     `status ${v1Envelope.status} code ${code(v1Envelope.j)}`,
   );
 
+  // Bracket the orphan challenge with two reads of the CANONICAL STREAM. The typed 404 below says
+  // the route answered a refusal; only these two say the chain never took the write. They are
+  // separate claims and are asserted separately: a refusal that appends is a silent write wearing an
+  // error code.
+  const orphanBefore = await chainState(XW, xwQuery);
   const orphan = await req("POST", XWC, {
     owner_ref: "org://local",
     idempotency_key: "m052-challenge-orphan",
@@ -1071,11 +1081,20 @@ async function runChallenges(ctx) {
     challenge_kind: "mapping",
     adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
   });
+  const orphanAfter = await chainState(XW, xwQuery);
   ok(
     "CHALLENGE REFUSES: a challenge against a revision this family never admitted would leave a permanently dangling standing nobody can resolve",
     orphan.status === 404 &&
       code(orphan.j) === "ontology_mapping_challenged_revision_absent",
     `status ${orphan.status} code ${code(orphan.j)}`,
+  );
+  ok(
+    "CHALLENGE REFUSES BY EFFECT: the absent-subject challenge APPENDED NOTHING — the canonical owner stream's head and operation count are identical either side of it, which no revision-shaped view could have shown",
+    orphanBefore.streamOps > 0 &&
+      orphanAfter.streamOps === orphanBefore.streamOps &&
+      orphanAfter.streamHead === orphanBefore.streamHead &&
+      orphanBefore.streamHead !== null,
+    `ops ${orphanBefore.streamOps} -> ${orphanAfter.streamOps}; head ${String(orphanBefore.streamHead).slice(0, 20)} -> ${String(orphanAfter.streamHead).slice(0, 20)}`,
   );
 
   const prematureResolve = await req("POST", XWC, {
@@ -1125,6 +1144,20 @@ async function runChallenges(ctx) {
     "CHALLENGE: admitting a challenge is not an adjudication, and the response says so",
     opened.j?.verdict_nonclaim === "ontology_mapping_challenge_admission_is_not_an_adjudication",
     opened.j?.verdict_nonclaim ?? "",
+  );
+
+  // THE POSITIVE CONTROL for the by-effect claim above. "Nothing was appended" is only evidence if
+  // the observable moves when something IS appended — a field pinned to a constant would satisfy the
+  // orphan assertion vacuously. A real challenge advances the STREAM while leaving the REVISION
+  // count exactly where it was, which is also the clearest statement of why the two are different
+  // observables.
+  const afterRealChallenge = await chainState(XW, xwQuery);
+  ok(
+    "STREAM OBSERVABLE IS LIVE: a REAL admitted challenge advances the stream head and operation count while the revision count does not move — so 'appended nothing' is a claim about the chain, not about a constant",
+    afterRealChallenge.streamOps === orphanAfter.streamOps + 1 &&
+      afterRealChallenge.streamHead !== orphanAfter.streamHead &&
+      afterRealChallenge.count === orphanAfter.count,
+    `ops ${orphanAfter.streamOps} -> ${afterRealChallenge.streamOps}; revisions ${orphanAfter.count} -> ${afterRealChallenge.count}`,
   );
 
   const duplicate = await req("POST", XWC, {
@@ -1974,7 +2007,7 @@ const MUTANTS = [
     find: "    let Some(subject) = lineage\n        .iter()\n        .find(|document| ordinal_of(document) == coordinates.ordinal)\n        .cloned()\n    else {\n        return bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_mapping_challenged_revision_absent\",",
     replace: "    let Some(subject) = lineage\n        .iter()\n        .find(|document| ordinal_of(document) == coordinates.ordinal)\n        .cloned()\n        .or_else(|| lineage.last().cloned())\n    else {\n        return bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_mapping_challenged_revision_absent\",",
     target:
-      "CHALLENGE REFUSES: a challenge against a revision this family never admitted would leave a permanently dangling standing nobody can resolve",
+      "CHALLENGE REFUSES BY EFFECT: the absent-subject challenge APPENDED NOTHING — the canonical owner stream's head and operation count are identical either side of it, which no revision-shaped view could have shown",
   },
 
 ];
