@@ -1,0 +1,296 @@
+{
+  "$id": "invariant://ioi/foundations/objects/model-route-rights-contract/fail-closed-route-rights/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+  "rules": [
+    {
+      "rule_id": "model_route_rights_contract.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the route binding, the use partition, the destination ceiling and the revocation block. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, which is what lets an egress receipt bind this revision and mean it.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.model-route-rights-contract-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "model_route_rights_contract_id": {
+            "path": "$.model_route_rights_contract_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "credential_principal_ref": {
+            "path": "$.credential_principal_ref"
+          },
+          "route_binding": {
+            "path": "$.route_binding"
+          },
+          "purposes": {
+            "path": "$.purposes"
+          },
+          "data_classes": {
+            "path": "$.data_classes"
+          },
+          "declared_route_use_vocabulary": {
+            "path": "$.declared_route_use_vocabulary"
+          },
+          "permitted_route_uses": {
+            "path": "$.permitted_route_uses"
+          },
+          "prohibited_route_uses": {
+            "path": "$.prohibited_route_uses"
+          },
+          "declared_prohibited_route_uses": {
+            "path": "$.declared_prohibited_route_uses"
+          },
+          "unresolved_route_uses": {
+            "path": "$.unresolved_route_uses"
+          },
+          "unresolved_rights_findings": {
+            "path": "$.unresolved_rights_findings"
+          },
+          "destination_and_egress": {
+            "path": "$.destination_and_egress"
+          },
+          "customer_output_rights": {
+            "path": "$.customer_output_rights"
+          },
+          "provider_use_of_customer_material": {
+            "path": "$.provider_use_of_customer_material"
+          },
+          "retention_posture": {
+            "path": "$.retention_posture"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "commercial_terms_refs": {
+            "path": "$.commercial_terms_refs"
+          },
+          "technical_terms_refs": {
+            "path": "$.technical_terms_refs"
+          },
+          "fallback_substitution": {
+            "path": "$.fallback_substitution"
+          },
+          "validity": {
+            "path": "$.validity"
+          },
+          "revocation": {
+            "path": "$.revocation"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. Nothing in the schema alone stops a revision of one provider's terms from being filed under another provider's contract id, and a route resolving the family would then read terms that never governed it. This rule requires `revision_ref` to begin with the contract id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.model_route_rights_contract_id",
+        "prefix": "model-route-rights://",
+        "strip_prefix": "model-route-rights://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.vocabulary.is_the_whole_closed_set",
+      "description": "The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set. A contract that dropped `oem_or_reseller_use` from its vocabulary could partition the remainder perfectly and never decide resale at all — which is precisely how a narrow model-inference pass gets lent to a use nobody resolved.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.declared_route_use_vocabulary",
+        "count_path": "$.constants.route_use_vocabulary_size"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.uses.permitted_and_prohibited_partition_the_vocabulary",
+      "description": "EVERY ROUTE USE IS DECIDED, AND NO USE IS DECIDED TWICE. Multiset coverage buys both halves: a use in both lists makes the covering longer than the vocabulary and fails, a use in neither makes it shorter and fails. Silence about capture, training, control, connector, publication or commercial use is therefore inadmissible rather than permissive.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_route_use_vocabulary",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.permitted_route_uses",
+          "$.prohibited_route_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.prohibitions.are_declared_or_unresolved_never_invented",
+      "description": "MISSING OR UNKNOWN RIGHTS FAIL CLOSED, AS AN EQUALITY. The prohibitions must be covered exactly by the affirmative ones plus the unresolved ones, so a contract that records an unresolved right and still permits that use leaves the covering short and refuses. Multiset semantics also forbid counting one use as both affirmatively prohibited and unresolved, which keeps the remediation answer single-valued.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.prohibited_route_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.declared_prohibited_route_uses",
+          "$.unresolved_route_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.unresolved_uses.match_their_findings_exactly",
+      "description": "THE FAIL-CLOSED SET IS THE EVIDENCE, NOT A PARALLEL ASSERTION. `unresolved_route_uses` must be the exact projection of the `route_use` field of every unresolved-rights finding. Deleting a finding to make a permission fit changes the projection and breaks the covering above; adding a use without a finding breaks this one.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.unresolved_route_uses",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.unresolved_rights_findings",
+            "field": "route_use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.provider_model_training.is_prohibited_without_a_named_basis",
+      "description": "PROVIDER SECONDARY USE IS DENIED BY DEFAULT. Either the field reads `prohibited`, or the contract names the exact term that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch and cannot enter the record as a resolved right.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.provider_model_training",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.provider_model_training_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.cross_customer_aggregation.is_prohibited_without_a_named_basis",
+      "description": "The other half of the default-deny posture, and the one an aggregator is most likely to inherit from an upstream service default rather than a term the institution accepted.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.cross_customer_aggregation",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.cross_customer_aggregation_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the resolved terms moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "commercial_terms_change",
+          "technical_terms_change",
+          "model_revision_change",
+          "principal_change",
+          "destination_or_residency_change",
+          "retention_change",
+          "unresolved_right_resolved",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash, a receipt bound to the predecessor cannot be checked against the terms it was actually admitted under once the provider's contract has moved.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "commercial_terms_change",
+          "technical_terms_change",
+          "model_revision_change",
+          "principal_change",
+          "destination_or_residency_change",
+          "retention_change",
+          "unresolved_right_resolved",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.nonclaims.authority_is_never_omitted",
+      "description": "Resolving what terms permit is not the power to act. Eligibility still passes ordinary authority, policy and runtime admission, and the record says so itself.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.nonclaims.possession_is_never_permission",
+      "description": "A platform account or API credential proves possession only. Dropping this nonclaim would let a working credential be read as evidence that automation, capture, demonstration training, submission or resale is permitted — the exact substitution canon names and the reason this contract exists separately from the credential that reaches the route.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_possession_token"
+      }
+    }
+  ]
+}

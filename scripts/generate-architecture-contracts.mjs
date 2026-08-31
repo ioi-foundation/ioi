@@ -1973,6 +1973,49 @@ const mutationDefinitions = [
       value: "system-home-domain-binding://acme/system-alpha/unhashed",
     },
   },
+  // A GATE THAT CANNOT FAIL ON ITS OWN FINDING IS NOT A GATE. These two plant the exact
+  // defects M05.8 and M10.3 exist to refuse, against the admitted positive fixtures, so the
+  // registered invariants are exercised adversarially rather than only asserted. Each
+  // declares its expected rule set independently below; the corpus builder refuses the
+  // whole run if what the invariants actually report differs from that declaration.
+  {
+    // ACC-16 / ACC-18: a source belonging to another tenant must refuse BEFORE any
+    // protected byte leaves the owner boundary. The mutation moves one bound source into a
+    // second tenant and changes nothing else.
+    id: "policy-bound-view-source-crosses-a-tenant",
+    contractId: "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    fixture:
+      "fixtures/policy-bound-data-view-v2/positive-genesis-authored-at-v2.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/source_bindings/1/source_tenant_ref",
+      value: "tenant://other-clinic",
+    },
+  },
+  {
+    // ACC-12 clause 7: a child compilation may narrow but never silently widen. The
+    // mutation drops one inherited denial from the retained set without adding the
+    // release row that an authorized widening would require.
+    id: "learning-boundary-inherited-denial-dropped",
+    contractId:
+      "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    fixture:
+      "fixtures/institutional-learning-boundary-profile-v1/positive-run-snapshot-narrowed-from-parent.json",
+    keywords: [],
+    patch: {
+      operation: "set",
+      pointer: "/parent_denied_uses",
+      value: [
+        "fine_tune",
+        "distill",
+        "competing_model_training",
+        "commercialize_derivative",
+        "publish",
+        "cross_tenant_aggregate_learning",
+      ],
+    },
+  },
   ...componentLaneSchemeMutationDefinitions,
 ];
 
@@ -2211,6 +2254,22 @@ const MUTATION_INVARIANT_REJECTIONS = new Map([
   ]],
   ["sequence-zero-receipt-boundary-extra-ref-injected", [
     "sequence_zero_materialization_receipt.boundary_fact.exact_coverage",
+  ]],
+  // The cross-tenant source fails the tenancy rule AND the commitment, because the bound
+  // source set is inside the content hash. Both are declared: a mutation that only listed
+  // the interesting rule would be satisfied by a record whose commitment silently followed
+  // the edit, which is the drift the commitment exists to catch.
+  ["policy-bound-view-source-crosses-a-tenant", [
+    "policy_bound_data_view.content_hash.commits_the_whole_revision",
+    "policy_bound_data_view.sources.are_all_inside_the_views_tenant",
+  ]],
+  // Dropping an inherited denial breaks the inheritance covering (the parent's denial set
+  // is no longer retained-plus-released) and the effective decomposition (the effective
+  // denial set is no longer inherited-plus-local), and moves the commitment.
+  ["learning-boundary-inherited-denial-dropped", [
+    "institutional_learning_boundary_profile.content_hash.commits_the_whole_revision",
+    "institutional_learning_boundary_profile.denials.decompose_into_inherited_and_local",
+    "institutional_learning_boundary_profile.inheritance.is_retained_or_explicitly_released",
   ]],
 ]);
 const MUTATION_ACCEPTS = new Set([
@@ -4175,8 +4234,39 @@ function nullableBranch(schema, rootSchema) {
 function rustStructsFor(entry, schema) {
   const definitions = new Map();
   const topName = projectionSymbol(entry);
+  // A CANONICAL FIELD NAME IS NEVER BENT TO SUIT A BACKEND. Contract semantics are
+  // owned by canon; the projection escapes around them. `ref` was special-cased here
+  // because it was the first canonical name that collided with a Rust keyword, and the
+  // one-off left the next collision — `use`, from the learning-use vocabulary — emitting
+  // `pub use: …`, which is not Rust and fails at rustfmt rather than at a named fence.
+  // Raw identifiers are the whole fix: `r#use` is a legal Rust field name, the hand-written
+  // Deserialize below already keys off `jsonName`, and derived Serialize strips the `r#`
+  // prefix, so the wire name is unchanged in both directions and `r#ref` keeps rendering
+  // exactly as it does today.
+  //
+  // Four keywords cannot be expressed as raw identifiers at all. For those the honest
+  // move is a named refusal rather than a silent mangling: a projection that renamed the
+  // field would make the Rust struct disagree with the contract, which is the failure this
+  // function exists to prevent.
+  const RUST_RAW_IDENTIFIER_EXEMPT = new Set(["crate", "self", "Self", "super"]);
+  const RUST_KEYWORDS = new Set([
+    "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else",
+    "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop",
+    "match", "mod", "move", "mut", "pub", "ref", "return", "self", "Self",
+    "static", "struct", "super", "trait", "true", "type", "unsafe", "use",
+    "where", "while",
+    "abstract", "become", "box", "do", "final", "macro", "override", "priv",
+    "try", "typeof", "unsized", "virtual", "yield",
+  ]);
   function rustFieldName(name) {
-    return name === "ref" ? "r#ref" : name;
+    if (!RUST_KEYWORDS.has(name)) return name;
+    if (RUST_RAW_IDENTIFIER_EXEMPT.has(name)) {
+      throw new Error(
+        `${entry.contract_id}: field ${JSON.stringify(name)} is a Rust keyword that has no raw-identifier form; ` +
+          "the Rust projection cannot express it and the canonical field name must not be renamed to accommodate the backend",
+      );
+    }
+    return `r#${name}`;
   }
   function rustVariantName(value, index, used) {
     const words = value

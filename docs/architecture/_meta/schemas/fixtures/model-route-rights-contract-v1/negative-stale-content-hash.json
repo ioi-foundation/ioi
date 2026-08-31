@@ -1,0 +1,164 @@
+{
+  "schema_version": "ioi.model-route-rights-contract.v1",
+  "model_route_rights_contract_id": "model-route-rights://acme.primary-inference",
+  "revision_ref": "model-route-rights://acme.primary-inference/revision/1",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "worker://acme-clinic/intake-assistant",
+  "credential_principal_ref": "service://acme-clinic/inference-credential-a",
+  "route_binding": {
+    "route_ref": "route://acme-clinic/primary-inference",
+    "provider_ref": "provider://acme-clinic/external-inference-a",
+    "model_ref": "model://external-inference-a/general",
+    "model_revision_ref": "model://external-inference-a/general/revision/11",
+    "intermediary_ref": null,
+    "upstream_terms_ref": null,
+    "intermediary_is_supply_adapter_not_trust_boundary": true
+  },
+  "purposes": [
+    "inference_service_delivery"
+  ],
+  "data_classes": [
+    "prompts_and_completions",
+    "connector_and_tool_io"
+  ],
+  "declared_route_use_vocabulary": [
+    "model_inference",
+    "unattended_automation",
+    "screen_or_session_capture",
+    "demonstration_training",
+    "model_or_worker_training",
+    "publication",
+    "downstream_use",
+    "oem_or_reseller_use",
+    "interactive_control",
+    "browser_or_account_use",
+    "connector_use",
+    "commercial_use"
+  ],
+  "permitted_route_uses": [
+    "model_inference"
+  ],
+  "prohibited_route_uses": [
+    "unattended_automation",
+    "screen_or_session_capture",
+    "demonstration_training",
+    "model_or_worker_training",
+    "publication",
+    "downstream_use",
+    "oem_or_reseller_use",
+    "interactive_control",
+    "browser_or_account_use",
+    "connector_use",
+    "commercial_use"
+  ],
+  "declared_prohibited_route_uses": [
+    "unattended_automation",
+    "screen_or_session_capture",
+    "demonstration_training",
+    "model_or_worker_training",
+    "publication",
+    "downstream_use",
+    "oem_or_reseller_use",
+    "interactive_control",
+    "browser_or_account_use"
+  ],
+  "unresolved_route_uses": [
+    "connector_use",
+    "commercial_use"
+  ],
+  "unresolved_rights_findings": [
+    {
+      "route_use": "connector_use",
+      "resolution": "missing",
+      "unresolved_term_ref": "terms://acme-clinic/provider-a/v7#connectors"
+    },
+    {
+      "route_use": "commercial_use",
+      "resolution": "unknown",
+      "unresolved_term_ref": "terms://acme-clinic/provider-a/v7#commercial"
+    }
+  ],
+  "destination_and_egress": {
+    "permitted_destination_classes": [
+      "model_provider"
+    ],
+    "egress_ceiling": "redacted_only",
+    "region_refs": [
+      "region://us-west"
+    ],
+    "residency_refs": [
+      "region://us-west"
+    ],
+    "cross_border_transfer_basis_ref": null
+  },
+  "customer_output_rights": {
+    "intended_customer_output_uses": [
+      "retain",
+      "internal_evaluation"
+    ],
+    "effective_customer_output_rights_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "competing_model_training_permitted": false
+  },
+  "provider_use_of_customer_material": {
+    "request_or_prompt_logging": "prohibited",
+    "human_review": "prohibited",
+    "abuse_and_security_processing": "transient_only",
+    "service_improvement": "prohibited",
+    "provider_model_training": "prohibited",
+    "provider_model_training_basis_ref": null,
+    "cross_customer_aggregation": "prohibited",
+    "cross_customer_aggregation_basis_ref": null,
+    "publication": "prohibited"
+  },
+  "retention_posture": "zero_retention",
+  "retention_policy_ref": "policy://acme/retention/route/v1",
+  "commercial_terms_refs": [
+    "contract://acme-clinic/provider-a-order-form/v3"
+  ],
+  "technical_terms_refs": [
+    "terms://acme-clinic/provider-a/v7"
+  ],
+  "fallback_substitution": {
+    "fallback_is_semantic_substitution": true,
+    "fallback_route_rights_revision_ref": null
+  },
+  "validity": {
+    "valid_from": "2026-05-01T00:00:00Z",
+    "valid_until": "2027-05-01T00:00:00Z"
+  },
+  "revocation": {
+    "revocation_state": "live",
+    "revoked_at": null,
+    "revocation_reason": null,
+    "revocation_authority_ref": null
+  },
+  "status": "active",
+  "admitted_at": "2026-05-01T10:00:00Z",
+  "succession": {
+    "succession_reason": "genesis",
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null,
+    "supersedes_predecessor": false,
+    "reinterprets_predecessor": false
+  },
+  "constants": {
+    "lifecycle_id": "model_route_rights_contract_lifecycle.v1",
+    "route_use_vocabulary_size": 12,
+    "provider_use_prohibited_token": "prohibited",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_possession_token": "possession_proves_permission"
+  },
+  "authority_nonclaim": "model_route_rights_contract_grants_no_authority",
+  "truth_nonclaim": "model_route_rights_contract_is_a_resolved_terms_reading_not_provider_behaviour",
+  "does_not_assert": [
+    "authority",
+    "possession_proves_permission",
+    "provider_non_learning",
+    "source_rights",
+    "route_availability",
+    "cryptographic_privacy"
+  ],
+  "content_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}

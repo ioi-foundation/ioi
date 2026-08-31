@@ -1,0 +1,252 @@
+{
+  "$id": "invariant://ioi/foundations/objects/learning-source-rights-claim/fail-closed-rights-partition/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+  "rules": [
+    {
+      "rule_id": "learning_source_rights_claim.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the use partition and the unresolved-rights findings, which is how 'unknown rights fail closed' becomes a property of the bytes rather than of the producer's discipline. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-source-rights-claim-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "source_rights_claim_id": {
+            "path": "$.source_rights_claim_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "asserted_by_ref": {
+            "path": "$.asserted_by_ref"
+          },
+          "asserted_rights_holder_refs": {
+            "path": "$.asserted_rights_holder_refs"
+          },
+          "source_class": {
+            "path": "$.source_class"
+          },
+          "subject_refs": {
+            "path": "$.subject_refs"
+          },
+          "rights_basis_refs": {
+            "path": "$.rights_basis_refs"
+          },
+          "route_rights_contract_refs": {
+            "path": "$.route_rights_contract_refs"
+          },
+          "declared_use_vocabulary": {
+            "path": "$.declared_use_vocabulary"
+          },
+          "permitted_uses": {
+            "path": "$.permitted_uses"
+          },
+          "prohibited_uses": {
+            "path": "$.prohibited_uses"
+          },
+          "declared_prohibited_uses": {
+            "path": "$.declared_prohibited_uses"
+          },
+          "unresolved_right_uses": {
+            "path": "$.unresolved_right_uses"
+          },
+          "unresolved_rights_findings": {
+            "path": "$.unresolved_rights_findings"
+          },
+          "derivative_disposition": {
+            "path": "$.derivative_disposition"
+          },
+          "beneficiary_scope_refs": {
+            "path": "$.beneficiary_scope_refs"
+          },
+          "jurisdiction_refs": {
+            "path": "$.jurisdiction_refs"
+          },
+          "residency_refs": {
+            "path": "$.residency_refs"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "deletion_or_forget_policy_ref": {
+            "path": "$.deletion_or_forget_policy_ref"
+          },
+          "legal_or_audit_hold_state": {
+            "path": "$.legal_or_audit_hold_state"
+          },
+          "validity": {
+            "path": "$.validity"
+          },
+          "evidence_refs": {
+            "path": "$.evidence_refs"
+          },
+          "claim_commitment": {
+            "path": "$.claim_commitment"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one claim from being filed under another claim's id — and a consumer resolving the family would then read a rights posture that never belonged to it. This rule requires `revision_ref` to begin with `source_rights_claim_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot: a bare family ref has no such segment.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.source_rights_claim_id",
+        "prefix": "learning-source-rights://",
+        "strip_prefix": "learning-source-rights://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.vocabulary.is_the_whole_closed_set",
+      "description": "The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set rather than the subset a producer found convenient. The item enum and uniqueness fix the members; this rule fixes the count against the size pinned in `constants`. A record that dropped `publish` from its vocabulary could otherwise partition the remainder perfectly and never say anything about publication at all.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.declared_use_vocabulary",
+        "count_path": "$.constants.learning_use_vocabulary_size"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.uses.permitted_and_prohibited_partition_the_vocabulary",
+      "description": "EVERY USE IS DECIDED, AND NO USE IS DECIDED TWICE. Coverage here is a MULTISET equality, which buys both halves at once: if a use appeared in both `permitted_uses` and `prohibited_uses` the covering multiset would be longer than the vocabulary and the record fails, and if a use appeared in neither the covering would be shorter and the record fails. Silence is therefore not a permission and not a prohibition — it is inadmissible, which is exactly what a fail-closed posture requires of a record that other contracts intersect against.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_use_vocabulary",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.permitted_uses",
+          "$.prohibited_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.prohibitions.are_declared_or_unresolved_never_invented",
+      "description": "EVERY PROHIBITION IS ATTRIBUTED TO A REASON, AND EVERY UNRESOLVED RIGHT IS A PROHIBITION. `prohibited_uses` must be covered exactly by the union of the affirmative prohibitions and the unresolved ones, so an unresolved right that the record still permits leaves the covering short and refuses. Multiset semantics additionally forbid counting one use as both affirmatively prohibited and unresolved, which keeps the audit answer to 'why can we not publish?' single-valued.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.prohibited_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.declared_prohibited_uses",
+          "$.unresolved_right_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.unresolved_uses.match_their_findings_exactly",
+      "description": "THE FAIL-CLOSED SET IS THE EVIDENCE, NOT A PARALLEL ASSERTION. `unresolved_right_uses` must be the exact projection of the `use` field of every row in `unresolved_rights_findings`. Deleting a finding to make a permission fit changes the projection and breaks the covering above; adding a use to the list without a finding breaks this one. The two directions together mean the fail-closed lane cannot be edited from either end.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.unresolved_right_uses",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.unresolved_rights_findings",
+            "field": "use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the rights posture changed relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "basis_change",
+          "evidence_change",
+          "rights_holder_change",
+          "use_permission_change",
+          "unresolved_right_resolved",
+          "expiry_or_revocation",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, and a narrowing that a later reader needs to trust becomes uncheckable exactly when it matters.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "basis_change",
+          "evidence_change",
+          "rights_holder_change",
+          "use_permission_change",
+          "unresolved_right_resolved",
+          "expiry_or_revocation",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.nonclaims.authority_is_never_omitted",
+      "description": "A rights posture is an input to a decision, never the power to act on it. The token is pinned in `constants` so this rule can require its presence without the invariant language carrying a literal of its own.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.nonclaims.legal_title_is_never_omitted",
+      "description": "Canon is explicit that this object is not a court, title registry, patent, copyright license, or automatic finding of ownership. Dropping the nonclaim would let an admitted claim be read as the determination it is designed not to be.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_legal_title_token"
+      }
+    }
+  ]
+}

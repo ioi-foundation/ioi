@@ -1,0 +1,213 @@
+{
+  "schema_version": "ioi.policy-bound-data-view.v2",
+  "policy_bound_data_view_id": "view://acme.intake-minimised",
+  "revision_ref": "view://acme.intake-minimised/revision/1",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "worker://acme-clinic/intake-assistant",
+  "purpose": "evaluation",
+  "purpose_binding_ref": "decision://acme-clinic/intake-eval-purpose/v1",
+  "source_bindings": [
+    {
+      "source_ref": "dataset://acme/intake-rows",
+      "source_revision_ref": "dataset://acme/intake-rows/revision/3",
+      "source_content_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "source_tenant_ref": "tenant://acme-clinic",
+      "source_owner_ref": "org://acme-clinic",
+      "source_class": "customer"
+    },
+    {
+      "source_ref": "artifact://acme/intake-forms",
+      "source_revision_ref": "artifact://acme/intake-forms/revision/12",
+      "source_content_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "source_tenant_ref": "tenant://acme-clinic",
+      "source_owner_ref": "org://acme-clinic",
+      "source_class": "customer"
+    }
+  ],
+  "source_binding_count": 2,
+  "ontology_revision_refs": [
+    "ontology://acme-clinic/patient-intake/revision/7"
+  ],
+  "connector_mapping_revision_refs": [
+    "mapping://acme.intake-form/revision/4"
+  ],
+  "object_model_refs": [
+    "object-model://om_patient_intake"
+  ],
+  "row_scope": {
+    "row_predicate_ref": "predicate://acme/intake/consented-and-in-window",
+    "row_predicate_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "max_row_count": 50000
+  },
+  "field_scope": {
+    "allowed_field_refs": [
+      "field://acme/intake/intake_id",
+      "field://acme/intake/visit_date",
+      "field://acme/intake/procedure_code"
+    ],
+    "allowed_field_count": 3,
+    "field_minimization_decisions": [
+      {
+        "field_ref": "field://acme/intake/intake_id",
+        "source_ref": "dataset://acme/intake-rows",
+        "necessity_basis": "required_by_join_key",
+        "data_class": "quasi_identifier"
+      },
+      {
+        "field_ref": "field://acme/intake/visit_date",
+        "source_ref": "dataset://acme/intake-rows",
+        "necessity_basis": "required_by_purpose",
+        "data_class": "operational_metadata"
+      },
+      {
+        "field_ref": "field://acme/intake/procedure_code",
+        "source_ref": "artifact://acme/intake-forms",
+        "necessity_basis": "required_by_evaluation_label",
+        "data_class": "health"
+      }
+    ]
+  },
+  "time_scope": {
+    "timebase": "source_event_time",
+    "from": "2026-01-01T00:00:00Z",
+    "until": "2026-09-01T00:00:00Z"
+  },
+  "data_classes": [
+    "source_data",
+    "corrections_and_reviewer_judgments"
+  ],
+  "privacy_class": "restricted",
+  "source_rights_claim_revision_refs": [
+    "learning-source-rights://acme.intake-records/revision/2"
+  ],
+  "consent_bindings": [
+    {
+      "consent_ref": "grant://acme-clinic/intake-consent/v3",
+      "consent_state": "active",
+      "consent_subject_ref": "org://acme-clinic",
+      "valid_until": "2027-06-01T00:00:00Z"
+    },
+    {
+      "consent_ref": "grant://acme-clinic/eval-consent/v1",
+      "consent_state": "active",
+      "consent_subject_ref": "project://acme-clinic/intake",
+      "valid_until": null
+    }
+  ],
+  "route_rights_revision_refs": [
+    "model-route-rights://acme.primary-inference/revision/1"
+  ],
+  "jurisdiction_refs": [
+    "jurisdiction://us-ca"
+  ],
+  "residency_refs": [
+    "region://us-west"
+  ],
+  "redaction": {
+    "recipe_revision_ref": "data-recipe://acme.intake-redact/revision/5",
+    "recipe_content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "techniques": [
+      "field_suppression",
+      "generalization",
+      "tokenization"
+    ],
+    "findings": [
+      {
+        "finding_kind": "quasi_identifier_combination",
+        "field_ref": "field://acme/intake/visit_date",
+        "residual_exposure": "low"
+      }
+    ],
+    "output_privacy_class": "restricted",
+    "creates_permission": false,
+    "severs_lineage": false,
+    "reidentification_risk_assessed": true
+  },
+  "retention_and_hold": {
+    "retention_policy_ref": "policy://acme/retention/intake/v3",
+    "retention_state": "within_retention",
+    "hold_state": "none",
+    "expires_at": "2027-01-01T00:00:00Z",
+    "deletion_or_forget_policy_ref": "policy://acme/deletion/intake/v2"
+  },
+  "destination_and_egress": {
+    "permitted_destination_classes": [
+      "in_boundary_only"
+    ],
+    "egress_ceiling": "redacted_only",
+    "permitted_region_refs": [
+      "region://us-west"
+    ],
+    "cross_tenant_read_permitted": false,
+    "declassification_permitted_without_approval": false
+  },
+  "effective_boundary_binding": {
+    "boundary_profile_revision_ref": "learning-boundary://acme.organization-default/revision/3",
+    "boundary_profile_content_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "effective_learning_boundary_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "boundary_status_at_binding": "active"
+  },
+  "materialization_precondition": {
+    "revalidate_before_materialization": true,
+    "revalidated_facts": [
+      "current_authority",
+      "current_rights",
+      "revocation_state",
+      "expiry",
+      "consent_state"
+    ],
+    "required_effective_learning_boundary_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "fails_closed_on_missing_or_conflicting_policy": true
+  },
+  "allowed_uses": [
+    "read",
+    "transform",
+    "evaluate"
+  ],
+  "rights_derived_allowed_uses": [
+    "read",
+    "transform",
+    "evaluate"
+  ],
+  "redaction_derived_allowed_uses": [],
+  "registry_status": "active",
+  "admitted_at": "2026-09-01T08:00:00Z",
+  "succession": {
+    "succession_reason": "genesis",
+    "predecessor_revision_ref": "view://acme.intake-minimised/revision/0",
+    "predecessor_content_hash": null,
+    "supersedes_predecessor": false,
+    "reinterprets_predecessor": false
+  },
+  "migration": {
+    "from_schema_version": null,
+    "from_view_ref": null,
+    "from_content_hash": null,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false,
+    "downgrade_to_predecessor": "refused",
+    "downgrade_refusal_reason": "v1_cannot_express_revision_identity_source_revisions_field_minimization_rights_consent_boundary_hash_or_commitment"
+  },
+  "constants": {
+    "lifecycle_id": "policy_bound_data_view_registry_lifecycle.v2",
+    "consent_state_active_token": "active",
+    "refused_legacy_view_scheme": "policy-bound-data-view://",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_redaction_permission_token": "redaction_creates_permission",
+    "nonclaim_consent_token": "consent"
+  },
+  "authority_nonclaim": "policy_bound_data_view_grants_no_authority",
+  "truth_nonclaim": "policy_bound_data_view_is_a_bounded_projection_not_consent_permission_or_semantic_truth",
+  "does_not_assert": [
+    "authority",
+    "consent",
+    "redaction_creates_permission",
+    "declassification",
+    "source_rights",
+    "semantic_truth",
+    "cross_tenant_reuse"
+  ],
+  "content_hash": "sha256:9be6d1dfb78d49a1271f229c8a335b94ddb74131a3a82f7540c0577eb6685be0"
+}

@@ -13562,6 +13562,762 @@
           "expected_rule_id": "transformation_run.content_hash.commits_the_whole_run"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+      "canonical_name": "LearningSourceRightsClaim",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#learningsourcerightsclaimenvelope",
+      "schema_version": "ioi.learning-source-rights-claim.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "learning-source-rights-claim.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/learning-source-rights-claim/fail-closed-rights-partition/v1",
+          "path": "invariants/learning-source-rights-claim.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LearningSourceRightsClaimV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LearningSourceRightsClaimV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/learning-source-rights-claim-v1/positive-genesis-admitted-claim.json",
+        "fixtures/learning-source-rights-claim-v1/positive-successor-resolves-one-unresolved-right.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-family-head-in-the-revision-slot.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-v2-style-schema-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-expired-claim-still-permits.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-succession-partial-tuple.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-nonclaim-authority-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-vocabulary-drops-a-use.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.vocabulary.is_the_whole_closed_set"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-use-permitted-and-prohibited-at-once.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.uses.permitted_and_prohibited_partition_the_vocabulary"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-use-decided-by-neither.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.uses.permitted_and_prohibited_partition_the_vocabulary"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-unresolved-right-still-permitted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.prohibitions.are_declared_or_unresolved_never_invented"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-unresolved-use-without-a-finding.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.unresolved_uses.match_their_findings_exactly"
+        },
+        {
+          "path": "fixtures/learning-source-rights-claim-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_source_rights_claim.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+      "canonical_name": "InstitutionalLearningBoundaryProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/institutional-learning-boundary.md#profile-scope-inheritance-and-sovereignty",
+      "schema_version": "ioi.institutional-learning-boundary-profile.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "institutional-learning-boundary-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/institutional-learning-boundary-profile/most-restrictive-intersection/v1",
+          "path": "invariants/institutional-learning-boundary-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "InstitutionalLearningBoundaryProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "InstitutionalLearningBoundaryProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/institutional-learning-boundary-profile-v1/positive-root-organization-default.json",
+        "fixtures/institutional-learning-boundary-profile-v1/positive-run-snapshot-narrowed-from-parent.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-snapshot-widens-its-parent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-widening-release-without-a-decision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-suspended-profile-still-permits.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-target-permission-travels.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-inherited-denial-silently-dropped.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.inheritance.is_retained_or_explicitly_released"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-parent-count-disagrees-with-the-set.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.inheritance.count_matches_the_enumerated_set"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-indeterminacy-still-permitted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.local_denials.are_attributed_or_indeterminate"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-use-permitted-and-denied-at-once.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.effective_uses.partition_the_vocabulary"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-vocabulary-drops-a-use.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.vocabulary.is_the_whole_closed_set"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-cross-tenant-permitted-without-a-cohort.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.cross_tenant.is_denied_without_a_cohort_binding"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-provider-training-allowed-without-a-basis.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.provider_model_training.is_denied_without_a_named_basis"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-cross-customer-aggregation-allowed-without-a-basis.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.cross_customer_aggregation.is_denied_without_a_named_basis"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-nonclaim-provider-non-learning-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/institutional-learning-boundary-profile-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "institutional_learning_boundary_profile.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+      "canonical_name": "LearningEvidenceEligibility",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#learningevidenceeligibilityenvelope",
+      "schema_version": "ioi.learning-evidence-eligibility.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "learning-evidence-eligibility.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/learning-evidence-eligibility/bounded-owner-qualified-decision/v1",
+          "path": "invariants/learning-evidence-eligibility.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LearningEvidenceEligibilityV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LearningEvidenceEligibilityV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/learning-evidence-eligibility-v1/positive-eligible-training-compatibility.json",
+        "fixtures/learning-evidence-eligibility-v1/positive-excluded-sealed-evaluation-material.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-eligible-with-an-exclusion-reason.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-exposed-material-marked-eligible.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-training-profile-carries-an-operational-use.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-permission-travels-to-other-targets.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-eligible-without-an-admitting-operation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-boundary-bound-to-a-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_evidence_eligibility.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-eligible-for-a-use-the-boundary-denies.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_evidence_eligibility.use.is_permitted_by_the_bound_boundary"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-boundary-snapshot-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_evidence_eligibility.boundary_snapshot.count_matches_the_enumerated_set"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-legacy-posture-conflicts-with-canonical.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_evidence_eligibility.legacy_binding.normalizes_without_conflicting"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-required-authority-not-named.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_evidence_eligibility.authority.a_required_authority_is_named"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-nonclaim-declassification-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-evidence-eligibility-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_evidence_eligibility.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+      "canonical_name": "LearningEgressReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/events-receipts-delivery-bundles.md#learning-egress-receipt",
+      "schema_version": "ioi.learning-egress-receipt.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "learning-egress-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/learning-egress-receipt/evidence-bounded-crossing/v1",
+          "path": "invariants/learning-egress-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "LearningEgressReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "LearningEgressReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/learning-egress-receipt-v1/positive-blocked-before-egress-with-gateway-evidence.json",
+        "fixtures/learning-egress-receipt-v1/positive-admitted-redacted-inference-crossing.json",
+        "fixtures/learning-egress-receipt-v1/positive-admitted-adapter-crossing-with-declassification.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-prevented-claim-without-enforcement-evidence.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-prevented-claim-at-the-attested-stage.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-admitted-decision-carries-refusal-codes.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-blocked-decision-claims-sent.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-parameter-egress-without-declassification-approval.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-protected-plaintext-without-a-custody-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-successor-without-predecessor-bytes.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-ref-and-id-disagree.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_egress_receipt.identity.ref_and_id_are_one_identity"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-material-class-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_egress_receipt.material_classes.count_matches_the_enumerated_set"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-provider-training-permitted-without-a-basis.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_egress_receipt.provider_model_training.is_prohibited_without_a_named_basis"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-cross-customer-aggregation-permitted-without-a-basis.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_egress_receipt.cross_customer_aggregation.is_prohibited_without_a_named_basis"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-nonclaim-delivery-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/learning-egress-receipt-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "learning_egress_receipt.content_hash.commits_the_whole_receipt"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+      "canonical_name": "ModelRouteRightsContract",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/institutional-learning-boundary.md#directional-learning-rights",
+      "schema_version": "ioi.model-route-rights-contract.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "model-route-rights-contract.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/model-route-rights-contract/fail-closed-route-rights/v1",
+          "path": "invariants/model-route-rights-contract.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ModelRouteRightsContractV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ModelRouteRightsContractV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/model-route-rights-contract-v1/positive-genesis-active-inference-route.json",
+        "fixtures/model-route-rights-contract-v1/positive-successor-after-a-terms-change.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-caller-supplied-principal-resolution.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-intermediary-without-upstream-terms.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-revoked-contract-still-permits.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-suspended-without-a-revocation-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-expired-contract-still-permits.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-family-head-in-the-revision-slot.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-vocabulary-drops-a-use.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.vocabulary.is_the_whole_closed_set"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-use-permitted-and-prohibited-at-once.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.uses.permitted_and_prohibited_partition_the_vocabulary"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-unknown-right-still-permitted.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.prohibitions.are_declared_or_unresolved_never_invented"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-unresolved-use-without-a-finding.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.unresolved_uses.match_their_findings_exactly"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-provider-training-permitted-without-a-basis.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.provider_model_training.is_prohibited_without_a_named_basis"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-nonclaim-possession-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/model-route-rights-contract-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "model_route_rights_contract.content_hash.commits_the_whole_revision"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+      "canonical_name": "PolicyBoundDataView",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#policybounddataviewenvelope",
+      "schema_version": "ioi.hypervisor.odk.policy-bound-data-view.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "policy-bound-data-view.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "PolicyBoundDataViewV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "PolicyBoundDataViewV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/policy-bound-data-view-v1/positive-stored-v1-declared.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-content-hash-on-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-revision-ref-on-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-canonical-view-scheme-ref-on-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-v2-schema-version-on-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-status-outside-the-pinned-values.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-authority-crossed-on-v1.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v1/negative-materialized-instances-on-an-inert-view.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+      "canonical_name": "PolicyBoundDataView",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/institutional-learning.md#policybounddataviewenvelope",
+      "schema_version": "ioi.policy-bound-data-view.v2",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "policy-bound-data-view.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/objects/policy-bound-data-view/bounded-immutable-projection/v2",
+          "path": "invariants/policy-bound-data-view.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "PolicyBoundDataViewV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "PolicyBoundDataViewV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/policy-bound-data-view-v2/positive-genesis-authored-at-v2.json",
+        "fixtures/policy-bound-data-view-v2/positive-successor-converged-from-v1.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-legacy-view-scheme-identity.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-v1-schema-version-on-v2.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-downgrade-to-predecessor-permitted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-converged-without-predecessor-bytes.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-genesis-carries-a-predecessor.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-redaction-derived-use-declared.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-materialization-skips-revalidation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-materialization-does-not-fail-closed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-declassification-without-approval-permitted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-cross-tenant-read-permitted.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-revoked-view-still-allows-uses.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-caller-supplied-principal-resolution.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-boundary-bound-while-not-active.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-redaction-claims-it-creates-permission.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-cross-tenant-source.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.sources.are_all_inside_the_views_tenant"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-source-binding-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.sources.count_matches_the_enumerated_set"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-excess-field-without-a-decision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.fields.every_allowed_field_is_individually_justified"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-field-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.fields.count_matches_the_enumerated_set"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-expired-consent-binding.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.consent.every_binding_is_active"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-revoked-consent-binding.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.consent.every_binding_is_active"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-stale-policy-binding.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.policy.binding_and_materialization_precondition_agree"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-redaction-declassifies.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.redaction.does_not_declassify"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-redaction-as-permission.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.uses.every_allowed_use_traces_to_a_right"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "policy_bound_data_view.content_hash.commits_the_whole_revision"
+        }
+      ]
     }
   ]
 }

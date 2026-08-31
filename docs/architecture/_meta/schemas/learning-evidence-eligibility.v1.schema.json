@@ -1,0 +1,828 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+  "title": "LearningEvidenceEligibilityV1",
+  "description": "THE DECISION AT THE BOUNDARY BETWEEN OPERATIONAL EVIDENCE AND A LEARNING LOOP. Canon makes this the general admission record for reusing a Finding, OutcomeDelta, production observation, correction, trace, artifact or other evidence to improve a model, worker, pursuit method, workflow, policy, evaluator, agenda or memory — and `TrainingEvidenceEligibility` its model/worker-training COMPATIBILITY PROFILE, not a second decision. Three things are made checkable OFFLINE here that prose left to whoever wrote the runtime. FIRST, ELIGIBILITY CANNOT EXCEED ITS BOUNDARY. The decision binds the exact boundary-profile revision, that revision's exact content hash, the effective policy hash, and the boundary's permitted-use set AS READ AT DECISION TIME; a registered invariant then requires the single bound `learning_use` to be a member of that set unless the record carries an exclusion reason. Since the schema forbids an `eligible` record from carrying an exclusion reason, an eligibility for a use the boundary denies is inadmissible rather than merely discouraged. SECOND, PERMISSION DOES NOT TRAVEL. The improvement targets are enumerated and `permission_travels_to_other_targets` is pinned false, so eligibility to use evidence for one target is not readable as eligibility to improve a policy, evaluator, agenda, workflow or cross-tenant service. THIRD, CONTAMINATED AND SEALED MATERIAL IS INELIGIBLE BY SHAPE: an `exposed`, `quarantined` or `unknown` contamination posture removes `eligible` from the admissible status set, because live sealed holdout cases, labels, evaluator internals and protected outputs are ineligible for the campaign they judge until a rotation or declassification policy explicitly releases them, and recording an access receipt declassifies nothing. The legacy training-eligibility lane is carried as an explicit compatibility binding whose normalized posture must equal the canonical one, so canon's 'conflicting old and new values fail admission' is a rule rather than an intention. Identity is owner-qualified and revision-exact, succession names the predecessor's exact ref and exact content hash, and `content_hash` commits every other field under a domain separator. THIS IS A DECISION, NOT A POWER. It grants no authority, no capability-lease crossing, no declassification and no promotion; where delegated machine power is required the record names the authority refs it depends on rather than standing in for them.",
+  "x-ioi-schema-version": "ioi.learning-evidence-eligibility.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "eligibilityFamilyRef": {
+      "type": "string",
+      "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "eligibilityRevisionRef": {
+      "type": "string",
+      "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "boundaryRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "claimRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "dataRecipeRevisionRef": {
+      "type": "string",
+      "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "learningUse": {
+      "enum": [
+        "operational_inference",
+        "retain",
+        "replay",
+        "internal_evaluation",
+        "internal_analytics",
+        "memory_or_context_improvement",
+        "dataset_generation",
+        "fine_tune",
+        "distill",
+        "competing_model_training",
+        "worker_or_package_improvement",
+        "commercialize_derivative",
+        "export",
+        "publish",
+        "cross_tenant_aggregate_learning"
+      ]
+    },
+    "learningUseList": {
+      "type": "array",
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/learningUse"
+      }
+    },
+    "learningUsePosture": {
+      "enum": [
+        "operational_only",
+        "evaluation_only",
+        "synthetic_only",
+        "redacted_opt_in",
+        "full_private_opt_in",
+        "org_policy"
+      ]
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "nonEmptyRefList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "optionalRef": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "eligibility_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "governance_owner_ref",
+    "eligibility_profile",
+    "boundary_profile_revision_ref",
+    "boundary_profile_content_hash",
+    "effective_learning_policy_hash",
+    "boundary_permitted_uses_at_decision",
+    "boundary_permitted_use_count_at_decision",
+    "learning_use",
+    "learning_source_rights_claim_revision_refs",
+    "subject_refs",
+    "requester_ref",
+    "intended_use",
+    "learning_use_posture",
+    "legacy_binding",
+    "applicable_evaluation_epoch_refs",
+    "target_binding",
+    "owner_and_tenant_scope_refs",
+    "contamination_posture",
+    "policy_bound_data_view_refs",
+    "data_recipe_revision_refs",
+    "local_policy_refs",
+    "consent_refs",
+    "authority_requirement_posture",
+    "authority_requirement_kinds",
+    "wallet_authority_refs",
+    "declassification_refs",
+    "learning_egress_receipt_refs",
+    "provider_trust_posture",
+    "retention_policy_ref",
+    "derivative_policy_ref",
+    "lineage_root",
+    "receipt_root",
+    "exclusion_reason",
+    "status",
+    "admitted_by_ref",
+    "admitted_at",
+    "succession",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.learning-evidence-eligibility.v1"
+    },
+    "eligibility_id": {
+      "$ref": "#/$defs/eligibilityFamilyRef",
+      "description": "THE FAMILY. A decision is restated as evidence, policy or contamination state changes, so the lineage is the aggregate and a revision is the thing a Foundry job or evaluation may cite. Nothing reads through the family head."
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/eligibilityRevisionRef",
+      "description": "ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own `eligibility_id`."
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef",
+      "description": "OWNER-QUALIFIED IDENTITY. Canon calls this the owner-qualified learning-eligibility decision for exactly this reason: the same subject may be eligible for one owner and excluded for another, so an unqualified decision is not a decision anyone can act on."
+    },
+    "tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "governance_owner_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The surface that proposed the decision — a Hypervisor, Foundry, Data, Ontology, domain-app or organization-governance owner. Proposing is not admitting: the admitted decision and its receipts are recorded by the state owner, and delegated machine power comes from the authority refs below."
+    },
+    "eligibility_profile": {
+      "enum": [
+        "general_learning",
+        "training_compatibility"
+      ],
+      "description": "`training_compatibility` is the model/worker-training PROFILE OF THIS SAME OBJECT, not a second eligibility decision. The schema restricts that profile to the training, dataset, evaluation and benchmark intended uses, which is what stops the legacy label from being accepted over an operational-only decision."
+    },
+    "boundary_profile_revision_ref": {
+      "$ref": "#/$defs/boundaryRevisionRef",
+      "description": "THE EXACT COMPILED BOUNDARY THIS DECISION WAS MADE UNDER, as a revision rather than a family head. A decision bound to a head follows the boundary onto whatever it becomes, which is the silent-widening failure one level down from the profile itself."
+    },
+    "boundary_profile_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The boundary revision's exact bytes. A ref names a location that may since have been re-admitted; the hash names what was actually read."
+    },
+    "effective_learning_policy_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The composed policy commitment in force at the decision. Carrying it means a later reader can tell that policy moved even when every readable ref still resolves."
+    },
+    "boundary_permitted_uses_at_decision": {
+      "$ref": "#/$defs/learningUseList",
+      "description": "THE BOUNDARY'S PERMITTED SET AS THIS DECISION READ IT. A registered invariant requires the bound `learning_use` to be a member unless the record carries an exclusion reason — and the schema forbids an `eligible` record from carrying one. An eligibility that exceeds its boundary is therefore inadmissible rather than merely inconsistent."
+    },
+    "boundary_permitted_use_count_at_decision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15,
+      "description": "The declared size of that set, checked against it by a registered invariant. Two independent statements about the same set is the cheapest tell that one was edited to make a use fit."
+    },
+    "learning_use": {
+      "$ref": "#/$defs/learningUse",
+      "description": "THE ONE USE THIS DECISION ADMITS, drawn from the same closed vocabulary the source-rights claim and the boundary profile use — which is what lets the three intersect at all. One use per decision, because a decision covering several uses cannot be revoked for one of them without rewriting the others."
+    },
+    "learning_source_rights_claim_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/claimRevisionRef"
+      },
+      "description": "The exact source-rights claim revisions this decision rests on. Revision-exact for the same reason the boundary is: a claim family that later widens must not widen a decision already made."
+    },
+    "subject_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The evidence this decision is about, named by ref. The record carries no protected payload: an eligibility decision that embedded the bytes it governs would have widened exposure to describe it."
+    },
+    "requester_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Who is asking. Recorded because eligibility is owner-qualified and requester-scoped: the same subject and the same use can resolve differently for a different requester, and a decision that hid the requester could be replayed for one it was never made for."
+    },
+    "intended_use": {
+      "enum": [
+        "conductor_training",
+        "worker_training",
+        "eval_generation",
+        "dataset_distillation",
+        "benchmark",
+        "simulation",
+        "analytics_only",
+        "pursuit_method_improvement",
+        "workflow_or_policy_improvement",
+        "evaluator_improvement",
+        "improvement_agenda_revision",
+        "memory_or_context_improvement",
+        "package_or_tool_improvement"
+      ],
+      "description": "Canon's thirteen intended uses, verbatim. This is the improvement-process shape; `learning_use` is the rights-vocabulary member the boundary decides. They are separate fields because the same rights permission supports several processes and the same process can require different permissions."
+    },
+    "learning_use_posture": {
+      "$ref": "#/$defs/learningUsePosture",
+      "description": "Canon's six postures, verbatim. `operational_only` is where the legacy `never_train` value normalizes, which is why the compatibility binding below has to agree with this field rather than sit beside it."
+    },
+    "legacy_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "legacy_envelope_label",
+            "legacy_training_data_posture",
+            "normalized_learning_use_posture"
+          ],
+          "properties": {
+            "legacy_envelope_label": {
+              "const": "TrainingEvidenceEligibilityEnvelope"
+            },
+            "legacy_training_data_posture": {
+              "enum": [
+                "never_train",
+                "evaluation_only",
+                "synthetic_only",
+                "redacted_opt_in",
+                "full_private_opt_in",
+                "org_policy"
+              ],
+              "description": "The legacy wire value as it was ACTUALLY STORED. Rewriting it into the canonical spelling here would be reinterpreting the predecessor, which is the one thing a compatibility adapter may not do."
+            },
+            "normalized_learning_use_posture": {
+              "$ref": "#/$defs/learningUsePosture",
+              "description": "What the adapter normalized that legacy value to, with `never_train` mapping to `operational_only`. A registered invariant requires this to equal `learning_use_posture`, so canon's 'conflicting old and new values fail admission' is enforced rather than assumed."
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null for a decision authored directly at this contract. Non-null records that a legacy training-eligibility envelope was normalized into this one — the same decision under its compatibility profile, never a second decision."
+    },
+    "applicable_evaluation_epoch_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The frozen epochs this decision applies within. An epoch is what makes contamination answerable: evidence that is clean for one epoch may be exposed for the next."
+    },
+    "target_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "PERMISSION DOES NOT TRAVEL. Eligibility to use evidence for one target does not extend to improving a policy, evaluator, agenda, workflow or cross-tenant service, so the targets are enumerated and the transfer flag is pinned false.",
+      "required": [
+        "allowed_improvement_target_refs",
+        "permission_travels_to_other_targets"
+      ],
+      "properties": {
+        "allowed_improvement_target_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "permission_travels_to_other_targets": {
+          "const": false
+        }
+      }
+    },
+    "owner_and_tenant_scope_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The owner and tenant scopes the decision is confined to. Buyer-bound worker memory and corrections stay inside the buyer's declared owner scope unless an explicit export is separately admitted."
+    },
+    "contamination_posture": {
+      "enum": [
+        "clean",
+        "evaluation_aware",
+        "exposed",
+        "quarantined",
+        "unknown"
+      ],
+      "description": "SEALED AND CONTAMINATED MATERIAL IS INELIGIBLE BY SHAPE. `exposed`, `quarantined` and `unknown` remove `eligible` from the admissible status set in the schema below. Live sealed holdout cases, labels, evaluator internals and protected outputs stay ineligible for the campaign they judge and for dependent claims until a rotation or declassification policy explicitly releases them, and recording an access receipt declassifies nothing."
+    },
+    "policy_bound_data_view_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The governed lenses the admitted evidence must be read through. Naming a view is not being granted it: the view revalidates current authority, rights, revocation and expiry at every materialization."
+    },
+    "data_recipe_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/dataRecipeRevisionRef"
+      },
+      "description": "Exact recipe revisions, never family heads. A decision that followed a recipe family would admit evidence under transformations nobody decided about."
+    },
+    "local_policy_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "consent_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The consent basis, referenced rather than restated. Consent is an input to the intersection; an expired or revoked consent narrows this decision and never widens it."
+    },
+    "authority_requirement_posture": {
+      "enum": [
+        "none",
+        "required"
+      ],
+      "description": "Whether acting on this decision needs delegated machine power. When it reads `required`, a registered invariant demands at least one authority ref — a decision that says it needs authority and names none would be read by an optimistic consumer as needing none."
+    },
+    "authority_requirement_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "decryption",
+          "connector_access",
+          "model_provider_key",
+          "gpu_spend",
+          "provider_trust",
+          "sealed_evaluation_access",
+          "learning_egress",
+          "publication",
+          "export",
+          "cross_domain_reuse",
+          "none"
+        ]
+      },
+      "description": "Canon's authority-requirement kinds, verbatim, with `none` a real member rather than an empty list."
+    },
+    "wallet_authority_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The grants, leases or authority objects the decision depends on. This record REFERENCES authority; it never contains or confers it, and `does_not_assert` carries `capability_lease_crossing` so the bytes say so."
+    },
+    "declassification_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The declassification approvals or policies in play. Moving parameters, gradients, weight deltas, adapters, embeddings or distillates of protected material across a sovereign boundary is a declassification event requiring its own resolved rights and receipts; naming a control here is not one."
+    },
+    "learning_egress_receipt_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Egress receipts already bound to this decision. Canon requires one only when an institutional boundary is actually crossed or a crossing is blocked before egress, so an empty list is the ordinary same-boundary case rather than a gap."
+    },
+    "provider_trust_posture": {
+      "enum": [
+        "no_provider_plaintext",
+        "redacted_api",
+        "provider_trust_accepted",
+        "private_compute_required",
+        "blocked"
+      ],
+      "description": "Canon's five postures, verbatim. Recording which claim is actually supported is what keeps `Private`, self-hosted, encrypted and zero-retention from being read as interchangeable labels."
+    },
+    "retention_policy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "derivative_policy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "lineage_root": {
+      "$ref": "#/$defs/sha256",
+      "description": "The commitment over the lineage this decision admits into. Every derived artifact retains these refs or a deterministic aggregate commitment to them, which is what makes a later revocation traversable instead of a search."
+    },
+    "receipt_root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "exclusion_reason": {
+      "oneOf": [
+        {
+          "enum": [
+            "operational_only_default",
+            "never_train_default",
+            "sealed_evaluation_material",
+            "revoked",
+            "expired",
+            "regulated_block",
+            "connector_scope_denied",
+            "no_provider_trust",
+            "data_subject_request",
+            "missing_policy_bound_view",
+            "incident_hold",
+            "boundary_denies_the_use",
+            "indeterminate_rights"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Canon's exclusion reasons plus the two this contract makes structural. Null exactly when the status is `eligible`, non-null otherwise: a decision that excluded evidence without saying why is a refusal nobody can remedy, and an `eligible` decision carrying an exclusion reason is two answers to one question."
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "eligible",
+        "excluded",
+        "revoked",
+        "expired",
+        "superseded"
+      ],
+      "description": "Canon's six decision states, verbatim. `eligible` is the only one that admits evidence, and the schema pins its relationship to the exclusion reason and to the contamination posture in both directions."
+    },
+    "admitted_by_ref": {
+      "$ref": "#/$defs/optionalRef",
+      "description": "The admitted operation or policy that recorded the decision, null while it is still `proposed`. A proposal that named an admitter would be claiming an admission that has not happened."
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp",
+      "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple reads as a complete lineage while naming nothing anyone could check, so a partial tuple is a SCHEMA refusal.",
+      "required": [
+        "succession_reason",
+        "predecessor_revision_ref",
+        "predecessor_content_hash",
+        "supersedes_predecessor",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "succession_reason": {
+          "enum": [
+            "genesis",
+            "boundary_revision_change",
+            "source_rights_change",
+            "contamination_change",
+            "consent_change",
+            "target_scope_change",
+            "revocation_or_expiry",
+            "correction"
+          ]
+        },
+        "predecessor_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/eligibilityRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersedes_predecessor": {
+          "type": "boolean"
+        },
+        "reinterprets_predecessor": {
+          "const": false,
+          "description": "Pinned. A later exclusion does not retroactively unmake an admission that already happened; it blocks future use and leaves the historical decision exactly as admitted, which is what lets an impact graph be honest about residual exposure."
+        }
+      },
+      "allOf": [
+        {
+          "title": "a genesis revision has no predecessor, in both slots at once",
+          "if": {
+            "required": [
+              "succession_reason"
+            ],
+            "properties": {
+              "succession_reason": {
+                "const": "genesis"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "type": "null"
+              },
+              "predecessor_content_hash": {
+                "type": "null"
+              },
+              "supersedes_predecessor": {
+                "const": false
+              }
+            },
+            "type": "object"
+          },
+          "else": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "$ref": "#/$defs/eligibilityRevisionRef"
+              },
+              "predecessor_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own.",
+      "required": [
+        "lifecycle_id",
+        "learning_use_vocabulary_size",
+        "nonclaim_authority_token",
+        "nonclaim_declassification_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "learning_evidence_eligibility_lifecycle.v1",
+          "description": "Names WHICH lifecycle `status` is drawn from, so a reader cannot mistake an eligibility decision's state for a boundary profile's activation state or a claim's assertion state."
+        },
+        "learning_use_vocabulary_size": {
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 15
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_declassification_token": {
+          "const": "declassification"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "learning_evidence_eligibility_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "learning_evidence_eligibility_is_an_admission_decision_not_a_permission_to_cross_a_boundary"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "declassification",
+          "capability_lease_crossing",
+          "source_rights",
+          "semantic_truth",
+          "redaction_creates_permission",
+          "promotion_or_activation",
+          "provider_non_learning",
+          "verified_unlearning",
+          "publication"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "declassification"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "capability_lease_crossing"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "source_rights"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "redaction_creates_permission"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Six mandatory members. `declassification` is the one this family needs that no other carries: an eligibility decision admits evidence into an improvement loop and never releases protected material across a boundary, and `redaction_creates_permission` states the companion rule — a transformation reduces exposure, it creates no right and severs no lineage."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+    }
+  },
+  "allOf": [
+    {
+      "title": "eligible and excluded are exhaustive about the reason",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "eligible"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "exclusion_reason": {
+            "type": "null"
+          },
+          "target_binding": {
+            "properties": {
+              "allowed_improvement_target_refs": {
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "type": "object"
+          },
+          "admitted_by_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "a proposal has not been admitted by anyone yet",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "proposed"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "admitted_by_ref": {
+            "type": "null"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "every terminal state names the reason it is not eligible",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "excluded",
+              "revoked",
+              "expired",
+              "superseded"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "exclusion_reason": {
+            "enum": [
+              "operational_only_default",
+              "never_train_default",
+              "sealed_evaluation_material",
+              "revoked",
+              "expired",
+              "regulated_block",
+              "connector_scope_denied",
+              "no_provider_trust",
+              "data_subject_request",
+              "missing_policy_bound_view",
+              "incident_hold",
+              "boundary_denies_the_use",
+              "indeterminate_rights"
+            ]
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "contaminated, quarantined or unclassified material is never eligible",
+      "if": {
+        "required": [
+          "contamination_posture"
+        ],
+        "properties": {
+          "contamination_posture": {
+            "enum": [
+              "exposed",
+              "quarantined",
+              "unknown"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "proposed",
+              "excluded",
+              "revoked",
+              "expired",
+              "superseded"
+            ]
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "the training compatibility profile only carries training, dataset, evaluation and benchmark uses",
+      "if": {
+        "required": [
+          "eligibility_profile"
+        ],
+        "properties": {
+          "eligibility_profile": {
+            "const": "training_compatibility"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "intended_use": {
+            "enum": [
+              "conductor_training",
+              "worker_training",
+              "eval_generation",
+              "dataset_distillation",
+              "benchmark"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "else": {
+        "properties": {
+          "legacy_binding": {
+            "type": "null"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

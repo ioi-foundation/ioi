@@ -1,0 +1,915 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+  "title": "ModelRouteRightsContractV1",
+  "description": "THE ROUTE-RIGHTS HALF OF THE MOST-RESTRICTIVE INTERSECTION, AND THE SMALLEST CONTRACT THAT CAN CARRY IT HONESTLY. Canon requires every candidate route to resolve a versioned commercial AND technical rights contract before it is eligible, naming unattended automation, capture, training, publication, downstream and reseller use; the credential principal and its permitted actions; data classes, region and residency; provider human-review and secondary-use terms; retention; and customer-output use — with MISSING OR UNKNOWN RIGHTS FAILING CLOSED. This contract registers exactly that and nothing wider: it is the owner-correct prerequisite the compiled learning boundary and the policy-bound view need in order to intersect against something real, not a route runtime, a router, a price plane or an eligibility decision. FAIL-CLOSED IS A SHAPE HERE TOO. The record declares the closed route-use vocabulary once, partitions it into permitted and prohibited, and registered multiset-coverage invariants require the vocabulary to be covered exactly once each, the prohibitions to be covered exactly by the affirmative ones plus the unresolved ones, and the unresolved set to be the exact projection of the unresolved-rights findings. A contract that records an unknown right and still permits that use cannot be admitted. THE PRINCIPAL IS RESOLVED, NOT SUPPLIED. `principal_resolution` is pinned to `server_resolved`: a caller-passed subject constant is the defect this estate removed everywhere else, and a rights contract whose principal could be asserted by its consumer would authorize whatever the consumer named. AN AGGREGATOR IS A SUPPLY ADAPTER, NOT THE TRUST BOUNDARY: naming an intermediary obliges naming the upstream terms it resolves against, so an aggregator cannot become an excuse to stop reading the underlying contract. PROVIDER FALLBACK IS A SEMANTIC SUBSTITUTION with its own rights resolution, pinned in the bytes, never a transparent retry. REVOCATION FAILS CLOSED: a suspended or revoked contract empties its permitted set by schema and names when, why and under whose authority. AND POSSESSION IS NOT PERMISSION — a platform account or API credential proves possession only; `does_not_assert` carries that as a field, because it is the single most common way a route is treated as eligible when nothing established that it was.",
+  "x-ioi-schema-version": "ioi.model-route-rights-contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "routeRightsFamilyRef": {
+      "type": "string",
+      "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "routeRightsRevisionRef": {
+      "type": "string",
+      "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "principalRef": {
+      "type": "string",
+      "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "routeUse": {
+      "enum": [
+        "model_inference",
+        "unattended_automation",
+        "screen_or_session_capture",
+        "demonstration_training",
+        "model_or_worker_training",
+        "publication",
+        "downstream_use",
+        "oem_or_reseller_use",
+        "interactive_control",
+        "browser_or_account_use",
+        "connector_use",
+        "commercial_use"
+      ]
+    },
+    "routeUseList": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/routeUse"
+      }
+    },
+    "providerUsePosture": {
+      "enum": [
+        "prohibited",
+        "transient_only",
+        "security_incident_only",
+        "contract_limited",
+        "explicitly_permitted",
+        "not_applicable"
+      ]
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "nonEmptyRefList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "optionalRef": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "optionalTimestamp": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "model_route_rights_contract_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "credential_principal_ref",
+    "route_binding",
+    "purposes",
+    "data_classes",
+    "declared_route_use_vocabulary",
+    "permitted_route_uses",
+    "prohibited_route_uses",
+    "declared_prohibited_route_uses",
+    "unresolved_route_uses",
+    "unresolved_rights_findings",
+    "destination_and_egress",
+    "customer_output_rights",
+    "provider_use_of_customer_material",
+    "retention_posture",
+    "retention_policy_ref",
+    "commercial_terms_refs",
+    "technical_terms_refs",
+    "fallback_substitution",
+    "validity",
+    "revocation",
+    "status",
+    "admitted_at",
+    "succession",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.model-route-rights-contract.v1"
+    },
+    "model_route_rights_contract_id": {
+      "$ref": "#/$defs/routeRightsFamilyRef",
+      "description": "THE FAMILY. Terms are restated as a provider's contract changes, so the lineage is the aggregate and a revision is what a route resolution may cite. Nothing resolves through the family head: a route that followed the family would silently inherit whichever terms the provider published last."
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/routeRightsRevisionRef",
+      "description": "ONE IMMUTABLE REVISION OF THAT FAMILY, and the thing an egress receipt and a compiled boundary bind. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own contract id."
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef",
+      "description": "OWNER-QUALIFIED IDENTITY. Who resolved and stands behind this rights reading. Two institutions on the same provider may hold materially different terms, so an unqualified route-rights record is not one anyone may rely on."
+    },
+    "tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "The tenancy the resolution belongs to. Carried so a route resolved for one tenant is a checkable mismatch when read by another rather than a silent reuse."
+    },
+    "principal_resolution": {
+      "const": "server_resolved",
+      "description": "PINNED. The acting principal is resolved server-side, never taken from a caller-passed constant. A rights contract whose principal could be asserted by the consumer of the route would authorize whatever that consumer named, which is the exact defect the estate removed from its lease subjects and must not re-enter through the rights plane."
+    },
+    "resolved_principal_ref": {
+      "$ref": "#/$defs/principalRef",
+      "description": "The principal these rights are resolved FOR, as resolved. Distinct from the credential principal: the party whose work is being done and the identity the provider sees are frequently different, and conflating them is how one party's terms get applied to another's material."
+    },
+    "credential_principal_ref": {
+      "$ref": "#/$defs/principalRef",
+      "description": "The identity the provider actually sees on the wire, and the permitted-action surface it carries. Canon's rule is blunt: a platform account or API credential proves POSSESSION only. It does not prove that automation, capture, demonstration training, submission or resale is permitted, and `does_not_assert` carries that as a field."
+    },
+    "route_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "THE EXACT ROUTE THESE RIGHTS ARE ABOUT. Model, provider, route and — when present — the intermediary. Naming an intermediary obliges naming the upstream terms it resolves against: an aggregator is a REPLACEABLE SUPPLY ADAPTER, not a new rights or privacy boundary, and not an excuse to stop reading the underlying contract.",
+      "required": [
+        "route_ref",
+        "provider_ref",
+        "model_ref",
+        "model_revision_ref",
+        "intermediary_ref",
+        "upstream_terms_ref",
+        "intermediary_is_supply_adapter_not_trust_boundary"
+      ],
+      "properties": {
+        "route_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "provider_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "model_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "model_revision_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "The exact model revision the terms were resolved against. A model family head moves; terms resolved against a head describe whichever model the provider is serving today."
+        },
+        "intermediary_ref": {
+          "$ref": "#/$defs/optionalRef"
+        },
+        "upstream_terms_ref": {
+          "$ref": "#/$defs/optionalRef",
+          "description": "The underlying provider terms an intermediary resolves against. Mandatory whenever an intermediary is named, by the conditional below."
+        },
+        "intermediary_is_supply_adapter_not_trust_boundary": {
+          "const": true
+        }
+      },
+      "allOf": [
+        {
+          "title": "an intermediary names the upstream terms it resolves against",
+          "if": {
+            "required": [
+              "intermediary_ref"
+            ],
+            "properties": {
+              "intermediary_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "upstream_terms_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "purposes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "inference_service_delivery",
+          "hosted_training",
+          "hosted_evaluation",
+          "support",
+          "audit_export",
+          "publication",
+          "cross_domain_reuse"
+        ]
+      },
+      "description": "What this route may be used FOR, from the same closed purpose vocabulary an egress receipt records. Purpose is bound because rights resolved for one purpose are not rights for another, and permission does not travel between them."
+    },
+    "data_classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "source_data",
+          "prompts_and_completions",
+          "connector_and_tool_io",
+          "work_graphs_traces_and_receipts",
+          "corrections_and_reviewer_judgments",
+          "evaluations_rubrics_holdouts_and_canaries",
+          "memory_context_procedures_workflows_and_skills",
+          "datasets_embeddings_and_indexes",
+          "adapters_checkpoints_weights_and_packages",
+          "router_verifier_authority_and_governance_policy",
+          "analytics_crash_support_and_security_telemetry",
+          "embodied_sensor_actuator_mission_and_operator_telemetry"
+        ]
+      },
+      "description": "Which material classes these rights cover, from the same twelve the boundary profile and the egress receipt use — which is what lets a class-level denial in one compose with a class-level permission in another instead of being argued about."
+    },
+    "declared_route_use_vocabulary": {
+      "$ref": "#/$defs/routeUseList",
+      "description": "THE CLOSED ROUTE-USE VOCABULARY, CARRIED IN THE RECORD. A registered invariant pins its length to `constants.route_use_vocabulary_size`; the item enum and uniqueness make it exactly the twelve canonical uses. Canon's list is deliberately wider than model inference — the existing model-route gate proves only its own narrow class, and lending that pass to capture, training, browser, control, connector, publication or commercial use is the defect this vocabulary exists to prevent."
+    },
+    "permitted_route_uses": {
+      "$ref": "#/$defs/routeUseList",
+      "description": "What the resolved commercial and technical terms actually support. A CEILING INPUT to the most-restrictive intersection, never a grant: a use permitted here that the source-rights claim, the boundary profile, the custody posture or the policy-bound view denies does not survive the intersection."
+    },
+    "prohibited_route_uses": {
+      "$ref": "#/$defs/routeUseList",
+      "description": "The complement over the declared vocabulary, and where the fail-closed rules land. A registered invariant requires the vocabulary to be covered by the permitted/prohibited pair exactly once each, so a use can be neither both nor neither."
+    },
+    "declared_prohibited_route_uses": {
+      "$ref": "#/$defs/routeUseList",
+      "description": "The prohibitions the terms state affirmatively, kept separate from the ones the fail-closed default produces. A contract that forbids resale and an unanswered question about resale are different facts, and a merged list would erase which one an operator has to go and resolve."
+    },
+    "unresolved_route_uses": {
+      "$ref": "#/$defs/routeUseList",
+      "description": "THE FAIL-CLOSED LANE. A registered invariant requires this to be the exact projection of `unresolved_rights_findings`, and a second requires the prohibitions to be covered exactly by the affirmative ones plus these. MISSING OR UNKNOWN RIGHTS FAIL CLOSED becomes inadmissibility rather than a runtime branch: a contract recording an unresolved right and still permitting that use cannot be admitted at all."
+    },
+    "unresolved_rights_findings": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route_use",
+          "resolution",
+          "unresolved_term_ref"
+        ],
+        "properties": {
+          "route_use": {
+            "$ref": "#/$defs/routeUse"
+          },
+          "resolution": {
+            "enum": [
+              "missing",
+              "unknown",
+              "conflicting",
+              "expired",
+              "revoked",
+              "unsupported",
+              "upstream_unread"
+            ],
+            "description": "`upstream_unread` is the aggregator case named explicitly: an intermediary's own terms resolving cleanly while the underlying provider terms went unread is not a resolved right, and calling it one is how a supply adapter becomes a trust boundary by accident."
+          },
+          "unresolved_term_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "destination_and_egress": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WHERE MATERIAL MAY GO AND IN WHAT FORM. Region and residency are separate axes — one is whose law reaches the bytes, the other is where they sit — and the egress ceiling is a CEILING: a route may carry less than it permits and never more.",
+      "required": [
+        "permitted_destination_classes",
+        "egress_ceiling",
+        "region_refs",
+        "residency_refs",
+        "cross_border_transfer_basis_ref"
+      ],
+      "properties": {
+        "permitted_destination_classes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "model_provider",
+              "external_processor",
+              "cross_organization",
+              "public_export",
+              "support_operator"
+            ]
+          }
+        },
+        "egress_ceiling": {
+          "enum": [
+            "no_egress",
+            "redacted_only",
+            "synthetic_only",
+            "declassified_only",
+            "sealed_ciphertext_only",
+            "protected_plaintext_permitted"
+          ],
+          "description": "The most exposing representation this route may carry. `redacted_only` records that a transformation is required before the crossing; it does not record that redaction created a right, which it never does."
+        },
+        "region_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "residency_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "cross_border_transfer_basis_ref": {
+          "$ref": "#/$defs/optionalRef"
+        }
+      }
+    },
+    "customer_output_rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "THE FIRST DIRECTIONAL QUESTION: what the institution may do with outputs produced for its work, including retention, evaluation, replay, fine-tuning, distillation, competing-model training, packaging, commercialization, export and publication. Recorded here so the answer is resolved rather than assumed from the fact that the work was ours.",
+      "required": [
+        "intended_customer_output_uses",
+        "effective_customer_output_rights_hash",
+        "competing_model_training_permitted"
+      ],
+      "properties": {
+        "intended_customer_output_uses": {
+          "$ref": "#/$defs/refList"
+        },
+        "effective_customer_output_rights_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "competing_model_training_permitted": {
+          "type": "boolean",
+          "description": "Called out as its own field because it is the output right most often assumed and most often contractually excluded, and because a compiled boundary that guessed it would guess in the institution's favour."
+        }
+      }
+    },
+    "provider_use_of_customer_material": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "THE SECOND DIRECTIONAL QUESTION: what the provider or intermediary may do with institutional material. Provider secondary use and cross-customer learning are DENIED BY DEFAULT for protected material — registered invariants require each of those two members to read `prohibited` unless a named contractual basis ref is present, so an account-level opt-in, a broad service default or a changed term cannot enter the record as a resolved right.",
+      "required": [
+        "request_or_prompt_logging",
+        "human_review",
+        "abuse_and_security_processing",
+        "service_improvement",
+        "provider_model_training",
+        "provider_model_training_basis_ref",
+        "cross_customer_aggregation",
+        "cross_customer_aggregation_basis_ref",
+        "publication"
+      ],
+      "properties": {
+        "request_or_prompt_logging": {
+          "$ref": "#/$defs/providerUsePosture"
+        },
+        "human_review": {
+          "$ref": "#/$defs/providerUsePosture"
+        },
+        "abuse_and_security_processing": {
+          "$ref": "#/$defs/providerUsePosture"
+        },
+        "service_improvement": {
+          "$ref": "#/$defs/providerUsePosture"
+        },
+        "provider_model_training": {
+          "$ref": "#/$defs/providerUsePosture"
+        },
+        "provider_model_training_basis_ref": {
+          "$ref": "#/$defs/optionalRef"
+        },
+        "cross_customer_aggregation": {
+          "$ref": "#/$defs/providerUsePosture"
+        },
+        "cross_customer_aggregation_basis_ref": {
+          "$ref": "#/$defs/optionalRef"
+        },
+        "publication": {
+          "$ref": "#/$defs/providerUsePosture"
+        }
+      }
+    },
+    "retention_posture": {
+      "enum": [
+        "zero_retention",
+        "transient_processing",
+        "contract_bounded",
+        "provider_default",
+        "not_applicable"
+      ],
+      "description": "The retention term the institution admitted. Canon is explicit that a zero-retention promise is a valuable provider-trust control and not a custody proof; `does_not_assert` carries `provider_non_learning` so the record cannot be read as the stronger claim."
+    },
+    "retention_policy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "commercial_terms_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The commercial half of the versioned contract. At least one, because canon requires BOTH halves resolved before a route is eligible and a record naming only technical terms has resolved half a contract."
+    },
+    "technical_terms_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The technical half. Separate from the commercial half so that a technical integration document cannot stand in for a licence, which is the substitution that makes an unlicensed route look resolved."
+    },
+    "fallback_substitution": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "PROVIDER FALLBACK IS A SEMANTIC SUBSTITUTION, NEVER A TRANSPARENT RETRY. A substitute route is a different provider under different terms; recording it as a retry would let a request resolved against one rights contract be served under another nobody resolved. The flag is pinned and the substitute names its own rights revision.",
+      "required": [
+        "fallback_is_semantic_substitution",
+        "fallback_route_rights_revision_ref"
+      ],
+      "properties": {
+        "fallback_is_semantic_substitution": {
+          "const": true
+        },
+        "fallback_route_rights_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/routeRightsRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The substitute route's OWN resolved rights revision, or null when no fallback is admitted. A fallback naming no rights revision is an unresolved route wearing a resolved one's identity."
+        }
+      }
+    },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid_from",
+        "valid_until"
+      ],
+      "properties": {
+        "valid_from": {
+          "$ref": "#/$defs/canonicalTimestamp"
+        },
+        "valid_until": {
+          "$ref": "#/$defs/optionalTimestamp",
+          "description": "Null means open-ended under the current terms, not permanent. An elapsed expiry is recorded by moving `status` to `expired`, which empties the permitted set by schema."
+        }
+      }
+    },
+    "revocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "REVOCATION FAILS CLOSED AND NAMES ITSELF. A suspended or revoked contract empties its permitted route uses by the schema conditional below and states when, why and under whose authority — because a revocation that narrows use without naming its author is a change nobody can audit or reverse.",
+      "required": [
+        "revocation_state",
+        "revoked_at",
+        "revocation_reason",
+        "revocation_authority_ref"
+      ],
+      "properties": {
+        "revocation_state": {
+          "enum": [
+            "live",
+            "suspended",
+            "revoked"
+          ]
+        },
+        "revoked_at": {
+          "$ref": "#/$defs/optionalTimestamp"
+        },
+        "revocation_reason": {
+          "oneOf": [
+            {
+              "enum": [
+                "terms_withdrawn",
+                "terms_changed",
+                "credential_revoked",
+                "custody_posture_lost",
+                "jurisdiction_change",
+                "incident_hold",
+                "owner_decision"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revocation_authority_ref": {
+          "$ref": "#/$defs/optionalRef"
+        }
+      },
+      "allOf": [
+        {
+          "title": "a revoked or suspended contract names when, why and under whose authority",
+          "if": {
+            "required": [
+              "revocation_state"
+            ],
+            "properties": {
+              "revocation_state": {
+                "enum": [
+                  "suspended",
+                  "revoked"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "revoked_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              "revocation_reason": {
+                "enum": [
+                  "terms_withdrawn",
+                  "terms_changed",
+                  "credential_revoked",
+                  "custody_posture_lost",
+                  "jurisdiction_change",
+                  "incident_hold",
+                  "owner_decision"
+                ]
+              },
+              "revocation_authority_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "type": "object"
+          },
+          "else": {
+            "properties": {
+              "revoked_at": {
+                "type": "null"
+              },
+              "revocation_reason": {
+                "type": "null"
+              },
+              "revocation_authority_ref": {
+                "type": "null"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "active",
+        "superseded",
+        "expired",
+        "revoked"
+      ],
+      "description": "Registry state of this revision. Only `active` may carry permitted route uses; the other four empty the set by schema, which is how an expired or superseded contract stops being eligible without waiting for a reader to compare timestamps."
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp",
+      "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple is a SCHEMA refusal.",
+      "required": [
+        "succession_reason",
+        "predecessor_revision_ref",
+        "predecessor_content_hash",
+        "supersedes_predecessor",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "succession_reason": {
+          "enum": [
+            "genesis",
+            "commercial_terms_change",
+            "technical_terms_change",
+            "model_revision_change",
+            "principal_change",
+            "destination_or_residency_change",
+            "retention_change",
+            "unresolved_right_resolved",
+            "revocation_or_expiry",
+            "correction"
+          ]
+        },
+        "predecessor_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/routeRightsRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersedes_predecessor": {
+          "type": "boolean"
+        },
+        "reinterprets_predecessor": {
+          "const": false,
+          "description": "Pinned. A changed provider term produces a successor revision; it does not re-read the terms an earlier route resolution was actually admitted under. Receipts already bound to the predecessor stay bound to the predecessor."
+        }
+      },
+      "allOf": [
+        {
+          "title": "a genesis revision has no predecessor, in both slots at once",
+          "if": {
+            "required": [
+              "succession_reason"
+            ],
+            "properties": {
+              "succession_reason": {
+                "const": "genesis"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "type": "null"
+              },
+              "predecessor_content_hash": {
+                "type": "null"
+              },
+              "supersedes_predecessor": {
+                "const": false
+              }
+            },
+            "type": "object"
+          },
+          "else": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "$ref": "#/$defs/routeRightsRevisionRef"
+              },
+              "predecessor_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lifecycle_id",
+        "route_use_vocabulary_size",
+        "provider_use_prohibited_token",
+        "nonclaim_authority_token",
+        "nonclaim_possession_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "model_route_rights_contract_lifecycle.v1",
+          "description": "Names WHICH lifecycle `status` is drawn from, so a projection cannot let a rights contract's registry state be read as a route's operational availability."
+        },
+        "route_use_vocabulary_size": {
+          "type": "integer",
+          "minimum": 12,
+          "maximum": 12
+        },
+        "provider_use_prohibited_token": {
+          "const": "prohibited"
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_possession_token": {
+          "const": "possession_proves_permission"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "model_route_rights_contract_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "model_route_rights_contract_is_a_resolved_terms_reading_not_provider_behaviour"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "possession_proves_permission",
+          "provider_non_learning",
+          "provider_deletion",
+          "source_rights",
+          "route_availability",
+          "price_or_quota",
+          "cryptographic_privacy",
+          "legal_conformity",
+          "capability_lease_crossing"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "possession_proves_permission"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "provider_non_learning"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "source_rights"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "route_availability"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "cryptographic_privacy"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Six mandatory members. `possession_proves_permission` is the one this family exists to state: an account or API credential proves possession only. `source_rights` is the companion — resolving what a provider permits says nothing about whether the institution had the right to send the material in the first place, and the two halves must both hold for a use to survive the intersection."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+    }
+  },
+  "allOf": [
+    {
+      "title": "a contract that is not active and live permits no route use",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "draft",
+              "superseded",
+              "expired",
+              "revoked"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "permitted_route_uses": {
+            "maxItems": 0,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "a suspended or revoked contract permits no route use",
+      "if": {
+        "required": [
+          "revocation"
+        ],
+        "properties": {
+          "revocation": {
+            "required": [
+              "revocation_state"
+            ],
+            "properties": {
+              "revocation_state": {
+                "enum": [
+                  "suspended",
+                  "revoked"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "permitted_route_uses": {
+            "maxItems": 0,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

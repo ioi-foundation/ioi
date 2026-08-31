@@ -1,0 +1,1313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+  "title": "PolicyBoundDataViewV2",
+  "description": "THE ONLY LEARNING AND RUNTIME PROJECTION OF PROTECTED SOURCE DATA, AS AN IMMUTABLE REVISION THAT CAN BE CHECKED FROM ITS OWN BYTES. The predecessor was a mutable declaration: a bumped counter, a wall-clock id, a family-head reference, a connector mapping bound by mutable id, and no commitment over anything. This contract binds what canon requires an immutable view revision to bind — EXACT SOURCE REVISIONS with their content hashes, the resolved PRINCIPAL and TENANT, the bound PURPOSE, the allowed ROWS, FIELDS and TIME RANGE, the DATA CLASSES, the SOURCE-RIGHTS and CONSENT claims, JURISDICTION and RESIDENCY, the REDACTION/DE-IDENTIFICATION recipe and its findings, RETENTION and HOLD state, the DESTINATION and EGRESS CEILING, and the EFFECTIVE LEARNING-BOUNDARY HASH — and then makes six specific refusals structural rather than aspirational. CROSS-TENANT: every bound source carries its own tenant ref and a registered invariant requires all of them to equal the view's, so a source from another tenant is inadmissible rather than merely unusual. EXCESS-FIELD: the allowed field set must be covered exactly by the per-field minimization decisions, so a field admitted without its own justification leaves the covering short and refuses. EXPIRED-CONSENT: every consent binding must read `active`, so a view carrying an expired or revoked consent cannot be admitted at all. STALE-POLICY: the effective learning-boundary hash the view was compiled under must equal the hash it requires of a materialization, so moving one without the other refuses. DECLASSIFICATION: the redaction output's privacy class must equal the source classification's, so a transformation cannot lower a class — reducing exposure is not reclassification. REDACTION-AS-PERMISSION: `allowed_uses` must be covered exactly by the RIGHTS-DERIVED uses plus a redaction-derived list the schema pins EMPTY, so no use can enter this record by way of a transformation. Redaction reduces exposure; it creates no right and it never severs lineage, and both facts are pinned fields. READS REVALIDATE: the materialization precondition requires current authority, rights, revocation and expiry to be rechecked before bytes move, as four mandatory members rather than a sentence in a comment. THE PRINCIPAL IS RESOLVED, NOT SUPPLIED. MIGRATION IS EXPLICIT AND DOWNGRADE IS REFUSED IN THE BYTES: a view authored fresh at v2 says so in all three provenance slots at once, one converged from a stored v1 names that predecessor's schema version, its `policy-bound-data-view://pbdv_…` ref AND its exact content hash, and `downgrade_to_predecessor` is pinned `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the source revisions, the minimization decisions, the rights bindings and the commitment — a lossy re-encoding that would present a weaker record as the same fact. This is a projection, not a permission: it grants no authority, it is not consent, and registering it claims no runtime enforcement of what it declares.",
+  "x-ioi-schema-version": "ioi.policy-bound-data-view.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "viewFamilyRef": {
+      "type": "string",
+      "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "viewRevisionRef": {
+      "type": "string",
+      "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "legacyViewRef": {
+      "type": "string",
+      "pattern": "^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$"
+    },
+    "boundaryRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "claimRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "routeRightsRevisionRef": {
+      "type": "string",
+      "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "connectorMappingRevisionRef": {
+      "type": "string",
+      "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ontologyRevisionRef": {
+      "type": "string",
+      "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "principalRef": {
+      "type": "string",
+      "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "tenantRef": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "viewUse": {
+      "enum": [
+        "read",
+        "transform",
+        "distill",
+        "train",
+        "evaluate",
+        "export",
+        "publish",
+        "route"
+      ]
+    },
+    "viewUseList": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/viewUse"
+      }
+    },
+    "privacyClass": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted",
+        "regulated",
+        "safety_critical"
+      ]
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "nonEmptyRefList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "optionalRef": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "optionalTimestamp": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "policy_bound_data_view_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "purpose",
+    "purpose_binding_ref",
+    "source_bindings",
+    "source_binding_count",
+    "ontology_revision_refs",
+    "connector_mapping_revision_refs",
+    "object_model_refs",
+    "row_scope",
+    "field_scope",
+    "time_scope",
+    "data_classes",
+    "privacy_class",
+    "source_rights_claim_revision_refs",
+    "consent_bindings",
+    "route_rights_revision_refs",
+    "jurisdiction_refs",
+    "residency_refs",
+    "redaction",
+    "retention_and_hold",
+    "destination_and_egress",
+    "effective_boundary_binding",
+    "materialization_precondition",
+    "allowed_uses",
+    "rights_derived_allowed_uses",
+    "redaction_derived_allowed_uses",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.policy-bound-data-view.v2",
+      "description": "The successor's version, out of the `ioi.hypervisor.odk.` namespace the predecessor sat in. Pinned as a const so a v1 record cannot validate here and a v2 record cannot claim the predecessor's version."
+    },
+    "policy_bound_data_view_id": {
+      "$ref": "#/$defs/viewFamilyRef",
+      "description": "THE FAMILY, IN CANON'S OWN `view://` SCHEME. A view is restated as sources, rights, policy or minimization change, so the lineage is the aggregate. Nothing materializes against the family head: a read that resolved the family would read through whichever policy the family last carried."
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/viewRevisionRef",
+      "description": "ONE IMMUTABLE REVISION OF THAT FAMILY, and the thing every recipe, run, eligibility decision and egress receipt binds. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef",
+      "description": "OWNER-QUALIFIED IDENTITY. The predecessor derived an owner and did not store one, so a stored v1 view cannot say who owns it. The owner is what makes the revision resolvable to one view rather than to whichever same-named view a reader happens to look up."
+    },
+    "tenant_ref": {
+      "$ref": "#/$defs/tenantRef",
+      "description": "THE TENANCY BOUNDARY, AND THE ANCHOR OF THE CROSS-TENANT REFUSAL. Every bound source carries its own tenant ref and a registered invariant requires all of them to equal this one, so a source belonging to another tenant is inadmissible rather than merely surprising."
+    },
+    "principal_resolution": {
+      "const": "server_resolved",
+      "description": "PINNED. The principal a view reads for is resolved server-side, never taken from a caller-passed constant. The predecessor accepted free-form subject strings — including wildcard spellings it could only downgrade to `draft` rather than refuse — which is exactly the default this pin removes."
+    },
+    "resolved_principal_ref": {
+      "$ref": "#/$defs/principalRef",
+      "description": "The principal this projection is bound to, as resolved. A view without a principal is a view that reads for whoever asks, which is the widest possible scope wearing the language of a narrow one."
+    },
+    "purpose": {
+      "enum": [
+        "operational_read",
+        "transformation",
+        "evaluation",
+        "dataset_generation",
+        "model_or_worker_training",
+        "distillation",
+        "analytics",
+        "audit_or_export",
+        "publication",
+        "routing"
+      ],
+      "description": "THE BOUND PURPOSE, from a closed vocabulary rather than the predecessor's free text. Purpose-binding is what makes minimization meaningful: a field set justified for evaluation is not a field set justified for training, and a purpose nobody can check cannot narrow anything."
+    },
+    "purpose_binding_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The policy or decision that bound this purpose. A purpose asserted by the record alone is a label; one bound to a decision is a commitment someone made."
+    },
+    "source_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_ref",
+          "source_revision_ref",
+          "source_content_hash",
+          "source_tenant_ref",
+          "source_owner_ref",
+          "source_class"
+        ],
+        "properties": {
+          "source_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "source_revision_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "THE EXACT SOURCE REVISION. Not a family head: a view bound to a head projects whatever the source becomes, which is the same drift the recipe family closed one level up."
+          },
+          "source_content_hash": {
+            "$ref": "#/$defs/sha256",
+            "description": "The source revision's exact bytes. A ref names a location that may since have been re-admitted; the hash names what was actually bound."
+          },
+          "source_tenant_ref": {
+            "$ref": "#/$defs/tenantRef",
+            "description": "THE CROSS-TENANT ANCHOR. A registered invariant requires this to equal the view's `tenant_ref` on every row, so a cross-tenant source is a refusal at admission rather than a discovery at materialization."
+          },
+          "source_owner_ref": {
+            "$ref": "#/$defs/ownerRef"
+          },
+          "source_class": {
+            "enum": [
+              "employee",
+              "contractor",
+              "customer",
+              "patient",
+              "partner",
+              "vendor",
+              "licensed",
+              "purchased",
+              "public",
+              "synthetic",
+              "provider_output",
+              "machine_generated",
+              "mixed",
+              "unknown"
+            ],
+            "description": "Carried per source because a mixed projection inherits the intersection of its contributors, and a single view-level class would erase which contributor is the restrictive one."
+          }
+        }
+      },
+      "description": "EXACT PROTECTED-SOURCE REVISIONS, one row each. At least one: a projection over no source is not a projection, and admitting one would let an audit count an empty view as coverage."
+    },
+    "source_binding_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 64,
+      "description": "The declared size of that set, checked against it by a registered invariant. Two independent statements about one set is the cheapest tell that a source was removed from the readable list after the fact."
+    },
+    "ontology_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ontologyRevisionRef"
+      },
+      "description": "EXACT ADMITTED ONTOLOGY REVISIONS, never family refs. The predecessor carried one head-following `ontology_ref` copied from its mapping."
+    },
+    "connector_mapping_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/connectorMappingRevisionRef"
+      },
+      "description": "EXACT MAPPING REVISIONS. The predecessor bound a mapping by mutable id, so the shape a view claimed to scope could change underneath it without the view changing at all."
+    },
+    "object_model_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "row_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "ROW MINIMIZATION, WHICH THE PREDECESSOR COULD NOT EXPRESS AT ALL. The predicate is bound by ref AND by hash, because a predicate that can be edited after admission is a scope that widens silently.",
+      "required": [
+        "row_predicate_ref",
+        "row_predicate_hash",
+        "max_row_count"
+      ],
+      "properties": {
+        "row_predicate_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "row_predicate_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "max_row_count": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "An optional hard ceiling. Null means the predicate alone bounds the rows; it does not mean unbounded, because the predicate is itself committed."
+        }
+      }
+    },
+    "field_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "FIELD MINIMIZATION, AND THE EXCESS-FIELD REFUSAL. Every allowed field must be covered exactly by a per-field minimization decision naming which source binding it comes from and why the purpose needs it. A field admitted without its own justification leaves the covering short and the record is refused; a decision for a field the view does not allow makes it long and is refused too.",
+      "required": [
+        "allowed_field_refs",
+        "allowed_field_count",
+        "field_minimization_decisions"
+      ],
+      "properties": {
+        "allowed_field_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "allowed_field_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "field_minimization_decisions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field_ref",
+              "source_ref",
+              "necessity_basis",
+              "data_class"
+            ],
+            "properties": {
+              "field_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "source_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "necessity_basis": {
+                "enum": [
+                  "required_by_purpose",
+                  "required_by_ontology_contract",
+                  "required_by_join_key",
+                  "required_by_evaluation_label",
+                  "required_by_regulatory_obligation"
+                ],
+                "description": "WHY THE PURPOSE NEEDS THIS FIELD. A closed vocabulary rather than free text, because 'useful' is not a minimization basis and an unenumerated reason is one nobody can review."
+              },
+              "data_class": {
+                "enum": [
+                  "identifier",
+                  "quasi_identifier",
+                  "sensitive_attribute",
+                  "financial",
+                  "health",
+                  "biometric",
+                  "location",
+                  "content",
+                  "derived_label",
+                  "operational_metadata"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "time_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "TIME MINIMIZATION. A view over all of history is not minimized no matter how few fields it names, and the predecessor had no way to say otherwise.",
+      "required": [
+        "timebase",
+        "from",
+        "until"
+      ],
+      "properties": {
+        "timebase": {
+          "enum": [
+            "source_event_time",
+            "ingest_time",
+            "admission_time"
+          ],
+          "description": "Which clock the range is measured on. Named because event time and ingest time disagree, and a range read on the wrong one silently widens or narrows the projection."
+        },
+        "from": {
+          "$ref": "#/$defs/canonicalTimestamp"
+        },
+        "until": {
+          "$ref": "#/$defs/optionalTimestamp",
+          "description": "Null means open-ended forward under the current policy, not permanent: the view's own expiry and the retention state still bound it."
+        }
+      }
+    },
+    "data_classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "source_data",
+          "prompts_and_completions",
+          "connector_and_tool_io",
+          "work_graphs_traces_and_receipts",
+          "corrections_and_reviewer_judgments",
+          "evaluations_rubrics_holdouts_and_canaries",
+          "memory_context_procedures_workflows_and_skills",
+          "datasets_embeddings_and_indexes",
+          "adapters_checkpoints_weights_and_packages",
+          "router_verifier_authority_and_governance_policy",
+          "analytics_crash_support_and_security_telemetry",
+          "embodied_sensor_actuator_mission_and_operator_telemetry"
+        ]
+      },
+      "description": "The protected material classes this projection carries, from the same twelve the boundary profile and the egress receipt use — which is what lets a class-level denial upstream compose with this view instead of being argued about."
+    },
+    "privacy_class": {
+      "$ref": "#/$defs/privacyClass",
+      "description": "THE SOURCE CLASSIFICATION, AND THE ANCHOR OF THE DECLASSIFICATION REFUSAL. A registered invariant requires the redaction output's class to equal this one: a transformation reduces exposure and does not reclassify, so a redacted projection of restricted material is still restricted."
+    },
+    "source_rights_claim_revision_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/claimRevisionRef"
+      },
+      "description": "EXACT SOURCE-RIGHTS CLAIM REVISIONS. At least one: a projection of protected data with no rights claim behind it has no basis to narrow against, and the predecessor bound none at all."
+    },
+    "consent_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "consent_ref",
+          "consent_state",
+          "consent_subject_ref",
+          "valid_until"
+        ],
+        "properties": {
+          "consent_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "consent_state": {
+            "enum": [
+              "active",
+              "expired",
+              "revoked",
+              "withdrawn",
+              "unknown"
+            ],
+            "description": "THE EXPIRED-CONSENT REFUSAL LIVES HERE. A registered invariant requires EVERY row to read `active`, so a view carrying an expired, revoked, withdrawn or unknown consent cannot be admitted at all. The non-active members exist so the state can be recorded honestly on the way to a successor revision, never so that a view can carry one."
+          },
+          "consent_subject_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "valid_until": {
+            "$ref": "#/$defs/optionalTimestamp"
+          }
+        }
+      }
+    },
+    "route_rights_revision_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/routeRightsRevisionRef"
+      },
+      "description": "The exact route-rights contract revisions that bound any onward route for this projection. Revision-exact, because terms that moved after admission did not move this view."
+    },
+    "jurisdiction_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "Whose law reaches this projection. At least one, because an unstated jurisdiction is not an absent obligation."
+    },
+    "residency_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "Where the projected bytes may reside. A separate axis from jurisdiction, because conflating them is how a compliant-looking view permits a move neither would allow."
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "REDACTION AND DE-IDENTIFICATION: RECIPE, FINDINGS, AND TWO PINNED FACTS. The recipe is bound by exact revision AND content hash so the transformation that produced this projection is reproducible. `creates_permission` and `severs_lineage` are both pinned false in the bytes, and the output privacy class is required by invariant to equal the source classification — together they are canon's rule that redaction reduces exposure but creates no right and never severs lineage, stated three different ways so no single edit defeats it.",
+      "required": [
+        "recipe_revision_ref",
+        "recipe_content_hash",
+        "techniques",
+        "findings",
+        "output_privacy_class",
+        "creates_permission",
+        "severs_lineage",
+        "reidentification_risk_assessed"
+      ],
+      "properties": {
+        "recipe_revision_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "recipe_content_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "techniques": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "field_suppression",
+              "masking",
+              "tokenization",
+              "hashing",
+              "generalization",
+              "bucketing",
+              "noise_addition",
+              "k_anonymity",
+              "differential_privacy",
+              "synthetic_substitution",
+              "entity_replacement",
+              "no_transformation"
+            ]
+          },
+          "description": "`no_transformation` is a real member rather than an empty list: a view that redacts nothing should say so, because an absent technique list reads as an unanswered question and an unanswered question about exposure is not a low-exposure claim."
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "finding_kind",
+              "field_ref",
+              "residual_exposure"
+            ],
+            "properties": {
+              "finding_kind": {
+                "enum": [
+                  "residual_identifier",
+                  "quasi_identifier_combination",
+                  "linkage_risk",
+                  "insufficient_generalization",
+                  "free_text_leakage",
+                  "reidentification_demonstrated"
+                ]
+              },
+              "field_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "residual_exposure": {
+                "enum": [
+                  "none",
+                  "low",
+                  "material",
+                  "unresolved"
+                ]
+              }
+            }
+          },
+          "description": "The findings the recipe produced, carried in the record rather than in a report nobody fetches. A finding is a fact about what survived the transformation; it never authorizes the projection, and a clean finding set does not either."
+        },
+        "output_privacy_class": {
+          "$ref": "#/$defs/privacyClass",
+          "description": "REQUIRED BY INVARIANT TO EQUAL `privacy_class`. This is the declassification refusal: lowering a class through a transformation would be reclassification without a declassification approval, which canon treats as its own governed act with its own rights and receipts."
+        },
+        "creates_permission": {
+          "const": false
+        },
+        "severs_lineage": {
+          "const": false
+        },
+        "reidentification_risk_assessed": {
+          "type": "boolean",
+          "description": "Whether a re-identification assessment was actually performed. A boolean rather than an inference from the technique list, because applying k-anonymity and assessing whether it held are different acts and only the second supports a low-risk claim."
+        }
+      }
+    },
+    "retention_and_hold": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "RETENTION AND HOLD STATE, ON THE VIEW. A hold narrows disposal and can narrow use; it never widens either, and a hold that lives only in a policy the reader has to fetch is a hold the offline verifier cannot see.",
+      "required": [
+        "retention_policy_ref",
+        "retention_state",
+        "hold_state",
+        "expires_at",
+        "deletion_or_forget_policy_ref"
+      ],
+      "properties": {
+        "retention_policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "retention_state": {
+          "enum": [
+            "within_retention",
+            "retention_elapsed",
+            "pending_deletion",
+            "deleted"
+          ]
+        },
+        "hold_state": {
+          "enum": [
+            "none",
+            "legal_hold",
+            "audit_hold",
+            "incident_hold"
+          ]
+        },
+        "expires_at": {
+          "$ref": "#/$defs/optionalTimestamp"
+        },
+        "deletion_or_forget_policy_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "destination_and_egress": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "THE DESTINATION AND EGRESS CEILING. A ceiling, not an instruction: a materialization may carry less than this permits and never more, and a crossing of an institutional boundary still needs its own egress receipt.",
+      "required": [
+        "permitted_destination_classes",
+        "egress_ceiling",
+        "permitted_region_refs",
+        "cross_tenant_read_permitted",
+        "declassification_permitted_without_approval"
+      ],
+      "properties": {
+        "permitted_destination_classes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "in_boundary_only",
+              "model_provider",
+              "external_processor",
+              "cross_organization",
+              "public_export",
+              "support_operator"
+            ]
+          }
+        },
+        "egress_ceiling": {
+          "enum": [
+            "no_egress",
+            "redacted_only",
+            "synthetic_only",
+            "declassified_only",
+            "sealed_ciphertext_only",
+            "protected_plaintext_permitted"
+          ]
+        },
+        "permitted_region_refs": {
+          "$ref": "#/$defs/nonEmptyRefList"
+        },
+        "cross_tenant_read_permitted": {
+          "const": false,
+          "description": "Pinned. Cross-tenant learning and reuse are default-deny at the boundary and this view is not the place they become available; a cohort program binds its own separate objects."
+        },
+        "declassification_permitted_without_approval": {
+          "const": false,
+          "description": "Pinned. Moving protected material — including parameters, gradients, adapters, embeddings or distillates of it — across a sovereign boundary is a declassification event requiring its own approval, rights and receipts. A view can never be the approval."
+        }
+      }
+    },
+    "effective_boundary_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "THE EFFECTIVE LEARNING-BOUNDARY HASH, AND THE ANCHOR OF THE STALE-POLICY REFUSAL. The view binds the exact compiled boundary revision, its exact content hash and the effective policy hash it was compiled under; a registered invariant then requires that policy hash to equal the one the materialization precondition demands. Moving one without the other is a stale binding and refuses.",
+      "required": [
+        "boundary_profile_revision_ref",
+        "boundary_profile_content_hash",
+        "effective_learning_boundary_hash",
+        "boundary_status_at_binding"
+      ],
+      "properties": {
+        "boundary_profile_revision_ref": {
+          "$ref": "#/$defs/boundaryRevisionRef"
+        },
+        "boundary_profile_content_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "effective_learning_boundary_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "boundary_status_at_binding": {
+          "const": "active",
+          "description": "Pinned. A view cannot be compiled against a draft, suspended, superseded or revoked boundary: those states carry no permitted uses, so a projection bound to one would be bound to nothing while looking bound to something."
+        }
+      }
+    },
+    "materialization_precondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "READS REVALIDATE BEFORE BYTES MOVE. Canon requires current authority, rights, revocation and expiry to be rechecked before materialization; here that is four mandatory members of a closed list plus a pinned flag, so a projection cannot be admitted while declaring that it revalidates nothing. The required policy hash is compared against the binding above by invariant, which is what makes a stale policy a refusal rather than a race.",
+      "required": [
+        "revalidate_before_materialization",
+        "revalidated_facts",
+        "required_effective_learning_boundary_hash",
+        "fails_closed_on_missing_or_conflicting_policy"
+      ],
+      "properties": {
+        "revalidate_before_materialization": {
+          "const": true
+        },
+        "revalidated_facts": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "current_authority",
+              "current_rights",
+              "revocation_state",
+              "expiry",
+              "retention_and_hold",
+              "residency",
+              "destination_class",
+              "consent_state"
+            ]
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "current_authority"
+              },
+              "type": "array"
+            },
+            {
+              "contains": {
+                "const": "current_rights"
+              },
+              "type": "array"
+            },
+            {
+              "contains": {
+                "const": "revocation_state"
+              },
+              "type": "array"
+            },
+            {
+              "contains": {
+                "const": "expiry"
+              },
+              "type": "array"
+            }
+          ]
+        },
+        "required_effective_learning_boundary_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "fails_closed_on_missing_or_conflicting_policy": {
+          "const": true,
+          "description": "Pinned. Missing or conflicting policy denies the disputed read; it does not fall back to the last known permission, and it does not resolve in the reader's favour."
+        }
+      }
+    },
+    "allowed_uses": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/viewUse"
+      },
+      "description": "What may be done through this projection. Empty is the correct shape for a view that is not active or whose retention has elapsed, and the conditionals below require at least one member exactly when the view IS active — so an active view that allows nothing is as inadmissible as a revoked one that still allows something. A registered invariant requires it to be covered exactly by the rights-derived uses plus the redaction-derived ones — and the schema pins the redaction-derived list EMPTY — so every use present traces to a right and none can enter by way of a transformation."
+    },
+    "rights_derived_allowed_uses": {
+      "$ref": "#/$defs/viewUseList",
+      "description": "The uses the bound source-rights claims, consents and route contracts actually support. This is the only lawful origin of a member of `allowed_uses`."
+    },
+    "redaction_derived_allowed_uses": {
+      "type": "array",
+      "maxItems": 0,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/viewUse"
+      },
+      "description": "PINNED EMPTY, AND PRESENT ON PURPOSE. The field exists so the redaction-as-permission claim has somewhere to be made and be refused: `maxItems: 0` makes any member a schema refusal, and the coverage invariant above means a use added to `allowed_uses` without a matching right leaves the covering short. An empty list that no one can fill is a stronger statement than an absent field, because an absent field is silence and silence is what let the claim be made informally in the first place."
+    },
+    "registry_status": {
+      "enum": [
+        "draft",
+        "active",
+        "suspended",
+        "expired",
+        "superseded",
+        "revoked"
+      ],
+      "description": "INVENTORY STATUS ONLY. Only `active` may carry allowed uses; the other five empty the set by schema, which is how expiry, suspension, supersession and revocation narrow immediately instead of waiting for a reader to compare timestamps."
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp",
+      "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp, and a second one is the mutability tell the predecessor carried."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple reads as a complete lineage while naming nothing anyone could check, so a partial tuple is a SCHEMA refusal.",
+      "required": [
+        "succession_reason",
+        "predecessor_revision_ref",
+        "predecessor_content_hash",
+        "supersedes_predecessor",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "succession_reason": {
+          "enum": [
+            "genesis",
+            "source_revision_change",
+            "minimization_change",
+            "rights_or_consent_change",
+            "boundary_revision_change",
+            "redaction_recipe_change",
+            "retention_or_hold_change",
+            "destination_or_residency_change",
+            "revocation_or_expiry",
+            "correction"
+          ]
+        },
+        "predecessor_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/viewRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "supersedes_predecessor": {
+          "type": "boolean"
+        },
+        "reinterprets_predecessor": {
+          "const": false,
+          "description": "Pinned. A narrowed view does not retroactively unmake a read that was admitted under the wider one; it blocks future materialization and leaves the historical evidence exactly as admitted, which is what keeps an impact graph honest about residual exposure."
+        }
+      },
+      "allOf": [
+        {
+          "title": "a genesis revision has no predecessor, in both slots at once",
+          "if": {
+            "required": [
+              "succession_reason"
+            ],
+            "properties": {
+              "succession_reason": {
+                "const": "genesis"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "type": "null"
+              },
+              "predecessor_content_hash": {
+                "type": "null"
+              },
+              "supersedes_predecessor": {
+                "const": false
+              }
+            },
+            "type": "object"
+          },
+          "else": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "$ref": "#/$defs/viewRevisionRef"
+              },
+              "predecessor_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A view authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's schema version, its `policy-bound-data-view://pbdv_…` ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the exact source revisions, the per-field minimization decisions, the rights and consent bindings, the effective-boundary hash and the commitment — a lossy re-encoding that would present a materially weaker record as the same fact, which is the precise move an attacker or a tired migration script would both want to make.",
+      "required": [
+        "from_schema_version",
+        "from_view_ref",
+        "from_content_hash",
+        "compatibility",
+        "reinterprets_predecessor",
+        "downgrade_to_predecessor",
+        "downgrade_refusal_reason"
+      ],
+      "properties": {
+        "from_schema_version": {
+          "oneOf": [
+            {
+              "const": "ioi.hypervisor.odk.policy-bound-data-view.v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_view_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/legacyViewRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predecessor named in the scheme it was ACTUALLY STORED UNDER. Rewriting it into `view://` here would be reinterpreting v1, which is the one thing a convergence may not do — and it would also erase the fact that the predecessor had no revision segment to convert."
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The exact predecessor bytes the convergence read. v1 carries no commitment of its own, so this hash is computed over the stored record by the converging operation — which is what makes a convergence checkable at all."
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "converged_from_v1"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        },
+        "downgrade_to_predecessor": {
+          "const": "refused"
+        },
+        "downgrade_refusal_reason": {
+          "const": "v1_cannot_express_revision_identity_source_revisions_field_minimization_rights_consent_boundary_hash_or_commitment",
+          "description": "The refusal stated in the bytes rather than in a comment, naming exactly which members would be lost. A downgrade path that says only `refused` invites someone to argue the loss is acceptable; one that enumerates the loss makes the argument concrete."
+        }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — all three provenance slots are null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_view_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              }
+            },
+            "type": "object"
+          },
+          "else": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.odk.policy-bound-data-view.v1"
+              },
+              "from_view_ref": {
+                "$ref": "#/$defs/legacyViewRef"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.",
+      "required": [
+        "lifecycle_id",
+        "consent_state_active_token",
+        "refused_legacy_view_scheme",
+        "nonclaim_authority_token",
+        "nonclaim_redaction_permission_token",
+        "nonclaim_consent_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "policy_bound_data_view_registry_lifecycle.v2",
+          "description": "Names WHICH lifecycle `registry_status` is drawn from. The predecessor pinned a different, disjoint vocabulary, so a reader cannot mistake a v1 `declared` for a v2 `active` even when a projection calls both `status`."
+        },
+        "consent_state_active_token": {
+          "const": "active",
+          "description": "The only admissible consent state, named in the bytes so the expired-consent invariant can require it without carrying a literal of its own."
+        },
+        "refused_legacy_view_scheme": {
+          "const": "policy-bound-data-view://",
+          "description": "The predecessor's identity scheme, named here as the REFUSED form for a v2 identity. It appears legitimately in exactly one place — `migration.from_view_ref` — as the honest record of what a converged predecessor was stored as."
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_redaction_permission_token": {
+          "const": "redaction_creates_permission"
+        },
+        "nonclaim_consent_token": {
+          "const": "consent"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "policy_bound_data_view_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "policy_bound_data_view_is_a_bounded_projection_not_consent_permission_or_semantic_truth"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "consent",
+          "redaction_creates_permission",
+          "declassification",
+          "source_rights",
+          "semantic_truth",
+          "cross_tenant_reuse",
+          "capability_lease_crossing",
+          "provider_non_learning",
+          "verified_unlearning",
+          "materialized_payload_custody",
+          "runtime_enforcement"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "consent"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "redaction_creates_permission"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "declassification"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "source_rights"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "cross_tenant_reuse"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Seven mandatory members. `redaction_creates_permission` and `declassification` are the two this family needs that no other carries: a transformation reduces exposure and creates no right, and reducing exposure is not the governed act of moving protected material across a boundary. `consent` is the third — binding a consent ref records that one was resolved, it does not make this record the consent."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered — and it is the single largest thing the predecessor could not do."
+    }
+  },
+  "allOf": [
+    {
+      "title": "a view that is not active allows nothing",
+      "if": {
+        "required": [
+          "registry_status"
+        ],
+        "properties": {
+          "registry_status": {
+            "enum": [
+              "draft",
+              "suspended",
+              "expired",
+              "superseded",
+              "revoked"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "allowed_uses": {
+            "maxItems": 0,
+            "type": "array"
+          },
+          "rights_derived_allowed_uses": {
+            "maxItems": 0,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "elapsed retention, pending deletion or deletion allows nothing",
+      "if": {
+        "required": [
+          "retention_and_hold"
+        ],
+        "properties": {
+          "retention_and_hold": {
+            "required": [
+              "retention_state"
+            ],
+            "properties": {
+              "retention_state": {
+                "enum": [
+                  "retention_elapsed",
+                  "pending_deletion",
+                  "deleted"
+                ]
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "allowed_uses": {
+            "maxItems": 0,
+            "type": "array"
+          },
+          "rights_derived_allowed_uses": {
+            "maxItems": 0,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    },
+    {
+      "title": "an active view within retention allows at least one use",
+      "if": {
+        "required": [
+          "registry_status",
+          "retention_and_hold"
+        ],
+        "properties": {
+          "registry_status": {
+            "const": "active"
+          },
+          "retention_and_hold": {
+            "required": [
+              "retention_state"
+            ],
+            "properties": {
+              "retention_state": {
+                "const": "within_retention"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "allowed_uses": {
+            "minItems": 1,
+            "type": "array"
+          },
+          "rights_derived_allowed_uses": {
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

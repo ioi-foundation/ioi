@@ -1,0 +1,297 @@
+{
+  "$id": "invariant://ioi/foundations/objects/learning-egress-receipt/evidence-bounded-crossing/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "learning_egress_receipt.content_hash.commits_the_whole_receipt",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the receipt except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the frozen provider-use snapshot, the enforcement-evidence binding and the forward links. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, which is what makes an egress receipt evidence rather than an assertion the emitter can revise.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-egress-receipt-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "source_scope_ref": {
+            "path": "$.source_scope_ref"
+          },
+          "boundary_profile_revision_ref": {
+            "path": "$.boundary_profile_revision_ref"
+          },
+          "boundary_profile_content_hash": {
+            "path": "$.boundary_profile_content_hash"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "boundary_compilation_or_policy_decision_ref": {
+            "path": "$.boundary_compilation_or_policy_decision_ref"
+          },
+          "learning_evidence_eligibility_revision_refs": {
+            "path": "$.learning_evidence_eligibility_revision_refs"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "path": "$.learning_source_rights_claim_revision_refs"
+          },
+          "material_classes": {
+            "path": "$.material_classes"
+          },
+          "material_class_count": {
+            "path": "$.material_class_count"
+          },
+          "material_commitment": {
+            "path": "$.material_commitment"
+          },
+          "policy_bound_projection_refs": {
+            "path": "$.policy_bound_projection_refs"
+          },
+          "recipient_class": {
+            "path": "$.recipient_class"
+          },
+          "recipient_ref": {
+            "path": "$.recipient_ref"
+          },
+          "purpose": {
+            "path": "$.purpose"
+          },
+          "representation": {
+            "path": "$.representation"
+          },
+          "execution_privacy_posture_ref": {
+            "path": "$.execution_privacy_posture_ref"
+          },
+          "model_route_rights_revision_ref": {
+            "path": "$.model_route_rights_revision_ref"
+          },
+          "intended_customer_output_uses": {
+            "path": "$.intended_customer_output_uses"
+          },
+          "effective_customer_output_rights_hash": {
+            "path": "$.effective_customer_output_rights_hash"
+          },
+          "applicable_terms_and_license_refs": {
+            "path": "$.applicable_terms_and_license_refs"
+          },
+          "provider_use_of_customer_material": {
+            "path": "$.provider_use_of_customer_material"
+          },
+          "retention_posture": {
+            "path": "$.retention_posture"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "local_policy_and_consent_refs": {
+            "path": "$.local_policy_and_consent_refs"
+          },
+          "authority_refs": {
+            "path": "$.authority_refs"
+          },
+          "declassification_approval_ref": {
+            "path": "$.declassification_approval_ref"
+          },
+          "redaction_or_declassification_receipt_refs": {
+            "path": "$.redaction_or_declassification_receipt_refs"
+          },
+          "underlying_operation_receipt_refs": {
+            "path": "$.underlying_operation_receipt_refs"
+          },
+          "revocation_impact_ref": {
+            "path": "$.revocation_impact_ref"
+          },
+          "forward_links": {
+            "path": "$.forward_links"
+          },
+          "decision": {
+            "path": "$.decision"
+          },
+          "reason_codes": {
+            "path": "$.reason_codes"
+          },
+          "transfer_status": {
+            "path": "$.transfer_status"
+          },
+          "enforcement_evidence_binds_request_commitment": {
+            "path": "$.enforcement_evidence_binds_request_commitment"
+          },
+          "network_or_gateway_evidence_refs": {
+            "path": "$.network_or_gateway_evidence_refs"
+          },
+          "state_operation_refs": {
+            "path": "$.state_operation_refs"
+          },
+          "assurance_stage": {
+            "path": "$.assurance_stage"
+          },
+          "chain_position": {
+            "path": "$.chain_position"
+          },
+          "predecessor_receipt_ref": {
+            "path": "$.predecessor_receipt_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "emitted_at": {
+            "path": "$.emitted_at"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.identity.ref_and_id_are_one_identity",
+      "description": "The two identity fields are independent strings, so nothing in the schema alone stops a projection from handing a consumer a ref that resolves to a different receipt than the id names. Requiring them equal keeps one crossing at one address.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_ref",
+          "$.receipt_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.material_classes.count_matches_the_enumerated_set",
+      "description": "The declared class count and the enumerated class list are two independent statements about what crossed. Requiring them to agree is the cheapest possible tell that a class was dropped from the readable list after the receipt was written.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.material_classes",
+        "count_path": "$.material_class_count"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.provider_model_training.is_prohibited_without_a_named_basis",
+      "description": "PROVIDER SECONDARY USE IS DENIED BY DEFAULT, AND THE RECEIPT IS WHERE THE DEFAULT IS PROVED. Either the frozen snapshot reads `prohibited`, or the receipt names the exact contract, terms or license that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch, so it cannot enter the record as a resolved right.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.provider_model_training",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.provider_model_training_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.cross_customer_aggregation.is_prohibited_without_a_named_basis",
+      "description": "The other half of the default-deny posture, and the one an aggregator is most likely to treat as a service default rather than a term the institution had to accept.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.cross_customer_aggregation",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.cross_customer_aggregation_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.chain.a_receipt_is_never_its_own_predecessor",
+      "description": "A self-referential chain terminates in itself, which reads as a lineage and proves nothing. A genesis crossing passes because its predecessor slot is null and null is not the receipt ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.predecessor_receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.chain.a_successor_names_its_predecessor_receipt",
+      "description": "A successor crossing continues an earlier one, so it names which. A successor that names no predecessor has claimed a continuation of nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.predecessor_receipt_ref",
+        "when_path": "$.chain_position",
+        "values": [
+          "successor"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.chain.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the chain names a location rather than the crossing it continues.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.predecessor_content_hash",
+        "when_path": "$.chain_position",
+        "values": [
+          "successor"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.nonclaims.authority_is_never_omitted",
+      "description": "Emitting a receipt confers no power. The crossing depended on authority the receipt references; the record is evidence about that dependence, never a substitute for it.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.nonclaims.delivery_is_never_omitted",
+      "description": "`admitted` proves the declared policies and rights allowed the crossing. It does not prove the bytes arrived, and a receipt that could be read as a delivery confirmation would let an audit close an obligation nobody discharged.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_delivery_token"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.nonclaims.provider_non_learning_is_never_omitted",
+      "description": "Provider promises remain provider trust unless separately supported by an accepted confidential-compute or cryptographic proof. Dropping this nonclaim would let a frozen `prohibited` snapshot be read as an observation of what the recipient actually did.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_provider_non_learning_token"
+      }
+    }
+  ]
+}

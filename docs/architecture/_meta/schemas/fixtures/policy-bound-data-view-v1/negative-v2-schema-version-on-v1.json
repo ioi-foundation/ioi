@@ -1,0 +1,79 @@
+{
+  "schema_version": "ioi.policy-bound-data-view.v2",
+  "object": "ioi.hypervisor.odk.policy_bound_data_view",
+  "id": "pbdv_18f2c0a9d4b6e731",
+  "ref": "policy-bound-data-view://pbdv_18f2c0a9d4b6e731",
+  "name": "intake-minimised",
+  "description": "Declared projection over the intake mapping.",
+  "status": "declared",
+  "revision": 3,
+  "connector_mapping_id": "cm_4c1d8b02f7a6e935",
+  "connector_mapping_ref": "mapping://cm_4c1d8b02f7a6e935",
+  "ontology_ref": "ontology://acme-clinic/patient-intake",
+  "object_type_id": "ot_patient_intake",
+  "allowed_operations": [
+    "read",
+    "transform",
+    "evaluate"
+  ],
+  "authority_subjects": [
+    "worker://acme-clinic/intake-assistant"
+  ],
+  "purpose": "Minimised intake read for the intake assistant.",
+  "property_scope": [
+    "p_intake_id",
+    "p_visit_date",
+    "p_procedure_code"
+  ],
+  "object_scope": null,
+  "retention_posture": "bounded",
+  "export_posture": "no_export",
+  "training_posture": "no_training",
+  "evaluation_posture": "receipted_evaluation_only",
+  "publish_route_posture": "no_publish_route",
+  "receipt_obligations": [
+    "policy_view_read",
+    "policy_view_evaluate"
+  ],
+  "receipt_refs": [],
+  "receipt_binding": "unembedded — join the receipt store on policy_view_ref",
+  "history": [
+    {
+      "revision": 1,
+      "op": "created",
+      "at": "2026-04-02T11:20:00Z",
+      "summary": "PolicyBoundDataView declared"
+    },
+    {
+      "revision": 2,
+      "op": "redeclared",
+      "at": "2026-05-14T09:05:00Z",
+      "summary": "property scope narrowed"
+    },
+    {
+      "revision": 3,
+      "op": "redeclared",
+      "at": "2026-06-21T15:41:00Z",
+      "summary": "evaluation posture receipted"
+    }
+  ],
+  "health": {
+    "status": "ready",
+    "gaps": [],
+    "authorized_subjects": 1,
+    "allowed_operations": 3,
+    "scoped_properties": 3,
+    "object_instances": 0,
+    "missing_contracts": [
+      "TransformationRun",
+      "OntologyProjection"
+    ],
+    "note": "declarative gate only — nothing is authorized to RUN"
+  },
+  "authority": {
+    "crossed": false,
+    "note": "declaring a view implies no approval and executes nothing"
+  },
+  "created_at": "2026-04-02T11:20:00Z",
+  "updated_at": "2026-06-21T15:41:00Z"
+}

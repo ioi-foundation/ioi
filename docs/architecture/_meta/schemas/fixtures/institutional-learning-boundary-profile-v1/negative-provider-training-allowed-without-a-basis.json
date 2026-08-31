@@ -1,0 +1,243 @@
+{
+  "schema_version": "ioi.institutional-learning-boundary-profile.v1",
+  "boundary_profile_id": "learning-boundary://acme.organization-default",
+  "revision_ref": "learning-boundary://acme.organization-default/revision/3",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "governance_owner_ref": "org://acme-clinic",
+  "scope_level": "organization",
+  "scope_owner_ref": "org://acme-clinic",
+  "applies_to_refs": [
+    "org://acme-clinic",
+    "project://acme-clinic/intake"
+  ],
+  "system_binding": {
+    "system_ref": null,
+    "constitution_ref": null,
+    "deployment_profile_ref": null,
+    "upgrade_required_for_widening": true
+  },
+  "protected_material_classes": [
+    "source_data",
+    "prompts_and_completions",
+    "connector_and_tool_io",
+    "corrections_and_reviewer_judgments"
+  ],
+  "learning_source_rights_claim_revision_refs": [
+    "learning-source-rights://acme.intake-records/revision/2"
+  ],
+  "policy_bound_data_view_refs": [
+    "view://acme.intake-minimised/revision/1"
+  ],
+  "route_rights_contract_refs": [
+    "model-route-rights://acme.primary-inference/revision/1"
+  ],
+  "custody": {
+    "product_mode": "private",
+    "runtime_operator": "customer_managed",
+    "permitted_provider_trust_postures": [
+      "no_provider_plaintext",
+      "redacted_only"
+    ],
+    "permitted_custody_postures": [
+      "customer_boundary",
+      "customer_vpc"
+    ],
+    "private_claim_requires_current_proof": true
+  },
+  "external_recipient_permissions": {
+    "transient_inference": "allow",
+    "service_logging": "policy_qualified",
+    "abuse_or_security_review": "policy_qualified",
+    "human_support_review": "deny",
+    "retention": "deny",
+    "service_improvement": "deny",
+    "provider_model_training": "allow",
+    "provider_model_training_basis_ref": null,
+    "cross_customer_aggregation": "deny",
+    "cross_customer_aggregation_basis_ref": null,
+    "publication": "deny"
+  },
+  "cross_tenant_learning": {
+    "default": "deny",
+    "permitted_cohort_refs": [],
+    "aggregation_policy_ref": null,
+    "contribution_and_benefit_terms_ref": null,
+    "non_reconstruction_control_refs": []
+  },
+  "target_binding": {
+    "bound_target_refs": [
+      "worker://acme-clinic/intake-assistant"
+    ],
+    "permission_travels_to_other_targets": false
+  },
+  "declared_use_vocabulary": [
+    "operational_inference",
+    "retain",
+    "replay",
+    "internal_evaluation",
+    "internal_analytics",
+    "memory_or_context_improvement",
+    "dataset_generation",
+    "fine_tune",
+    "distill",
+    "competing_model_training",
+    "worker_or_package_improvement",
+    "commercialize_derivative",
+    "export",
+    "publish",
+    "cross_tenant_aggregate_learning"
+  ],
+  "effective_permitted_uses": [
+    "operational_inference",
+    "retain",
+    "replay",
+    "internal_evaluation",
+    "internal_analytics",
+    "memory_or_context_improvement",
+    "dataset_generation",
+    "worker_or_package_improvement"
+  ],
+  "effective_denied_uses": [
+    "fine_tune",
+    "distill",
+    "competing_model_training",
+    "commercialize_derivative",
+    "export",
+    "publish",
+    "cross_tenant_aggregate_learning"
+  ],
+  "parent_binding": {
+    "compilation_origin": "root_default",
+    "parent_revision_ref": null,
+    "parent_content_hash": null,
+    "parent_denied_uses_at_compilation": [],
+    "parent_denied_use_count_at_compilation": 0
+  },
+  "parent_denied_uses": [],
+  "locally_added_denied_uses": [
+    "fine_tune",
+    "distill",
+    "competing_model_training",
+    "commercialize_derivative",
+    "export",
+    "publish",
+    "cross_tenant_aggregate_learning"
+  ],
+  "narrowing_decisions": [
+    {
+      "denied_use": "fine_tune",
+      "governing_source_kind": "source_rights_claim",
+      "governing_source_ref": "learning-source-rights://acme.intake-records/revision/2",
+      "also_denied_by_source_kinds": [
+        "declared_local_policy"
+      ],
+      "reason_code": "source_right_prohibits"
+    },
+    {
+      "denied_use": "distill",
+      "governing_source_kind": "source_rights_claim",
+      "governing_source_ref": "learning-source-rights://acme.intake-records/revision/2",
+      "also_denied_by_source_kinds": [
+        "declared_local_policy"
+      ],
+      "reason_code": "source_right_prohibits"
+    },
+    {
+      "denied_use": "competing_model_training",
+      "governing_source_kind": "source_rights_claim",
+      "governing_source_ref": "learning-source-rights://acme.intake-records/revision/2",
+      "also_denied_by_source_kinds": [
+        "declared_local_policy"
+      ],
+      "reason_code": "source_right_prohibits"
+    },
+    {
+      "denied_use": "commercialize_derivative",
+      "governing_source_kind": "source_rights_claim",
+      "governing_source_ref": "learning-source-rights://acme.intake-records/revision/2",
+      "also_denied_by_source_kinds": [
+        "declared_local_policy"
+      ],
+      "reason_code": "source_right_prohibits"
+    },
+    {
+      "denied_use": "cross_tenant_aggregate_learning",
+      "governing_source_kind": "source_rights_claim",
+      "governing_source_ref": "learning-source-rights://acme.intake-records/revision/2",
+      "also_denied_by_source_kinds": [
+        "declared_local_policy"
+      ],
+      "reason_code": "source_right_prohibits"
+    }
+  ],
+  "indeterminate_findings": [
+    {
+      "denied_use": "export",
+      "resolution": "missing_required_contract",
+      "disputed_input_ref": "contract://acme/customer-msa/v4"
+    },
+    {
+      "denied_use": "publish",
+      "resolution": "indeterminate_right",
+      "disputed_input_ref": "contract://acme/customer-msa/v4"
+    }
+  ],
+  "widening_releases": [],
+  "snapshot_binding": {
+    "snapshot_of_revision_ref": null,
+    "snapshot_of_content_hash": null,
+    "mid_run_policy_change_rewrites_admitted_receipts": false
+  },
+  "jurisdiction_refs": [
+    "jurisdiction://us-ca"
+  ],
+  "residency_refs": [
+    "region://us-west"
+  ],
+  "retention_policy_ref": "policy://acme/retention/intake/v3",
+  "deletion_or_forget_policy_ref": "policy://acme/deletion/intake/v2",
+  "legal_or_audit_hold_policy_ref": null,
+  "derivative_policy_ref": "policy://acme/derivative/v1",
+  "export_policy_ref": "policy://acme/export/v1",
+  "revocation_policy_ref": "policy://acme/revocation/v1",
+  "declassification_policy_ref": "policy://acme/declassification/v1",
+  "receipt_obligations": [
+    "boundary_compilation",
+    "learning_evidence_eligibility",
+    "learning_egress_decision",
+    "transformation"
+  ],
+  "compiled_policy_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "effective_from": "2026-06-01T00:00:00Z",
+  "expires_at": null,
+  "status": "active",
+  "admitted_at": "2026-06-01T09:20:11Z",
+  "succession": {
+    "succession_reason": "source_rights_change",
+    "predecessor_revision_ref": "learning-boundary://acme.organization-default/revision/2",
+    "predecessor_content_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "supersedes_predecessor": true,
+    "reinterprets_predecessor": false
+  },
+  "constants": {
+    "lifecycle_id": "institutional_learning_boundary_profile_lifecycle.v1",
+    "learning_use_vocabulary_size": 15,
+    "cross_tenant_use_token": "cross_tenant_aggregate_learning",
+    "recipient_permission_deny_token": "deny",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_provider_non_learning_token": "provider_non_learning"
+  },
+  "authority_nonclaim": "institutional_learning_boundary_profile_grants_no_authority",
+  "truth_nonclaim": "institutional_learning_boundary_profile_is_a_policy_compilation_not_a_runtime_or_truth_store",
+  "does_not_assert": [
+    "authority",
+    "execution_power",
+    "new_authority_plane",
+    "truth_store",
+    "legal_right_generation",
+    "provider_non_learning",
+    "verified_unlearning"
+  ],
+  "content_hash": "sha256:6aa0e956f1f67399eb6c4a2c6e25a5ef12bf520ef4f7a882ab51e6a7c7072d09"
+}

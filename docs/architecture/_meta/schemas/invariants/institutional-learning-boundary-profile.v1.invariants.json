@@ -1,0 +1,409 @@
+{
+  "$id": "invariant://ioi/foundations/objects/institutional-learning-boundary-profile/most-restrictive-intersection/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+  "rules": [
+    {
+      "rule_id": "institutional_learning_boundary_profile.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the parent binding, the whole denial decomposition and the release rows, which is how 'a child may narrow but never silently widen' becomes a property of the bytes. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.institutional-learning-boundary-profile-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "boundary_profile_id": {
+            "path": "$.boundary_profile_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "governance_owner_ref": {
+            "path": "$.governance_owner_ref"
+          },
+          "scope_level": {
+            "path": "$.scope_level"
+          },
+          "scope_owner_ref": {
+            "path": "$.scope_owner_ref"
+          },
+          "applies_to_refs": {
+            "path": "$.applies_to_refs"
+          },
+          "system_binding": {
+            "path": "$.system_binding"
+          },
+          "protected_material_classes": {
+            "path": "$.protected_material_classes"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "path": "$.learning_source_rights_claim_revision_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "route_rights_contract_refs": {
+            "path": "$.route_rights_contract_refs"
+          },
+          "custody": {
+            "path": "$.custody"
+          },
+          "external_recipient_permissions": {
+            "path": "$.external_recipient_permissions"
+          },
+          "cross_tenant_learning": {
+            "path": "$.cross_tenant_learning"
+          },
+          "target_binding": {
+            "path": "$.target_binding"
+          },
+          "declared_use_vocabulary": {
+            "path": "$.declared_use_vocabulary"
+          },
+          "effective_permitted_uses": {
+            "path": "$.effective_permitted_uses"
+          },
+          "effective_denied_uses": {
+            "path": "$.effective_denied_uses"
+          },
+          "parent_binding": {
+            "path": "$.parent_binding"
+          },
+          "parent_denied_uses": {
+            "path": "$.parent_denied_uses"
+          },
+          "locally_added_denied_uses": {
+            "path": "$.locally_added_denied_uses"
+          },
+          "narrowing_decisions": {
+            "path": "$.narrowing_decisions"
+          },
+          "indeterminate_findings": {
+            "path": "$.indeterminate_findings"
+          },
+          "widening_releases": {
+            "path": "$.widening_releases"
+          },
+          "snapshot_binding": {
+            "path": "$.snapshot_binding"
+          },
+          "jurisdiction_refs": {
+            "path": "$.jurisdiction_refs"
+          },
+          "residency_refs": {
+            "path": "$.residency_refs"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "deletion_or_forget_policy_ref": {
+            "path": "$.deletion_or_forget_policy_ref"
+          },
+          "legal_or_audit_hold_policy_ref": {
+            "path": "$.legal_or_audit_hold_policy_ref"
+          },
+          "derivative_policy_ref": {
+            "path": "$.derivative_policy_ref"
+          },
+          "export_policy_ref": {
+            "path": "$.export_policy_ref"
+          },
+          "revocation_policy_ref": {
+            "path": "$.revocation_policy_ref"
+          },
+          "declassification_policy_ref": {
+            "path": "$.declassification_policy_ref"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "compiled_policy_hash": {
+            "path": "$.compiled_policy_hash"
+          },
+          "effective_from": {
+            "path": "$.effective_from"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one boundary from being filed under another boundary's id — and a sovereign system resolving the family would then pin a compilation that never belonged to it. This rule requires `revision_ref` to begin with `boundary_profile_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.boundary_profile_id",
+        "prefix": "learning-boundary://",
+        "strip_prefix": "learning-boundary://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.vocabulary.is_the_whole_closed_set",
+      "description": "The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set rather than the subset a compiler found convenient. The item enum and uniqueness fix the members; this rule fixes the count against the size pinned in `constants`. A compilation that dropped `publish` from its vocabulary could otherwise partition the remainder perfectly and never decide publication at all.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.declared_use_vocabulary",
+        "count_path": "$.constants.learning_use_vocabulary_size"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.effective_uses.partition_the_vocabulary",
+      "description": "EVERY USE IS DECIDED, AND NO USE IS DECIDED TWICE. Coverage here is a MULTISET equality, which buys both halves at once: a use appearing in both the permitted and the denied set makes the covering longer than the vocabulary and the record fails, and a use appearing in neither makes it shorter and the record fails. An undecided use is therefore inadmissible rather than implicitly permitted, which is what a fail-closed compilation requires.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_use_vocabulary",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.effective_permitted_uses",
+          "$.effective_denied_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.denials.decompose_into_inherited_and_local",
+      "description": "EVERY INHERITED DENIAL SURVIVES INTO THE EFFECTIVE SET. `effective_denied_uses` must be covered, as a multiset, by the retained inherited denials plus the locally added ones. Dropping an inherited denial leaves the covering short and refuses; counting one denial as both inherited and local makes it long and refuses. This is the narrowing half of canon's rule — a child may narrow but may not silently widen — expressed as an equality anyone can check offline from these bytes alone.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.effective_denied_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.parent_denied_uses",
+          "$.locally_added_denied_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.local_denials.are_attributed_or_indeterminate",
+      "description": "EVERY LOCAL DENIAL HAS EXACTLY ONE REASON, AND EVERY INDETERMINACY IS A DENIAL. The local denial set must be covered exactly by the narrowing decisions plus the indeterminate findings. A compilation that records a conflict, a missing required contract or an indeterminate right and still permits the disputed use leaves the covering short and cannot be admitted — which is how canon's 'a conflict, missing required contract, or indeterminate right denies the disputed use' stops being a runtime branch someone can forget to take. Multiset semantics also forbid attributing one denial to both a named input and an indeterminacy, so the audit answer stays single-valued.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.locally_added_denied_uses",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.narrowing_decisions",
+            "field": "denied_use"
+          },
+          {
+            "path": "$.indeterminate_findings",
+            "field": "denied_use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.inheritance.is_retained_or_explicitly_released",
+      "description": "A SILENT WIDENING IS IMPOSSIBLE. The parent's denial set as read at compilation must be covered exactly by the denials this profile RETAINED plus the ones it EXPLICITLY RELEASED, and every release row carries its widening authority ref, its admitted decision ref and its upgrade-path class by schema. Dropping an inherited restriction without a release row leaves the covering short and the record is refused; inventing a release for a denial the parent never carried makes it long and is refused too. Canon's rule that widening requires explicit authority AND a new decision is therefore enforced by the shape rather than by whoever compiles it. At any snapshot scope level the schema pins the release list empty, so a run, invocation, transformation or Foundry-job snapshot cannot release anything at all.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.parent_binding.parent_denied_uses_at_compilation",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.parent_denied_uses"
+        ],
+        "required_item_field_paths": [
+          {
+            "path": "$.widening_releases",
+            "field": "released_use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.inheritance.count_matches_the_enumerated_set",
+      "description": "The declared parent denial count and the enumerated parent denial list are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that one of them was edited to make a permission fit.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.parent_binding.parent_denied_uses_at_compilation",
+        "count_path": "$.parent_binding.parent_denied_use_count_at_compilation"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.narrowing_decisions.decide_each_use_once",
+      "description": "Two rows deciding the same use would let one compilation carry two governing inputs for one denial, and an audit asking why a use is unavailable would get two answers with no rule for choosing between them. Every other contributing input belongs in `also_denied_by_source_kinds` on the single governing row.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.narrowing_decisions",
+        "fields": [
+          "denied_use"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.widening_releases.release_each_use_once",
+      "description": "One release per use, so a widening cannot be split across two rows with different authorities and then read as whichever one an auditor happened to fetch.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.widening_releases",
+        "fields": [
+          "released_use"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.cross_tenant.is_denied_without_a_cohort_binding",
+      "description": "CROSS-TENANT AND ECOSYSTEM LEARNING ARE DEFAULT-DENY. Either the cross-tenant use appears in the effective denial set, or the profile carries an explicit permitted-cohort binding for an opt-in aggregate-learning program. There is no third state: an anonymization claim, a differential-privacy control or a broad service default satisfies neither branch, because a control reduces exposure and cannot create a missing right. The denied token is pinned in `constants` so this rule requires it without the invariant language carrying a literal.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "array_contains_value",
+            "array_path": "$.effective_denied_uses",
+            "expected_path": "$.constants.cross_tenant_use_token"
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.cross_tenant_learning.permitted_cohort_refs"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.provider_model_training.is_denied_without_a_named_basis",
+      "description": "PROVIDER SECONDARY USE IS DENIED BY DEFAULT. Either the field reads `deny`, or the profile names the exact contract, terms or license that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch and therefore cannot silently override the effective profile.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.external_recipient_permissions.provider_model_training",
+              "$.constants.recipient_permission_deny_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.external_recipient_permissions.provider_model_training_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.cross_customer_aggregation.is_denied_without_a_named_basis",
+      "description": "The same default-deny posture for cross-customer aggregation, which is the other half of canon's provider-secondary-use rule and the one an aggregator is most likely to treat as a service default rather than a term the institution had to accept.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.external_recipient_permissions.cross_customer_aggregation",
+              "$.constants.recipient_permission_deny_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.external_recipient_permissions.cross_customer_aggregation_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the compiled boundary moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "parent_policy_change",
+          "source_rights_change",
+          "route_rights_change",
+          "custody_change",
+          "jurisdiction_or_residency_change",
+          "retention_or_export_change",
+          "governed_widening",
+          "revocation_or_suspension",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, which is exactly the mutable-head problem the pinned-revision discipline exists to end.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "parent_policy_change",
+          "source_rights_change",
+          "route_rights_change",
+          "custody_change",
+          "jurisdiction_or_residency_change",
+          "retention_or_export_change",
+          "governed_widening",
+          "revocation_or_suspension",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.nonclaims.authority_is_never_omitted",
+      "description": "The learning boundary is a cross-cutting policy compilation, not a new authority plane. A promoted model, route, memory mutation, skill or worker remains subject to ordinary manifest, policy, authority, verifier and runtime admission, and the record says so itself.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.nonclaims.provider_non_learning_is_never_omitted",
+      "description": "A contract proves the route and the terms the institution admitted; it does not prove what a provider actually did. Dropping this nonclaim would let an admitted profile be read as the privacy proof canon explicitly says it is not.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_provider_non_learning_token"
+      }
+    }
+  ]
+}

@@ -1,0 +1,288 @@
+{
+  "$id": "invariant://ioi/foundations/objects/learning-evidence-eligibility/bounded-owner-qualified-decision/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+  "rules": [
+    {
+      "rule_id": "learning_evidence_eligibility.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the boundary binding, the permitted-use snapshot and the contamination posture, which is how 'eligibility cannot exceed its boundary' becomes a property of the bytes rather than of the producer's discipline. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-evidence-eligibility-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "eligibility_id": {
+            "path": "$.eligibility_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "governance_owner_ref": {
+            "path": "$.governance_owner_ref"
+          },
+          "eligibility_profile": {
+            "path": "$.eligibility_profile"
+          },
+          "boundary_profile_revision_ref": {
+            "path": "$.boundary_profile_revision_ref"
+          },
+          "boundary_profile_content_hash": {
+            "path": "$.boundary_profile_content_hash"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "boundary_permitted_uses_at_decision": {
+            "path": "$.boundary_permitted_uses_at_decision"
+          },
+          "boundary_permitted_use_count_at_decision": {
+            "path": "$.boundary_permitted_use_count_at_decision"
+          },
+          "learning_use": {
+            "path": "$.learning_use"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "path": "$.learning_source_rights_claim_revision_refs"
+          },
+          "subject_refs": {
+            "path": "$.subject_refs"
+          },
+          "requester_ref": {
+            "path": "$.requester_ref"
+          },
+          "intended_use": {
+            "path": "$.intended_use"
+          },
+          "learning_use_posture": {
+            "path": "$.learning_use_posture"
+          },
+          "legacy_binding": {
+            "path": "$.legacy_binding"
+          },
+          "applicable_evaluation_epoch_refs": {
+            "path": "$.applicable_evaluation_epoch_refs"
+          },
+          "target_binding": {
+            "path": "$.target_binding"
+          },
+          "owner_and_tenant_scope_refs": {
+            "path": "$.owner_and_tenant_scope_refs"
+          },
+          "contamination_posture": {
+            "path": "$.contamination_posture"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "data_recipe_revision_refs": {
+            "path": "$.data_recipe_revision_refs"
+          },
+          "local_policy_refs": {
+            "path": "$.local_policy_refs"
+          },
+          "consent_refs": {
+            "path": "$.consent_refs"
+          },
+          "authority_requirement_posture": {
+            "path": "$.authority_requirement_posture"
+          },
+          "authority_requirement_kinds": {
+            "path": "$.authority_requirement_kinds"
+          },
+          "wallet_authority_refs": {
+            "path": "$.wallet_authority_refs"
+          },
+          "declassification_refs": {
+            "path": "$.declassification_refs"
+          },
+          "learning_egress_receipt_refs": {
+            "path": "$.learning_egress_receipt_refs"
+          },
+          "provider_trust_posture": {
+            "path": "$.provider_trust_posture"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "derivative_policy_ref": {
+            "path": "$.derivative_policy_ref"
+          },
+          "lineage_root": {
+            "path": "$.lineage_root"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          },
+          "exclusion_reason": {
+            "path": "$.exclusion_reason"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_by_ref": {
+            "path": "$.admitted_by_ref"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. Nothing in the schema alone stops a revision of one decision from being filed under another decision's id, and a consumer resolving the family would then read an admission that never belonged to it. This rule requires `revision_ref` to begin with `eligibility_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.eligibility_id",
+        "prefix": "eligibility://",
+        "strip_prefix": "eligibility://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.use.is_permitted_by_the_bound_boundary",
+      "description": "ELIGIBILITY CANNOT EXCEED ITS BOUNDARY. Either the bound `learning_use` is a member of the boundary's permitted set as read at decision time, or the record carries an exclusion reason. The schema forbids an `eligible` record from carrying an exclusion reason, so an eligibility for a use the boundary denies satisfies neither branch and is inadmissible. This is the point at which the most-restrictive intersection stops being a claim the profile makes about itself and becomes a constraint on every decision downstream of it.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "array_contains_value",
+            "array_path": "$.boundary_permitted_uses_at_decision",
+            "expected_path": "$.learning_use"
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.exclusion_reason"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.boundary_snapshot.count_matches_the_enumerated_set",
+      "description": "The declared size of the boundary's permitted set and the enumerated set are two independent statements about the same reading, so requiring them to agree is the cheapest possible tell that one of them was edited to make a use fit.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.boundary_permitted_uses_at_decision",
+        "count_path": "$.boundary_permitted_use_count_at_decision"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.legacy_binding.normalizes_without_conflicting",
+      "description": "CONFLICTING OLD AND NEW VALUES FAIL ADMISSION. When a legacy training-eligibility envelope was normalized into this decision, the posture the adapter produced must equal the canonical posture the record carries. A record whose legacy half says one thing and whose canonical half says another is two decisions wearing one identity, and whichever half a consumer happened to read would be the effective one. A decision authored directly at this contract carries a null binding and passes.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.legacy_binding",
+        "paths": [
+          "$.legacy_binding.normalized_learning_use_posture",
+          "$.learning_use_posture"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.authority.a_required_authority_is_named",
+      "description": "A decision that says acting on it needs delegated machine power and then names no authority would be read by an optimistic consumer as needing none. This rule requires at least one authority ref exactly when the posture says the decision depends on one.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.wallet_authority_refs",
+        "when_path": "$.authority_requirement_posture",
+        "values": [
+          "required"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the decision moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "boundary_revision_change",
+          "source_rights_change",
+          "contamination_change",
+          "consent_change",
+          "target_scope_change",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash a revocation that a later reader needs to trust names a location that may since have been re-admitted.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "boundary_revision_change",
+          "source_rights_change",
+          "contamination_change",
+          "consent_change",
+          "target_scope_change",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.nonclaims.authority_is_never_omitted",
+      "description": "An admission decision is not the power to act on it. Where the decision requires decryption, connector access, provider keys, spend, provider trust, sealed access, egress, publication, export or cross-domain reuse, it names the authority refs rather than standing in for them.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.nonclaims.declassification_is_never_omitted",
+      "description": "Admitting evidence into an improvement loop is not releasing it across a boundary. Dropping this nonclaim would let an eligible decision be read as the declassification approval that a parameter, gradient, adapter or distillate crossing separately requires.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_declassification_token"
+      }
+    }
+  ]
+}

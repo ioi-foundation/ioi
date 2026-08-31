@@ -10501,6 +10501,597 @@ export type TransformationRunV2 = {
   content_hash: string;
 };
 
+export type LearningSourceRightsClaimV1 = {
+  schema_version: "ioi.learning-source-rights-claim.v1";
+  source_rights_claim_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  asserted_by_ref: string;
+  asserted_rights_holder_refs: Array<string>;
+  source_class: "employee" | "contractor" | "customer" | "patient" | "partner" | "vendor" | "licensed" | "purchased" | "public" | "synthetic" | "provider_output" | "machine_generated" | "mixed" | "unknown";
+  subject_refs: Array<string>;
+  rights_basis_refs: Array<string>;
+  route_rights_contract_refs: Array<string>;
+  declared_use_vocabulary: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  permitted_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  prohibited_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  declared_prohibited_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  unresolved_right_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  unresolved_rights_findings: Array<{
+        use: "operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning";
+        resolution: "missing" | "unknown" | "conflicting" | "expired" | "revoked" | "unsupported" | "disputed";
+        subject_ref: string;
+      }>;
+  derivative_disposition: "inherit_intersection" | "internal_only" | "transferable_with_claims" | "noncommercial_only" | "no_derivatives" | "policy_defined";
+  beneficiary_scope_refs: Array<string>;
+  jurisdiction_refs: Array<string>;
+  residency_refs: Array<string>;
+  retention_policy_ref: string;
+  deletion_or_forget_policy_ref: string;
+  legal_or_audit_hold_state: "none" | "legal_hold" | "audit_hold" | "incident_hold";
+  validity: {
+      valid_from: string;
+      valid_until: string | null;
+    };
+  evidence_refs: Array<string>;
+  claim_commitment: string;
+  status: "asserted" | "admitted" | "disputed" | "expired" | "superseded" | "revoked" | "rejected";
+  admitted_at: string;
+  succession: {
+      succession_reason: "genesis" | "basis_change" | "evidence_change" | "rights_holder_change" | "use_permission_change" | "unresolved_right_resolved" | "expiry_or_revocation" | "correction";
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+      supersedes_predecessor: boolean;
+      reinterprets_predecessor: false;
+    };
+  constants: {
+      lifecycle_id: "learning_source_rights_claim_lifecycle.v1";
+      learning_use_vocabulary_size: number;
+      nonclaim_authority_token: "authority";
+      nonclaim_legal_title_token: "legal_title";
+    };
+  authority_nonclaim: "learning_source_rights_claim_grants_no_authority";
+  truth_nonclaim: "learning_source_rights_claim_is_an_asserted_posture_not_a_legal_finding";
+  does_not_assert: Array<"authority" | "legal_title" | "ownership" | "semantic_truth" | "training_consent_by_creation" | "redaction_creates_permission" | "provider_non_learning" | "verified_unlearning" | "policy_permission" | "capability_lease_crossing">;
+  content_hash: string;
+};
+
+export type InstitutionalLearningBoundaryProfileV1 = {
+  schema_version: "ioi.institutional-learning-boundary-profile.v1";
+  boundary_profile_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  governance_owner_ref: string;
+  scope_level: "organization" | "project" | "system" | "session" | "goal_run" | "model_invocation" | "transformation" | "foundry_job";
+  scope_owner_ref: string;
+  applies_to_refs: Array<string>;
+  system_binding: {
+      system_ref: string | null;
+      constitution_ref: string | null;
+      deployment_profile_ref: string | null;
+      upgrade_required_for_widening: true;
+    };
+  protected_material_classes: Array<"source_data" | "prompts_and_completions" | "connector_and_tool_io" | "work_graphs_traces_and_receipts" | "corrections_and_reviewer_judgments" | "evaluations_rubrics_holdouts_and_canaries" | "memory_context_procedures_workflows_and_skills" | "datasets_embeddings_and_indexes" | "adapters_checkpoints_weights_and_packages" | "router_verifier_authority_and_governance_policy" | "analytics_crash_support_and_security_telemetry" | "embodied_sensor_actuator_mission_and_operator_telemetry">;
+  learning_source_rights_claim_revision_refs: Array<string>;
+  policy_bound_data_view_refs: Array<string>;
+  route_rights_contract_refs: Array<string>;
+  custody: {
+      product_mode: "standard" | "private";
+      runtime_operator: "ioi_managed" | "customer_managed" | "local" | "hybrid";
+      permitted_provider_trust_postures: Array<"no_provider_plaintext" | "redacted_only" | "disclosed_policy_qualified" | "provider_trust_accepted" | "private_compute_required">;
+      permitted_custody_postures: Array<"customer_boundary" | "local_or_open_model" | "customer_vpc" | "attested_confidential_compute" | "brokered_custody_proven" | "managed_private_native">;
+      private_claim_requires_current_proof: true;
+    };
+  external_recipient_permissions: {
+      transient_inference: "allow" | "deny" | "policy_qualified";
+      service_logging: "allow" | "deny" | "policy_qualified";
+      abuse_or_security_review: "allow" | "deny" | "policy_qualified";
+      human_support_review: "allow" | "deny" | "policy_qualified";
+      retention: "allow" | "deny" | "policy_qualified";
+      service_improvement: "allow" | "deny" | "policy_qualified";
+      provider_model_training: "allow" | "deny" | "policy_qualified";
+      provider_model_training_basis_ref: string | null;
+      cross_customer_aggregation: "allow" | "deny" | "policy_qualified";
+      cross_customer_aggregation_basis_ref: string | null;
+      publication: "allow" | "deny" | "policy_qualified";
+    };
+  cross_tenant_learning: {
+      default: "deny";
+      permitted_cohort_refs: Array<string>;
+      aggregation_policy_ref: string | null;
+      contribution_and_benefit_terms_ref: string | null;
+      non_reconstruction_control_refs: Array<string>;
+    };
+  target_binding: {
+      bound_target_refs: Array<string>;
+      permission_travels_to_other_targets: false;
+    };
+  declared_use_vocabulary: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  effective_permitted_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  effective_denied_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  parent_binding: {
+      compilation_origin: "root_default" | "narrowed_from_parent";
+      parent_revision_ref: string | null;
+      parent_content_hash: string | null;
+      parent_denied_uses_at_compilation: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+      parent_denied_use_count_at_compilation: number;
+    };
+  parent_denied_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  locally_added_denied_uses: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  narrowing_decisions: Array<{
+        denied_use: "operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning";
+        governing_source_kind: "source_rights_claim" | "route_rights_contract" | "policy_bound_data_view" | "custody_posture" | "jurisdiction_or_residency" | "retention_or_export_policy" | "evidence_eligibility_decision" | "declared_local_policy";
+        governing_source_ref: string;
+        also_denied_by_source_kinds: Array<"source_rights_claim" | "route_rights_contract" | "policy_bound_data_view" | "custody_posture" | "jurisdiction_or_residency" | "retention_or_export_policy" | "evidence_eligibility_decision" | "declared_local_policy">;
+        reason_code: "source_right_prohibits" | "route_right_unresolved" | "custody_posture_unsatisfied" | "jurisdiction_or_residency_prohibits" | "retention_or_hold_prohibits" | "destination_class_prohibits" | "eligibility_excluded" | "local_policy_prohibits";
+      }>;
+  indeterminate_findings: Array<{
+        denied_use: "operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning";
+        resolution: "missing_required_contract" | "conflicting_inputs" | "indeterminate_right" | "expired_input" | "revoked_input" | "unavailable_input";
+        disputed_input_ref: string;
+      }>;
+  widening_releases: Array<{
+        released_use: "operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning";
+        widening_authority_ref: string;
+        widening_decision_ref: string;
+        upgrade_path_class: "ordinary_upgrade" | "protected_upgrade";
+      }>;
+  snapshot_binding: {
+      snapshot_of_revision_ref: string | null;
+      snapshot_of_content_hash: string | null;
+      mid_run_policy_change_rewrites_admitted_receipts: false;
+    };
+  jurisdiction_refs: Array<string>;
+  residency_refs: Array<string>;
+  retention_policy_ref: string;
+  deletion_or_forget_policy_ref: string;
+  legal_or_audit_hold_policy_ref: string | null;
+  derivative_policy_ref: string;
+  export_policy_ref: string;
+  revocation_policy_ref: string;
+  declassification_policy_ref: string | null;
+  receipt_obligations: Array<"boundary_compilation" | "model_route_decision" | "learning_egress_decision" | "learning_evidence_eligibility" | "transformation" | "foundry_lineage" | "promotion_or_recall" | "export_or_denial">;
+  compiled_policy_hash: string;
+  effective_from: string;
+  expires_at: string | null;
+  status: "draft" | "active" | "suspended" | "superseded" | "revoked";
+  admitted_at: string;
+  succession: {
+      succession_reason: "genesis" | "parent_policy_change" | "source_rights_change" | "route_rights_change" | "custody_change" | "jurisdiction_or_residency_change" | "retention_or_export_change" | "governed_widening" | "revocation_or_suspension" | "correction";
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+      supersedes_predecessor: boolean;
+      reinterprets_predecessor: false;
+    };
+  constants: {
+      lifecycle_id: "institutional_learning_boundary_profile_lifecycle.v1";
+      learning_use_vocabulary_size: number;
+      cross_tenant_use_token: "cross_tenant_aggregate_learning";
+      recipient_permission_deny_token: "deny";
+      nonclaim_authority_token: "authority";
+      nonclaim_provider_non_learning_token: "provider_non_learning";
+    };
+  authority_nonclaim: "institutional_learning_boundary_profile_grants_no_authority";
+  truth_nonclaim: "institutional_learning_boundary_profile_is_a_policy_compilation_not_a_runtime_or_truth_store";
+  does_not_assert: Array<"authority" | "execution_power" | "new_authority_plane" | "truth_store" | "legal_right_generation" | "provider_non_learning" | "verified_unlearning" | "cryptographic_privacy" | "source_rights" | "semantic_truth" | "promotion_or_activation" | "capability_lease_crossing">;
+  content_hash: string;
+};
+
+export type LearningEvidenceEligibilityV1 = {
+  schema_version: "ioi.learning-evidence-eligibility.v1";
+  eligibility_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  governance_owner_ref: string;
+  eligibility_profile: "general_learning" | "training_compatibility";
+  boundary_profile_revision_ref: string;
+  boundary_profile_content_hash: string;
+  effective_learning_policy_hash: string;
+  boundary_permitted_uses_at_decision: Array<"operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning">;
+  boundary_permitted_use_count_at_decision: number;
+  learning_use: "operational_inference" | "retain" | "replay" | "internal_evaluation" | "internal_analytics" | "memory_or_context_improvement" | "dataset_generation" | "fine_tune" | "distill" | "competing_model_training" | "worker_or_package_improvement" | "commercialize_derivative" | "export" | "publish" | "cross_tenant_aggregate_learning";
+  learning_source_rights_claim_revision_refs: Array<string>;
+  subject_refs: Array<string>;
+  requester_ref: string;
+  intended_use: "conductor_training" | "worker_training" | "eval_generation" | "dataset_distillation" | "benchmark" | "simulation" | "analytics_only" | "pursuit_method_improvement" | "workflow_or_policy_improvement" | "evaluator_improvement" | "improvement_agenda_revision" | "memory_or_context_improvement" | "package_or_tool_improvement";
+  learning_use_posture: "operational_only" | "evaluation_only" | "synthetic_only" | "redacted_opt_in" | "full_private_opt_in" | "org_policy";
+  legacy_binding: {
+      legacy_envelope_label: "TrainingEvidenceEligibilityEnvelope";
+      legacy_training_data_posture: "never_train" | "evaluation_only" | "synthetic_only" | "redacted_opt_in" | "full_private_opt_in" | "org_policy";
+      normalized_learning_use_posture: "operational_only" | "evaluation_only" | "synthetic_only" | "redacted_opt_in" | "full_private_opt_in" | "org_policy";
+    } | null;
+  applicable_evaluation_epoch_refs: Array<string>;
+  target_binding: {
+      allowed_improvement_target_refs: Array<string>;
+      permission_travels_to_other_targets: false;
+    };
+  owner_and_tenant_scope_refs: Array<string>;
+  contamination_posture: "clean" | "evaluation_aware" | "exposed" | "quarantined" | "unknown";
+  policy_bound_data_view_refs: Array<string>;
+  data_recipe_revision_refs: Array<string>;
+  local_policy_refs: Array<string>;
+  consent_refs: Array<string>;
+  authority_requirement_posture: "none" | "required";
+  authority_requirement_kinds: Array<"decryption" | "connector_access" | "model_provider_key" | "gpu_spend" | "provider_trust" | "sealed_evaluation_access" | "learning_egress" | "publication" | "export" | "cross_domain_reuse" | "none">;
+  wallet_authority_refs: Array<string>;
+  declassification_refs: Array<string>;
+  learning_egress_receipt_refs: Array<string>;
+  provider_trust_posture: "no_provider_plaintext" | "redacted_api" | "provider_trust_accepted" | "private_compute_required" | "blocked";
+  retention_policy_ref: string;
+  derivative_policy_ref: string;
+  lineage_root: string;
+  receipt_root: string;
+  exclusion_reason: "operational_only_default" | "never_train_default" | "sealed_evaluation_material" | "revoked" | "expired" | "regulated_block" | "connector_scope_denied" | "no_provider_trust" | "data_subject_request" | "missing_policy_bound_view" | "incident_hold" | "boundary_denies_the_use" | "indeterminate_rights" | null;
+  status: "proposed" | "eligible" | "excluded" | "revoked" | "expired" | "superseded";
+  admitted_by_ref: string | null;
+  admitted_at: string;
+  succession: {
+      succession_reason: "genesis" | "boundary_revision_change" | "source_rights_change" | "contamination_change" | "consent_change" | "target_scope_change" | "revocation_or_expiry" | "correction";
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+      supersedes_predecessor: boolean;
+      reinterprets_predecessor: false;
+    };
+  constants: {
+      lifecycle_id: "learning_evidence_eligibility_lifecycle.v1";
+      learning_use_vocabulary_size: number;
+      nonclaim_authority_token: "authority";
+      nonclaim_declassification_token: "declassification";
+    };
+  authority_nonclaim: "learning_evidence_eligibility_grants_no_authority";
+  truth_nonclaim: "learning_evidence_eligibility_is_an_admission_decision_not_a_permission_to_cross_a_boundary";
+  does_not_assert: Array<"authority" | "declassification" | "capability_lease_crossing" | "source_rights" | "semantic_truth" | "redaction_creates_permission" | "promotion_or_activation" | "provider_non_learning" | "verified_unlearning" | "publication">;
+  content_hash: string;
+};
+
+export type LearningEgressReceiptV1 = {
+  schema_version: "ioi.learning-egress-receipt.v1";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "learning_egress";
+  owner_ref: string;
+  tenant_ref: string;
+  source_scope_ref: string;
+  boundary_profile_revision_ref: string;
+  boundary_profile_content_hash: string;
+  effective_learning_policy_hash: string;
+  boundary_compilation_or_policy_decision_ref: string;
+  learning_evidence_eligibility_revision_refs: Array<string>;
+  learning_source_rights_claim_revision_refs: Array<string>;
+  material_classes: Array<"source_data" | "prompts_and_completions" | "connector_and_tool_io" | "work_graphs_traces_and_receipts" | "corrections_and_reviewer_judgments" | "evaluations_rubrics_holdouts_and_canaries" | "memory_context_procedures_workflows_and_skills" | "datasets_embeddings_and_indexes" | "adapters_checkpoints_weights_and_packages" | "router_verifier_authority_and_governance_policy" | "analytics_crash_support_and_security_telemetry" | "embodied_sensor_actuator_mission_and_operator_telemetry">;
+  material_class_count: number;
+  material_commitment: string;
+  policy_bound_projection_refs: Array<string>;
+  recipient_class: "model_provider" | "external_processor" | "cross_organization" | "public_export" | "support_operator";
+  recipient_ref: string | null;
+  purpose: "inference_service_delivery" | "hosted_training" | "hosted_evaluation" | "support" | "audit_export" | "publication" | "cross_domain_reuse";
+  representation: "public" | "redacted" | "synthetic" | "declassified" | "sealed_ciphertext" | "protected_plaintext";
+  execution_privacy_posture_ref: string | null;
+  model_route_rights_revision_ref: string | null;
+  intended_customer_output_uses: Array<string>;
+  effective_customer_output_rights_hash: string | null;
+  applicable_terms_and_license_refs: Array<string>;
+  provider_use_of_customer_material: {
+      request_or_prompt_logging: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      human_review: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      abuse_and_security_processing: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      service_improvement: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      provider_model_training: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      provider_model_training_basis_ref: string | null;
+      cross_customer_aggregation: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      cross_customer_aggregation_basis_ref: string | null;
+    };
+  retention_posture: "zero_retention" | "transient_processing" | "contract_bounded" | "provider_default" | "not_applicable";
+  retention_policy_ref: string | null;
+  local_policy_and_consent_refs: Array<string>;
+  authority_refs: Array<string>;
+  declassification_approval_ref: string | null;
+  redaction_or_declassification_receipt_refs: Array<string>;
+  underlying_operation_receipt_refs: Array<string>;
+  revocation_impact_ref: string | null;
+  forward_links: Array<{
+        link_kind: "impact" | "recall" | "deletion" | "access_rotation" | "residual_exposure";
+        link_ref: string;
+      }>;
+  decision: "blocked_before_egress" | "admitted";
+  reason_codes: Array<"LearningEgressDenied" | "ProviderSecondaryUseDenied" | "RouteRightsUnsatisfied" | "CustodyPostureUnsatisfied" | "LearningSourceRightsMissing" | "InstitutionalExportDenied" | "DeclassificationApprovalMissing" | "policy_defined">;
+  transfer_status: "not_sent" | "prevented_before_network_write" | "sent" | "delivery_confirmed" | "failed" | "unknown";
+  enforcement_evidence_binds_request_commitment: boolean;
+  network_or_gateway_evidence_refs: Array<string>;
+  state_operation_refs: Array<string>;
+  assurance_stage: "attested" | "evidenced" | "verified" | "accepted" | "adjudicated" | "settled";
+  chain_position: "genesis" | "successor";
+  predecessor_receipt_ref: string | null;
+  predecessor_content_hash: string | null;
+  emitted_at: string;
+  constants: {
+      lifecycle_id: "learning_egress_receipt_lifecycle.v1";
+      provider_use_prohibited_token: "prohibited";
+      nonclaim_authority_token: "authority";
+      nonclaim_delivery_token: "delivery";
+      nonclaim_provider_non_learning_token: "provider_non_learning";
+    };
+  authority_nonclaim: "learning_egress_receipt_grants_no_authority";
+  truth_nonclaim: "learning_egress_receipt_proves_ioi_observed_boundary_facts_not_recipient_behaviour";
+  does_not_assert: Array<"authority" | "delivery" | "provider_non_learning" | "provider_deletion" | "verified_unlearning" | "protected_plaintext_custody" | "verdict" | "source_rights" | "semantic_truth" | "redaction_creates_permission" | "legal_conformity" | "promotion_or_activation">;
+  content_hash: string;
+};
+
+export type ModelRouteRightsContractV1 = {
+  schema_version: "ioi.model-route-rights-contract.v1";
+  model_route_rights_contract_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  principal_resolution: "server_resolved";
+  resolved_principal_ref: string;
+  credential_principal_ref: string;
+  route_binding: {
+      route_ref: string;
+      provider_ref: string;
+      model_ref: string;
+      model_revision_ref: string;
+      intermediary_ref: string | null;
+      upstream_terms_ref: string | null;
+      intermediary_is_supply_adapter_not_trust_boundary: true;
+    };
+  purposes: Array<"inference_service_delivery" | "hosted_training" | "hosted_evaluation" | "support" | "audit_export" | "publication" | "cross_domain_reuse">;
+  data_classes: Array<"source_data" | "prompts_and_completions" | "connector_and_tool_io" | "work_graphs_traces_and_receipts" | "corrections_and_reviewer_judgments" | "evaluations_rubrics_holdouts_and_canaries" | "memory_context_procedures_workflows_and_skills" | "datasets_embeddings_and_indexes" | "adapters_checkpoints_weights_and_packages" | "router_verifier_authority_and_governance_policy" | "analytics_crash_support_and_security_telemetry" | "embodied_sensor_actuator_mission_and_operator_telemetry">;
+  declared_route_use_vocabulary: Array<"model_inference" | "unattended_automation" | "screen_or_session_capture" | "demonstration_training" | "model_or_worker_training" | "publication" | "downstream_use" | "oem_or_reseller_use" | "interactive_control" | "browser_or_account_use" | "connector_use" | "commercial_use">;
+  permitted_route_uses: Array<"model_inference" | "unattended_automation" | "screen_or_session_capture" | "demonstration_training" | "model_or_worker_training" | "publication" | "downstream_use" | "oem_or_reseller_use" | "interactive_control" | "browser_or_account_use" | "connector_use" | "commercial_use">;
+  prohibited_route_uses: Array<"model_inference" | "unattended_automation" | "screen_or_session_capture" | "demonstration_training" | "model_or_worker_training" | "publication" | "downstream_use" | "oem_or_reseller_use" | "interactive_control" | "browser_or_account_use" | "connector_use" | "commercial_use">;
+  declared_prohibited_route_uses: Array<"model_inference" | "unattended_automation" | "screen_or_session_capture" | "demonstration_training" | "model_or_worker_training" | "publication" | "downstream_use" | "oem_or_reseller_use" | "interactive_control" | "browser_or_account_use" | "connector_use" | "commercial_use">;
+  unresolved_route_uses: Array<"model_inference" | "unattended_automation" | "screen_or_session_capture" | "demonstration_training" | "model_or_worker_training" | "publication" | "downstream_use" | "oem_or_reseller_use" | "interactive_control" | "browser_or_account_use" | "connector_use" | "commercial_use">;
+  unresolved_rights_findings: Array<{
+        route_use: "model_inference" | "unattended_automation" | "screen_or_session_capture" | "demonstration_training" | "model_or_worker_training" | "publication" | "downstream_use" | "oem_or_reseller_use" | "interactive_control" | "browser_or_account_use" | "connector_use" | "commercial_use";
+        resolution: "missing" | "unknown" | "conflicting" | "expired" | "revoked" | "unsupported" | "upstream_unread";
+        unresolved_term_ref: string;
+      }>;
+  destination_and_egress: {
+      permitted_destination_classes: Array<"model_provider" | "external_processor" | "cross_organization" | "public_export" | "support_operator">;
+      egress_ceiling: "no_egress" | "redacted_only" | "synthetic_only" | "declassified_only" | "sealed_ciphertext_only" | "protected_plaintext_permitted";
+      region_refs: Array<string>;
+      residency_refs: Array<string>;
+      cross_border_transfer_basis_ref: string | null;
+    };
+  customer_output_rights: {
+      intended_customer_output_uses: Array<string>;
+      effective_customer_output_rights_hash: string;
+      competing_model_training_permitted: boolean;
+    };
+  provider_use_of_customer_material: {
+      request_or_prompt_logging: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      human_review: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      abuse_and_security_processing: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      service_improvement: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      provider_model_training: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      provider_model_training_basis_ref: string | null;
+      cross_customer_aggregation: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+      cross_customer_aggregation_basis_ref: string | null;
+      publication: "prohibited" | "transient_only" | "security_incident_only" | "contract_limited" | "explicitly_permitted" | "not_applicable";
+    };
+  retention_posture: "zero_retention" | "transient_processing" | "contract_bounded" | "provider_default" | "not_applicable";
+  retention_policy_ref: string;
+  commercial_terms_refs: Array<string>;
+  technical_terms_refs: Array<string>;
+  fallback_substitution: {
+      fallback_is_semantic_substitution: true;
+      fallback_route_rights_revision_ref: string | null;
+    };
+  validity: {
+      valid_from: string;
+      valid_until: string | null;
+    };
+  revocation: {
+      revocation_state: "live" | "suspended" | "revoked";
+      revoked_at: string | null;
+      revocation_reason: "terms_withdrawn" | "terms_changed" | "credential_revoked" | "custody_posture_lost" | "jurisdiction_change" | "incident_hold" | "owner_decision" | null;
+      revocation_authority_ref: string | null;
+    };
+  status: "draft" | "active" | "superseded" | "expired" | "revoked";
+  admitted_at: string;
+  succession: {
+      succession_reason: "genesis" | "commercial_terms_change" | "technical_terms_change" | "model_revision_change" | "principal_change" | "destination_or_residency_change" | "retention_change" | "unresolved_right_resolved" | "revocation_or_expiry" | "correction";
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+      supersedes_predecessor: boolean;
+      reinterprets_predecessor: false;
+    };
+  constants: {
+      lifecycle_id: "model_route_rights_contract_lifecycle.v1";
+      route_use_vocabulary_size: number;
+      provider_use_prohibited_token: "prohibited";
+      nonclaim_authority_token: "authority";
+      nonclaim_possession_token: "possession_proves_permission";
+    };
+  authority_nonclaim: "model_route_rights_contract_grants_no_authority";
+  truth_nonclaim: "model_route_rights_contract_is_a_resolved_terms_reading_not_provider_behaviour";
+  does_not_assert: Array<"authority" | "possession_proves_permission" | "provider_non_learning" | "provider_deletion" | "source_rights" | "route_availability" | "price_or_quota" | "cryptographic_privacy" | "legal_conformity" | "capability_lease_crossing">;
+  content_hash: string;
+};
+
+export type PolicyBoundDataViewV1 = {
+  schema_version: "ioi.hypervisor.odk.policy-bound-data-view.v1";
+  object: "ioi.hypervisor.odk.policy_bound_data_view";
+  id: string;
+  ref: string;
+  name: string;
+  description: string;
+  status: "draft" | "declared";
+  revision: number;
+  connector_mapping_id: string;
+  connector_mapping_ref: string;
+  ontology_ref: string;
+  object_type_id: string;
+  allowed_operations: Array<"read" | "transform" | "distill" | "train" | "evaluate" | "export" | "publish" | "route">;
+  authority_subjects: Array<string>;
+  purpose: string;
+  property_scope: Array<string>;
+  object_scope?: unknown;
+  retention_posture: "ephemeral" | "bounded" | "durable";
+  export_posture: "no_export" | "receipted_export_only";
+  training_posture: "no_training" | "receipted_training_only";
+  evaluation_posture: "no_evaluation" | "receipted_evaluation_only";
+  publish_route_posture: "no_publish_route" | "receipted_publish_route_only";
+  receipt_obligations: Array<string>;
+  receipt_refs: Array<string>;
+  receipt_binding: string;
+  history: Array<{
+        revision: number;
+        op: string;
+        at: string;
+        summary: string;
+      }>;
+  health: {
+      status: "incomplete" | "ready";
+      gaps: Array<string>;
+      authorized_subjects: number;
+      allowed_operations: number;
+      scoped_properties: number;
+      object_instances: number;
+      missing_contracts: Array<string>;
+      note: string;
+    };
+  authority: {
+      crossed: false;
+      note: string;
+    };
+  created_at: string;
+  updated_at: string;
+};
+
+export type PolicyBoundDataViewV2 = {
+  schema_version: "ioi.policy-bound-data-view.v2";
+  policy_bound_data_view_id: string;
+  revision_ref: string;
+  owner_ref: string;
+  tenant_ref: string;
+  principal_resolution: "server_resolved";
+  resolved_principal_ref: string;
+  purpose: "operational_read" | "transformation" | "evaluation" | "dataset_generation" | "model_or_worker_training" | "distillation" | "analytics" | "audit_or_export" | "publication" | "routing";
+  purpose_binding_ref: string;
+  source_bindings: Array<{
+        source_ref: string;
+        source_revision_ref: string;
+        source_content_hash: string;
+        source_tenant_ref: string;
+        source_owner_ref: string;
+        source_class: "employee" | "contractor" | "customer" | "patient" | "partner" | "vendor" | "licensed" | "purchased" | "public" | "synthetic" | "provider_output" | "machine_generated" | "mixed" | "unknown";
+      }>;
+  source_binding_count: number;
+  ontology_revision_refs: Array<string>;
+  connector_mapping_revision_refs: Array<string>;
+  object_model_refs: Array<string>;
+  row_scope: {
+      row_predicate_ref: string;
+      row_predicate_hash: string;
+      max_row_count: number | null;
+    };
+  field_scope: {
+      allowed_field_refs: Array<string>;
+      allowed_field_count: number;
+      field_minimization_decisions: Array<{
+              field_ref: string;
+              source_ref: string;
+              necessity_basis: "required_by_purpose" | "required_by_ontology_contract" | "required_by_join_key" | "required_by_evaluation_label" | "required_by_regulatory_obligation";
+              data_class: "identifier" | "quasi_identifier" | "sensitive_attribute" | "financial" | "health" | "biometric" | "location" | "content" | "derived_label" | "operational_metadata";
+            }>;
+    };
+  time_scope: {
+      timebase: "source_event_time" | "ingest_time" | "admission_time";
+      from: string;
+      until: string | null;
+    };
+  data_classes: Array<"source_data" | "prompts_and_completions" | "connector_and_tool_io" | "work_graphs_traces_and_receipts" | "corrections_and_reviewer_judgments" | "evaluations_rubrics_holdouts_and_canaries" | "memory_context_procedures_workflows_and_skills" | "datasets_embeddings_and_indexes" | "adapters_checkpoints_weights_and_packages" | "router_verifier_authority_and_governance_policy" | "analytics_crash_support_and_security_telemetry" | "embodied_sensor_actuator_mission_and_operator_telemetry">;
+  privacy_class: "public" | "internal" | "confidential" | "restricted" | "regulated" | "safety_critical";
+  source_rights_claim_revision_refs: Array<string>;
+  consent_bindings: Array<{
+        consent_ref: string;
+        consent_state: "active" | "expired" | "revoked" | "withdrawn" | "unknown";
+        consent_subject_ref: string;
+        valid_until: string | null;
+      }>;
+  route_rights_revision_refs: Array<string>;
+  jurisdiction_refs: Array<string>;
+  residency_refs: Array<string>;
+  redaction: {
+      recipe_revision_ref: string;
+      recipe_content_hash: string;
+      techniques: Array<"field_suppression" | "masking" | "tokenization" | "hashing" | "generalization" | "bucketing" | "noise_addition" | "k_anonymity" | "differential_privacy" | "synthetic_substitution" | "entity_replacement" | "no_transformation">;
+      findings: Array<{
+              finding_kind: "residual_identifier" | "quasi_identifier_combination" | "linkage_risk" | "insufficient_generalization" | "free_text_leakage" | "reidentification_demonstrated";
+              field_ref: string;
+              residual_exposure: "none" | "low" | "material" | "unresolved";
+            }>;
+      output_privacy_class: "public" | "internal" | "confidential" | "restricted" | "regulated" | "safety_critical";
+      creates_permission: false;
+      severs_lineage: false;
+      reidentification_risk_assessed: boolean;
+    };
+  retention_and_hold: {
+      retention_policy_ref: string;
+      retention_state: "within_retention" | "retention_elapsed" | "pending_deletion" | "deleted";
+      hold_state: "none" | "legal_hold" | "audit_hold" | "incident_hold";
+      expires_at: string | null;
+      deletion_or_forget_policy_ref: string;
+    };
+  destination_and_egress: {
+      permitted_destination_classes: Array<"in_boundary_only" | "model_provider" | "external_processor" | "cross_organization" | "public_export" | "support_operator">;
+      egress_ceiling: "no_egress" | "redacted_only" | "synthetic_only" | "declassified_only" | "sealed_ciphertext_only" | "protected_plaintext_permitted";
+      permitted_region_refs: Array<string>;
+      cross_tenant_read_permitted: false;
+      declassification_permitted_without_approval: false;
+    };
+  effective_boundary_binding: {
+      boundary_profile_revision_ref: string;
+      boundary_profile_content_hash: string;
+      effective_learning_boundary_hash: string;
+      boundary_status_at_binding: "active";
+    };
+  materialization_precondition: {
+      revalidate_before_materialization: true;
+      revalidated_facts: Array<"current_authority" | "current_rights" | "revocation_state" | "expiry" | "retention_and_hold" | "residency" | "destination_class" | "consent_state">;
+      required_effective_learning_boundary_hash: string;
+      fails_closed_on_missing_or_conflicting_policy: true;
+    };
+  allowed_uses: Array<"read" | "transform" | "distill" | "train" | "evaluate" | "export" | "publish" | "route">;
+  rights_derived_allowed_uses: Array<"read" | "transform" | "distill" | "train" | "evaluate" | "export" | "publish" | "route">;
+  redaction_derived_allowed_uses: Array<"read" | "transform" | "distill" | "train" | "evaluate" | "export" | "publish" | "route">;
+  registry_status: "draft" | "active" | "suspended" | "expired" | "superseded" | "revoked";
+  admitted_at: string;
+  succession: {
+      succession_reason: "genesis" | "source_revision_change" | "minimization_change" | "rights_or_consent_change" | "boundary_revision_change" | "redaction_recipe_change" | "retention_or_hold_change" | "destination_or_residency_change" | "revocation_or_expiry" | "correction";
+      predecessor_revision_ref: string | null;
+      predecessor_content_hash: string | null;
+      supersedes_predecessor: boolean;
+      reinterprets_predecessor: false;
+    };
+  migration: {
+      from_schema_version: "ioi.hypervisor.odk.policy-bound-data-view.v1" | null;
+      from_view_ref: string | null;
+      from_content_hash: string | null;
+      compatibility: "initial" | "converged_from_v1";
+      reinterprets_predecessor: false;
+      downgrade_to_predecessor: "refused";
+      downgrade_refusal_reason: "v1_cannot_express_revision_identity_source_revisions_field_minimization_rights_consent_boundary_hash_or_commitment";
+    };
+  constants: {
+      lifecycle_id: "policy_bound_data_view_registry_lifecycle.v2";
+      consent_state_active_token: "active";
+      refused_legacy_view_scheme: "policy-bound-data-view://";
+      nonclaim_authority_token: "authority";
+      nonclaim_redaction_permission_token: "redaction_creates_permission";
+      nonclaim_consent_token: "consent";
+    };
+  authority_nonclaim: "policy_bound_data_view_grants_no_authority";
+  truth_nonclaim: "policy_bound_data_view_is_a_bounded_projection_not_consent_permission_or_semantic_truth";
+  does_not_assert: Array<"authority" | "consent" | "redaction_creates_permission" | "declassification" | "source_rights" | "semantic_truth" | "cross_tenant_reuse" | "capability_lease_crossing" | "provider_non_learning" | "verified_unlearning" | "materialized_payload_custody" | "runtime_enforcement">;
+  content_hash: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -19078,6 +19669,918 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": "transformation_run.content_hash.commits_the_whole_run"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/positive-genesis-admitted-claim.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/positive-successor-resolves-one-unresolved-right.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-family-head-in-the-revision-slot.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-v2-style-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-expired-claim-still-permits.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-succession-partial-tuple.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-nonclaim-authority-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-vocabulary-drops-a-use.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.vocabulary.is_the_whole_closed_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-use-permitted-and-prohibited-at-once.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.uses.permitted_and_prohibited_partition_the_vocabulary"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-use-decided-by-neither.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.uses.permitted_and_prohibited_partition_the_vocabulary"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-unresolved-right-still-permitted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.prohibitions.are_declared_or_unresolved_never_invented"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-unresolved-use-without-a-finding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.unresolved_uses.match_their_findings_exactly"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_source_rights_claim.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-root-organization-default.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-run-snapshot-narrowed-from-parent.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-snapshot-widens-its-parent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-widening-release-without-a-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-suspended-profile-still-permits.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-target-permission-travels.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-inherited-denial-silently-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.inheritance.is_retained_or_explicitly_released"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-parent-count-disagrees-with-the-set.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.inheritance.count_matches_the_enumerated_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-indeterminacy-still-permitted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.local_denials.are_attributed_or_indeterminate"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-use-permitted-and-denied-at-once.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.effective_uses.partition_the_vocabulary"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-vocabulary-drops-a-use.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.vocabulary.is_the_whole_closed_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-cross-tenant-permitted-without-a-cohort.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.cross_tenant.is_denied_without_a_cohort_binding"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-provider-training-allowed-without-a-basis.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.provider_model_training.is_denied_without_a_named_basis"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-cross-customer-aggregation-allowed-without-a-basis.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.cross_customer_aggregation.is_denied_without_a_named_basis"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-nonclaim-provider-non-learning-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "institutional_learning_boundary_profile.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/positive-eligible-training-compatibility.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/positive-excluded-sealed-evaluation-material.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-with-an-exclusion-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-exposed-material-marked-eligible.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-training-profile-carries-an-operational-use.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-permission-travels-to-other-targets.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-without-an-admitting-operation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-boundary-bound-to-a-family-head.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_evidence_eligibility.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-for-a-use-the-boundary-denies.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_evidence_eligibility.use.is_permitted_by_the_bound_boundary"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-boundary-snapshot-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_evidence_eligibility.boundary_snapshot.count_matches_the_enumerated_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-legacy-posture-conflicts-with-canonical.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_evidence_eligibility.legacy_binding.normalizes_without_conflicting"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-required-authority-not-named.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_evidence_eligibility.authority.a_required_authority_is_named"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-nonclaim-declassification-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_evidence_eligibility.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-blocked-before-egress-with-gateway-evidence.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-admitted-redacted-inference-crossing.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-admitted-adapter-crossing-with-declassification.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-prevented-claim-without-enforcement-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-prevented-claim-at-the-attested-stage.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-admitted-decision-carries-refusal-codes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-blocked-decision-claims-sent.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-parameter-egress-without-declassification-approval.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-protected-plaintext-without-a-custody-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-successor-without-predecessor-bytes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-ref-and-id-disagree.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_egress_receipt.identity.ref_and_id_are_one_identity"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-material-class-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_egress_receipt.material_classes.count_matches_the_enumerated_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-provider-training-permitted-without-a-basis.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_egress_receipt.provider_model_training.is_prohibited_without_a_named_basis"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-cross-customer-aggregation-permitted-without-a-basis.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_egress_receipt.cross_customer_aggregation.is_prohibited_without_a_named_basis"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-nonclaim-delivery-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "learning_egress_receipt.content_hash.commits_the_whole_receipt"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/positive-genesis-active-inference-route.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/positive-successor-after-a-terms-change.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-caller-supplied-principal-resolution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-intermediary-without-upstream-terms.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-revoked-contract-still-permits.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-suspended-without-a-revocation-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-expired-contract-still-permits.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-family-head-in-the-revision-slot.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-vocabulary-drops-a-use.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.vocabulary.is_the_whole_closed_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-use-permitted-and-prohibited-at-once.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.uses.permitted_and_prohibited_partition_the_vocabulary"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-unknown-right-still-permitted.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.prohibitions.are_declared_or_unresolved_never_invented"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-unresolved-use-without-a-finding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.unresolved_uses.match_their_findings_exactly"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-provider-training-permitted-without-a-basis.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.provider_model_training.is_prohibited_without_a_named_basis"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-nonclaim-possession-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "model_route_rights_contract.content_hash.commits_the_whole_revision"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/positive-stored-v1-declared.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-content-hash-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-revision-ref-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-canonical-view-scheme-ref-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-v2-schema-version-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-status-outside-the-pinned-values.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-authority-crossed-on-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-materialized-instances-on-an-inert-view.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-genesis-authored-at-v2.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-successor-converged-from-v1.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-legacy-view-scheme-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-v1-schema-version-on-v2.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-downgrade-to-predecessor-permitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-converged-without-predecessor-bytes.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-genesis-carries-a-predecessor.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-derived-use-declared.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-materialization-skips-revalidation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-materialization-does-not-fail-closed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-declassification-without-approval-permitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-cross-tenant-read-permitted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revoked-view-still-allows-uses.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-caller-supplied-principal-resolution.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-boundary-bound-while-not-active.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-claims-it-creates-permission.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-cross-tenant-source.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.sources.are_all_inside_the_views_tenant"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-source-binding-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.sources.count_matches_the_enumerated_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-excess-field-without-a-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.fields.every_allowed_field_is_individually_justified"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-field-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.fields.count_matches_the_enumerated_set"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-expired-consent-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.consent.every_binding_is_active"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revoked-consent-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.consent.every_binding_is_active"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-policy-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.policy.binding_and_materialization_precondition_agree"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-declassifies.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.redaction.does_not_declassify"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-as-permission.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.uses.every_allowed_use_traces_to_a_right"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.revision_ref.extends_its_own_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "policy_bound_data_view.content_hash.commits_the_whole_revision"
   }
 ] as const;
 
@@ -21269,6 +22772,50 @@ export const ARCHITECTURE_CONTRACT_MUTATIONS: ReadonlyArray<ArchitectureContract
     }
   },
   {
+    "id": "policy-bound-view-source-crosses-a-tenant",
+    "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-genesis-authored-at-v2.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "policy_bound_data_view.content_hash.commits_the_whole_revision",
+      "policy_bound_data_view.sources.are_all_inside_the_views_tenant"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/source_bindings/1/source_tenant_ref",
+      "value": "tenant://other-clinic"
+    }
+  },
+  {
+    "id": "learning-boundary-inherited-denial-dropped",
+    "contract_id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-run-snapshot-narrowed-from-parent.json",
+    "covered_keywords": [],
+    "ajv_expected_accept": true,
+    "oracle_contract_accept": false,
+    "expected_rule_ids": [
+      "institutional_learning_boundary_profile.content_hash.commits_the_whole_revision",
+      "institutional_learning_boundary_profile.denials.decompose_into_inherited_and_local",
+      "institutional_learning_boundary_profile.inheritance.is_retained_or_explicitly_released"
+    ],
+    "direct_projection_rejection": false,
+    "patch": {
+      "operation": "set",
+      "pointer": "/parent_denied_uses",
+      "value": [
+        "fine_tune",
+        "distill",
+        "competing_model_training",
+        "commercialize_derivative",
+        "publish",
+        "cross_tenant_aggregate_learning"
+      ]
+    }
+  },
+  {
     "id": "manifest-goal-run-profiles-cross-category-ref",
     "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
     "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
@@ -22758,6 +24305,120 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json","contract_id":"schema://ioi/foundations/objects/transformation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-snapshot-is-not-the-recipe-snapshot.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json","contract_id":"schema://ioi/foundations/objects/transformation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-resolved-tuple-drifted-to-a-newer-head.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/transformation-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/transformation-run-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/positive-genesis-admitted-claim.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/positive-genesis-admitted-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/positive-successor-resolves-one-unresolved-right.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/positive-successor-resolves-one-unresolved-right.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-family-head-in-the-revision-slot.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-family-head-in-the-revision-slot.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-v2-style-schema-version.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-v2-style-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-expired-claim-still-permits.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-expired-claim-still-permits.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-succession-partial-tuple.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-succession-partial-tuple.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-nonclaim-authority-dropped.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-nonclaim-authority-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-vocabulary-drops-a-use.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-vocabulary-drops-a-use.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-use-permitted-and-prohibited-at-once.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-use-permitted-and-prohibited-at-once.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-use-decided-by-neither.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-use-decided-by-neither.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-unresolved-right-still-permitted.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-unresolved-right-still-permitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-unresolved-use-without-a-finding.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-unresolved-use-without-a-finding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/learning-source-rights-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-source-rights-claim-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-root-organization-default.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-root-organization-default.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-run-snapshot-narrowed-from-parent.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/positive-run-snapshot-narrowed-from-parent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-snapshot-widens-its-parent.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-snapshot-widens-its-parent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-widening-release-without-a-decision.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-widening-release-without-a-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-suspended-profile-still-permits.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-suspended-profile-still-permits.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-target-permission-travels.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-target-permission-travels.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-inherited-denial-silently-dropped.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-inherited-denial-silently-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-parent-count-disagrees-with-the-set.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-parent-count-disagrees-with-the-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-indeterminacy-still-permitted.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-indeterminacy-still-permitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-use-permitted-and-denied-at-once.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-use-permitted-and-denied-at-once.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-vocabulary-drops-a-use.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-vocabulary-drops-a-use.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-cross-tenant-permitted-without-a-cohort.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-cross-tenant-permitted-without-a-cohort.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-provider-training-allowed-without-a-basis.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-provider-training-allowed-without-a-basis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-cross-customer-aggregation-allowed-without-a-basis.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-cross-customer-aggregation-allowed-without-a-basis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-nonclaim-provider-non-learning-dropped.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-nonclaim-provider-non-learning-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/institutional-learning-boundary-profile-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/positive-eligible-training-compatibility.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/positive-eligible-training-compatibility.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/positive-excluded-sealed-evaluation-material.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/positive-excluded-sealed-evaluation-material.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-with-an-exclusion-reason.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-with-an-exclusion-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-exposed-material-marked-eligible.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-exposed-material-marked-eligible.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-training-profile-carries-an-operational-use.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-training-profile-carries-an-operational-use.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-permission-travels-to-other-targets.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-permission-travels-to-other-targets.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-without-an-admitting-operation.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-without-an-admitting-operation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-boundary-bound-to-a-family-head.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-boundary-bound-to-a-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-for-a-use-the-boundary-denies.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-eligible-for-a-use-the-boundary-denies.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-boundary-snapshot-count-drift.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-boundary-snapshot-count-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-legacy-posture-conflicts-with-canonical.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-legacy-posture-conflicts-with-canonical.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-required-authority-not-named.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-required-authority-not-named.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-nonclaim-declassification-dropped.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-nonclaim-declassification-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/learning-evidence-eligibility/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-evidence-eligibility-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-blocked-before-egress-with-gateway-evidence.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-blocked-before-egress-with-gateway-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-admitted-redacted-inference-crossing.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-admitted-redacted-inference-crossing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-admitted-adapter-crossing-with-declassification.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/positive-admitted-adapter-crossing-with-declassification.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-prevented-claim-without-enforcement-evidence.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-prevented-claim-without-enforcement-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-prevented-claim-at-the-attested-stage.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-prevented-claim-at-the-attested-stage.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-admitted-decision-carries-refusal-codes.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-admitted-decision-carries-refusal-codes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-blocked-decision-claims-sent.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-blocked-decision-claims-sent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-parameter-egress-without-declassification-approval.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-parameter-egress-without-declassification-approval.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-protected-plaintext-without-a-custody-binding.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-protected-plaintext-without-a-custody-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-successor-without-predecessor-bytes.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-successor-without-predecessor-bytes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-ref-and-id-disagree.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-ref-and-id-disagree.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-material-class-count-drift.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-material-class-count-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-provider-training-permitted-without-a-basis.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-provider-training-permitted-without-a-basis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-cross-customer-aggregation-permitted-without-a-basis.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-cross-customer-aggregation-permitted-without-a-basis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-nonclaim-delivery-dropped.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-nonclaim-delivery-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/learning-egress-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/learning-egress-receipt-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/positive-genesis-active-inference-route.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/positive-genesis-active-inference-route.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/positive-successor-after-a-terms-change.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/positive-successor-after-a-terms-change.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-caller-supplied-principal-resolution.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-caller-supplied-principal-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-intermediary-without-upstream-terms.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-intermediary-without-upstream-terms.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-revoked-contract-still-permits.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-revoked-contract-still-permits.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-suspended-without-a-revocation-authority.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-suspended-without-a-revocation-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-expired-contract-still-permits.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-expired-contract-still-permits.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-family-head-in-the-revision-slot.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-family-head-in-the-revision-slot.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-vocabulary-drops-a-use.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-vocabulary-drops-a-use.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-use-permitted-and-prohibited-at-once.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-use-permitted-and-prohibited-at-once.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-unknown-right-still-permitted.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-unknown-right-still-permitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-unresolved-use-without-a-finding.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-unresolved-use-without-a-finding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-provider-training-permitted-without-a-basis.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-provider-training-permitted-without-a-basis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-nonclaim-possession-dropped.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-nonclaim-possession-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/model-route-rights-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/model-route-rights-contract-v1/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/positive-stored-v1-declared.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/positive-stored-v1-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-content-hash-on-v1.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-content-hash-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-revision-ref-on-v1.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-revision-ref-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-canonical-view-scheme-ref-on-v1.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-canonical-view-scheme-ref-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-v2-schema-version-on-v1.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-v2-schema-version-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-status-outside-the-pinned-values.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-status-outside-the-pinned-values.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-authority-crossed-on-v1.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-authority-crossed-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-materialized-instances-on-an-inert-view.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v1/negative-materialized-instances-on-an-inert-view.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-genesis-authored-at-v2.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-genesis-authored-at-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-successor-converged-from-v1.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/positive-successor-converged-from-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-legacy-view-scheme-identity.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-legacy-view-scheme-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-v1-schema-version-on-v2.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-v1-schema-version-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-downgrade-to-predecessor-permitted.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-downgrade-to-predecessor-permitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-converged-without-predecessor-bytes.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-converged-without-predecessor-bytes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-genesis-carries-a-predecessor.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-genesis-carries-a-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-derived-use-declared.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-derived-use-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-materialization-skips-revalidation.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-materialization-skips-revalidation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-materialization-does-not-fail-closed.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-materialization-does-not-fail-closed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-declassification-without-approval-permitted.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-declassification-without-approval-permitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-cross-tenant-read-permitted.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-cross-tenant-read-permitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revoked-view-still-allows-uses.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revoked-view-still-allows-uses.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-caller-supplied-principal-resolution.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-caller-supplied-principal-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-boundary-bound-while-not-active.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-boundary-bound-while-not-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-claims-it-creates-permission.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-claims-it-creates-permission.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-cross-tenant-source.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-cross-tenant-source.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-source-binding-count-drift.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-source-binding-count-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-excess-field-without-a-decision.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-excess-field-without-a-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-field-count-drift.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-field-count-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-expired-consent-binding.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-expired-consent-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revoked-consent-binding.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revoked-consent-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-policy-binding.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-policy-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-declassifies.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-declassifies.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-as-permission.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-redaction-as-permission.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-revision-ref-under-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-nonclaim-redaction-permission-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/policy-bound-data-view-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -22845,6 +24506,8 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"mutation:proposal-home-domain-must-be-derived-form","contract_id":"schema://ioi/foundations/autonomous-system-activation-proposal/v1","source_fixture_path":null,"mutation_id":"proposal-home-domain-must-be-derived-form","value_json":null}),
   differentialCase({"id":"mutation:chain-home-domain-must-be-derived-form","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":null,"mutation_id":"chain-home-domain-must-be-derived-form","value_json":null}),
   differentialCase({"id":"mutation:chain-home-domain-binding-must-be-content-addressed","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":null,"mutation_id":"chain-home-domain-binding-must-be-content-addressed","value_json":null}),
+  differentialCase({"id":"mutation:policy-bound-view-source-crosses-a-tenant","contract_id":"schema://ioi/foundations/objects/policy-bound-data-view/v2","source_fixture_path":null,"mutation_id":"policy-bound-view-source-crosses-a-tenant","value_json":null}),
+  differentialCase({"id":"mutation:learning-boundary-inherited-denial-dropped","contract_id":"schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1","source_fixture_path":null,"mutation_id":"learning-boundary-inherited-denial-dropped","value_json":null}),
   differentialCase({"id":"mutation:manifest-goal-run-profiles-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-goal-run-profiles-cross-category-ref","value_json":null}),
   differentialCase({"id":"mutation:manifest-workflow-templates-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-workflow-templates-cross-category-ref","value_json":null}),
   differentialCase({"id":"mutation:manifest-automation-specs-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-automation-specs-cross-category-ref","value_json":null}),
@@ -23163,6 +24826,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:transition|decision)://[^\\s]{1,248}$",
   "^(?:transition|state-delta)://[^\\s]{1,240}$",
   "^(?:user|org)://[^\\s]{1,500}$",
+  "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$",
   "^(?:user|wallet)://\\S*$",
   "^(?:user|wallet)://\\S+$",
@@ -23403,6 +25067,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^download-intent://[A-Za-z0-9._:-]+$",
   "^effect://[^\\s]+$",
   "^effect://[^\\s]{1,500}$",
+  "^eligibility://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^embodied-resource-group-revision://[^\\s]+$",
   "^embodied-runtime-graph-manifest://[^\\s]+$",
   "^encryption://[^\\s]{1,240}$",
@@ -23481,6 +25147,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^keyset://[^\\s]+$",
   "^keyset://[^\\s]{1,500}$",
   "^learning-boundary://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+  "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^lease://[^\\s]{1,248}$",
   "^lease://[^\\s]{1,500}$",
   "^lifecycle-profile://[^\\s]{1,248}$",
@@ -23504,6 +25174,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^model-config:local/[^\\s]{1,220}$",
   "^model-endpoint:[^\\s]{1,240}$",
   "^model-instance:[^\\s]{1,240}$",
+  "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^model-route:[^\\s]{1,240}$",
   "^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^mount-receipt://mrcpt_[0-9a-f]{1,32}$",
@@ -23565,9 +25237,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^participant-state://[^\\s]{1,500}$",
   "^participation-request://[^\\s]{1,500}$",
   "^payload://[^\\s]+$",
+  "^pbdv_[0-9a-f]{1,32}$",
   "^physical-action-admission:[^\\s]+$",
   "^pkc_[A-Za-z0-9_-]{1,128}$",
   "^plg_[0-9a-f]+$",
+  "^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$",
   "^policy://[A-Za-z0-9._:/-]+$",
   "^policy://[A-Za-z0-9._~:/-]+$",
   "^policy://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
@@ -23615,6 +25289,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[^\\s]{1,400}$",
   "^receipt://[^\\s]{1,460}$",
   "^receipt://[^\\s]{1,500}$",
+  "^receipt://[a-z0-9][a-z0-9._-]{0,127}$",
   "^receipt://agentgres/event-stream/[^\\s]{1,460}$",
   "^receipt://asar_[0-9a-f]{64}$",
   "^receipt://aszmr_[0-9a-f]{64}$",
@@ -23758,6 +25433,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^verifier-path://[^\\s]{1,500}$",
   "^verifier://[^\\s]{1,248}$",
   "^view://[^\\s]{1,240}$",
+  "^view://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^wallet-auth-challenge://[A-Za-z0-9._:-]+$",
   "^wallet-ownership-proof://[A-Za-z0-9._:-]+$",
   "^wallet[.]network://approval-effect-consumption/[0-9a-f]{64}/[0-9a-f]{64}$",
@@ -24031,7 +25708,14 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/connector-mapping/v1": "sha256:7379e23b7046374045acd667e12aa7f848e70c6279684bb5b7765a0a453dae98",
   "schema://ioi/foundations/objects/connector-mapping/v2": "sha256:fd62948d8a118070ca4e97307a9f089d8d88d548630204f463ad96c84f8b13a2",
   "schema://ioi/foundations/objects/transformation-run/v1": "sha256:51089ec8b2b03cd172d3fcaeb29f8ef2d1aacbee2c4947c5eaab52c2706f3907",
-  "schema://ioi/foundations/objects/transformation-run/v2": "sha256:7d51565952d542b34fb2816f66f314abc9af969bf91a6f4626f3f1e24db5010b"
+  "schema://ioi/foundations/objects/transformation-run/v2": "sha256:7d51565952d542b34fb2816f66f314abc9af969bf91a6f4626f3f1e24db5010b",
+  "schema://ioi/foundations/objects/learning-source-rights-claim/v1": "sha256:52b0f693e6e4f2f35fcdacae2cfef0d731f2e84442a862ef65457f39c1e7442a",
+  "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1": "sha256:1a86165d5c9cf3cfb832b7c599f93ffee5fb83808d378111c5c0aadfde05a88e",
+  "schema://ioi/foundations/objects/learning-evidence-eligibility/v1": "sha256:53a49c990628195bf11e5f4aa913ef23f96226a4e1da7b50c374b1d8d2791458",
+  "schema://ioi/foundations/objects/learning-egress-receipt/v1": "sha256:1bc3a65c01849911dd9fbf77f2e3895cb9de67750b4239c7f482f15712a03ea6",
+  "schema://ioi/foundations/objects/model-route-rights-contract/v1": "sha256:c3be645b42c6bfa6751613faa1fe5c5fa697db63c147d8d5ce7c043f4180b91a",
+  "schema://ioi/foundations/objects/policy-bound-data-view/v1": "sha256:f1db8ff95f3c0cc10c7c6da1154bf9224c906161ed1eced95ba810ad91c0d640",
+  "schema://ioi/foundations/objects/policy-bound-data-view/v2": "sha256:ae0c53473b1a4d1d6b79d71bf9e3202f1f768577463c47538e7177f26c9d73af"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -104304,6 +105988,5855 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "description": "A commitment over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. Substituting the recipe binding, the resolved tuple, the mapping set or the output tenancy all break it."
       }
     }
+  },
+  "schema://ioi/foundations/objects/learning-source-rights-claim/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+    "title": "LearningSourceRightsClaimV1",
+    "description": "THE RIGHTS HALF OF THE COMPILED LEARNING BOUNDARY, AND THE ONE PLACE FAIL-CLOSED IS A SHAPE RATHER THAN A HABIT. Canon states the posture in one line: unknown, expired, conflicting, or unsupported source rights mean no training, distillation, cross-tenant learning, publication, or export. Prose cannot enforce that, because prose lets a record carry an unresolved finding in one field and a permission in another and read as consistent. This contract makes the two mutually exclusive IN THE BYTES. The claim declares the closed learning-use vocabulary once, partitions it into `permitted_uses` and `prohibited_uses`, and a registered invariant requires the vocabulary to be covered by that pair EXACTLY ONCE EACH — so a use listed as both permitted and prohibited makes the covering multiset longer than the vocabulary and the record is refused offline. A second invariant requires `prohibited_uses` to be covered exactly by the union of `declared_prohibited_uses` and `unresolved_right_uses`, and a third requires `unresolved_right_uses` to be the exact projection of `unresolved_rights_findings`. Together they mean a claim that records an unresolved, missing, conflicting, expired, revoked, or unsupported right and does not prohibit that exact use CANNOT BE ADMITTED — the default posture is not a runtime branch anyone can forget to take. IDENTITY IS OWNER-QUALIFIED AND REVISION-EXACT. `source_rights_claim_id` names the family, `revision_ref` names one immutable revision of THAT family, an invariant refuses a revision filed under another family, and the `/revision/` segment refuses a family-head or mutable-latest reference wherever a revision is required. Succession names the predecessor's exact ref AND its exact content hash, both or neither. `content_hash` commits every other field under a domain separator, so a relying party holding only these bytes recomputes it and a substituted or stale commitment fails with no daemon consulted. THIS IS A CLAIM, NOT A FINDING. It asserts an evidence-backed rights posture that policy may use as ONE input to the most-restrictive intersection. It is not a court, title registry, license grant, copyright determination, or authority: `does_not_assert` carries `authority` and `legal_title` in the record itself, and creation of material inside an institution's boundary establishes no right to train on, distill, commercialize, publish, or transfer it.",
+    "x-ioi-schema-version": "ioi.learning-source-rights-claim.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "claimFamilyRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "claimRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "learningUse": {
+        "enum": [
+          "operational_inference",
+          "retain",
+          "replay",
+          "internal_evaluation",
+          "internal_analytics",
+          "memory_or_context_improvement",
+          "dataset_generation",
+          "fine_tune",
+          "distill",
+          "competing_model_training",
+          "worker_or_package_improvement",
+          "commercialize_derivative",
+          "export",
+          "publish",
+          "cross_tenant_aggregate_learning"
+        ]
+      },
+      "learningUseList": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/learningUse"
+        }
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "nonEmptyRefList": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "source_rights_claim_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "asserted_by_ref",
+      "asserted_rights_holder_refs",
+      "source_class",
+      "subject_refs",
+      "rights_basis_refs",
+      "route_rights_contract_refs",
+      "declared_use_vocabulary",
+      "permitted_uses",
+      "prohibited_uses",
+      "declared_prohibited_uses",
+      "unresolved_right_uses",
+      "unresolved_rights_findings",
+      "derivative_disposition",
+      "beneficiary_scope_refs",
+      "jurisdiction_refs",
+      "residency_refs",
+      "retention_policy_ref",
+      "deletion_or_forget_policy_ref",
+      "legal_or_audit_hold_state",
+      "validity",
+      "evidence_refs",
+      "claim_commitment",
+      "status",
+      "admitted_at",
+      "succession",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.learning-source-rights-claim.v1"
+      },
+      "source_rights_claim_id": {
+        "$ref": "#/$defs/claimFamilyRef",
+        "description": "THE FAMILY. A rights posture is restated as new evidence arrives, so the lineage is the aggregate and a revision is the thing anyone may cite. Nothing resolves or reads through the family head."
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/claimRevisionRef",
+        "description": "ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment is mandatory, which is what refuses a family-head or mutable-latest reference where a revision is required. A registered invariant additionally refuses a revision that does not extend its own `source_rights_claim_id`, so a claim cannot be filed under a family it never belonged to."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "OWNER-QUALIFIED IDENTITY. The accountable steward of this claim inside the estate. It is not the rights holder and it is not authority: naming an owner says who answers for the assertion, not who may permit the use."
+      },
+      "tenant_ref": {
+        "type": "string",
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "The tenancy boundary this claim lives inside. Every consumer of the intersection carries the same field, which is how a cross-tenant read becomes checkable rather than assumed."
+      },
+      "asserted_by_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "Who made the assertion. Distinct from `owner_ref` and from the rights holders: an assertion by a party that holds nothing is still recordable, and is still only an input."
+      },
+      "asserted_rights_holder_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The parties the claim asserts hold the rights. Asserting a holder does not establish that they hold anything; it states whose entitlement the basis refs are supposed to evidence."
+      },
+      "source_class": {
+        "enum": [
+          "employee",
+          "contractor",
+          "customer",
+          "patient",
+          "partner",
+          "vendor",
+          "licensed",
+          "purchased",
+          "public",
+          "synthetic",
+          "provider_output",
+          "machine_generated",
+          "mixed",
+          "unknown"
+        ],
+        "description": "Canon's fourteen source classes, verbatim. `unknown` is a real member rather than an absence, because the honest way to record an unclassified source is to say so and let the fail-closed partition do its work."
+      },
+      "subject_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The governed material this posture is about, named by ref. The claim carries no protected payload: a rights record that embeds the bytes it governs has widened exposure to describe it."
+      },
+      "rights_basis_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The contracts, terms, policies, grants, licenses or evidence the assertion rests on. At least one is mandatory: a claim with no basis is an opinion, and an opinion cannot narrow an intersection honestly."
+      },
+      "route_rights_contract_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The route-rights half of the intersection, referenced rather than restated. The route contract remains the semantic owner of what a provider or intermediary may do; this claim neither widens nor reinterprets it."
+      },
+      "declared_use_vocabulary": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "THE CLOSED VOCABULARY, CARRIED IN THE RECORD SO THE PARTITION IS CHECKABLE WITHOUT A REGISTRY LOOKUP. A registered invariant pins its length to `constants.learning_use_vocabulary_size`, and the item enum plus uniqueness make it exactly the fifteen canonical uses. Everything else here is a statement about this set."
+      },
+      "permitted_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The uses this claim asserts are supported by its basis refs. It is a CEILING INPUT, never a grant: the effective permission is the most-restrictive intersection over every applicable claim, profile, view, route contract, custody rule and authority decision, and a permission here that any other input denies does not survive it."
+      },
+      "prohibited_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The complement of `permitted_uses` over the declared vocabulary, and the field the fail-closed rules land on. A registered invariant requires the vocabulary to be covered by the permitted/prohibited pair exactly once each, so a use cannot be both — the multiset would be longer than the vocabulary — and no use can be silently omitted from both."
+      },
+      "declared_prohibited_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The prohibitions the basis refs state affirmatively, as opposed to the ones the fail-closed default produces. Separating them keeps the record honest about WHY a use is unavailable: a contract that forbids publication and an unanswered question about publication are different facts that a single merged list would erase."
+      },
+      "unresolved_right_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "THE FAIL-CLOSED LANE, AS A SET. A registered invariant requires this to be the exact projection of `unresolved_rights_findings`, and a second requires `prohibited_uses` to be covered exactly by the union of this list and `declared_prohibited_uses`. The consequence is the whole point of the contract: A CLAIM THAT RECORDS AN UNRESOLVED RIGHT AND STILL PERMITS THAT USE CANNOT BE ADMITTED. Because the covering is a multiset, a use cannot be counted as both affirmatively prohibited and unresolved either."
+      },
+      "unresolved_rights_findings": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "use",
+            "resolution",
+            "subject_ref"
+          ],
+          "properties": {
+            "use": {
+              "$ref": "#/$defs/learningUse"
+            },
+            "resolution": {
+              "enum": [
+                "missing",
+                "unknown",
+                "conflicting",
+                "expired",
+                "revoked",
+                "unsupported",
+                "disputed"
+              ],
+              "description": "Canon's fail-closed triggers, named individually so an audit can tell an expired consent from a conflict between two live bases. Every member has the same consequence and a different remedy."
+            },
+            "subject_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "Which governed subject the finding is about, so a partial resolution is attributable rather than a blanket doubt."
+            }
+          }
+        },
+        "description": "One row per use whose rights this claim could not resolve. The rows are the evidence; `unresolved_right_uses` is their projection and the registered invariant ties the two together, so deleting a finding to make a permission fit changes the projection and fails the covering."
+      },
+      "derivative_disposition": {
+        "enum": [
+          "inherit_intersection",
+          "internal_only",
+          "transferable_with_claims",
+          "noncommercial_only",
+          "no_derivatives",
+          "policy_defined"
+        ],
+        "description": "Canon's six dispositions, verbatim. `inherit_intersection` is the honest default for composed material: a derivative of several sources inherits the intersection of every contributing source and route, never the most permissive contributor."
+      },
+      "beneficiary_scope_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Whose benefit the permitted uses are for. A scope narrower than the requester's is a denial, not a courtesy."
+      },
+      "jurisdiction_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The jurisdictional obligations that apply. They are an input to the intersection like any other; naming a jurisdiction never widens what the basis refs support."
+      },
+      "residency_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Where the governed material may reside. Residency is distinct from jurisdiction — one is where bytes sit, the other is whose law reaches them — and conflating them is how a compliant-looking record permits a move neither would allow."
+      },
+      "retention_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The retention policy governing the subjects. Mandatory: an indefinite default is a retention decision nobody made."
+      },
+      "deletion_or_forget_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The deletion and forget policy. Naming it asserts a process, not an outcome: canon is explicit that a revocation record does not prove a trained model has forgotten anything."
+      },
+      "legal_or_audit_hold_state": {
+        "enum": [
+          "none",
+          "legal_hold",
+          "audit_hold",
+          "incident_hold"
+        ],
+        "description": "A hold narrows disposal and can narrow use; it never widens either. It is carried on the claim because a hold that lives only in a policy the reader has to fetch is a hold the offline verifier cannot see."
+      },
+      "validity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid_from",
+          "valid_until"
+        ],
+        "properties": {
+          "valid_from": {
+            "$ref": "#/$defs/canonicalTimestamp"
+          },
+          "valid_until": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/canonicalTimestamp"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null means open-ended under the current basis, not permanent. An expiry that has passed is recorded by moving `status` to `expired`, which empties the permitted set by schema."
+          }
+        }
+      },
+      "evidence_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The evidence backing the assertion. At least one is mandatory, for the same reason a basis is: an unevidenced claim narrows nothing honestly and must not be allowed to widen anything."
+      },
+      "claim_commitment": {
+        "$ref": "#/$defs/sha256",
+        "description": "The producer's commitment over the asserted posture as it was evidenced, distinct from `content_hash`, which commits this record. Two hashes because they answer different questions: one is whether the bytes are intact, the other is whether the posture is the one the evidence was gathered for."
+      },
+      "status": {
+        "enum": [
+          "asserted",
+          "admitted",
+          "disputed",
+          "expired",
+          "superseded",
+          "revoked",
+          "rejected"
+        ],
+        "description": "Canon's seven claim states, verbatim. Only `asserted` and `admitted` may carry permissions; the other five empty the permitted set by schema, which is how expiry, dispute and revocation become fail-closed in the record rather than in whichever reader remembers to check."
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp."
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once. Every other revision names its predecessor's exact ref AND its predecessor's exact content hash, both, plus the reason it exists. Independently nullable slots would admit a partial tuple that reads as a complete lineage while naming nothing anyone could check, so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.",
+        "required": [
+          "succession_reason",
+          "predecessor_revision_ref",
+          "predecessor_content_hash",
+          "supersedes_predecessor",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "succession_reason": {
+            "enum": [
+              "genesis",
+              "basis_change",
+              "evidence_change",
+              "rights_holder_change",
+              "use_permission_change",
+              "unresolved_right_resolved",
+              "expiry_or_revocation",
+              "correction"
+            ],
+            "description": "`genesis` plus the seven ways a rights posture legitimately moves. Every member other than `genesis` obliges the full predecessor tuple."
+          },
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/claimRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The predecessor's bytes, hashed over ITS OWN enumerated fields under ITS OWN domain separator. A successor naming a ref but no hash has named a location that may since have been re-admitted, and the lineage becomes uncheckable exactly when it matters."
+          },
+          "supersedes_predecessor": {
+            "type": "boolean",
+            "description": "Whether this revision retires the predecessor for new use. Either way the predecessor stays addressable, because superseding is not deletion and an audit of a past decision needs the posture that decision was made under."
+          },
+          "reinterprets_predecessor": {
+            "const": false,
+            "description": "Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning. A narrowed claim does not retroactively unmake a use that was admitted under the wider one; it blocks future use and leaves the historical record exactly as admitted."
+          }
+        },
+        "allOf": [
+          {
+            "title": "a genesis revision has no predecessor, in both slots at once",
+            "if": {
+              "required": [
+                "succession_reason"
+              ],
+              "properties": {
+                "succession_reason": {
+                  "const": "genesis"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                },
+                "supersedes_predecessor": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "$ref": "#/$defs/claimRevisionRef"
+                },
+                "predecessor_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.",
+        "required": [
+          "lifecycle_id",
+          "learning_use_vocabulary_size",
+          "nonclaim_authority_token",
+          "nonclaim_legal_title_token"
+        ],
+        "properties": {
+          "lifecycle_id": {
+            "const": "learning_source_rights_claim_lifecycle.v1",
+            "description": "Names WHICH lifecycle `status` is drawn from, so a reader cannot mistake a claim's assertion state for a boundary profile's activation state or an egress receipt's decision even when a projection calls all three `status`."
+          },
+          "learning_use_vocabulary_size": {
+            "description": "The size of the closed learning-use vocabulary, pinned so the partition invariants can check completeness against a number carried in the bytes rather than one compiled into a verifier.",
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 15
+          },
+          "nonclaim_authority_token": {
+            "const": "authority"
+          },
+          "nonclaim_legal_title_token": {
+            "const": "legal_title"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "learning_source_rights_claim_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "learning_source_rights_claim_is_an_asserted_posture_not_a_legal_finding"
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "legal_title",
+            "ownership",
+            "semantic_truth",
+            "training_consent_by_creation",
+            "redaction_creates_permission",
+            "provider_non_learning",
+            "verified_unlearning",
+            "policy_permission",
+            "capability_lease_crossing"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "legal_title"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "ownership"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "semantic_truth"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "training_consent_by_creation"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "redaction_creates_permission"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Six mandatory members. `training_consent_by_creation` states canon's sharpest rule in the record itself — creation inside an enterprise boundary establishes no right to train, distill, commercialize, publish or transfer — and `redaction_creates_permission` states the other one: a transformation reduces exposure, it creates no right and severs no lineage."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered."
+      }
+    },
+    "allOf": [
+      {
+        "title": "a claim that is not live permits nothing",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "disputed",
+                "expired",
+                "superseded",
+                "revoked",
+                "rejected"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "permitted_uses": {
+              "maxItems": 0,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1",
+    "title": "InstitutionalLearningBoundaryProfileV1",
+    "description": "THE COMPILED BOUNDARY, AND THE ONE CONTRACT WHERE 'MOST RESTRICTIVE INTERSECTION' IS AN ALGEBRA RATHER THAN AN ADJECTIVE. Canon narrows organization default -> project profile -> bounded-system profile -> immutable session/GoalRun/model-invocation/transformation/Foundry-run snapshot, and says each child may narrow but never silently widen its parent. Prose cannot enforce that, because a compiled record that simply omits a parent restriction reads exactly like one that never inherited it. This contract compiles the boundary as a DENIAL ALGEBRA over one closed learning-use vocabulary carried in the bytes, and three registered coverage invariants make each step of the narrowing checkable OFFLINE from the record alone. FIRST, the effective denial set decomposes exactly: `effective_denied_uses` must be covered, as a MULTISET, by `parent_denied_uses` union `locally_added_denied_uses`. Multiset equality means every inherited denial survives into the effective set — dropping one leaves the covering short and the record is refused — and a local addition can never be counted as an inherited one. SECOND, the parent's own denial set as read at compilation must be covered exactly by the denials this profile retained plus the ones it EXPLICITLY RELEASED, and every release row carries its widening authority ref, its admitted decision ref and its upgrade-path class. A SILENT WIDENING IS THEREFORE IMPOSSIBLE: releasing an inherited denial without naming the authority and the decision breaks the covering. At any snapshot scope level the schema pins the release list empty, so a run, invocation, transformation or Foundry job cannot widen the system profile it snapshots at all. THIRD, every locally added denial is attributed exactly once, either to a narrowing decision naming its governing input or to an indeterminate-rights finding — which is how 'a conflict, missing required contract, or indeterminate right denies the disputed use' becomes a shape instead of a runtime branch someone can forget. Cross-tenant learning and provider secondary use are DENIED BY DEFAULT in the bytes: registered invariants require the cross-tenant use to be denied unless an explicit cohort binding exists, and require provider model training and cross-customer aggregation to read `deny` unless a named contractual basis ref is present. Identity is owner-qualified and revision-exact, succession names the predecessor's exact ref and exact content hash, and `content_hash` commits every other field under a domain separator. NON-CLAIMS ARE FIELDS. This profile is a cross-cutting policy compilation over existing owners; it is not a new authority plane, truth store, runtime, privacy tier or legal-right generator, it grants no execution power, and an admitted profile proves what the institution declared rather than what any provider actually did.",
+    "x-ioi-schema-version": "ioi.institutional-learning-boundary-profile.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "boundaryFamilyRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "boundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "claimRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "learningUse": {
+        "enum": [
+          "operational_inference",
+          "retain",
+          "replay",
+          "internal_evaluation",
+          "internal_analytics",
+          "memory_or_context_improvement",
+          "dataset_generation",
+          "fine_tune",
+          "distill",
+          "competing_model_training",
+          "worker_or_package_improvement",
+          "commercialize_derivative",
+          "export",
+          "publish",
+          "cross_tenant_aggregate_learning"
+        ]
+      },
+      "learningUseList": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/learningUse"
+        }
+      },
+      "recipientPermission": {
+        "enum": [
+          "allow",
+          "deny",
+          "policy_qualified"
+        ]
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "nonEmptyRefList": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "optionalRef": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "boundary_profile_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "governance_owner_ref",
+      "scope_level",
+      "scope_owner_ref",
+      "applies_to_refs",
+      "system_binding",
+      "protected_material_classes",
+      "learning_source_rights_claim_revision_refs",
+      "policy_bound_data_view_refs",
+      "route_rights_contract_refs",
+      "custody",
+      "external_recipient_permissions",
+      "cross_tenant_learning",
+      "target_binding",
+      "declared_use_vocabulary",
+      "effective_permitted_uses",
+      "effective_denied_uses",
+      "parent_binding",
+      "parent_denied_uses",
+      "locally_added_denied_uses",
+      "narrowing_decisions",
+      "indeterminate_findings",
+      "widening_releases",
+      "snapshot_binding",
+      "jurisdiction_refs",
+      "residency_refs",
+      "retention_policy_ref",
+      "deletion_or_forget_policy_ref",
+      "legal_or_audit_hold_policy_ref",
+      "derivative_policy_ref",
+      "export_policy_ref",
+      "revocation_policy_ref",
+      "declassification_policy_ref",
+      "receipt_obligations",
+      "compiled_policy_hash",
+      "effective_from",
+      "expires_at",
+      "status",
+      "admitted_at",
+      "succession",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.institutional-learning-boundary-profile.v1"
+      },
+      "boundary_profile_id": {
+        "$ref": "#/$defs/boundaryFamilyRef",
+        "description": "THE FAMILY. A boundary is restated as policy moves, so the lineage is the aggregate and a revision is the thing a sovereign system pins. Nothing compiles against the family head: canon requires a system to pin an EXACT profile revision and compiled policy hash, which is what stops a later parent change from mutating a live system by implication."
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/boundaryRevisionRef",
+        "description": "ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment is mandatory, which refuses a family-head or mutable-latest reference where a revision is required. A registered invariant additionally refuses a revision that does not extend its own `boundary_profile_id`."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "OWNER-QUALIFIED IDENTITY. Who this compiled boundary belongs to. Naming the owner is what makes the revision resolvable to one boundary rather than to whichever same-named profile a reader happens to look up."
+      },
+      "tenant_ref": {
+        "type": "string",
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "The tenancy boundary this compilation lives inside, carried so a cross-tenant read is a checkable mismatch rather than an assumption."
+      },
+      "governance_owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "Who authors and amends this profile. Distinct from `owner_ref` and from `scope_owner_ref`: canon is explicit that an organization or project profile governs future compilation and is NOT an ambient administrative back door into a sovereign bounded system."
+      },
+      "scope_level": {
+        "enum": [
+          "organization",
+          "project",
+          "system",
+          "session",
+          "goal_run",
+          "model_invocation",
+          "transformation",
+          "foundry_job"
+        ],
+        "description": "Canon's narrowing path, as a closed ladder. The last five are SNAPSHOT levels: at those levels the schema pins `widening_releases` empty and requires the snapshot binding, because a run may use an immutable effective snapshot and may never widen the system profile it snapshots."
+      },
+      "scope_owner_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The exact scope this compilation is for — the organization, project, system, session, run, invocation, transformation or Foundry job. A compilation whose scope owner does not match the consumer is a different boundary, not a compatible one."
+      },
+      "applies_to_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "Everything this compilation governs. At least one member: a boundary that applies to nothing is not a narrowing, and admitting one would let an audit count a profile that governs no material as coverage."
+      },
+      "system_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "SOVEREIGNTY, AS A BINDING. At genesis or a governed upgrade a bounded system pins an exact profile revision and compiled policy hash under its constitution and deployment profile. Carrying those refs here is what lets a later parent revision be treated as an UPGRADE INPUT rather than as a mutation of the live system.",
+        "required": [
+          "system_ref",
+          "constitution_ref",
+          "deployment_profile_ref",
+          "upgrade_required_for_widening"
+        ],
+        "properties": {
+          "system_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "constitution_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "deployment_profile_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "upgrade_required_for_widening": {
+            "const": true,
+            "description": "Pinned. A worker, model, provider, Foundry job or organization default cannot self-grant a widening; it takes the system's ordinary or protected upgrade path as classified by its constitution."
+          }
+        }
+      },
+      "protected_material_classes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "source_data",
+            "prompts_and_completions",
+            "connector_and_tool_io",
+            "work_graphs_traces_and_receipts",
+            "corrections_and_reviewer_judgments",
+            "evaluations_rubrics_holdouts_and_canaries",
+            "memory_context_procedures_workflows_and_skills",
+            "datasets_embeddings_and_indexes",
+            "adapters_checkpoints_weights_and_packages",
+            "router_verifier_authority_and_governance_policy",
+            "analytics_crash_support_and_security_telemetry",
+            "embodied_sensor_actuator_mission_and_operator_telemetry"
+          ]
+        },
+        "description": "Canon's twelve protected material classes, verbatim. The boundary governs material the institution can identify, contract for, admit, observe or prove; hidden provider-internal state it neither receives nor is entitled to obtain is not silently reclassified as institution-owned by listing a class here."
+      },
+      "learning_source_rights_claim_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/claimRevisionRef"
+        },
+        "description": "The rights half of the intersection, bound as EXACT CLAIM REVISIONS rather than family heads. The `/revision/` segment is what stops a compiled boundary from silently following a claim family onto a newer, wider posture: a changed claim is a new revision and therefore a new compilation."
+      },
+      "policy_bound_data_view_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The governed lenses this boundary composes over. Naming a view is not being granted it — the view revalidates current authority, rights, revocation and expiry at every materialization — and this profile asserts none of that."
+      },
+      "route_rights_contract_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The route-rights half of the intersection, referenced rather than restated. The route contract stays the semantic owner of what a provider or intermediary may do; an aggregator is a replaceable supply adapter and never the trust boundary."
+      },
+      "custody": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "RUNTIME OPERATOR AND PROVIDER-TRUST POSTURE ARE ORTHOGONAL, AND NEITHER PROVES A RIGHT. Canon states both halves: self-hosting does not prove source rights, and a zero-retention promise does not prove a provider did not learn. These fields record which claim is actually supported, which is why the receipt vocabulary downstream can stay honest.",
+        "required": [
+          "product_mode",
+          "runtime_operator",
+          "permitted_provider_trust_postures",
+          "permitted_custody_postures",
+          "private_claim_requires_current_proof"
+        ],
+        "properties": {
+          "product_mode": {
+            "enum": [
+              "standard",
+              "private"
+            ]
+          },
+          "runtime_operator": {
+            "enum": [
+              "ioi_managed",
+              "customer_managed",
+              "local",
+              "hybrid"
+            ]
+          },
+          "permitted_provider_trust_postures": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "no_provider_plaintext",
+                "redacted_only",
+                "disclosed_policy_qualified",
+                "provider_trust_accepted",
+                "private_compute_required"
+              ]
+            }
+          },
+          "permitted_custody_postures": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "customer_boundary",
+                "local_or_open_model",
+                "customer_vpc",
+                "attested_confidential_compute",
+                "brokered_custody_proven",
+                "managed_private_native"
+              ]
+            }
+          },
+          "private_claim_requires_current_proof": {
+            "const": true,
+            "description": "Pinned. A `private` claim requires CURRENT custody and route evidence; a stale proof is an expired claim, not a weaker one."
+          }
+        }
+      },
+      "external_recipient_permissions": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE SECOND DIRECTIONAL QUESTION, ANSWERED FIELD BY FIELD. Canon requires every external cognition route to answer both what the institution may do with outputs and what the recipient may do with institutional material. Provider secondary use and cross-customer aggregation are DENIED BY DEFAULT for protected material: registered invariants require each of those two members to read `deny` unless a named contractual basis ref is present, so a provider's account-level opt-in, broad service default or changed terms cannot silently override the effective profile.",
+        "required": [
+          "transient_inference",
+          "service_logging",
+          "abuse_or_security_review",
+          "human_support_review",
+          "retention",
+          "service_improvement",
+          "provider_model_training",
+          "provider_model_training_basis_ref",
+          "cross_customer_aggregation",
+          "cross_customer_aggregation_basis_ref",
+          "publication"
+        ],
+        "properties": {
+          "transient_inference": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "service_logging": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "abuse_or_security_review": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "human_support_review": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "retention": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "service_improvement": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "provider_model_training": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "provider_model_training_basis_ref": {
+            "$ref": "#/$defs/optionalRef",
+            "description": "The named contract, terms or license that supports anything other than `deny`. Null with a non-deny value is refused by a registered invariant, which is the whole mechanism of the default-deny posture."
+          },
+          "cross_customer_aggregation": {
+            "$ref": "#/$defs/recipientPermission"
+          },
+          "cross_customer_aggregation_basis_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "publication": {
+            "$ref": "#/$defs/recipientPermission"
+          }
+        }
+      },
+      "cross_tenant_learning": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "SELLER, PROVIDER, MARKETPLACE, NETWORK AND CROSS-CUSTOMER IMPROVEMENT ARE DEFAULT-DENY. `default` is pinned to `deny` in the schema; a registered invariant additionally requires the cross-tenant learning use to appear in `effective_denied_uses` UNLESS an explicit cohort binding exists. Anonymization language alone authorizes nothing: an aggregation control can reduce exposure, it cannot create a missing right.",
+        "required": [
+          "default",
+          "permitted_cohort_refs",
+          "aggregation_policy_ref",
+          "contribution_and_benefit_terms_ref",
+          "non_reconstruction_control_refs"
+        ],
+        "properties": {
+          "default": {
+            "const": "deny"
+          },
+          "permitted_cohort_refs": {
+            "$ref": "#/$defs/refList",
+            "description": "The participating tenant and beneficiary scopes of an opt-in aggregate-learning program. Empty is the ordinary case and keeps the use denied."
+          },
+          "aggregation_policy_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "contribution_and_benefit_terms_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "non_reconstruction_control_refs": {
+            "$ref": "#/$defs/refList",
+            "description": "The exact aggregation, redaction and non-reconstruction controls. They reduce exposure and are recorded as controls, never as the rights the program still has to bind independently."
+          }
+        }
+      },
+      "target_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "PERMISSION DOES NOT TRAVEL. Eligibility to use evidence for one target does not extend to improving a policy, evaluator, agenda, workflow or cross-tenant service, so the targets are enumerated here and the transfer flag is pinned false. A consumer that wants a different target needs a different compilation, not a broader reading of this one.",
+        "required": [
+          "bound_target_refs",
+          "permission_travels_to_other_targets"
+        ],
+        "properties": {
+          "bound_target_refs": {
+            "$ref": "#/$defs/nonEmptyRefList"
+          },
+          "permission_travels_to_other_targets": {
+            "const": false
+          }
+        }
+      },
+      "declared_use_vocabulary": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "THE CLOSED VOCABULARY, CARRIED IN THE RECORD SO THE PARTITION IS CHECKABLE WITHOUT A REGISTRY LOOKUP. A registered invariant pins its length to `constants.learning_use_vocabulary_size`; the item enum and uniqueness make it exactly the fifteen canonical uses. It is the same vocabulary the source-rights claim and the eligibility decision use, which is what lets the three intersect at all."
+      },
+      "effective_permitted_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The compiled result — what survives the intersection. It is a CEILING, not a grant: the learning boundary governs capability improvement, not operational power, and a permitted use still passes ordinary manifest, policy, authority, verifier and runtime admission before anything happens."
+      },
+      "effective_denied_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The compiled complement, and the field every no-widening rule lands on. A registered invariant requires the vocabulary to be covered by the permitted/denied pair exactly once each — so a use cannot be both, and none can be silently omitted from both — and a second requires this set to decompose exactly into the inherited denials plus the locally added ones."
+      },
+      "parent_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WHAT WAS INHERITED, AND FROM EXACTLY WHICH BYTES. A compiled child that names its parent only by ref inherits from whatever that ref resolves to today, which is the mutable-head problem restated one level up. This block binds the parent's exact revision, its exact content hash, and the denial set as read at compilation — so a verifier holding the parent can prove the inheritance, and a verifier holding only this record can still prove the record is internally consistent with what it says it read.",
+        "required": [
+          "compilation_origin",
+          "parent_revision_ref",
+          "parent_content_hash",
+          "parent_denied_uses_at_compilation",
+          "parent_denied_use_count_at_compilation"
+        ],
+        "properties": {
+          "compilation_origin": {
+            "enum": [
+              "root_default",
+              "narrowed_from_parent"
+            ],
+            "description": "A root organization default inherits nothing and says so in every provenance slot at once. Every other compilation names its parent's ref, its parent's bytes and its parent's denial set, all three."
+          },
+          "parent_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/boundaryRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parent_denied_uses_at_compilation": {
+            "$ref": "#/$defs/learningUseList",
+            "description": "The parent's effective denial set as this compilation read it. A registered invariant requires it to be covered exactly by the denials this profile RETAINED plus the ones it EXPLICITLY RELEASED, which is the mechanism that makes a silent widening impossible."
+          },
+          "parent_denied_use_count_at_compilation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 15,
+            "description": "The declared size of that set, checked against it by a registered invariant. The count and the list are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that one of them was edited to fit a permission."
+          }
+        },
+        "allOf": [
+          {
+            "title": "a root default inherits nothing, in every provenance slot at once",
+            "if": {
+              "required": [
+                "compilation_origin"
+              ],
+              "properties": {
+                "compilation_origin": {
+                  "const": "root_default"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "parent_revision_ref": {
+                  "type": "null"
+                },
+                "parent_content_hash": {
+                  "type": "null"
+                },
+                "parent_denied_uses_at_compilation": {
+                  "maxItems": 0,
+                  "type": "array"
+                },
+                "parent_denied_use_count_at_compilation": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 0
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "parent_revision_ref": {
+                  "$ref": "#/$defs/boundaryRevisionRef"
+                },
+                "parent_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "parent_denied_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The inherited denials this compilation RETAINED. Together with `locally_added_denied_uses` it must cover `effective_denied_uses` exactly, so every retained denial survives; and together with the release rows it must cover `parent_binding.parent_denied_uses_at_compilation` exactly, so nothing inherited disappears without a named release."
+      },
+      "locally_added_denied_uses": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "The denials THIS compilation adds beyond what it inherited. Multiset coverage keeps these disjoint from the inherited set, which stops a widening from hiding as a re-attribution: a use cannot be quietly moved from the inherited column to the local one and then released as if it were locally owned."
+      },
+      "narrowing_decisions": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "denied_use",
+            "governing_source_kind",
+            "governing_source_ref",
+            "also_denied_by_source_kinds",
+            "reason_code"
+          ],
+          "properties": {
+            "denied_use": {
+              "$ref": "#/$defs/learningUse"
+            },
+            "governing_source_kind": {
+              "enum": [
+                "source_rights_claim",
+                "route_rights_contract",
+                "policy_bound_data_view",
+                "custody_posture",
+                "jurisdiction_or_residency",
+                "retention_or_export_policy",
+                "evidence_eligibility_decision",
+                "declared_local_policy"
+              ],
+              "description": "WHICH INPUT GOVERNS THIS DENIAL. Exactly one, because an audit asking 'why can we not publish?' deserves a single-valued answer; every other input that also denies it is listed beside it rather than competing with it."
+            },
+            "governing_source_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "also_denied_by_source_kinds": {
+              "type": "array",
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "source_rights_claim",
+                  "route_rights_contract",
+                  "policy_bound_data_view",
+                  "custody_posture",
+                  "jurisdiction_or_residency",
+                  "retention_or_export_policy",
+                  "evidence_eligibility_decision",
+                  "declared_local_policy"
+                ]
+              },
+              "description": "The other contributing inputs that deny the same use. Recording them keeps the intersection honest without making the attribution ambiguous: removing the governing input does not release the use while any of these remain."
+            },
+            "reason_code": {
+              "enum": [
+                "source_right_prohibits",
+                "route_right_unresolved",
+                "custody_posture_unsatisfied",
+                "jurisdiction_or_residency_prohibits",
+                "retention_or_hold_prohibits",
+                "destination_class_prohibits",
+                "eligibility_excluded",
+                "local_policy_prohibits"
+              ]
+            }
+          }
+        },
+        "description": "One attributed row per locally added denial that a named input produced. A registered invariant requires the local denial set to be covered exactly by these rows plus the indeterminate findings, so a denial with no reason and a reason with no denial are both refused."
+      },
+      "indeterminate_findings": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "denied_use",
+            "resolution",
+            "disputed_input_ref"
+          ],
+          "properties": {
+            "denied_use": {
+              "$ref": "#/$defs/learningUse"
+            },
+            "resolution": {
+              "enum": [
+                "missing_required_contract",
+                "conflicting_inputs",
+                "indeterminate_right",
+                "expired_input",
+                "revoked_input",
+                "unavailable_input"
+              ],
+              "description": "Canon's fail-closed triggers at the compilation boundary: a conflict, a missing required contract or an indeterminate right denies the disputed use. Each member has the same consequence and a different remedy."
+            },
+            "disputed_input_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        "description": "THE FAIL-CLOSED LANE, AS ROWS. Every indeterminacy is a denial and every such denial is one of these rows: because the local denial set must be covered exactly by the narrowing decisions plus these findings, a compilation that records a conflict and still permits the disputed use leaves the covering short and cannot be admitted."
+      },
+      "widening_releases": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "released_use",
+            "widening_authority_ref",
+            "widening_decision_ref",
+            "upgrade_path_class"
+          ],
+          "properties": {
+            "released_use": {
+              "$ref": "#/$defs/learningUse"
+            },
+            "widening_authority_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "The external rights or authority the NEW use requires. Mandatory on every row, because canon's rule is that widening takes explicit authority AND a new decision, not either alone."
+            },
+            "widening_decision_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "The admitted decision that performed the widening. A reference to a policy that merely permits widening is not a decision that performed one."
+            },
+            "upgrade_path_class": {
+              "enum": [
+                "ordinary_upgrade",
+                "protected_upgrade"
+              ],
+              "description": "How the system's constitution classifies this widening. Recording the class is what stops a protected path from being satisfied by an ordinary one after the fact."
+            }
+          }
+        },
+        "description": "THE ONLY WAY AN INHERITED DENIAL LEAVES THE EFFECTIVE SET. A registered invariant requires the parent's denial set as read to be covered exactly by the retained denials plus these releases, so dropping an inherited restriction without a row here breaks the covering and the record is refused. At every snapshot scope level the schema pins this list empty: an immutable run, invocation, transformation or Foundry-job snapshot may narrow further but may never widen the profile it snapshots."
+      },
+      "snapshot_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "AN IMMUTABLE EFFECTIVE SNAPSHOT NAMES THE BYTES IT SNAPSHOTTED. Canon says a run, model invocation, transformation or Foundry job uses an immutable effective snapshot, and that a mid-run policy change may stop or quarantine future effects but must not rewrite receipts for effects already admitted. Binding the source revision and its exact content hash is what makes the second half auditable after the parent has moved on.",
+        "required": [
+          "snapshot_of_revision_ref",
+          "snapshot_of_content_hash",
+          "mid_run_policy_change_rewrites_admitted_receipts"
+        ],
+        "properties": {
+          "snapshot_of_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/boundaryRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snapshot_of_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mid_run_policy_change_rewrites_admitted_receipts": {
+            "const": false
+          }
+        }
+      },
+      "jurisdiction_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The jurisdictional obligations composed into this boundary. They narrow; naming one never widens what the underlying rights support."
+      },
+      "residency_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Where governed material may reside under this boundary. Distinct from jurisdiction — one is where bytes sit, the other is whose law reaches them — because conflating them is how a compliant-looking compilation permits a move neither would allow."
+      },
+      "retention_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "deletion_or_forget_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "Naming a forget policy asserts a process, not an outcome. Canon is explicit that a revocation or impact record does not prove a trained model has forgotten a source, and `does_not_assert` carries `verified_unlearning` so the record says so itself."
+      },
+      "legal_or_audit_hold_policy_ref": {
+        "$ref": "#/$defs/optionalRef"
+      },
+      "derivative_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "export_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "revocation_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "declassification_policy_ref": {
+        "$ref": "#/$defs/optionalRef",
+        "description": "The policy governing parameter, gradient, weight-delta, adapter, embedding and distillate egress across a sovereign boundary. Canon treats that movement as a DECLASSIFICATION EVENT requiring resolved rights and receipts, because a parameter delta carries no lineage and the crossing is irreversible in a way an ordinary effect is not."
+      },
+      "receipt_obligations": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "boundary_compilation",
+            "model_route_decision",
+            "learning_egress_decision",
+            "learning_evidence_eligibility",
+            "transformation",
+            "foundry_lineage",
+            "promotion_or_recall",
+            "export_or_denial"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "boundary_compilation"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "learning_evidence_eligibility"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Canon's eight obligations; the compilation and eligibility receipts are mandatory members. An obligation is a requirement placed on future acts, never a receipt this profile holds."
+      },
+      "compiled_policy_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The commitment a sovereign system PINS alongside the exact profile revision. It is distinct from `content_hash`: one says these bytes are intact, the other is the value a constitution binds so that a later parent revision becomes an upgrade input rather than a silent mutation of the live system."
+      },
+      "effective_from": {
+        "$ref": "#/$defs/canonicalTimestamp"
+      },
+      "expires_at": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/canonicalTimestamp"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Null means open-ended under the current governance, not permanent. An elapsed expiry is recorded by moving `status`, which empties the permitted set by schema."
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "suspended",
+          "superseded",
+          "revoked"
+        ],
+        "description": "Canon's five profile states, verbatim. Only `active` may carry permissions; `draft`, `suspended`, `superseded` and `revoked` empty the effective permitted set by schema, which is how emergency revocation, safety stop and supersession narrow immediately under already declared authority instead of waiting for a reader to notice."
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "The ADMISSION stamp of this compilation, taken from the admitted operation rather than the wall clock, so a replayed compilation re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp."
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple reads as a complete lineage while naming nothing anyone could check, so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.",
+        "required": [
+          "succession_reason",
+          "predecessor_revision_ref",
+          "predecessor_content_hash",
+          "supersedes_predecessor",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "succession_reason": {
+            "enum": [
+              "genesis",
+              "parent_policy_change",
+              "source_rights_change",
+              "route_rights_change",
+              "custody_change",
+              "jurisdiction_or_residency_change",
+              "retention_or_export_change",
+              "governed_widening",
+              "revocation_or_suspension",
+              "correction"
+            ]
+          },
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/boundaryRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_predecessor": {
+            "type": "boolean"
+          },
+          "reinterprets_predecessor": {
+            "const": false,
+            "description": "Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning: a narrowed boundary blocks future use and leaves the receipts already admitted under the wider one exactly as admitted."
+          }
+        },
+        "allOf": [
+          {
+            "title": "a genesis revision has no predecessor, in both slots at once",
+            "if": {
+              "required": [
+                "succession_reason"
+              ],
+              "properties": {
+                "succession_reason": {
+                  "const": "genesis"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                },
+                "supersedes_predecessor": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "$ref": "#/$defs/boundaryRevisionRef"
+                },
+                "predecessor_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.",
+        "required": [
+          "lifecycle_id",
+          "learning_use_vocabulary_size",
+          "cross_tenant_use_token",
+          "recipient_permission_deny_token",
+          "nonclaim_authority_token",
+          "nonclaim_provider_non_learning_token"
+        ],
+        "properties": {
+          "lifecycle_id": {
+            "const": "institutional_learning_boundary_profile_lifecycle.v1",
+            "description": "Names WHICH lifecycle `status` is drawn from, so a reader cannot mistake a profile's activation state for a source-rights claim's assertion state or an egress receipt's decision even when a projection calls all three `status`."
+          },
+          "learning_use_vocabulary_size": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 15
+          },
+          "cross_tenant_use_token": {
+            "const": "cross_tenant_aggregate_learning",
+            "description": "The use that is denied by default, named in the bytes so the default-deny invariant can require its denial without carrying a literal of its own."
+          },
+          "recipient_permission_deny_token": {
+            "const": "deny"
+          },
+          "nonclaim_authority_token": {
+            "const": "authority"
+          },
+          "nonclaim_provider_non_learning_token": {
+            "const": "provider_non_learning"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "institutional_learning_boundary_profile_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "institutional_learning_boundary_profile_is_a_policy_compilation_not_a_runtime_or_truth_store"
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 7,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "execution_power",
+            "new_authority_plane",
+            "truth_store",
+            "legal_right_generation",
+            "provider_non_learning",
+            "verified_unlearning",
+            "cryptographic_privacy",
+            "source_rights",
+            "semantic_truth",
+            "promotion_or_activation",
+            "capability_lease_crossing"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "execution_power"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "new_authority_plane"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "truth_store"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "legal_right_generation"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "provider_non_learning"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "verified_unlearning"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Seven mandatory members, each closing a specific misreading canon names. `provider_non_learning` is the one this family needs most: a contract or receipt proves the route and terms the institution admitted, never hidden provider behaviour, and a compiled boundary that could be read as proving a provider did not learn would be the exact overclaim the doctrine exists to prevent."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+      }
+    },
+    "allOf": [
+      {
+        "title": "a profile that is not active permits nothing",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "draft",
+                "suspended",
+                "superseded",
+                "revoked"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "effective_permitted_uses": {
+              "maxItems": 0,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "a snapshot binds the bytes it snapshotted and may never widen them",
+        "if": {
+          "required": [
+            "scope_level"
+          ],
+          "properties": {
+            "scope_level": {
+              "enum": [
+                "session",
+                "goal_run",
+                "model_invocation",
+                "transformation",
+                "foundry_job"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "widening_releases": {
+              "maxItems": 0,
+              "type": "array"
+            },
+            "snapshot_binding": {
+              "properties": {
+                "snapshot_of_revision_ref": {
+                  "$ref": "#/$defs/boundaryRevisionRef"
+                },
+                "snapshot_of_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "else": {
+          "properties": {
+            "snapshot_binding": {
+              "properties": {
+                "snapshot_of_revision_ref": {
+                  "type": "null"
+                },
+                "snapshot_of_content_hash": {
+                  "type": "null"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/learning-evidence-eligibility/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/learning-evidence-eligibility/v1",
+    "title": "LearningEvidenceEligibilityV1",
+    "description": "THE DECISION AT THE BOUNDARY BETWEEN OPERATIONAL EVIDENCE AND A LEARNING LOOP. Canon makes this the general admission record for reusing a Finding, OutcomeDelta, production observation, correction, trace, artifact or other evidence to improve a model, worker, pursuit method, workflow, policy, evaluator, agenda or memory — and `TrainingEvidenceEligibility` its model/worker-training COMPATIBILITY PROFILE, not a second decision. Three things are made checkable OFFLINE here that prose left to whoever wrote the runtime. FIRST, ELIGIBILITY CANNOT EXCEED ITS BOUNDARY. The decision binds the exact boundary-profile revision, that revision's exact content hash, the effective policy hash, and the boundary's permitted-use set AS READ AT DECISION TIME; a registered invariant then requires the single bound `learning_use` to be a member of that set unless the record carries an exclusion reason. Since the schema forbids an `eligible` record from carrying an exclusion reason, an eligibility for a use the boundary denies is inadmissible rather than merely discouraged. SECOND, PERMISSION DOES NOT TRAVEL. The improvement targets are enumerated and `permission_travels_to_other_targets` is pinned false, so eligibility to use evidence for one target is not readable as eligibility to improve a policy, evaluator, agenda, workflow or cross-tenant service. THIRD, CONTAMINATED AND SEALED MATERIAL IS INELIGIBLE BY SHAPE: an `exposed`, `quarantined` or `unknown` contamination posture removes `eligible` from the admissible status set, because live sealed holdout cases, labels, evaluator internals and protected outputs are ineligible for the campaign they judge until a rotation or declassification policy explicitly releases them, and recording an access receipt declassifies nothing. The legacy training-eligibility lane is carried as an explicit compatibility binding whose normalized posture must equal the canonical one, so canon's 'conflicting old and new values fail admission' is a rule rather than an intention. Identity is owner-qualified and revision-exact, succession names the predecessor's exact ref and exact content hash, and `content_hash` commits every other field under a domain separator. THIS IS A DECISION, NOT A POWER. It grants no authority, no capability-lease crossing, no declassification and no promotion; where delegated machine power is required the record names the authority refs it depends on rather than standing in for them.",
+    "x-ioi-schema-version": "ioi.learning-evidence-eligibility.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "eligibilityFamilyRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "boundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "claimRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "dataRecipeRevisionRef": {
+        "type": "string",
+        "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "learningUse": {
+        "enum": [
+          "operational_inference",
+          "retain",
+          "replay",
+          "internal_evaluation",
+          "internal_analytics",
+          "memory_or_context_improvement",
+          "dataset_generation",
+          "fine_tune",
+          "distill",
+          "competing_model_training",
+          "worker_or_package_improvement",
+          "commercialize_derivative",
+          "export",
+          "publish",
+          "cross_tenant_aggregate_learning"
+        ]
+      },
+      "learningUseList": {
+        "type": "array",
+        "maxItems": 15,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/learningUse"
+        }
+      },
+      "learningUsePosture": {
+        "enum": [
+          "operational_only",
+          "evaluation_only",
+          "synthetic_only",
+          "redacted_opt_in",
+          "full_private_opt_in",
+          "org_policy"
+        ]
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "nonEmptyRefList": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "optionalRef": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "eligibility_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "governance_owner_ref",
+      "eligibility_profile",
+      "boundary_profile_revision_ref",
+      "boundary_profile_content_hash",
+      "effective_learning_policy_hash",
+      "boundary_permitted_uses_at_decision",
+      "boundary_permitted_use_count_at_decision",
+      "learning_use",
+      "learning_source_rights_claim_revision_refs",
+      "subject_refs",
+      "requester_ref",
+      "intended_use",
+      "learning_use_posture",
+      "legacy_binding",
+      "applicable_evaluation_epoch_refs",
+      "target_binding",
+      "owner_and_tenant_scope_refs",
+      "contamination_posture",
+      "policy_bound_data_view_refs",
+      "data_recipe_revision_refs",
+      "local_policy_refs",
+      "consent_refs",
+      "authority_requirement_posture",
+      "authority_requirement_kinds",
+      "wallet_authority_refs",
+      "declassification_refs",
+      "learning_egress_receipt_refs",
+      "provider_trust_posture",
+      "retention_policy_ref",
+      "derivative_policy_ref",
+      "lineage_root",
+      "receipt_root",
+      "exclusion_reason",
+      "status",
+      "admitted_by_ref",
+      "admitted_at",
+      "succession",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.learning-evidence-eligibility.v1"
+      },
+      "eligibility_id": {
+        "$ref": "#/$defs/eligibilityFamilyRef",
+        "description": "THE FAMILY. A decision is restated as evidence, policy or contamination state changes, so the lineage is the aggregate and a revision is the thing a Foundry job or evaluation may cite. Nothing reads through the family head."
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/eligibilityRevisionRef",
+        "description": "ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own `eligibility_id`."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "OWNER-QUALIFIED IDENTITY. Canon calls this the owner-qualified learning-eligibility decision for exactly this reason: the same subject may be eligible for one owner and excluded for another, so an unqualified decision is not a decision anyone can act on."
+      },
+      "tenant_ref": {
+        "type": "string",
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "governance_owner_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The surface that proposed the decision — a Hypervisor, Foundry, Data, Ontology, domain-app or organization-governance owner. Proposing is not admitting: the admitted decision and its receipts are recorded by the state owner, and delegated machine power comes from the authority refs below."
+      },
+      "eligibility_profile": {
+        "enum": [
+          "general_learning",
+          "training_compatibility"
+        ],
+        "description": "`training_compatibility` is the model/worker-training PROFILE OF THIS SAME OBJECT, not a second eligibility decision. The schema restricts that profile to the training, dataset, evaluation and benchmark intended uses, which is what stops the legacy label from being accepted over an operational-only decision."
+      },
+      "boundary_profile_revision_ref": {
+        "$ref": "#/$defs/boundaryRevisionRef",
+        "description": "THE EXACT COMPILED BOUNDARY THIS DECISION WAS MADE UNDER, as a revision rather than a family head. A decision bound to a head follows the boundary onto whatever it becomes, which is the silent-widening failure one level down from the profile itself."
+      },
+      "boundary_profile_content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The boundary revision's exact bytes. A ref names a location that may since have been re-admitted; the hash names what was actually read."
+      },
+      "effective_learning_policy_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "The composed policy commitment in force at the decision. Carrying it means a later reader can tell that policy moved even when every readable ref still resolves."
+      },
+      "boundary_permitted_uses_at_decision": {
+        "$ref": "#/$defs/learningUseList",
+        "description": "THE BOUNDARY'S PERMITTED SET AS THIS DECISION READ IT. A registered invariant requires the bound `learning_use` to be a member unless the record carries an exclusion reason — and the schema forbids an `eligible` record from carrying one. An eligibility that exceeds its boundary is therefore inadmissible rather than merely inconsistent."
+      },
+      "boundary_permitted_use_count_at_decision": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 15,
+        "description": "The declared size of that set, checked against it by a registered invariant. Two independent statements about the same set is the cheapest tell that one was edited to make a use fit."
+      },
+      "learning_use": {
+        "$ref": "#/$defs/learningUse",
+        "description": "THE ONE USE THIS DECISION ADMITS, drawn from the same closed vocabulary the source-rights claim and the boundary profile use — which is what lets the three intersect at all. One use per decision, because a decision covering several uses cannot be revoked for one of them without rewriting the others."
+      },
+      "learning_source_rights_claim_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/claimRevisionRef"
+        },
+        "description": "The exact source-rights claim revisions this decision rests on. Revision-exact for the same reason the boundary is: a claim family that later widens must not widen a decision already made."
+      },
+      "subject_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The evidence this decision is about, named by ref. The record carries no protected payload: an eligibility decision that embedded the bytes it governs would have widened exposure to describe it."
+      },
+      "requester_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "Who is asking. Recorded because eligibility is owner-qualified and requester-scoped: the same subject and the same use can resolve differently for a different requester, and a decision that hid the requester could be replayed for one it was never made for."
+      },
+      "intended_use": {
+        "enum": [
+          "conductor_training",
+          "worker_training",
+          "eval_generation",
+          "dataset_distillation",
+          "benchmark",
+          "simulation",
+          "analytics_only",
+          "pursuit_method_improvement",
+          "workflow_or_policy_improvement",
+          "evaluator_improvement",
+          "improvement_agenda_revision",
+          "memory_or_context_improvement",
+          "package_or_tool_improvement"
+        ],
+        "description": "Canon's thirteen intended uses, verbatim. This is the improvement-process shape; `learning_use` is the rights-vocabulary member the boundary decides. They are separate fields because the same rights permission supports several processes and the same process can require different permissions."
+      },
+      "learning_use_posture": {
+        "$ref": "#/$defs/learningUsePosture",
+        "description": "Canon's six postures, verbatim. `operational_only` is where the legacy `never_train` value normalizes, which is why the compatibility binding below has to agree with this field rather than sit beside it."
+      },
+      "legacy_binding": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "legacy_envelope_label",
+              "legacy_training_data_posture",
+              "normalized_learning_use_posture"
+            ],
+            "properties": {
+              "legacy_envelope_label": {
+                "const": "TrainingEvidenceEligibilityEnvelope"
+              },
+              "legacy_training_data_posture": {
+                "enum": [
+                  "never_train",
+                  "evaluation_only",
+                  "synthetic_only",
+                  "redacted_opt_in",
+                  "full_private_opt_in",
+                  "org_policy"
+                ],
+                "description": "The legacy wire value as it was ACTUALLY STORED. Rewriting it into the canonical spelling here would be reinterpreting the predecessor, which is the one thing a compatibility adapter may not do."
+              },
+              "normalized_learning_use_posture": {
+                "$ref": "#/$defs/learningUsePosture",
+                "description": "What the adapter normalized that legacy value to, with `never_train` mapping to `operational_only`. A registered invariant requires this to equal `learning_use_posture`, so canon's 'conflicting old and new values fail admission' is enforced rather than assumed."
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Null for a decision authored directly at this contract. Non-null records that a legacy training-eligibility envelope was normalized into this one — the same decision under its compatibility profile, never a second decision."
+      },
+      "applicable_evaluation_epoch_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The frozen epochs this decision applies within. An epoch is what makes contamination answerable: evidence that is clean for one epoch may be exposed for the next."
+      },
+      "target_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "PERMISSION DOES NOT TRAVEL. Eligibility to use evidence for one target does not extend to improving a policy, evaluator, agenda, workflow or cross-tenant service, so the targets are enumerated and the transfer flag is pinned false.",
+        "required": [
+          "allowed_improvement_target_refs",
+          "permission_travels_to_other_targets"
+        ],
+        "properties": {
+          "allowed_improvement_target_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "permission_travels_to_other_targets": {
+            "const": false
+          }
+        }
+      },
+      "owner_and_tenant_scope_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The owner and tenant scopes the decision is confined to. Buyer-bound worker memory and corrections stay inside the buyer's declared owner scope unless an explicit export is separately admitted."
+      },
+      "contamination_posture": {
+        "enum": [
+          "clean",
+          "evaluation_aware",
+          "exposed",
+          "quarantined",
+          "unknown"
+        ],
+        "description": "SEALED AND CONTAMINATED MATERIAL IS INELIGIBLE BY SHAPE. `exposed`, `quarantined` and `unknown` remove `eligible` from the admissible status set in the schema below. Live sealed holdout cases, labels, evaluator internals and protected outputs stay ineligible for the campaign they judge and for dependent claims until a rotation or declassification policy explicitly releases them, and recording an access receipt declassifies nothing."
+      },
+      "policy_bound_data_view_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The governed lenses the admitted evidence must be read through. Naming a view is not being granted it: the view revalidates current authority, rights, revocation and expiry at every materialization."
+      },
+      "data_recipe_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/dataRecipeRevisionRef"
+        },
+        "description": "Exact recipe revisions, never family heads. A decision that followed a recipe family would admit evidence under transformations nobody decided about."
+      },
+      "local_policy_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "consent_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The consent basis, referenced rather than restated. Consent is an input to the intersection; an expired or revoked consent narrows this decision and never widens it."
+      },
+      "authority_requirement_posture": {
+        "enum": [
+          "none",
+          "required"
+        ],
+        "description": "Whether acting on this decision needs delegated machine power. When it reads `required`, a registered invariant demands at least one authority ref — a decision that says it needs authority and names none would be read by an optimistic consumer as needing none."
+      },
+      "authority_requirement_kinds": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "decryption",
+            "connector_access",
+            "model_provider_key",
+            "gpu_spend",
+            "provider_trust",
+            "sealed_evaluation_access",
+            "learning_egress",
+            "publication",
+            "export",
+            "cross_domain_reuse",
+            "none"
+          ]
+        },
+        "description": "Canon's authority-requirement kinds, verbatim, with `none` a real member rather than an empty list."
+      },
+      "wallet_authority_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The grants, leases or authority objects the decision depends on. This record REFERENCES authority; it never contains or confers it, and `does_not_assert` carries `capability_lease_crossing` so the bytes say so."
+      },
+      "declassification_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The declassification approvals or policies in play. Moving parameters, gradients, weight deltas, adapters, embeddings or distillates of protected material across a sovereign boundary is a declassification event requiring its own resolved rights and receipts; naming a control here is not one."
+      },
+      "learning_egress_receipt_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Egress receipts already bound to this decision. Canon requires one only when an institutional boundary is actually crossed or a crossing is blocked before egress, so an empty list is the ordinary same-boundary case rather than a gap."
+      },
+      "provider_trust_posture": {
+        "enum": [
+          "no_provider_plaintext",
+          "redacted_api",
+          "provider_trust_accepted",
+          "private_compute_required",
+          "blocked"
+        ],
+        "description": "Canon's five postures, verbatim. Recording which claim is actually supported is what keeps `Private`, self-hosted, encrypted and zero-retention from being read as interchangeable labels."
+      },
+      "retention_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "derivative_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "lineage_root": {
+        "$ref": "#/$defs/sha256",
+        "description": "The commitment over the lineage this decision admits into. Every derived artifact retains these refs or a deterministic aggregate commitment to them, which is what makes a later revocation traversable instead of a search."
+      },
+      "receipt_root": {
+        "$ref": "#/$defs/sha256"
+      },
+      "exclusion_reason": {
+        "oneOf": [
+          {
+            "enum": [
+              "operational_only_default",
+              "never_train_default",
+              "sealed_evaluation_material",
+              "revoked",
+              "expired",
+              "regulated_block",
+              "connector_scope_denied",
+              "no_provider_trust",
+              "data_subject_request",
+              "missing_policy_bound_view",
+              "incident_hold",
+              "boundary_denies_the_use",
+              "indeterminate_rights"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Canon's exclusion reasons plus the two this contract makes structural. Null exactly when the status is `eligible`, non-null otherwise: a decision that excluded evidence without saying why is a refusal nobody can remedy, and an `eligible` decision carrying an exclusion reason is two answers to one question."
+      },
+      "status": {
+        "enum": [
+          "proposed",
+          "eligible",
+          "excluded",
+          "revoked",
+          "expired",
+          "superseded"
+        ],
+        "description": "Canon's six decision states, verbatim. `eligible` is the only one that admits evidence, and the schema pins its relationship to the exclusion reason and to the contamination posture in both directions."
+      },
+      "admitted_by_ref": {
+        "$ref": "#/$defs/optionalRef",
+        "description": "The admitted operation or policy that recorded the decision, null while it is still `proposed`. A proposal that named an admitter would be claiming an admission that has not happened."
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically."
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple reads as a complete lineage while naming nothing anyone could check, so a partial tuple is a SCHEMA refusal.",
+        "required": [
+          "succession_reason",
+          "predecessor_revision_ref",
+          "predecessor_content_hash",
+          "supersedes_predecessor",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "succession_reason": {
+            "enum": [
+              "genesis",
+              "boundary_revision_change",
+              "source_rights_change",
+              "contamination_change",
+              "consent_change",
+              "target_scope_change",
+              "revocation_or_expiry",
+              "correction"
+            ]
+          },
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/eligibilityRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_predecessor": {
+            "type": "boolean"
+          },
+          "reinterprets_predecessor": {
+            "const": false,
+            "description": "Pinned. A later exclusion does not retroactively unmake an admission that already happened; it blocks future use and leaves the historical decision exactly as admitted, which is what lets an impact graph be honest about residual exposure."
+          }
+        },
+        "allOf": [
+          {
+            "title": "a genesis revision has no predecessor, in both slots at once",
+            "if": {
+              "required": [
+                "succession_reason"
+              ],
+              "properties": {
+                "succession_reason": {
+                  "const": "genesis"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                },
+                "supersedes_predecessor": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "$ref": "#/$defs/eligibilityRevisionRef"
+                },
+                "predecessor_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own.",
+        "required": [
+          "lifecycle_id",
+          "learning_use_vocabulary_size",
+          "nonclaim_authority_token",
+          "nonclaim_declassification_token"
+        ],
+        "properties": {
+          "lifecycle_id": {
+            "const": "learning_evidence_eligibility_lifecycle.v1",
+            "description": "Names WHICH lifecycle `status` is drawn from, so a reader cannot mistake an eligibility decision's state for a boundary profile's activation state or a claim's assertion state."
+          },
+          "learning_use_vocabulary_size": {
+            "type": "integer",
+            "minimum": 15,
+            "maximum": 15
+          },
+          "nonclaim_authority_token": {
+            "const": "authority"
+          },
+          "nonclaim_declassification_token": {
+            "const": "declassification"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "learning_evidence_eligibility_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "learning_evidence_eligibility_is_an_admission_decision_not_a_permission_to_cross_a_boundary"
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "declassification",
+            "capability_lease_crossing",
+            "source_rights",
+            "semantic_truth",
+            "redaction_creates_permission",
+            "promotion_or_activation",
+            "provider_non_learning",
+            "verified_unlearning",
+            "publication"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "declassification"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "capability_lease_crossing"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "source_rights"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "semantic_truth"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "redaction_creates_permission"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Six mandatory members. `declassification` is the one this family needs that no other carries: an eligibility decision admits evidence into an improvement loop and never releases protected material across a boundary, and `redaction_creates_permission` states the companion rule — a transformation reduces exposure, it creates no right and severs no lineage."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+      }
+    },
+    "allOf": [
+      {
+        "title": "eligible and excluded are exhaustive about the reason",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "eligible"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "exclusion_reason": {
+              "type": "null"
+            },
+            "target_binding": {
+              "properties": {
+                "allowed_improvement_target_refs": {
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "admitted_by_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "a proposal has not been admitted by anyone yet",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "proposed"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "admitted_by_ref": {
+              "type": "null"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "every terminal state names the reason it is not eligible",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "excluded",
+                "revoked",
+                "expired",
+                "superseded"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "exclusion_reason": {
+              "enum": [
+                "operational_only_default",
+                "never_train_default",
+                "sealed_evaluation_material",
+                "revoked",
+                "expired",
+                "regulated_block",
+                "connector_scope_denied",
+                "no_provider_trust",
+                "data_subject_request",
+                "missing_policy_bound_view",
+                "incident_hold",
+                "boundary_denies_the_use",
+                "indeterminate_rights"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "contaminated, quarantined or unclassified material is never eligible",
+        "if": {
+          "required": [
+            "contamination_posture"
+          ],
+          "properties": {
+            "contamination_posture": {
+              "enum": [
+                "exposed",
+                "quarantined",
+                "unknown"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "status": {
+              "enum": [
+                "proposed",
+                "excluded",
+                "revoked",
+                "expired",
+                "superseded"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "the training compatibility profile only carries training, dataset, evaluation and benchmark uses",
+        "if": {
+          "required": [
+            "eligibility_profile"
+          ],
+          "properties": {
+            "eligibility_profile": {
+              "const": "training_compatibility"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "intended_use": {
+              "enum": [
+                "conductor_training",
+                "worker_training",
+                "eval_generation",
+                "dataset_distillation",
+                "benchmark"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "else": {
+          "properties": {
+            "legacy_binding": {
+              "type": "null"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/learning-egress-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/learning-egress-receipt/v1",
+    "title": "LearningEgressReceiptV1",
+    "description": "ONE ATTEMPTED OR ACTUAL CROSSING OF AN INSTITUTIONAL LEARNING BOUNDARY, AND NOTHING ELSE. Canon requires this receipt only when a boundary is actually crossed or a crossing is blocked before egress, and is unusually precise about the two ways it is normally overread. THE FIRST OVERREAD IS `blocked_before_egress` AS PROOF. Canon: that claim is verified only when gateway, network, sandbox or equivalent enforcement evidence binds the request commitment and proves no network write occurred; without that evidence the receipt is an ATTESTED POLICY DECISION and `transfer_status` must not claim `prevented_before_network_write`. This contract makes that a schema refusal — claiming the prevented status without enforcement evidence, without the commitment binding, or while still at the `attested` assurance stage is inadmissible, so the strongest available claim is bounded by the evidence actually held. THE SECOND OVERREAD IS `admitted` AS PROOF OF ANYTHING BEYOND POLICY. Admitted proves the declared policies and rights allowed the crossing; it does not prove delivery, provider compliance, deletion, absence of training, or absence of cross-customer aggregation, and `does_not_assert` carries all of those as fields so the bytes say so rather than a reader having to remember. PARAMETER EGRESS IS DECLASSIFICATION, IN THE SCHEMA. When the crossing carries adapters, checkpoints, weights, embeddings or datasets, the record must name a declassification approval — canon's rule that moving parameters, gradients, weight deltas, adapters, embeddings or distillates of protected material across a sovereign boundary is a declassification event, because a parameter delta carries no lineage and the crossing is irreversible in a way an ordinary effect is not. PROVIDER SECONDARY USE IS DENIED BY DEFAULT: registered invariants require provider model training and cross-customer aggregation to read `prohibited` unless a named contractual basis ref is present, and the snapshot is explicitly a frozen reading of rights the route contract and source claims still own — it cannot widen or reinterpret them. The receipt carries COMMITMENTS AND CLASSIFICATIONS, never protected plaintext, and a later revocation never rewrites it: it links forward through the applicable impact, recall, deletion or access-rotation record.",
+    "x-ioi-schema-version": "ioi.learning-egress-receipt.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "boundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "claimRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "eligibilityRevisionRef": {
+        "type": "string",
+        "pattern": "^eligibility://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "routeRightsRevisionRef": {
+        "type": "string",
+        "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "providerUsePosture": {
+        "enum": [
+          "prohibited",
+          "transient_only",
+          "security_incident_only",
+          "contract_limited",
+          "explicitly_permitted",
+          "not_applicable"
+        ]
+      },
+      "materialClass": {
+        "enum": [
+          "source_data",
+          "prompts_and_completions",
+          "connector_and_tool_io",
+          "work_graphs_traces_and_receipts",
+          "corrections_and_reviewer_judgments",
+          "evaluations_rubrics_holdouts_and_canaries",
+          "memory_context_procedures_workflows_and_skills",
+          "datasets_embeddings_and_indexes",
+          "adapters_checkpoints_weights_and_packages",
+          "router_verifier_authority_and_governance_policy",
+          "analytics_crash_support_and_security_telemetry",
+          "embodied_sensor_actuator_mission_and_operator_telemetry"
+        ]
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "nonEmptyRefList": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "optionalRef": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "owner_ref",
+      "tenant_ref",
+      "source_scope_ref",
+      "boundary_profile_revision_ref",
+      "boundary_profile_content_hash",
+      "effective_learning_policy_hash",
+      "boundary_compilation_or_policy_decision_ref",
+      "learning_evidence_eligibility_revision_refs",
+      "learning_source_rights_claim_revision_refs",
+      "material_classes",
+      "material_class_count",
+      "material_commitment",
+      "policy_bound_projection_refs",
+      "recipient_class",
+      "recipient_ref",
+      "purpose",
+      "representation",
+      "execution_privacy_posture_ref",
+      "model_route_rights_revision_ref",
+      "intended_customer_output_uses",
+      "effective_customer_output_rights_hash",
+      "applicable_terms_and_license_refs",
+      "provider_use_of_customer_material",
+      "retention_posture",
+      "retention_policy_ref",
+      "local_policy_and_consent_refs",
+      "authority_refs",
+      "declassification_approval_ref",
+      "redaction_or_declassification_receipt_refs",
+      "underlying_operation_receipt_refs",
+      "revocation_impact_ref",
+      "forward_links",
+      "decision",
+      "reason_codes",
+      "transfer_status",
+      "enforcement_evidence_binds_request_commitment",
+      "network_or_gateway_evidence_refs",
+      "state_operation_refs",
+      "assurance_stage",
+      "chain_position",
+      "predecessor_receipt_ref",
+      "predecessor_content_hash",
+      "emitted_at",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.learning-egress-receipt.v1"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef",
+        "description": "THE IMMUTABLE LEAF. A receipt is not a revisioned family: it records one crossing decision at one moment and is never restated. A later revocation links FORWARD through `forward_links` rather than editing this record, because rewriting an earlier receipt would erase the residual exposure the ledger exists to keep visible."
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef",
+        "description": "The addressable form of the same identity. A registered invariant requires it to equal `receipt_id`, so a projection cannot hand a consumer a ref that resolves somewhere else."
+      },
+      "receipt_type": {
+        "const": "learning_egress",
+        "description": "Pinned. A receipt whose type could be reinterpreted is a receipt that can be counted toward an obligation it never discharged."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "OWNER-QUALIFIED IDENTITY. Who this crossing belongs to. An unqualified egress record cannot be joined to the boundary that governed it, which is precisely when an audit needs it."
+      },
+      "tenant_ref": {
+        "type": "string",
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "source_scope_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The system, organization, project, domain or workspace the material left. Distinct from the owner: the scope is what the boundary was drawn around."
+      },
+      "boundary_profile_revision_ref": {
+        "$ref": "#/$defs/boundaryRevisionRef",
+        "description": "THE EXACT COMPILED BOUNDARY THIS CROSSING WAS DECIDED UNDER, as a revision rather than a family head. A receipt bound to a head would describe a decision under whatever the boundary later became."
+      },
+      "boundary_profile_content_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "effective_learning_policy_hash": {
+        "$ref": "#/$defs/sha256"
+      },
+      "boundary_compilation_or_policy_decision_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The compilation receipt or policy decision this crossing was evaluated against. The receipt references its deciding owner; it does not duplicate the decision."
+      },
+      "learning_evidence_eligibility_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/eligibilityRevisionRef"
+        }
+      },
+      "learning_source_rights_claim_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/claimRevisionRef"
+        }
+      },
+      "material_classes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/materialClass"
+        },
+        "description": "What crossed, by class. Canon's twelve classes verbatim; at least one, because a crossing of nothing is not a crossing and would let an audit count an empty receipt as coverage."
+      },
+      "material_class_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 12,
+        "description": "The declared size of that set, checked against it by a registered invariant. Two independent statements about one set is the cheapest tell that a class was removed from the readable list after the fact."
+      },
+      "material_commitment": {
+        "$ref": "#/$defs/sha256",
+        "description": "A COMMITMENT, NEVER THE PAYLOAD. The receipt carries commitments and classifications; embedding protected plaintext to describe a crossing would widen the exposure the record exists to bound. `does_not_assert` carries `protected_plaintext_custody` so the bytes state the boundary of what this record holds."
+      },
+      "policy_bound_projection_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The governed lenses the crossed material was projected through. Naming a projection records how exposure was reduced; it creates no right, which is why redaction never appears here as a permission."
+      },
+      "recipient_class": {
+        "enum": [
+          "model_provider",
+          "external_processor",
+          "cross_organization",
+          "public_export",
+          "support_operator"
+        ],
+        "description": "Canon's five recipient classes, verbatim. The class is what determines which additional bindings the schema demands, because an external processor and a public export are not the same crossing wearing different labels."
+      },
+      "recipient_ref": {
+        "$ref": "#/$defs/optionalRef",
+        "description": "The specific recipient where one is named. Null is legitimate for a blocked attempt that never resolved a destination — and a blocked attempt that names no recipient still names its class."
+      },
+      "purpose": {
+        "enum": [
+          "inference_service_delivery",
+          "hosted_training",
+          "hosted_evaluation",
+          "support",
+          "audit_export",
+          "publication",
+          "cross_domain_reuse"
+        ],
+        "description": "Canon's seven purposes, verbatim. Purpose is bound because a crossing admitted for one purpose is not a crossing admitted for another, and permission does not travel between them."
+      },
+      "representation": {
+        "enum": [
+          "public",
+          "redacted",
+          "synthetic",
+          "declassified",
+          "sealed_ciphertext",
+          "protected_plaintext"
+        ],
+        "description": "The form the material was in when it crossed. `redacted` records that exposure was reduced; it is not a permission and it does not sever lineage. `protected_plaintext` obliges the custody and route bindings below, because that is the claim that most needs its evidence attached."
+      },
+      "execution_privacy_posture_ref": {
+        "$ref": "#/$defs/optionalRef",
+        "description": "The custody posture evidence. Mandatory when protected plaintext crosses to a model provider: canon is explicit that neither a `Standard` route nor a zero-retention promise proves a provider did not learn, so the receipt must state which claim is actually supported."
+      },
+      "model_route_rights_revision_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/routeRightsRevisionRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The exact route-rights contract revision that governed the crossing, never a family head. Mandatory when the recipient is a model provider: an aggregator is a replaceable supply adapter and not the trust boundary, so the underlying terms have to be named at the revision that was actually resolved."
+      },
+      "intended_customer_output_uses": {
+        "$ref": "#/$defs/refList",
+        "description": "What the institution intends to do with the outputs produced for its work — the first of canon's two directional questions, recorded so it can be checked against the route contract rather than assumed from the fact that the work was ours."
+      },
+      "effective_customer_output_rights_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "applicable_terms_and_license_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "provider_use_of_customer_material": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE SECOND DIRECTIONAL QUESTION, FROZEN. This is an immutable snapshot of the rights resolved for THIS crossing; the route-rights contract, the source-rights claims and the applicable policies remain the semantic owners and the snapshot cannot widen or reinterpret them. Provider model training and cross-customer aggregation are denied by default: registered invariants require each to read `prohibited` unless a named contractual basis ref is present.",
+        "required": [
+          "request_or_prompt_logging",
+          "human_review",
+          "abuse_and_security_processing",
+          "service_improvement",
+          "provider_model_training",
+          "provider_model_training_basis_ref",
+          "cross_customer_aggregation",
+          "cross_customer_aggregation_basis_ref"
+        ],
+        "properties": {
+          "request_or_prompt_logging": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "human_review": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "abuse_and_security_processing": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "service_improvement": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "provider_model_training": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "provider_model_training_basis_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "cross_customer_aggregation": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "cross_customer_aggregation_basis_ref": {
+            "$ref": "#/$defs/optionalRef"
+          }
+        }
+      },
+      "retention_posture": {
+        "enum": [
+          "zero_retention",
+          "transient_processing",
+          "contract_bounded",
+          "provider_default",
+          "not_applicable"
+        ],
+        "description": "Canon's five postures, verbatim. A zero-retention posture is a contractual control the institution admitted, not an observation of what the recipient did."
+      },
+      "retention_policy_ref": {
+        "$ref": "#/$defs/optionalRef"
+      },
+      "local_policy_and_consent_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "authority_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The grants, leases or authority objects the crossing depended on. The receipt REFERENCES authority; emitting one confers none, and `does_not_assert` carries `authority` so the record says so."
+      },
+      "declassification_approval_ref": {
+        "$ref": "#/$defs/optionalRef",
+        "description": "PARAMETER EGRESS IS DECLASSIFICATION. When adapters, checkpoints, weights, embeddings, datasets or indexes cross, the schema requires this ref: canon treats that movement as a declassification event needing resolved rights and receipts, because a parameter delta carries no lineage — nothing downstream can be attributed to a contributor, revoked on a source deletion, or adjudicated in a dispute. Differential privacy, secure aggregation, k-anonymity or gradient clipping reduce exposure and satisfy nothing here; a control applied to material the institution had no right to export is a well-protected violation."
+      },
+      "redaction_or_declassification_receipt_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "underlying_operation_receipt_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The operation receipts this crossing sat on top of. Referenced rather than duplicated: this receipt does not restate route-rights, eligibility, custody, authority, export or declassification truth."
+      },
+      "revocation_impact_ref": {
+        "$ref": "#/$defs/optionalRef"
+      },
+      "forward_links": {
+        "type": "array",
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "link_kind",
+            "link_ref"
+          ],
+          "properties": {
+            "link_kind": {
+              "enum": [
+                "impact",
+                "recall",
+                "deletion",
+                "access_rotation",
+                "residual_exposure"
+              ]
+            },
+            "link_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        "description": "A LATER REVOCATION CANNOT REWRITE AN EARLIER RECEIPT. It links forward through the applicable impact, recall, deletion or access-rotation record instead. `residual_exposure` is a first-class link kind because past recipients and irreversible public disclosures must stay visible as residual exposure rather than being erased from the ledger narrative."
+      },
+      "decision": {
+        "enum": [
+          "blocked_before_egress",
+          "admitted"
+        ],
+        "description": "The two canonical outcomes. `admitted` proves only that the declared policies and rights allowed the crossing — not delivery, provider compliance, deletion, absence of training, or absence of cross-customer aggregation."
+      },
+      "reason_codes": {
+        "type": "array",
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "LearningEgressDenied",
+            "ProviderSecondaryUseDenied",
+            "RouteRightsUnsatisfied",
+            "CustodyPostureUnsatisfied",
+            "LearningSourceRightsMissing",
+            "InstitutionalExportDenied",
+            "DeclassificationApprovalMissing",
+            "policy_defined"
+          ]
+        },
+        "description": "Canon's refusal codes plus the declassification gap this contract makes structural. Mandatory and non-empty on a blocked decision, empty on an admitted one: a refusal with no code cannot be remedied, and an admission carrying refusal codes is two answers to one question."
+      },
+      "transfer_status": {
+        "enum": [
+          "not_sent",
+          "prevented_before_network_write",
+          "sent",
+          "delivery_confirmed",
+          "failed",
+          "unknown"
+        ],
+        "description": "WHAT ACTUALLY HAPPENED TO THE BYTES, BOUNDED BY THE EVIDENCE HELD. `prevented_before_network_write` is the strongest claim and the schema gates it hardest: it requires enforcement evidence, requires that evidence to bind the request commitment, and refuses the merely `attested` assurance stage. Without those, canon says the receipt is an attested policy decision and this field must not make the claim — so it cannot."
+      },
+      "enforcement_evidence_binds_request_commitment": {
+        "type": "boolean",
+        "description": "Whether the gateway, network or sandbox evidence binds the exact request commitment. A boolean rather than an inference, because 'we have logs' and 'the logs are of this request' are different facts and only the second supports the prevented claim."
+      },
+      "network_or_gateway_evidence_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "state_operation_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "The admitted state operations this crossing is recorded against. The state owner records lineage and receipts; it grants no source or training rights and does not become payload storage."
+      },
+      "assurance_stage": {
+        "enum": [
+          "attested",
+          "evidenced",
+          "verified",
+          "accepted",
+          "adjudicated",
+          "settled"
+        ],
+        "description": "Where this receipt sits on the assurance ladder. `attested` is an honest floor, not a failure: a receipt that says what it asserted is more useful than one that borrows a verified label it has no evidence for. No consumer may treat any stage as a verdict."
+      },
+      "chain_position": {
+        "enum": [
+          "genesis",
+          "successor"
+        ],
+        "description": "Whether this crossing continues an earlier one. A successor names its predecessor's exact ref AND its exact content hash, both; a genesis names neither. Independently nullable slots would admit a partial chain that reads as complete, so the conditional below makes a partial tuple a SCHEMA refusal."
+      },
+      "predecessor_receipt_ref": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/receiptRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "predecessor_content_hash": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "emitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "The stamp of the admitted decision this receipt records, taken from that operation rather than the wall clock, so a replayed decision re-commits byte-identically."
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lifecycle_id",
+          "provider_use_prohibited_token",
+          "nonclaim_authority_token",
+          "nonclaim_delivery_token",
+          "nonclaim_provider_non_learning_token"
+        ],
+        "properties": {
+          "lifecycle_id": {
+            "const": "learning_egress_receipt_lifecycle.v1",
+            "description": "Names WHICH vocabulary `decision`, `transfer_status` and `assurance_stage` are drawn from, so a projection that calls all three `status` cannot let one be read as another."
+          },
+          "provider_use_prohibited_token": {
+            "const": "prohibited"
+          },
+          "nonclaim_authority_token": {
+            "const": "authority"
+          },
+          "nonclaim_delivery_token": {
+            "const": "delivery"
+          },
+          "nonclaim_provider_non_learning_token": {
+            "const": "provider_non_learning"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "learning_egress_receipt_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "learning_egress_receipt_proves_ioi_observed_boundary_facts_not_recipient_behaviour"
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 7,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "delivery",
+            "provider_non_learning",
+            "provider_deletion",
+            "verified_unlearning",
+            "protected_plaintext_custody",
+            "verdict",
+            "source_rights",
+            "semantic_truth",
+            "redaction_creates_permission",
+            "legal_conformity",
+            "promotion_or_activation"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "delivery"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "provider_non_learning"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "provider_deletion"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "verified_unlearning"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "protected_plaintext_custody"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "verdict"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Seven mandatory members, each closing an overread canon names explicitly. `verdict` is the one the assurance ladder needs: no consumer may treat a receipt as a judgment. `provider_non_learning` and `provider_deletion` close the two the word `admitted` most invites."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this receipt under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+      }
+    },
+    "allOf": [
+      {
+        "title": "the prevented-before-network-write claim carries its enforcement evidence",
+        "if": {
+          "required": [
+            "transfer_status"
+          ],
+          "properties": {
+            "transfer_status": {
+              "const": "prevented_before_network_write"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "decision": {
+              "const": "blocked_before_egress"
+            },
+            "enforcement_evidence_binds_request_commitment": {
+              "const": true
+            },
+            "network_or_gateway_evidence_refs": {
+              "minItems": 1,
+              "type": "array"
+            },
+            "assurance_stage": {
+              "enum": [
+                "evidenced",
+                "verified",
+                "accepted",
+                "adjudicated",
+                "settled"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "a blocked decision names its refusal codes and sent nothing",
+        "if": {
+          "required": [
+            "decision"
+          ],
+          "properties": {
+            "decision": {
+              "const": "blocked_before_egress"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "reason_codes": {
+              "minItems": 1,
+              "type": "array"
+            },
+            "transfer_status": {
+              "enum": [
+                "not_sent",
+                "prevented_before_network_write"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "else": {
+          "properties": {
+            "reason_codes": {
+              "maxItems": 0,
+              "type": "array"
+            },
+            "transfer_status": {
+              "enum": [
+                "sent",
+                "delivery_confirmed",
+                "failed",
+                "unknown"
+              ]
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "protected plaintext to a model provider carries its custody and route bindings",
+        "if": {
+          "required": [
+            "representation",
+            "recipient_class"
+          ],
+          "properties": {
+            "representation": {
+              "const": "protected_plaintext"
+            },
+            "recipient_class": {
+              "const": "model_provider"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "execution_privacy_posture_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "model_route_rights_revision_ref": {
+              "$ref": "#/$defs/routeRightsRevisionRef"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "parameter, adapter, checkpoint and embedding egress names a declassification approval",
+        "if": {
+          "required": [
+            "material_classes"
+          ],
+          "properties": {
+            "material_classes": {
+              "contains": {
+                "const": "adapters_checkpoints_weights_and_packages"
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "declassification_approval_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "a genesis crossing has no predecessor, in both slots at once",
+        "if": {
+          "required": [
+            "chain_position"
+          ],
+          "properties": {
+            "chain_position": {
+              "const": "genesis"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "predecessor_receipt_ref": {
+              "type": "null"
+            },
+            "predecessor_content_hash": {
+              "type": "null"
+            }
+          },
+          "type": "object"
+        },
+        "else": {
+          "properties": {
+            "predecessor_receipt_ref": {
+              "$ref": "#/$defs/receiptRef"
+            },
+            "predecessor_content_hash": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/model-route-rights-contract/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/model-route-rights-contract/v1",
+    "title": "ModelRouteRightsContractV1",
+    "description": "THE ROUTE-RIGHTS HALF OF THE MOST-RESTRICTIVE INTERSECTION, AND THE SMALLEST CONTRACT THAT CAN CARRY IT HONESTLY. Canon requires every candidate route to resolve a versioned commercial AND technical rights contract before it is eligible, naming unattended automation, capture, training, publication, downstream and reseller use; the credential principal and its permitted actions; data classes, region and residency; provider human-review and secondary-use terms; retention; and customer-output use — with MISSING OR UNKNOWN RIGHTS FAILING CLOSED. This contract registers exactly that and nothing wider: it is the owner-correct prerequisite the compiled learning boundary and the policy-bound view need in order to intersect against something real, not a route runtime, a router, a price plane or an eligibility decision. FAIL-CLOSED IS A SHAPE HERE TOO. The record declares the closed route-use vocabulary once, partitions it into permitted and prohibited, and registered multiset-coverage invariants require the vocabulary to be covered exactly once each, the prohibitions to be covered exactly by the affirmative ones plus the unresolved ones, and the unresolved set to be the exact projection of the unresolved-rights findings. A contract that records an unknown right and still permits that use cannot be admitted. THE PRINCIPAL IS RESOLVED, NOT SUPPLIED. `principal_resolution` is pinned to `server_resolved`: a caller-passed subject constant is the defect this estate removed everywhere else, and a rights contract whose principal could be asserted by its consumer would authorize whatever the consumer named. AN AGGREGATOR IS A SUPPLY ADAPTER, NOT THE TRUST BOUNDARY: naming an intermediary obliges naming the upstream terms it resolves against, so an aggregator cannot become an excuse to stop reading the underlying contract. PROVIDER FALLBACK IS A SEMANTIC SUBSTITUTION with its own rights resolution, pinned in the bytes, never a transparent retry. REVOCATION FAILS CLOSED: a suspended or revoked contract empties its permitted set by schema and names when, why and under whose authority. AND POSSESSION IS NOT PERMISSION — a platform account or API credential proves possession only; `does_not_assert` carries that as a field, because it is the single most common way a route is treated as eligible when nothing established that it was.",
+    "x-ioi-schema-version": "ioi.model-route-rights-contract.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "routeRightsFamilyRef": {
+        "type": "string",
+        "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "routeRightsRevisionRef": {
+        "type": "string",
+        "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "routeUse": {
+        "enum": [
+          "model_inference",
+          "unattended_automation",
+          "screen_or_session_capture",
+          "demonstration_training",
+          "model_or_worker_training",
+          "publication",
+          "downstream_use",
+          "oem_or_reseller_use",
+          "interactive_control",
+          "browser_or_account_use",
+          "connector_use",
+          "commercial_use"
+        ]
+      },
+      "routeUseList": {
+        "type": "array",
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/routeUse"
+        }
+      },
+      "providerUsePosture": {
+        "enum": [
+          "prohibited",
+          "transient_only",
+          "security_incident_only",
+          "contract_limited",
+          "explicitly_permitted",
+          "not_applicable"
+        ]
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "nonEmptyRefList": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "optionalRef": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "optionalTimestamp": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "schema_version",
+      "model_route_rights_contract_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "principal_resolution",
+      "resolved_principal_ref",
+      "credential_principal_ref",
+      "route_binding",
+      "purposes",
+      "data_classes",
+      "declared_route_use_vocabulary",
+      "permitted_route_uses",
+      "prohibited_route_uses",
+      "declared_prohibited_route_uses",
+      "unresolved_route_uses",
+      "unresolved_rights_findings",
+      "destination_and_egress",
+      "customer_output_rights",
+      "provider_use_of_customer_material",
+      "retention_posture",
+      "retention_policy_ref",
+      "commercial_terms_refs",
+      "technical_terms_refs",
+      "fallback_substitution",
+      "validity",
+      "revocation",
+      "status",
+      "admitted_at",
+      "succession",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.model-route-rights-contract.v1"
+      },
+      "model_route_rights_contract_id": {
+        "$ref": "#/$defs/routeRightsFamilyRef",
+        "description": "THE FAMILY. Terms are restated as a provider's contract changes, so the lineage is the aggregate and a revision is what a route resolution may cite. Nothing resolves through the family head: a route that followed the family would silently inherit whichever terms the provider published last."
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/routeRightsRevisionRef",
+        "description": "ONE IMMUTABLE REVISION OF THAT FAMILY, and the thing an egress receipt and a compiled boundary bind. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own contract id."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "OWNER-QUALIFIED IDENTITY. Who resolved and stands behind this rights reading. Two institutions on the same provider may hold materially different terms, so an unqualified route-rights record is not one anyone may rely on."
+      },
+      "tenant_ref": {
+        "type": "string",
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+        "description": "The tenancy the resolution belongs to. Carried so a route resolved for one tenant is a checkable mismatch when read by another rather than a silent reuse."
+      },
+      "principal_resolution": {
+        "const": "server_resolved",
+        "description": "PINNED. The acting principal is resolved server-side, never taken from a caller-passed constant. A rights contract whose principal could be asserted by the consumer of the route would authorize whatever that consumer named, which is the exact defect the estate removed from its lease subjects and must not re-enter through the rights plane."
+      },
+      "resolved_principal_ref": {
+        "$ref": "#/$defs/principalRef",
+        "description": "The principal these rights are resolved FOR, as resolved. Distinct from the credential principal: the party whose work is being done and the identity the provider sees are frequently different, and conflating them is how one party's terms get applied to another's material."
+      },
+      "credential_principal_ref": {
+        "$ref": "#/$defs/principalRef",
+        "description": "The identity the provider actually sees on the wire, and the permitted-action surface it carries. Canon's rule is blunt: a platform account or API credential proves POSSESSION only. It does not prove that automation, capture, demonstration training, submission or resale is permitted, and `does_not_assert` carries that as a field."
+      },
+      "route_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE EXACT ROUTE THESE RIGHTS ARE ABOUT. Model, provider, route and — when present — the intermediary. Naming an intermediary obliges naming the upstream terms it resolves against: an aggregator is a REPLACEABLE SUPPLY ADAPTER, not a new rights or privacy boundary, and not an excuse to stop reading the underlying contract.",
+        "required": [
+          "route_ref",
+          "provider_ref",
+          "model_ref",
+          "model_revision_ref",
+          "intermediary_ref",
+          "upstream_terms_ref",
+          "intermediary_is_supply_adapter_not_trust_boundary"
+        ],
+        "properties": {
+          "route_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "provider_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "model_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "model_revision_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "The exact model revision the terms were resolved against. A model family head moves; terms resolved against a head describe whichever model the provider is serving today."
+          },
+          "intermediary_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "upstream_terms_ref": {
+            "$ref": "#/$defs/optionalRef",
+            "description": "The underlying provider terms an intermediary resolves against. Mandatory whenever an intermediary is named, by the conditional below."
+          },
+          "intermediary_is_supply_adapter_not_trust_boundary": {
+            "const": true
+          }
+        },
+        "allOf": [
+          {
+            "title": "an intermediary names the upstream terms it resolves against",
+            "if": {
+              "required": [
+                "intermediary_ref"
+              ],
+              "properties": {
+                "intermediary_ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "upstream_terms_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "purposes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 7,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "inference_service_delivery",
+            "hosted_training",
+            "hosted_evaluation",
+            "support",
+            "audit_export",
+            "publication",
+            "cross_domain_reuse"
+          ]
+        },
+        "description": "What this route may be used FOR, from the same closed purpose vocabulary an egress receipt records. Purpose is bound because rights resolved for one purpose are not rights for another, and permission does not travel between them."
+      },
+      "data_classes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "source_data",
+            "prompts_and_completions",
+            "connector_and_tool_io",
+            "work_graphs_traces_and_receipts",
+            "corrections_and_reviewer_judgments",
+            "evaluations_rubrics_holdouts_and_canaries",
+            "memory_context_procedures_workflows_and_skills",
+            "datasets_embeddings_and_indexes",
+            "adapters_checkpoints_weights_and_packages",
+            "router_verifier_authority_and_governance_policy",
+            "analytics_crash_support_and_security_telemetry",
+            "embodied_sensor_actuator_mission_and_operator_telemetry"
+          ]
+        },
+        "description": "Which material classes these rights cover, from the same twelve the boundary profile and the egress receipt use — which is what lets a class-level denial in one compose with a class-level permission in another instead of being argued about."
+      },
+      "declared_route_use_vocabulary": {
+        "$ref": "#/$defs/routeUseList",
+        "description": "THE CLOSED ROUTE-USE VOCABULARY, CARRIED IN THE RECORD. A registered invariant pins its length to `constants.route_use_vocabulary_size`; the item enum and uniqueness make it exactly the twelve canonical uses. Canon's list is deliberately wider than model inference — the existing model-route gate proves only its own narrow class, and lending that pass to capture, training, browser, control, connector, publication or commercial use is the defect this vocabulary exists to prevent."
+      },
+      "permitted_route_uses": {
+        "$ref": "#/$defs/routeUseList",
+        "description": "What the resolved commercial and technical terms actually support. A CEILING INPUT to the most-restrictive intersection, never a grant: a use permitted here that the source-rights claim, the boundary profile, the custody posture or the policy-bound view denies does not survive the intersection."
+      },
+      "prohibited_route_uses": {
+        "$ref": "#/$defs/routeUseList",
+        "description": "The complement over the declared vocabulary, and where the fail-closed rules land. A registered invariant requires the vocabulary to be covered by the permitted/prohibited pair exactly once each, so a use can be neither both nor neither."
+      },
+      "declared_prohibited_route_uses": {
+        "$ref": "#/$defs/routeUseList",
+        "description": "The prohibitions the terms state affirmatively, kept separate from the ones the fail-closed default produces. A contract that forbids resale and an unanswered question about resale are different facts, and a merged list would erase which one an operator has to go and resolve."
+      },
+      "unresolved_route_uses": {
+        "$ref": "#/$defs/routeUseList",
+        "description": "THE FAIL-CLOSED LANE. A registered invariant requires this to be the exact projection of `unresolved_rights_findings`, and a second requires the prohibitions to be covered exactly by the affirmative ones plus these. MISSING OR UNKNOWN RIGHTS FAIL CLOSED becomes inadmissibility rather than a runtime branch: a contract recording an unresolved right and still permitting that use cannot be admitted at all."
+      },
+      "unresolved_rights_findings": {
+        "type": "array",
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "route_use",
+            "resolution",
+            "unresolved_term_ref"
+          ],
+          "properties": {
+            "route_use": {
+              "$ref": "#/$defs/routeUse"
+            },
+            "resolution": {
+              "enum": [
+                "missing",
+                "unknown",
+                "conflicting",
+                "expired",
+                "revoked",
+                "unsupported",
+                "upstream_unread"
+              ],
+              "description": "`upstream_unread` is the aggregator case named explicitly: an intermediary's own terms resolving cleanly while the underlying provider terms went unread is not a resolved right, and calling it one is how a supply adapter becomes a trust boundary by accident."
+            },
+            "unresolved_term_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "destination_and_egress": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WHERE MATERIAL MAY GO AND IN WHAT FORM. Region and residency are separate axes — one is whose law reaches the bytes, the other is where they sit — and the egress ceiling is a CEILING: a route may carry less than it permits and never more.",
+        "required": [
+          "permitted_destination_classes",
+          "egress_ceiling",
+          "region_refs",
+          "residency_refs",
+          "cross_border_transfer_basis_ref"
+        ],
+        "properties": {
+          "permitted_destination_classes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "model_provider",
+                "external_processor",
+                "cross_organization",
+                "public_export",
+                "support_operator"
+              ]
+            }
+          },
+          "egress_ceiling": {
+            "enum": [
+              "no_egress",
+              "redacted_only",
+              "synthetic_only",
+              "declassified_only",
+              "sealed_ciphertext_only",
+              "protected_plaintext_permitted"
+            ],
+            "description": "The most exposing representation this route may carry. `redacted_only` records that a transformation is required before the crossing; it does not record that redaction created a right, which it never does."
+          },
+          "region_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "residency_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "cross_border_transfer_basis_ref": {
+            "$ref": "#/$defs/optionalRef"
+          }
+        }
+      },
+      "customer_output_rights": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE FIRST DIRECTIONAL QUESTION: what the institution may do with outputs produced for its work, including retention, evaluation, replay, fine-tuning, distillation, competing-model training, packaging, commercialization, export and publication. Recorded here so the answer is resolved rather than assumed from the fact that the work was ours.",
+        "required": [
+          "intended_customer_output_uses",
+          "effective_customer_output_rights_hash",
+          "competing_model_training_permitted"
+        ],
+        "properties": {
+          "intended_customer_output_uses": {
+            "$ref": "#/$defs/refList"
+          },
+          "effective_customer_output_rights_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "competing_model_training_permitted": {
+            "type": "boolean",
+            "description": "Called out as its own field because it is the output right most often assumed and most often contractually excluded, and because a compiled boundary that guessed it would guess in the institution's favour."
+          }
+        }
+      },
+      "provider_use_of_customer_material": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE SECOND DIRECTIONAL QUESTION: what the provider or intermediary may do with institutional material. Provider secondary use and cross-customer learning are DENIED BY DEFAULT for protected material — registered invariants require each of those two members to read `prohibited` unless a named contractual basis ref is present, so an account-level opt-in, a broad service default or a changed term cannot enter the record as a resolved right.",
+        "required": [
+          "request_or_prompt_logging",
+          "human_review",
+          "abuse_and_security_processing",
+          "service_improvement",
+          "provider_model_training",
+          "provider_model_training_basis_ref",
+          "cross_customer_aggregation",
+          "cross_customer_aggregation_basis_ref",
+          "publication"
+        ],
+        "properties": {
+          "request_or_prompt_logging": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "human_review": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "abuse_and_security_processing": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "service_improvement": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "provider_model_training": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "provider_model_training_basis_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "cross_customer_aggregation": {
+            "$ref": "#/$defs/providerUsePosture"
+          },
+          "cross_customer_aggregation_basis_ref": {
+            "$ref": "#/$defs/optionalRef"
+          },
+          "publication": {
+            "$ref": "#/$defs/providerUsePosture"
+          }
+        }
+      },
+      "retention_posture": {
+        "enum": [
+          "zero_retention",
+          "transient_processing",
+          "contract_bounded",
+          "provider_default",
+          "not_applicable"
+        ],
+        "description": "The retention term the institution admitted. Canon is explicit that a zero-retention promise is a valuable provider-trust control and not a custody proof; `does_not_assert` carries `provider_non_learning` so the record cannot be read as the stronger claim."
+      },
+      "retention_policy_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "commercial_terms_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The commercial half of the versioned contract. At least one, because canon requires BOTH halves resolved before a route is eligible and a record naming only technical terms has resolved half a contract."
+      },
+      "technical_terms_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "The technical half. Separate from the commercial half so that a technical integration document cannot stand in for a licence, which is the substitution that makes an unlicensed route look resolved."
+      },
+      "fallback_substitution": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "PROVIDER FALLBACK IS A SEMANTIC SUBSTITUTION, NEVER A TRANSPARENT RETRY. A substitute route is a different provider under different terms; recording it as a retry would let a request resolved against one rights contract be served under another nobody resolved. The flag is pinned and the substitute names its own rights revision.",
+        "required": [
+          "fallback_is_semantic_substitution",
+          "fallback_route_rights_revision_ref"
+        ],
+        "properties": {
+          "fallback_is_semantic_substitution": {
+            "const": true
+          },
+          "fallback_route_rights_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/routeRightsRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The substitute route's OWN resolved rights revision, or null when no fallback is admitted. A fallback naming no rights revision is an unresolved route wearing a resolved one's identity."
+          }
+        }
+      },
+      "validity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "valid_from",
+          "valid_until"
+        ],
+        "properties": {
+          "valid_from": {
+            "$ref": "#/$defs/canonicalTimestamp"
+          },
+          "valid_until": {
+            "$ref": "#/$defs/optionalTimestamp",
+            "description": "Null means open-ended under the current terms, not permanent. An elapsed expiry is recorded by moving `status` to `expired`, which empties the permitted set by schema."
+          }
+        }
+      },
+      "revocation": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "REVOCATION FAILS CLOSED AND NAMES ITSELF. A suspended or revoked contract empties its permitted route uses by the schema conditional below and states when, why and under whose authority — because a revocation that narrows use without naming its author is a change nobody can audit or reverse.",
+        "required": [
+          "revocation_state",
+          "revoked_at",
+          "revocation_reason",
+          "revocation_authority_ref"
+        ],
+        "properties": {
+          "revocation_state": {
+            "enum": [
+              "live",
+              "suspended",
+              "revoked"
+            ]
+          },
+          "revoked_at": {
+            "$ref": "#/$defs/optionalTimestamp"
+          },
+          "revocation_reason": {
+            "oneOf": [
+              {
+                "enum": [
+                  "terms_withdrawn",
+                  "terms_changed",
+                  "credential_revoked",
+                  "custody_posture_lost",
+                  "jurisdiction_change",
+                  "incident_hold",
+                  "owner_decision"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revocation_authority_ref": {
+            "$ref": "#/$defs/optionalRef"
+          }
+        },
+        "allOf": [
+          {
+            "title": "a revoked or suspended contract names when, why and under whose authority",
+            "if": {
+              "required": [
+                "revocation_state"
+              ],
+              "properties": {
+                "revocation_state": {
+                  "enum": [
+                    "suspended",
+                    "revoked"
+                  ]
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "revoked_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+                },
+                "revocation_reason": {
+                  "enum": [
+                    "terms_withdrawn",
+                    "terms_changed",
+                    "credential_revoked",
+                    "custody_posture_lost",
+                    "jurisdiction_change",
+                    "incident_hold",
+                    "owner_decision"
+                  ]
+                },
+                "revocation_authority_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "revoked_at": {
+                  "type": "null"
+                },
+                "revocation_reason": {
+                  "type": "null"
+                },
+                "revocation_authority_ref": {
+                  "type": "null"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "superseded",
+          "expired",
+          "revoked"
+        ],
+        "description": "Registry state of this revision. Only `active` may carry permitted route uses; the other four empty the set by schema, which is how an expired or superseded contract stops being eligible without waiting for a reader to compare timestamps."
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically."
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple is a SCHEMA refusal.",
+        "required": [
+          "succession_reason",
+          "predecessor_revision_ref",
+          "predecessor_content_hash",
+          "supersedes_predecessor",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "succession_reason": {
+            "enum": [
+              "genesis",
+              "commercial_terms_change",
+              "technical_terms_change",
+              "model_revision_change",
+              "principal_change",
+              "destination_or_residency_change",
+              "retention_change",
+              "unresolved_right_resolved",
+              "revocation_or_expiry",
+              "correction"
+            ]
+          },
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/routeRightsRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_predecessor": {
+            "type": "boolean"
+          },
+          "reinterprets_predecessor": {
+            "const": false,
+            "description": "Pinned. A changed provider term produces a successor revision; it does not re-read the terms an earlier route resolution was actually admitted under. Receipts already bound to the predecessor stay bound to the predecessor."
+          }
+        },
+        "allOf": [
+          {
+            "title": "a genesis revision has no predecessor, in both slots at once",
+            "if": {
+              "required": [
+                "succession_reason"
+              ],
+              "properties": {
+                "succession_reason": {
+                  "const": "genesis"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                },
+                "supersedes_predecessor": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "$ref": "#/$defs/routeRightsRevisionRef"
+                },
+                "predecessor_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lifecycle_id",
+          "route_use_vocabulary_size",
+          "provider_use_prohibited_token",
+          "nonclaim_authority_token",
+          "nonclaim_possession_token"
+        ],
+        "properties": {
+          "lifecycle_id": {
+            "const": "model_route_rights_contract_lifecycle.v1",
+            "description": "Names WHICH lifecycle `status` is drawn from, so a projection cannot let a rights contract's registry state be read as a route's operational availability."
+          },
+          "route_use_vocabulary_size": {
+            "type": "integer",
+            "minimum": 12,
+            "maximum": 12
+          },
+          "provider_use_prohibited_token": {
+            "const": "prohibited"
+          },
+          "nonclaim_authority_token": {
+            "const": "authority"
+          },
+          "nonclaim_possession_token": {
+            "const": "possession_proves_permission"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "model_route_rights_contract_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "model_route_rights_contract_is_a_resolved_terms_reading_not_provider_behaviour"
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 10,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "possession_proves_permission",
+            "provider_non_learning",
+            "provider_deletion",
+            "source_rights",
+            "route_availability",
+            "price_or_quota",
+            "cryptographic_privacy",
+            "legal_conformity",
+            "capability_lease_crossing"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "possession_proves_permission"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "provider_non_learning"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "source_rights"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "route_availability"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "cryptographic_privacy"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Six mandatory members. `possession_proves_permission` is the one this family exists to state: an account or API credential proves possession only. `source_rights` is the companion — resolving what a provider permits says nothing about whether the institution had the right to send the material in the first place, and the two halves must both hold for a use to survive the intersection."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+      }
+    },
+    "allOf": [
+      {
+        "title": "a contract that is not active and live permits no route use",
+        "if": {
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "draft",
+                "superseded",
+                "expired",
+                "revoked"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "permitted_route_uses": {
+              "maxItems": 0,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "a suspended or revoked contract permits no route use",
+        "if": {
+          "required": [
+            "revocation"
+          ],
+          "properties": {
+            "revocation": {
+              "required": [
+                "revocation_state"
+              ],
+              "properties": {
+                "revocation_state": {
+                  "enum": [
+                    "suspended",
+                    "revoked"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "permitted_route_uses": {
+              "maxItems": 0,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ]
+  },
+  "schema://ioi/foundations/objects/policy-bound-data-view/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+    "title": "PolicyBoundDataViewV1",
+    "description": "THE LEGACY STORED SHAPE, REGISTERED AS THE EXACT PREDECESSOR IT IS. This contract does not describe what a policy-bound view should be; it describes what the inert declaration lane actually persists today, so the v2 successor can name a predecessor that exists rather than one it invented. Registering it is what makes the migration checkable in both directions: a stored v1 record can be validated as v1, a v2 record can commit this predecessor's exact bytes, and neither can be quietly read as the other. WHAT V1 CANNOT DO IS THE POINT. It is MUTABLE — `revision` is a counter that is bumped in place and `updated_at` moves with it, so no reader can tell whether the bytes in front of them are the bytes a decision was made under. It carries NO CONTENT COMMITMENT, so nothing about it is verifiable offline. Its identity is a WALL-CLOCK-DERIVED opaque id under the `policy-bound-data-view://pbdv_…` scheme with no revision segment, so there is nothing to pin and every reference is a family head. It binds a connector mapping by MUTABLE ID rather than by exact revision and content hash, so the shape it claims to scope can change underneath it. It carries a single `ontology_ref` with no revision segment. And it has NO principal, tenant, purpose-bound row/field/time minimization, data classes, source-rights or consent binding, jurisdiction or residency, redaction recipe or findings, retention/hold state, destination/egress ceiling, or effective learning-boundary hash — which is the complete list of what the successor adds and the reason `additionalProperties` is false here: a v2 member appearing in a v1 record is a SCHEMA REFUSAL rather than a tolerated extension. The `authority.crossed` flag is pinned false and `health.status` is honest about the family being declarative only: v1 authorizes nothing to run, and registering it claims no runtime enforcement of anything it declares.",
+    "x-ioi-schema-version": "ioi.hypervisor.odk.policy-bound-data-view.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "shortString": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "stringList": {
+        "type": "array",
+        "maxItems": 128,
+        "items": {
+          "type": "string",
+          "maxLength": 512
+        }
+      },
+      "legacyTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "required": [
+      "schema_version",
+      "object",
+      "id",
+      "ref",
+      "name",
+      "description",
+      "status",
+      "revision",
+      "connector_mapping_id",
+      "connector_mapping_ref",
+      "ontology_ref",
+      "object_type_id",
+      "allowed_operations",
+      "authority_subjects",
+      "purpose",
+      "property_scope",
+      "retention_posture",
+      "export_posture",
+      "training_posture",
+      "evaluation_posture",
+      "publish_route_posture",
+      "receipt_obligations",
+      "receipt_refs",
+      "receipt_binding",
+      "history",
+      "health",
+      "authority",
+      "created_at",
+      "updated_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.odk.policy-bound-data-view.v1",
+        "description": "The legacy wire version as it is ACTUALLY STORED, in the `ioi.hypervisor.odk.` namespace the successor leaves behind. Pinned as a const so a v2 record cannot be validated here and a v1 record cannot claim the successor's version."
+      },
+      "object": {
+        "const": "ioi.hypervisor.odk.policy_bound_data_view"
+      },
+      "id": {
+        "type": "string",
+        "pattern": "^pbdv_[0-9a-f]{1,32}$",
+        "description": "A WALL-CLOCK-DERIVED OPAQUE ID. The stored form is a hex nanosecond stamp, which means identity depends on when the record was created rather than on what it contains — so a replayed declaration produces a different view and two identical policies are two unrelated objects."
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$",
+        "description": "The addressable form, WITH NO REVISION SEGMENT. Every reference to a v1 view is therefore a family-head reference: a consumer that resolves it gets whatever the record says now, which is the mutable-head problem the successor's `/revision/` segment exists to end."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "declared"
+        ],
+        "description": "The only two states the legacy lane persists. There is deliberately no `active`, `expired` or `revoked` member: v1 has no expiry, no revocation and no revalidation, so a status suggesting any of them would be a claim the stored record cannot support."
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999999,
+        "description": "A COUNTER BUMPED IN PLACE, not an immutable revision. This is the mutability tell: the same `ref` at two moments is two different policies, and nothing in the record distinguishes them."
+      },
+      "connector_mapping_id": {
+        "$ref": "#/$defs/shortString",
+        "description": "The mapping bound by MUTABLE ID. The mapped shape this view claims to scope can change underneath it without the view changing at all, which is why the successor binds an exact mapping revision and its content hash instead."
+      },
+      "connector_mapping_ref": {
+        "$ref": "#/$defs/shortString"
+      },
+      "ontology_ref": {
+        "$ref": "#/$defs/shortString",
+        "description": "One ontology reference with no revision segment, copied from the bound mapping. A v1 view follows its ontology's head wherever it goes."
+      },
+      "object_type_id": {
+        "$ref": "#/$defs/shortString"
+      },
+      "allowed_operations": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "read",
+            "transform",
+            "distill",
+            "train",
+            "evaluate",
+            "export",
+            "publish",
+            "route"
+          ]
+        },
+        "description": "The eight operations the legacy lane recognises. Declaring one is not being granted it — v1 is inert and nothing revalidates authority, rights, revocation or expiry before a read, which is the whole gap the successor closes."
+      },
+      "authority_subjects": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/shortString"
+        },
+        "description": "Free-form subject strings, NOT resolved principals. The legacy lane accepts whatever the caller names, including wildcard spellings it can only downgrade to `draft` rather than refuse — which is exactly why the successor pins server-side principal resolution."
+      },
+      "purpose": {
+        "type": "string",
+        "maxLength": 1000,
+        "description": "A free-text purpose. Not an enumerated, bound purpose that a read can be checked against: v1 records the intention and enforces nothing about it."
+      },
+      "property_scope": {
+        "$ref": "#/$defs/stringList",
+        "description": "The property ids this view claims, checked at declaration against the mapping's mapped properties. There is no row predicate and no time range beside it, so field minimization is the only minimization v1 can express at all."
+      },
+      "object_scope": {
+        "description": "An unconstrained passthrough of whatever the caller sent. An opaque scope is a scope nobody can check, and it is preserved here as an optional member precisely so a stored record carrying one still validates as the v1 it is."
+      },
+      "retention_posture": {
+        "enum": [
+          "ephemeral",
+          "bounded",
+          "durable"
+        ]
+      },
+      "export_posture": {
+        "enum": [
+          "no_export",
+          "receipted_export_only"
+        ]
+      },
+      "training_posture": {
+        "enum": [
+          "no_training",
+          "receipted_training_only"
+        ]
+      },
+      "evaluation_posture": {
+        "enum": [
+          "no_evaluation",
+          "receipted_evaluation_only"
+        ]
+      },
+      "publish_route_posture": {
+        "enum": [
+          "no_publish_route",
+          "receipted_publish_route_only"
+        ]
+      },
+      "receipt_obligations": {
+        "$ref": "#/$defs/stringList",
+        "description": "Free-form obligation strings rather than a closed vocabulary, so no consumer can check that an obligation was discharged by the right kind of receipt."
+      },
+      "receipt_refs": {
+        "$ref": "#/$defs/stringList",
+        "description": "Starts empty by construction: the receipt for a declaration cannot exist until the record is durable, and embedding a ref before its receipt is durable is the dangling-evidence defect the legacy lane deliberately avoids. The join lives in the receipt store, not here."
+      },
+      "receipt_binding": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "history": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 256,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "op",
+            "at",
+            "summary"
+          ],
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999999999
+            },
+            "op": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "at": {
+              "$ref": "#/$defs/legacyTimestamp"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          }
+        },
+        "description": "An in-record audit trail, which is the honest signal that the record itself is edited in place. An immutable revision needs no history because its predecessor is still addressable."
+      },
+      "health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "gaps",
+          "authorized_subjects",
+          "allowed_operations",
+          "scoped_properties",
+          "object_instances",
+          "missing_contracts",
+          "note"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "incomplete",
+              "ready"
+            ]
+          },
+          "gaps": {
+            "$ref": "#/$defs/stringList"
+          },
+          "authorized_subjects": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "allowed_operations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "scoped_properties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999999999
+          },
+          "object_instances": {
+            "description": "Pinned zero. A v1 view holds no materialized instances, and a nonzero count would be a claim the inert lane cannot make.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 0
+          },
+          "missing_contracts": {
+            "$ref": "#/$defs/stringList"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "description": "The legacy lane's own honest self-report: a declarative gate only, with the downstream contracts it still lacks named in the record."
+      },
+      "authority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "crossed",
+          "note"
+        ],
+        "properties": {
+          "crossed": {
+            "const": false,
+            "description": "Pinned false. Declaring a view crosses no CapabilityLease and no AuthorityGrant, and executes nothing."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "created_at": {
+        "$ref": "#/$defs/legacyTimestamp"
+      },
+      "updated_at": {
+        "$ref": "#/$defs/legacyTimestamp",
+        "description": "THE MUTABILITY TELL. An immutable revision has one stamp; a record with a second one is a record that is expected to change, and the successor deliberately carries no `updated_at` at all."
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/policy-bound-data-view/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+    "title": "PolicyBoundDataViewV2",
+    "description": "THE ONLY LEARNING AND RUNTIME PROJECTION OF PROTECTED SOURCE DATA, AS AN IMMUTABLE REVISION THAT CAN BE CHECKED FROM ITS OWN BYTES. The predecessor was a mutable declaration: a bumped counter, a wall-clock id, a family-head reference, a connector mapping bound by mutable id, and no commitment over anything. This contract binds what canon requires an immutable view revision to bind — EXACT SOURCE REVISIONS with their content hashes, the resolved PRINCIPAL and TENANT, the bound PURPOSE, the allowed ROWS, FIELDS and TIME RANGE, the DATA CLASSES, the SOURCE-RIGHTS and CONSENT claims, JURISDICTION and RESIDENCY, the REDACTION/DE-IDENTIFICATION recipe and its findings, RETENTION and HOLD state, the DESTINATION and EGRESS CEILING, and the EFFECTIVE LEARNING-BOUNDARY HASH — and then makes six specific refusals structural rather than aspirational. CROSS-TENANT: every bound source carries its own tenant ref and a registered invariant requires all of them to equal the view's, so a source from another tenant is inadmissible rather than merely unusual. EXCESS-FIELD: the allowed field set must be covered exactly by the per-field minimization decisions, so a field admitted without its own justification leaves the covering short and refuses. EXPIRED-CONSENT: every consent binding must read `active`, so a view carrying an expired or revoked consent cannot be admitted at all. STALE-POLICY: the effective learning-boundary hash the view was compiled under must equal the hash it requires of a materialization, so moving one without the other refuses. DECLASSIFICATION: the redaction output's privacy class must equal the source classification's, so a transformation cannot lower a class — reducing exposure is not reclassification. REDACTION-AS-PERMISSION: `allowed_uses` must be covered exactly by the RIGHTS-DERIVED uses plus a redaction-derived list the schema pins EMPTY, so no use can enter this record by way of a transformation. Redaction reduces exposure; it creates no right and it never severs lineage, and both facts are pinned fields. READS REVALIDATE: the materialization precondition requires current authority, rights, revocation and expiry to be rechecked before bytes move, as four mandatory members rather than a sentence in a comment. THE PRINCIPAL IS RESOLVED, NOT SUPPLIED. MIGRATION IS EXPLICIT AND DOWNGRADE IS REFUSED IN THE BYTES: a view authored fresh at v2 says so in all three provenance slots at once, one converged from a stored v1 names that predecessor's schema version, its `policy-bound-data-view://pbdv_…` ref AND its exact content hash, and `downgrade_to_predecessor` is pinned `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the source revisions, the minimization decisions, the rights bindings and the commitment — a lossy re-encoding that would present a weaker record as the same fact. This is a projection, not a permission: it grants no authority, it is not consent, and registering it claims no runtime enforcement of what it declares.",
+    "x-ioi-schema-version": "ioi.policy-bound-data-view.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "$defs": {
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "viewFamilyRef": {
+        "type": "string",
+        "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}$"
+      },
+      "viewRevisionRef": {
+        "type": "string",
+        "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "legacyViewRef": {
+        "type": "string",
+        "pattern": "^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$"
+      },
+      "boundaryRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "claimRevisionRef": {
+        "type": "string",
+        "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "routeRightsRevisionRef": {
+        "type": "string",
+        "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "connectorMappingRevisionRef": {
+        "type": "string",
+        "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ontologyRevisionRef": {
+        "type": "string",
+        "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"
+      },
+      "ownerRef": {
+        "type": "string",
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "principalRef": {
+        "type": "string",
+        "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "tenantRef": {
+        "type": "string",
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "viewUse": {
+        "enum": [
+          "read",
+          "transform",
+          "distill",
+          "train",
+          "evaluate",
+          "export",
+          "publish",
+          "route"
+        ]
+      },
+      "viewUseList": {
+        "type": "array",
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/viewUse"
+        }
+      },
+      "privacyClass": {
+        "enum": [
+          "public",
+          "internal",
+          "confidential",
+          "restricted",
+          "regulated",
+          "safety_critical"
+        ]
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "nonEmptyRefList": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "optionalRef": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalTimestamp": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "optionalTimestamp": {
+        "oneOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "required": [
+      "schema_version",
+      "policy_bound_data_view_id",
+      "revision_ref",
+      "owner_ref",
+      "tenant_ref",
+      "principal_resolution",
+      "resolved_principal_ref",
+      "purpose",
+      "purpose_binding_ref",
+      "source_bindings",
+      "source_binding_count",
+      "ontology_revision_refs",
+      "connector_mapping_revision_refs",
+      "object_model_refs",
+      "row_scope",
+      "field_scope",
+      "time_scope",
+      "data_classes",
+      "privacy_class",
+      "source_rights_claim_revision_refs",
+      "consent_bindings",
+      "route_rights_revision_refs",
+      "jurisdiction_refs",
+      "residency_refs",
+      "redaction",
+      "retention_and_hold",
+      "destination_and_egress",
+      "effective_boundary_binding",
+      "materialization_precondition",
+      "allowed_uses",
+      "rights_derived_allowed_uses",
+      "redaction_derived_allowed_uses",
+      "registry_status",
+      "admitted_at",
+      "succession",
+      "migration",
+      "constants",
+      "authority_nonclaim",
+      "truth_nonclaim",
+      "does_not_assert",
+      "content_hash"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.policy-bound-data-view.v2",
+        "description": "The successor's version, out of the `ioi.hypervisor.odk.` namespace the predecessor sat in. Pinned as a const so a v1 record cannot validate here and a v2 record cannot claim the predecessor's version."
+      },
+      "policy_bound_data_view_id": {
+        "$ref": "#/$defs/viewFamilyRef",
+        "description": "THE FAMILY, IN CANON'S OWN `view://` SCHEME. A view is restated as sources, rights, policy or minimization change, so the lineage is the aggregate. Nothing materializes against the family head: a read that resolved the family would read through whichever policy the family last carried."
+      },
+      "revision_ref": {
+        "$ref": "#/$defs/viewRevisionRef",
+        "description": "ONE IMMUTABLE REVISION OF THAT FAMILY, and the thing every recipe, run, eligibility decision and egress receipt binds. The `/revision/` segment refuses a family-head or mutable-latest reference where a revision is required, and a registered invariant refuses a revision that does not extend its own family id."
+      },
+      "owner_ref": {
+        "$ref": "#/$defs/ownerRef",
+        "description": "OWNER-QUALIFIED IDENTITY. The predecessor derived an owner and did not store one, so a stored v1 view cannot say who owns it. The owner is what makes the revision resolvable to one view rather than to whichever same-named view a reader happens to look up."
+      },
+      "tenant_ref": {
+        "$ref": "#/$defs/tenantRef",
+        "description": "THE TENANCY BOUNDARY, AND THE ANCHOR OF THE CROSS-TENANT REFUSAL. Every bound source carries its own tenant ref and a registered invariant requires all of them to equal this one, so a source belonging to another tenant is inadmissible rather than merely surprising."
+      },
+      "principal_resolution": {
+        "const": "server_resolved",
+        "description": "PINNED. The principal a view reads for is resolved server-side, never taken from a caller-passed constant. The predecessor accepted free-form subject strings — including wildcard spellings it could only downgrade to `draft` rather than refuse — which is exactly the default this pin removes."
+      },
+      "resolved_principal_ref": {
+        "$ref": "#/$defs/principalRef",
+        "description": "The principal this projection is bound to, as resolved. A view without a principal is a view that reads for whoever asks, which is the widest possible scope wearing the language of a narrow one."
+      },
+      "purpose": {
+        "enum": [
+          "operational_read",
+          "transformation",
+          "evaluation",
+          "dataset_generation",
+          "model_or_worker_training",
+          "distillation",
+          "analytics",
+          "audit_or_export",
+          "publication",
+          "routing"
+        ],
+        "description": "THE BOUND PURPOSE, from a closed vocabulary rather than the predecessor's free text. Purpose-binding is what makes minimization meaningful: a field set justified for evaluation is not a field set justified for training, and a purpose nobody can check cannot narrow anything."
+      },
+      "purpose_binding_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512,
+        "description": "The policy or decision that bound this purpose. A purpose asserted by the record alone is a label; one bound to a decision is a commitment someone made."
+      },
+      "source_bindings": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_ref",
+            "source_revision_ref",
+            "source_content_hash",
+            "source_tenant_ref",
+            "source_owner_ref",
+            "source_class"
+          ],
+          "properties": {
+            "source_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "source_revision_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "THE EXACT SOURCE REVISION. Not a family head: a view bound to a head projects whatever the source becomes, which is the same drift the recipe family closed one level up."
+            },
+            "source_content_hash": {
+              "$ref": "#/$defs/sha256",
+              "description": "The source revision's exact bytes. A ref names a location that may since have been re-admitted; the hash names what was actually bound."
+            },
+            "source_tenant_ref": {
+              "$ref": "#/$defs/tenantRef",
+              "description": "THE CROSS-TENANT ANCHOR. A registered invariant requires this to equal the view's `tenant_ref` on every row, so a cross-tenant source is a refusal at admission rather than a discovery at materialization."
+            },
+            "source_owner_ref": {
+              "$ref": "#/$defs/ownerRef"
+            },
+            "source_class": {
+              "enum": [
+                "employee",
+                "contractor",
+                "customer",
+                "patient",
+                "partner",
+                "vendor",
+                "licensed",
+                "purchased",
+                "public",
+                "synthetic",
+                "provider_output",
+                "machine_generated",
+                "mixed",
+                "unknown"
+              ],
+              "description": "Carried per source because a mixed projection inherits the intersection of its contributors, and a single view-level class would erase which contributor is the restrictive one."
+            }
+          }
+        },
+        "description": "EXACT PROTECTED-SOURCE REVISIONS, one row each. At least one: a projection over no source is not a projection, and admitting one would let an audit count an empty view as coverage."
+      },
+      "source_binding_count": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64,
+        "description": "The declared size of that set, checked against it by a registered invariant. Two independent statements about one set is the cheapest tell that a source was removed from the readable list after the fact."
+      },
+      "ontology_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ontologyRevisionRef"
+        },
+        "description": "EXACT ADMITTED ONTOLOGY REVISIONS, never family refs. The predecessor carried one head-following `ontology_ref` copied from its mapping."
+      },
+      "connector_mapping_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/connectorMappingRevisionRef"
+        },
+        "description": "EXACT MAPPING REVISIONS. The predecessor bound a mapping by mutable id, so the shape a view claimed to scope could change underneath it without the view changing at all."
+      },
+      "object_model_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "row_scope": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "ROW MINIMIZATION, WHICH THE PREDECESSOR COULD NOT EXPRESS AT ALL. The predicate is bound by ref AND by hash, because a predicate that can be edited after admission is a scope that widens silently.",
+        "required": [
+          "row_predicate_ref",
+          "row_predicate_hash",
+          "max_row_count"
+        ],
+        "properties": {
+          "row_predicate_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "row_predicate_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "max_row_count": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An optional hard ceiling. Null means the predicate alone bounds the rows; it does not mean unbounded, because the predicate is itself committed."
+          }
+        }
+      },
+      "field_scope": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "FIELD MINIMIZATION, AND THE EXCESS-FIELD REFUSAL. Every allowed field must be covered exactly by a per-field minimization decision naming which source binding it comes from and why the purpose needs it. A field admitted without its own justification leaves the covering short and the record is refused; a decision for a field the view does not allow makes it long and is refused too.",
+        "required": [
+          "allowed_field_refs",
+          "allowed_field_count",
+          "field_minimization_decisions"
+        ],
+        "properties": {
+          "allowed_field_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "allowed_field_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "field_minimization_decisions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "field_ref",
+                "source_ref",
+                "necessity_basis",
+                "data_class"
+              ],
+              "properties": {
+                "field_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "source_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "necessity_basis": {
+                  "enum": [
+                    "required_by_purpose",
+                    "required_by_ontology_contract",
+                    "required_by_join_key",
+                    "required_by_evaluation_label",
+                    "required_by_regulatory_obligation"
+                  ],
+                  "description": "WHY THE PURPOSE NEEDS THIS FIELD. A closed vocabulary rather than free text, because 'useful' is not a minimization basis and an unenumerated reason is one nobody can review."
+                },
+                "data_class": {
+                  "enum": [
+                    "identifier",
+                    "quasi_identifier",
+                    "sensitive_attribute",
+                    "financial",
+                    "health",
+                    "biometric",
+                    "location",
+                    "content",
+                    "derived_label",
+                    "operational_metadata"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "time_scope": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "TIME MINIMIZATION. A view over all of history is not minimized no matter how few fields it names, and the predecessor had no way to say otherwise.",
+        "required": [
+          "timebase",
+          "from",
+          "until"
+        ],
+        "properties": {
+          "timebase": {
+            "enum": [
+              "source_event_time",
+              "ingest_time",
+              "admission_time"
+            ],
+            "description": "Which clock the range is measured on. Named because event time and ingest time disagree, and a range read on the wrong one silently widens or narrows the projection."
+          },
+          "from": {
+            "$ref": "#/$defs/canonicalTimestamp"
+          },
+          "until": {
+            "$ref": "#/$defs/optionalTimestamp",
+            "description": "Null means open-ended forward under the current policy, not permanent: the view's own expiry and the retention state still bound it."
+          }
+        }
+      },
+      "data_classes": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "source_data",
+            "prompts_and_completions",
+            "connector_and_tool_io",
+            "work_graphs_traces_and_receipts",
+            "corrections_and_reviewer_judgments",
+            "evaluations_rubrics_holdouts_and_canaries",
+            "memory_context_procedures_workflows_and_skills",
+            "datasets_embeddings_and_indexes",
+            "adapters_checkpoints_weights_and_packages",
+            "router_verifier_authority_and_governance_policy",
+            "analytics_crash_support_and_security_telemetry",
+            "embodied_sensor_actuator_mission_and_operator_telemetry"
+          ]
+        },
+        "description": "The protected material classes this projection carries, from the same twelve the boundary profile and the egress receipt use — which is what lets a class-level denial upstream compose with this view instead of being argued about."
+      },
+      "privacy_class": {
+        "$ref": "#/$defs/privacyClass",
+        "description": "THE SOURCE CLASSIFICATION, AND THE ANCHOR OF THE DECLASSIFICATION REFUSAL. A registered invariant requires the redaction output's class to equal this one: a transformation reduces exposure and does not reclassify, so a redacted projection of restricted material is still restricted."
+      },
+      "source_rights_claim_revision_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/claimRevisionRef"
+        },
+        "description": "EXACT SOURCE-RIGHTS CLAIM REVISIONS. At least one: a projection of protected data with no rights claim behind it has no basis to narrow against, and the predecessor bound none at all."
+      },
+      "consent_bindings": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consent_ref",
+            "consent_state",
+            "consent_subject_ref",
+            "valid_until"
+          ],
+          "properties": {
+            "consent_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "consent_state": {
+              "enum": [
+                "active",
+                "expired",
+                "revoked",
+                "withdrawn",
+                "unknown"
+              ],
+              "description": "THE EXPIRED-CONSENT REFUSAL LIVES HERE. A registered invariant requires EVERY row to read `active`, so a view carrying an expired, revoked, withdrawn or unknown consent cannot be admitted at all. The non-active members exist so the state can be recorded honestly on the way to a successor revision, never so that a view can carry one."
+            },
+            "consent_subject_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "valid_until": {
+              "$ref": "#/$defs/optionalTimestamp"
+            }
+          }
+        }
+      },
+      "route_rights_revision_refs": {
+        "type": "array",
+        "maxItems": 64,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/routeRightsRevisionRef"
+        },
+        "description": "The exact route-rights contract revisions that bound any onward route for this projection. Revision-exact, because terms that moved after admission did not move this view."
+      },
+      "jurisdiction_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "Whose law reaches this projection. At least one, because an unstated jurisdiction is not an absent obligation."
+      },
+      "residency_refs": {
+        "$ref": "#/$defs/nonEmptyRefList",
+        "description": "Where the projected bytes may reside. A separate axis from jurisdiction, because conflating them is how a compliant-looking view permits a move neither would allow."
+      },
+      "redaction": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "REDACTION AND DE-IDENTIFICATION: RECIPE, FINDINGS, AND TWO PINNED FACTS. The recipe is bound by exact revision AND content hash so the transformation that produced this projection is reproducible. `creates_permission` and `severs_lineage` are both pinned false in the bytes, and the output privacy class is required by invariant to equal the source classification — together they are canon's rule that redaction reduces exposure but creates no right and never severs lineage, stated three different ways so no single edit defeats it.",
+        "required": [
+          "recipe_revision_ref",
+          "recipe_content_hash",
+          "techniques",
+          "findings",
+          "output_privacy_class",
+          "creates_permission",
+          "severs_lineage",
+          "reidentification_risk_assessed"
+        ],
+        "properties": {
+          "recipe_revision_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "recipe_content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "techniques": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "field_suppression",
+                "masking",
+                "tokenization",
+                "hashing",
+                "generalization",
+                "bucketing",
+                "noise_addition",
+                "k_anonymity",
+                "differential_privacy",
+                "synthetic_substitution",
+                "entity_replacement",
+                "no_transformation"
+              ]
+            },
+            "description": "`no_transformation` is a real member rather than an empty list: a view that redacts nothing should say so, because an absent technique list reads as an unanswered question and an unanswered question about exposure is not a low-exposure claim."
+          },
+          "findings": {
+            "type": "array",
+            "maxItems": 64,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "finding_kind",
+                "field_ref",
+                "residual_exposure"
+              ],
+              "properties": {
+                "finding_kind": {
+                  "enum": [
+                    "residual_identifier",
+                    "quasi_identifier_combination",
+                    "linkage_risk",
+                    "insufficient_generalization",
+                    "free_text_leakage",
+                    "reidentification_demonstrated"
+                  ]
+                },
+                "field_ref": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "residual_exposure": {
+                  "enum": [
+                    "none",
+                    "low",
+                    "material",
+                    "unresolved"
+                  ]
+                }
+              }
+            },
+            "description": "The findings the recipe produced, carried in the record rather than in a report nobody fetches. A finding is a fact about what survived the transformation; it never authorizes the projection, and a clean finding set does not either."
+          },
+          "output_privacy_class": {
+            "$ref": "#/$defs/privacyClass",
+            "description": "REQUIRED BY INVARIANT TO EQUAL `privacy_class`. This is the declassification refusal: lowering a class through a transformation would be reclassification without a declassification approval, which canon treats as its own governed act with its own rights and receipts."
+          },
+          "creates_permission": {
+            "const": false
+          },
+          "severs_lineage": {
+            "const": false
+          },
+          "reidentification_risk_assessed": {
+            "type": "boolean",
+            "description": "Whether a re-identification assessment was actually performed. A boolean rather than an inference from the technique list, because applying k-anonymity and assessing whether it held are different acts and only the second supports a low-risk claim."
+          }
+        }
+      },
+      "retention_and_hold": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "RETENTION AND HOLD STATE, ON THE VIEW. A hold narrows disposal and can narrow use; it never widens either, and a hold that lives only in a policy the reader has to fetch is a hold the offline verifier cannot see.",
+        "required": [
+          "retention_policy_ref",
+          "retention_state",
+          "hold_state",
+          "expires_at",
+          "deletion_or_forget_policy_ref"
+        ],
+        "properties": {
+          "retention_policy_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "retention_state": {
+            "enum": [
+              "within_retention",
+              "retention_elapsed",
+              "pending_deletion",
+              "deleted"
+            ]
+          },
+          "hold_state": {
+            "enum": [
+              "none",
+              "legal_hold",
+              "audit_hold",
+              "incident_hold"
+            ]
+          },
+          "expires_at": {
+            "$ref": "#/$defs/optionalTimestamp"
+          },
+          "deletion_or_forget_policy_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      },
+      "destination_and_egress": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE DESTINATION AND EGRESS CEILING. A ceiling, not an instruction: a materialization may carry less than this permits and never more, and a crossing of an institutional boundary still needs its own egress receipt.",
+        "required": [
+          "permitted_destination_classes",
+          "egress_ceiling",
+          "permitted_region_refs",
+          "cross_tenant_read_permitted",
+          "declassification_permitted_without_approval"
+        ],
+        "properties": {
+          "permitted_destination_classes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "in_boundary_only",
+                "model_provider",
+                "external_processor",
+                "cross_organization",
+                "public_export",
+                "support_operator"
+              ]
+            }
+          },
+          "egress_ceiling": {
+            "enum": [
+              "no_egress",
+              "redacted_only",
+              "synthetic_only",
+              "declassified_only",
+              "sealed_ciphertext_only",
+              "protected_plaintext_permitted"
+            ]
+          },
+          "permitted_region_refs": {
+            "$ref": "#/$defs/nonEmptyRefList"
+          },
+          "cross_tenant_read_permitted": {
+            "const": false,
+            "description": "Pinned. Cross-tenant learning and reuse are default-deny at the boundary and this view is not the place they become available; a cohort program binds its own separate objects."
+          },
+          "declassification_permitted_without_approval": {
+            "const": false,
+            "description": "Pinned. Moving protected material — including parameters, gradients, adapters, embeddings or distillates of it — across a sovereign boundary is a declassification event requiring its own approval, rights and receipts. A view can never be the approval."
+          }
+        }
+      },
+      "effective_boundary_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "THE EFFECTIVE LEARNING-BOUNDARY HASH, AND THE ANCHOR OF THE STALE-POLICY REFUSAL. The view binds the exact compiled boundary revision, its exact content hash and the effective policy hash it was compiled under; a registered invariant then requires that policy hash to equal the one the materialization precondition demands. Moving one without the other is a stale binding and refuses.",
+        "required": [
+          "boundary_profile_revision_ref",
+          "boundary_profile_content_hash",
+          "effective_learning_boundary_hash",
+          "boundary_status_at_binding"
+        ],
+        "properties": {
+          "boundary_profile_revision_ref": {
+            "$ref": "#/$defs/boundaryRevisionRef"
+          },
+          "boundary_profile_content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "effective_learning_boundary_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "boundary_status_at_binding": {
+            "const": "active",
+            "description": "Pinned. A view cannot be compiled against a draft, suspended, superseded or revoked boundary: those states carry no permitted uses, so a projection bound to one would be bound to nothing while looking bound to something."
+          }
+        }
+      },
+      "materialization_precondition": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "READS REVALIDATE BEFORE BYTES MOVE. Canon requires current authority, rights, revocation and expiry to be rechecked before materialization; here that is four mandatory members of a closed list plus a pinned flag, so a projection cannot be admitted while declaring that it revalidates nothing. The required policy hash is compared against the binding above by invariant, which is what makes a stale policy a refusal rather than a race.",
+        "required": [
+          "revalidate_before_materialization",
+          "revalidated_facts",
+          "required_effective_learning_boundary_hash",
+          "fails_closed_on_missing_or_conflicting_policy"
+        ],
+        "properties": {
+          "revalidate_before_materialization": {
+            "const": true
+          },
+          "revalidated_facts": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "current_authority",
+                "current_rights",
+                "revocation_state",
+                "expiry",
+                "retention_and_hold",
+                "residency",
+                "destination_class",
+                "consent_state"
+              ]
+            },
+            "allOf": [
+              {
+                "contains": {
+                  "const": "current_authority"
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "const": "current_rights"
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "const": "revocation_state"
+                },
+                "type": "array"
+              },
+              {
+                "contains": {
+                  "const": "expiry"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "required_effective_learning_boundary_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "fails_closed_on_missing_or_conflicting_policy": {
+            "const": true,
+            "description": "Pinned. Missing or conflicting policy denies the disputed read; it does not fall back to the last known permission, and it does not resolve in the reader's favour."
+          }
+        }
+      },
+      "allowed_uses": {
+        "type": "array",
+        "maxItems": 8,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/viewUse"
+        },
+        "description": "What may be done through this projection. Empty is the correct shape for a view that is not active or whose retention has elapsed, and the conditionals below require at least one member exactly when the view IS active — so an active view that allows nothing is as inadmissible as a revoked one that still allows something. A registered invariant requires it to be covered exactly by the rights-derived uses plus the redaction-derived ones — and the schema pins the redaction-derived list EMPTY — so every use present traces to a right and none can enter by way of a transformation."
+      },
+      "rights_derived_allowed_uses": {
+        "$ref": "#/$defs/viewUseList",
+        "description": "The uses the bound source-rights claims, consents and route contracts actually support. This is the only lawful origin of a member of `allowed_uses`."
+      },
+      "redaction_derived_allowed_uses": {
+        "type": "array",
+        "maxItems": 0,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/viewUse"
+        },
+        "description": "PINNED EMPTY, AND PRESENT ON PURPOSE. The field exists so the redaction-as-permission claim has somewhere to be made and be refused: `maxItems: 0` makes any member a schema refusal, and the coverage invariant above means a use added to `allowed_uses` without a matching right leaves the covering short. An empty list that no one can fill is a stronger statement than an absent field, because an absent field is silence and silence is what let the claim be made informally in the first place."
+      },
+      "registry_status": {
+        "enum": [
+          "draft",
+          "active",
+          "suspended",
+          "expired",
+          "superseded",
+          "revoked"
+        ],
+        "description": "INVENTORY STATUS ONLY. Only `active` may carry allowed uses; the other five empty the set by schema, which is how expiry, suspension, supersession and revocation narrow immediately instead of waiting for a reader to compare timestamps."
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalTimestamp",
+        "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp, and a second one is the mutability tell the predecessor carried."
+      },
+      "succession": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once; every other revision names its predecessor's exact ref AND its exact content hash, both, plus the reason it exists. A partial tuple reads as a complete lineage while naming nothing anyone could check, so a partial tuple is a SCHEMA refusal.",
+        "required": [
+          "succession_reason",
+          "predecessor_revision_ref",
+          "predecessor_content_hash",
+          "supersedes_predecessor",
+          "reinterprets_predecessor"
+        ],
+        "properties": {
+          "succession_reason": {
+            "enum": [
+              "genesis",
+              "source_revision_change",
+              "minimization_change",
+              "rights_or_consent_change",
+              "boundary_revision_change",
+              "redaction_recipe_change",
+              "retention_or_hold_change",
+              "destination_or_residency_change",
+              "revocation_or_expiry",
+              "correction"
+            ]
+          },
+          "predecessor_revision_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/viewRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "predecessor_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supersedes_predecessor": {
+            "type": "boolean"
+          },
+          "reinterprets_predecessor": {
+            "const": false,
+            "description": "Pinned. A narrowed view does not retroactively unmake a read that was admitted under the wider one; it blocks future materialization and leaves the historical evidence exactly as admitted, which is what keeps an impact graph honest about residual exposure."
+          }
+        },
+        "allOf": [
+          {
+            "title": "a genesis revision has no predecessor, in both slots at once",
+            "if": {
+              "required": [
+                "succession_reason"
+              ],
+              "properties": {
+                "succession_reason": {
+                  "const": "genesis"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "type": "null"
+                },
+                "predecessor_content_hash": {
+                  "type": "null"
+                },
+                "supersedes_predecessor": {
+                  "const": false
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "predecessor_revision_ref": {
+                  "$ref": "#/$defs/viewRevisionRef"
+                },
+                "predecessor_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "migration": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "CROSS-CONTRACT PROVENANCE, NEVER SILENT REINTERPRETATION — AND DOWNGRADE IS REFUSED IN THE BYTES. A view authored fresh at v2 has no v1 predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's schema version, its `policy-bound-data-view://pbdv_…` ref AND its exact content hash, all three. `downgrade_to_predecessor` is pinned `refused` because a v2 revision cannot be expressed as a v1 record without dropping the revision identity, the exact source revisions, the per-field minimization decisions, the rights and consent bindings, the effective-boundary hash and the commitment — a lossy re-encoding that would present a materially weaker record as the same fact, which is the precise move an attacker or a tired migration script would both want to make.",
+        "required": [
+          "from_schema_version",
+          "from_view_ref",
+          "from_content_hash",
+          "compatibility",
+          "reinterprets_predecessor",
+          "downgrade_to_predecessor",
+          "downgrade_refusal_reason"
+        ],
+        "properties": {
+          "from_schema_version": {
+            "oneOf": [
+              {
+                "const": "ioi.hypervisor.odk.policy-bound-data-view.v1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_view_ref": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/legacyViewRef"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The predecessor named in the scheme it was ACTUALLY STORED UNDER. Rewriting it into `view://` here would be reinterpreting v1, which is the one thing a convergence may not do — and it would also erase the fact that the predecessor had no revision segment to convert."
+          },
+          "from_content_hash": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/sha256"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The exact predecessor bytes the convergence read. v1 carries no commitment of its own, so this hash is computed over the stored record by the converging operation — which is what makes a convergence checkable at all."
+          },
+          "compatibility": {
+            "enum": [
+              "initial",
+              "converged_from_v1"
+            ]
+          },
+          "reinterprets_predecessor": {
+            "const": false
+          },
+          "downgrade_to_predecessor": {
+            "const": "refused"
+          },
+          "downgrade_refusal_reason": {
+            "const": "v1_cannot_express_revision_identity_source_revisions_field_minimization_rights_consent_boundary_hash_or_commitment",
+            "description": "The refusal stated in the bytes rather than in a comment, naming exactly which members would be lost. A downgrade path that says only `refused` invites someone to argue the loss is acceptable; one that enumerates the loss makes the argument concrete."
+          }
+        },
+        "allOf": [
+          {
+            "title": "authored fresh at v2 — all three provenance slots are null together",
+            "if": {
+              "required": [
+                "compatibility"
+              ],
+              "properties": {
+                "compatibility": {
+                  "const": "initial"
+                }
+              },
+              "type": "object"
+            },
+            "then": {
+              "properties": {
+                "from_schema_version": {
+                  "type": "null"
+                },
+                "from_view_ref": {
+                  "type": "null"
+                },
+                "from_content_hash": {
+                  "type": "null"
+                }
+              },
+              "type": "object"
+            },
+            "else": {
+              "properties": {
+                "from_schema_version": {
+                  "const": "ioi.hypervisor.odk.policy-bound-data-view.v1"
+                },
+                "from_view_ref": {
+                  "$ref": "#/$defs/legacyViewRef"
+                },
+                "from_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              },
+              "type": "object"
+            }
+          }
+        ]
+      },
+      "constants": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.",
+        "required": [
+          "lifecycle_id",
+          "consent_state_active_token",
+          "refused_legacy_view_scheme",
+          "nonclaim_authority_token",
+          "nonclaim_redaction_permission_token",
+          "nonclaim_consent_token"
+        ],
+        "properties": {
+          "lifecycle_id": {
+            "const": "policy_bound_data_view_registry_lifecycle.v2",
+            "description": "Names WHICH lifecycle `registry_status` is drawn from. The predecessor pinned a different, disjoint vocabulary, so a reader cannot mistake a v1 `declared` for a v2 `active` even when a projection calls both `status`."
+          },
+          "consent_state_active_token": {
+            "const": "active",
+            "description": "The only admissible consent state, named in the bytes so the expired-consent invariant can require it without carrying a literal of its own."
+          },
+          "refused_legacy_view_scheme": {
+            "const": "policy-bound-data-view://",
+            "description": "The predecessor's identity scheme, named here as the REFUSED form for a v2 identity. It appears legitimately in exactly one place — `migration.from_view_ref` — as the honest record of what a converged predecessor was stored as."
+          },
+          "nonclaim_authority_token": {
+            "const": "authority"
+          },
+          "nonclaim_redaction_permission_token": {
+            "const": "redaction_creates_permission"
+          },
+          "nonclaim_consent_token": {
+            "const": "consent"
+          }
+        }
+      },
+      "authority_nonclaim": {
+        "const": "policy_bound_data_view_grants_no_authority"
+      },
+      "truth_nonclaim": {
+        "const": "policy_bound_data_view_is_a_bounded_projection_not_consent_permission_or_semantic_truth"
+      },
+      "does_not_assert": {
+        "type": "array",
+        "minItems": 7,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "authority",
+            "consent",
+            "redaction_creates_permission",
+            "declassification",
+            "source_rights",
+            "semantic_truth",
+            "cross_tenant_reuse",
+            "capability_lease_crossing",
+            "provider_non_learning",
+            "verified_unlearning",
+            "materialized_payload_custody",
+            "runtime_enforcement"
+          ]
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "consent"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "redaction_creates_permission"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "declassification"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "source_rights"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "semantic_truth"
+            },
+            "type": "array"
+          },
+          {
+            "contains": {
+              "const": "cross_tenant_reuse"
+            },
+            "type": "array"
+          }
+        ],
+        "description": "Seven mandatory members. `redaction_creates_permission` and `declassification` are the two this family needs that no other carries: a transformation reduces exposure and creates no right, and reducing exposure is not the governed act of moving protected material across a boundary. `consent` is the third — binding a consent ref records that one was resolved, it does not make this record the consent."
+      },
+      "content_hash": {
+        "$ref": "#/$defs/sha256",
+        "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered — and it is the single largest thing the predecessor could not do."
+      }
+    },
+    "allOf": [
+      {
+        "title": "a view that is not active allows nothing",
+        "if": {
+          "required": [
+            "registry_status"
+          ],
+          "properties": {
+            "registry_status": {
+              "enum": [
+                "draft",
+                "suspended",
+                "expired",
+                "superseded",
+                "revoked"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "allowed_uses": {
+              "maxItems": 0,
+              "type": "array"
+            },
+            "rights_derived_allowed_uses": {
+              "maxItems": 0,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "elapsed retention, pending deletion or deletion allows nothing",
+        "if": {
+          "required": [
+            "retention_and_hold"
+          ],
+          "properties": {
+            "retention_and_hold": {
+              "required": [
+                "retention_state"
+              ],
+              "properties": {
+                "retention_state": {
+                  "enum": [
+                    "retention_elapsed",
+                    "pending_deletion",
+                    "deleted"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "allowed_uses": {
+              "maxItems": 0,
+              "type": "array"
+            },
+            "rights_derived_allowed_uses": {
+              "maxItems": 0,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      },
+      {
+        "title": "an active view within retention allows at least one use",
+        "if": {
+          "required": [
+            "registry_status",
+            "retention_and_hold"
+          ],
+          "properties": {
+            "registry_status": {
+              "const": "active"
+            },
+            "retention_and_hold": {
+              "required": [
+                "retention_state"
+              ],
+              "properties": {
+                "retention_state": {
+                  "const": "within_retention"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "then": {
+          "properties": {
+            "allowed_uses": {
+              "minItems": 1,
+              "type": "array"
+            },
+            "rights_derived_allowed_uses": {
+              "minItems": 1,
+              "type": "array"
+            }
+          },
+          "type": "object"
+        }
+      }
+    ]
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -117315,6 +124848,1864 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_path": "$.constants.nonclaim_semantic_correctness_token"
       }
     }
+  ],
+  "schema://ioi/foundations/objects/learning-source-rights-claim/v1": [
+    {
+      "rule_id": "learning_source_rights_claim.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the use partition and the unresolved-rights findings, which is how 'unknown rights fail closed' becomes a property of the bytes rather than of the producer's discipline. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-source-rights-claim-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "source_rights_claim_id": {
+            "path": "$.source_rights_claim_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "asserted_by_ref": {
+            "path": "$.asserted_by_ref"
+          },
+          "asserted_rights_holder_refs": {
+            "path": "$.asserted_rights_holder_refs"
+          },
+          "source_class": {
+            "path": "$.source_class"
+          },
+          "subject_refs": {
+            "path": "$.subject_refs"
+          },
+          "rights_basis_refs": {
+            "path": "$.rights_basis_refs"
+          },
+          "route_rights_contract_refs": {
+            "path": "$.route_rights_contract_refs"
+          },
+          "declared_use_vocabulary": {
+            "path": "$.declared_use_vocabulary"
+          },
+          "permitted_uses": {
+            "path": "$.permitted_uses"
+          },
+          "prohibited_uses": {
+            "path": "$.prohibited_uses"
+          },
+          "declared_prohibited_uses": {
+            "path": "$.declared_prohibited_uses"
+          },
+          "unresolved_right_uses": {
+            "path": "$.unresolved_right_uses"
+          },
+          "unresolved_rights_findings": {
+            "path": "$.unresolved_rights_findings"
+          },
+          "derivative_disposition": {
+            "path": "$.derivative_disposition"
+          },
+          "beneficiary_scope_refs": {
+            "path": "$.beneficiary_scope_refs"
+          },
+          "jurisdiction_refs": {
+            "path": "$.jurisdiction_refs"
+          },
+          "residency_refs": {
+            "path": "$.residency_refs"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "deletion_or_forget_policy_ref": {
+            "path": "$.deletion_or_forget_policy_ref"
+          },
+          "legal_or_audit_hold_state": {
+            "path": "$.legal_or_audit_hold_state"
+          },
+          "validity": {
+            "path": "$.validity"
+          },
+          "evidence_refs": {
+            "path": "$.evidence_refs"
+          },
+          "claim_commitment": {
+            "path": "$.claim_commitment"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one claim from being filed under another claim's id — and a consumer resolving the family would then read a rights posture that never belonged to it. This rule requires `revision_ref` to begin with `source_rights_claim_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot: a bare family ref has no such segment.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.source_rights_claim_id",
+        "prefix": "learning-source-rights://",
+        "strip_prefix": "learning-source-rights://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.vocabulary.is_the_whole_closed_set",
+      "description": "The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set rather than the subset a producer found convenient. The item enum and uniqueness fix the members; this rule fixes the count against the size pinned in `constants`. A record that dropped `publish` from its vocabulary could otherwise partition the remainder perfectly and never say anything about publication at all.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.declared_use_vocabulary",
+        "count_path": "$.constants.learning_use_vocabulary_size"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.uses.permitted_and_prohibited_partition_the_vocabulary",
+      "description": "EVERY USE IS DECIDED, AND NO USE IS DECIDED TWICE. Coverage here is a MULTISET equality, which buys both halves at once: if a use appeared in both `permitted_uses` and `prohibited_uses` the covering multiset would be longer than the vocabulary and the record fails, and if a use appeared in neither the covering would be shorter and the record fails. Silence is therefore not a permission and not a prohibition — it is inadmissible, which is exactly what a fail-closed posture requires of a record that other contracts intersect against.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_use_vocabulary",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.permitted_uses",
+          "$.prohibited_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.prohibitions.are_declared_or_unresolved_never_invented",
+      "description": "EVERY PROHIBITION IS ATTRIBUTED TO A REASON, AND EVERY UNRESOLVED RIGHT IS A PROHIBITION. `prohibited_uses` must be covered exactly by the union of the affirmative prohibitions and the unresolved ones, so an unresolved right that the record still permits leaves the covering short and refuses. Multiset semantics additionally forbid counting one use as both affirmatively prohibited and unresolved, which keeps the audit answer to 'why can we not publish?' single-valued.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.prohibited_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.declared_prohibited_uses",
+          "$.unresolved_right_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.unresolved_uses.match_their_findings_exactly",
+      "description": "THE FAIL-CLOSED SET IS THE EVIDENCE, NOT A PARALLEL ASSERTION. `unresolved_right_uses` must be the exact projection of the `use` field of every row in `unresolved_rights_findings`. Deleting a finding to make a permission fit changes the projection and breaks the covering above; adding a use to the list without a finding breaks this one. The two directions together mean the fail-closed lane cannot be edited from either end.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.unresolved_right_uses",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.unresolved_rights_findings",
+            "field": "use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the rights posture changed relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "basis_change",
+          "evidence_change",
+          "rights_holder_change",
+          "use_permission_change",
+          "unresolved_right_resolved",
+          "expiry_or_revocation",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, and a narrowing that a later reader needs to trust becomes uncheckable exactly when it matters.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "basis_change",
+          "evidence_change",
+          "rights_holder_change",
+          "use_permission_change",
+          "unresolved_right_resolved",
+          "expiry_or_revocation",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.nonclaims.authority_is_never_omitted",
+      "description": "A rights posture is an input to a decision, never the power to act on it. The token is pinned in `constants` so this rule can require its presence without the invariant language carrying a literal of its own.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "learning_source_rights_claim.nonclaims.legal_title_is_never_omitted",
+      "description": "Canon is explicit that this object is not a court, title registry, patent, copyright license, or automatic finding of ownership. Dropping the nonclaim would let an admitted claim be read as the determination it is designed not to be.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_legal_title_token"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1": [
+    {
+      "rule_id": "institutional_learning_boundary_profile.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the parent binding, the whole denial decomposition and the release rows, which is how 'a child may narrow but never silently widen' becomes a property of the bytes. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.institutional-learning-boundary-profile-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "boundary_profile_id": {
+            "path": "$.boundary_profile_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "governance_owner_ref": {
+            "path": "$.governance_owner_ref"
+          },
+          "scope_level": {
+            "path": "$.scope_level"
+          },
+          "scope_owner_ref": {
+            "path": "$.scope_owner_ref"
+          },
+          "applies_to_refs": {
+            "path": "$.applies_to_refs"
+          },
+          "system_binding": {
+            "path": "$.system_binding"
+          },
+          "protected_material_classes": {
+            "path": "$.protected_material_classes"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "path": "$.learning_source_rights_claim_revision_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "route_rights_contract_refs": {
+            "path": "$.route_rights_contract_refs"
+          },
+          "custody": {
+            "path": "$.custody"
+          },
+          "external_recipient_permissions": {
+            "path": "$.external_recipient_permissions"
+          },
+          "cross_tenant_learning": {
+            "path": "$.cross_tenant_learning"
+          },
+          "target_binding": {
+            "path": "$.target_binding"
+          },
+          "declared_use_vocabulary": {
+            "path": "$.declared_use_vocabulary"
+          },
+          "effective_permitted_uses": {
+            "path": "$.effective_permitted_uses"
+          },
+          "effective_denied_uses": {
+            "path": "$.effective_denied_uses"
+          },
+          "parent_binding": {
+            "path": "$.parent_binding"
+          },
+          "parent_denied_uses": {
+            "path": "$.parent_denied_uses"
+          },
+          "locally_added_denied_uses": {
+            "path": "$.locally_added_denied_uses"
+          },
+          "narrowing_decisions": {
+            "path": "$.narrowing_decisions"
+          },
+          "indeterminate_findings": {
+            "path": "$.indeterminate_findings"
+          },
+          "widening_releases": {
+            "path": "$.widening_releases"
+          },
+          "snapshot_binding": {
+            "path": "$.snapshot_binding"
+          },
+          "jurisdiction_refs": {
+            "path": "$.jurisdiction_refs"
+          },
+          "residency_refs": {
+            "path": "$.residency_refs"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "deletion_or_forget_policy_ref": {
+            "path": "$.deletion_or_forget_policy_ref"
+          },
+          "legal_or_audit_hold_policy_ref": {
+            "path": "$.legal_or_audit_hold_policy_ref"
+          },
+          "derivative_policy_ref": {
+            "path": "$.derivative_policy_ref"
+          },
+          "export_policy_ref": {
+            "path": "$.export_policy_ref"
+          },
+          "revocation_policy_ref": {
+            "path": "$.revocation_policy_ref"
+          },
+          "declassification_policy_ref": {
+            "path": "$.declassification_policy_ref"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "compiled_policy_hash": {
+            "path": "$.compiled_policy_hash"
+          },
+          "effective_from": {
+            "path": "$.effective_from"
+          },
+          "expires_at": {
+            "path": "$.expires_at"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one boundary from being filed under another boundary's id — and a sovereign system resolving the family would then pin a compilation that never belonged to it. This rule requires `revision_ref` to begin with `boundary_profile_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.boundary_profile_id",
+        "prefix": "learning-boundary://",
+        "strip_prefix": "learning-boundary://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.vocabulary.is_the_whole_closed_set",
+      "description": "The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set rather than the subset a compiler found convenient. The item enum and uniqueness fix the members; this rule fixes the count against the size pinned in `constants`. A compilation that dropped `publish` from its vocabulary could otherwise partition the remainder perfectly and never decide publication at all.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.declared_use_vocabulary",
+        "count_path": "$.constants.learning_use_vocabulary_size"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.effective_uses.partition_the_vocabulary",
+      "description": "EVERY USE IS DECIDED, AND NO USE IS DECIDED TWICE. Coverage here is a MULTISET equality, which buys both halves at once: a use appearing in both the permitted and the denied set makes the covering longer than the vocabulary and the record fails, and a use appearing in neither makes it shorter and the record fails. An undecided use is therefore inadmissible rather than implicitly permitted, which is what a fail-closed compilation requires.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_use_vocabulary",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.effective_permitted_uses",
+          "$.effective_denied_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.denials.decompose_into_inherited_and_local",
+      "description": "EVERY INHERITED DENIAL SURVIVES INTO THE EFFECTIVE SET. `effective_denied_uses` must be covered, as a multiset, by the retained inherited denials plus the locally added ones. Dropping an inherited denial leaves the covering short and refuses; counting one denial as both inherited and local makes it long and refuses. This is the narrowing half of canon's rule — a child may narrow but may not silently widen — expressed as an equality anyone can check offline from these bytes alone.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.effective_denied_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.parent_denied_uses",
+          "$.locally_added_denied_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.local_denials.are_attributed_or_indeterminate",
+      "description": "EVERY LOCAL DENIAL HAS EXACTLY ONE REASON, AND EVERY INDETERMINACY IS A DENIAL. The local denial set must be covered exactly by the narrowing decisions plus the indeterminate findings. A compilation that records a conflict, a missing required contract or an indeterminate right and still permits the disputed use leaves the covering short and cannot be admitted — which is how canon's 'a conflict, missing required contract, or indeterminate right denies the disputed use' stops being a runtime branch someone can forget to take. Multiset semantics also forbid attributing one denial to both a named input and an indeterminacy, so the audit answer stays single-valued.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.locally_added_denied_uses",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.narrowing_decisions",
+            "field": "denied_use"
+          },
+          {
+            "path": "$.indeterminate_findings",
+            "field": "denied_use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.inheritance.is_retained_or_explicitly_released",
+      "description": "A SILENT WIDENING IS IMPOSSIBLE. The parent's denial set as read at compilation must be covered exactly by the denials this profile RETAINED plus the ones it EXPLICITLY RELEASED, and every release row carries its widening authority ref, its admitted decision ref and its upgrade-path class by schema. Dropping an inherited restriction without a release row leaves the covering short and the record is refused; inventing a release for a denial the parent never carried makes it long and is refused too. Canon's rule that widening requires explicit authority AND a new decision is therefore enforced by the shape rather than by whoever compiles it. At any snapshot scope level the schema pins the release list empty, so a run, invocation, transformation or Foundry-job snapshot cannot release anything at all.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.parent_binding.parent_denied_uses_at_compilation",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.parent_denied_uses"
+        ],
+        "required_item_field_paths": [
+          {
+            "path": "$.widening_releases",
+            "field": "released_use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.inheritance.count_matches_the_enumerated_set",
+      "description": "The declared parent denial count and the enumerated parent denial list are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that one of them was edited to make a permission fit.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.parent_binding.parent_denied_uses_at_compilation",
+        "count_path": "$.parent_binding.parent_denied_use_count_at_compilation"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.narrowing_decisions.decide_each_use_once",
+      "description": "Two rows deciding the same use would let one compilation carry two governing inputs for one denial, and an audit asking why a use is unavailable would get two answers with no rule for choosing between them. Every other contributing input belongs in `also_denied_by_source_kinds` on the single governing row.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.narrowing_decisions",
+        "fields": [
+          "denied_use"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.widening_releases.release_each_use_once",
+      "description": "One release per use, so a widening cannot be split across two rows with different authorities and then read as whichever one an auditor happened to fetch.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.widening_releases",
+        "fields": [
+          "released_use"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.cross_tenant.is_denied_without_a_cohort_binding",
+      "description": "CROSS-TENANT AND ECOSYSTEM LEARNING ARE DEFAULT-DENY. Either the cross-tenant use appears in the effective denial set, or the profile carries an explicit permitted-cohort binding for an opt-in aggregate-learning program. There is no third state: an anonymization claim, a differential-privacy control or a broad service default satisfies neither branch, because a control reduces exposure and cannot create a missing right. The denied token is pinned in `constants` so this rule requires it without the invariant language carrying a literal.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "array_contains_value",
+            "array_path": "$.effective_denied_uses",
+            "expected_path": "$.constants.cross_tenant_use_token"
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.cross_tenant_learning.permitted_cohort_refs"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.provider_model_training.is_denied_without_a_named_basis",
+      "description": "PROVIDER SECONDARY USE IS DENIED BY DEFAULT. Either the field reads `deny`, or the profile names the exact contract, terms or license that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch and therefore cannot silently override the effective profile.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.external_recipient_permissions.provider_model_training",
+              "$.constants.recipient_permission_deny_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.external_recipient_permissions.provider_model_training_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.cross_customer_aggregation.is_denied_without_a_named_basis",
+      "description": "The same default-deny posture for cross-customer aggregation, which is the other half of canon's provider-secondary-use rule and the one an aggregator is most likely to treat as a service default rather than a term the institution had to accept.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.external_recipient_permissions.cross_customer_aggregation",
+              "$.constants.recipient_permission_deny_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.external_recipient_permissions.cross_customer_aggregation_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the compiled boundary moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "parent_policy_change",
+          "source_rights_change",
+          "route_rights_change",
+          "custody_change",
+          "jurisdiction_or_residency_change",
+          "retention_or_export_change",
+          "governed_widening",
+          "revocation_or_suspension",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, which is exactly the mutable-head problem the pinned-revision discipline exists to end.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "parent_policy_change",
+          "source_rights_change",
+          "route_rights_change",
+          "custody_change",
+          "jurisdiction_or_residency_change",
+          "retention_or_export_change",
+          "governed_widening",
+          "revocation_or_suspension",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.nonclaims.authority_is_never_omitted",
+      "description": "The learning boundary is a cross-cutting policy compilation, not a new authority plane. A promoted model, route, memory mutation, skill or worker remains subject to ordinary manifest, policy, authority, verifier and runtime admission, and the record says so itself.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "institutional_learning_boundary_profile.nonclaims.provider_non_learning_is_never_omitted",
+      "description": "A contract proves the route and the terms the institution admitted; it does not prove what a provider actually did. Dropping this nonclaim would let an admitted profile be read as the privacy proof canon explicitly says it is not.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_provider_non_learning_token"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/learning-evidence-eligibility/v1": [
+    {
+      "rule_id": "learning_evidence_eligibility.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the boundary binding, the permitted-use snapshot and the contamination posture, which is how 'eligibility cannot exceed its boundary' becomes a property of the bytes rather than of the producer's discipline. A relying party holding only the record recomputes it; a stale or substituted hash fails offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-evidence-eligibility-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "eligibility_id": {
+            "path": "$.eligibility_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "governance_owner_ref": {
+            "path": "$.governance_owner_ref"
+          },
+          "eligibility_profile": {
+            "path": "$.eligibility_profile"
+          },
+          "boundary_profile_revision_ref": {
+            "path": "$.boundary_profile_revision_ref"
+          },
+          "boundary_profile_content_hash": {
+            "path": "$.boundary_profile_content_hash"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "boundary_permitted_uses_at_decision": {
+            "path": "$.boundary_permitted_uses_at_decision"
+          },
+          "boundary_permitted_use_count_at_decision": {
+            "path": "$.boundary_permitted_use_count_at_decision"
+          },
+          "learning_use": {
+            "path": "$.learning_use"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "path": "$.learning_source_rights_claim_revision_refs"
+          },
+          "subject_refs": {
+            "path": "$.subject_refs"
+          },
+          "requester_ref": {
+            "path": "$.requester_ref"
+          },
+          "intended_use": {
+            "path": "$.intended_use"
+          },
+          "learning_use_posture": {
+            "path": "$.learning_use_posture"
+          },
+          "legacy_binding": {
+            "path": "$.legacy_binding"
+          },
+          "applicable_evaluation_epoch_refs": {
+            "path": "$.applicable_evaluation_epoch_refs"
+          },
+          "target_binding": {
+            "path": "$.target_binding"
+          },
+          "owner_and_tenant_scope_refs": {
+            "path": "$.owner_and_tenant_scope_refs"
+          },
+          "contamination_posture": {
+            "path": "$.contamination_posture"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "data_recipe_revision_refs": {
+            "path": "$.data_recipe_revision_refs"
+          },
+          "local_policy_refs": {
+            "path": "$.local_policy_refs"
+          },
+          "consent_refs": {
+            "path": "$.consent_refs"
+          },
+          "authority_requirement_posture": {
+            "path": "$.authority_requirement_posture"
+          },
+          "authority_requirement_kinds": {
+            "path": "$.authority_requirement_kinds"
+          },
+          "wallet_authority_refs": {
+            "path": "$.wallet_authority_refs"
+          },
+          "declassification_refs": {
+            "path": "$.declassification_refs"
+          },
+          "learning_egress_receipt_refs": {
+            "path": "$.learning_egress_receipt_refs"
+          },
+          "provider_trust_posture": {
+            "path": "$.provider_trust_posture"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "derivative_policy_ref": {
+            "path": "$.derivative_policy_ref"
+          },
+          "lineage_root": {
+            "path": "$.lineage_root"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          },
+          "exclusion_reason": {
+            "path": "$.exclusion_reason"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_by_ref": {
+            "path": "$.admitted_by_ref"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. Nothing in the schema alone stops a revision of one decision from being filed under another decision's id, and a consumer resolving the family would then read an admission that never belonged to it. This rule requires `revision_ref` to begin with `eligibility_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.eligibility_id",
+        "prefix": "eligibility://",
+        "strip_prefix": "eligibility://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.use.is_permitted_by_the_bound_boundary",
+      "description": "ELIGIBILITY CANNOT EXCEED ITS BOUNDARY. Either the bound `learning_use` is a member of the boundary's permitted set as read at decision time, or the record carries an exclusion reason. The schema forbids an `eligible` record from carrying an exclusion reason, so an eligibility for a use the boundary denies satisfies neither branch and is inadmissible. This is the point at which the most-restrictive intersection stops being a claim the profile makes about itself and becomes a constraint on every decision downstream of it.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "array_contains_value",
+            "array_path": "$.boundary_permitted_uses_at_decision",
+            "expected_path": "$.learning_use"
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.exclusion_reason"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.boundary_snapshot.count_matches_the_enumerated_set",
+      "description": "The declared size of the boundary's permitted set and the enumerated set are two independent statements about the same reading, so requiring them to agree is the cheapest possible tell that one of them was edited to make a use fit.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.boundary_permitted_uses_at_decision",
+        "count_path": "$.boundary_permitted_use_count_at_decision"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.legacy_binding.normalizes_without_conflicting",
+      "description": "CONFLICTING OLD AND NEW VALUES FAIL ADMISSION. When a legacy training-eligibility envelope was normalized into this decision, the posture the adapter produced must equal the canonical posture the record carries. A record whose legacy half says one thing and whose canonical half says another is two decisions wearing one identity, and whichever half a consumer happened to read would be the effective one. A decision authored directly at this contract carries a null binding and passes.",
+      "expression": {
+        "operator": "optional_fields_equal",
+        "optional_object_path": "$.legacy_binding",
+        "paths": [
+          "$.legacy_binding.normalized_learning_use_posture",
+          "$.learning_use_posture"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.authority.a_required_authority_is_named",
+      "description": "A decision that says acting on it needs delegated machine power and then names no authority would be read by an optimistic consumer as needing none. This rule requires at least one authority ref exactly when the posture says the decision depends on one.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.wallet_authority_refs",
+        "when_path": "$.authority_requirement_posture",
+        "values": [
+          "required"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the decision moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "boundary_revision_change",
+          "source_rights_change",
+          "contamination_change",
+          "consent_change",
+          "target_scope_change",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash a revocation that a later reader needs to trust names a location that may since have been re-admitted.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "boundary_revision_change",
+          "source_rights_change",
+          "contamination_change",
+          "consent_change",
+          "target_scope_change",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.nonclaims.authority_is_never_omitted",
+      "description": "An admission decision is not the power to act on it. Where the decision requires decryption, connector access, provider keys, spend, provider trust, sealed access, egress, publication, export or cross-domain reuse, it names the authority refs rather than standing in for them.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "learning_evidence_eligibility.nonclaims.declassification_is_never_omitted",
+      "description": "Admitting evidence into an improvement loop is not releasing it across a boundary. Dropping this nonclaim would let an eligible decision be read as the declassification approval that a parameter, gradient, adapter or distillate crossing separately requires.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_declassification_token"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/learning-egress-receipt/v1": [
+    {
+      "rule_id": "learning_egress_receipt.content_hash.commits_the_whole_receipt",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the receipt except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the frozen provider-use snapshot, the enforcement-evidence binding and the forward links. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, which is what makes an egress receipt evidence rather than an assertion the emitter can revise.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.learning-egress-receipt-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "source_scope_ref": {
+            "path": "$.source_scope_ref"
+          },
+          "boundary_profile_revision_ref": {
+            "path": "$.boundary_profile_revision_ref"
+          },
+          "boundary_profile_content_hash": {
+            "path": "$.boundary_profile_content_hash"
+          },
+          "effective_learning_policy_hash": {
+            "path": "$.effective_learning_policy_hash"
+          },
+          "boundary_compilation_or_policy_decision_ref": {
+            "path": "$.boundary_compilation_or_policy_decision_ref"
+          },
+          "learning_evidence_eligibility_revision_refs": {
+            "path": "$.learning_evidence_eligibility_revision_refs"
+          },
+          "learning_source_rights_claim_revision_refs": {
+            "path": "$.learning_source_rights_claim_revision_refs"
+          },
+          "material_classes": {
+            "path": "$.material_classes"
+          },
+          "material_class_count": {
+            "path": "$.material_class_count"
+          },
+          "material_commitment": {
+            "path": "$.material_commitment"
+          },
+          "policy_bound_projection_refs": {
+            "path": "$.policy_bound_projection_refs"
+          },
+          "recipient_class": {
+            "path": "$.recipient_class"
+          },
+          "recipient_ref": {
+            "path": "$.recipient_ref"
+          },
+          "purpose": {
+            "path": "$.purpose"
+          },
+          "representation": {
+            "path": "$.representation"
+          },
+          "execution_privacy_posture_ref": {
+            "path": "$.execution_privacy_posture_ref"
+          },
+          "model_route_rights_revision_ref": {
+            "path": "$.model_route_rights_revision_ref"
+          },
+          "intended_customer_output_uses": {
+            "path": "$.intended_customer_output_uses"
+          },
+          "effective_customer_output_rights_hash": {
+            "path": "$.effective_customer_output_rights_hash"
+          },
+          "applicable_terms_and_license_refs": {
+            "path": "$.applicable_terms_and_license_refs"
+          },
+          "provider_use_of_customer_material": {
+            "path": "$.provider_use_of_customer_material"
+          },
+          "retention_posture": {
+            "path": "$.retention_posture"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "local_policy_and_consent_refs": {
+            "path": "$.local_policy_and_consent_refs"
+          },
+          "authority_refs": {
+            "path": "$.authority_refs"
+          },
+          "declassification_approval_ref": {
+            "path": "$.declassification_approval_ref"
+          },
+          "redaction_or_declassification_receipt_refs": {
+            "path": "$.redaction_or_declassification_receipt_refs"
+          },
+          "underlying_operation_receipt_refs": {
+            "path": "$.underlying_operation_receipt_refs"
+          },
+          "revocation_impact_ref": {
+            "path": "$.revocation_impact_ref"
+          },
+          "forward_links": {
+            "path": "$.forward_links"
+          },
+          "decision": {
+            "path": "$.decision"
+          },
+          "reason_codes": {
+            "path": "$.reason_codes"
+          },
+          "transfer_status": {
+            "path": "$.transfer_status"
+          },
+          "enforcement_evidence_binds_request_commitment": {
+            "path": "$.enforcement_evidence_binds_request_commitment"
+          },
+          "network_or_gateway_evidence_refs": {
+            "path": "$.network_or_gateway_evidence_refs"
+          },
+          "state_operation_refs": {
+            "path": "$.state_operation_refs"
+          },
+          "assurance_stage": {
+            "path": "$.assurance_stage"
+          },
+          "chain_position": {
+            "path": "$.chain_position"
+          },
+          "predecessor_receipt_ref": {
+            "path": "$.predecessor_receipt_ref"
+          },
+          "predecessor_content_hash": {
+            "path": "$.predecessor_content_hash"
+          },
+          "emitted_at": {
+            "path": "$.emitted_at"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.identity.ref_and_id_are_one_identity",
+      "description": "The two identity fields are independent strings, so nothing in the schema alone stops a projection from handing a consumer a ref that resolves to a different receipt than the id names. Requiring them equal keeps one crossing at one address.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_ref",
+          "$.receipt_id"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.material_classes.count_matches_the_enumerated_set",
+      "description": "The declared class count and the enumerated class list are two independent statements about what crossed. Requiring them to agree is the cheapest possible tell that a class was dropped from the readable list after the receipt was written.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.material_classes",
+        "count_path": "$.material_class_count"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.provider_model_training.is_prohibited_without_a_named_basis",
+      "description": "PROVIDER SECONDARY USE IS DENIED BY DEFAULT, AND THE RECEIPT IS WHERE THE DEFAULT IS PROVED. Either the frozen snapshot reads `prohibited`, or the receipt names the exact contract, terms or license that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch, so it cannot enter the record as a resolved right.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.provider_model_training",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.provider_model_training_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.cross_customer_aggregation.is_prohibited_without_a_named_basis",
+      "description": "The other half of the default-deny posture, and the one an aggregator is most likely to treat as a service default rather than a term the institution had to accept.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.cross_customer_aggregation",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.cross_customer_aggregation_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.chain.a_receipt_is_never_its_own_predecessor",
+      "description": "A self-referential chain terminates in itself, which reads as a lineage and proves nothing. A genesis crossing passes because its predecessor slot is null and null is not the receipt ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.predecessor_receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.chain.a_successor_names_its_predecessor_receipt",
+      "description": "A successor crossing continues an earlier one, so it names which. A successor that names no predecessor has claimed a continuation of nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.predecessor_receipt_ref",
+        "when_path": "$.chain_position",
+        "values": [
+          "successor"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.chain.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the chain names a location rather than the crossing it continues.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.predecessor_content_hash",
+        "when_path": "$.chain_position",
+        "values": [
+          "successor"
+        ]
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.nonclaims.authority_is_never_omitted",
+      "description": "Emitting a receipt confers no power. The crossing depended on authority the receipt references; the record is evidence about that dependence, never a substitute for it.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.nonclaims.delivery_is_never_omitted",
+      "description": "`admitted` proves the declared policies and rights allowed the crossing. It does not prove the bytes arrived, and a receipt that could be read as a delivery confirmation would let an audit close an obligation nobody discharged.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_delivery_token"
+      }
+    },
+    {
+      "rule_id": "learning_egress_receipt.nonclaims.provider_non_learning_is_never_omitted",
+      "description": "Provider promises remain provider trust unless separately supported by an accepted confidential-compute or cryptographic proof. Dropping this nonclaim would let a frozen `prohibited` snapshot be read as an observation of what the recipient actually did.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_provider_non_learning_token"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/model-route-rights-contract/v1": [
+    {
+      "rule_id": "model_route_rights_contract.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — including the route binding, the use partition, the destination ceiling and the revocation block. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, which is what lets an egress receipt bind this revision and mean it.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.model-route-rights-contract-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "model_route_rights_contract_id": {
+            "path": "$.model_route_rights_contract_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "credential_principal_ref": {
+            "path": "$.credential_principal_ref"
+          },
+          "route_binding": {
+            "path": "$.route_binding"
+          },
+          "purposes": {
+            "path": "$.purposes"
+          },
+          "data_classes": {
+            "path": "$.data_classes"
+          },
+          "declared_route_use_vocabulary": {
+            "path": "$.declared_route_use_vocabulary"
+          },
+          "permitted_route_uses": {
+            "path": "$.permitted_route_uses"
+          },
+          "prohibited_route_uses": {
+            "path": "$.prohibited_route_uses"
+          },
+          "declared_prohibited_route_uses": {
+            "path": "$.declared_prohibited_route_uses"
+          },
+          "unresolved_route_uses": {
+            "path": "$.unresolved_route_uses"
+          },
+          "unresolved_rights_findings": {
+            "path": "$.unresolved_rights_findings"
+          },
+          "destination_and_egress": {
+            "path": "$.destination_and_egress"
+          },
+          "customer_output_rights": {
+            "path": "$.customer_output_rights"
+          },
+          "provider_use_of_customer_material": {
+            "path": "$.provider_use_of_customer_material"
+          },
+          "retention_posture": {
+            "path": "$.retention_posture"
+          },
+          "retention_policy_ref": {
+            "path": "$.retention_policy_ref"
+          },
+          "commercial_terms_refs": {
+            "path": "$.commercial_terms_refs"
+          },
+          "technical_terms_refs": {
+            "path": "$.technical_terms_refs"
+          },
+          "fallback_substitution": {
+            "path": "$.fallback_substitution"
+          },
+          "validity": {
+            "path": "$.validity"
+          },
+          "revocation": {
+            "path": "$.revocation"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. Nothing in the schema alone stops a revision of one provider's terms from being filed under another provider's contract id, and a route resolving the family would then read terms that never governed it. This rule requires `revision_ref` to begin with the contract id followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.model_route_rights_contract_id",
+        "prefix": "model-route-rights://",
+        "strip_prefix": "model-route-rights://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.vocabulary.is_the_whole_closed_set",
+      "description": "The declared vocabulary is what every other statement here is measured against, so it must be the WHOLE set. A contract that dropped `oem_or_reseller_use` from its vocabulary could partition the remainder perfectly and never decide resale at all — which is precisely how a narrow model-inference pass gets lent to a use nobody resolved.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.declared_route_use_vocabulary",
+        "count_path": "$.constants.route_use_vocabulary_size"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.uses.permitted_and_prohibited_partition_the_vocabulary",
+      "description": "EVERY ROUTE USE IS DECIDED, AND NO USE IS DECIDED TWICE. Multiset coverage buys both halves: a use in both lists makes the covering longer than the vocabulary and fails, a use in neither makes it shorter and fails. Silence about capture, training, control, connector, publication or commercial use is therefore inadmissible rather than permissive.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_route_use_vocabulary",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.permitted_route_uses",
+          "$.prohibited_route_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.prohibitions.are_declared_or_unresolved_never_invented",
+      "description": "MISSING OR UNKNOWN RIGHTS FAIL CLOSED, AS AN EQUALITY. The prohibitions must be covered exactly by the affirmative ones plus the unresolved ones, so a contract that records an unresolved right and still permits that use leaves the covering short and refuses. Multiset semantics also forbid counting one use as both affirmatively prohibited and unresolved, which keeps the remediation answer single-valued.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.prohibited_route_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.declared_prohibited_route_uses",
+          "$.unresolved_route_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.unresolved_uses.match_their_findings_exactly",
+      "description": "THE FAIL-CLOSED SET IS THE EVIDENCE, NOT A PARALLEL ASSERTION. `unresolved_route_uses` must be the exact projection of the `route_use` field of every unresolved-rights finding. Deleting a finding to make a permission fit changes the projection and breaks the covering above; adding a use without a finding breaks this one.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.unresolved_route_uses",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.unresolved_rights_findings",
+            "field": "route_use"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.provider_model_training.is_prohibited_without_a_named_basis",
+      "description": "PROVIDER SECONDARY USE IS DENIED BY DEFAULT. Either the field reads `prohibited`, or the contract names the exact term that supports something else. A provider's account-level opt-in, broad service default or changed terms satisfies neither branch and cannot enter the record as a resolved right.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.provider_model_training",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.provider_model_training_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.cross_customer_aggregation.is_prohibited_without_a_named_basis",
+      "description": "The other half of the default-deny posture, and the one an aggregator is most likely to inherit from an upstream service default rather than a term the institution accepted.",
+      "expression": {
+        "operator": "any_of",
+        "expressions": [
+          {
+            "operator": "fields_equal",
+            "paths": [
+              "$.provider_use_of_customer_material.cross_customer_aggregation",
+              "$.constants.provider_use_prohibited_token"
+            ]
+          },
+          {
+            "operator": "non_empty",
+            "path": "$.provider_use_of_customer_material.cross_customer_aggregation_basis_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the resolved terms moved relative to a prior revision. A successor that names no prior revision has claimed a change against nothing.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "commercial_terms_change",
+          "technical_terms_change",
+          "model_revision_change",
+          "principal_change",
+          "destination_or_residency_change",
+          "retention_change",
+          "unresolved_right_resolved",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash, a receipt bound to the predecessor cannot be checked against the terms it was actually admitted under once the provider's contract has moved.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "commercial_terms_change",
+          "technical_terms_change",
+          "model_revision_change",
+          "principal_change",
+          "destination_or_residency_change",
+          "retention_change",
+          "unresolved_right_resolved",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.nonclaims.authority_is_never_omitted",
+      "description": "Resolving what terms permit is not the power to act. Eligibility still passes ordinary authority, policy and runtime admission, and the record says so itself.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "model_route_rights_contract.nonclaims.possession_is_never_permission",
+      "description": "A platform account or API credential proves possession only. Dropping this nonclaim would let a working credential be read as evidence that automation, capture, demonstration training, submission or resale is permitted — the exact substitution canon names and the reason this contract exists separately from the credential that reaches the route.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_possession_token"
+      }
+    }
+  ],
+  "schema://ioi/foundations/objects/policy-bound-data-view/v1": [],
+  "schema://ioi/foundations/objects/policy-bound-data-view/v2": [
+    {
+      "rule_id": "policy_bound_data_view.content_hash.commits_the_whole_revision",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED, AND IT IS THE SINGLE LARGEST THING THE PREDECESSOR COULD NOT DO. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map — the source bindings with their exact revisions and hashes, the row/field/time minimization, the rights and consent bindings, the redaction recipe and findings, the retention and hold state, the destination ceiling and the effective learning-boundary hash. A relying party holding only the record recomputes it; a stale or substituted hash fails offline, with no daemon consulted. This is what makes the view content-addressed rather than merely numbered.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.policy-bound-data-view-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "policy_bound_data_view_id": {
+            "path": "$.policy_bound_data_view_id"
+          },
+          "revision_ref": {
+            "path": "$.revision_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "tenant_ref": {
+            "path": "$.tenant_ref"
+          },
+          "principal_resolution": {
+            "path": "$.principal_resolution"
+          },
+          "resolved_principal_ref": {
+            "path": "$.resolved_principal_ref"
+          },
+          "purpose": {
+            "path": "$.purpose"
+          },
+          "purpose_binding_ref": {
+            "path": "$.purpose_binding_ref"
+          },
+          "source_bindings": {
+            "path": "$.source_bindings"
+          },
+          "source_binding_count": {
+            "path": "$.source_binding_count"
+          },
+          "ontology_revision_refs": {
+            "path": "$.ontology_revision_refs"
+          },
+          "connector_mapping_revision_refs": {
+            "path": "$.connector_mapping_revision_refs"
+          },
+          "object_model_refs": {
+            "path": "$.object_model_refs"
+          },
+          "row_scope": {
+            "path": "$.row_scope"
+          },
+          "field_scope": {
+            "path": "$.field_scope"
+          },
+          "time_scope": {
+            "path": "$.time_scope"
+          },
+          "data_classes": {
+            "path": "$.data_classes"
+          },
+          "privacy_class": {
+            "path": "$.privacy_class"
+          },
+          "source_rights_claim_revision_refs": {
+            "path": "$.source_rights_claim_revision_refs"
+          },
+          "consent_bindings": {
+            "path": "$.consent_bindings"
+          },
+          "route_rights_revision_refs": {
+            "path": "$.route_rights_revision_refs"
+          },
+          "jurisdiction_refs": {
+            "path": "$.jurisdiction_refs"
+          },
+          "residency_refs": {
+            "path": "$.residency_refs"
+          },
+          "redaction": {
+            "path": "$.redaction"
+          },
+          "retention_and_hold": {
+            "path": "$.retention_and_hold"
+          },
+          "destination_and_egress": {
+            "path": "$.destination_and_egress"
+          },
+          "effective_boundary_binding": {
+            "path": "$.effective_boundary_binding"
+          },
+          "materialization_precondition": {
+            "path": "$.materialization_precondition"
+          },
+          "allowed_uses": {
+            "path": "$.allowed_uses"
+          },
+          "rights_derived_allowed_uses": {
+            "path": "$.rights_derived_allowed_uses"
+          },
+          "redaction_derived_allowed_uses": {
+            "path": "$.redaction_derived_allowed_uses"
+          },
+          "registry_status": {
+            "path": "$.registry_status"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "succession": {
+            "path": "$.succession"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "constants": {
+            "path": "$.constants"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.revision_ref.extends_its_own_family",
+      "description": "A REVISION BELONGS TO THE FAMILY IT NAMES. The two identity fields are independent strings, so nothing in the schema alone stops a revision of one view from being filed under another view's id — and a recipe or run resolving the family would then read through a policy that never belonged to it. This rule requires `revision_ref` to begin with `policy_bound_data_view_id` followed by the `/revision/` segment, which also refuses a family-head reference in the revision slot: a bare `view://acme.intake` has no such segment.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.policy_bound_data_view_id",
+        "prefix": "view://",
+        "strip_prefix": "view://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.sources.are_all_inside_the_views_tenant",
+      "description": "THE CROSS-TENANT REFUSAL. Every source binding carries its own tenant ref and this rule requires all of them to equal the view's. A source belonging to another tenant is therefore inadmissible at registration rather than a discovery at materialization time — which matters because by materialization the protected bytes are already moving. Canon's rule that cross-tenant reuse is default-deny is enforced here at the projection, not only at the boundary that composes it.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.source_bindings",
+        "field": "source_tenant_ref",
+        "expected_path": "$.tenant_ref"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.sources.count_matches_the_enumerated_set",
+      "description": "The declared source count and the enumerated bindings are two independent statements about the same set, so requiring them to agree is the cheapest possible tell that a source was added to or removed from the readable list after the fact.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.source_bindings",
+        "count_path": "$.source_binding_count"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.fields.every_allowed_field_is_individually_justified",
+      "description": "THE EXCESS-FIELD REFUSAL. The allowed field set must be covered EXACTLY by the per-field minimization decisions — same members, same count. A field admitted without its own decision leaves the covering short and refuses; a decision for a field the view does not allow makes it long and refuses. Minimization stops being a claim the record makes about itself and becomes a property anyone can check offline, one field at a time.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.field_scope.allowed_field_refs",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          {
+            "path": "$.field_scope.field_minimization_decisions",
+            "field": "field_ref"
+          }
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.fields.count_matches_the_enumerated_set",
+      "description": "The declared field count and the enumerated allowed set are two independent statements about the same minimization, and a disagreement is the cheapest tell that one was edited without the other.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.field_scope.allowed_field_refs",
+        "count_path": "$.field_scope.allowed_field_count"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.consent.every_binding_is_active",
+      "description": "THE EXPIRED-CONSENT REFUSAL. Every consent binding must read `active`. A view carrying an expired, revoked, withdrawn or unknown consent cannot be admitted at all — the non-active members exist so a state can be recorded honestly on the way to a successor revision, never so that a live projection can carry one. The admissible token is pinned in `constants` so this rule requires it without the invariant language carrying a literal of its own.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.consent_bindings",
+        "field": "consent_state",
+        "expected_path": "$.constants.consent_state_active_token"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.policy.binding_and_materialization_precondition_agree",
+      "description": "THE STALE-POLICY REFUSAL. The effective learning-boundary hash this view was compiled under must equal the hash it requires of a materialization. Moving one without the other is exactly what a stale binding looks like — a view that still names a live-looking boundary revision while demanding a policy state that no longer matches it — and this rule makes that combination inadmissible rather than a race a reader has to notice.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.effective_boundary_binding.effective_learning_boundary_hash",
+          "$.materialization_precondition.required_effective_learning_boundary_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.redaction.does_not_declassify",
+      "description": "THE DECLASSIFICATION REFUSAL. The redaction output's privacy class must equal the source classification. Lowering a class through a transformation is reclassification, and reclassification is a governed act with its own approval, rights and receipts — never a side effect of masking a column. A redacted projection of restricted material is still restricted, and the record cannot say otherwise.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.redaction.output_privacy_class",
+          "$.privacy_class"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.uses.every_allowed_use_traces_to_a_right",
+      "description": "THE REDACTION-AS-PERMISSION REFUSAL. `allowed_uses` must be covered exactly, as a multiset, by the RIGHTS-DERIVED uses plus the redaction-derived ones — and the schema pins the redaction-derived list to zero members. Every use present therefore traces to a right that was actually resolved, and no use can enter this record by way of a transformation. Multiset semantics additionally forbid listing a use twice across the two lanes, so a use cannot be attributed to a right and to redaction at the same time. Redaction reduces exposure; it creates no right, and here that is an equality rather than a sentence.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.allowed_uses",
+        "required_paths": [],
+        "required_array_paths": [
+          "$.rights_derived_allowed_uses",
+          "$.redaction_derived_allowed_uses"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.succession.a_revision_is_never_its_own_predecessor",
+      "description": "A self-referential succession is a lineage that terminates in itself, which reads as a chain and proves nothing. A genesis revision passes because its predecessor slot is null and null is not the revision ref.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.revision_ref",
+          "$.succession.predecessor_revision_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.succession.a_successor_names_its_predecessor_revision",
+      "description": "Every succession reason other than `genesis` is a statement that the projection changed relative to a prior revision. A successor that names no prior revision has claimed a change against nothing, and a consumer holding an older read cannot tell what moved.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_revision_ref",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "source_revision_change",
+          "minimization_change",
+          "rights_or_consent_change",
+          "boundary_revision_change",
+          "redaction_recipe_change",
+          "retention_or_hold_change",
+          "destination_or_residency_change",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.succession.a_successor_names_its_predecessor_bytes",
+      "description": "A predecessor ref is a pointer; a predecessor content hash is the bytes it pointed at. Without the hash the lineage names a location that may since have been re-admitted, and a narrowing that a later reader needs to trust becomes uncheckable exactly when it matters — which for a projection over protected data is the moment someone asks what a past read was allowed to see.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.succession.predecessor_content_hash",
+        "when_path": "$.succession.succession_reason",
+        "values": [
+          "source_revision_change",
+          "minimization_change",
+          "rights_or_consent_change",
+          "boundary_revision_change",
+          "redaction_recipe_change",
+          "retention_or_hold_change",
+          "destination_or_residency_change",
+          "revocation_or_expiry",
+          "correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.migration.a_converged_revision_names_its_source_bytes",
+      "description": "A convergence from the v1 lane must commit the EXACT predecessor bytes. `converged_from_v1` with no source hash claims a provenance while naming nothing anyone could check, which is worse than claiming none — v1 carries no commitment of its own, so this hash is the only thing that makes the convergence auditable at all.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_content_hash",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.migration.a_converged_revision_names_its_predecessor_ref",
+      "description": "The predecessor is named in the scheme it was ACTUALLY STORED UNDER. A convergence that carries the bytes but not the ref has committed to a record nobody can locate, and rewriting the ref into the successor's scheme would be reinterpreting v1 — the one thing a convergence may not do.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.migration.from_view_ref",
+        "when_path": "$.migration.compatibility",
+        "values": [
+          "converged_from_v1"
+        ]
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.nonclaims.authority_is_never_omitted",
+      "description": "A bounded projection is not the power to read through it. Every materialization revalidates current authority, rights, revocation and expiry, and this record asserts none of them.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_authority_token"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.nonclaims.redaction_is_never_permission",
+      "description": "The nonclaim that this family exists to carry. A transformation reduces exposure, creates no right and severs no lineage; dropping the token would let a heavily redacted view be read as a widely permitted one, which is the exact inference the redaction-as-permission refusal above is built to defeat.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_redaction_permission_token"
+      }
+    },
+    {
+      "rule_id": "policy_bound_data_view.nonclaims.consent_is_never_manufactured",
+      "description": "Binding a consent ref records that a consent was resolved; it does not make this record the consent. Dropping the token would let a view be presented as the basis it is only supposed to reference.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.nonclaim_consent_token"
+      }
+    }
   ]
 };
 
@@ -119668,4 +129059,46 @@ export function validateTransformationRunV2(
   value: unknown,
 ): value is TransformationRunV2 {
   return validateArchitectureContract("schema://ioi/foundations/objects/transformation-run/v2", value).ok;
+}
+
+export function validateLearningSourceRightsClaimV1(
+  value: unknown,
+): value is LearningSourceRightsClaimV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/learning-source-rights-claim/v1", value).ok;
+}
+
+export function validateInstitutionalLearningBoundaryProfileV1(
+  value: unknown,
+): value is InstitutionalLearningBoundaryProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/institutional-learning-boundary-profile/v1", value).ok;
+}
+
+export function validateLearningEvidenceEligibilityV1(
+  value: unknown,
+): value is LearningEvidenceEligibilityV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/learning-evidence-eligibility/v1", value).ok;
+}
+
+export function validateLearningEgressReceiptV1(
+  value: unknown,
+): value is LearningEgressReceiptV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/learning-egress-receipt/v1", value).ok;
+}
+
+export function validateModelRouteRightsContractV1(
+  value: unknown,
+): value is ModelRouteRightsContractV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/model-route-rights-contract/v1", value).ok;
+}
+
+export function validatePolicyBoundDataViewV1(
+  value: unknown,
+): value is PolicyBoundDataViewV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/policy-bound-data-view/v1", value).ok;
+}
+
+export function validatePolicyBoundDataViewV2(
+  value: unknown,
+): value is PolicyBoundDataViewV2 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/policy-bound-data-view/v2", value).ok;
 }

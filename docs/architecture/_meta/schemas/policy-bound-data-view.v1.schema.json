@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+  "title": "PolicyBoundDataViewV1",
+  "description": "THE LEGACY STORED SHAPE, REGISTERED AS THE EXACT PREDECESSOR IT IS. This contract does not describe what a policy-bound view should be; it describes what the inert declaration lane actually persists today, so the v2 successor can name a predecessor that exists rather than one it invented. Registering it is what makes the migration checkable in both directions: a stored v1 record can be validated as v1, a v2 record can commit this predecessor's exact bytes, and neither can be quietly read as the other. WHAT V1 CANNOT DO IS THE POINT. It is MUTABLE — `revision` is a counter that is bumped in place and `updated_at` moves with it, so no reader can tell whether the bytes in front of them are the bytes a decision was made under. It carries NO CONTENT COMMITMENT, so nothing about it is verifiable offline. Its identity is a WALL-CLOCK-DERIVED opaque id under the `policy-bound-data-view://pbdv_…` scheme with no revision segment, so there is nothing to pin and every reference is a family head. It binds a connector mapping by MUTABLE ID rather than by exact revision and content hash, so the shape it claims to scope can change underneath it. It carries a single `ontology_ref` with no revision segment. And it has NO principal, tenant, purpose-bound row/field/time minimization, data classes, source-rights or consent binding, jurisdiction or residency, redaction recipe or findings, retention/hold state, destination/egress ceiling, or effective learning-boundary hash — which is the complete list of what the successor adds and the reason `additionalProperties` is false here: a v2 member appearing in a v1 record is a SCHEMA REFUSAL rather than a tolerated extension. The `authority.crossed` flag is pinned false and `health.status` is honest about the family being declarative only: v1 authorizes nothing to run, and registering it claims no runtime enforcement of anything it declares.",
+  "x-ioi-schema-version": "ioi.hypervisor.odk.policy-bound-data-view.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "shortString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "stringList": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "legacyTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "status",
+    "revision",
+    "connector_mapping_id",
+    "connector_mapping_ref",
+    "ontology_ref",
+    "object_type_id",
+    "allowed_operations",
+    "authority_subjects",
+    "purpose",
+    "property_scope",
+    "retention_posture",
+    "export_posture",
+    "training_posture",
+    "evaluation_posture",
+    "publish_route_posture",
+    "receipt_obligations",
+    "receipt_refs",
+    "receipt_binding",
+    "history",
+    "health",
+    "authority",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.odk.policy-bound-data-view.v1",
+      "description": "The legacy wire version as it is ACTUALLY STORED, in the `ioi.hypervisor.odk.` namespace the successor leaves behind. Pinned as a const so a v2 record cannot be validated here and a v1 record cannot claim the successor's version."
+    },
+    "object": {
+      "const": "ioi.hypervisor.odk.policy_bound_data_view"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^pbdv_[0-9a-f]{1,32}$",
+      "description": "A WALL-CLOCK-DERIVED OPAQUE ID. The stored form is a hex nanosecond stamp, which means identity depends on when the record was created rather than on what it contains — so a replayed declaration produces a different view and two identical policies are two unrelated objects."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^policy-bound-data-view://pbdv_[0-9a-f]{1,32}$",
+      "description": "The addressable form, WITH NO REVISION SEGMENT. Every reference to a v1 view is therefore a family-head reference: a consumer that resolves it gets whatever the record says now, which is the mutable-head problem the successor's `/revision/` segment exists to end."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "declared"
+      ],
+      "description": "The only two states the legacy lane persists. There is deliberately no `active`, `expired` or `revoked` member: v1 has no expiry, no revocation and no revalidation, so a status suggesting any of them would be a claim the stored record cannot support."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999999999,
+      "description": "A COUNTER BUMPED IN PLACE, not an immutable revision. This is the mutability tell: the same `ref` at two moments is two different policies, and nothing in the record distinguishes them."
+    },
+    "connector_mapping_id": {
+      "$ref": "#/$defs/shortString",
+      "description": "The mapping bound by MUTABLE ID. The mapped shape this view claims to scope can change underneath it without the view changing at all, which is why the successor binds an exact mapping revision and its content hash instead."
+    },
+    "connector_mapping_ref": {
+      "$ref": "#/$defs/shortString"
+    },
+    "ontology_ref": {
+      "$ref": "#/$defs/shortString",
+      "description": "One ontology reference with no revision segment, copied from the bound mapping. A v1 view follows its ontology's head wherever it goes."
+    },
+    "object_type_id": {
+      "$ref": "#/$defs/shortString"
+    },
+    "allowed_operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "read",
+          "transform",
+          "distill",
+          "train",
+          "evaluate",
+          "export",
+          "publish",
+          "route"
+        ]
+      },
+      "description": "The eight operations the legacy lane recognises. Declaring one is not being granted it — v1 is inert and nothing revalidates authority, rights, revocation or expiry before a read, which is the whole gap the successor closes."
+    },
+    "authority_subjects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/shortString"
+      },
+      "description": "Free-form subject strings, NOT resolved principals. The legacy lane accepts whatever the caller names, including wildcard spellings it can only downgrade to `draft` rather than refuse — which is exactly why the successor pins server-side principal resolution."
+    },
+    "purpose": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "A free-text purpose. Not an enumerated, bound purpose that a read can be checked against: v1 records the intention and enforces nothing about it."
+    },
+    "property_scope": {
+      "$ref": "#/$defs/stringList",
+      "description": "The property ids this view claims, checked at declaration against the mapping's mapped properties. There is no row predicate and no time range beside it, so field minimization is the only minimization v1 can express at all."
+    },
+    "object_scope": {
+      "description": "An unconstrained passthrough of whatever the caller sent. An opaque scope is a scope nobody can check, and it is preserved here as an optional member precisely so a stored record carrying one still validates as the v1 it is."
+    },
+    "retention_posture": {
+      "enum": [
+        "ephemeral",
+        "bounded",
+        "durable"
+      ]
+    },
+    "export_posture": {
+      "enum": [
+        "no_export",
+        "receipted_export_only"
+      ]
+    },
+    "training_posture": {
+      "enum": [
+        "no_training",
+        "receipted_training_only"
+      ]
+    },
+    "evaluation_posture": {
+      "enum": [
+        "no_evaluation",
+        "receipted_evaluation_only"
+      ]
+    },
+    "publish_route_posture": {
+      "enum": [
+        "no_publish_route",
+        "receipted_publish_route_only"
+      ]
+    },
+    "receipt_obligations": {
+      "$ref": "#/$defs/stringList",
+      "description": "Free-form obligation strings rather than a closed vocabulary, so no consumer can check that an obligation was discharged by the right kind of receipt."
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/stringList",
+      "description": "Starts empty by construction: the receipt for a declaration cannot exist until the record is durable, and embedding a ref before its receipt is durable is the dangling-evidence defect the legacy lane deliberately avoids. The join lives in the receipt store, not here."
+    },
+    "receipt_binding": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "history": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "revision",
+          "op",
+          "at",
+          "summary"
+        ],
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999
+          },
+          "op": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "at": {
+            "$ref": "#/$defs/legacyTimestamp"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "description": "An in-record audit trail, which is the honest signal that the record itself is edited in place. An immutable revision needs no history because its predecessor is still addressable."
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "gaps",
+        "authorized_subjects",
+        "allowed_operations",
+        "scoped_properties",
+        "object_instances",
+        "missing_contracts",
+        "note"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "incomplete",
+            "ready"
+          ]
+        },
+        "gaps": {
+          "$ref": "#/$defs/stringList"
+        },
+        "authorized_subjects": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "allowed_operations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "scoped_properties": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999999999
+        },
+        "object_instances": {
+          "description": "Pinned zero. A v1 view holds no materialized instances, and a nonzero count would be a claim the inert lane cannot make.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 0
+        },
+        "missing_contracts": {
+          "$ref": "#/$defs/stringList"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "description": "The legacy lane's own honest self-report: a declarative gate only, with the downstream contracts it still lacks named in the record."
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crossed",
+        "note"
+      ],
+      "properties": {
+        "crossed": {
+          "const": false,
+          "description": "Pinned false. Declaring a view crosses no CapabilityLease and no AuthorityGrant, and executes nothing."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "#/$defs/legacyTimestamp"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/legacyTimestamp",
+      "description": "THE MUTABILITY TELL. An immutable revision has one stamp; a record with a second one is a record that is expected to change, and the successor deliberately carries no `updated_at` at all."
+    }
+  }
+}

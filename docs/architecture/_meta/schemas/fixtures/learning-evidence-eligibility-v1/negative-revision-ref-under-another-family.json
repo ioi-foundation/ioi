@@ -1,0 +1,108 @@
+{
+  "schema_version": "ioi.learning-evidence-eligibility.v1",
+  "eligibility_id": "eligibility://acme.intake-corrections",
+  "revision_ref": "eligibility://acme.other-decision/revision/1",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "governance_owner_ref": "project://acme-clinic/intake",
+  "eligibility_profile": "training_compatibility",
+  "boundary_profile_revision_ref": "learning-boundary://acme.organization-default/revision/3",
+  "boundary_profile_content_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "effective_learning_policy_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "boundary_permitted_uses_at_decision": [
+    "operational_inference",
+    "retain",
+    "replay",
+    "internal_evaluation",
+    "internal_analytics",
+    "memory_or_context_improvement",
+    "dataset_generation",
+    "fine_tune"
+  ],
+  "boundary_permitted_use_count_at_decision": 8,
+  "learning_use": "fine_tune",
+  "learning_source_rights_claim_revision_refs": [
+    "learning-source-rights://acme.intake-records/revision/2"
+  ],
+  "subject_refs": [
+    "finding://acme/intake-correction/0431",
+    "trace://acme/intake-session/0912"
+  ],
+  "requester_ref": "foundry_job://acme-clinic/intake-adapter-build/07",
+  "intended_use": "worker_training",
+  "learning_use_posture": "full_private_opt_in",
+  "legacy_binding": {
+    "legacy_envelope_label": "TrainingEvidenceEligibilityEnvelope",
+    "legacy_training_data_posture": "full_private_opt_in",
+    "normalized_learning_use_posture": "full_private_opt_in"
+  },
+  "applicable_evaluation_epoch_refs": [
+    "evaluation-epoch://acme-clinic/intake/2026-q3"
+  ],
+  "target_binding": {
+    "allowed_improvement_target_refs": [
+      "worker://acme-clinic/intake-assistant"
+    ],
+    "permission_travels_to_other_targets": false
+  },
+  "owner_and_tenant_scope_refs": [
+    "org://acme-clinic",
+    "tenant://acme-clinic"
+  ],
+  "contamination_posture": "clean",
+  "policy_bound_data_view_refs": [
+    "view://acme.intake-minimised/revision/1"
+  ],
+  "data_recipe_revision_refs": [
+    "data-recipe://acme.intake-normalise/revision/2"
+  ],
+  "local_policy_refs": [
+    "policy://acme/learning/intake/v2"
+  ],
+  "consent_refs": [
+    "grant://acme-clinic/intake-consent/v3"
+  ],
+  "authority_requirement_posture": "required",
+  "authority_requirement_kinds": [
+    "gpu_spend",
+    "model_provider_key"
+  ],
+  "wallet_authority_refs": [
+    "grant://acme-clinic/foundry-spend/v2"
+  ],
+  "declassification_refs": [],
+  "learning_egress_receipt_refs": [],
+  "provider_trust_posture": "no_provider_plaintext",
+  "retention_policy_ref": "policy://acme/retention/intake/v3",
+  "derivative_policy_ref": "policy://acme/derivative/v1",
+  "lineage_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "receipt_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "exclusion_reason": null,
+  "status": "eligible",
+  "admitted_by_ref": "operation://acme-clinic/eligibility-admit/8821",
+  "admitted_at": "2026-09-12T08:02:19Z",
+  "succession": {
+    "succession_reason": "genesis",
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null,
+    "supersedes_predecessor": false,
+    "reinterprets_predecessor": false
+  },
+  "constants": {
+    "lifecycle_id": "learning_evidence_eligibility_lifecycle.v1",
+    "learning_use_vocabulary_size": 15,
+    "nonclaim_authority_token": "authority",
+    "nonclaim_declassification_token": "declassification"
+  },
+  "authority_nonclaim": "learning_evidence_eligibility_grants_no_authority",
+  "truth_nonclaim": "learning_evidence_eligibility_is_an_admission_decision_not_a_permission_to_cross_a_boundary",
+  "does_not_assert": [
+    "authority",
+    "declassification",
+    "capability_lease_crossing",
+    "source_rights",
+    "semantic_truth",
+    "redaction_creates_permission"
+  ],
+  "content_hash": "sha256:9a70e11bf3000a4667a66b84692e56c33c149145b8edb6e0681cd59892f8f032"
+}

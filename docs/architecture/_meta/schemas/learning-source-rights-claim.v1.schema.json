@@ -1,0 +1,554 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/learning-source-rights-claim/v1",
+  "title": "LearningSourceRightsClaimV1",
+  "description": "THE RIGHTS HALF OF THE COMPILED LEARNING BOUNDARY, AND THE ONE PLACE FAIL-CLOSED IS A SHAPE RATHER THAN A HABIT. Canon states the posture in one line: unknown, expired, conflicting, or unsupported source rights mean no training, distillation, cross-tenant learning, publication, or export. Prose cannot enforce that, because prose lets a record carry an unresolved finding in one field and a permission in another and read as consistent. This contract makes the two mutually exclusive IN THE BYTES. The claim declares the closed learning-use vocabulary once, partitions it into `permitted_uses` and `prohibited_uses`, and a registered invariant requires the vocabulary to be covered by that pair EXACTLY ONCE EACH — so a use listed as both permitted and prohibited makes the covering multiset longer than the vocabulary and the record is refused offline. A second invariant requires `prohibited_uses` to be covered exactly by the union of `declared_prohibited_uses` and `unresolved_right_uses`, and a third requires `unresolved_right_uses` to be the exact projection of `unresolved_rights_findings`. Together they mean a claim that records an unresolved, missing, conflicting, expired, revoked, or unsupported right and does not prohibit that exact use CANNOT BE ADMITTED — the default posture is not a runtime branch anyone can forget to take. IDENTITY IS OWNER-QUALIFIED AND REVISION-EXACT. `source_rights_claim_id` names the family, `revision_ref` names one immutable revision of THAT family, an invariant refuses a revision filed under another family, and the `/revision/` segment refuses a family-head or mutable-latest reference wherever a revision is required. Succession names the predecessor's exact ref AND its exact content hash, both or neither. `content_hash` commits every other field under a domain separator, so a relying party holding only these bytes recomputes it and a substituted or stale commitment fails with no daemon consulted. THIS IS A CLAIM, NOT A FINDING. It asserts an evidence-backed rights posture that policy may use as ONE input to the most-restrictive intersection. It is not a court, title registry, license grant, copyright determination, or authority: `does_not_assert` carries `authority` and `legal_title` in the record itself, and creation of material inside an institution's boundary establishes no right to train on, distill, commercialize, publish, or transfer it.",
+  "x-ioi-schema-version": "ioi.learning-source-rights-claim.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "claimFamilyRef": {
+      "type": "string",
+      "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}$"
+    },
+    "claimRevisionRef": {
+      "type": "string",
+      "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "learningUse": {
+      "enum": [
+        "operational_inference",
+        "retain",
+        "replay",
+        "internal_evaluation",
+        "internal_analytics",
+        "memory_or_context_improvement",
+        "dataset_generation",
+        "fine_tune",
+        "distill",
+        "competing_model_training",
+        "worker_or_package_improvement",
+        "commercialize_derivative",
+        "export",
+        "publish",
+        "cross_tenant_aggregate_learning"
+      ]
+    },
+    "learningUseList": {
+      "type": "array",
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/learningUse"
+      }
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "nonEmptyRefList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "canonicalTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "source_rights_claim_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "asserted_by_ref",
+    "asserted_rights_holder_refs",
+    "source_class",
+    "subject_refs",
+    "rights_basis_refs",
+    "route_rights_contract_refs",
+    "declared_use_vocabulary",
+    "permitted_uses",
+    "prohibited_uses",
+    "declared_prohibited_uses",
+    "unresolved_right_uses",
+    "unresolved_rights_findings",
+    "derivative_disposition",
+    "beneficiary_scope_refs",
+    "jurisdiction_refs",
+    "residency_refs",
+    "retention_policy_ref",
+    "deletion_or_forget_policy_ref",
+    "legal_or_audit_hold_state",
+    "validity",
+    "evidence_refs",
+    "claim_commitment",
+    "status",
+    "admitted_at",
+    "succession",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.learning-source-rights-claim.v1"
+    },
+    "source_rights_claim_id": {
+      "$ref": "#/$defs/claimFamilyRef",
+      "description": "THE FAMILY. A rights posture is restated as new evidence arrives, so the lineage is the aggregate and a revision is the thing anyone may cite. Nothing resolves or reads through the family head."
+    },
+    "revision_ref": {
+      "$ref": "#/$defs/claimRevisionRef",
+      "description": "ONE IMMUTABLE REVISION OF THAT FAMILY. The `/revision/` segment is mandatory, which is what refuses a family-head or mutable-latest reference where a revision is required. A registered invariant additionally refuses a revision that does not extend its own `source_rights_claim_id`, so a claim cannot be filed under a family it never belonged to."
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef",
+      "description": "OWNER-QUALIFIED IDENTITY. The accountable steward of this claim inside the estate. It is not the rights holder and it is not authority: naming an owner says who answers for the assertion, not who may permit the use."
+    },
+    "tenant_ref": {
+      "type": "string",
+      "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "The tenancy boundary this claim lives inside. Every consumer of the intersection carries the same field, which is how a cross-tenant read becomes checkable rather than assumed."
+    },
+    "asserted_by_ref": {
+      "$ref": "#/$defs/ownerRef",
+      "description": "Who made the assertion. Distinct from `owner_ref` and from the rights holders: an assertion by a party that holds nothing is still recordable, and is still only an input."
+    },
+    "asserted_rights_holder_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The parties the claim asserts hold the rights. Asserting a holder does not establish that they hold anything; it states whose entitlement the basis refs are supposed to evidence."
+    },
+    "source_class": {
+      "enum": [
+        "employee",
+        "contractor",
+        "customer",
+        "patient",
+        "partner",
+        "vendor",
+        "licensed",
+        "purchased",
+        "public",
+        "synthetic",
+        "provider_output",
+        "machine_generated",
+        "mixed",
+        "unknown"
+      ],
+      "description": "Canon's fourteen source classes, verbatim. `unknown` is a real member rather than an absence, because the honest way to record an unclassified source is to say so and let the fail-closed partition do its work."
+    },
+    "subject_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The governed material this posture is about, named by ref. The claim carries no protected payload: a rights record that embeds the bytes it governs has widened exposure to describe it."
+    },
+    "rights_basis_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The contracts, terms, policies, grants, licenses or evidence the assertion rests on. At least one is mandatory: a claim with no basis is an opinion, and an opinion cannot narrow an intersection honestly."
+    },
+    "route_rights_contract_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The route-rights half of the intersection, referenced rather than restated. The route contract remains the semantic owner of what a provider or intermediary may do; this claim neither widens nor reinterprets it."
+    },
+    "declared_use_vocabulary": {
+      "$ref": "#/$defs/learningUseList",
+      "description": "THE CLOSED VOCABULARY, CARRIED IN THE RECORD SO THE PARTITION IS CHECKABLE WITHOUT A REGISTRY LOOKUP. A registered invariant pins its length to `constants.learning_use_vocabulary_size`, and the item enum plus uniqueness make it exactly the fifteen canonical uses. Everything else here is a statement about this set."
+    },
+    "permitted_uses": {
+      "$ref": "#/$defs/learningUseList",
+      "description": "The uses this claim asserts are supported by its basis refs. It is a CEILING INPUT, never a grant: the effective permission is the most-restrictive intersection over every applicable claim, profile, view, route contract, custody rule and authority decision, and a permission here that any other input denies does not survive it."
+    },
+    "prohibited_uses": {
+      "$ref": "#/$defs/learningUseList",
+      "description": "The complement of `permitted_uses` over the declared vocabulary, and the field the fail-closed rules land on. A registered invariant requires the vocabulary to be covered by the permitted/prohibited pair exactly once each, so a use cannot be both — the multiset would be longer than the vocabulary — and no use can be silently omitted from both."
+    },
+    "declared_prohibited_uses": {
+      "$ref": "#/$defs/learningUseList",
+      "description": "The prohibitions the basis refs state affirmatively, as opposed to the ones the fail-closed default produces. Separating them keeps the record honest about WHY a use is unavailable: a contract that forbids publication and an unanswered question about publication are different facts that a single merged list would erase."
+    },
+    "unresolved_right_uses": {
+      "$ref": "#/$defs/learningUseList",
+      "description": "THE FAIL-CLOSED LANE, AS A SET. A registered invariant requires this to be the exact projection of `unresolved_rights_findings`, and a second requires `prohibited_uses` to be covered exactly by the union of this list and `declared_prohibited_uses`. The consequence is the whole point of the contract: A CLAIM THAT RECORDS AN UNRESOLVED RIGHT AND STILL PERMITS THAT USE CANNOT BE ADMITTED. Because the covering is a multiset, a use cannot be counted as both affirmatively prohibited and unresolved either."
+    },
+    "unresolved_rights_findings": {
+      "type": "array",
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "use",
+          "resolution",
+          "subject_ref"
+        ],
+        "properties": {
+          "use": {
+            "$ref": "#/$defs/learningUse"
+          },
+          "resolution": {
+            "enum": [
+              "missing",
+              "unknown",
+              "conflicting",
+              "expired",
+              "revoked",
+              "unsupported",
+              "disputed"
+            ],
+            "description": "Canon's fail-closed triggers, named individually so an audit can tell an expired consent from a conflict between two live bases. Every member has the same consequence and a different remedy."
+          },
+          "subject_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "Which governed subject the finding is about, so a partial resolution is attributable rather than a blanket doubt."
+          }
+        }
+      },
+      "description": "One row per use whose rights this claim could not resolve. The rows are the evidence; `unresolved_right_uses` is their projection and the registered invariant ties the two together, so deleting a finding to make a permission fit changes the projection and fails the covering."
+    },
+    "derivative_disposition": {
+      "enum": [
+        "inherit_intersection",
+        "internal_only",
+        "transferable_with_claims",
+        "noncommercial_only",
+        "no_derivatives",
+        "policy_defined"
+      ],
+      "description": "Canon's six dispositions, verbatim. `inherit_intersection` is the honest default for composed material: a derivative of several sources inherits the intersection of every contributing source and route, never the most permissive contributor."
+    },
+    "beneficiary_scope_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Whose benefit the permitted uses are for. A scope narrower than the requester's is a denial, not a courtesy."
+    },
+    "jurisdiction_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The jurisdictional obligations that apply. They are an input to the intersection like any other; naming a jurisdiction never widens what the basis refs support."
+    },
+    "residency_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Where the governed material may reside. Residency is distinct from jurisdiction — one is where bytes sit, the other is whose law reaches them — and conflating them is how a compliant-looking record permits a move neither would allow."
+    },
+    "retention_policy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The retention policy governing the subjects. Mandatory: an indefinite default is a retention decision nobody made."
+    },
+    "deletion_or_forget_policy_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "The deletion and forget policy. Naming it asserts a process, not an outcome: canon is explicit that a revocation record does not prove a trained model has forgotten anything."
+    },
+    "legal_or_audit_hold_state": {
+      "enum": [
+        "none",
+        "legal_hold",
+        "audit_hold",
+        "incident_hold"
+      ],
+      "description": "A hold narrows disposal and can narrow use; it never widens either. It is carried on the claim because a hold that lives only in a policy the reader has to fetch is a hold the offline verifier cannot see."
+    },
+    "validity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid_from",
+        "valid_until"
+      ],
+      "properties": {
+        "valid_from": {
+          "$ref": "#/$defs/canonicalTimestamp"
+        },
+        "valid_until": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/canonicalTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null means open-ended under the current basis, not permanent. An expiry that has passed is recorded by moving `status` to `expired`, which empties the permitted set by schema."
+        }
+      }
+    },
+    "evidence_refs": {
+      "$ref": "#/$defs/nonEmptyRefList",
+      "description": "The evidence backing the assertion. At least one is mandatory, for the same reason a basis is: an unevidenced claim narrows nothing honestly and must not be allowed to widen anything."
+    },
+    "claim_commitment": {
+      "$ref": "#/$defs/sha256",
+      "description": "The producer's commitment over the asserted posture as it was evidenced, distinct from `content_hash`, which commits this record. Two hashes because they answer different questions: one is whether the bytes are intact, the other is whether the posture is the one the evidence was gathered for."
+    },
+    "status": {
+      "enum": [
+        "asserted",
+        "admitted",
+        "disputed",
+        "expired",
+        "superseded",
+        "revoked",
+        "rejected"
+      ],
+      "description": "Canon's seven claim states, verbatim. Only `asserted` and `admitted` may carry permissions; the other five empty the permitted set by schema, which is how expiry, dispute and revocation become fail-closed in the record rather than in whichever reader remembers to check."
+    },
+    "admitted_at": {
+      "$ref": "#/$defs/canonicalTimestamp",
+      "description": "The ADMISSION stamp of this revision, taken from the admitted operation rather than the wall clock, so a replayed admission re-commits byte-identically. There is deliberately no `updated_at`: an immutable revision has one stamp."
+    },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "WITHIN-FAMILY LINEAGE, AND EXACTLY TWO ADMISSIBLE TUPLES. A genesis revision has no predecessor and says so in both provenance slots at once. Every other revision names its predecessor's exact ref AND its predecessor's exact content hash, both, plus the reason it exists. Independently nullable slots would admit a partial tuple that reads as a complete lineage while naming nothing anyone could check, so the conditional below partitions the reason enum exactly and a partial tuple is a SCHEMA refusal.",
+      "required": [
+        "succession_reason",
+        "predecessor_revision_ref",
+        "predecessor_content_hash",
+        "supersedes_predecessor",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "succession_reason": {
+          "enum": [
+            "genesis",
+            "basis_change",
+            "evidence_change",
+            "rights_holder_change",
+            "use_permission_change",
+            "unresolved_right_resolved",
+            "expiry_or_revocation",
+            "correction"
+          ],
+          "description": "`genesis` plus the seven ways a rights posture legitimately moves. Every member other than `genesis` obliges the full predecessor tuple."
+        },
+        "predecessor_revision_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/claimRevisionRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predecessor_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predecessor's bytes, hashed over ITS OWN enumerated fields under ITS OWN domain separator. A successor naming a ref but no hash has named a location that may since have been re-admitted, and the lineage becomes uncheckable exactly when it matters."
+        },
+        "supersedes_predecessor": {
+          "type": "boolean",
+          "description": "Whether this revision retires the predecessor for new use. Either way the predecessor stays addressable, because superseding is not deletion and an audit of a past decision needs the posture that decision was made under."
+        },
+        "reinterprets_predecessor": {
+          "const": false,
+          "description": "Pinned. A successor never re-reads its predecessor's stored bytes under the successor's meaning. A narrowed claim does not retroactively unmake a use that was admitted under the wider one; it blocks future use and leaves the historical record exactly as admitted."
+        }
+      },
+      "allOf": [
+        {
+          "title": "a genesis revision has no predecessor, in both slots at once",
+          "if": {
+            "required": [
+              "succession_reason"
+            ],
+            "properties": {
+              "succession_reason": {
+                "const": "genesis"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "type": "null"
+              },
+              "predecessor_content_hash": {
+                "type": "null"
+              },
+              "supersedes_predecessor": {
+                "const": false
+              }
+            },
+            "type": "object"
+          },
+          "else": {
+            "properties": {
+              "predecessor_revision_ref": {
+                "$ref": "#/$defs/claimRevisionRef"
+              },
+              "predecessor_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "type": "object"
+          }
+        }
+      ]
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Tokens pinned in the schema so the portable invariants can require them without the invariant language carrying literals of its own. The schema fixes the vocabulary, the invariants fix the coverage, and a build that quietly narrowed either would have to defeat both.",
+      "required": [
+        "lifecycle_id",
+        "learning_use_vocabulary_size",
+        "nonclaim_authority_token",
+        "nonclaim_legal_title_token"
+      ],
+      "properties": {
+        "lifecycle_id": {
+          "const": "learning_source_rights_claim_lifecycle.v1",
+          "description": "Names WHICH lifecycle `status` is drawn from, so a reader cannot mistake a claim's assertion state for a boundary profile's activation state or an egress receipt's decision even when a projection calls all three `status`."
+        },
+        "learning_use_vocabulary_size": {
+          "description": "The size of the closed learning-use vocabulary, pinned so the partition invariants can check completeness against a number carried in the bytes rather than one compiled into a verifier.",
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 15
+        },
+        "nonclaim_authority_token": {
+          "const": "authority"
+        },
+        "nonclaim_legal_title_token": {
+          "const": "legal_title"
+        }
+      }
+    },
+    "authority_nonclaim": {
+      "const": "learning_source_rights_claim_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "learning_source_rights_claim_is_an_asserted_posture_not_a_legal_finding"
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "legal_title",
+          "ownership",
+          "semantic_truth",
+          "training_consent_by_creation",
+          "redaction_creates_permission",
+          "provider_non_learning",
+          "verified_unlearning",
+          "policy_permission",
+          "capability_lease_crossing"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "legal_title"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "ownership"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "training_consent_by_creation"
+          },
+          "type": "array"
+        },
+        {
+          "contains": {
+            "const": "redaction_creates_permission"
+          },
+          "type": "array"
+        }
+      ],
+      "description": "Six mandatory members. `training_consent_by_creation` states canon's sharpest rule in the record itself — creation inside an enterprise boundary establishes no right to train, distill, commercialize, publish or transfer — and `redaction_creates_permission` states the other one: a transformation reduces exposure, it creates no right and severs no lineage."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only these bytes recomputes it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer. This is what makes the revision content-addressed rather than merely numbered."
+    }
+  },
+  "allOf": [
+    {
+      "title": "a claim that is not live permits nothing",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "disputed",
+              "expired",
+              "superseded",
+              "revoked",
+              "rejected"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "permitted_uses": {
+            "maxItems": 0,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      }
+    }
+  ]
+}

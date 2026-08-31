@@ -1,0 +1,100 @@
+{
+  "schema_version": "ioi.learning-egress-receipt.v1",
+  "receipt_id": "receipt://acme.egress-admitted-0912-0011",
+  "receipt_ref": "receipt://acme.egress-admitted-0912-0011",
+  "receipt_type": "learning_egress",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "source_scope_ref": "system://acme-clinic/primary",
+  "boundary_profile_revision_ref": "learning-boundary://acme.organization-default/revision/3",
+  "boundary_profile_content_hash": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "effective_learning_policy_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "boundary_compilation_or_policy_decision_ref": "receipt://acme.boundary-compilation-0912",
+  "learning_evidence_eligibility_revision_refs": [
+    "eligibility://acme.intake-corrections/revision/1"
+  ],
+  "learning_source_rights_claim_revision_refs": [
+    "learning-source-rights://acme.intake-records/revision/2"
+  ],
+  "material_classes": [
+    "prompts_and_completions"
+  ],
+  "material_class_count": 1,
+  "material_commitment": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "policy_bound_projection_refs": [
+    "view://acme.intake-minimised/revision/1"
+  ],
+  "recipient_class": "model_provider",
+  "recipient_ref": "provider://acme-clinic/external-inference-a",
+  "purpose": "inference_service_delivery",
+  "representation": "redacted",
+  "execution_privacy_posture_ref": "privacy_posture://acme-clinic/customer-vpc/v1",
+  "model_route_rights_revision_ref": "model-route-rights://acme.primary-inference/revision/1",
+  "intended_customer_output_uses": [
+    "retain",
+    "internal_evaluation"
+  ],
+  "effective_customer_output_rights_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "applicable_terms_and_license_refs": [
+    "terms://acme-clinic/provider-a/v7"
+  ],
+  "provider_use_of_customer_material": {
+    "request_or_prompt_logging": "prohibited",
+    "human_review": "prohibited",
+    "abuse_and_security_processing": "transient_only",
+    "service_improvement": "prohibited",
+    "provider_model_training": "prohibited",
+    "provider_model_training_basis_ref": null,
+    "cross_customer_aggregation": "prohibited",
+    "cross_customer_aggregation_basis_ref": null
+  },
+  "retention_posture": "zero_retention",
+  "retention_policy_ref": "policy://acme/retention/intake/v3",
+  "local_policy_and_consent_refs": [
+    "policy://acme/learning/intake/v2"
+  ],
+  "authority_refs": [
+    "grant://acme-clinic/egress-review/v1"
+  ],
+  "declassification_approval_ref": null,
+  "redaction_or_declassification_receipt_refs": [
+    "receipt://acme.redaction-0912-0011"
+  ],
+  "underlying_operation_receipt_refs": [
+    "receipt://acme.route-decision-0912-0007"
+  ],
+  "revocation_impact_ref": null,
+  "forward_links": [],
+  "decision": "admitted",
+  "reason_codes": [],
+  "transfer_status": "delivery_confirmed",
+  "enforcement_evidence_binds_request_commitment": false,
+  "network_or_gateway_evidence_refs": [],
+  "state_operation_refs": [
+    "operation://acme-clinic/egress-record/0912-0007"
+  ],
+  "assurance_stage": "attested",
+  "chain_position": "genesis",
+  "predecessor_receipt_ref": null,
+  "predecessor_content_hash": null,
+  "emitted_at": "2026-09-12T09:51:38Z",
+  "constants": {
+    "lifecycle_id": "learning_egress_receipt_lifecycle.v1",
+    "provider_use_prohibited_token": "prohibited",
+    "nonclaim_authority_token": "authority",
+    "nonclaim_delivery_token": "delivery",
+    "nonclaim_provider_non_learning_token": "provider_non_learning"
+  },
+  "authority_nonclaim": "learning_egress_receipt_grants_no_authority",
+  "truth_nonclaim": "learning_egress_receipt_proves_ioi_observed_boundary_facts_not_recipient_behaviour",
+  "does_not_assert": [
+    "authority",
+    "delivery",
+    "provider_non_learning",
+    "provider_deletion",
+    "verified_unlearning",
+    "protected_plaintext_custody",
+    "verdict"
+  ],
+  "content_hash": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}

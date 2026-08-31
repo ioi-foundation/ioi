@@ -1,0 +1,127 @@
+{
+  "schema_version": "ioi.learning-source-rights-claim.v1",
+  "source_rights_claim_id": "learning-source-rights://acme.intake-records",
+  "revision_ref": "learning-source-rights://acme.intake-records/revision/2",
+  "owner_ref": "org://acme-clinic",
+  "tenant_ref": "tenant://acme-clinic",
+  "asserted_by_ref": "org://acme-clinic",
+  "asserted_rights_holder_refs": [
+    "org://acme-clinic",
+    "user://acme-clinic/data-steward"
+  ],
+  "source_class": "customer",
+  "subject_refs": [
+    "artifact://acme/intake-forms/2026-q2",
+    "dataset://acme/intake-rows/v3"
+  ],
+  "rights_basis_refs": [
+    "contract://acme/customer-msa/v4",
+    "policy://acme/data-use/v2"
+  ],
+  "route_rights_contract_refs": [
+    "model-route-rights://acme.primary-inference/revision/1"
+  ],
+  "declared_use_vocabulary": [
+    "operational_inference",
+    "retain",
+    "replay",
+    "internal_evaluation",
+    "internal_analytics",
+    "memory_or_context_improvement",
+    "dataset_generation",
+    "fine_tune",
+    "distill",
+    "competing_model_training",
+    "worker_or_package_improvement",
+    "commercialize_derivative",
+    "export",
+    "publish",
+    "cross_tenant_aggregate_learning"
+  ],
+  "permitted_uses": [
+    "operational_inference",
+    "retain",
+    "replay",
+    "internal_evaluation",
+    "internal_analytics",
+    "memory_or_context_improvement",
+    "dataset_generation"
+  ],
+  "prohibited_uses": [
+    "fine_tune",
+    "distill",
+    "competing_model_training",
+    "worker_or_package_improvement",
+    "commercialize_derivative",
+    "cross_tenant_aggregate_learning",
+    "export",
+    "publish"
+  ],
+  "declared_prohibited_uses": [
+    "fine_tune",
+    "distill",
+    "competing_model_training",
+    "worker_or_package_improvement",
+    "commercialize_derivative",
+    "cross_tenant_aggregate_learning",
+    "export"
+  ],
+  "unresolved_right_uses": [
+    "publish"
+  ],
+  "unresolved_rights_findings": [
+    {
+      "use": "publish",
+      "resolution": "unknown",
+      "subject_ref": "artifact://acme/intake-forms/2026-q2"
+    }
+  ],
+  "derivative_disposition": "inherit_intersection",
+  "beneficiary_scope_refs": [
+    "org://acme-clinic",
+    "project://acme-clinic/intake"
+  ],
+  "jurisdiction_refs": [
+    "jurisdiction://us-ca"
+  ],
+  "residency_refs": [
+    "region://us-west"
+  ],
+  "retention_policy_ref": "policy://acme/retention/intake/v3",
+  "deletion_or_forget_policy_ref": "policy://acme/deletion/intake/v2",
+  "legal_or_audit_hold_state": "none",
+  "validity": {
+    "valid_from": "2026-06-01T00:00:00Z",
+    "valid_until": "2027-06-01T00:00:00Z"
+  },
+  "evidence_refs": [
+    "evidence://acme/msa-countersigned/v4"
+  ],
+  "claim_commitment": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "admitted",
+  "admitted_at": "2026-07-14T11:02:47Z",
+  "succession": {
+    "succession_reason": "unresolved_right_resolved",
+    "predecessor_revision_ref": "learning-source-rights://acme.intake-records/revision/1",
+    "predecessor_content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "supersedes_predecessor": true,
+    "reinterprets_predecessor": false
+  },
+  "constants": {
+    "lifecycle_id": "learning_source_rights_claim_lifecycle.v1",
+    "learning_use_vocabulary_size": 15,
+    "nonclaim_authority_token": "authority",
+    "nonclaim_legal_title_token": "legal_title"
+  },
+  "authority_nonclaim": "learning_source_rights_claim_grants_no_authority",
+  "truth_nonclaim": "learning_source_rights_claim_is_an_asserted_posture_not_a_legal_finding",
+  "does_not_assert": [
+    "authority",
+    "legal_title",
+    "ownership",
+    "semantic_truth",
+    "training_consent_by_creation",
+    "redaction_creates_permission"
+  ],
+  "content_hash": "sha256:9ee4976409b6bcec25a6e03103b7917f678bd99456d92d4ebb370d1f6e3bb66b"
+}
