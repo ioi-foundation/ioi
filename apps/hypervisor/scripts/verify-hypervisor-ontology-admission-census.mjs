@@ -223,7 +223,7 @@ const RECORDED_PLANE = {
   "odk-policy-bound-data-view-receipts": { admits: [], touches: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"] },
   "odk-policy-bound-data-views": { admits: ["hypervisor_daemon_routes/policy_bound_data_view_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/policy_bound_data_view_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-saved-object-sets": { admits: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"], touches: ["hypervisor_daemon_routes/ontology_workbench_routes.rs"] },
-  "odk-surface-descriptors": { admits: ["hypervisor_daemon_routes/odk_routes.rs"], touches: ["hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs", "hypervisor_daemon_routes/package_registry_routes.rs"] },
+  "odk-surface-descriptors": { admits: [], touches: ["hypervisor_daemon_routes/domain_apps_routes.rs", "hypervisor_daemon_routes/governance_routes.rs", "hypervisor_daemon_routes/marketplace_routes.rs", "hypervisor_daemon_routes/odk_routes.rs"] },
   "odk-transformation-run-receipts": { admits: ["hypervisor_daemon_routes/transformation_run_routes.rs"], touches: ["hypervisor_daemon_routes/transformation_run_routes.rs"] },
   "odk-transformation-runs": { admits: ["hypervisor_daemon_routes/transformation_run_routes.rs"], touches: ["hypervisor_daemon_routes/capability_lease_plan_routes.rs", "hypervisor_daemon_routes/materializing_run_routes.rs", "hypervisor_daemon_routes/ontology_projection_routes.rs", "hypervisor_daemon_routes/transformation_run_routes.rs"] },
 };
@@ -380,11 +380,35 @@ const PINNED = {
   //      add +96 source tokens and +8 opaque initialisers against the 129898 baseline. Module count,
   //      family mentions, judged token positions, foreign-qualified names, all three writer buckets
   //      and the raw-filesystem count are unchanged: still no owner edge.
-  modules: 102,
-  familyMentions: 284,
-  tokenMentions: 129994,
-  judgedTokenPositions: 281,
-  productionWriterCalls: { family: 58, nonFamilyLiteral: 237, runtimeParameter: 302 },
+  //
+  // M05.4/M05.5 inherited re-derivation (2026-08-30). This movement was measured on the clean
+  // integrated M05.5 head BEFORE M05.2/M05.3 were integrated; the gate was 20/27 there, so none of
+  // it is silently attributed to the later semantic-plane modules:
+  //
+  //   * ontology_action_contract_routes.rs adds one reachable module. The action-contract and
+  //     descriptor convergence together add 3,109 source tokens, 123 opaque initialisers, 45
+  //     foreign-qualified names, seven family-resolving positions and seven family mentions.
+  //   * M05.5 moves ordinary surface-descriptor admission out of the legacy ODK writer, so the
+  //     resolved family-writer population falls 58 -> 57. The descriptor remains named by its ODK
+  //     owner module but is no longer admitted there, and package_registry_routes no longer names
+  //     the family. Those are removals from the recorded map, not missing producers to wave through.
+  //   * Thirty-five registered schema/invariant reads raise include_str! from 43 -> 78. The raw
+  //     filesystem count, non-family/runtime writer buckets, and every other include/assembly
+  //     population are unchanged. The new action module writes no ODK family and creates no second
+  //     operational-truth spine.
+  //
+  // M05.2/M05.3 re-derivation (2026-08-30), measured only after the inherited movement above was
+  // recorded separately: semantic_mapping_routes.rs and provenance_assertion_routes.rs add two
+  // reachable modules, 2,610 source tokens, 103 opaque initialisers and 52 foreign-qualified names.
+  // They add NO ODK-family mention, judged family position, writer call or raw-filesystem call: both
+  // families persist solely through the shared owner-scoped Agentgres mutation boundary and resolve
+  // ontology terms/revisions through M05.1's published reader. This unchanged owner/admitter census
+  // is the load-bearing result; the token/bucket increases merely keep traversal reach explicit.
+  modules: 105,
+  familyMentions: 291,
+  tokenMentions: 135713,
+  judgedTokenPositions: 288,
+  productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
   /**
    * THE NAMES THIS CENSUS CANNOT ADJUDICATE, by cause. Pinned exactly, both directions.
@@ -403,15 +427,15 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4242,
-    "opaque-initialiser": 2054,
+    "foreign-qualified": 4339,
+    "opaque-initialiser": 2280,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 43, dataBytes: 0, dataOpaqueArg: 13 },
+  includes: { splicedCode: 0, dataStr: 78, dataBytes: 0, dataOpaqueArg: 13 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
   compileAssembly: { production: 0, test: 15 },
 };
