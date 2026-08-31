@@ -1,0 +1,649 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/domain-app/v2",
+  "title": "DomainAppV2",
+  "description": "THE CANONICAL DOMAIN APP, WITH INVENTORY STATUS AND RUNTIME STATE STRUCTURALLY SEPARATED (G-6). v1 pinned `status` to `draft` forever and had no field for any stage of the composable-application journey, so 'this app was never registered' and 'this record cannot say whether it was registered' were the same bytes. This version makes the two state kinds different fields with different writers and enforces their coupling in the schema. `status` is INVENTORY: it advances only when the stage binding that produced it is named — `admitted` requires the immutable package release, `installed` requires the installation binding and the surface registration beside it — and no mount, serve, stop, unmount or kill transition may move it. `runtime_posture` is a BACKLINK PROJECTION of the `DomainAppRuntime` that owns mounted/serving state, and it must name the exact runtime it projects whenever it claims either. The two cannot be confused by a reader because neither field's vocabulary appears in the other. `launch_posture` carries canon's System-binding bound as a field: an app with no admitted System binding is `inspect_only`, and the schema refuses a record that claims otherwise while binding nothing. The derived snapshot is complete — canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` were absent from v1 entirely — and it is bound to the EXACT descriptor bytes it was derived from, so a snapshot cannot silently belong to a different revision of its own source.",
+  "x-ioi-schema-version": "ioi.domain-app.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "domainAppRef": {
+      "type": "string",
+      "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "runtimeRef": {
+      "type": "string",
+      "pattern": "^domain-app-runtime://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "ownerRef": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "domain_app_id",
+    "name",
+    "description",
+    "surface_descriptor_ref",
+    "surface_descriptor_schema_version",
+    "surface_descriptor_content_hash",
+    "odk_manifest_ref",
+    "owner_ref",
+    "project_ref",
+    "visibility",
+    "ontology_refs",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "policy_bound_data_view_refs",
+    "operator_contract_refs",
+    "mcp_contract_refs",
+    "authority_requirement_refs",
+    "receipt_obligations",
+    "generated_artifact_refs",
+    "surface_registration_ref",
+    "package_release_ref",
+    "installation_ref",
+    "system_binding_refs",
+    "launch_posture",
+    "status",
+    "runtime_posture",
+    "migration",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.domain-app.v2"
+    },
+    "domain_app_id": {
+      "$ref": "#/$defs/domainAppRef",
+      "description": "ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `domain_app_id` and a separate `domain_app_ref` that could disagree."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "surface_descriptor_ref": {
+      "type": "string",
+      "pattern": "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. A DomainApp without a resolving app-shaped descriptor is a defect, not a draft."
+    },
+    "surface_descriptor_schema_version": {
+      "enum": [
+        "ioi.ontology-surface-descriptor.v2",
+        "ioi.hypervisor.odk.surface-descriptor.v1"
+      ],
+      "description": "WHICH REGISTERED CONTRACT THE SNAPSHOT WAS READ UNDER. Both versions are readable; neither is reinterpreted as the other. Recording the version is what lets a reader tell a snapshot that is empty because the descriptor binds nothing from one that is empty because the consumer read the wrong field names — the exact defect the v1 lineage read had, where `ontology_ref` and `recipe_refs` were read off a v2 record that carries neither and the empty result was recorded as provenance."
+    },
+    "surface_descriptor_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The EXACT descriptor bytes this snapshot was derived from, hashed under that descriptor version's own domain separator. A descriptor that advances leaves this app's snapshot bound to the revision it actually read, so 'the snapshot is current' is decidable offline rather than assumed."
+    },
+    "odk_manifest_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional packaging provenance. When present it must itself name this descriptor, so packaging provenance cannot disagree with the app-shape contract."
+    },
+    "owner_ref": {
+      "$ref": "#/$defs/ownerRef",
+      "description": "Server-resolved from the authenticated caller, never copied from the request body. v1's PATCH path accepted a caller-supplied owner_ref, which is how a record's owner could stop being the owner its admission was scoped to."
+    },
+    "project_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^project://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "visibility": {
+      "enum": [
+        "private",
+        "org",
+        "marketplace_candidate"
+      ],
+      "description": "Distribution intent, and nothing else. `marketplace_candidate` is a flag on a record, never a publication and never a local package admission."
+    },
+    "ontology_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Derived snapshot member. The four snapshot lists are a projection of the bound descriptor and manifest, not independent authorship: a DomainApp cannot widen the ontology, object-model, recipe or view set its descriptor declares."
+    },
+    "canonical_object_model_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "ABSENT FROM v1 ENTIRELY. A v1 DomainApp over a descriptor binding eight object models recorded none of them, and nothing failed."
+    },
+    "data_recipe_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "policy_bound_data_view_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "ABSENT FROM v1 ENTIRELY. Policy-bound views gate read, transform, distill, train, evaluate, export, publish and route use of governed data; an app whose record could not name the views its descriptor binds could not be checked against them."
+    },
+    "operator_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "mcp_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "authority_requirement_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "What this app will OWE when it acts. Declaring a requirement grants nothing (non-negotiable 9): a consequential action still passes capability, policy, authority, daemon, evidence and verification gates."
+    },
+    "receipt_obligations": {
+      "$ref": "#/$defs/refList"
+    },
+    "generated_artifact_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "surface_registration_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Stage 7 of the composable-application journey: the `HypervisorApplicationSurfaceRegistration` that makes this app launchable as an `extension_application`. Mounting is a runtime fact and registration is an inventory fact; they are never substitutes."
+    },
+    "package_release_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Stage 6: the immutable release local Packages admission produced."
+    },
+    "installation_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Stage 7: the installation binding. Admission does not install; installation does not expose."
+    },
+    "system_binding_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^system-binding://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+      },
+      "description": "Stage 9: admitted System/context bindings. Their absence bounds the app to inspect-only use rather than silently permitting effects."
+    },
+    "launch_posture": {
+      "enum": [
+        "inspect_only",
+        "system_bound"
+      ],
+      "description": "CANON'S SYSTEM-BINDING BOUND, AS A FIELD A RELYING PARTY CAN READ. It is not independent authorship: the two conditionals below tie it to `system_binding_refs` exactly, so a record claiming `system_bound` while binding no System is a SCHEMA refusal rather than something a reader has to notice."
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "admitted",
+        "installed",
+        "deprecated",
+        "revoked"
+      ],
+      "description": "INVENTORY STATUS — canon's five members, and the field v1 pinned to `draft`. It answers where this app sits in the composable-application journey and NOTHING about whether it is mounted or serving. The conditionals below make each advance carry the stage binding that produced it, so `admitted` cannot be written by a route that admitted nothing."
+    },
+    "runtime_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mounted",
+        "serving",
+        "route",
+        "mount_ref"
+      ],
+      "description": "RUNTIME STATE — a backlink PROJECTION of the `DomainAppRuntime`, never a second source of truth. All four keys are required at every revision, so a reader can never confuse 'not serving' with 'this writer did not say', which is exactly what v1's union-of-five-writers shape allowed. The conditionals bind the projection to a real runtime: claiming mounted or serving without naming the runtime is refused.",
+      "properties": {
+        "mounted": {
+          "type": "boolean"
+        },
+        "serving": {
+          "type": "boolean"
+        },
+        "route": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^/__ioi/domain-app-runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The INTERNAL route only. External ingress is a separate admission recorded on the runtime, and it is never a consequence of serving."
+        },
+        "mount_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/runtimeRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "title": "serving implies mounted",
+          "if": {
+            "required": [
+              "serving"
+            ],
+            "properties": {
+              "serving": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mounted": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "title": "a live posture names the runtime it projects",
+          "if": {
+            "required": [
+              "mounted"
+            ],
+            "properties": {
+              "mounted": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mount_ref": {
+                "$ref": "#/$defs/runtimeRef"
+              }
+            }
+          }
+        },
+        {
+          "title": "an unmounted posture projects nothing",
+          "if": {
+            "required": [
+              "mounted"
+            ],
+            "properties": {
+              "mounted": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "serving": {
+                "const": false
+              },
+              "route": {
+                "type": "null"
+              },
+              "mount_ref": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — and exactly two admissible tuples, partitioned by `compatibility`.",
+      "required": [
+        "from_schema_version",
+        "from_domain_app_ref",
+        "from_content_hash",
+        "compatibility",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "from_schema_version": {
+          "oneOf": [
+            {
+              "const": "ioi.hypervisor.domain-app.v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_domain_app_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^domain-app://dapp_[0-9a-f]{16}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator."
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "converged_from_v1"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — all three provenance slots are null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_domain_app_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "title": "converged from a stored v1 — all three provenance slots are present together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "converged_from_v1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.domain-app.v1"
+              },
+              "from_domain_app_ref": {
+                "type": "string",
+                "pattern": "^domain-app://dapp_[0-9a-f]{16}$"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "authority_nonclaim": {
+      "const": "domain_app_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "domain_app_is_not_registration_admission_or_runtime_truth",
+      "description": "A DomainApp is not a runtime (`DomainAppRuntime` owns mounted/serving state), not a catalog registration, not an admission, and not semantic truth. A DomainApp with no admitted registration is a candidate, not durable product inventory."
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "capability_lease_crossing",
+          "runtime_truth",
+          "semantic_truth",
+          "permission_truth",
+          "marketplace_truth",
+          "registration",
+          "package_admission",
+          "installation",
+          "launchability",
+          "external_ingress"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "runtime_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "permission_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "marketplace_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "registration"
+          }
+        },
+        {
+          "contains": {
+            "const": "launchability"
+          }
+        }
+      ],
+      "description": "Seven mandatory members. `registration` and `launchability` are the two this family needs most: a mounted, serving Domain App is still not product inventory, and the record has to say so in its own bytes."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, recomputable offline by a relying party holding only the bytes."
+    }
+  },
+  "allOf": [
+    {
+      "title": "no System binding means inspect-only",
+      "if": {
+        "required": [
+          "system_binding_refs"
+        ],
+        "properties": {
+          "system_binding_refs": {
+            "type": "array",
+            "maxItems": 0
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "launch_posture": {
+            "const": "inspect_only"
+          }
+        }
+      }
+    },
+    {
+      "title": "a system-bound posture names at least one admitted System binding",
+      "if": {
+        "required": [
+          "launch_posture"
+        ],
+        "properties": {
+          "launch_posture": {
+            "const": "system_bound"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "system_binding_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "title": "a draft has completed no journey stage",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "draft"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "surface_registration_ref": {
+            "type": "null"
+          },
+          "package_release_ref": {
+            "type": "null"
+          },
+          "installation_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "title": "admitted names the immutable release that admitted it, and nothing further",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "admitted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "package_release_ref": {
+            "type": "string",
+            "pattern": "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          "installation_ref": {
+            "type": "null"
+          },
+          "surface_registration_ref": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "title": "installed names release, installation and registration together",
+      "if": {
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "installed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "package_release_ref": {
+            "type": "string",
+            "pattern": "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          "installation_ref": {
+            "type": "string",
+            "pattern": "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          },
+          "surface_registration_ref": {
+            "type": "string",
+            "pattern": "^surface://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+  "title": "DomainAppMountReceiptV2",
+  "description": "THE RECEIPT THAT BINDS THE RUNTIME IT TRANSITIONED. Canon requires `domain_app_runtime_ref` and gives the reason in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. v1 had no such field, so this contract adds it and then adds the three facts that make the binding EXACT rather than merely present. `domain_app_runtime_owner_ref` makes the runtime identity owner-qualified, so a receipt cannot be read against a same-named runtime under another owner. `domain_app_runtime_revision` names which transition of that runtime this receipt attests, so a serve-stop receipt is attributable to the serve it stopped. `domain_app_runtime_content_hash` commits the runtime state the transition PRODUCED, so a relying party holding the receipt and the runtime can check offline that they describe the same admitted state instead of trusting that they do. `domain_app_admitted_head_before` names the exact chain position the transition was admitted against, which is what makes the receipt locatable in the app's own admitted history rather than merely consistent with it. `state_root` is a canonical-JSON commitment over every other field under a domain separator — a real commitment a verifier recomputes, replacing v1's pipe-joined text digest whose preimage was ambiguous and whose material said nothing about the runtime. It attests that a named transition was admitted for a named runtime under a named approval and release control at a named time. It does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran.",
+  "x-ioi-schema-version": "ioi.domain-app-mount-receipt.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "mount_receipt_id",
+    "action",
+    "domain_app_ref",
+    "domain_app_runtime_ref",
+    "domain_app_runtime_owner_ref",
+    "domain_app_runtime_revision",
+    "domain_app_runtime_content_hash",
+    "domain_app_admitted_head_before",
+    "approval_request_ref",
+    "release_control_ref",
+    "state_root",
+    "at",
+    "does_not_assert"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.domain-app-mount-receipt.v2"
+    },
+    "mount_receipt_id": {
+      "type": "string",
+      "pattern": "^mount-receipt://mrcpt_[0-9a-f]{16}$",
+      "description": "One scheme-prefixed identity, derived from the caller's owner, idempotency key and this transition's action — so a replayed transition resolves to the receipt it already emitted rather than appending a second one that attests the same fact under a different id."
+    },
+    "action": {
+      "enum": [
+        "domain_app.mount",
+        "domain_app.serve_start",
+        "domain_app.serve_stop",
+        "domain_app.unmount",
+        "domain_app.kill_stop_serving",
+        "domain_app.kill_unmount"
+      ],
+      "description": "Canon's six. Governance enforcement drives the same transitions and emits the same receipt family as a voluntary stop, so an enforced stop leaves exactly the record a voluntary one does, distinguished only by the action name."
+    },
+    "domain_app_ref": {
+      "type": "string",
+      "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "domain_app_runtime_ref": {
+      "type": "string",
+      "pattern": "^domain-app-runtime://dartm_[0-9a-f]{16}$",
+      "description": "THE FIELD v1 DID NOT HAVE. Required, never nullable: a transition always has a runtime, and a receipt that could omit it would reintroduce exactly the ambiguity this version exists to remove."
+    },
+    "domain_app_runtime_owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+      "description": "OWNER-QUALIFIED IDENTITY. The runtime ref alone is an id in a namespace; the owner is what makes it resolvable to one runtime rather than to whichever runtime a reader happens to look up."
+    },
+    "domain_app_runtime_revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Which admitted transition of that runtime this receipt attests. A mount is revision 0 by construction, since a mount creates the runtime it transitions."
+    },
+    "domain_app_runtime_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The `content_hash` of the runtime record this transition PRODUCED, not of the one it started from. It is what makes 'this receipt is about this runtime state' checkable from bytes: substitute the runtime and the hash stops matching; edit the runtime and it stops matching too."
+    },
+    "domain_app_admitted_head_before": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16,128}$",
+      "description": "The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."
+    },
+    "approval_request_ref": {
+      "type": "string",
+      "pattern": "^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "release_control_ref": {
+      "type": "string",
+      "pattern": "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "state_root": {
+      "$ref": "#/$defs/sha256",
+      "description": "A canonical-JSON SHA-256 over every other field of this contract under a domain separator, verified by the registered invariant profile rather than merely computed by the producer. v1's preimage was the five values joined with pipes, which is ambiguous under any component containing a pipe and commits nothing about the runtime; this one commits the whole receipt including the three runtime bindings above."
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "The ADMISSION stamp of the transition, taken from the admitted operation rather than from the wall clock, so a replayed transition re-emits a byte-identical receipt."
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "app_behaviour",
+          "semantic_validity",
+          "external_surface_exists",
+          "domain_action_ran",
+          "authority",
+          "registration",
+          "launchability",
+          "package_admission"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "app_behaviour"
+          }
+        },
+        {
+          "contains": {
+            "const": "semantic_validity"
+          }
+        },
+        {
+          "contains": {
+            "const": "external_surface_exists"
+          }
+        },
+        {
+          "contains": {
+            "const": "domain_action_ran"
+          }
+        }
+      ],
+      "description": "Canon's four nonclaims, carried as fields so the receipt states its own limits in the bytes a relying party reads: it does not attest that the app behaves correctly, that its semantic bindings are still valid, that an external surface exists, or that any domain action ran."
+    }
+  },
+  "allOf": [
+    {
+      "title": "a mount receipt attests the runtime's genesis revision",
+      "if": {
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "const": "domain_app.mount"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "domain_app_runtime_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 0,
+            "description": "A mount creates the runtime it transitions, so its receipt attests revision 0 and nothing else."
+          }
+        }
+      }
+    }
+  ]
+}

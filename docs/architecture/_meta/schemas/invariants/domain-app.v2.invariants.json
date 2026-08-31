@@ -1,0 +1,115 @@
+{
+  "$id": "invariant://ioi/foundations/objects/domain-app/content-commitment/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
+  "rules": [
+    {
+      "rule_id": "domain_app.content_hash.commits_the_whole_app",
+      "description": "THE COMMITMENT COVERS BOTH STATE KINDS AT ONCE. The material includes `status` (inventory) and `runtime_posture` (the runtime backlink) together with the four stage bindings, so a record whose inventory status was advanced without its stage binding, or whose runtime backlink was edited to claim a mount that never happened, fails the recomputation offline. Separating the two state kinds into different fields is what makes them distinguishable; committing them in one hash is what makes editing either one detectable.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.domain-app-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "domain_app_id": {
+            "path": "$.domain_app_id"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "description": {
+            "path": "$.description"
+          },
+          "surface_descriptor_ref": {
+            "path": "$.surface_descriptor_ref"
+          },
+          "surface_descriptor_schema_version": {
+            "path": "$.surface_descriptor_schema_version"
+          },
+          "surface_descriptor_content_hash": {
+            "path": "$.surface_descriptor_content_hash"
+          },
+          "odk_manifest_ref": {
+            "path": "$.odk_manifest_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "project_ref": {
+            "path": "$.project_ref"
+          },
+          "visibility": {
+            "path": "$.visibility"
+          },
+          "ontology_refs": {
+            "path": "$.ontology_refs"
+          },
+          "canonical_object_model_refs": {
+            "path": "$.canonical_object_model_refs"
+          },
+          "data_recipe_refs": {
+            "path": "$.data_recipe_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "operator_contract_refs": {
+            "path": "$.operator_contract_refs"
+          },
+          "mcp_contract_refs": {
+            "path": "$.mcp_contract_refs"
+          },
+          "authority_requirement_refs": {
+            "path": "$.authority_requirement_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "generated_artifact_refs": {
+            "path": "$.generated_artifact_refs"
+          },
+          "surface_registration_ref": {
+            "path": "$.surface_registration_ref"
+          },
+          "package_release_ref": {
+            "path": "$.package_release_ref"
+          },
+          "installation_ref": {
+            "path": "$.installation_ref"
+          },
+          "system_binding_refs": {
+            "path": "$.system_binding_refs"
+          },
+          "launch_posture": {
+            "path": "$.launch_posture"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "runtime_posture": {
+            "path": "$.runtime_posture"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

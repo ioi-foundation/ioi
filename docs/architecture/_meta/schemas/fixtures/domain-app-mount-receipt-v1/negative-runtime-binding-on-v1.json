@@ -1,0 +1,13 @@
+{
+  "schema_version": "ioi.hypervisor.domain-app-mount-receipt.v1",
+  "object": "ioi.hypervisor.domain_app_mount_receipt",
+  "id": "mrcpt_18f2c9b0a4d76e4",
+  "ref": "mount-receipt://mrcpt_18f2c9b0a4d76e4",
+  "action": "domain_app.mount",
+  "domain_app_ref": "domain-app://dapp_9f2c41ab77e05d63",
+  "approval_request_ref": "approval-request://apr_intake_queue_mount",
+  "release_control_ref": "release-control://rel_intake_queue_2026_08",
+  "state_root": "sha256:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+  "at": "2026-08-30T17:04:11Z",
+  "domain_app_runtime_ref": "domain-app-runtime://dartm_4b81ce07d2a96f15"
+}

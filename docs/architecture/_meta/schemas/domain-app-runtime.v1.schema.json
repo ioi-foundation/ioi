@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
+  "title": "DomainAppRuntimeV1",
+  "description": "THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the runtime record the governed mount ladder minted while `ioi.hypervisor.domain-app-runtime.v1` was a Rust string literal. Four divergences from `DomainAppRuntimeEnvelope` are byte-verified. Identity is a bare `id` plus a separate `ref` where canon carries one `domain_app_runtime_id`. `rollback` is canon's `rollback_posture` under a different name. `external_ingress_ref` DOES NOT EXIST as a field, so canon's rule that internal route and external ingress are distinct admissions has no wire form here — serving and ingress are not separable in the record, and the only honest reading of a v1 runtime is that its ingress state is unknown rather than absent. And the record carries no owner and no revision, so a mount receipt could not have bound the exact runtime revision it transitioned even if it had tried. There is also a dead `route` key that the mount writes as null and no transition ever sets: the serving route lives in `internal_route_ref`, which means a reader taking `route` at face value sees an unrouted runtime while it serves. AUTHORING AT v1 IS CLOSED. Stored v1 runtimes remain readable exactly as admitted.",
+  "x-ioi-schema-version": "ioi.hypervisor.domain-app-runtime.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "domain_app_ref",
+    "mounted",
+    "state",
+    "serving",
+    "route",
+    "approval_request_ref",
+    "release_control_ref",
+    "authority_refs",
+    "receipt_refs",
+    "rollback",
+    "note",
+    "mounted_at",
+    "unmounted_at",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.domain-app-runtime.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.domain_app_runtime"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^dartm_[0-9a-f]{1,32}$",
+      "description": "MINTED FROM THE WALL CLOCK. `format!(\"dartm_{:x}\", nanos())` — so the id is a function of when the mount happened rather than of what was requested, and a retried mount mints a SECOND runtime rather than resolving to the first. That is why the width here is a range: nothing about this id is derived, so nothing about it is fixed."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^domain-app-runtime://dartm_[0-9a-f]{1,32}$"
+    },
+    "domain_app_ref": {
+      "type": "string",
+      "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "mounted": {
+      "type": "boolean"
+    },
+    "state": {
+      "enum": [
+        "mounted",
+        "serving",
+        "unmounted",
+        "killed"
+      ],
+      "description": "Canon's four runtime states. This half of the contract was already correct at v1: runtime state is the runtime's, and it is not the DomainApp's inventory status."
+    },
+    "serving": {
+      "type": "boolean"
+    },
+    "route": {
+      "type": "null",
+      "description": "THE DEAD KEY. The mount writes `null` here and no transition ever sets it; the serving route is written to `internal_route_ref` instead. Registering it as `null`-only is what turns 'this field is never populated' into a checked fact."
+    },
+    "internal_route_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Present only once a serve transition has run. Absent on a runtime that has only ever been mounted, which is why it is optional here and required-with-an-explicit-null in v2."
+    },
+    "approval_request_ref": {
+      "type": "string",
+      "pattern": "^approval-request://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "release_control_ref": {
+      "type": "string",
+      "pattern": "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "authority_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Copied verbatim from the admitting ApprovalRequest's `required_authority_refs` without validation, so a legacy record carrying structured members here does not satisfy this contract and fails closed rather than being silently repaired."
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The receipt chain, appended one entry per transition."
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unmountable",
+        "note"
+      ],
+      "description": "Canon's `rollback_posture`, under v1's shorter name.",
+      "properties": {
+        "unmountable": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "mounted_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "serve_started_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "serve_stopped_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "unmounted_at": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "unmount_reason": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "killed": {
+      "type": "boolean"
+    },
+    "killed_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/timestamp"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "ioi.hypervisor.domain-app-runtime.v1",
+  "object": "ioi.hypervisor.domain_app_runtime",
+  "id": "dartm_18f2c9b0a4d76e3",
+  "ref": "domain-app-runtime://dartm_18f2c9b0a4d76e3",
+  "domain_app_ref": "domain-app://dapp_9f2c41ab77e05d63",
+  "mounted": true,
+  "state": "mounted",
+  "serving": false,
+  "route": null,
+  "approval_request_ref": "approval-request://apr_intake_queue_mount",
+  "release_control_ref": "release-control://rel_intake_queue_2026_08",
+  "authority_refs": [
+    "scope:hypervisor.domain-app.mount"
+  ],
+  "receipt_refs": [
+    "mount-receipt://mrcpt_18f2c9b0a4d76e4"
+  ],
+  "rollback": {
+    "unmountable": true,
+    "note": "governed unmount available; no process/ingress to tear down (not serving)"
+  },
+  "note": "governed mount admission; effectful but NOT serving",
+  "mounted_at": "2026-08-30T17:04:11Z",
+  "unmounted_at": null,
+  "created_at": "2026-08-30T17:04:11Z",
+  "updated_at": "2026-08-30T17:04:11Z",
+  "external_ingress_ref": null
+}

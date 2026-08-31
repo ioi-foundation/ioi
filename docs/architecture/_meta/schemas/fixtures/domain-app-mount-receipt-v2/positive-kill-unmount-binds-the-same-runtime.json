@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.domain-app-mount-receipt.v2",
+  "mount_receipt_id": "mount-receipt://mrcpt_2b3c4d5e6f708192",
+  "action": "domain_app.kill_unmount",
+  "domain_app_ref": "domain-app://dapp_9f2c41ab77e05d63",
+  "domain_app_runtime_ref": "domain-app-runtime://dartm_4b81ce07d2a96f15",
+  "domain_app_runtime_owner_ref": "org://acme-clinic",
+  "domain_app_runtime_revision": 3,
+  "domain_app_runtime_content_hash": "sha256:305071a2267a3ba83025cbbe919e8d9acbcd759176d738f6702254dc7f5f2200",
+  "domain_app_admitted_head_before": "7c19e4a0bb35d2f81c6047ae9d3b5f20",
+  "approval_request_ref": "approval-request://apr_intake_queue_mount",
+  "release_control_ref": "release-control://rel_intake_queue_2026_08",
+  "at": "2026-08-30T17:22:03Z",
+  "does_not_assert": [
+    "app_behaviour",
+    "semantic_validity",
+    "external_surface_exists",
+    "domain_action_ran"
+  ],
+  "state_root": "sha256:bc37a09f9f0acac824cea842809fd4dfa999b881f35046d93240f362601578a8"
+}

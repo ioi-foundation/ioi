@@ -1,0 +1,75 @@
+{
+  "schema_version": "ioi.hypervisor.odk.manifest.v1",
+  "odk_manifest_id": "odk://odk_5e3d9a71c04b8f26",
+  "name": "acme-clinic-intake-kit",
+  "version": "2.1.0",
+  "owner_ref": "org://acme-clinic",
+  "ontology_refs": [
+    "ontology://ont_2b7f4c8a9e1d05f36/revision/7"
+  ],
+  "canonical_object_model_refs": [
+    "object-model://om_patient_intake"
+  ],
+  "data_recipe_refs": [
+    "data-recipe://rec_intake_normalise/revision/3"
+  ],
+  "connector_mapping_refs": [
+    "mapping://map_intake_form"
+  ],
+  "policy_bound_data_view_refs": [
+    "view://vw_intake_minimised"
+  ],
+  "ontology_projection_refs": [
+    "projection://pj_intake_queue"
+  ],
+  "surface_descriptor_refs": [
+    "surface-descriptor://sd_acme_intake_queue"
+  ],
+  "workflow_schema_refs": [],
+  "evaluation_dataset_refs": [
+    "dataset://ds_intake_holdout"
+  ],
+  "benchmark_profile_refs": [
+    "benchmark://bm_intake_triage_v1"
+  ],
+  "worker_plan_refs": [
+    "plan://pl_intake_triage"
+  ],
+  "operator_contract_refs": [
+    "contract://ct_intake_operator"
+  ],
+  "mcp_contract_refs": [
+    "mcp-profile://mcp_intake_reader"
+  ],
+  "conformance_profile_refs": [
+    "profile://cf_intake_readonly"
+  ],
+  "package_refs": [
+    "artifact://art_intake_kit_2_1_0"
+  ],
+  "receipt_obligations": [
+    "validation",
+    "artifact",
+    "data_recipe_run"
+  ],
+  "status": "active",
+  "migration": {
+    "from_schema_version": null,
+    "from_manifest_ref": null,
+    "from_content_hash": null,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "authority_nonclaim": "ontology_development_kit_manifest_grants_no_authority",
+  "truth_nonclaim": "ontology_development_kit_manifest_is_not_runtime_or_semantic_truth",
+  "does_not_assert": [
+    "authority",
+    "capability_lease_crossing",
+    "runtime_truth",
+    "semantic_truth",
+    "permission_truth",
+    "marketplace_truth",
+    "package_admission"
+  ],
+  "content_hash": "sha256:df90c3e1be70de031ff1b3154efddefaebab2a19badecf93b08a97225126433f"
+}

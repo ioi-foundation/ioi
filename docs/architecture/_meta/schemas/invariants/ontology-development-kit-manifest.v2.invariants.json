@@ -1,0 +1,100 @@
+{
+  "$id": "invariant://ioi/foundations/objects/ontology-development-kit-manifest/content-commitment/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+  "rules": [
+    {
+      "rule_id": "odk_manifest.content_hash.commits_the_whole_manifest",
+      "description": "THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map. A relying party holding only the bytes recomputes it; a stale or substituted hash fails offline, with no daemon consulted.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.ontology-development-kit-manifest-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "odk_manifest_id": {
+            "path": "$.odk_manifest_id"
+          },
+          "name": {
+            "path": "$.name"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "ontology_refs": {
+            "path": "$.ontology_refs"
+          },
+          "canonical_object_model_refs": {
+            "path": "$.canonical_object_model_refs"
+          },
+          "data_recipe_refs": {
+            "path": "$.data_recipe_refs"
+          },
+          "connector_mapping_refs": {
+            "path": "$.connector_mapping_refs"
+          },
+          "policy_bound_data_view_refs": {
+            "path": "$.policy_bound_data_view_refs"
+          },
+          "ontology_projection_refs": {
+            "path": "$.ontology_projection_refs"
+          },
+          "surface_descriptor_refs": {
+            "path": "$.surface_descriptor_refs"
+          },
+          "workflow_schema_refs": {
+            "path": "$.workflow_schema_refs"
+          },
+          "evaluation_dataset_refs": {
+            "path": "$.evaluation_dataset_refs"
+          },
+          "benchmark_profile_refs": {
+            "path": "$.benchmark_profile_refs"
+          },
+          "worker_plan_refs": {
+            "path": "$.worker_plan_refs"
+          },
+          "operator_contract_refs": {
+            "path": "$.operator_contract_refs"
+          },
+          "mcp_contract_refs": {
+            "path": "$.mcp_contract_refs"
+          },
+          "conformance_profile_refs": {
+            "path": "$.conformance_profile_refs"
+          },
+          "package_refs": {
+            "path": "$.package_refs"
+          },
+          "receipt_obligations": {
+            "path": "$.receipt_obligations"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "migration": {
+            "path": "$.migration"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

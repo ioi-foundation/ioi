@@ -1,0 +1,61 @@
+{
+  "$id": "invariant://ioi/foundations/objects/domain-app-mount-receipt/state-root/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
+  "rules": [
+    {
+      "rule_id": "domain_app_mount_receipt.state_root.commits_the_whole_receipt",
+      "description": "A REAL COMMITMENT, REPLACING A PIPE-JOINED TEXT DIGEST. v1's state_root hashed `action|domain_app_ref|approval|release|at` as one string: ambiguous under any component containing a pipe, and silent about the runtime because the runtime was not in the receipt at all. This rule commits every field of v2 under a domain separator over canonical JSON, so the three runtime bindings \u2014 ref, owner, revision and the runtime's own content hash \u2014 are inside the commitment. Editing which runtime a receipt names now breaks the state_root, offline, with nothing but the bytes.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.domain-app-mount-receipt-state-root-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "mount_receipt_id": {
+            "path": "$.mount_receipt_id"
+          },
+          "action": {
+            "path": "$.action"
+          },
+          "domain_app_ref": {
+            "path": "$.domain_app_ref"
+          },
+          "domain_app_runtime_ref": {
+            "path": "$.domain_app_runtime_ref"
+          },
+          "domain_app_runtime_owner_ref": {
+            "path": "$.domain_app_runtime_owner_ref"
+          },
+          "domain_app_runtime_revision": {
+            "path": "$.domain_app_runtime_revision"
+          },
+          "domain_app_runtime_content_hash": {
+            "path": "$.domain_app_runtime_content_hash"
+          },
+          "domain_app_admitted_head_before": {
+            "path": "$.domain_app_admitted_head_before"
+          },
+          "approval_request_ref": {
+            "path": "$.approval_request_ref"
+          },
+          "release_control_ref": {
+            "path": "$.release_control_ref"
+          },
+          "at": {
+            "path": "$.at"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.state_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

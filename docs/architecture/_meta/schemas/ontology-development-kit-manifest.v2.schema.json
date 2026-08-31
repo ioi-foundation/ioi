@@ -1,0 +1,335 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
+  "title": "OntologyDevelopmentKitManifestV2",
+  "description": "THE CANONICAL ODK MANIFEST, REGISTERED. Non-negotiable 10 says an ODK manifest can scaffold surfaces, domain apps, evals, workers and packages but cannot become runtime truth, permission truth, semantic truth or marketplace truth by itself. Until this contract landed, that boundary had no wire form: `ioi.hypervisor.odk.manifest.v1` was a Rust string literal, no `_meta/schemas/` entry existed for any ODK family, and G-4 therefore forbade every surface from claiming one. This version carries canon's sixteen member lists under canon's own names, splits the three places v1 folded distinct members together (`recipe_refs` into `data_recipe_refs`; `eval_refs` into `evaluation_dataset_refs` and `benchmark_profile_refs`; `mcp_operator_contracts` into `operator_contract_refs` and `mcp_contract_refs`), and carries the nonclaims as fields so a relying party holding only the bytes can check what the manifest declines to assert. A manifest is a builder and conformance object: it packages contracts, and packaging is not admission.",
+  "x-ioi-schema-version": "ioi.ontology-development-kit-manifest.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "manifestRef": {
+      "type": "string",
+      "pattern": "^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "odk_manifest_id",
+    "name",
+    "version",
+    "owner_ref",
+    "ontology_refs",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "connector_mapping_refs",
+    "policy_bound_data_view_refs",
+    "ontology_projection_refs",
+    "surface_descriptor_refs",
+    "workflow_schema_refs",
+    "evaluation_dataset_refs",
+    "benchmark_profile_refs",
+    "worker_plan_refs",
+    "operator_contract_refs",
+    "mcp_contract_refs",
+    "conformance_profile_refs",
+    "package_refs",
+    "receipt_obligations",
+    "status",
+    "migration",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.ontology-development-kit-manifest.v2"
+    },
+    "odk_manifest_id": {
+      "$ref": "#/$defs/manifestRef",
+      "description": "ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `id` and a separate `ref` that could disagree with each other; canon carries `odk_manifest_id: odk://…` once."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Canon's `semver_or_hash`. A manifest version is the builder's own declared version of the package it describes; it is not the version of any ontology it binds, and advancing it re-means nothing downstream."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+      "description": "The owner the admission was scoped to. A manifest is owned; it is not a global registry entry."
+    },
+    "ontology_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "description": "At least one owning ontology. A kit manifest that binds no meaning is packaging nothing this layer owns."
+    },
+    "canonical_object_model_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "data_recipe_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "THE QUALIFIED NAME. v1 called this `recipe_refs`; the term-boundary ruling makes a generic executable recipe family a defect, so every recipe is owner-qualified. An authoring request naming `recipe_refs` is refused rather than translated."
+    },
+    "connector_mapping_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "policy_bound_data_view_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "ontology_projection_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "surface_descriptor_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The descriptors this manifest packages. Packaging a descriptor neither admits it nor registers it: the composable-application journey admits each stage's own fact and a generator that appears to skip one has skipped an admission."
+    },
+    "workflow_schema_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "evaluation_dataset_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "One half of v1's single `eval_refs` list. A dataset and a benchmark profile are different objects with different owners, and a convergence cannot split the legacy list without the author saying which member is which."
+    },
+    "benchmark_profile_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "worker_plan_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "An `OntologyToWorkerPlan` can propose workers, tools, schemas, evals and manifests. Naming one here proposes; it grants no authority (non-negotiable 9)."
+    },
+    "operator_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "mcp_contract_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "The other half of v1's folded `mcp_operator_contracts`. An operator contract and an MCP profile have different consumers, so they are different members."
+    },
+    "conformance_profile_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "package_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Artifact refs for the packaged bytes. A package ref is not a local package admission and not a marketplace listing."
+    },
+    "receipt_obligations": {
+      "$ref": "#/$defs/refList",
+      "description": "What a consumer of this manifest owes receipts for. An obligation stated here is a requirement on the consumer, never a permission granted to it."
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "active",
+        "deprecated",
+        "revoked"
+      ],
+      "description": "Canon's four members, verbatim. INVENTORY STATUS ONLY (G-6): it says where this manifest sits in its own lifecycle and says nothing about whether anything it packages is mounted, serving, installed or launchable. Those are other planes' state, on other objects."
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A manifest authored fresh at v2 has no predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Independently nullable fields would admit partial tuples that READ AS COMPLETE — `converged_from_v1` with a null hash claims a provenance while naming no bytes anyone could check — so the two conditionals below partition the compatibility enum exactly and a partial or mixed block is a SCHEMA refusal.",
+      "required": [
+        "from_schema_version",
+        "from_manifest_ref",
+        "from_content_hash",
+        "compatibility",
+        "reinterprets_predecessor"
+      ],
+      "properties": {
+        "from_schema_version": {
+          "oneOf": [
+            {
+              "const": "ioi.hypervisor.odk.manifest.v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_manifest_ref": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^odk://odk_[0-9a-f]{16}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "from_content_hash": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 manifests the same commitment."
+        },
+        "compatibility": {
+          "enum": [
+            "initial",
+            "converged_from_v1"
+          ]
+        },
+        "reinterprets_predecessor": {
+          "const": false
+        }
+      },
+      "allOf": [
+        {
+          "title": "authored fresh at v2 — all three provenance slots are null together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "initial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "type": "null"
+              },
+              "from_manifest_ref": {
+                "type": "null"
+              },
+              "from_content_hash": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "title": "converged from a stored v1 — all three provenance slots are present together",
+          "if": {
+            "required": [
+              "compatibility"
+            ],
+            "properties": {
+              "compatibility": {
+                "const": "converged_from_v1"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "from_schema_version": {
+                "const": "ioi.hypervisor.odk.manifest.v1"
+              },
+              "from_manifest_ref": {
+                "type": "string",
+                "pattern": "^odk://odk_[0-9a-f]{16}$"
+              },
+              "from_content_hash": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "authority_nonclaim": {
+      "const": "ontology_development_kit_manifest_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "const": "ontology_development_kit_manifest_is_not_runtime_or_semantic_truth",
+      "description": "Non-negotiable 10, as a field."
+    },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "capability_lease_crossing",
+          "runtime_truth",
+          "semantic_truth",
+          "permission_truth",
+          "marketplace_truth",
+          "package_admission",
+          "installation",
+          "registration",
+          "conformance_result"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "authority"
+          }
+        },
+        {
+          "contains": {
+            "const": "capability_lease_crossing"
+          }
+        },
+        {
+          "contains": {
+            "const": "runtime_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "semantic_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "permission_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "marketplace_truth"
+          }
+        },
+        {
+          "contains": {
+            "const": "package_admission"
+          }
+        }
+      ],
+      "description": "Seven mandatory members. `package_admission` is the one this family needs that the descriptor's list does not: a manifest is the packaging object, and 'packaged' reading as 'admitted' is the exact stage-skip the composable-application journey calls a defect."
+    },
+    "content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
+  "title": "DomainAppMountReceiptV1",
+  "description": "THE PREDECESSOR, REGISTERED SO THE DIVERGENCE IT CARRIES CAN BE NAMED — DEPRECATED AND READ-ONLY. `DomainAppMountReceiptEnvelope` requires `domain_app_runtime_ref` and says why in one sentence: an app may accumulate several runtimes over its life, and a receipt that names only the app cannot say which mount it transitioned. THIS CONTRACT HAS NO SUCH FIELD. Every v1 receipt names the app, the approval and the release control, and is silent about the runtime — so the whole receipt chain of a twice-mounted app is one undifferentiated set, and a `domain_app.serve_stop` receipt cannot be attributed to the mount it stopped. Its `state_root` compounds the gap: the preimage is the five values pipe-joined as text, so it commits exactly what the receipt already says and nothing about the runtime state the transition produced, and a pipe inside any component makes two different transitions share a preimage. AUTHORING AT v1 IS CLOSED. Stored v1 receipts remain readable exactly as admitted; they are immutable evidence that a transition happened, and they stay exactly as unable to say which runtime it happened to.",
+  "x-ioi-schema-version": "ioi.hypervisor.domain-app-mount-receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "action",
+    "domain_app_ref",
+    "approval_request_ref",
+    "release_control_ref",
+    "state_root",
+    "at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.domain-app-mount-receipt.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.domain_app_mount_receipt"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^mrcpt_[0-9a-f]{1,32}$",
+      "description": "Minted from `nanos()`, so a replayed transition emits a second receipt with a different id rather than resolving to the one already admitted."
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^mount-receipt://mrcpt_[0-9a-f]{1,32}$"
+    },
+    "action": {
+      "enum": [
+        "domain_app.mount",
+        "domain_app.serve_start",
+        "domain_app.serve_stop",
+        "domain_app.unmount",
+        "domain_app.kill_stop_serving",
+        "domain_app.kill_unmount"
+      ],
+      "description": "Canon's six. Enforcement emits the same receipt family as a voluntary stop, distinguished only by the action name — this half was already correct at v1."
+    },
+    "domain_app_ref": {
+      "type": "string",
+      "pattern": "^domain-app://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "The app. And, at v1, the only object this receipt can name."
+    },
+    "approval_request_ref": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "release_control_ref": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "state_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "A digest over `action|domain_app_ref|approval_request_ref|release_control_ref|at` joined with pipes. It commits the receipt's own visible fields and nothing else — not the runtime, not its revision, not the state the transition produced — so recomputing it proves the four strings were not edited and proves nothing about what was admitted."
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+      "description": "Wall-clock at receipt construction, not the admission stamp, which is why a v1 receipt for a replayed transition is byte-different from the receipt it replays."
+    }
+  }
+}

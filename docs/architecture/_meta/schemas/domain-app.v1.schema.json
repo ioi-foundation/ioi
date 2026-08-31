@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/domain-app/v1",
+  "title": "DomainAppV1",
+  "description": "THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the record the Domain Apps foundation cut minted while `ioi.hypervisor.domain-app.v1` was a Rust string literal with no registered contract behind it. Three divergences from `DomainAppEnvelope` are byte-verified rather than asserted, and this contract states each one so it is checkable. First, `status` is written as the literal `draft` at create and NO path advances it: the four other canonical states (`admitted`, `installed`, `deprecated`, `revoked`) are unreachable, so the field records a pin rather than a lifecycle. Second, the four composable-application stage bindings canon requires — `surface_registration_ref`, `package_release_ref`, `installation_ref`, `system_binding_refs` — do not exist as fields at all, so 'this app has no admitted registration' and 'this record cannot express a registration' are the same absence. Third, the derived provenance snapshot covers ontology, data-recipe and MCP refs only; canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` are absent, so a v1 DomainApp over a descriptor that binds eight object models records none of them. AUTHORING AT v1 IS CLOSED. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.",
+  "x-ioi-schema-version": "ioi.hypervisor.domain-app.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "refList": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "object",
+    "domain_app_id",
+    "domain_app_ref",
+    "name",
+    "description",
+    "status",
+    "surface_descriptor_ref",
+    "odk_manifest_ref",
+    "project_ref",
+    "owner_ref",
+    "visibility",
+    "ontology_refs",
+    "data_recipe_refs",
+    "mcp_contract_refs",
+    "authority_requirement_refs",
+    "operator_contract_refs",
+    "receipt_obligations",
+    "generated_artifact_refs",
+    "runtime_posture"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.domain-app.v1"
+    },
+    "object": {
+      "const": "ioi.hypervisor.domain_app"
+    },
+    "domain_app_id": {
+      "type": "string",
+      "pattern": "^dapp_[0-9a-f]{16}$",
+      "description": "A BARE ID WHERE CANON CARRIES A REF. Canon's `domain_app_id` is `domain-app://…`; v1 puts the unprefixed id here and the ref in a second field beside it, so two fields can disagree about one identity. Derived from owner plus caller idempotency key by `replay_stable_id`, sixteen hex digits wide."
+    },
+    "domain_app_ref": {
+      "type": "string",
+      "pattern": "^domain-app://dapp_[0-9a-f]{16}$"
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "status": {
+      "enum": [
+        "draft"
+      ],
+      "description": "THE PIN, REGISTERED AS A PIN. The producer writes the literal `draft` and no transition — not mount, not serve, not registration, not admission — ever moves it. Canon's vocabulary is draft | admitted | installed | deprecated | revoked; four of those five are unreachable in this contract, which is exactly what makes 'status is pinned' a checked fact here rather than a claim in a delta row."
+    },
+    "surface_descriptor_ref": {
+      "type": "string",
+      "pattern": "^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "description": "Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. That half of the contract was already correct at v1."
+    },
+    "odk_manifest_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^odk://odk_[0-9a-f]{16}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "project_ref": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 512
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "A PASSTHROUGH FIELD, REGISTERED AS THE REF IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying a structured value here does not satisfy this contract and fails closed at the owner seam rather than being silently repaired."
+    },
+    "owner_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Resolved from the authenticated caller at create. The v1 PATCH path also copies a caller-supplied `owner_ref` straight onto the record, which is why this field is typed as a string rather than as the owner-scheme pattern v2 requires."
+    },
+    "visibility": {
+      "enum": [
+        "private",
+        "org",
+        "marketplace_candidate"
+      ],
+      "description": "`marketplace_candidate` is a flag on a draft, never a publication."
+    },
+    "ontology_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Half of the derived snapshot canon defines. `canonical_object_model_refs` and `policy_bound_data_view_refs` have no field in this contract, so a descriptor's object-model and policy-view bindings are dropped on the floor at create."
+    },
+    "data_recipe_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "mcp_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "authority_requirement_refs": {
+      "$ref": "#/$defs/refList",
+      "description": "Author-supplied and unresolved. Declaring an authority requirement is a statement of what the app will owe; it grants nothing (non-negotiable 9)."
+    },
+    "operator_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "receipt_obligations": {
+      "$ref": "#/$defs/refList"
+    },
+    "generated_artifact_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "runtime_posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mounted",
+        "route",
+        "note"
+      ],
+      "description": "The backlink projection of the runtime. v1's version is the union of the key sets five different writers put here — create, mount, serve, unmount and kill enforcement each write their own shape — which is why `serving` and `mount_ref` are optional: a record written by the create path has neither, and a reader cannot tell 'not serving' from 'this writer did not say'.",
+      "properties": {
+        "mounted": {
+          "type": "boolean"
+        },
+        "serving": {
+          "type": "boolean"
+        },
+        "route": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "mount_ref": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "approval_request_ref": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "release_control_ref": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "admitted_head": {
+      "type": "string",
+      "maxLength": 256,
+      "description": "The head the NEXT writer must present. It is a fact about the stream projected onto the row, not part of the admitted payload — the payload has it removed before admission so a successor is not byte-different from its own replay."
+    }
+  }
+}

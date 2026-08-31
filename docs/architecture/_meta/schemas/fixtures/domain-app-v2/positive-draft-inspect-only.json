@@ -1,0 +1,69 @@
+{
+  "schema_version": "ioi.domain-app.v2",
+  "domain_app_id": "domain-app://dapp_9f2c41ab77e05d63",
+  "name": "acme-clinic-intake-queue",
+  "description": "an app candidate over one domain_app-pattern descriptor",
+  "surface_descriptor_ref": "surface-descriptor://sd_acme_intake_queue",
+  "surface_descriptor_schema_version": "ioi.ontology-surface-descriptor.v2",
+  "surface_descriptor_content_hash": "sha256:a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+  "odk_manifest_ref": "odk://odk_5e3d9a71c04b8f26",
+  "owner_ref": "org://acme-clinic",
+  "project_ref": null,
+  "visibility": "private",
+  "ontology_refs": [
+    "ontology://ont_2b7f4c8a9e1d05f36/revision/7"
+  ],
+  "canonical_object_model_refs": [
+    "object-model://om_patient_intake"
+  ],
+  "data_recipe_refs": [
+    "data-recipe://rec_intake_normalise/revision/3"
+  ],
+  "policy_bound_data_view_refs": [
+    "view://vw_intake_minimised"
+  ],
+  "operator_contract_refs": [
+    "contract://ct_intake_operator"
+  ],
+  "mcp_contract_refs": [
+    "mcp-profile://mcp_intake_reader"
+  ],
+  "authority_requirement_refs": [
+    "scope:hypervisor.domain-app.read"
+  ],
+  "receipt_obligations": [
+    "validation"
+  ],
+  "generated_artifact_refs": [],
+  "surface_registration_ref": null,
+  "package_release_ref": null,
+  "installation_ref": null,
+  "system_binding_refs": [],
+  "launch_posture": "inspect_only",
+  "status": "draft",
+  "runtime_posture": {
+    "mounted": false,
+    "serving": false,
+    "route": null,
+    "mount_ref": null
+  },
+  "migration": {
+    "from_schema_version": null,
+    "from_domain_app_ref": null,
+    "from_content_hash": null,
+    "compatibility": "initial",
+    "reinterprets_predecessor": false
+  },
+  "authority_nonclaim": "domain_app_grants_no_authority",
+  "truth_nonclaim": "domain_app_is_not_registration_admission_or_runtime_truth",
+  "does_not_assert": [
+    "authority",
+    "runtime_truth",
+    "semantic_truth",
+    "permission_truth",
+    "marketplace_truth",
+    "registration",
+    "launchability"
+  ],
+  "content_hash": "sha256:34dbfbf67f25425300ee47d4039ce37545b4f830847f36b99b0a853fe9841575"
+}

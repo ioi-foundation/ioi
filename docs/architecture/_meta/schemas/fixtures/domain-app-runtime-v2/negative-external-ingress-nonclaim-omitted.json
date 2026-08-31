@@ -1,0 +1,39 @@
+{
+  "schema_version": "ioi.domain-app-runtime.v2",
+  "domain_app_runtime_id": "domain-app-runtime://dartm_4b81ce07d2a96f15",
+  "domain_app_ref": "domain-app://dapp_9f2c41ab77e05d63",
+  "owner_ref": "org://acme-clinic",
+  "revision": 0,
+  "state": "mounted",
+  "mounted": true,
+  "serving": false,
+  "internal_route_ref": null,
+  "external_ingress_ref": null,
+  "approval_request_ref": "approval-request://apr_intake_queue_mount",
+  "release_control_ref": "release-control://rel_intake_queue_2026_08",
+  "authority_refs": [
+    "scope:hypervisor.domain-app.mount"
+  ],
+  "receipt_refs": [
+    "mount-receipt://mrcpt_1a2b3c4d5e6f7081"
+  ],
+  "rollback_posture": {
+    "unmountable": true,
+    "note": "governed unmount available; not serving, so no route to withdraw"
+  },
+  "mounted_at": "2026-08-30T17:04:11Z",
+  "serve_started_at": null,
+  "serve_stopped_at": null,
+  "unmounted_at": null,
+  "unmount_reason": null,
+  "killed_at": null,
+  "authority_nonclaim": "domain_app_runtime_grants_no_authority",
+  "truth_nonclaim": "domain_app_runtime_is_not_registration_or_launchability",
+  "does_not_assert": [
+    "authority",
+    "registration",
+    "launchability",
+    "app_behaviour"
+  ],
+  "content_hash": "sha256:96340be1f8433dfc67ac505ef427879ce7ab4502c3cf3cd46fdbcb4935292f04"
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": "ioi.hypervisor.odk.manifest.v1",
+  "object": "ioi.hypervisor.odk.manifest",
+  "id": "odk_5e3d9a71c04b8f26",
+  "ref": "odk://odk_5e3d9a71c04b8f26",
+  "name": "acme-clinic-intake-kit",
+  "description": "the legacy ODK manifest record, exactly as the v1 lane minted it",
+  "status": "draft",
+  "ontology_refs": [
+    "ontology://ont_2b7f4c8a9e1d05f36"
+  ],
+  "recipe_refs": [
+    "recipe://rec_intake_normalise"
+  ],
+  "surface_descriptor_refs": [
+    "surface-descriptor://sd_acme_intake_queue"
+  ],
+  "connector_mappings": [
+    "mapping://map_intake_form"
+  ],
+  "policy_bound_views": [
+    "view://vw_intake_minimised"
+  ],
+  "eval_refs": [
+    "dataset://ds_intake_holdout"
+  ],
+  "worker_plan_refs": [
+    "plan://pl_intake_triage"
+  ],
+  "mcp_operator_contracts": [
+    "mcp-profile://mcp_intake_reader"
+  ],
+  "created_at": "2026-08-30T17:04:11Z",
+  "updated_at": "2026-08-30T17:04:11Z"
+}

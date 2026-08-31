@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.hypervisor.domain-app.v1",
+  "object": "ioi.hypervisor.domain_app",
+  "domain_app_id": "dapp_9f2c41ab77e05d63",
+  "domain_app_ref": "domain-app://dapp_9f2c41ab77e05d63",
+  "name": "acme-clinic-intake-queue",
+  "description": "the legacy DomainApp record, exactly as the foundation cut minted it",
+  "status": "draft",
+  "surface_descriptor_ref": "surface-descriptor://sd_acme_intake_queue",
+  "odk_manifest_ref": "odk://odk_5e3d9a71c04b8f26",
+  "project_ref": null,
+  "owner_ref": "org://acme-clinic",
+  "visibility": "private",
+  "ontology_refs": [
+    "ontology://ont_2b7f4c8a9e1d05f36"
+  ],
+  "data_recipe_refs": [
+    "recipe://rec_intake_normalise"
+  ],
+  "mcp_contract_refs": [
+    "mcp-profile://mcp_intake_reader"
+  ],
+  "authority_requirement_refs": [
+    "scope:hypervisor.domain-app.read"
+  ],
+  "operator_contract_refs": [],
+  "receipt_obligations": [],
+  "generated_artifact_refs": [],
+  "runtime_posture": {
+    "mounted": false,
+    "route": null,
+    "note": "draft object only; no generated runtime mounted"
+  },
+  "created_at": "2026-08-30T17:04:11Z",
+  "updated_at": "2026-08-30T17:04:11Z",
+  "admitted_head": "7c19e4a0bb35d2f81c6047ae9d3b5f20",
+  "surface_registration_ref": "surface://acme-intake"
+}

@@ -1,0 +1,94 @@
+{
+  "$id": "invariant://ioi/foundations/objects/domain-app-runtime/content-commitment/v2",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
+  "rules": [
+    {
+      "rule_id": "domain_app_runtime.content_hash.commits_the_whole_runtime",
+      "description": "THE VALUE A MOUNT RECEIPT BINDS. Because this commitment covers every field including `revision`, `state`, `internal_route_ref` and `external_ingress_ref`, a receipt that carries this hash is bound to one exact runtime state. Substituting the runtime, editing its state, or advancing its revision all move the hash, so 'the receipt and the runtime describe the same admitted state' is decidable from the two records alone.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.domain-app-runtime-content-commitment-jcs-sha256.v2"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "domain_app_runtime_id": {
+            "path": "$.domain_app_runtime_id"
+          },
+          "domain_app_ref": {
+            "path": "$.domain_app_ref"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          },
+          "revision": {
+            "path": "$.revision"
+          },
+          "state": {
+            "path": "$.state"
+          },
+          "mounted": {
+            "path": "$.mounted"
+          },
+          "serving": {
+            "path": "$.serving"
+          },
+          "internal_route_ref": {
+            "path": "$.internal_route_ref"
+          },
+          "external_ingress_ref": {
+            "path": "$.external_ingress_ref"
+          },
+          "approval_request_ref": {
+            "path": "$.approval_request_ref"
+          },
+          "release_control_ref": {
+            "path": "$.release_control_ref"
+          },
+          "authority_refs": {
+            "path": "$.authority_refs"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          },
+          "rollback_posture": {
+            "path": "$.rollback_posture"
+          },
+          "mounted_at": {
+            "path": "$.mounted_at"
+          },
+          "serve_started_at": {
+            "path": "$.serve_started_at"
+          },
+          "serve_stopped_at": {
+            "path": "$.serve_stopped_at"
+          },
+          "unmounted_at": {
+            "path": "$.unmounted_at"
+          },
+          "unmount_reason": {
+            "path": "$.unmount_reason"
+          },
+          "killed_at": {
+            "path": "$.killed_at"
+          },
+          "authority_nonclaim": {
+            "path": "$.authority_nonclaim"
+          },
+          "truth_nonclaim": {
+            "path": "$.truth_nonclaim"
+          },
+          "does_not_assert": {
+            "path": "$.does_not_assert"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}
