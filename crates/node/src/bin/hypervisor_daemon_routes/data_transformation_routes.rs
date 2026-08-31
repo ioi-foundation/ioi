@@ -48,13 +48,32 @@
 //!    effect admission. A mapping is not credential custody; a recipe is not training consent; a
 //!    run attests boundary facts and never universal correctness.
 //!
-//! NONCLAIM, STATED ONCE AND CARRIED IN THE RESPONSE. The v1→v2 convergence is an EXPLICIT ACT over
-//! predecessor bytes the caller supplies. The server validates them against the REGISTERED v1
-//! contract and computes `from_content_hash` itself under a v1-specific domain separator, so the
-//! caller cannot assert the predecessor's commitment — but this build does not prove the caller
-//! holds that stored v1 record, because reading the v1 record directory from here would make this
-//! module a second namer of an ODK family it does not own. `v1_predecessor_custody` is therefore an
-//! explicit nonclaim on every converged admission rather than an implied one.
+//! 6. CUSTODY OF THE PREDECESSOR IS PROVED, FOR ALL THREE v1 FAMILIES, OR THE ADMISSION IS REFUSED.
+//!    A convergence used to hash bytes the CALLER handed over, which made `converge_from_v1` a claim
+//!    about a v1 record rather than a resolution of one: any principal could converge any bytes that
+//!    happened to satisfy a v1 contract. `converge_from_v1_ref` now NAMES a stored predecessor and
+//!    the OWNING module resolves it from its owner-scoped chain under the caller's own owner
+//!    binding, so a cross-principal, cross-tenant or wrong-owner convergence is refused at the scope
+//!    boundary before any bytes are returned. Supplied bytes survive only as an ASSERTION about the
+//!    resolved record, and supplying them WITHOUT a ref is refused: there is no longer a code path
+//!    in which caller bytes are the authority, which is a stronger statement than a nonclaim saying
+//!    so. `expected_v1_revision` and `expected_v1_content_hash` are checked against the resolution,
+//!    so a substituted revision, a stale hash and a definition that changed underneath the caller
+//!    all fail closed rather than converging whatever happens to be current.
+//!
+//!    THIS COST TWO OWNER MODULES A NEW WRITE PATH, and could not have been done anywhere else. The
+//!    v1 ConnectorMapping and TransformationRun lanes took no identity at all, persisted into flat
+//!    record directories by overwrite, and their registered v1 contracts are closed with no owner,
+//!    tenant or principal member — so nothing was STORED for a proof to check. Resolving those rows
+//!    from here would have been a second namer of another module's family AND an unscoped read;
+//!    minting an owner at convergence time would have fabricated the very fact being proved. Their
+//!    owners now admit through the shared owner-scoped boundary and publish read-only resolvers, and
+//!    this module names a ref and receives bytes it did not author — INV-37 applied to provenance.
+//!
+//! THE v1 RECORDS THEMSELVES ARE UNCHANGED, BYTE FOR BYTE. v1 stays read-only and v2 stays the only
+//! authorable contract: the owner binding rides on an admission envelope beside each record rather
+//! than inside it, because an owner member added to a closed registered predecessor would be a
+//! contract change to the very thing a convergence exists to preserve.
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -653,7 +672,7 @@ fn finish_admission(
     expected_head: Option<String>,
     recorded_at_ms: u64,
     body: &Value,
-    converged_from_v1: bool,
+    custody: &V1Custody,
 ) -> Reply {
     let derived = match spec.content_hash(&record) {
         Ok(hash) => hash,
@@ -746,15 +765,41 @@ fn finish_admission(
             "operation_ref": commit.operation_ref,
             "request_fingerprint": commit.request_fingerprint,
             "index_state": projection_cache_state(resource, &stream),
-            // The one thing a converged admission does NOT establish, carried on the response so a
-            // consumer reads it rather than inferring it.
-            "v1_predecessor_custody_nonclaim": if converged_from_v1 {
-                json!("this build validated and hashed the supplied predecessor bytes against the registered v1 contract; it did not prove the caller holds that stored v1 record")
-            } else {
-                Value::Null
-            },
+            // WHAT THIS CONVERGENCE ESTABLISHED ABOUT ITS PREDECESSOR, and what it did not, carried
+            // on the response so a consumer READS it rather than inferring it. Exactly one of these
+            // two is non-null on a converged admission; both are null when nothing was converged.
+            "v1_predecessor_custody": custody.proof(),
         })),
     )
+}
+
+/// WHAT A CONVERGENCE PROVED ABOUT THE PREDECESSOR IT NAMES.
+///
+/// This is a three-valued fact and was previously carried as a bool, which could only distinguish
+/// "converged" from "not converged" — so a proof and a disclaimer had no way to be different
+/// answers. Making the third state exist in the type is what stops a future family from being
+/// converged custody-unproven while the response says nothing about it: there is no default arm.
+pub(crate) enum V1Custody {
+    /// No predecessor was named. `migration.compatibility` is `initial`.
+    NotConverged,
+    /// The EXACT CURRENT stored predecessor was resolved through its owning module's read-only
+    /// seam, under the caller's own owner binding, before this successor existed.
+    Proved(Box<Value>),
+}
+
+impl V1Custody {
+    fn converged(&self) -> bool {
+        !matches!(self, V1Custody::NotConverged)
+    }
+
+    /// The proof block, present ONLY when custody was actually resolved.
+    fn proof(&self) -> Value {
+        match self {
+            V1Custody::Proved(proof) => (**proof).clone(),
+            _ => Value::Null,
+        }
+    }
+
 }
 
 #[derive(serde::Deserialize)]
@@ -852,67 +897,300 @@ fn predecessor_record_hash(record: &Value) -> Result<String, String> {
         .map_err(|error| format!("the predecessor record could not be canonicalized: {error}"))
 }
 
-/// THE EXPLICIT v1 CONVERGENCE, AND THE ONE NONCLAIM IT CARRIES.
+/// THE THREE v1 PREDECESSOR FACTS A CONVERGENCE RESOLVES, normalized across three owner seams.
 ///
-/// A caller may name a stored v1 predecessor by handing over its exact bytes under
-/// `converge_from_v1`. This validates them against the REGISTERED v1 contract — so a record that is
-/// not a v1 record is refused rather than converged — and computes the predecessor commitment
-/// HERE, so the caller cannot assert what its predecessor hashed to. It returns
-/// `(source_ref, source_hash, v1_revision)`.
+/// Each v1 family is owned by a different module and stores itself under a different scheme. What a
+/// convergence needs from all three is identical, so it is named once here: who the owner-scoped
+/// scope pins, which exact revision was resolved, what that revision's bytes commit to, and whether
+/// the rebuildable row agrees. A consumer that had to branch per family would drift per family.
+struct ResolvedV1Predecessor {
+    stored_ref: String,
+    owner_ref: String,
+    principal_ref: String,
+    tenant_ref: String,
+    schema_version: String,
+    record: Value,
+    content_hash: String,
+    admitted_head: String,
+    admitted_revision: u64,
+    index_state: &'static str,
+    /// Which owner module answered, reported so a reader knows who vouched rather than assuming.
+    resolved_by: &'static str,
+}
+
+/// The three v1 predecessor families, and the ONE way each is reached.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum V1Family {
+    DataRecipe,
+    ConnectorMapping,
+    TransformationRun,
+}
+
+impl V1Family {
+    fn code_prefix(self) -> &'static str {
+        match self {
+            V1Family::DataRecipe => "data_recipe",
+            V1Family::ConnectorMapping => "connector_mapping",
+            V1Family::TransformationRun => "transformation_run",
+        }
+    }
+
+    /// The migration member naming the predecessor, in each contract's own spelling.
+    /// Only ConnectorMapping v2's migration object declares `from_revision`. The other two are
+    /// closed with `additionalProperties: false`, so emitting it there would make every converged
+    /// admission fail its own registered contract. The resolved revision is still reported on every
+    /// family — on the custody proof, where it is not part of a frozen wire contract.
+    fn migration_carries_revision(self) -> bool {
+        matches!(self, V1Family::ConnectorMapping)
+    }
+
+    fn ref_member(self) -> &'static str {
+        match self {
+            V1Family::DataRecipe => "from_recipe_ref",
+            V1Family::ConnectorMapping => "from_mapping_ref",
+            V1Family::TransformationRun => "from_run_ref",
+        }
+    }
+
+    /// Resolve the exact stored predecessor through its OWNING module's read-only seam.
+    ///
+    /// THIS MODULE NAMES NO v1 STORAGE. It hands a ref and an owner expectation to the owner and
+    /// receives bytes it did not author. The storage kind, the scope kind, the reconciliation
+    /// between the scheme a record stores and the scheme it scopes itself under, and the decision
+    /// about which stored versions are projectable all stay inside the owner. That is the
+    /// difference between a seam and a second namer, and it is why closing the custody nonclaim did
+    /// not buy one.
+    fn resolve(
+        self,
+        st: &DaemonState,
+        caller: &WriteCaller,
+        predecessor_ref: &str,
+        expected_revision: Option<u64>,
+    ) -> Result<ResolvedV1Predecessor, Reply> {
+        let owner = Some(caller.owner_ref.as_str());
+        match self {
+            V1Family::DataRecipe => super::odk_routes::resolve_stored_odk_data_recipe_v1(
+                &st.data_dir,
+                &caller.identity,
+                owner,
+                predecessor_ref,
+                expected_revision,
+            )
+            .map(|r| ResolvedV1Predecessor {
+                stored_ref: r.recipe_ref,
+                owner_ref: r.owner_ref,
+                principal_ref: r.principal_ref,
+                tenant_ref: r.tenant_ref,
+                schema_version: r.schema_version,
+                record: r.record,
+                content_hash: r.content_hash,
+                admitted_head: r.admitted_head,
+                admitted_revision: r.admitted_revision,
+                index_state: r.index_state,
+                resolved_by: "odk_routes::resolve_stored_odk_data_recipe_v1",
+            }),
+            V1Family::ConnectorMapping => {
+                super::connector_mapping_routes::resolve_stored_connector_mapping_v1(
+                    &st.data_dir,
+                    &caller.identity,
+                    owner,
+                    predecessor_ref,
+                    expected_revision,
+                )
+                .map(|r| ResolvedV1Predecessor {
+                    stored_ref: r.mapping_ref,
+                    owner_ref: r.owner_ref,
+                    principal_ref: r.principal_ref,
+                    tenant_ref: r.tenant_ref,
+                    schema_version: r.schema_version,
+                    record: r.record,
+                    content_hash: r.content_hash,
+                    admitted_head: r.admitted_head,
+                    admitted_revision: r.admitted_revision,
+                    index_state: r.index_state,
+                    resolved_by: "connector_mapping_routes::resolve_stored_connector_mapping_v1",
+                })
+            }
+            V1Family::TransformationRun => {
+                super::transformation_run_routes::resolve_stored_transformation_run_v1(
+                    &st.data_dir,
+                    &caller.identity,
+                    owner,
+                    predecessor_ref,
+                    expected_revision,
+                )
+                .map(|r| ResolvedV1Predecessor {
+                    stored_ref: r.run_ref,
+                    owner_ref: r.owner_ref,
+                    principal_ref: r.principal_ref,
+                    tenant_ref: r.tenant_ref,
+                    schema_version: r.schema_version,
+                    record: r.record,
+                    content_hash: r.content_hash,
+                    admitted_head: r.admitted_head,
+                    admitted_revision: r.admitted_revision,
+                    index_state: r.index_state,
+                    resolved_by: "transformation_run_routes::resolve_stored_transformation_run_v1",
+                })
+            }
+        }
+    }
+}
+
+/// THE ONE CONVERGENCE PATH, FOR ALL THREE FAMILIES. Custody is PROVED or the admission is REFUSED.
 ///
-/// WHAT IT DOES NOT PROVE, stated where the code is rather than in prose elsewhere: that the caller
-/// actually holds that stored record. Resolving it from the v1 record directory would make this
-/// module a second namer of an ODK family it does not own, which is a worse defect than a named
-/// nonclaim. Callers of this function surface `v1_predecessor_custody_nonclaim` on the response.
-fn convergence_block(
+/// SUPPLIED BYTES ARE NOT AN AUTHORITY HERE AND CANNOT BECOME ONE. A caller names a predecessor with
+/// `converge_from_v1_ref` and the owning module resolves it under this caller's own owner binding,
+/// so a cross-principal, cross-tenant or wrong-owner convergence is refused at the scope boundary
+/// BEFORE any predecessor bytes exist in this module — rather than resolved first and compared
+/// afterwards, which is a leak with a check bolted on behind it. `converge_from_v1` survives only as
+/// an ASSERTION about the resolved record, and `converge_from_v1` WITHOUT a ref is refused rather
+/// than honoured: the earlier build hashed whatever bytes a caller handed over, which meant any
+/// principal could converge any bytes that happened to satisfy the v1 contract. There is no longer a
+/// code path in which that is possible, which is a stronger statement than a nonclaim saying so.
+///
+/// `expected_v1_revision` and `expected_v1_content_hash` are ASSERTIONS the caller may make; a
+/// disagreement is a typed refusal by its own name, never an accepted substitution. That is what
+/// makes a changed definition, a substituted revision and a stale hash all fail closed instead of
+/// converging whatever is current under an expectation that named something else.
+fn converge_v1(
+    family: V1Family,
+    st: &DaemonState,
+    caller: &WriteCaller,
     body: &Value,
-    v1_contract_id: &str,
-    v1_schema_version: &str,
-    code_prefix: &str,
-    ref_field: &str,
-) -> Result<Option<(String, String, Option<u64>)>, Reply> {
-    let Some(source) = body.get("converge_from_v1") else {
-        return Ok(None);
-    };
-    if source.is_null() {
-        return Ok(None);
+    extra_initial: &[(&str, Value)],
+    extra_converged: &[(&str, Value)],
+) -> Result<(Value, V1Custody), Reply> {
+    let prefix = family.code_prefix();
+    let mut initial = json!({
+        "from_schema_version": Value::Null,
+        family.ref_member(): Value::Null,
+        "from_content_hash": Value::Null,
+        "compatibility": "initial",
+        "reinterprets_predecessor": false,
+        "downgrade_to_predecessor": "refused",
+    });
+    for (key, value) in extra_initial {
+        initial[*key] = value.clone();
     }
-    let Some(record) = source.as_object() else {
-        return Err(refuse(
-            &format!("{code_prefix}_convergence_source_invalid"),
-            "converge_from_v1 carries the exact stored predecessor RECORD; a bare ref would name a pointer rather than bytes",
-        ));
-    };
-    if record.get("schema_version").and_then(Value::as_str) != Some(v1_schema_version) {
-        return Err(refuse(
-            &format!("{code_prefix}_convergence_source_not_v1"),
-            format!("converge_from_v1 must carry a '{v1_schema_version}' record; this build converges the registered predecessor and reinterprets nothing else"),
-        ));
-    }
-    let value = Value::Object(record.clone());
-    if let Err(reason) = validate_architecture_contract(v1_contract_id, &value) {
-        return Err(refuse(
-            &format!("{code_prefix}_convergence_source_not_registered_valid"),
-            format!("converge_from_v1 does not satisfy the registered predecessor contract: {reason}"),
-        ));
-    }
-    // The predecessor is named in the scheme it was ACTUALLY STORED UNDER. Rewriting it into the
-    // successor's scheme would be reinterpreting v1, which is the one thing a convergence may not do.
-    let source_ref = record
-        .get(ref_field)
+    let named = body
+        .get("converge_from_v1_ref")
         .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    if source_ref.is_empty() {
-        return Err(refuse(
-            &format!("{code_prefix}_convergence_source_invalid"),
-            "the predecessor record carries no stored ref",
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let asserted_hash = body
+        .get("expected_v1_content_hash")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let asserted_revision = body.get("expected_v1_revision").and_then(Value::as_u64);
+    let supplied_bytes = body
+        .get("converge_from_v1")
+        .filter(|value| !value.is_null());
+
+    let Some(predecessor_ref) = named else {
+        // AN EXPECTATION WITH NOTHING TO CHECK IT AGAINST READS AS SATISFIED, so each of these is
+        // refused rather than ignored. Without a named predecessor the only bytes in play are the
+        // caller's own, and an assertion a caller makes about bytes it authored proves nothing.
+        if supplied_bytes.is_some() {
+            return Err(refuse(
+                &format!("{prefix}_convergence_ref_required"),
+                "converge_from_v1 asserts what a RESOLVED predecessor should be; it is not itself an authority. Name the stored predecessor with converge_from_v1_ref — this build proves custody or refuses, and no longer hashes bytes a caller hands it",
+            ));
+        }
+        if asserted_hash.is_some() || asserted_revision.is_some() {
+            return Err(refuse(
+                &format!("{prefix}_convergence_expectation_unbound"),
+                "expected_v1_content_hash and expected_v1_revision assert facts about a RESOLVED predecessor; without converge_from_v1_ref there is nothing to check them against, and an unbindable expectation is refused rather than silently satisfied",
+            ));
+        }
+        return Ok((initial, V1Custody::NotConverged));
+    };
+
+    let resolved = family.resolve(st, caller, predecessor_ref, asserted_revision)?;
+    // The owner published a commitment; this recomputes it from the returned bytes under this
+    // module's own canonicalization. Two implementations that agree today drift tomorrow, and the
+    // number they disagree about is the one a migration exists to make checkable.
+    let recomputed = predecessor_record_hash(&resolved.record).map_err(|reason| {
+        bad(
+            StatusCode::BAD_GATEWAY,
+            &format!("{prefix}_convergence_source_hash_disagrees"),
+            reason,
+        )
+    })?;
+    if recomputed != resolved.content_hash {
+        return Err(bad(
+            StatusCode::BAD_GATEWAY,
+            &format!("{prefix}_convergence_source_hash_disagrees"),
+            "the owner seam's commitment over the resolved predecessor and this module's own commitment over the same bytes disagree; a convergence is refused rather than committed under whichever number was reached first",
         ));
     }
-    let hash = predecessor_record_hash(&value)
-        .map_err(|reason| refuse(&format!("{code_prefix}_convergence_source_invalid"), reason))?;
-    let revision = record.get("revision").and_then(Value::as_u64);
-    Ok(Some((source_ref, hash, revision)))
+    if let Some(asserted) = asserted_hash {
+        if asserted != resolved.content_hash {
+            return Err(refuse(
+                &format!("{prefix}_convergence_source_hash_stale"),
+                "expected_v1_content_hash is not the commitment the resolved predecessor revision makes; a v1 record is patched IN PLACE, so a stale expectation names bytes that are no longer at that revision and is refused rather than converged",
+            ));
+        }
+    }
+    if let Some(supplied) = supplied_bytes {
+        let Some(supplied) = supplied.as_object() else {
+            return Err(refuse(
+                &format!("{prefix}_convergence_source_invalid"),
+                "converge_from_v1 beside converge_from_v1_ref asserts the predecessor's exact stored RECORD; a non-object asserts nothing",
+            ));
+        };
+        if Value::Object(supplied.clone()) != resolved.record {
+            return Err(refuse(
+                &format!("{prefix}_convergence_source_bytes_changed"),
+                "the predecessor record asserted here is not the one stored at the resolved revision; the resolved bytes are authoritative and a disagreement is refused rather than reconciled",
+            ));
+        }
+    }
+    let mut migration = json!({
+        "from_schema_version": resolved.schema_version,
+        // Named in the scheme it was ACTUALLY STORED UNDER. Rewriting it into the successor's
+        // scheme would be reinterpreting v1, which is the one thing a convergence may not do.
+        family.ref_member(): resolved.stored_ref,
+        "from_content_hash": resolved.content_hash,
+        "compatibility": "converged_from_v1",
+        "reinterprets_predecessor": false,
+        "downgrade_to_predecessor": "refused",
+    });
+    if family.migration_carries_revision() {
+        migration["from_revision"] = json!(resolved.admitted_revision);
+    }
+    for (key, value) in extra_converged {
+        migration[*key] = value.clone();
+    }
+    let mut proof = json!({
+        "proved": "the exact stored predecessor revision was resolved through its owning module's read-only owner seam, under this caller's own owner binding, before this successor existed",
+        "predecessor_ref": resolved.stored_ref,
+        "predecessor_schema_version": resolved.schema_version,
+        "predecessor_content_hash": resolved.content_hash,
+        "predecessor_owner_ref": resolved.owner_ref,
+        "predecessor_principal_ref": resolved.principal_ref,
+        "predecessor_tenant_ref": resolved.tenant_ref,
+        "predecessor_admitted_head": resolved.admitted_head,
+        "predecessor_admitted_revision": resolved.admitted_revision,
+        "predecessor_index_state": resolved.index_state,
+        "predecessor_revision_selected_by": if asserted_revision.is_some() {
+            "caller_named_exact_revision"
+        } else {
+            "current_admitted_revision"
+        },
+        "resolved_from": "owner_scoped_admission_chain",
+        "resolved_by": resolved.resolved_by,
+        // WHAT A PROVED CUSTODY STILL DOES NOT ESTABLISH. Stated here rather than left to a reader,
+        // because a proof that is silent about its edges gets read as proving more.
+        "does_not_prove": [
+            "that the predecessor will not be revised again after this admission — a v1 record is mutable, and this commits the bytes as of the resolved revision",
+            "that the predecessor's own named refs resolved to any exact revision — v1 carries no committed semantic snapshot",
+            "any authority, capability, lease or policy decision over the predecessor or its successor",
+        ],
+    });
+    proof["predecessor_family"] = json!(prefix);
+    Ok((migration, V1Custody::Proved(Box::new(proof))))
 }
 
 // ================================================================== ConnectorMapping v2 — the map
@@ -1419,37 +1697,15 @@ pub(crate) async fn handle_connector_mapping_admit(
             Err(reason) => return refuse("connector_mapping_semantic_snapshot_invalid", reason),
         };
 
-    let (migration, converged) = match convergence_block(
+    let (migration, custody) = match converge_v1(
+        V1Family::ConnectorMapping,
+        &st,
+        &caller,
         &body,
-        CMAP_V1_CONTRACT,
-        CMAP_V1_SCHEMA,
-        "connector_mapping",
-        "ref",
+        &[("from_revision", Value::Null)],
+        &[],
     ) {
-        Ok(Some((source_ref, source_hash, revision))) => (
-            json!({
-                "from_schema_version": CMAP_V1_SCHEMA,
-                "from_mapping_ref": source_ref,
-                "from_content_hash": source_hash,
-                "from_revision": revision.unwrap_or(1),
-                "compatibility": "converged_from_v1",
-                "reinterprets_predecessor": false,
-                "downgrade_to_predecessor": "refused",
-            }),
-            true,
-        ),
-        Ok(None) => (
-            json!({
-                "from_schema_version": Value::Null,
-                "from_mapping_ref": Value::Null,
-                "from_content_hash": Value::Null,
-                "from_revision": Value::Null,
-                "compatibility": "initial",
-                "reinterprets_predecessor": false,
-                "downgrade_to_predecessor": "refused",
-            }),
-            false,
-        ),
+        Ok(resolved) => resolved,
         Err(response) => return response,
     };
 
@@ -1517,7 +1773,7 @@ pub(crate) async fn handle_connector_mapping_admit(
         expected_head,
         recorded_at_ms,
         &body,
-        converged,
+        &custody,
     )
 }
 
@@ -1919,35 +2175,15 @@ pub(crate) async fn handle_data_recipe_admit(
             Err(reason) => return refuse("data_recipe_semantic_snapshot_invalid", reason),
         };
 
-    let (migration, converged) = match convergence_block(
+    let (migration, custody) = match converge_v1(
+        V1Family::DataRecipe,
+        &st,
+        &caller,
         &body,
-        RECIPE_V1_CONTRACT,
-        RECIPE_V1_SCHEMA,
-        "data_recipe",
-        "ref",
+        &[],
+        &[],
     ) {
-        Ok(Some((source_ref, source_hash, _))) => (
-            json!({
-                "from_schema_version": RECIPE_V1_SCHEMA,
-                "from_recipe_ref": source_ref,
-                "from_content_hash": source_hash,
-                "compatibility": "converged_from_v1",
-                "reinterprets_predecessor": false,
-                "downgrade_to_predecessor": "refused",
-            }),
-            true,
-        ),
-        Ok(None) => (
-            json!({
-                "from_schema_version": Value::Null,
-                "from_recipe_ref": Value::Null,
-                "from_content_hash": Value::Null,
-                "compatibility": "initial",
-                "reinterprets_predecessor": false,
-                "downgrade_to_predecessor": "refused",
-            }),
-            false,
-        ),
+        Ok(resolved) => resolved,
         Err(response) => return response,
     };
 
@@ -2010,7 +2246,7 @@ pub(crate) async fn handle_data_recipe_admit(
         expected_head,
         recorded_at_ms,
         &body,
-        converged,
+        &custody,
     )
 }
 
@@ -2463,36 +2699,19 @@ pub(crate) async fn handle_transformation_run_admit(
         return response;
     }
 
-    let (migration, converged) =
-        match convergence_block(&body, RUN_V1_CONTRACT, RUN_V1_SCHEMA, "transformation_run", "ref") {
-            Ok(Some((source_ref, source_hash, _))) => (
-                json!({
-                    "from_schema_version": RUN_V1_SCHEMA,
-                    "from_run_ref": source_ref,
-                    "from_content_hash": source_hash,
-                    // Pinned false unconditionally: no v1 record ever executed. A convergence that
-                    // carried v1 outputs forward would be inventing them.
-                    "predecessor_reached_execution": false,
-                    "compatibility": "converged_from_v1",
-                    "reinterprets_predecessor": false,
-                    "downgrade_to_predecessor": "refused",
-                }),
-                true,
-            ),
-            Ok(None) => (
-                json!({
-                    "from_schema_version": Value::Null,
-                    "from_run_ref": Value::Null,
-                    "from_content_hash": Value::Null,
-                    "predecessor_reached_execution": false,
-                    "compatibility": "initial",
-                    "reinterprets_predecessor": false,
-                    "downgrade_to_predecessor": "refused",
-                }),
-                false,
-            ),
-            Err(response) => return response,
-        };
+    let (migration, custody) = match converge_v1(
+        V1Family::TransformationRun,
+        &st,
+        &caller,
+        &body,
+        // Pinned false on both arms: no v1 record ever executed, so a convergence that carried v1
+        // outputs forward would be inventing them.
+        &[("predecessor_reached_execution", json!(false))],
+        &[("predecessor_reached_execution", json!(false))],
+    ) {
+        Ok(resolved) => resolved,
+        Err(response) => return response,
+    };
 
     let recorded_at_ms = now_ms();
     let mut record = json!({
@@ -2559,7 +2778,7 @@ pub(crate) async fn handle_transformation_run_admit(
         expected_head,
         recorded_at_ms,
         &body,
-        converged,
+        &custody,
     )
 }
 
@@ -2627,6 +2846,38 @@ pub(crate) async fn handle_transformation_run_query(
             "index_state": index_state,
         })),
     )
+}
+
+#[cfg(test)]
+mod v1_custody_tests {
+    use super::*;
+
+    /// A CONVERGED ADMISSION CARRIES A PROOF, OR IT DOES NOT EXIST. The enum once had a third state
+    /// for "converged but custody unproved", and the response carried a nonclaim saying so. Both are
+    /// gone: a convergence that cannot resolve its predecessor is now a refusal, so the unproved
+    /// state is unrepresentable rather than merely unused. That is what makes "supplied bytes are
+    /// not an authority path" a fact about the type rather than a promise in prose.
+    #[test]
+    fn a_converged_admission_always_carries_its_proof() {
+        let proved = V1Custody::Proved(Box::new(json!({ "predecessor_ref": "recipe://recipe_0" })));
+        assert!(
+            proved.proof().is_object(),
+            "a proved custody carries its proof"
+        );
+        assert!(proved.converged());
+        // The unproved-but-converged state is UNREPRESENTABLE. If a variant is ever added back, this
+        // exhaustive match stops compiling — which is the point: the guarantee is structural.
+        match &proved {
+            V1Custody::Proved(_) | V1Custody::NotConverged => {}
+        }
+
+        let none = V1Custody::NotConverged;
+        assert!(none.proof().is_null());
+        assert!(
+            !none.converged(),
+            "an admission that converged nothing has nothing to prove and nothing to disclaim",
+        );
+    }
 }
 
 #[cfg(test)]

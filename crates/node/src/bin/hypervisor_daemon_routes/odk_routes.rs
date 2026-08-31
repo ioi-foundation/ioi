@@ -1397,7 +1397,13 @@ pub(crate) async fn handle_odk_recipe_create(
         "created_at": now,
         "updated_at": now
     });
-    if let Err(response) = manifest_registered_valid(&record) {
+    // A RECORD IS VALIDATED AGAINST ITS OWN CONTRACT, NEVER AGAINST WHICHEVER VALIDATOR WAS NEAREST.
+    // This called `manifest_registered_valid`, whose match knows only the two ODK MANIFEST versions,
+    // so every data-recipe create fell into that function's unknown arm and answered
+    // `odk_manifest_contract_unsupported` — a family refused under another family's name, for a
+    // contract that is registered and that the record satisfies. Widening the manifest validator to
+    // admit a recipe would make one function the namer of two contracts; the recipe gets its own.
+    if let Err(response) = data_recipe_registered_valid(&record) {
         return response;
     }
     odk_admit(
@@ -1406,8 +1412,8 @@ pub(crate) async fn handle_odk_recipe_create(
         &body,
         OdkAdmission {
             family: KIND_RECIPE,
-            scope_kind: "hypervisor-odk-data-recipe",
-            ref_prefix: "data-recipe://",
+            scope_kind: ODK_DATA_RECIPE_SCOPE_KIND,
+            ref_prefix: ODK_DATA_RECIPE_REF_PREFIX,
             op_kind: "event_stream.hypervisor_odk_data_recipe_admitted",
             reply_key: "data_recipe",
             persist_error: "odk_data_recipe_persistence_failed",
@@ -1491,8 +1497,8 @@ pub(crate) async fn handle_odk_recipe_patch(
         &body,
         OdkAdmission {
             family: KIND_RECIPE,
-            scope_kind: "hypervisor-odk-data-recipe",
-            ref_prefix: "data-recipe://",
+            scope_kind: ODK_DATA_RECIPE_SCOPE_KIND,
+            ref_prefix: ODK_DATA_RECIPE_REF_PREFIX,
             op_kind: "event_stream.hypervisor_odk_data_recipe_revised",
             reply_key: "data_recipe",
             persist_error: "odk_data_recipe_persistence_failed",
@@ -1509,6 +1515,455 @@ pub(crate) async fn handle_odk_recipe_delete(
     AxumPath(id): AxumPath<String>,
 ) -> Json<Value> {
     json_del(&st.data_dir, KIND_RECIPE, &id)
+}
+
+// ============ M05.7 · THE v1 DATA-RECIPE OWNER SEAM — READ-ONLY, AND THE ONLY WAY IN ============
+//
+// WHY THIS EXISTS. The v2 convergence could name a v1 predecessor but could not PROVE the caller
+// held it: it hashed bytes the caller handed over, so `converge_from_v1` was a claim about a record
+// rather than a resolution of one, and every converged admission had to carry
+// `v1_predecessor_custody_nonclaim` saying so. The two ways to close that are not equal. Reading the
+// v1 record directory from the data-transformation module would make that module a SECOND NAMER of a
+// family it does not own — the storage kind, the scope kind and the ref-scheme reconciliation would
+// exist in two places and drift. So the owner publishes ONE read-only resolver and keeps every one
+// of those facts inside itself; the consumer names a ref and gets bytes it did not author.
+//
+// WHAT IT RESOLVES FROM. The Agentgres owner-scoped chain, never the record-directory row. A row is
+// a rebuildable projection: delete it and a convergence could not proceed, corrupt it and the
+// successor would freeze whatever the corruption said as its provenance — which is the one number a
+// migration exists to make checkable. The row is still READ, but only to REPORT whether it agrees.
+//
+// WHAT IT REFUSES. Everything, by its own name, before it returns bytes: a ref that is not this
+// family's stored scheme, a caller whose principal or tenant does not carry the family's reserved
+// scope, an owner that is not the one expected, an absent predecessor, a chain holding a version
+// this build does not project, and a stored record that does not satisfy its own registered
+// contract. There is no default arm and no "resolve anyway" path.
+
+const ODK_DATA_RECIPE_V1_SCHEMA_VERSION: &str = "ioi.hypervisor.odk.data-recipe.v1";
+const ODK_DATA_RECIPE_V1_CONTRACT_ID: &str = "schema://ioi/foundations/objects/data-recipe/v1";
+const ODK_DATA_RECIPE_SCOPE_KIND: &str = "hypervisor-odk-data-recipe";
+/// The scheme this family SCOPES itself under, which is not the scheme it stores in its own `ref`.
+const ODK_DATA_RECIPE_REF_PREFIX: &str = "data-recipe://";
+/// The scheme a stored v1 record actually carries — registered as the defect it is, and the one a
+/// reader resolves. The reconciliation between the two lives here and nowhere else.
+const ODK_DATA_RECIPE_STORED_SCHEME: &str = "recipe";
+
+/// Validate a data-recipe record against ITS OWN registered contract, failing closed on a version
+/// this build does not author.
+fn data_recipe_registered_valid(record: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    let contract_id = match record.get("schema_version").and_then(Value::as_str) {
+        Some(ODK_DATA_RECIPE_V1_SCHEMA_VERSION) => ODK_DATA_RECIPE_V1_CONTRACT_ID,
+        unknown => {
+            return Err(bad(
+                "odk_data_recipe_contract_unsupported",
+                &format!(
+                    "a data recipe declaring '{}' has no registered contract in this build",
+                    unknown.unwrap_or("(no schema_version)")
+                ),
+            ))
+        }
+    };
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        contract_id,
+        record,
+    )
+    .map_err(|reason| {
+        bad(
+            "odk_data_recipe_not_registered_valid",
+            &format!(
+                "the data recipe this request builds is not valid against {contract_id}: {reason}"
+            ),
+        )
+    })
+}
+
+/// THE ADMITTED PAYLOAD IS NOT THE REGISTERED RECORD, and treating it as one would hash the wrong
+/// bytes forever.
+///
+/// The shared ODK admission path removes `created_at`/`updated_at` before admitting — wall clock in
+/// an admitted payload makes an idempotency key meaningless, because a retry could never be
+/// byte-identical — and inserts `owner_ref`, which is admission provenance the v1 contract, closed
+/// with `additionalProperties: false`, does not carry. So the record the contract describes exists
+/// only as a PROJECTION: stamps put back from the admission, owner handed back BESIDE the record
+/// rather than inside it. One function builds it, so the bytes a custody proof commits are the bytes
+/// the contract describes rather than a second reading of them.
+fn odk_data_recipe_v1_projection(
+    payload: &Value,
+    created_at: &str,
+    updated_at: &str,
+) -> Result<(Value, String), (StatusCode, Json<Value>)> {
+    let Some(object) = payload.as_object() else {
+        return Err(odk_data_recipe_chain_refusal(
+            "odk_data_recipe_projection_failed",
+            "the chain holds a non-object payload for this data recipe",
+        ));
+    };
+    let mut record = object.clone();
+    let owner_ref = record
+        .remove("owner_ref")
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_default();
+    if owner_ref.is_empty() {
+        return Err(odk_data_recipe_chain_refusal(
+            "odk_data_recipe_projection_failed",
+            "the admitted payload carries no owner_ref, so this record cannot be owner-resolved",
+        ));
+    }
+    record.insert("created_at".into(), json!(created_at));
+    record.insert("updated_at".into(), json!(updated_at));
+    let record = Value::Object(record);
+    data_recipe_registered_valid(&record).map_err(|(_, Json(payload))| {
+        odk_data_recipe_chain_refusal(
+            "odk_data_recipe_projection_failed",
+            payload
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("the stored record does not satisfy its own registered contract"),
+        )
+    })?;
+    Ok((record, owner_ref))
+}
+
+/// A chain that holds something this build cannot project is a SERVER-SIDE fact, not a caller error:
+/// 502, so a consumer never reads it as "your request was malformed".
+fn odk_data_recipe_chain_refusal(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_GATEWAY,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+
+/// The commitment over a stored v1 record's EXACT bytes, canonicalized.
+///
+/// No field list: a v1 record is converged as a whole, and enumerating its fields here would let a
+/// later edit to that enumeration silently change what a convergence claims to have seen.
+fn odk_data_recipe_v1_content_hash(record: &Value) -> Result<String, (StatusCode, Json<Value>)> {
+    use sha2::Digest;
+    serde_jcs::to_vec(record)
+        .map(|bytes| format!("sha256:{:x}", sha2::Sha256::digest(&bytes)))
+        .map_err(|error| {
+            odk_data_recipe_chain_refusal(
+                "odk_data_recipe_projection_failed",
+                &format!("the stored record could not be canonicalized: {error}"),
+            )
+        })
+}
+
+/// ONE stored v1 DataRecipe, resolved from the chain for a caller entitled to see it.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedOdkDataRecipeV1 {
+    /// The ref the record ACTUALLY STORES — `recipe://<id>`, never rewritten into the successor's
+    /// scheme, because rewriting it would be reinterpreting v1.
+    pub(crate) recipe_ref: String,
+    pub(crate) owner_ref: String,
+    /// The principal and tenant the family's reserved scope pins. Carried so a consumer can report
+    /// WHICH custody it proved rather than only that it proved one.
+    pub(crate) principal_ref: String,
+    pub(crate) tenant_ref: String,
+    pub(crate) schema_version: String,
+    /// The registered v1 record, byte-exact as its own contract describes it.
+    pub(crate) record: Value,
+    pub(crate) content_hash: String,
+    pub(crate) admitted_head: String,
+    /// How many admissions this family's chain holds — a v1 recipe is patched IN PLACE, so this
+    /// counts revisions of one mutable record rather than naming immutable successors.
+    pub(crate) admitted_revision: u64,
+    pub(crate) index_state: &'static str,
+}
+
+/// Resolve the EXACT CURRENT stored v1 DataRecipe a caller names, or refuse by name.
+///
+/// `expected_owner_ref` is the consumer's own owner binding. Passing it pins the answer to ONE
+/// owner at the scope boundary rather than letting a consumer compare owners after it already holds
+/// another owner's bytes — the difference between a fail-closed resolution and a leak with a check
+/// bolted on after it.
+///
+/// EXACT CURRENT, AND ONLY THAT. There is no `as_of` and no ordinal selector: a v1 recipe is patched
+/// in place, so an earlier revision's bytes are unaddressable by construction, and offering to
+/// resolve one would be offering to invent it.
+pub(crate) fn resolve_stored_odk_data_recipe_v1(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    expected_owner_ref: Option<&str>,
+    recipe_ref: &str,
+    expected_revision: Option<u64>,
+) -> Result<ResolvedOdkDataRecipeV1, (StatusCode, Json<Value>)> {
+    let Some((ODK_DATA_RECIPE_STORED_SCHEME, id)) = split_ref(recipe_ref) else {
+        return Err(bad(
+            "odk_data_recipe_ref_not_canonical",
+            "a stored v1 data recipe is addressed as 'recipe://<id>' — the scheme it was admitted under, not the successor's",
+        ));
+    };
+    let scope_ref = format!("{ODK_DATA_RECIPE_REF_PREFIX}{id}");
+    let scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        ODK_DATA_RECIPE_SCOPE_KIND,
+        &scope_ref,
+        expected_owner_ref,
+    )
+    .map_err(odk_scope_refusal)?;
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        data_dir,
+        identity,
+        &scope,
+        ODK_DATA_RECIPE_SCOPE_KIND,
+        &scope_ref,
+        ODK_NAMESPACE,
+        &odk_hash_tail(ODK_DATA_RECIPE_SCOPE_KIND, &scope_ref),
+    )
+    .map_err(odk_mutation_refusal)?;
+    if let Some(wanted) = expected_revision {
+        if wanted == 0 || wanted as usize > history.len() {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "odk_data_recipe_revision_absent",
+                        "message": format!("this data recipe has no admitted revision {wanted}; a v1 recipe carries no revision member, so its revision IS its position in the admitted chain, and an absent one is a typed absence rather than the nearest")
+                    }
+                })),
+            ));
+        }
+    }
+    let (Some(first), Some(latest)) = (history.first(), history.last()) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "odk_data_recipe_not_found",
+                    "message": "this data recipe has no admitted history — an absent predecessor is a typed absence, never an empty success"
+                }
+            })),
+        ));
+    };
+    // THE NAMED REVISION IS THE ONE RESOLVED, not the newest one that happens to satisfy the
+    // bounds check. Validating an ordinal and then answering with `latest` anyway is precisely the
+    // shape of a check that cannot fail on its own finding.
+    let selected = match expected_revision {
+        Some(wanted) => &history[(wanted - 1) as usize],
+        None => latest,
+    };
+    let payload = selected.operation.payload.clone();
+    let schema_version = payload
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    if schema_version != ODK_DATA_RECIPE_V1_SCHEMA_VERSION {
+        return Err(odk_data_recipe_chain_refusal(
+            "odk_data_recipe_version_unsupported",
+            &format!(
+                "the chain holds a data recipe admitted as '{}', which this build neither authors nor projects; an unrecognised stored version is refused rather than served as though it were understood",
+                if schema_version.is_empty() { "(no schema_version)" } else { &schema_version }
+            ),
+        ));
+    }
+    let created_at = admitted_stamp_ms(first.operation.recorded_at_ms);
+    let updated_at = admitted_stamp_ms(selected.operation.recorded_at_ms);
+    let (record, owner_ref) = odk_data_recipe_v1_projection(&payload, &created_at, &updated_at)?;
+    // THE STORED REF IS THE ANSWER, and it must be the one that was asked for. A record whose own
+    // `ref` disagrees with the scope it was admitted under is a corrupted binding, not a near miss.
+    if record.get("ref").and_then(Value::as_str) != Some(recipe_ref) {
+        return Err(odk_data_recipe_chain_refusal(
+            "odk_data_recipe_ref_binding_disagrees",
+            "the admitted record's own ref is not the ref this scope resolves; the binding between the stored ref and the admitted scope is broken",
+        ));
+    }
+    let content_hash = odk_data_recipe_v1_content_hash(&record)?;
+    // The row is consulted only to REPORT agreement, after the answer is already computed.
+    let mut expected_row = payload.clone();
+    if let Some(object) = expected_row.as_object_mut() {
+        object.insert("created_at".into(), json!(created_at));
+        object.insert("updated_at".into(), json!(updated_at));
+    }
+    let index_state = match load(data_dir, KIND_RECIPE, id) {
+        None => "absent_rebuilt_from_agentgres",
+        Some(row) if row == expected_row => "agreed_with_agentgres",
+        Some(_) => "stale_rebuilt_from_agentgres",
+    };
+    // Resolving a SUPERSEDED revision is a chain read by definition: the row holds only the newest
+    // bytes, so reporting agreement here would be reporting it about a different revision.
+    let index_state = if expected_revision.is_some_and(|wanted| wanted < history.len() as u64) {
+        "superseded_revision_read_from_agentgres"
+    } else {
+        index_state
+    };
+    Ok(ResolvedOdkDataRecipeV1 {
+        recipe_ref: recipe_ref.to_string(),
+        owner_ref,
+        principal_ref: scope.principal_ref.clone(),
+        tenant_ref: scope.tenant_ref.clone(),
+        schema_version,
+        record,
+        content_hash,
+        admitted_head: selected.head.clone(),
+        admitted_revision: expected_revision.unwrap_or(history.len() as u64),
+        index_state,
+    })
+}
+
+#[cfg(test)]
+mod data_recipe_v1_owner_seam_tests {
+    use super::*;
+
+    const STORED_V1: &str = include_str!(
+        "../../../../../docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json"
+    );
+
+    fn stored_v1() -> Value {
+        serde_json::from_str(STORED_V1).expect("the registered positive fixture is json")
+    }
+
+    /// The admitted payload as the shared ODK admission path actually leaves it: stamps stripped,
+    /// owner inserted.
+    fn admitted_payload(owner_ref: &str) -> Value {
+        let mut payload = stored_v1();
+        let object = payload.as_object_mut().expect("fixture is an object");
+        object.remove("created_at");
+        object.remove("updated_at");
+        object.insert("owner_ref".into(), json!(owner_ref));
+        payload
+    }
+
+    /// THE EXACT REGRESSION THIS PACKET FIXED, PINNED SO IT CANNOT COME BACK.
+    ///
+    /// `handle_odk_recipe_create` validated the record it was about to admit with
+    /// `manifest_registered_valid`, whose match knows only the two ODK MANIFEST versions. A data
+    /// recipe fell into that function's unknown arm, so EVERY create answered
+    /// `odk_manifest_contract_unsupported` — a refusal under another family's name for a record that
+    /// satisfies its own registered contract. Both halves are asserted here: the recipe validator
+    /// admits it, and the manifest validator still refuses it, because the fix is that each family
+    /// validates against its own contract rather than that one validator learned a second one.
+    #[test]
+    fn a_data_recipe_is_validated_against_its_own_contract_not_the_manifests() {
+        let mut record = stored_v1();
+        assert!(
+            data_recipe_registered_valid(&record).is_ok(),
+            "the registered positive fixture must satisfy its own registered contract"
+        );
+        let refused = manifest_registered_valid(&record).expect_err(
+            "the manifest validator must keep refusing a recipe; widening it would make one function the namer of two contracts",
+        );
+        assert_eq!(
+            refused.1 .0.pointer("/error/code").and_then(Value::as_str),
+            Some("odk_manifest_contract_unsupported"),
+        );
+        record["schema_version"] = json!("ioi.data-recipe.v2");
+        assert_eq!(
+            data_recipe_registered_valid(&record)
+                .expect_err("a version this build does not author fails closed")
+                .1
+                 .0
+                .pointer("/error/code")
+                .and_then(Value::as_str),
+            Some("odk_data_recipe_contract_unsupported"),
+        );
+    }
+
+    /// The admitted payload is NOT the registered record, and the projection is what reconciles
+    /// them. If this ever returned the payload unchanged, a custody proof would hash bytes no
+    /// contract describes.
+    #[test]
+    fn the_projection_restores_the_registered_record_and_returns_the_owner_beside_it() {
+        let payload = admitted_payload("org://acme");
+        assert!(
+            data_recipe_registered_valid(&payload).is_err(),
+            "the raw admitted payload must NOT satisfy the v1 contract — it carries owner_ref and no stamps",
+        );
+        let (record, owner_ref) =
+            odk_data_recipe_v1_projection(&payload, "2026-08-14T09:12:44Z", "2026-08-21T16:03:07Z")
+                .expect("the projection rebuilds the registered record");
+        assert_eq!(owner_ref, "org://acme");
+        assert_eq!(
+            record,
+            stored_v1(),
+            "the projection must reproduce the registered record byte for byte",
+        );
+        assert!(
+            record.get("owner_ref").is_none(),
+            "owner is admission provenance and lives BESIDE the record, never inside a contract that forbids it",
+        );
+    }
+
+    /// A payload with no owner cannot be owner-resolved, so it is a 502 fail-closed rather than a
+    /// record served with an empty owner that every downstream comparison would then match.
+    #[test]
+    fn an_ownerless_payload_fails_closed_as_a_server_side_fact() {
+        let mut payload = admitted_payload("org://acme");
+        payload.as_object_mut().expect("object").remove("owner_ref");
+        let (status, Json(body)) =
+            odk_data_recipe_v1_projection(&payload, "2026-08-14T09:12:44Z", "2026-08-21T16:03:07Z")
+                .expect_err("an ownerless payload is refused");
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(
+            body.pointer("/error/code").and_then(Value::as_str),
+            Some("odk_data_recipe_projection_failed"),
+        );
+    }
+
+    /// A chain payload that does not satisfy the v1 contract is refused rather than projected, so a
+    /// convergence can never commit a predecessor this build does not actually understand.
+    #[test]
+    fn a_stored_record_that_fails_its_contract_is_refused_rather_than_projected() {
+        let mut payload = admitted_payload("org://acme");
+        payload["status"] = json!("active");
+        assert_eq!(
+            odk_data_recipe_v1_projection(&payload, "2026-08-14T09:12:44Z", "2026-08-21T16:03:07Z")
+                .expect_err("an off-contract stored record fails closed")
+                .1
+                 .0
+                .pointer("/error/code")
+                .and_then(Value::as_str),
+            Some("odk_data_recipe_projection_failed"),
+        );
+    }
+
+    /// The commitment covers the WHOLE record. A field list here would let a later edit to that list
+    /// silently change what a convergence claims to have seen, so every field must move the digest.
+    #[test]
+    fn the_commitment_covers_every_field_of_the_stored_record() {
+        let record = stored_v1();
+        let base = odk_data_recipe_v1_content_hash(&record).expect("hashable");
+        assert!(base.starts_with("sha256:") && base.len() == 71);
+        for field in record.as_object().expect("object").keys() {
+            let mut mutated = record.clone();
+            let object = mutated.as_object_mut().expect("object");
+            object.remove(field.as_str());
+            assert_ne!(
+                odk_data_recipe_v1_content_hash(&mutated).expect("hashable"),
+                base,
+                "dropping '{field}' must move the commitment",
+            );
+        }
+    }
+
+    /// The two schemes this family lives under must stay DISTINCT and stay here. Conflating the
+    /// stored `recipe://` ref with the `data-recipe://` scope is exactly the reconciliation the seam
+    /// exists to own; if a consumer had to know it, the knowledge would be in two places.
+    #[test]
+    fn the_stored_scheme_and_the_scope_scheme_stay_distinct() {
+        assert_eq!(ODK_DATA_RECIPE_STORED_SCHEME, "recipe");
+        assert_eq!(ODK_DATA_RECIPE_REF_PREFIX, "data-recipe://");
+        assert_eq!(ODK_DATA_RECIPE_SCOPE_KIND, "hypervisor-odk-data-recipe");
+        assert_ne!(
+            format!("{ODK_DATA_RECIPE_STORED_SCHEME}://"),
+            ODK_DATA_RECIPE_REF_PREFIX,
+        );
+        let stored = stored_v1();
+        let stored_ref = stored.get("ref").and_then(Value::as_str).expect("ref");
+        assert_eq!(
+            split_ref(stored_ref).map(|(scheme, _)| scheme),
+            Some(ODK_DATA_RECIPE_STORED_SCHEME),
+            "the registered fixture must carry the scheme the resolver accepts",
+        );
+        assert_eq!(
+            local_kind_for_scheme(ODK_DATA_RECIPE_STORED_SCHEME),
+            Some(KIND_RECIPE),
+        );
+    }
 }
 
 // ============================ ODK MANIFEST (builder/conformance) ================================

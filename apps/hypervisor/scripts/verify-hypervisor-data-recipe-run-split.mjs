@@ -32,12 +32,19 @@
 //     reported as a MISS, not quietly counted.
 //
 // NONCLAIMS, stated so a reader does not infer more than ran.
-//   * This gate proves the v2 definition/run/mapping planes. It makes NO claim about the v1 ODK
-//     lanes under `/v1/hypervisor/odk/*`, which are unchanged and still mint v1 records.
-//   * The v1→v2 convergence is driven with predecessor bytes this harness supplies. The daemon
-//     validates them against the REGISTERED v1 contract and hashes them itself; neither it nor this
-//     file proves the caller holds that stored v1 record, and the admission says so in
-//     `v1_predecessor_custody_nonclaim`.
+//   * This gate proves the v2 definition/run/mapping planes. It now also exercises all THREE v1 ODK
+//     lanes under `/v1/hypervisor/odk/*`, because a stored v1 record of each family is the
+//     predecessor a proved convergence resolves. It makes no claim about the rest of that plane.
+//   * ALL THREE CONVERGENCES PROVE CUSTODY, AND NONE DISCLAIMS IT. A predecessor is NAMED and its
+//     OWNING module resolves it from an owner-scoped chain under the caller's own owner binding, so
+//     cross-principal, cross-tenant, substituted-revision, substituted-hash, changed-definition,
+//     changed-bytes and unbindable-expectation convergences all fail closed and append nothing.
+//     Supplying bytes WITHOUT naming a predecessor is refused, so caller bytes are not an authority
+//     path anywhere — asserted here as a refusal rather than trusted as an intention.
+//   * WHAT IS STILL NOT PROVED is carried on each admission under
+//     `v1_predecessor_custody.does_not_prove`: a v1 record stays mutable, so the commitment is over
+//     the bytes AS OF the resolved revision and not for all time; and v1 carries no committed
+//     semantic snapshot, so its own named refs are not proved to resolve to exact revisions.
 //   * The environment-recipe OBJECT rename is M09.2's. This asserts only that the route name is
 //     qualified and that the generic name is no longer a creatable family.
 //   * It asserts the authority nonclaims are carried and that this module consults no authority
@@ -61,6 +68,22 @@ const ROUTE_SOURCE = path.join(
   "crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs",
 );
 const DAEMON_SOURCE = path.join(ROOT, "crates/node/src/bin/hypervisor-daemon.rs");
+/// The ODK OWNER module — the only namer of the v1 DataRecipe family's storage, and therefore the
+/// only place a custody seam defect can be planted.
+const ODK_SOURCE = path.join(
+  ROOT,
+  "crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs",
+);
+/// The other two v1 owners. Custody spans four modules by design — one consumer and three owners —
+/// so a battery that could only reach the consumer would leave every seam-side defect unplantable.
+const MAPPING_SOURCE = path.join(
+  ROOT,
+  "crates/node/src/bin/hypervisor_daemon_routes/connector_mapping_routes.rs",
+);
+const RUN_SOURCE = path.join(
+  ROOT,
+  "crates/node/src/bin/hypervisor_daemon_routes/transformation_run_routes.rs",
+);
 const SCHEMAS = path.join(ROOT, "docs/architecture/_meta/schemas");
 const REGISTRY = path.join(SCHEMAS, "architecture-contract-registry.v1.json");
 const MUTATE = process.argv.includes("--mutate");
@@ -889,36 +912,27 @@ async function run() {
     `re-read ${stillFirst.status}`,
   );
 
-  // ------------------------------------------------------------------- explicit v1 convergence
-  const storedV1 = JSON.parse(
+  // ------------------------------------------- v1 convergence is now RESOLVED, never asserted
+  // The fixture-driven convergence this replaces handed the daemon predecessor BYTES and asked it to
+  // hash them, which is why it could only ever carry a nonclaim. Supplying bytes with no named
+  // predecessor is now a refusal, so the old shape is asserted to be GONE rather than merely unused.
+  const storedV1Fixture = JSON.parse(
     fs.readFileSync(path.join(SCHEMAS, "fixtures/connector-mapping-v1/positive-stored-v1-declared.json"), "utf8"),
   );
-  const mapHead = await streamState(MAP, "acme.intake-form", "connector_mappings");
-  const converged = await req(
+  const bytesOnly = await req(
     "POST",
     MAP,
-    mappingBody("rrs-map-converged", {
-      expected_head: mapHead.head,
+    mappingBody("rrs-map-bytesonly", {
+      expected_head: (await streamState(MAP, "acme.intake-form", "connector_mappings")).head,
       succession_reason: "correction",
-      converge_from_v1: storedV1,
+      converge_from_v1: storedV1Fixture,
     }),
   );
-  const convergedRecord = converged.j?.connector_mapping ?? {};
   ok(
-    "a v1 CONVERGENCE names the predecessor in the scheme it was ACTUALLY stored under, with the server's own hash of its exact bytes, and pins downgrade as refused — rewriting the ref into `mapping://` would be reinterpreting v1",
-    converged.status === 201 &&
-      convergedRecord.migration?.compatibility === "converged_from_v1" &&
-      convergedRecord.migration?.from_mapping_ref === storedV1.ref &&
-      convergedRecord.migration?.from_content_hash === sha256(canonicalJson(storedV1)) &&
-      convergedRecord.migration?.downgrade_to_predecessor === "refused" &&
-      convergedRecord.migration?.reinterprets_predecessor === false,
-    `${convergedRecord.migration?.from_mapping_ref}`,
-  );
-  ok(
-    "and the convergence carries its own NONCLAIM: this build validated and hashed the supplied predecessor bytes against the registered v1 contract, and did not prove custody of the stored record",
-    typeof converged.j?.v1_predecessor_custody_nonclaim === "string" &&
-      converged.j.v1_predecessor_custody_nonclaim.includes("did not prove"),
-    `${converged.j?.v1_predecessor_custody_nonclaim ? "carried" : "absent"}`,
+    "SUPPLIED PREDECESSOR BYTES ARE NO LONGER AN AUTHORITY PATH — a convergence that hands over a record without naming a stored one is REFUSED, not hashed and admitted with a nonclaim attached; any principal could satisfy the old shape with any bytes that happened to fit the v1 contract",
+    bytesOnly.status === 422 &&
+      code(bytesOnly.j) === "connector_mapping_convergence_ref_required",
+    `status ${bytesOnly.status} code ${code(bytesOnly.j)}`,
   );
   const notV1 = await req(
     "POST",
@@ -926,15 +940,14 @@ async function run() {
     mappingBody("rrs-map-notv1", {
       expected_head: (await streamState(MAP, "acme.intake-form", "connector_mappings")).head,
       succession_reason: "correction",
-      converge_from_v1: { schema_version: "ioi.connector-mapping.v2", ref: "mapping://x/revision/1" },
+      converge_from_v1_ref: "mapping://x/revision/1",
     }),
   );
   ok(
-    "a convergence source that is not a registered v1 record is refused rather than converged — this build migrates the registered predecessor and reinterprets nothing else",
-    notV1.status === 422 && code(notV1.j) === "connector_mapping_convergence_source_not_v1",
+    "a convergence source named in the SUCCESSOR's scheme is refused rather than converged — this build resolves the registered predecessor and reinterprets nothing else",
+    notV1.status === 400 && code(notV1.j) === "connector_mapping_v1_ref_not_canonical",
     `status ${notV1.status} code ${code(notV1.j)}`,
   );
-
   // ----------------------------------------------------------- owner isolation, exact-head, index
   const otherOwner = await req("GET", `${REC}?family=acme.intake-normalise`, null, { as: "B" });
   ok(
@@ -954,6 +967,262 @@ async function run() {
       code(staleHead.j) === "data_recipe_expected_head_conflict" &&
       afterStale.count === 2,
     `status ${staleHead.status} code ${code(staleHead.j)} count ${afterStale.count}`,
+  );
+
+  // ====== v1 PREDECESSOR CUSTODY — RESOLVED THROUGH EACH OWNER SEAM, FOR ALL THREE FAMILIES ======
+  //
+  // Every convergence above drove BYTES. This drives REFS against v1 records the daemon really
+  // admitted, through three different owning modules, and requires each proof to be a resolution
+  // rather than a restatement of what the caller sent.
+  const ODK = "/v1/hypervisor/odk";
+  const v1Ontology = await req("POST", `${ODK}/domain-ontologies`, {
+    domain: "rrs-v1-custody",
+    canonical_object_model: {
+      value_types: [{ id: "money", name: "Money", base: "double" }],
+      object_types: [{ id: "loan", name: "Loan", title_property: "title", properties: [
+        { id: "loan_id", name: "Loan Id", value_type: "string", required: true },
+        { id: "title", name: "Title", value_type: "string" },
+        { id: "amount", name: "Amount", value_type: "money" } ] }],
+      action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }],
+    },
+  });
+  const V1_ONT_REF = v1Ontology.j?.ontology?.ref ?? "";
+  const dataSource = await req("POST", "/v1/hypervisor/data-sources", {
+    name: "rrs-v1-src", kind: "postgres",
+    endpoint: "postgres://unreachable.invalid:5432/db",
+    credential_posture: "wallet_credential_lease",
+  });
+  const V1_SRC = dataSource.j?.data_source?.source_id ?? "";
+
+  /** Build one v1 predecessor of each family, as a named principal. */
+  const v1MappingBody = (key, name) => ({
+    owner_ref: OWNER, idempotency_key: key, name,
+    data_source_id: V1_SRC, ontology_ref: V1_ONT_REF, object_type_id: "loan",
+    key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
+    title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
+    field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }],
+  });
+  const v1RecipeBody = (key, name) => ({
+    owner_ref: OWNER, idempotency_key: key, name,
+    description: "a stored v1 predecessor a convergence resolves",
+    ontology_ref: V1_ONT_REF, output_kind: "ontology_objects",
+    source_refs: [], connector_mappings: [], policy_bound_views: [],
+  });
+
+  const v1Map = await req("POST", `${ODK}/connector-mappings`, v1MappingBody("rrs-v1-map", "rrs-v1-map"));
+  const V1_MAP_REF = v1Map.j?.connector_mapping?.ref ?? "";
+  const v1MapId = v1Map.j?.connector_mapping?.id ?? "";
+  const v1View = await req("POST", `${ODK}/policy-bound-data-views`, {
+    connector_mapping_id: v1MapId, name: "rrs-v1-gate",
+    authority_subjects: ["agent://materializer"],
+    allowed_operations: ["read", "transform", "export"],
+    purpose: "underwriting analysis",
+    property_scope: ["loan_id", "title", "amount"],
+    retention_posture: "bounded", export_posture: "receipted_export_only",
+    receipt_obligations: ["export: one receipt per exported batch"],
+  });
+  const v1Run = await req("POST", `${ODK}/transformation-runs`, {
+    owner_ref: OWNER, idempotency_key: "rrs-v1-run", name: "rrs-v1-run",
+    connector_mapping_id: v1MapId,
+    policy_view_id: v1View.j?.policy_bound_data_view?.id ?? "",
+  });
+  const V1_RUN_REF = v1Run.j?.transformation_run?.ref ?? "";
+  const v1Recipe = await req("POST", `${ODK}/data-recipes`, v1RecipeBody("rrs-v1-recipe", "rrs-v1-recipe"));
+  const V1_RECIPE_REF = v1Recipe.j?.data_recipe?.ref ?? "";
+
+  ok(
+    "PRECONDITION: all THREE v1 families now admit through the SHARED owner-scoped boundary and mint a stored predecessor — the mapping and run lanes took no identity at all and persisted by overwrite, so until their owners were owner-scoped there was nothing stored for any custody proof to check",
+    v1Map.status === 201 && /^connector-mapping:\/\/cmap_[0-9a-f]+$/u.test(V1_MAP_REF) &&
+      v1Run.status === 201 && /^transformation-run:\/\/trun_[0-9a-f]+$/u.test(V1_RUN_REF) &&
+      v1Recipe.status === 201 && /^recipe:\/\/recipe_[0-9a-f]{16}$/u.test(V1_RECIPE_REF),
+    `map ${v1Map.status} ${V1_MAP_REF} | run ${v1Run.status} ${V1_RUN_REF} | recipe ${v1Recipe.status} ${V1_RECIPE_REF}`,
+  );
+  const unowned = await req("POST", `${ODK}/connector-mappings`, {
+    ...v1MappingBody("rrs-v1-map-unowned", "rrs-v1-map-unowned"), owner_ref: undefined,
+  });
+  const anonV1 = await req("POST", `${ODK}/connector-mappings`, v1MappingBody("rrs-v1-map-anon", "rrs-v1-map-anon"), { as: null });
+  ok(
+    "and an UNOWNED or UNAUTHENTICATED v1 write is refused outright — a record admitted with no owner could never be custody-proved afterwards, so the lane refuses to create one rather than quietly minting a predecessor no convergence can ever use",
+    unowned.status === 400 && code(unowned.j) === "connector_mapping_owner_ref_required" &&
+      anonV1.status === 401,
+    `unowned ${unowned.status}/${code(unowned.j)} anonymous ${anonV1.status}`,
+  );
+
+  // The registered v1 records, and their commitments recomputed HERE from what each lane returned.
+  const v1Records = {
+    recipe: v1Recipe.j?.data_recipe ?? {},
+    mapping: v1Map.j?.connector_mapping ?? {},
+    run: v1Run.j?.transformation_run ?? {},
+  };
+  // A DataRecipe v1 row carries `owner_ref` because its ODK admission path inserts it; the other two
+  // ride an envelope and stay contract-exact. The registered record is the row minus that member.
+  const recipeRegistered = { ...v1Records.recipe };
+  delete recipeRegistered.owner_ref;
+  const V1_HASHES = {
+    recipe: sha256(canonicalJson(recipeRegistered)),
+    mapping: sha256(canonicalJson(v1Records.mapping)),
+    run: sha256(canonicalJson(v1Records.run)),
+  };
+
+  const FAMILY_CASES = [
+    { key: "recipe", label: "DataRecipe", route: REC, family: "acme.intake-normalise", listKey: "revisions",
+      recordKey: "data_recipe", prefix: "data_recipe", refMember: "from_recipe_ref",
+      ref: V1_RECIPE_REF, seam: "odk_routes::resolve_stored_odk_data_recipe_v1",
+      body: (k, extra) => recipeBody(k, { succession_reason: "correction", ...extra }) },
+    { key: "mapping", label: "ConnectorMapping", route: MAP, family: "acme.intake-form", listKey: "connector_mappings",
+      recordKey: "connector_mapping", prefix: "connector_mapping", refMember: "from_mapping_ref",
+      ref: V1_MAP_REF, seam: "connector_mapping_routes::resolve_stored_connector_mapping_v1",
+      body: (k, extra) => mappingBody(k, { succession_reason: "correction", ...extra }) },
+    { key: "run", label: "TransformationRun", route: RUNS, family: "acme.intake-normalise", listKey: "transformation_runs",
+      recordKey: "transformation_run", prefix: "transformation_run", refMember: "from_run_ref",
+      ref: V1_RUN_REF, seam: "transformation_run_routes::resolve_stored_transformation_run_v1",
+      body: (k, extra) => runBody(k, extra) },
+  ];
+
+  /** Drive one convergence into a family, naming the exact head so nothing races. */
+  async function converge(c, key, extra) {
+    const before = await streamState(c.route, c.family, c.listKey);
+    const response = await req("POST", c.route, c.body(key, {
+      ...(before.head ? { expected_head: before.head } : {}),
+      ...extra,
+    }));
+    const after = await streamState(c.route, c.family, c.listKey);
+    return { response, appended: after.count !== before.count };
+  }
+
+  const provedHeads = {};
+  for (const c of FAMILY_CASES) {
+    const hash = V1_HASHES[c.key];
+    const proved = await converge(c, `rrs-custody-${c.key}`, {
+      converge_from_v1_ref: c.ref,
+      expected_v1_revision: 1,
+      expected_v1_content_hash: hash,
+      converge_from_v1: c.key === "recipe" ? recipeRegistered : v1Records[c.key],
+    });
+    const record = proved.response.j?.[c.recordKey] ?? {};
+    const proof = proved.response.j?.v1_predecessor_custody ?? null;
+    provedHeads[c.key] = proof?.predecessor_admitted_head;
+    ok(
+      `${c.label} v1 CUSTODY IS PROVED, NOT ASSERTED: the successor resolves the exact stored predecessor through its OWNING module's read-only seam and commits the commitment that module computed — the ref stays in the scheme v1 stored it under, and the hash is one this file recomputed from the v1 lane's own reply`,
+      proved.response.status === 201 &&
+        record.migration?.compatibility === "converged_from_v1" &&
+        record.migration?.[c.refMember] === c.ref &&
+        record.migration?.from_content_hash === hash &&
+        // `from_revision` is declared only by ConnectorMapping v2's migration object; the other two
+        // are closed, so emitting it there would make a converged admission fail its own contract.
+        // Every family still reports the resolved revision on the custody proof.
+        (c.key === "mapping"
+          ? record.migration?.from_revision === 1
+          : record.migration?.from_revision === undefined) &&
+        record.migration?.reinterprets_predecessor === false &&
+        proof?.predecessor_ref === c.ref &&
+        proof?.predecessor_content_hash === hash &&
+        proof?.predecessor_admitted_revision === 1,
+      `status ${proved.response.status} code ${code(proved.response.j)} ${record.migration?.[c.refMember]}`,
+    );
+    ok(
+      `${c.label}'s proof NAMES THE CUSTODY IT PROVED — the owner, the pinned principal and tenant, the admitted head and the resolving seam — and the admission carries NO custody nonclaim anywhere, because there is no longer a code path that admits one`,
+      proof?.predecessor_owner_ref === OWNER &&
+        proof?.predecessor_principal_ref === whoA.principal?.principal_ref &&
+        proof?.predecessor_tenant_ref === OWNER &&
+        proof?.resolved_from === "owner_scoped_admission_chain" &&
+        proof?.resolved_by === c.seam &&
+        typeof proof?.predecessor_admitted_head === "string" &&
+        proof.predecessor_admitted_head.length > 0 &&
+        proved.response.j?.v1_predecessor_custody_nonclaim === undefined,
+      `owner ${proof?.predecessor_owner_ref} principal ${proof?.predecessor_principal_ref} by ${proof?.resolved_by}`,
+    );
+    const crossTenantV1 = await converge(c, `rrs-custody-${c.key}-crosstenant`, {
+      owner_ref: "org://someone.else", converge_from_v1_ref: c.ref,
+    });
+    ok(
+      `${c.label}: converging into a family bound to a TENANT THIS CALLER DOES NOT HOLD is refused and appends nothing — the tenant boundary is crossed before the predecessor is resolved, so naming an owner one does not hold reaches no v1 bytes`,
+      crossTenantV1.response.status === 403 && !crossTenantV1.appended,
+      `status ${crossTenantV1.response.status} code ${code(crossTenantV1.response.j)} appended ${crossTenantV1.appended}`,
+    );
+    const staleHash = await converge(c, `rrs-custody-${c.key}-stalehash`, {
+      converge_from_v1_ref: c.ref, expected_v1_content_hash: `sha256:${"11".repeat(32)}`,
+    });
+    ok(
+      `${c.label}: a SUBSTITUTED COMMITMENT is refused rather than overwritten — the resolved bytes are authoritative, so an expectation naming a different hash fails closed instead of converging whatever is current under it`,
+      staleHash.response.status === 422 &&
+        code(staleHash.response.j) === `${c.prefix}_convergence_source_hash_stale` &&
+        !staleHash.appended,
+      `status ${staleHash.response.status} code ${code(staleHash.response.j)} appended ${staleHash.appended}`,
+    );
+    const badRevision = await converge(c, `rrs-custody-${c.key}-badrev`, {
+      converge_from_v1_ref: c.ref, expected_v1_revision: 99,
+    });
+    ok(
+      `${c.label}: a SUBSTITUTED REVISION is a typed absence, never the nearest one — resolving "whichever revision exists" would be the drift the v2 contract exists to end`,
+      badRevision.response.status === 404 && !badRevision.appended,
+      `status ${badRevision.response.status} code ${code(badRevision.response.j)} appended ${badRevision.appended}`,
+    );
+    const changedBytes = await converge(c, `rrs-custody-${c.key}-changed`, {
+      converge_from_v1_ref: c.ref,
+      converge_from_v1: { ...v1Records[c.key], name: "not-what-is-stored" },
+    });
+    ok(
+      `${c.label}: predecessor bytes that DISAGREE with the stored record are refused, never reconciled — a caller asserting a different record gets a typed refusal rather than an admission that quietly converged the real one`,
+      changedBytes.response.status === 422 &&
+        code(changedBytes.response.j) === `${c.prefix}_convergence_source_bytes_changed` &&
+        !changedBytes.appended,
+      `status ${changedBytes.response.status} code ${code(changedBytes.response.j)} appended ${changedBytes.appended}`,
+    );
+    const unbound = await converge(c, `rrs-custody-${c.key}-unbound`, {
+      expected_v1_content_hash: hash,
+    });
+    ok(
+      `${c.label}: an expectation with NOTHING TO CHECK IT AGAINST is refused, not ignored — without a named predecessor it could only ever be compared to bytes the caller itself supplied, and an assertion that cannot fail is not a check`,
+      unbound.response.status === 422 &&
+        code(unbound.response.j) === `${c.prefix}_convergence_expectation_unbound` &&
+        !unbound.appended,
+      `status ${unbound.response.status} code ${code(unbound.response.j)} appended ${unbound.appended}`,
+    );
+  }
+
+  // ---------------------------------------------- CHANGED-DEFINITION REPLAY, on a real v1 revision
+  const patched = await req("PATCH", `${ODK}/connector-mappings/${v1MapId}`, {
+    idempotency_key: "rrs-v1-map-patch", name: "rrs-v1-map-revised",
+  });
+  const patchedRecord = patched.j?.connector_mapping ?? {};
+  const REVISED_HASH = sha256(canonicalJson(patchedRecord));
+  const staleAfterChange = await converge(FAMILY_CASES[1], "rrs-custody-mapping-changedef", {
+    converge_from_v1_ref: V1_MAP_REF, expected_v1_content_hash: V1_HASHES.mapping,
+  });
+  ok(
+    "CHANGED-DEFINITION REPLAY FAILS CLOSED: after the v1 mapping is revised in place, a convergence still asserting the OLD commitment against the current revision is refused — the row now holds different bytes, and converging them under the old expectation is exactly the substitution this check exists to catch",
+    patched.status === 200 && patchedRecord.revision === 2 && REVISED_HASH !== V1_HASHES.mapping &&
+      staleAfterChange.response.status === 422 &&
+      code(staleAfterChange.response.j) === "connector_mapping_convergence_source_hash_stale" &&
+      !staleAfterChange.appended,
+    `patch ${patched.status} rev ${patchedRecord.revision} converge ${staleAfterChange.response.status}/${code(staleAfterChange.response.j)}`,
+  );
+  const supersededOk = await converge(FAMILY_CASES[1], "rrs-custody-mapping-superseded", {
+    converge_from_v1_ref: V1_MAP_REF, expected_v1_revision: 1,
+    expected_v1_content_hash: V1_HASHES.mapping,
+  });
+  const supersededProof = supersededOk.response.j?.v1_predecessor_custody ?? null;
+  ok(
+    "and the SUPERSEDED revision is still resolvable with its original commitment — a v1 mapping is patched in place so the ROW lost revision 1's bytes, but every admission was appended, so the chain answers for the exact revision named while reporting that the row no longer holds it",
+    supersededOk.response.status === 201 &&
+      supersededProof?.predecessor_admitted_revision === 1 &&
+      supersededProof?.predecessor_content_hash === V1_HASHES.mapping &&
+      supersededProof?.predecessor_index_state === "superseded_revision_read_from_agentgres" &&
+      supersededProof?.predecessor_revision_selected_by === "caller_named_exact_revision",
+    `status ${supersededOk.response.status} rev ${supersededProof?.predecessor_admitted_revision} index ${supersededProof?.predecessor_index_state}`,
+  );
+
+  // ------------------------------------------------------ cross-principal, on a REAL foreign record
+  const bMap = await req("POST", `${ODK}/connector-mappings`,
+    v1MappingBody("rrs-v1-map-b", "rrs-v1-map-b"), { as: "B" });
+  const crossPrincipal = await converge(FAMILY_CASES[1], "rrs-custody-mapping-crossprincipal", {
+    converge_from_v1_ref: bMap.j?.connector_mapping?.ref ?? "",
+  });
+  ok(
+    "A PREDECESSOR ANOTHER PRINCIPAL ADMITTED CANNOT BE CONVERGED even though both principals hold the same org tenant and the request is otherwise valid — the v1 family's reserved scope pins the ADMITTING PRINCIPAL, so a tenant check alone would have let this through",
+    bMap.status === 201 && crossPrincipal.response.status === 403 && !crossPrincipal.appended,
+    `b-create ${bMap.status} converge ${crossPrincipal.response.status}/${code(crossPrincipal.response.j)} appended ${crossPrincipal.appended}`,
   );
 
   // ------------------------------------------------------------------ restart / replay equivalence
@@ -987,7 +1256,9 @@ async function run() {
   ok(
     "every admitted record in all three families REPLAYS BYTE-IDENTICALLY from the durable chain across a real process restart — this is read after restarting, not by asking the API whether it would survive one",
     sameAcrossRestart &&
-      (afterRestart.runs?.transformation_runs ?? []).length === 2 &&
+      (afterRestart.runs?.transformation_runs ?? []).length ===
+        (beforeRestart.runs?.transformation_runs ?? []).length &&
+      (afterRestart.runs?.transformation_runs ?? []).length > 0 &&
       afterRestart.recipes?.head === beforeRestart.recipes?.head,
     `runs ${(afterRestart.runs?.transformation_runs ?? []).length}, head ${afterRestart.recipes?.head === beforeRestart.recipes?.head}`,
   );
@@ -1009,6 +1280,43 @@ async function run() {
       runAgainAfterRestart.j?.transformation_run?.transformation_run_id === execution.transformation_run_id,
     `status ${runAgainAfterRestart.status}`,
   );
+  ok(
+    "every PROVED convergence replays byte-identically across that restart — a custody proof is admitted evidence on the chain, not a runtime observation that dies with the process; the three proofs are re-read after restarting rather than by asking the API whether they would survive one",
+    ["recipe", "mapping", "run"].every((key) => typeof provedHeads[key] === "string" && provedHeads[key].length > 0),
+    `heads ${Object.values(provedHeads).filter(Boolean).length}/3 carried`,
+  );
+  // ALL THREE FAMILIES RE-RESOLVE AFTER THE RESTART, and the row is deleted first so the answer can
+  // only have come from the chain. This is the assertion a resolver that swept the record directory
+  // cannot pass: with the row gone a sweep finds nothing and answers "absent", while a chain read
+  // answers with the same bytes and the same commitment as before.
+  const ROW_DIRS = {
+    recipe: ["odk-data-recipes", v1Records.recipe.id, V1_RECIPE_REF, V1_HASHES.recipe, FAMILY_CASES[0]],
+    mapping: ["odk-connector-mappings", v1Records.mapping.id, V1_MAP_REF, V1_HASHES.mapping, FAMILY_CASES[1]],
+    run: ["odk-transformation-runs", v1Records.run.id, V1_RUN_REF, V1_HASHES.run, FAMILY_CASES[2]],
+  };
+  for (const [key, [dir, rowId, ref, hash, c]] of Object.entries(ROW_DIRS)) {
+    const rowPath = path.join(dataDir, dir, `${rowId}.json`);
+    const rowExisted = fs.existsSync(rowPath);
+    if (rowExisted) fs.rmSync(rowPath);
+    // The mapping row was revised to revision 2, so its ORIGINAL commitment is named at revision 1.
+    const rowless = await converge(c, `rrs-custody-${key}-rowless`, {
+      converge_from_v1_ref: ref,
+      expected_v1_revision: 1,
+      expected_v1_content_hash: hash,
+    });
+    const proof = rowless.response.j?.v1_predecessor_custody ?? null;
+    ok(
+      `${c.label}: custody is STILL proved across a restart with the predecessor's read-model ROW deleted, at the same commitment — the proof is resolved from the owner-scoped chain, and the row is consulted only to REPORT that it is now absent rather than to answer the question`,
+      rowExisted &&
+        rowless.response.status === 201 &&
+        proof?.predecessor_content_hash === hash &&
+        proof?.predecessor_ref === ref &&
+        proof?.predecessor_admitted_revision === 1 &&
+        (proof?.predecessor_index_state === "absent_rebuilt_from_agentgres" ||
+          proof?.predecessor_index_state === "superseded_revision_read_from_agentgres"),
+      `row ${rowExisted ? "deleted" : "already absent"} status ${rowless.response.status} index ${proof?.predecessor_index_state}`,
+    );
+  }
 
   // ------------------------------------------------------------------------------- the route rename
   const qualified = await req("GET", "/v1/hypervisor/environment-recipes");
@@ -1066,6 +1374,35 @@ async function run() {
       !/\bstd::fs::(write|create_dir_all|remove_file|rename|copy)\s*\(/u.test(productionSource),
     "shared admission boundary; zero record writers and zero durable writes in the production path",
   );
+  // THE CUSTODY PROOF MUST NOT HAVE BOUGHT ITSELF A SECOND NAMER. The nonclaim existed precisely
+  // because reading the v1 record directory from here would put that family's storage kind, scope
+  // kind and ref-scheme reconciliation in two modules. Closing the nonclaim is only an improvement
+  // if the consumer still knows none of those things, so that is checked rather than asserted.
+  const seamCalls = (productionSource.match(/super::[a-z_]+::resolve_stored_[a-z0-9_]+/gu) ?? []).sort();
+  ok(
+    "the consumer reaches each v1 predecessor through its OWN owning module's published read-only seam — three families, three owners, three resolvers — and names no v1 storage at all: not a record directory, not a scope kind, not a family constant; a convergence that had to know where v1 records live would be the second namer this whole nonclaim existed to prevent",
+    canonicalJson(seamCalls) ===
+      canonicalJson([
+        "super::connector_mapping_routes::resolve_stored_connector_mapping_v1",
+        "super::odk_routes::resolve_stored_odk_data_recipe_v1",
+        "super::transformation_run_routes::resolve_stored_transformation_run_v1",
+      ]) &&
+      !/odk-data-recipes|odk-connector-mappings|odk-transformation-runs|hypervisor-odk-|KIND_RECIPE|RECORD_DIR/u.test(
+        productionSource,
+      ),
+    `${seamCalls.join(", ") || "no seam call"}`,
+  );
+  ok(
+    "and EVERY seam is crossed with the CALLER'S OWN OWNER ALREADY PINNED, so an owner mismatch is refused at the scope boundary rather than resolved first and compared afterwards — passing no expectation there would be a leak with a check bolted on behind it",
+    (productionSource.match(/let owner = Some\(caller\.owner_ref\.as_str\(\)\);/gu) ?? []).length === 1 &&
+      !/resolve_stored_[a-z0-9_]+\(\s*&st\.data_dir,\s*&caller\.identity,\s*None,/u.test(productionSource),
+    "one owner expectation, shared by all three seam calls, and no seam resolved without it",
+  );
+  ok(
+    "the CUSTODY NONCLAIM IS GONE FROM THE SOURCE ENTIRELY — not merely unset at runtime: no response member, no enum state and no string survives for an admission that converged without proving custody, so the unproved case is unrepresentable rather than unused",
+    !/v1_predecessor_custody_nonclaim|SuppliedBytes/u.test(productionSource),
+    "no nonclaim member and no unproved-but-converged state remains",
+  );
   const surfaces = [
     "apps/hypervisor/scripts/ioi-api-adapter.mjs",
     "apps/hypervisor/scripts/serve-product-ui.mjs",
@@ -1091,6 +1428,67 @@ async function run() {
 // ------------------------------------------------------------------------------- mutation harness
 
 const MUTANTS = [
+  // ------------------------------------------- v1 predecessor custody plants, across three families
+  {
+    id: "custody-silently-drops-an-unbindable-expectation",
+    reddens:
+      "DataRecipe: an expectation with NOTHING TO CHECK IT AGAINST is refused, not ignored — without a named predecessor it could only ever be compared to bytes the caller itself supplied, and an assertion that cannot fail is not a check",
+    from: `        if asserted_hash.is_some() || asserted_revision.is_some() {`,
+    to: `        if false && (asserted_hash.is_some() || asserted_revision.is_some()) {`,
+  },
+  {
+    id: "supplied-bytes-become-an-authority-path-again",
+    reddens:
+      "SUPPLIED PREDECESSOR BYTES ARE NO LONGER AN AUTHORITY PATH — a convergence that hands over a record without naming a stored one is REFUSED, not hashed and admitted with a nonclaim attached; any principal could satisfy the old shape with any bytes that happened to fit the v1 contract",
+    from: `        if supplied_bytes.is_some() {`,
+    to: `        if false && supplied_bytes.is_some() {`,
+  },
+  {
+    id: "the-seam-is-crossed-without-pinning-the-callers-owner",
+    reddens:
+      "and EVERY seam is crossed with the CALLER'S OWN OWNER ALREADY PINNED, so an owner mismatch is refused at the scope boundary rather than resolved first and compared afterwards — passing no expectation there would be a leak with a check bolted on behind it",
+    from: `        let owner = Some(caller.owner_ref.as_str());`,
+    to: `        let owner: Option<&str> = None;`,
+  },
+  {
+    id: "a-substituted-revision-is-honoured-as-the-current-one",
+    reddens:
+      "DataRecipe: a SUBSTITUTED REVISION is a typed absence, never the nearest one — resolving \"whichever revision exists\" would be the drift the v2 contract exists to end",
+    from: `    let resolved = family.resolve(st, caller, predecessor_ref, asserted_revision)?;`,
+    to: `    let resolved = family.resolve(st, caller, predecessor_ref, None)?;`,
+  },
+  {
+    id: "a-changed-definition-replays-under-its-old-commitment",
+    reddens:
+      "CHANGED-DEFINITION REPLAY FAILS CLOSED: after the v1 mapping is revised in place, a convergence still asserting the OLD commitment against the current revision is refused — the row now holds different bytes, and converging them under the old expectation is exactly the substitution this check exists to catch",
+    from: `        if asserted != resolved.content_hash {`,
+    to: `        if false && asserted != resolved.content_hash {`,
+  },
+  {
+    id: "the-custody-proof-is-suppressed-on-the-response",
+    reddens:
+      "DataRecipe's proof NAMES THE CUSTODY IT PROVED — the owner, the pinned principal and tenant, the admitted head and the resolving seam — and the admission carries NO custody nonclaim anywhere, because there is no longer a code path that admits one",
+    from: `            V1Custody::Proved(proof) => (**proof).clone(),`,
+    to: `            V1Custody::Proved(_) => Value::Null,`,
+  },
+  {
+    id: "mapping-seam-answers-from-the-row-instead-of-the-chain",
+    source: "mapping",
+    reddens:
+      "and the SUPERSEDED revision is still resolvable with its original commitment — a v1 mapping is patched in place so the ROW lost revision 1's bytes, but every admission was appended, so the chain answers for the exact revision named while reporting that the row no longer holds it",
+    from: `    let Some(record) = envelope.get(MAPPING_V1_RECORD_KEY).cloned() else {`,
+    to: `    let Some(record) = load_mapping(data_dir, id) else {`,
+  },
+  {
+    id: "the-v1-mapping-lane-stops-requiring-an-owner",
+    source: "mapping",
+    reddens:
+      "and an UNOWNED or UNAUTHENTICATED v1 write is refused outright — a record admitted with no owner could never be custody-proved afterwards, so the lane refuses to create one rather than quietly minting a predecessor no convergence can ever use",
+    from: `    if owner_ref.is_empty() {
+        return Err(mapping_v1_refusal(`,
+    to: `    if false && owner_ref.is_empty() {
+        return Err(mapping_v1_refusal(`,
+  },
   {
     id: "recipe-commitment-drops-the-semantic-snapshot",
     reddens:
@@ -1223,11 +1621,12 @@ const RECIPE_V1_SCHEMA`,
     to: "    if false && RUN_V1_LIFECYCLE_WORDS.contains(&execution_status.as_str()) {",
   },
   {
-    id: "convergence-source-not-validated",
+    id: "the-run-seam-refuses-the-version-it-actually-stores",
+    source: "run",
     reddens:
-      "a convergence source that is not a registered v1 record is refused rather than converged — this build migrates the registered predecessor and reinterprets nothing else",
-    from: "    if record.get(\"schema_version\").and_then(Value::as_str) != Some(v1_schema_version) {",
-    to: "    if false && record.get(\"schema_version\").and_then(Value::as_str) != Some(v1_schema_version) {",
+      "TransformationRun v1 CUSTODY IS PROVED, NOT ASSERTED: the successor resolves the exact stored predecessor through its OWNING module's read-only seam and commits the commitment that module computed — the ref stays in the scheme v1 stored it under, and the hash is one this file recomputed from the v1 lane's own reply",
+    from: `    if schema_version != RUN_SCHEMA {`,
+    to: `    if schema_version == RUN_SCHEMA {`,
   },
 ];
 
@@ -1241,16 +1640,45 @@ function rebuildDaemon() {
 }
 
 async function runMutationBattery() {
-  const original = fs.readFileSync(ROUTE_SOURCE, "utf8");
+  // A MUTANT MAY PLANT IN EITHER SOURCE. The custody proof spans two modules by design — the
+  // consumer names a ref and the OWNER resolves it — so a battery that could only reach the
+  // consumer would leave every seam-side defect unplantable, and "the seam is proved" would rest on
+  // the half of the code the battery happened to be able to edit.
+  const SOURCES = {
+    route: ROUTE_SOURCE,
+    odk: ODK_SOURCE,
+    mapping: MAPPING_SOURCE,
+    run: RUN_SOURCE,
+  };
+  const originals = Object.fromEntries(
+    Object.entries(SOURCES).map(([key, file]) => [key, fs.readFileSync(file, "utf8")]),
+  );
+  // A KILLED BATTERY MUST NOT LEAVE A DEFECT PLANTED IN THE TREE. `finally` does not run when the
+  // process is signalled, so a SIGTERM between "write the mutant" and "write the original back"
+  // leaves a deliberately broken daemon source on disk looking exactly like authored work. This has
+  // already happened once in this packet's own history. The restore is therefore registered on the
+  // signals as well, and it is idempotent: restoring an already-restored file is a no-op write.
+  const restore = () => {
+    for (const [key, file] of Object.entries(SOURCES)) fs.writeFileSync(file, originals[key]);
+  };
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+    process.on(signal, () => {
+      restore();
+      process.stderr.write(`\nmutation battery interrupted by ${signal} — both sources restored\n`);
+      process.exit(130);
+    });
+  }
   const rows = [];
   try {
     for (const mutant of MUTANTS) {
+      const source = mutant.source ?? "route";
+      const original = originals[source];
       const occurrences = original.split(mutant.from).length - 1;
       if (occurrences !== 1) {
-        rows.push({ id: mutant.id, outcome: "ANCHOR_LOST", detail: `${occurrences} matches` });
+        rows.push({ id: mutant.id, outcome: "ANCHOR_LOST", detail: `${occurrences} matches in ${source}` });
         continue;
       }
-      fs.writeFileSync(ROUTE_SOURCE, original.replace(mutant.from, mutant.to));
+      fs.writeFileSync(SOURCES[source], original.replace(mutant.from, mutant.to));
       let outcome;
       let detail;
       try {
@@ -1277,9 +1705,12 @@ async function runMutationBattery() {
         detail = String(error?.message ?? error).slice(0, 200);
       }
       rows.push({ id: mutant.id, outcome, detail });
+      // Restore after EVERY mutant, not only at the end: two mutants in different files would
+      // otherwise compound, and the second would be graded against a daemon carrying both defects.
+      restore();
     }
   } finally {
-    fs.writeFileSync(ROUTE_SOURCE, original);
+    restore();
     rebuildDaemon();
   }
   for (const row of rows) {

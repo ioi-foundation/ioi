@@ -18,11 +18,394 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 
 use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+
+// ============ M05.7 · THE v1 CONNECTOR-MAPPING OWNER SEAM — OWNER-SCOPED, THEN RESOLVABLE ========
+//
+// WHY THIS LANE CHANGED AT ALL. A v2 convergence has to prove the caller holds the v1 predecessor it
+// names. For the ODK DataRecipe lane that was already possible, because its writes cross the shared
+// owner-scoped admission boundary and a scope record pins principal, tenant and owner. This lane had
+// none of that: it took no identity at all — `handle_connector_mapping_create(State, Json(body))`
+// never saw a caller — persisted into a flat record directory by overwrite, and its registered v1
+// contract is closed with no owner, tenant or principal member. There was therefore NOTHING STORED
+// for a custody proof to check, and no seam this module could publish that would not be inventing
+// the very fact it claimed to verify. Owner-scoping the WRITE is the only thing that creates it.
+//
+// THE v1 RECORD ITSELF IS UNCHANGED, BYTE FOR BYTE. v1 is read-only and v2 is the only authorable
+// contract, so the owner binding may not edit the record: an owner member added here would be a
+// contract change to a closed registered predecessor. Instead the admitted payload is an ENVELOPE
+// that carries the v1 record VERBATIM under its own key with the owner beside it. The chain payload,
+// the record directory row and the registered v1 record are then the same bytes, which is what lets
+// a custody commitment be taken over the stored record with no projection step to disagree about.
+//
+// IMMUTABILITY COMES FROM THE CHAIN, NOT FROM THE ROW. A v1 mapping is patched IN PLACE — revision 2
+// overwrites revision 1's bytes and revision 1 becomes unaddressable in the row. Every admission is
+// appended, so the CHAIN holds each revision immutably even though the row does not, and an exact
+// revision is resolvable from it. That is what makes "the exact stored revision and its hash" a
+// thing this module can answer rather than a thing it has to disclaim.
+
+/// The scope kind this family reserves. Distinct from the record directory: one is an authority
+/// fact, the other is a rebuildable projection, and conflating them is what made the row
+/// load-bearing for an admission decision everywhere else this pattern was missing.
+const MAPPING_V1_SCOPE_KIND: &str = "hypervisor-odk-connector-mapping";
+const MAPPING_V1_OWNER_NAMESPACE: &str = "hypervisor-odk-connector-mapping-v1";
+const MAPPING_V1_ADMISSION_SCHEMA: &str = "ioi.hypervisor.odk.connector-mapping-v1-admission.v1";
+const MAPPING_V1_CONTRACT_ID: &str = "schema://ioi/foundations/objects/connector-mapping/v1";
+const MAPPING_V1_RECORD_KEY: &str = "connector_mapping_record";
+const MAPPING_V1_ADMIT_OP: &str = "event_stream.hypervisor_odk_connector_mapping_admitted";
+const MAPPING_V1_REVISE_OP: &str = "event_stream.hypervisor_odk_connector_mapping_revised";
+/// The scheme the record ACTUALLY stores in its own `ref`.
+const MAPPING_V1_STORED_SCHEME: &str = "connector-mapping";
+
+fn mapping_v1_refusal(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+
+/// A chain holding something this build cannot project is a SERVER-side fact, never a caller error.
+fn mapping_v1_chain_refusal(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_GATEWAY,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+
+/// The commitment over one stored v1 record's exact bytes, canonicalized.
+///
+/// No field list: the record is committed as a whole, so a later edit to an enumeration here cannot
+/// silently change what a custody proof claims to have seen.
+fn mapping_v1_content_hash(record: &Value) -> Result<String, (StatusCode, Json<Value>)> {
+    use sha2::Digest;
+    serde_jcs::to_vec(record)
+        .map(|bytes| format!("sha256:{:x}", sha2::Sha256::digest(&bytes)))
+        .map_err(|error| {
+            mapping_v1_chain_refusal(
+                "connector_mapping_v1_projection_failed",
+                &format!("the stored record could not be canonicalized: {error}"),
+            )
+        })
+}
+
+fn mapping_v1_stream_tail(resource_ref: &str) -> String {
+    use sha2::Digest;
+    format!(
+        "{MAPPING_V1_SCOPE_KIND}.{:x}",
+        sha2::Sha256::digest(resource_ref.as_bytes())
+    )
+}
+
+/// Cross the SHARED owner-scoped admission boundary for one v1 mapping revision.
+///
+/// The caller supplies the owner it is writing under and the key that makes a retry replay rather
+/// than admit twice — the same contract every other owner-scoped lane in this estate requires. There
+/// is no unowned path: a write that cannot name an owner cannot be custody-proved later, and
+/// admitting it anyway would put a record on the chain that no convergence could ever use.
+/// WHAT A CALLER MUST PRESENT BEFORE ANY v1 MAPPING WRITE, resolved BEFORE the record or its receipt
+/// is built. Identity and owner are the cheapest refusals available and the ones a caller is owed
+/// first; resolving them later would let an unauthenticated request leave a persisted receipt behind
+/// for a mapping that was never admitted.
+struct MappingV1WriteCaller {
+    identity: super::substrate_store::RequestIdentity,
+    owner_ref: String,
+    idempotency_key: String,
+}
+
+fn mapping_v1_write_caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+    previous_owner_ref: Option<&str>,
+) -> Result<MappingV1WriteCaller, (StatusCode, Json<Value>)> {
+    let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("")
+        .to_owned();
+    if idempotency_key.is_empty() {
+        return Err(mapping_v1_refusal(
+            "mutation_idempotency_key_invalid",
+            "idempotency_key is required so a retried write cannot apply twice",
+        ));
+    }
+    // A REVISION MAY NOT MOVE A RESOURCE BETWEEN OWNERS, so on a successor the owner comes from the
+    // admitted predecessor rather than from the request body.
+    let owner_ref = match previous_owner_ref {
+        Some(existing) => existing.to_owned(),
+        None => body
+            .get("owner_ref")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_owned(),
+    };
+    if owner_ref.is_empty() {
+        return Err(mapping_v1_refusal(
+            "connector_mapping_owner_ref_required",
+            "owner_ref is required: this record is owned by exactly one org:// or project://, and an unowned record can never be custody-proved",
+        ));
+    }
+    Ok(MappingV1WriteCaller {
+        identity,
+        owner_ref,
+        idempotency_key,
+    })
+}
+
+fn admit_mapping_v1(
+    data_dir: &str,
+    caller: &MappingV1WriteCaller,
+    resource_ref: &str,
+    record: &Value,
+    genesis: bool,
+) -> Result<super::mutation_event_foundation::MutationCommit, (StatusCode, Json<Value>)> {
+    let identity = caller.identity.clone();
+    let owner_ref = caller.owner_ref.clone();
+    let idempotency_key = caller.idempotency_key.as_str();
+    let scope = if genesis {
+        super::substrate_store::bind_request_resource_scope(
+            data_dir,
+            &identity,
+            MAPPING_V1_SCOPE_KIND,
+            resource_ref,
+            &owner_ref,
+            &owner_ref,
+            idempotency_key,
+        )
+    } else {
+        super::substrate_store::authorize_request_resource_scope(
+            data_dir,
+            &identity,
+            MAPPING_V1_SCOPE_KIND,
+            resource_ref,
+            Some(&owner_ref),
+        )
+    }
+    .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let tail = mapping_v1_stream_tail(resource_ref);
+    let expected_head = if genesis {
+        None
+    } else {
+        super::mutation_event_foundation::read_owner_scoped_history(
+            data_dir,
+            &identity,
+            &scope,
+            MAPPING_V1_SCOPE_KIND,
+            resource_ref,
+            MAPPING_V1_OWNER_NAMESPACE,
+            &tail,
+        )
+        .map_err(super::mutation_event_foundation::mutation_refusal_reply)?
+        .last()
+        .map(|entry| entry.head.clone())
+    };
+    // THE ENVELOPE CARRIES THE OWNER; THE RECORD STAYS THE REGISTERED v1 RECORD, VERBATIM.
+    let payload = json!({
+        "schema_version": MAPPING_V1_ADMISSION_SCHEMA,
+        "owner_ref": owner_ref,
+        "resource_ref": resource_ref,
+        MAPPING_V1_RECORD_KEY: record,
+    });
+    super::mutation_event_foundation::admit_owner_scoped_mutation(
+        data_dir,
+        genesis,
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: MAPPING_V1_SCOPE_KIND,
+            resource_ref,
+            owner_namespace: MAPPING_V1_OWNER_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: if genesis {
+                MAPPING_V1_ADMIT_OP
+            } else {
+                MAPPING_V1_REVISE_OP
+            },
+            expected_head: expected_head.as_deref(),
+            payload: &payload,
+            idempotency_key,
+            recorded_at_ms: 0,
+        },
+    )
+    .map_err(super::mutation_event_foundation::mutation_refusal_reply)
+}
+
+/// ONE stored v1 ConnectorMapping, resolved from the owner-scoped chain for a caller entitled to it.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedConnectorMappingV1 {
+    /// The ref the record ACTUALLY stores, never rewritten into the successor's scheme.
+    pub(crate) mapping_ref: String,
+    pub(crate) owner_ref: String,
+    pub(crate) principal_ref: String,
+    pub(crate) tenant_ref: String,
+    pub(crate) schema_version: String,
+    /// The registered v1 record, byte-exact as the chain holds it.
+    pub(crate) record: Value,
+    pub(crate) content_hash: String,
+    pub(crate) admitted_head: String,
+    /// The record's OWN `revision`, resolved from the admitted entry rather than from the row.
+    pub(crate) admitted_revision: u64,
+    pub(crate) index_state: &'static str,
+}
+
+/// Resolve the exact stored v1 ConnectorMapping a caller names, or refuse by name.
+///
+/// `expected_revision` names an EXACT admitted revision. A v1 mapping is patched in place, so the
+/// row only ever holds the newest bytes — but every revision was admitted, so the chain can answer
+/// for one exactly. Naming a revision the chain does not hold is a typed refusal, never the nearest
+/// one, because converging "whichever revision is current" is the drift the v2 contract exists to
+/// end.
+pub(crate) fn resolve_stored_connector_mapping_v1(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    expected_owner_ref: Option<&str>,
+    mapping_ref: &str,
+    expected_revision: Option<u64>,
+) -> Result<ResolvedConnectorMappingV1, (StatusCode, Json<Value>)> {
+    let Some((MAPPING_V1_STORED_SCHEME, id)) = mapping_ref
+        .split_once("://")
+        .filter(|(scheme, rest)| !scheme.is_empty() && !rest.is_empty())
+    else {
+        return Err(mapping_v1_refusal(
+            "connector_mapping_v1_ref_not_canonical",
+            "a stored v1 connector mapping is addressed as 'connector-mapping://<id>' — the scheme it was admitted under, not the successor's 'mapping://'",
+        ));
+    };
+    let scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        MAPPING_V1_SCOPE_KIND,
+        mapping_ref,
+        expected_owner_ref,
+    )
+    .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        data_dir,
+        identity,
+        &scope,
+        MAPPING_V1_SCOPE_KIND,
+        mapping_ref,
+        MAPPING_V1_OWNER_NAMESPACE,
+        &mapping_v1_stream_tail(mapping_ref),
+    )
+    .map_err(super::mutation_event_foundation::mutation_refusal_reply)?;
+    if history.is_empty() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "connector_mapping_v1_not_found",
+                    "message": "this connector mapping has no admitted history — an absent predecessor is a typed absence, never an empty success"
+                }
+            })),
+        ));
+    }
+    let entry = match expected_revision {
+        None => history.last().expect("history is non-empty"),
+        Some(wanted) => history
+            .iter()
+            .find(|entry| {
+                entry
+                    .operation
+                    .payload
+                    .pointer(&format!("/{MAPPING_V1_RECORD_KEY}/revision"))
+                    .and_then(Value::as_u64)
+                    == Some(wanted)
+            })
+            .ok_or_else(|| {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "ok": false,
+                        "error": {
+                            "code": "connector_mapping_v1_revision_absent",
+                            "message": format!("this connector mapping has no admitted revision {wanted}; an absent revision is a typed absence, never the nearest one")
+                        }
+                    })),
+                )
+            })?,
+    };
+    let envelope = &entry.operation.payload;
+    if envelope.get("schema_version").and_then(Value::as_str) != Some(MAPPING_V1_ADMISSION_SCHEMA) {
+        return Err(mapping_v1_chain_refusal(
+            "connector_mapping_v1_admission_unsupported",
+            "the chain holds an admission envelope this build does not project; an unrecognised stored shape is refused rather than read as though it were understood",
+        ));
+    }
+    let owner_ref = envelope
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let Some(record) = envelope.get(MAPPING_V1_RECORD_KEY).cloned() else {
+        return Err(mapping_v1_chain_refusal(
+            "connector_mapping_v1_projection_failed",
+            "the admission envelope carries no connector mapping record",
+        ));
+    };
+    let schema_version = record
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    if schema_version != MAPPING_SCHEMA {
+        return Err(mapping_v1_chain_refusal(
+            "connector_mapping_v1_version_unsupported",
+            "the chain holds a connector mapping admitted under a version this build neither authors nor projects",
+        ));
+    }
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        MAPPING_V1_CONTRACT_ID,
+        &record,
+    )
+    .map_err(|reason| {
+        mapping_v1_chain_refusal(
+            "connector_mapping_v1_projection_failed",
+            &format!("the stored record does not satisfy {MAPPING_V1_CONTRACT_ID}: {reason}"),
+        )
+    })?;
+    if record.get("ref").and_then(Value::as_str) != Some(mapping_ref) {
+        return Err(mapping_v1_chain_refusal(
+            "connector_mapping_v1_ref_binding_disagrees",
+            "the admitted record's own ref is not the ref this scope resolves; the binding between the stored ref and the admitted scope is broken",
+        ));
+    }
+    let content_hash = mapping_v1_content_hash(&record)?;
+    let admitted_revision = record.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    // The row is consulted only to REPORT agreement, after the answer is already computed.
+    let index_state = if expected_revision.is_some_and(|wanted| wanted < history.len() as u64) {
+        // Resolving a SUPERSEDED revision is a chain read by construction: the row holds only the
+        // newest bytes, so reporting agreement here would be reporting it about a different revision.
+        "superseded_revision_read_from_agentgres"
+    } else {
+        match load_mapping(data_dir, id) {
+            None => "absent_rebuilt_from_agentgres",
+            Some(row) if row == record => "agreed_with_agentgres",
+            Some(_) => "stale_rebuilt_from_agentgres",
+        }
+    };
+    Ok(ResolvedConnectorMappingV1 {
+        mapping_ref: mapping_ref.to_owned(),
+        owner_ref,
+        principal_ref: scope.principal_ref.clone(),
+        tenant_ref: scope.tenant_ref.clone(),
+        schema_version,
+        record,
+        content_hash,
+        admitted_head: entry.head.clone(),
+        admitted_revision,
+        index_state,
+    })
+}
 
 const MAPPING_SCHEMA: &str = "ioi.hypervisor.odk.connector-mapping.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.connector-mapping-receipt.v1";
@@ -465,8 +848,15 @@ pub(crate) async fn handle_connector_mapping_history(
 /// POST /v1/hypervisor/odk/connector-mappings — declare a mapping (fail-closed, receipted, INERT).
 pub(crate) async fn handle_connector_mapping_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // IDENTITY FIRST. An anonymous caller is owed its refusal before any validation runs, and before
+    // a receipt is written for a mapping that will not be admitted.
+    let caller = match mapping_v1_write_caller(&st.data_dir, &headers, &body, None) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let projected = match validate_and_project(&st.data_dir, &body) {
         Ok(p) => p,
         Err(e) => return bad(e),
@@ -497,6 +887,13 @@ pub(crate) async fn handle_connector_mapping_create(
             obj.insert(k.clone(), v.clone());
         }
     }
+    // THE CHAIN IS THE ADMISSION; THE ROW IS THE PROJECTION. Crossing the owner-scoped boundary
+    // FIRST is what makes the durable truth owner-bound: a refused admission leaves no row, and a
+    // row that later disagrees with the chain is reported as stale rather than believed.
+    let commit = match admit_mapping_v1(&st.data_dir, &caller, &mref, &record, true) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
     // W1.2 / MEF-GAP-008 — this write was discarded. The mapping record gates the whole
     // downstream ladder (materializing-run lease checks, execution bindings, lease plans);
     // a 201 whose persist failed hands back an id every later step will refuse.
@@ -520,8 +917,20 @@ pub(crate) async fn handle_connector_mapping_create(
         );
     }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "connector_mapping": record })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(json!({
+            "ok": true,
+            "connector_mapping": record,
+            "replayed": commit.replayed,
+            "owner_ref": caller.owner_ref,
+            "admitted_head": commit.projection.head,
+            "receipt_ref": commit.receipt_ref,
+            "operation_ref": commit.operation_ref,
+        })),
     )
 }
 
@@ -529,8 +938,33 @@ pub(crate) async fn handle_connector_mapping_create(
 pub(crate) async fn handle_connector_mapping_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(patch): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // THE OWNER OF A SUCCESSOR IS THE ADMITTED PREDECESSOR'S OWNER, resolved from the chain rather
+    // than taken from the request, so a patch cannot move a mapping between owners.
+    // Identity only — the OWNER is not asked of the caller here, because a successor's owner is the
+    // admitted predecessor's owner. Demanding it in the body would let a patch propose one.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    let mapping_ref = format!("{MAPPING_V1_STORED_SCHEME}://{id}");
+    let admitted = match resolve_stored_connector_mapping_v1(
+        &st.data_dir,
+        &identity,
+        None,
+        &mapping_ref,
+        None,
+    ) {
+        Ok(resolved) => resolved,
+        Err(response) => return response,
+    };
+    let caller =
+        match mapping_v1_write_caller(&st.data_dir, &headers, &patch, Some(&admitted.owner_ref)) {
+            Ok(caller) => caller,
+            Err(response) => return response,
+        };
     let Some(existing) = load_mapping(&st.data_dir, &id) else {
         return (
             StatusCode::NOT_FOUND,
@@ -613,6 +1047,10 @@ pub(crate) async fn handle_connector_mapping_patch(
     // W1.2 / MEF-GAP-008 — this write was discarded. A revision bump and re-declared health
     // returned to the caller while the ladder keeps validating against the OLD mapping is a
     // quiet divergence between belief and admitted truth.
+    let commit = match admit_mapping_v1(&st.data_dir, &caller, &mapping_ref, &record, false) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
     if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -624,7 +1062,15 @@ pub(crate) async fn handle_connector_mapping_patch(
     }
     (
         StatusCode::OK,
-        Json(json!({ "ok": true, "connector_mapping": record })),
+        Json(json!({
+            "ok": true,
+            "connector_mapping": record,
+            "replayed": commit.replayed,
+            "owner_ref": caller.owner_ref,
+            "admitted_head": commit.projection.head,
+            "receipt_ref": commit.receipt_ref,
+            "operation_ref": commit.operation_ref,
+        })),
     )
 }
 

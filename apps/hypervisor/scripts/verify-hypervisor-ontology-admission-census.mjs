@@ -424,10 +424,23 @@ const PINNED = {
   // module, 1,261 source tokens and 74 opaque initialisers. It names no ODK record family and
   // writes no file: all three M05.7 families persist through the shared owner-scoped Agentgres
   // mutation boundary. The three writer buckets and 234 production filesystem calls remain exact.
+  // M05.7 v1-custody re-derivation (2026-08-31): the three v1 predecessor families become
+  // owner-scoped so a v2 convergence can PROVE custody instead of disclaiming it.
+  // `connector_mapping_routes.rs` and `transformation_run_routes.rs` gain an owner-scoped admission
+  // path and a read-only resolver; `odk_routes.rs` gains the DataRecipe resolver and validates that
+  // family against its own registered contract; `data_transformation_routes.rs` consumes the three
+  // seams. Together they add 519 source tokens, 2 family mentions and 2 family-resolving positions
+  // (both `KIND_RECIPE` inside the new DataRecipe resolver and its test), 2 opaque initialisers,
+  // 16 foreign-qualified names, and one `include_str!` (the registered v1 fixture the seam test
+  // reads). THE JUDGEMENTS DID NOT MOVE: no new admitter, no new production filesystem call
+  // (234 unchanged), no writer-bucket change, no foreign family declaration, and no resolving
+  // function that writes — the owner binding rides on an admission envelope beside each v1 record
+  // rather than on a second store. Baselined against HEAD before repinning: HEAD was 27/27 with all
+  // four counts exactly on their pins, so this delta is attributable to this cut alone.
   modules: 106,
-  familyMentions: 282,
-  tokenMentions: 138316,
-  judgedTokenPositions: 279,
+  familyMentions: 284,
+  tokenMentions: 138835,
+  judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
   /**
@@ -447,15 +460,15 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4380,
-    "opaque-initialiser": 2401,
+    "foreign-qualified": 4396,
+    "opaque-initialiser": 2403,
     "bare-undeclared": 529,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 81, dataBytes: 0, dataOpaqueArg: 13 },
+  includes: { splicedCode: 0, dataStr: 82, dataBytes: 0, dataOpaqueArg: 13 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
   compileAssembly: { production: 0, test: 15 },
 };

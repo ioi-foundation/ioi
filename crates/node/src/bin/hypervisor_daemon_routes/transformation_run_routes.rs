@@ -19,11 +19,390 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 
 use super::{iso_now, persist_record, read_record_dir, remove_record, DaemonState};
+
+// ============ M05.7 · THE v1 TRANSFORMATION-RUN OWNER SEAM — OWNER-SCOPED, THEN RESOLVABLE =======
+//
+// The same defect and the same remedy as the v1 ConnectorMapping lane. This lane took no identity,
+// persisted into a flat record directory by overwrite, and its registered v1 contract is closed with
+// no owner, tenant or principal member — so a v2 convergence naming a v1 run had nothing stored to
+// check and could only ever have DISCLAIMED custody. The write now crosses the shared owner-scoped
+// admission boundary, which is what creates the fact a proof later reads.
+//
+// THE v1 RECORD IS UNCHANGED, BYTE FOR BYTE. The owner rides on an admission ENVELOPE carrying the
+// registered v1 record verbatim, so the chain payload, the row and the contract are one set of bytes
+// and a commitment over the stored record needs no projection step to disagree about.
+//
+// EVERY STATE MOVE IS ADMITTED, NOT JUST THE FIRST. A v1 run's row is overwritten by dry-run, cancel
+// and patch alike, each bumping `revision` in place. Admitting all of them is what makes the chain
+// hold every revision immutably, so "the exact stored revision and its hash" is answerable and a
+// convergence cannot be pointed at a revision that was silently replaced underneath it.
+
+const RUN_V1_SCOPE_KIND: &str = "hypervisor-odk-transformation-run";
+const RUN_V1_OWNER_NAMESPACE: &str = "hypervisor-odk-transformation-run-v1";
+const RUN_V1_ADMISSION_SCHEMA: &str = "ioi.hypervisor.odk.transformation-run-v1-admission.v1";
+const RUN_V1_CONTRACT_ID: &str = "schema://ioi/foundations/objects/transformation-run/v1";
+const RUN_V1_RECORD_KEY: &str = "transformation_run_record";
+const RUN_V1_ADMIT_OP: &str = "event_stream.hypervisor_odk_transformation_run_admitted";
+const RUN_V1_REVISE_OP: &str = "event_stream.hypervisor_odk_transformation_run_revised";
+/// The scheme the record ACTUALLY stores in its own `ref`.
+const RUN_V1_STORED_SCHEME: &str = "transformation-run";
+
+fn run_v1_refusal(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+
+fn run_v1_chain_refusal(code: &str, message: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::BAD_GATEWAY,
+        Json(json!({ "ok": false, "error": { "code": code, "message": message } })),
+    )
+}
+
+/// The commitment over one stored v1 run's exact bytes, canonicalized. No field list: the record is
+/// committed whole, so an edit to an enumeration here cannot change what a proof claims to have seen.
+fn run_v1_content_hash(record: &Value) -> Result<String, (StatusCode, Json<Value>)> {
+    use sha2::Digest;
+    serde_jcs::to_vec(record)
+        .map(|bytes| format!("sha256:{:x}", sha2::Sha256::digest(&bytes)))
+        .map_err(|error| {
+            run_v1_chain_refusal(
+                "transformation_run_v1_projection_failed",
+                &format!("the stored record could not be canonicalized: {error}"),
+            )
+        })
+}
+
+fn run_v1_stream_tail(resource_ref: &str) -> String {
+    use sha2::Digest;
+    format!(
+        "{RUN_V1_SCOPE_KIND}.{:x}",
+        sha2::Sha256::digest(resource_ref.as_bytes())
+    )
+}
+
+struct RunV1WriteCaller {
+    identity: super::substrate_store::RequestIdentity,
+    owner_ref: String,
+    idempotency_key: String,
+}
+
+/// Identity and owner, resolved BEFORE the record or its receipt is built.
+fn run_v1_write_caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+    body: &Value,
+    previous_owner_ref: Option<&str>,
+) -> Result<RunV1WriteCaller, (StatusCode, Json<Value>)> {
+    let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let idempotency_key = body
+        .get("idempotency_key")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("")
+        .to_owned();
+    if idempotency_key.is_empty() {
+        return Err(run_v1_refusal(
+            "mutation_idempotency_key_invalid",
+            "idempotency_key is required so a retried write cannot apply twice",
+        ));
+    }
+    let owner_ref = match previous_owner_ref {
+        Some(existing) => existing.to_owned(),
+        None => body
+            .get("owner_ref")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or("")
+            .to_owned(),
+    };
+    if owner_ref.is_empty() {
+        return Err(run_v1_refusal(
+            "transformation_run_owner_ref_required",
+            "owner_ref is required: this record is owned by exactly one org:// or project://, and an unowned record can never be custody-proved",
+        ));
+    }
+    Ok(RunV1WriteCaller {
+        identity,
+        owner_ref,
+        idempotency_key,
+    })
+}
+
+fn admit_run_v1(
+    data_dir: &str,
+    caller: &RunV1WriteCaller,
+    resource_ref: &str,
+    record: &Value,
+    genesis: bool,
+) -> Result<super::mutation_event_foundation::MutationCommit, (StatusCode, Json<Value>)> {
+    let identity = caller.identity.clone();
+    let owner_ref = caller.owner_ref.clone();
+    let idempotency_key = caller.idempotency_key.as_str();
+    let scope = if genesis {
+        super::substrate_store::bind_request_resource_scope(
+            data_dir,
+            &identity,
+            RUN_V1_SCOPE_KIND,
+            resource_ref,
+            &owner_ref,
+            &owner_ref,
+            idempotency_key,
+        )
+    } else {
+        super::substrate_store::authorize_request_resource_scope(
+            data_dir,
+            &identity,
+            RUN_V1_SCOPE_KIND,
+            resource_ref,
+            Some(&owner_ref),
+        )
+    }
+    .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let tail = run_v1_stream_tail(resource_ref);
+    let expected_head = if genesis {
+        None
+    } else {
+        super::mutation_event_foundation::read_owner_scoped_history(
+            data_dir,
+            &identity,
+            &scope,
+            RUN_V1_SCOPE_KIND,
+            resource_ref,
+            RUN_V1_OWNER_NAMESPACE,
+            &tail,
+        )
+        .map_err(super::mutation_event_foundation::mutation_refusal_reply)?
+        .last()
+        .map(|entry| entry.head.clone())
+    };
+    let payload = json!({
+        "schema_version": RUN_V1_ADMISSION_SCHEMA,
+        "owner_ref": owner_ref,
+        "resource_ref": resource_ref,
+        RUN_V1_RECORD_KEY: record,
+    });
+    super::mutation_event_foundation::admit_owner_scoped_mutation(
+        data_dir,
+        genesis,
+        super::mutation_event_foundation::ScopedMutation {
+            identity: &identity,
+            scope: &scope,
+            resource_kind: RUN_V1_SCOPE_KIND,
+            resource_ref,
+            owner_namespace: RUN_V1_OWNER_NAMESPACE,
+            stream_tail: &tail,
+            op_kind: if genesis {
+                RUN_V1_ADMIT_OP
+            } else {
+                RUN_V1_REVISE_OP
+            },
+            expected_head: expected_head.as_deref(),
+            payload: &payload,
+            idempotency_key,
+            recorded_at_ms: 0,
+        },
+    )
+    .map_err(super::mutation_event_foundation::mutation_refusal_reply)
+}
+
+/// Admit a STATE MOVE on an already-admitted run — dry-run, cancel, patch.
+///
+/// THESE PATHS CARRY NO IDEMPOTENCY KEY BECAUSE THEY CARRY NO BODY, and inventing a request field
+/// for them would change a route shape that existing callers depend on. The key is DERIVED instead,
+/// from the three things that actually identify the state move: the operation, the run, and the
+/// revision it produces. A retry of the same move at the same revision therefore replays rather than
+/// appending a second identical revision, which is the property the key exists to provide.
+///
+/// The owner is resolved from the admitted predecessor, never taken from the request, so a state
+/// move cannot relocate a run between owners.
+fn admit_run_v1_state_move(
+    data_dir: &str,
+    headers: &HeaderMap,
+    run_ref: &str,
+    record: &Value,
+    op_label: &str,
+) -> Result<super::mutation_event_foundation::MutationCommit, (StatusCode, Json<Value>)> {
+    let identity = super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let admitted = resolve_stored_transformation_run_v1(data_dir, &identity, None, run_ref, None)?;
+    let revision = record.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let caller = RunV1WriteCaller {
+        identity,
+        owner_ref: admitted.owner_ref.clone(),
+        idempotency_key: format!("{op_label}:{run_ref}:revision:{revision}"),
+    };
+    admit_run_v1(data_dir, &caller, run_ref, record, false)
+}
+
+/// ONE stored v1 TransformationRun, resolved from the owner-scoped chain.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedTransformationRunV1 {
+    pub(crate) run_ref: String,
+    pub(crate) owner_ref: String,
+    pub(crate) principal_ref: String,
+    pub(crate) tenant_ref: String,
+    pub(crate) schema_version: String,
+    pub(crate) record: Value,
+    pub(crate) content_hash: String,
+    pub(crate) admitted_head: String,
+    pub(crate) admitted_revision: u64,
+    pub(crate) index_state: &'static str,
+}
+
+/// Resolve the exact stored v1 TransformationRun a caller names, or refuse by name.
+///
+/// `expected_revision` names an EXACT admitted revision, which matters more here than anywhere else:
+/// a v1 run's row is rewritten by dry-run and cancel, so "the run I converged" and "the run as it
+/// stands now" are routinely different bytes under one ref.
+pub(crate) fn resolve_stored_transformation_run_v1(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    expected_owner_ref: Option<&str>,
+    run_ref: &str,
+    expected_revision: Option<u64>,
+) -> Result<ResolvedTransformationRunV1, (StatusCode, Json<Value>)> {
+    let Some((RUN_V1_STORED_SCHEME, id)) = run_ref
+        .split_once("://")
+        .filter(|(scheme, rest)| !scheme.is_empty() && !rest.is_empty())
+    else {
+        return Err(run_v1_refusal(
+            "transformation_run_v1_ref_not_canonical",
+            "a stored v1 transformation run is addressed as 'transformation-run://<id>' — the scheme it was admitted under, not the successor's 'transform://'",
+        ));
+    };
+    let scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        RUN_V1_SCOPE_KIND,
+        run_ref,
+        expected_owner_ref,
+    )
+    .map_err(super::mutation_event_foundation::scope_refusal_reply)?;
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        data_dir,
+        identity,
+        &scope,
+        RUN_V1_SCOPE_KIND,
+        run_ref,
+        RUN_V1_OWNER_NAMESPACE,
+        &run_v1_stream_tail(run_ref),
+    )
+    .map_err(super::mutation_event_foundation::mutation_refusal_reply)?;
+    if history.is_empty() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "transformation_run_v1_not_found",
+                    "message": "this transformation run has no admitted history — an absent predecessor is a typed absence, never an empty success"
+                }
+            })),
+        ));
+    }
+    let entry = match expected_revision {
+        None => history.last().expect("history is non-empty"),
+        Some(wanted) => history
+            .iter()
+            .find(|entry| {
+                entry
+                    .operation
+                    .payload
+                    .pointer(&format!("/{RUN_V1_RECORD_KEY}/revision"))
+                    .and_then(Value::as_u64)
+                    == Some(wanted)
+            })
+            .ok_or_else(|| {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({
+                        "ok": false,
+                        "error": {
+                            "code": "transformation_run_v1_revision_absent",
+                            "message": format!("this transformation run has no admitted revision {wanted}; an absent revision is a typed absence, never the nearest one")
+                        }
+                    })),
+                )
+            })?,
+    };
+    let envelope = &entry.operation.payload;
+    if envelope.get("schema_version").and_then(Value::as_str) != Some(RUN_V1_ADMISSION_SCHEMA) {
+        return Err(run_v1_chain_refusal(
+            "transformation_run_v1_admission_unsupported",
+            "the chain holds an admission envelope this build does not project; an unrecognised stored shape is refused rather than read as though it were understood",
+        ));
+    }
+    let owner_ref = envelope
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let Some(record) = envelope.get(RUN_V1_RECORD_KEY).cloned() else {
+        return Err(run_v1_chain_refusal(
+            "transformation_run_v1_projection_failed",
+            "the admission envelope carries no transformation run record",
+        ));
+    };
+    let schema_version = record
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    if schema_version != RUN_SCHEMA {
+        return Err(run_v1_chain_refusal(
+            "transformation_run_v1_version_unsupported",
+            "the chain holds a transformation run admitted under a version this build neither authors nor projects",
+        ));
+    }
+    ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+        RUN_V1_CONTRACT_ID,
+        &record,
+    )
+    .map_err(|reason| {
+        run_v1_chain_refusal(
+            "transformation_run_v1_projection_failed",
+            &format!("the stored record does not satisfy {RUN_V1_CONTRACT_ID}: {reason}"),
+        )
+    })?;
+    if record.get("ref").and_then(Value::as_str) != Some(run_ref) {
+        return Err(run_v1_chain_refusal(
+            "transformation_run_v1_ref_binding_disagrees",
+            "the admitted record's own ref is not the ref this scope resolves; the binding between the stored ref and the admitted scope is broken",
+        ));
+    }
+    let content_hash = run_v1_content_hash(&record)?;
+    let admitted_revision = record.get("revision").and_then(Value::as_u64).unwrap_or(0);
+    let index_state = if expected_revision.is_some_and(|wanted| wanted < history.len() as u64) {
+        "superseded_revision_read_from_agentgres"
+    } else {
+        match load_run(data_dir, id) {
+            None => "absent_rebuilt_from_agentgres",
+            Some(row) if row == record => "agreed_with_agentgres",
+            Some(_) => "stale_rebuilt_from_agentgres",
+        }
+    };
+    Ok(ResolvedTransformationRunV1 {
+        run_ref: run_ref.to_owned(),
+        owner_ref,
+        principal_ref: scope.principal_ref.clone(),
+        tenant_ref: scope.tenant_ref.clone(),
+        schema_version,
+        record,
+        content_hash,
+        admitted_head: entry.head.clone(),
+        admitted_revision,
+        index_state,
+    })
+}
 
 const RUN_SCHEMA: &str = "ioi.hypervisor.odk.transformation-run.v1";
 const RECEIPT_SCHEMA: &str = "ioi.hypervisor.odk.transformation-run-receipt.v1";
@@ -451,8 +830,15 @@ pub(crate) async fn handle_run_history(
 /// POST /v1/hypervisor/odk/transformation-runs — admit a run PLAN (fail-closed, receipted, inert).
 pub(crate) async fn handle_run_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // IDENTITY FIRST — before validation, and before a receipt is written for a run plan that will
+    // not be admitted.
+    let caller = match run_v1_write_caller(&st.data_dir, &headers, &body, None) {
+        Ok(caller) => caller,
+        Err(response) => return response,
+    };
     let inputs = match validate_inputs(&st.data_dir, &body) {
         Ok(i) => i,
         Err(e) => return bad(&st.data_dir, "create_rejected", e),
@@ -498,12 +884,29 @@ pub(crate) async fn handle_run_create(
         "created_at": now.clone(),
         "updated_at": now
     });
+    // The chain is the admission; the row is the projection.
+    let commit = match admit_run_v1(&st.data_dir, &caller, &rref, &record, true) {
+        Ok(commit) => commit,
+        Err(response) => return response,
+    };
     if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
         return run_persist_failed();
     }
     (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "transformation_run": record })),
+        if commit.replayed {
+            StatusCode::OK
+        } else {
+            StatusCode::CREATED
+        },
+        Json(json!({
+            "ok": true,
+            "transformation_run": record,
+            "replayed": commit.replayed,
+            "owner_ref": caller.owner_ref,
+            "admitted_head": commit.projection.head,
+            "receipt_ref": commit.receipt_ref,
+            "operation_ref": commit.operation_ref,
+        })),
     )
 }
 
@@ -513,6 +916,7 @@ pub(crate) async fn handle_run_create(
 pub(crate) async fn handle_run_dry_run(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_run(&st.data_dir, &id) else {
         return (
@@ -554,6 +958,14 @@ pub(crate) async fn handle_run_dry_run(
                 &summary,
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
+            // EVERY STATE MOVE IS ADMITTED. A row rewritten without an admission would leave the
+            // chain holding bytes the row no longer has, and a convergence would then be proved
+            // against a revision that was silently replaced underneath it.
+            if let Err(response) =
+                admit_run_v1_state_move(&st.data_dir, &headers, &rref, &record, "dry_run_blocked")
+            {
+                return response;
+            }
             if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
                 return run_persist_failed();
             }
@@ -609,6 +1021,14 @@ pub(crate) async fn handle_run_dry_run(
                 "dry-run plan validated against the current gate",
                 receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
             );
+            // EVERY STATE MOVE IS ADMITTED. A row rewritten without an admission would leave the
+            // chain holding bytes the row no longer has, and a convergence would then be proved
+            // against a revision that was silently replaced underneath it.
+            if let Err(response) =
+                admit_run_v1_state_move(&st.data_dir, &headers, &rref, &record, "dry_run")
+            {
+                return response;
+            }
             if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
                 return run_persist_failed();
             }
@@ -624,6 +1044,7 @@ pub(crate) async fn handle_run_dry_run(
 pub(crate) async fn handle_run_cancel(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
     let Some(mut record) = load_run(&st.data_dir, &id) else {
         return (
@@ -658,6 +1079,14 @@ pub(crate) async fn handle_run_cancel(
         "TransformationRun plan cancelled",
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
+    // EVERY STATE MOVE IS ADMITTED. A row rewritten without an admission would leave the
+    // chain holding bytes the row no longer has, and a convergence would then be proved
+    // against a revision that was silently replaced underneath it.
+    if let Err(response) =
+        admit_run_v1_state_move(&st.data_dir, &headers, &rref, &record, "cancelled")
+    {
+        return response;
+    }
     if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
         return run_persist_failed();
     }
@@ -672,6 +1101,7 @@ pub(crate) async fn handle_run_cancel(
 pub(crate) async fn handle_run_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(patch): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     let Some(existing) = load_run(&st.data_dir, &id) else {
@@ -790,6 +1220,17 @@ pub(crate) async fn handle_run_patch(
         },
         receipt.get("receipt_ref").cloned().unwrap_or(Value::Null),
     );
+    // EVERY STATE MOVE IS ADMITTED, patches included: a metadata edit still produces a new stored
+    // revision, and a convergence naming the old one must be able to tell that it moved.
+    if let Err(response) = admit_run_v1_state_move(
+        &st.data_dir,
+        &headers,
+        &s(&record, "ref", ""),
+        &record,
+        "patched",
+    ) {
+        return response;
+    }
     if persist_record(&st.data_dir, RECORD_DIR, &id, &record).is_err() {
         return run_persist_failed();
     }
