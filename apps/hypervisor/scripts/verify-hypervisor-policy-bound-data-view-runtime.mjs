@@ -227,7 +227,9 @@ const APPROVALS = "/v1/hypervisor/governance/approval-requests";
 const VIEWS = "/v1/hypervisor/policy-bound-data-views";
 const MATS = "/v1/hypervisor/policy-bound-data-view-materializations";
 const OWNER = "org://local";
-const TENANT = "tenant://local";
+// The runtime derives tenant identity from the owner-qualified namespace; keep the fixture on that
+// same owner seam instead of inventing the legacy shorthand `tenant://local`.
+const TENANT = "tenant://org.local";
 const POLICY = `sha256:${"77".repeat(32)}`;
 
 // ---------------------------------------------------------------------------------- the instants
@@ -534,16 +536,15 @@ async function callPath(pathName, kind, input, token) {
 }
 
 /** The refusal code a body carries, wherever the family put it, or "" for a 2xx body. */
-function bodyRefusalCode(body) {
-  if (!body || typeof body !== "object") return "";
-  if (body.error && typeof body.error === "object" && typeof body.error.code === "string") return body.error.code;
-  if (typeof body.code === "string") return body.code;
+function bodyRefusalCodes(body) {
+  if (!body || typeof body !== "object") return [];
+  if (body.error && typeof body.error === "object" && typeof body.error.code === "string") return [body.error.code];
+  if (typeof body.code === "string") return [body.code];
   const mat = body.policy_bound_data_view_materialization;
-  if (mat && Array.isArray(mat.refusal_codes) && mat.refusal_codes.length) {
-    return mat.refusal_codes[0];
-  }
-  return "";
+  return mat && Array.isArray(mat.refusal_codes) ? mat.refusal_codes : [];
 }
+
+const bodyRefusalCode = (body) => bodyRefusalCodes(body)[0] ?? "";
 
 /** True when a body records a granted materialization — the thing NO negative may produce. */
 function bodyMaterialized(body) {
@@ -615,7 +616,7 @@ async function seedOwners() {
       output_dataset_contract_refs: ["schema://acme-clinic/patient-intake-row/v2"],
       transformation_steps: ["extract", "redact", "normalize"],
       policy_bound_data_view_refs: [],
-      receipt_obligations: ["transformation"],
+      receipt_obligations: ["data_recipe_run", "transformation"],
       effective_policy_hash: POLICY,
       registry_status: "active",
     })
@@ -781,38 +782,35 @@ async function seedOwners() {
   // ONE COMPLETED EXECUTION, so the new M05.7 seam has something exact to resolve. A run is the
   // object that PRODUCED the ontology-bound material a view projects over, and it is the seam this
   // unit was missing before the audit.
-  const completedRun =
-    (
-      await req("POST", "/v1/hypervisor/transformation-runs", {
-        owner_ref: OWNER,
-        idempotency_key: "pbdv-run-completed",
-        data_recipe_revision_ref: recipe.revision_ref,
-        output_intent: "ontology_objects",
-        execution_status: "completed",
-        input_refs: ["artifact://acme/intake-forms/batch-2026-08"],
-        authority_grant_refs: ["grant://acme-clinic/intake-read/2026-08"],
-        output_object_refs: ["agentgres://object/patient_intake/2026-08-batch"],
-        receipt_refs: ["receipt://acme-clinic/transformation/2026-08-batch"],
-        derivative_policy_ref: "policy://acme-clinic/intake-derivatives",
-        impact_graph_ref: "agentgres://projection/intake-impact",
-      })
-    ).j?.transformation_run ?? {};
-  const queuedRun =
-    (
-      await req("POST", "/v1/hypervisor/transformation-runs", {
-        owner_ref: OWNER,
-        idempotency_key: "pbdv-run-queued",
-        data_recipe_revision_ref: recipe.revision_ref,
-        output_intent: "ontology_objects",
-        execution_status: "queued",
-        input_refs: ["artifact://acme/intake-forms/batch-2026-09"],
-        authority_grant_refs: ["grant://acme-clinic/intake-read/2026-09"],
-        output_object_refs: [],
-        receipt_refs: [],
-        derivative_policy_ref: "policy://acme-clinic/intake-derivatives",
-        impact_graph_ref: "agentgres://projection/intake-impact",
-      })
-    ).j?.transformation_run ?? {};
+const completedRunReply = await req("POST", "/v1/hypervisor/transformation-runs", {
+    owner_ref: OWNER,
+    idempotency_key: "pbdv-run-completed",
+    data_recipe_revision_ref: recipe.revision_ref,
+    output_intent: "ontology_objects",
+    execution_status: "completed",
+    input_refs: ["artifact://acme/intake-forms/batch-2026-08"],
+    authority_grant_refs: ["grant://acme-clinic/intake-read/2026-08"],
+    output_object_refs: ["agentgres://object/patient_intake/2026-08-batch"],
+    receipt_refs: ["receipt://acme-clinic/transformation/2026-08-batch"],
+    derivative_policy_ref: "policy://acme-clinic/intake-derivatives",
+    impact_graph_ref: "agentgres://projection/intake-impact",
+  });
+  const completedRun = completedRunReply.j?.transformation_run ?? {};
+  const queuedRunReply = await req("POST", "/v1/hypervisor/transformation-runs", {
+    owner_ref: OWNER,
+    idempotency_key: "pbdv-run-queued",
+    data_recipe_revision_ref: recipe.revision_ref,
+    output_intent: "ontology_objects",
+    execution_status: "queued",
+    input_refs: ["artifact://acme/intake-forms/batch-2026-09"],
+    authority_grant_refs: ["grant://acme-clinic/intake-read/2026-09"],
+    output_object_refs: [],
+    receipt_refs: [],
+    derivative_policy_ref: "policy://acme-clinic/intake-derivatives",
+    impact_graph_ref: "agentgres://projection/intake-impact",
+    expected_head: completedRunReply.j?.expected_head_for_successor,
+  });
+  const queuedRun = queuedRunReply.j?.transformation_run ?? {};
 
   // The bound source set: an ontology revision (M05.1), a mapping revision and a completed run
   // (M05.7). Every hash is what its OWNER served, never a constant this fixture invented.
@@ -848,6 +846,8 @@ async function seedOwners() {
     approval,
     completedRun,
     queuedRun,
+    completedRunReply,
+    queuedRunReply,
   };
 }
 
@@ -928,7 +928,9 @@ async function run() {
       owners.liveClaim.revision_ref === "learning-source-rights://acme.intake-records/revision/1" &&
       owners.liveProfile.revision_ref === "learning-boundary://acme.organization-default/revision/1" &&
       String(owners.approval.ref || "").startsWith("approval-request://"),
-    `ont=${owners.ONT} map=${owners.liveMap.revision_ref} run=${owners.completedRun.transformation_run_id} approval=${owners.approval.ref}`,
+    `ont=${owners.ONT} map=${owners.liveMap.revision_ref} run=${owners.completedRun.transformation_run_id} ` +
+      `run_status=${owners.completedRunReply.status}/${code(owners.completedRunReply.j)} ` +
+      `queued_status=${owners.queuedRunReply.status}/${code(owners.queuedRunReply.j)} approval=${owners.approval.ref}`,
   );
   ok(
     "PRECONDITION: the bound source set is three REAL admitted revisions across two owner modules, each carrying the content hash its own owner served — a fixture of well-formed strings would exercise only the refusal path and never reach a grant",
@@ -1233,7 +1235,11 @@ async function runAdmission(state) {
     stalePolicy.status === 422 && code(stalePolicy.j) === "policy_bound_data_view_stale_policy_binding",
     `status ${stalePolicy.status} code ${code(stalePolicy.j)}`,
   );
-  const noReason = await req("POST", VIEWS, viewBody("pbdv-view-successor-no-reason", base()));
+  const noReason = await req(
+    "POST",
+    VIEWS,
+    viewBody("pbdv-view-successor-no-reason", base({ expected_head: view.j?.expected_head_for_successor })),
+  );
   ok(
     "M05.8: a SUCCESSOR revision must name why it exists, from the contract's closed reason vocabulary — a restatement with no reason is a lineage nobody can review",
     noReason.status === 422 && code(noReason.j) === "policy_bound_data_view_succession_reason_required",
@@ -1371,7 +1377,7 @@ async function runAdmission(state) {
 async function runMaterialization(state) {
   const { owners, base, viewRef } = state;
   const read = (key, over = {}) =>
-    req("POST", MATS, readBody(key, { policy_bound_data_view_revision_ref: viewRef, ...over }));
+    req("POST", MATS, readBody(key, { family: `acme.${key}`, policy_bound_data_view_revision_ref: viewRef, ...over }));
 
   // THE POSITIVE CASE, AND IT GENUINELY GRANTS. Everything about this request conforms: the use is
   // allowed, the fields are in scope, the predicate matches by ref and bytes, the row ceiling holds,
@@ -1708,19 +1714,20 @@ async function runCrossPath(state) {
         available: r.available,
         status: r.status,
         code: r.available === false ? "" : bodyRefusalCode(r.body),
+        codes: r.available === false ? [] : bodyRefusalCodes(r.body),
         materialized: r.available === false ? false : bodyMaterialized(r.body),
       });
     }
     const live = cells.filter((c) => c.available !== false);
     const nativeCell = cells.find((c) => c.path === "native");
-    const codesMatch = live.every((c) => c.code.endsWith(expectSuffix));
-    const oneCode = new Set(live.map((c) => c.code)).size === 1;
+    const codesMatch = live.every((c) => c.codes.some((held) => held.endsWith(expectSuffix)));
+    const oneCode = new Set(live.map((c) => canonicalJson(c.codes))).size === 1;
     const noneMaterialized = live.every((c) => !c.materialized);
     ok(
-      `CROSS-PATH ${label}: every available surface returns the SAME refusal code (…${expectSuffix}), no surface materializes, and native always runs — the decision is the daemon's, identical across transports`,
+      `CROSS-PATH ${label}: every available surface returns the SAME refusal set containing …${expectSuffix}, no surface materializes, and native always runs — the decision is the daemon's, identical across transports`,
       nativeCell &&
         nativeCell.available !== false &&
-        nativeCell.code.endsWith(expectSuffix) &&
+        nativeCell.codes.some((held) => held.endsWith(expectSuffix)) &&
         codesMatch &&
         oneCode &&
         noneMaterialized,
@@ -2004,7 +2011,7 @@ async function runCrossPath(state) {
 async function runDurability(state) {
   const before = {
     views: (await req("GET", `${VIEWS}?family=acme.intake-minimised`)).j,
-    reads: (await req("GET", `${MATS}?family=acme.intake-read`)).j,
+    reads: (await req("GET", `${MATS}?family=acme.pbdv-read-conforming`)).j,
   };
   await stopDaemon();
   // DELETE THE READ INDEX. If a per-family record directory exists, deleting it proves the answer is
@@ -2030,7 +2037,7 @@ async function runDurability(state) {
 
   const after = {
     views: (await req("GET", `${VIEWS}?family=acme.intake-minimised`)).j,
-    reads: (await req("GET", `${MATS}?family=acme.intake-read`)).j,
+    reads: (await req("GET", `${MATS}?family=acme.pbdv-read-conforming`)).j,
   };
   ok(
     "DURABILITY: both families REPLAY BYTE-IDENTICALLY from the durable chain across a real process restart — this is read AFTER restarting, not by asking the API whether it would survive one",

@@ -3,7 +3,7 @@
 // A PASS-THROUGH, NOT A CHECKER. `ioi policy-bound-data-view {admit,query,materialize}` serializes a
 // body, adds the caller's own bearer token, hits ONE of the two native owner routes, and prints the
 // daemon's JSON verbatim. Every admission and materialization decision is made in
-// `policy_bound_data_view_revision_routes.rs` — this file resolves no policy, reinterprets no refusal
+// the daemon's PolicyBoundDataView owner module — this file resolves no policy, reinterprets no refusal
 // code, and grants no authority. It holds a TOKEN, never a principal, so it cannot choose a tenant or
 // author a server-resolved field; the daemon refuses those regardless of which client sent them.
 //
