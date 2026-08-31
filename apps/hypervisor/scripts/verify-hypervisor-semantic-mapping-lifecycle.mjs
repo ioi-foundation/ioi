@@ -266,6 +266,7 @@ async function climbLadderToAdjudication(subject, challengeId, resolution, keyPr
     ["accepted", "positive", ["correctness", "settlement", "authority"]],
   ];
   let head = null;
+  let ordinaryReceipt = null;
   for (const [stage, outcomeClass, nonclaims] of stages) {
     const body = {
       owner_ref: "org://local",
@@ -279,6 +280,11 @@ async function climbLadderToAdjudication(subject, challengeId, resolution, keyPr
     if (head !== null) body.expected_head = head;
     const step = await req("POST", AT, body);
     if (step.status !== 201) return { failedAt: stage, response: step };
+    // Keep an ORDINARY rung's receipt: it is a real admitted receipt that adjudicates no challenge,
+    // which is a different refusal from a receipt that does not exist at all.
+    if (stage === "attested") {
+      ordinaryReceipt = step.j?.assurance_transition?.admission?.agentgres_receipt_ref ?? null;
+    }
     head = step.j?.expected_head_for_successor ?? null;
   }
   const adjudication = await req("POST", AT, {
@@ -308,7 +314,40 @@ async function climbLadderToAdjudication(subject, challengeId, resolution, keyPr
     receipt: adjudication.j?.assurance_transition?.admission?.agentgres_receipt_ref ?? null,
     record: adjudication.j?.assurance_transition ?? null,
     response: adjudication,
+    ordinaryReceipt,
   };
+}
+
+/// Climb one subject only as far as `accepted` and hand back the head.
+///
+/// The M06 admission fences below are all REFUSALS, so they append nothing and can share one subject
+/// parked at the rung an adjudication advances from. Parking it here — rather than reusing a subject
+/// that already adjudicated — is what keeps each probe a test of the fence rather than of the
+/// no-skip rule that would refuse it anyway.
+async function climbLadderToAccepted(subject, keyPrefix) {
+  const stages = [
+    ["attested", ["correctness", "acceptance", "settlement", "authority"]],
+    ["evidenced", ["correctness", "acceptance", "settlement", "authority"]],
+    ["verified", ["correctness", "acceptance", "settlement", "authority"]],
+    ["accepted", ["correctness", "settlement", "authority"]],
+  ];
+  let head = null;
+  for (const [stage, nonclaims] of stages) {
+    const body = {
+      owner_ref: "org://local",
+      idempotency_key: `${keyPrefix}-${stage}`,
+      subject_ref: subject,
+      outcome_class: "positive",
+      evidence_refs: [`evidence://${NS}/${keyPrefix}-${stage}`],
+      does_not_assert: nonclaims,
+      valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+    };
+    if (head !== null) body.expected_head = head;
+    const step = await req("POST", AT, body);
+    if (step.status !== 201) return { failedAt: stage, response: step, head: null };
+    head = step.j?.expected_head_for_successor ?? null;
+  }
+  return { head };
 }
 
 const NS = "acme-clinic";
@@ -993,12 +1032,18 @@ async function runMappings() {
     DEC,
     decQuery,
   );
-  return { xwRecord, decRecord, xwQuery, decQuery };
+  return {
+    xwRecord,
+    decRecord,
+    xwQuery,
+    decQuery,
+    ambiguousMappingRef: ambiguousRecord.ontology_mapping_id,
+  };
 }
 
 // ------------------------------------------- a challenge changes standing without moving the bytes
 async function runChallenges(ctx) {
-  const { xwRecord, xwQuery } = ctx;
+  const { xwRecord, xwQuery, ambiguousMappingRef } = ctx;
   const CHALLENGE = `verifier-challenge://${NS}/triage-band-is-not-narrower`;
   const v1Envelope = await req("POST", XWC, {
     owner_ref: "org://local",
@@ -1233,6 +1278,182 @@ async function runChallenges(ctx) {
     "RESOLUTION REFUSES: a principal outside this tenant cannot resolve with a receipt it cannot reach — the refusal is the owner scope's, so the route is no existence oracle for another tenant's receipts",
     foreignResolve.status >= 400 && foreignResolve.status !== 201,
     `status ${foreignResolve.status} code ${code(foreignResolve.j)}`,
+  );
+
+  const ordinaryStep = await resolveWith("m052-resolve-ordinary-step", {
+    resolution_receipt_ref: ladder.ordinaryReceipt,
+  });
+  ok(
+    "RESOLUTION REFUSES: a REAL admitted receipt from an ORDINARY rung of this subject's own ladder adjudicates no challenge — existing is not the same as resolving",
+    ordinaryStep.status >= 400 &&
+      code(ordinaryStep.j) === "assurance_transition_receipt_resolves_no_challenge",
+    `status ${ordinaryStep.status} code ${code(ordinaryStep.j)}`,
+  );
+
+  // ------------------------------------------------- the M06 ADMISSION fences, probed at their route
+  //
+  // Everything above tests the CONSUMPTION seam. These test the fences that stop a defective
+  // resolution reaching the ladder at all, and every one of them is a refusal, so they share one
+  // subject parked at `accepted` and leave it there.
+  const parked = ambiguousMappingRef;
+  const park = await climbLadderToAccepted(parked, "m052-parked");
+  const adjudicate = (key, overrides, resolutionOverrides) =>
+    req("POST", AT, {
+      owner_ref: "org://local",
+      idempotency_key: key,
+      subject_ref: parked,
+      outcome_class: "disputed",
+      evidence_refs: [`evidence://${NS}/${key}`],
+      does_not_assert: ["correctness", "settlement", "authority"],
+      valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+      expected_head: park.head,
+      challenge_resolution: {
+        verifier_challenge_id: `verifier-challenge://${NS}/parked-dispute`,
+        resolution: "upheld",
+        adjudicator_ref: "org://local",
+        adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
+        reviewer_lineage: [
+          {
+            reviewer_ref: `user://${NS}/informatics-lead`,
+            reviewed_at: "2026-09-05T10:00:00Z",
+            review_decision: "upheld",
+          },
+        ],
+        ...resolutionOverrides,
+      },
+      ...overrides,
+    });
+  ok(
+    "M06 PRECONDITION: one subject really is parked at 'accepted', so each fence below is tested on its own terms rather than by the no-skip rule refusing everything",
+    park.head !== null,
+    park.failedAt ? `failed at ${park.failedAt}` : "accepted",
+  );
+
+  const hashSubstituted = await adjudicate("m052-fence-hash", {}, {
+    challenged_subject_content_hash: sha256("some-other-revisions-bytes"),
+  });
+  ok(
+    "M06 ADMISSION REFUSES: a resolution asserting a subject content hash the subject owner did not resolve — the receipt cannot be re-pointed at another revision's bytes",
+    hashSubstituted.status >= 400 &&
+      code(hashSubstituted.j) === "assurance_transition_resolution_subject_hash_substituted",
+    `status ${hashSubstituted.status} code ${code(hashSubstituted.j)}`,
+  );
+
+  const subjectSubstituted = await adjudicate("m052-fence-subject", {}, {
+    challenged_subject_ref: XW_R1,
+  });
+  ok(
+    "M06 ADMISSION REFUSES: a resolution naming a subject other than the one this transition is about",
+    subjectSubstituted.status >= 400 &&
+      code(subjectSubstituted.j) === "assurance_transition_resolution_subject_substituted",
+    `status ${subjectSubstituted.status} code ${code(subjectSubstituted.j)}`,
+  );
+
+  const cleanPass = await adjudicate("m052-fence-outcome", { outcome_class: "positive" }, {});
+  ok(
+    "M06 ADMISSION REFUSES: an UPHELD challenge recorded as a positive outcome — a sustained finding cannot be filed as a clean pass",
+    cleanPass.status >= 400 &&
+      code(cleanPass.j) === "assurance_transition_resolution_outcome_disagreement",
+    `status ${cleanPass.status} code ${code(cleanPass.j)}`,
+  );
+
+  const noReviewer = await adjudicate("m052-fence-reviewer", {}, { reviewer_lineage: [] });
+  ok(
+    "M06 ADMISSION REFUSES: an adjudication with no reviewer at all is a verdict nobody stands behind",
+    noReviewer.status >= 400 &&
+      code(noReviewer.j) === "assurance_transition_resolution_reviewer_required",
+    `status ${noReviewer.status} code ${code(noReviewer.j)}`,
+  );
+
+  const twiceReviewedResolution = await adjudicate("m052-fence-twice", {}, {
+    reviewer_lineage: [
+      {
+        reviewer_ref: `user://${NS}/informatics-lead`,
+        reviewed_at: "2026-09-05T10:00:00Z",
+        review_decision: "upheld",
+      },
+      {
+        reviewer_ref: `user://${NS}/informatics-lead`,
+        reviewed_at: "2026-09-05T11:00:00Z",
+        review_decision: "abstained",
+      },
+    ],
+  });
+  ok(
+    "M06 ADMISSION REFUSES: one reviewer standing in for a quorum of itself in an adjudication",
+    twiceReviewedResolution.status >= 400 &&
+      code(twiceReviewedResolution.j) ===
+        "assurance_transition_resolution_reviewer_counted_twice",
+    `status ${twiceReviewedResolution.status} code ${code(twiceReviewedResolution.j)}`,
+  );
+
+  const badPolicy = await adjudicate("m052-fence-policy", {}, {
+    adjudicator_policy_ref: `receipt://${NS}/not-a-policy`,
+  });
+  ok(
+    "M06 ADMISSION REFUSES: an adjudicator policy that is not a policy ref",
+    badPolicy.status >= 400 &&
+      code(badPolicy.j) === "assurance_transition_adjudicator_policy_not_canonical",
+    `status ${badPolicy.status} code ${code(badPolicy.j)}`,
+  );
+
+  const badAdjudicator = await adjudicate("m052-fence-adjudicator", {}, {
+    adjudicator_ref: "not-a-principal",
+  });
+  ok(
+    "M06 ADMISSION REFUSES: an adjudicator that is not a canonical principal",
+    badAdjudicator.status >= 400 &&
+      code(badAdjudicator.j) === "assurance_transition_adjudicator_not_canonical",
+    `status ${badAdjudicator.status} code ${code(badAdjudicator.j)}`,
+  );
+
+  const v1Envelope2 = await adjudicate("m052-fence-envelope", {}, {
+    challenge_contract_ref: "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
+  });
+  ok(
+    "M06 ADMISSION REFUSES: a resolution citing the v1 challenge envelope, which cannot address a semantic-plane subject at all",
+    v1Envelope2.status >= 400 &&
+      code(v1Envelope2.j) === "assurance_transition_challenge_contract_unsupported",
+    `status ${v1Envelope2.status} code ${code(v1Envelope2.j)}`,
+  );
+
+  const wrongRung = await req("POST", AT, {
+    owner_ref: "org://local",
+    idempotency_key: "m052-fence-rung",
+    subject_ref: XW_R1,
+    outcome_class: "disputed",
+    evidence_refs: [`evidence://${NS}/m052-fence-rung`],
+    does_not_assert: ["correctness", "settlement", "authority"],
+    valid_time: { starts_at: "2026-09-01T00:00:00Z", ends_at: null },
+    challenge_resolution: {
+      verifier_challenge_id: CHALLENGE,
+      resolution: "upheld",
+      adjudicator_ref: "org://local",
+      adjudicator_policy_ref: `policy://${NS}/mapping-adjudication`,
+      reviewer_lineage: [
+        {
+          reviewer_ref: `user://${NS}/informatics-lead`,
+          reviewed_at: "2026-09-05T10:00:00Z",
+          review_decision: "upheld",
+        },
+      ],
+    },
+  });
+  ok(
+    "M06 ADMISSION REFUSES: a challenge resolution claimed at a rung that is not adjudication — 'resolved' is not claimable anywhere on the ladder",
+    wrongRung.status >= 400 &&
+      ["assurance_transition_challenge_resolution_outside_adjudication",
+       "assurance_transition_expected_head_conflict"].includes(code(wrongRung.j)),
+    `status ${wrongRung.status} code ${code(wrongRung.j)}`,
+  );
+
+  const parkedAfter = await req("GET", `${AT}?subject_ref=${encodeURIComponent(parked)}`);
+  ok(
+    "M06 ADMISSION REFUSES BY EFFECT: every fence above left the parked subject exactly at 'accepted' — nine refusals appended nothing",
+    parkedAfter.j?.transition_count === 4 || parkedAfter.j?.ladder_transition_count === 4,
+    JSON.stringify({
+      count: parkedAfter.j?.transition_count ?? parkedAfter.j?.ladder_transition_count,
+    }),
   );
 
   const resolved = await resolveWith("m052-challenge-resolve", {});
@@ -1532,34 +1753,107 @@ const MUTANTS = [
   {
     id: "any-receipt-shaped-string-resolves",
     file: RECEIPT_OWNER_SOURCE,
-    find: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent",',
-    replace: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent_MUTATED",',
+    // A GENUINE BYPASS, not a renamed error: when the exact receipt is absent, fall back to the
+    // newest adjudication on this ladder. The forged request then reaches a real resolution path and
+    // SUCCEEDS, which is the semantic failure this id names.
+    find: '    let matched = ladder.iter().find(|entry| {\n        entry\n            .pointer("/admission/agentgres_receipt_ref")\n            .and_then(Value::as_str)\n            == Some(receipt_ref)\n    });',
+    replace: '    let matched = ladder.iter().find(|entry| {\n        entry\n            .pointer("/admission/agentgres_receipt_ref")\n            .and_then(Value::as_str)\n            == Some(receipt_ref)\n    }).or_else(|| ladder.iter().rev().find(|entry| entry.get("to_stage").and_then(Value::as_str) == Some("adjudicated")));',
     target:
       "RESOLUTION REFUSES: a receipt-SHAPED string this daemon never admitted resolves nothing — the defect this seam exists to close, and the exact shape the gate itself used to hand in",
   },
   {
+    id: "an-ordinary-ladder-step-resolves-a-challenge",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "    if resolution.is_empty() {",
+    replace: "    if false && resolution.is_empty() {",
+    target:
+      "RESOLUTION REFUSES: a REAL admitted receipt from an ORDINARY rung of this subject's own ladder adjudicates no challenge — existing is not the same as resolving",
+  },
+  {
     id: "a-receipt-may-resolve-another-challenge",
     file: RECEIPT_OWNER_SOURCE,
-    find: '    if challenge_id != expected_challenge_id {',
-    replace: '    if false && challenge_id != expected_challenge_id {',
+    find: "    if challenge_id != expected_challenge_id {",
+    replace: "    if false && challenge_id != expected_challenge_id {",
     target:
       "RESOLUTION REFUSES: a REAL admitted receipt that resolves a DIFFERENT challenge — the binding v1 structurally could not carry, and the reason the v2 successor exists",
   },
   {
     id: "the-request-may-outvote-its-receipt",
     file: ROUTE_SOURCE,
-    find: '        if resolved.resolution != resolution {',
-    replace: '        if false && resolved.resolution != resolution {',
+    find: "        if resolved.resolution != resolution {",
+    replace: "        if false && resolved.resolution != resolution {",
     target:
       "RESOLUTION REFUSES: the request cannot claim an outcome the LADDER did not record — the receipt is the evidence, not the request",
   },
   {
+    id: "the-resolution-subject-hash-is-taken-from-the-request",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "            if asserted != subject.content_hash {",
+    replace: "            if false && asserted != subject.content_hash {",
+    target:
+      "M06 ADMISSION REFUSES: a resolution asserting a subject content hash the subject owner did not resolve — the receipt cannot be re-pointed at another revision's bytes",
+  },
+  {
     id: "the-resolution-subject-is-taken-from-the-request",
     file: RECEIPT_OWNER_SOURCE,
-    find: '        challenge_resolution["challenged_subject_ref"] = json!(proposal.subject_ref);',
-    replace: '        if challenge_resolution["challenged_subject_ref"].is_null() {\n            challenge_resolution["challenged_subject_ref"] = json!(proposal.subject_ref);\n        }',
+    find: "            if asserted != proposal.subject_ref {",
+    replace: "            if false && asserted != proposal.subject_ref {",
     target:
-      "M06 LADDER: the receipt binds the SUBJECT and the exact bytes the mapping owner resolved, filled in from the owner-resolved subject rather than from the request",
+      "M06 ADMISSION REFUSES: a resolution naming a subject other than the one this transition is about",
+  },
+  {
+    id: "an-upheld-challenge-may-be-a-clean-pass",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "    if !permitted_outcomes.contains(&outcome_class) {",
+    replace: "    if false && !permitted_outcomes.contains(&outcome_class) {",
+    target:
+      "M06 ADMISSION REFUSES: an UPHELD challenge recorded as a positive outcome — a sustained finding cannot be filed as a clean pass",
+  },
+  {
+    id: "an-adjudication-needs-no-reviewer",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "    if rows.is_empty() || rows.len() > MAX_REVIEWERS {",
+    replace: "    if rows.len() > MAX_REVIEWERS {",
+    target:
+      "M06 ADMISSION REFUSES: an adjudication with no reviewer at all is a verdict nobody stands behind",
+  },
+  {
+    id: "one-reviewer-may-be-a-quorum",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "        if seen.iter().any(|previous| previous == &reviewer_ref) {",
+    replace: "        if false && seen.iter().any(|previous| previous == &reviewer_ref) {",
+    target:
+      "M06 ADMISSION REFUSES: one reviewer standing in for a quorum of itself in an adjudication",
+  },
+  {
+    id: "the-adjudicator-policy-need-not-be-a-policy",
+    file: RECEIPT_OWNER_SOURCE,
+    find: '    if !policy_ref.starts_with("policy://") || policy_ref.len() > 480 {',
+    replace: "    if policy_ref.len() > 480 {",
+    target: "M06 ADMISSION REFUSES: an adjudicator policy that is not a policy ref",
+  },
+  {
+    id: "the-adjudicator-need-not-be-a-principal",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "    if !PRINCIPAL_SCHEMES\n        .iter()\n        .any(|scheme| adjudicator_ref.starts_with(scheme))\n    {",
+    replace: "    if false\n    {",
+    target: "M06 ADMISSION REFUSES: an adjudicator that is not a canonical principal",
+  },
+  {
+    id: "a-resolution-is-claimable-at-any-rung",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "    if to_stage != ADJUDICATED_STAGE {",
+    replace: "    if false && to_stage != ADJUDICATED_STAGE {",
+    target:
+      "M06 ADMISSION REFUSES: a challenge resolution claimed at a rung that is not adjudication — 'resolved' is not claimable anywhere on the ladder",
+  },
+  {
+    id: "the-owner-emits-the-v1-predecessor-contract",
+    file: RECEIPT_OWNER_SOURCE,
+    find: 'const SCHEMA_VERSION: &str = "ioi.assurance-transition-receipt.v2";',
+    replace: 'const SCHEMA_VERSION: &str = "ioi.assurance-transition-receipt.v1";',
+    target:
+      "M06 SUCCESSION: the adjudication is admitted under the v2 successor and names v1 as its predecessor contract, so the succession is auditable from the receipt's own bytes",
   },
   {
     id: "overlay-accepts-a-base-term",
@@ -1661,22 +1955,45 @@ const MUTANTS = [
   {
     id: "an-absent-base-revision-resolves",
     file: OWNER_SEAM_SOURCE,
-    // Anchored on the RESOLVER seam's own refusal, not the query route's: the two share a code and
-    // the shorter anchor is a substring of both.
-    find: '            "ontology_version_revision_absent",\n            format!(\n                "this family has no revision {} — an absent revision is a typed absence, never an empty success",',
-    replace: '            "ontology_version_revision_absent_MUTATED",\n            format!(\n                "this family has no revision {} — an absent revision is a typed absence, never an empty success",',
+    // A GENUINE BYPASS, not a renamed label. The exact-revision resolver becomes a NEAREST-revision
+    // resolver AND loses the identity fence behind it, so an overlay naming a revision the chain
+    // never admitted binds the newest one instead and is ADMITTED. The span covers both fences
+    // deliberately: defeating only the first yields a 502, which is still a refusal.
+    find: "    let Some(document) = lineage\n        .iter()\n        .find(|document| ordinal_of(document) == coordinates.ordinal)\n    else {\n        return Err(bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_version_revision_absent\",\n            format!(\n                \"this family has no revision {} \u2014 an absent revision is a typed absence, never an empty success\",\n                coordinates.ordinal\n            ),\n        ));\n    };\n    let field = |key: &str| {\n        document\n            .get(key)\n            .and_then(Value::as_str)\n            .unwrap_or_default()\n            .to_owned()\n    };\n    let resolved = ResolvedOntologyRevision {\n        ontology_id: field(\"ontology_id\"),\n        ontology_family_ref: field(\"ontology_family_ref\"),\n        namespace: field(\"namespace\"),\n        name: field(\"name\"),\n        revision_ordinal: coordinates.ordinal,\n        content_hash: field(\"content_hash\"),\n        status: field(\"status\"),\n    };\n    // The projection is already contract-validated, so a disagreement here means the chain answered\n    // with a revision other than the one addressed. That is not something to hand a consumer with a\n    // caveat; it is an unreadable chain.\n    if resolved.ontology_id != ontology_id\n        || resolved.ontology_family_ref != family\n        || resolved.namespace != coordinates.namespace\n        || resolved.name != coordinates.name\n        || !is_sha256(&resolved.content_hash)\n        || resolved.status.is_empty()\n    {\n        return Err(bad(\n            StatusCode::BAD_GATEWAY,\n            \"ontology_version_projection_failed\",\n            format!(\n                \"the chain resolved '{ontology_id}' to a revision that does not bind that identity\"\n            ),\n        ));\n    }\n",
+    replace: "    // MUTANT: the exact-revision resolver becomes a NEAREST-revision resolver. An absent ordinal\n    // binds the newest admitted revision, and the identity fence that would have caught the\n    // substitution is gone with it, so the consumer receives a real revision's coordinates under an\n    // identity nobody admitted and its own admission SUCCEEDS.\n    let Some(document) = lineage\n        .iter()\n        .find(|document| ordinal_of(document) == coordinates.ordinal)\n        .or_else(|| lineage.last())\n    else {\n        return Err(bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_version_revision_absent\",\n            format!(\n                \"this family has no revision {} \u2014 an absent revision is a typed absence, never an empty success\",\n                coordinates.ordinal\n            ),\n        ));\n    };\n    let field = |key: &str| {\n        document\n            .get(key)\n            .and_then(Value::as_str)\n            .unwrap_or_default()\n            .to_owned()\n    };\n    let resolved = ResolvedOntologyRevision {\n        ontology_id: field(\"ontology_id\"),\n        ontology_family_ref: field(\"ontology_family_ref\"),\n        namespace: field(\"namespace\"),\n        name: field(\"name\"),\n        revision_ordinal: coordinates.ordinal,\n        content_hash: field(\"content_hash\"),\n        status: field(\"status\"),\n    };\n",
     target:
       "OVERLAY REFUSES: a well-formed base revision this chain never admitted is a typed absence, not an empty success — the defect no byte-level fixture can catch",
   },
   {
     id: "a-challenge-may-name-an-absent-subject",
     file: ROUTE_SOURCE,
-    find: '            "ontology_mapping_challenged_revision_absent",',
-    replace: '            "ontology_mapping_challenged_revision_absent_MUTATED",',
+    // A GENUINE BYPASS: a challenge against a revision this family never admitted falls back to the
+    // newest revision and is DURABLY APPENDED. The forbidden operation is accepted at the chain; the
+    // 502 the route answers afterwards is the damage surfacing, not a fence catching it, and the
+    // stream is left carrying a challenge whose subject does not exist.
+    find: "    let Some(subject) = lineage\n        .iter()\n        .find(|document| ordinal_of(document) == coordinates.ordinal)\n        .cloned()\n    else {\n        return bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_mapping_challenged_revision_absent\",",
+    replace: "    let Some(subject) = lineage\n        .iter()\n        .find(|document| ordinal_of(document) == coordinates.ordinal)\n        .cloned()\n        .or_else(|| lineage.last().cloned())\n    else {\n        return bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_mapping_challenged_revision_absent\",",
     target:
       "CHALLENGE REFUSES: a challenge against a revision this family never admitted would leave a permanently dangling standing nobody can resolve",
   },
+
 ];
+
+/// The digest one complete ledger is allowed to speak for.
+///
+/// It covers this verifier's own bytes AND every source its mutants plant into. A ledger row proves
+/// a fence held in the tree that produced it; carried onto an edited tree it proves nothing, and a
+/// stale row that still reads RED_ON_TARGET is worse than a missing one. So the digest travels with
+/// the ledger and `--summarize` refuses any ledger that does not match the tree in front of it.
+function harnessDigest() {
+  const files = [fileURLToPath(import.meta.url), ...new Set(MUTANTS.map((m) => m.file))].sort();
+  const hash = crypto.createHash("sha256");
+  for (const file of files) {
+    hash.update(file.slice(ROOT.length));
+    hash.update(fs.readFileSync(file));
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
 
 function rebuild() {
   const build = spawnSync(
@@ -1738,19 +2055,30 @@ async function runMutationBattery() {
   const restored = MUTANTS.every((mutant) =>
     fs.readFileSync(mutant.file, "utf8") === originals.get(mutant.file),
   );
-  const ledger = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
-  for (const row of rows) ledger[row.id] = row;
+  const digest = harnessDigest();
+  const previous = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
+  // A ledger speaks for ONE tree. If the harness or any mutated source moved since the last chunk,
+  // the older rows are about a tree that no longer exists and are dropped rather than merged.
+  const ledger = previous.harness_digest === digest ? previous : { harness_digest: digest, rows: {} };
+  ledger.harness_digest = digest;
+  ledger.rows = ledger.rows ?? {};
+  for (const row of rows) ledger.rows[row.id] = row;
   fs.writeFileSync(LEDGER, JSON.stringify(ledger, null, 2));
   rebuild();
   const reds = rows.filter((row) => row.verdict === "RED_ON_TARGET").length;
+  const collateral = rows.reduce((total, row) => total + (row.collateral ?? 0), 0);
   process.stdout.write(
-    `\nM05.2 mutation battery: ${reds}/${rows.length} RED ON TARGET; source restored ${restored}\n`,
+    `\nM05.2 mutation battery: ${reds}/${rows.length} RED ON TARGET; collateral failures ${collateral}; source restored ${restored}\n`,
   );
+  process.stdout.write(`harness digest ${digest}\n`);
   process.exit(reds === rows.length && restored ? 0 : 1);
 }
 
 function summarize() {
-  const ledger = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
+  const digest = harnessDigest();
+  const stored = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
+  const current = stored.harness_digest === digest;
+  const ledger = current ? (stored.rows ?? {}) : {};
   const missing = MUTANTS.filter((mutant) => !ledger[mutant.id]).map((mutant) => mutant.id);
   const notRed = Object.values(ledger).filter((row) => row.verdict !== "RED_ON_TARGET");
   for (const mutant of MUTANTS) {
@@ -1758,10 +2086,14 @@ function summarize() {
     process.stdout.write(`  ${(row?.verdict ?? "NOT_RUN").padEnd(14)} ${mutant.id}\n`);
   }
   process.stdout.write(
+    `\nharness digest ${digest}\nledger digest  ${stored.harness_digest ?? "(none)"}${current ? "" : "  <- STALE: rows are about a different tree"}\n`,
+  );
+  process.stdout.write(
     `\nM05.2 mutation summary: ${MUTANTS.length - missing.length - notRed.length}/${MUTANTS.length} RED ON TARGET\n`,
   );
-  // A chunk that never ran is a MISSING ROW, not a silent pass.
-  process.exit(missing.length === 0 && notRed.length === 0 ? 0 : 1);
+  // A chunk that never ran is a MISSING ROW, not a silent pass; and a ledger for another tree is
+  // treated as no ledger at all.
+  process.exit(current && missing.length === 0 && notRed.length === 0 ? 0 : 1);
 }
 
 // ------------------------------------------------------------------------------------------- driver

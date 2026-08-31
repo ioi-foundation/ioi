@@ -2376,12 +2376,19 @@ pub(crate) fn resolve_challenge_resolution_receipt(
     // standing is changing, so a receipt that exists somewhere else is simply not found here — there
     // is no global receipt lookup to widen and no second index to consult.
     let (ladder, _scope) = authorized_ladder_as_of(data_dir, identity, expected_subject_ref, None)?;
-    let Some(document) = ladder.iter().find(|entry| {
+    // EXACT RECEIPT IDENTITY, AND NOTHING NEAR IT. Deliberately an equality against the admitting
+    // batch's own ref, never a nearest match, a prefix, or a fall back to the newest adjudication on
+    // this ladder: each of those would let a receipt this daemon never issued borrow the standing of
+    // one it did. Isolating the decision here is what lets a battery weaken the DECISION rather than
+    // only rename the error below — a renamed code proves an assertion reads a code, not that a
+    // fence exists.
+    let matched = ladder.iter().find(|entry| {
         entry
             .pointer("/admission/agentgres_receipt_ref")
             .and_then(Value::as_str)
             == Some(receipt_ref)
-    }) else {
+    });
+    let Some(document) = matched else {
         return Err(bad(
             StatusCode::NOT_FOUND,
             "assurance_transition_receipt_absent",

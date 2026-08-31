@@ -255,6 +255,7 @@ async function climbLadderToAdjudication(subject, challengeId, resolution, keyPr
     ["accepted", ["correctness", "settlement", "authority"]],
   ];
   let head = null;
+  let ordinaryReceipt = null;
   for (const [stage, nonclaims] of stages) {
     const body = {
       owner_ref: "org://local",
@@ -268,6 +269,10 @@ async function climbLadderToAdjudication(subject, challengeId, resolution, keyPr
     if (head !== null) body.expected_head = head;
     const step = await req("POST", AT, body);
     if (step.status !== 201) return { failedAt: stage, response: step };
+    // A REAL admitted receipt from an ORDINARY rung: it exists, and it adjudicates nothing.
+    if (stage === "attested") {
+      ordinaryReceipt = step.j?.assurance_transition?.admission?.agentgres_receipt_ref ?? null;
+    }
     head = step.j?.expected_head_for_successor ?? null;
   }
   const adjudication = await req("POST", AT, {
@@ -297,6 +302,7 @@ async function climbLadderToAdjudication(subject, challengeId, resolution, keyPr
     receipt: adjudication.j?.assurance_transition?.admission?.agentgres_receipt_ref ?? null,
     record: adjudication.j?.assurance_transition ?? null,
     response: adjudication,
+    ordinaryReceipt,
   };
 }
 
@@ -995,6 +1001,16 @@ async function runGraph(ctx) {
     `status ${forged.status} code ${code(forged.j)}`,
   );
 
+  const ordinaryStep = await resolveWith("m053-challenge-ordinary-step", {
+    resolution_receipt_ref: ladder.ordinaryReceipt,
+  });
+  ok(
+    "RESOLUTION REFUSES: a REAL admitted receipt from an ORDINARY rung of this subject's own ladder adjudicates no challenge — existing is not the same as resolving",
+    ordinaryStep.status >= 400 &&
+      code(ordinaryStep.j) === "assurance_transition_receipt_resolves_no_challenge",
+    `status ${ordinaryStep.status} code ${code(ordinaryStep.j)}`,
+  );
+
   const wrongSubjectLadder = await climbLadderToAdjudication(
     record.assertion_id,
     CHALLENGE,
@@ -1005,12 +1021,15 @@ async function runGraph(ctx) {
   const wrongSubject = await resolveWith("m053-challenge-wrong-subject", {
     resolution_receipt_ref: wrongSubjectLadder.receipt,
   });
+  // WHAT THIS ACTUALLY PROVES, stated exactly. The lookup is SCOPED to the subject whose standing is
+  // changing, so a receipt admitted over a neighbouring revision is not compared and rejected — it is
+  // unreachable, and the refusal is absence. That scoping is the real fence; the subject and
+  // subject-hash equalities inside the resolver are defence in depth against a future reader that
+  // widened it, and no live path reaches them today. Recorded as such rather than dressed up as a
+  // comparison this build performs.
   ok(
-    "RESOLUTION REFUSES: a REAL admitted receipt adjudicating a DIFFERENT subject — a receipt over a neighbouring revision cannot resolve this one",
-    wrongSubject.status >= 400 &&
-      ["assurance_transition_receipt_absent", "assurance_transition_receipt_subject_mismatch"].includes(
-        code(wrongSubject.j),
-      ),
+    "RESOLUTION REFUSES: a REAL admitted receipt adjudicating a DIFFERENT subject is not reachable from this subject's ladder at all — cross-subject substitution is refused by stream SCOPING, not by comparison",
+    wrongSubject.status === 404 && code(wrongSubject.j) === "assurance_transition_receipt_absent",
     `status ${wrongSubject.status} code ${code(wrongSubject.j)}`,
   );
 
@@ -1211,47 +1230,63 @@ const MUTANTS = [
   {
     id: "any-receipt-shaped-string-resolves",
     file: RECEIPT_OWNER_SOURCE,
-    find: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent",',
-    replace: '        return Err(bad(\n            StatusCode::NOT_FOUND,\n            "assurance_transition_receipt_absent_MUTATED",',
+    // A GENUINE BYPASS: absent receipt falls back to the newest adjudication, so the forged request
+    // reaches a real resolution path and succeeds.
+    find: '    let matched = ladder.iter().find(|entry| {\n        entry\n            .pointer("/admission/agentgres_receipt_ref")\n            .and_then(Value::as_str)\n            == Some(receipt_ref)\n    });',
+    replace: '    let matched = ladder.iter().find(|entry| {\n        entry\n            .pointer("/admission/agentgres_receipt_ref")\n            .and_then(Value::as_str)\n            == Some(receipt_ref)\n    }).or_else(|| ladder.iter().rev().find(|entry| entry.get("to_stage").and_then(Value::as_str) == Some("adjudicated")));',
     target:
       "RESOLUTION REFUSES: with a REAL ladder present, a receipt-SHAPED string this daemon never admitted is still not on it — caller-authored evidence is not evidence (INV-37)",
   },
   {
-    id: "a-receipt-over-another-subject-resolves",
-    file: RECEIPT_OWNER_SOURCE,
-    find: '    if subject_ref != expected_subject_ref {',
-    replace: '    if false && subject_ref != expected_subject_ref {',
-    target:
-      "RESOLUTION REFUSES: a REAL admitted receipt adjudicating a DIFFERENT subject — a receipt over a neighbouring revision cannot resolve this one",
-  },
-  {
     id: "an-ordinary-ladder-step-resolves-a-challenge",
     file: RECEIPT_OWNER_SOURCE,
-    find: '    if resolution.is_empty() {',
-    replace: '    if false && resolution.is_empty() {',
+    find: "    if resolution.is_empty() {",
+    replace: "    if false && resolution.is_empty() {",
+    target:
+      "RESOLUTION REFUSES: a REAL admitted receipt from an ORDINARY rung of this subject's own ladder adjudicates no challenge — existing is not the same as resolving",
+  },
+  {
+    id: "a-receipt-may-resolve-another-challenge",
+    file: RECEIPT_OWNER_SOURCE,
+    find: "    if challenge_id != expected_challenge_id {",
+    replace: "    if false && challenge_id != expected_challenge_id {",
     target:
       "RESOLUTION REFUSES: a REAL admitted receipt that resolves a DIFFERENT challenge — the binding v1 could not carry",
   },
   {
+    id: "the-receipt-lookup-stops-being-subject-scoped",
+    file: RECEIPT_OWNER_SOURCE,
+    // The cross-subject fence in this build is the SCOPING of the lookup, not a comparison. Dropping
+    // receipt identity from the match is the smallest change that makes SOME other adjudication
+    // reachable through this subject's own ladder read.
+    find: '    let matched = ladder.iter().find(|entry| {\n        entry\n            .pointer("/admission/agentgres_receipt_ref")\n            .and_then(Value::as_str)\n            == Some(receipt_ref)\n    });',
+    replace: '    let matched = ladder.iter().rev().find(|entry| entry.get("to_stage").and_then(Value::as_str) == Some("adjudicated"));',
+    target:
+      "RESOLUTION REFUSES: a REAL admitted receipt adjudicating a DIFFERENT subject is not reachable from this subject's ladder at all — cross-subject substitution is refused by stream SCOPING, not by comparison",
+  },
+  {
     id: "the-request-may-outvote-its-receipt",
     file: ROUTE_SOURCE,
-    find: '        if resolved.resolution != resolution {',
-    replace: '        if false && resolved.resolution != resolution {',
+    find: "        if resolved.resolution != resolution {",
+    replace: "        if false && resolved.resolution != resolution {",
     target: "RESOLUTION REFUSES: the request cannot claim an outcome the LADDER did not record",
   },
   {
     id: "an-upheld-challenge-may-be-a-clean-pass",
     file: RECEIPT_OWNER_SOURCE,
-    find: '    if !permitted_outcomes.contains(&outcome_class) {',
-    replace: '    if false && !permitted_outcomes.contains(&outcome_class) {',
+    find: "    if !permitted_outcomes.contains(&outcome_class) {",
+    replace: "    if false && !permitted_outcomes.contains(&outcome_class) {",
     target:
       "M06 OUTCOME COUPLING: an UPHELD challenge cannot be recorded as a clean pass — the ladder carries a disputed outcome class beside the sustained finding",
   },
   {
     id: "an-undeclared-predicate-resolves",
     file: OWNER_SEAM_SOURCE,
-    find: '            "ontology_version_term_absent",',
-    replace: '            "ontology_version_term_absent_MUTATED",',
+    // A GENUINE BYPASS: a term no set of the bound revision declares resolves anyway, as an entity
+    // type. The assertion is then ADMITTED over a predicate the revision never declared — a real
+    // false record, not a different refusal code.
+    find: "    }) else {\n        return Err(bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_version_term_absent\",",
+    replace: "    }).or(Some(\"entity_types\")) else {\n        return Err(bad(\n            StatusCode::NOT_FOUND,\n            \"ontology_version_term_absent\",",
     target:
       "ASSERTION REFUSES: a well-formed, correctly-namespaced, canonical predicate the bound revision NEVER DECLARED — the one claim no byte-level fixture can decide",
   },
@@ -1364,7 +1399,24 @@ const MUTANTS = [
     target:
       "CHALLENGE REFUSES: a v1 envelope is refused BY NAME — its challenged_ref pattern cannot address a semantic-plane subject at all",
   },
+
 ];
+
+/// The digest one complete ledger is allowed to speak for.
+///
+/// It covers this verifier's own bytes AND every source its mutants plant into. A ledger row proves
+/// a fence held in the tree that produced it; carried onto an edited tree it proves nothing, and a
+/// stale row that still reads RED_ON_TARGET is worse than a missing one. So the digest travels with
+/// the ledger and `--summarize` refuses any ledger that does not match the tree in front of it.
+function harnessDigest() {
+  const files = [fileURLToPath(import.meta.url), ...new Set(MUTANTS.map((m) => m.file))].sort();
+  const hash = crypto.createHash("sha256");
+  for (const file of files) {
+    hash.update(file.slice(ROOT.length));
+    hash.update(fs.readFileSync(file));
+  }
+  return `sha256:${hash.digest("hex")}`;
+}
 
 function rebuild() {
   const build = spawnSync(
@@ -1426,19 +1478,30 @@ async function runMutationBattery() {
   const restored = MUTANTS.every((mutant) =>
     fs.readFileSync(mutant.file, "utf8") === originals.get(mutant.file),
   );
-  const ledger = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
-  for (const row of rows) ledger[row.id] = row;
+  const digest = harnessDigest();
+  const previous = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
+  // A ledger speaks for ONE tree. If the harness or any mutated source moved since the last chunk,
+  // the older rows are about a tree that no longer exists and are dropped rather than merged.
+  const ledger = previous.harness_digest === digest ? previous : { harness_digest: digest, rows: {} };
+  ledger.harness_digest = digest;
+  ledger.rows = ledger.rows ?? {};
+  for (const row of rows) ledger.rows[row.id] = row;
   fs.writeFileSync(LEDGER, JSON.stringify(ledger, null, 2));
   rebuild();
   const reds = rows.filter((row) => row.verdict === "RED_ON_TARGET").length;
+  const collateral = rows.reduce((total, row) => total + (row.collateral ?? 0), 0);
   process.stdout.write(
-    `\nM05.3 mutation battery: ${reds}/${rows.length} RED ON TARGET; source restored ${restored}\n`,
+    `\nM05.3 mutation battery: ${reds}/${rows.length} RED ON TARGET; collateral failures ${collateral}; source restored ${restored}\n`,
   );
+  process.stdout.write(`harness digest ${digest}\n`);
   process.exit(reds === rows.length && restored ? 0 : 1);
 }
 
 function summarize() {
-  const ledger = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
+  const digest = harnessDigest();
+  const stored = fs.existsSync(LEDGER) ? JSON.parse(fs.readFileSync(LEDGER, "utf8")) : {};
+  const current = stored.harness_digest === digest;
+  const ledger = current ? (stored.rows ?? {}) : {};
   const missing = MUTANTS.filter((mutant) => !ledger[mutant.id]).map((mutant) => mutant.id);
   const notRed = Object.values(ledger).filter((row) => row.verdict !== "RED_ON_TARGET");
   for (const mutant of MUTANTS) {
@@ -1446,10 +1509,14 @@ function summarize() {
     process.stdout.write(`  ${(row?.verdict ?? "NOT_RUN").padEnd(14)} ${mutant.id}\n`);
   }
   process.stdout.write(
+    `\nharness digest ${digest}\nledger digest  ${stored.harness_digest ?? "(none)"}${current ? "" : "  <- STALE: rows are about a different tree"}\n`,
+  );
+  process.stdout.write(
     `\nM05.3 mutation summary: ${MUTANTS.length - missing.length - notRed.length}/${MUTANTS.length} RED ON TARGET\n`,
   );
-  // A chunk that never ran is a MISSING ROW, not a silent pass.
-  process.exit(missing.length === 0 && notRed.length === 0 ? 0 : 1);
+  // A chunk that never ran is a MISSING ROW, not a silent pass; and a ledger for another tree is
+  // treated as no ledger at all.
+  process.exit(current && missing.length === 0 && notRed.length === 0 ? 0 : 1);
 }
 
 
