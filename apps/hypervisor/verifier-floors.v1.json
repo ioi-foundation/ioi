@@ -13,11 +13,81 @@
   },
   "verifiers": [
     {
-      "id": "shell-parity",
-      "npm_script": "check:shell-parity",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",
-      "runtime_assertions": 6,
-      "assertion_names_sha256": "0bc72110665ccc4855bb79e8aec8aa8e076b550c2ae23e1cec2b5cb6d4d847d1"
+      "id": "app-runtime-safety",
+      "npm_script": "check:app-runtime-safety",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs",
+      "runtime_assertions": 32,
+      "assertion_names_sha256": "07400f9e701b9c14da06fc95d3d4e1ec814919ef893dbe2048e66d248f6b84dc",
+      "note": "M08.2/M08.4 closure: registry admission includes an exact tracked designated-native class and a forged-route negative control; route-fault isolation, dead-daemon posture, bounded Operations degradation, and no-undef teeth emit a source-bound runtime census."
+    },
+    {
+      "id": "automations-journey",
+      "npm_script": "check:automations-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
+      "runtime_assertions": 46,
+      "assertion_names_sha256": "43260b70b467c2d8574e87cfb8c11017aad7ebb12830c30b65cf36c2d56dbd62",
+      "note": "M04.2 closure: the 34-assertion live predecessor journey remains intact and twelve runtime assertions prove the canonical four-lifetime family \u2014 server-owned template identity, exact owner-scoped template/spec/binding resolution, identity-first reads, hash-substitution refusal, generated-contract validation, frozen run receipt, template-successor immutability, honest empty Agentgres/lease claims, successor-only disablement, stale-binding refusal, and restart persistence."
+    },
+    {
+      "id": "backup-restore",
+      "npm_script": "check:backup-restore",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-backup-restore.mjs",
+      "runtime_assertions": 76,
+      "assertion_names_sha256": "d8f97b56224f06f837f6ba29d0a2104af58ccfe57cb1f8df5f8304955a9c1c3c"
+    },
+    {
+      "id": "command-execution-guardrails",
+      "npm_script": "check:command-execution-guardrails",
+      "source": "apps/hypervisor/scripts/verify-command-execution-guardrail-coverage.mjs",
+      "runtime_assertions": 25,
+      "assertion_names_sha256": "200c7a34ac65b648aab73af023d1f16487700674ac83d177c49706863dccf046",
+      "note": "M01.1 verification-floor closure: twelve named source invariants, eight planted bypass mutations, and five focused behavioral-test execution checks now emit a source-bound runtime census instead of relying on an uncounted fail-only array."
+    },
+    {
+      "id": "enforcement-coverage-producer",
+      "npm_script": "check:enforcement-coverage-producer",
+      "source": "apps/hypervisor/scripts/verify-enforcement-coverage-producer.mjs",
+      "runtime_assertions": 16,
+      "assertion_names_sha256": "8fc4458ae2af9f9a32ff8ee1765ec273e0173a6659b158d58e72534e3ece4fea",
+      "note": "M01.2 verification-floor closure: seven unique source invariants, five producer mutations, and four focused behavioral-test execution checks now emit a source-bound runtime census."
+    },
+    {
+      "id": "env-lease-authority",
+      "npm_script": "check:env-lease-authority",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-env-lease-authority.mjs",
+      "runtime_assertions": 33,
+      "assertion_names_sha256": "2d0fd595ba0a729d56f91b83a660f48179e5e20f87bda546a43097b7d8df0017",
+      "note": "Exercises the former privilege escalation and port-preview cross-consumer path as closed properties: 33 live assertions cover all seven handles, material side-effect absence, daemon-minted ids, bind-before-bytes failure ordering, owner-only enumeration, typed legacy administration, deprovisioned-owner disposal, exact-token browser proxies, and a live cross-environment target refusal with an exact positive control. The chained 19-assertion source contract and 22-mutation RED-ON-TARGET battery make ADR 0035 plus M03.2's implementation shape replayable in the same gate."
+    },
+    {
+      "id": "environment-custody",
+      "npm_script": "check:environment-custody",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
+      "runtime_assertions": 53,
+      "assertion_names_sha256": "fb0f330aebd04b483fad7a8cd918abb561aa86a51aa4b93d910ca4e34f068236"
+    },
+    {
+      "id": "goal-profile-contracts",
+      "npm_script": "check:goal-profile-contracts",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
+      "runtime_assertions": 37,
+      "assertion_names_sha256": "d0a927ee36627292dfaef38146ed89c2e8ee50df0a612105b381a0b2e2fc44fb",
+      "note": "M04.4 generalized definition admission: 37 isolated-daemon assertions prove immutable GoalRunProfile and AgentHarnessAdapter revisions, strict owner-visible WorkflowTemplate/harness/SkillManifest/RuntimeToolContract resolution, exact gateway-adapter selection, canonical skill-owner snapshots, bounded daemon policy/constraints/null overrides, and nonempty topology/worker/model-route/service/primitive/context/verifier requirement-owner classification. Changed registry bytes, unavailable components, caller substitution, and unsupported policy/override families still fail before GoalRun persistence."
+    },
+    {
+      "id": "governance-journey",
+      "npm_script": "check:governance-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
+      "runtime_assertions": 20,
+      "assertion_names_sha256": "449f32c7bf1c90fc6d01843debd6505f7859a8b2477572d1d88c37730eaf3874"
+    },
+    {
+      "id": "governed-effect-assurance",
+      "npm_script": "check:governed-effect-assurance-floor",
+      "source": "apps/hypervisor/scripts/verify-governed-effect-assurance-floor.mjs",
+      "runtime_assertions": 4,
+      "assertion_names_sha256": "ddc37a0eca07c6aa808cc7ea13a04f1038cb8039012f2cca03354daba19e6134",
+      "note": "Promoted after the green T7 integrated capstone. Each wrapper assertion pins the child gate's exact semantic count: the complete spend-free workload fault matrix, five planted bypasses, six portable-bundle tests, and forty fully resealed C8 relying-party mutations. The owner-local real-evidence verifier remains mandatory outside public CI because its retained paid-campaign inputs are intentionally private."
     },
     {
       "id": "landing-designations",
@@ -28,95 +98,12 @@
       "note": "M08.1/M08.2 closure: seven designation-structure assertions, two ledger-self-consistency assertions, and the zero-LATER exit gate now emit a source-bound runtime census. Live status counts remain run output rather than a stale second copy in the ledger."
     },
     {
-      "id": "app-runtime-safety",
-      "npm_script": "check:app-runtime-safety",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-app-runtime-safety.mjs",
-      "runtime_assertions": 32,
-      "assertion_names_sha256": "07400f9e701b9c14da06fc95d3d4e1ec814919ef893dbe2048e66d248f6b84dc",
-      "note": "M08.2/M08.4 closure: registry admission includes an exact tracked designated-native class and a forged-route negative control; route-fault isolation, dead-daemon posture, bounded Operations degradation, and no-undef teeth emit a source-bound runtime census."
-    },
-    {
-      "id": "native-shell",
-      "npm_script": "check:native-shell",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs",
-      "runtime_assertions": 117,
-      "assertion_names_sha256": "ed13d10e13588379feea9e7511a7459c39faf3821402d7aa318f6c278a5c0509",
-      "note": "M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census."
-    },
-    {
-      "id": "ontology-journey",
-      "npm_script": "check:ontology-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
-      "runtime_assertions": 56,
-      "assertion_names_sha256": "b6fbaf5306d3642c33cd69e52934e4d82c1bfbce9c79d2f88e8b1bcf8c64ccef"
-    },
-    {
-      "id": "ontology-backend-families",
-      "npm_script": "check:ontology-backend-families",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-backend-families.mjs",
-      "runtime_assertions": 86,
-      "assertion_names_sha256": "a6295d669c82fb4c79b1d02d2516cdbde4705f922cf3577c01a4b43498392bc7"
-    },
-    {
-      "id": "ontology-admission-census",
-      "npm_script": "check:ontology-admission-census",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-admission-census.mjs",
-      "runtime_assertions": 27,
-      "assertion_names_sha256": "c618843e8612785cbb31cb49efc65d56a4a7e6f32473ecfb1aaa35e25380f60d"
-    },
-    {
-      "id": "named-gap-truth",
-      "npm_script": "check:named-gap-truth",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-named-gap-truth.mjs",
-      "runtime_assertions": 12,
-      "assertion_names_sha256": "a5b48e4d875cd97ab1c6367d417d65438c9c3061419f762e443650e2b2066781"
-    },
-    {
-      "id": "governance-journey",
-      "npm_script": "check:governance-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
-      "runtime_assertions": 20,
-      "assertion_names_sha256": "449f32c7bf1c90fc6d01843debd6505f7859a8b2477572d1d88c37730eaf3874"
-    },
-    {
-      "id": "studio-journey",
-      "npm_script": "check:studio-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-studio-journey.mjs",
-      "runtime_assertions": 33,
-      "assertion_names_sha256": "81a366ec57539e244108b450404aad5aa9a8dd2fc10a4b49cd48a59919a2b254",
-      "note": "Measured after the STU-3 canonical landing transfer: the runtime count remains 33, while landing/ownership assertion names now describe the shipped family landing rather than the predecessor wording."
-    },
-    {
-      "id": "packages-journey",
-      "npm_script": "check:packages-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
-      "runtime_assertions": 50,
-      "assertion_names_sha256": "58d10eb0f6f48fdad889f0c2679641488040a38779605b0ad56da249a5d0253b",
-      "note": "Measured after the recall successor and eligibility-cascade journey landed: 50 assertions exercise recall, replay, launcher-feed removal, restart survival, and terminal uninstall truth."
-    },
-    {
-      "id": "automations-journey",
-      "npm_script": "check:automations-journey",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
-      "runtime_assertions": 46,
-      "assertion_names_sha256": "43260b70b467c2d8574e87cfb8c11017aad7ebb12830c30b65cf36c2d56dbd62",
-      "note": "M04.2 closure: the 34-assertion live predecessor journey remains intact and twelve runtime assertions prove the canonical four-lifetime family — server-owned template identity, exact owner-scoped template/spec/binding resolution, identity-first reads, hash-substitution refusal, generated-contract validation, frozen run receipt, template-successor immutability, honest empty Agentgres/lease claims, successor-only disablement, stale-binding refusal, and restart persistence."
-    },
-    {
-      "id": "skill-contracts",
-      "npm_script": "check:skill-contracts",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-skill-contracts.mjs",
-      "runtime_assertions": 17,
-      "assertion_names_sha256": "067e175f2eab2598759b4c898b4343068c0f2b3528762ff8c9898de56fd4fe60",
-      "note": "M04.3 closure: an isolated live daemon proves the immutable SkillManifest, successor-versioned owner SkillEntry binding, and exact run-scoped ActiveSkillSetSnapshot lifetimes; explicit legacy import, identity-first reads, admitted owner-scoped work-subject resolution, hash substitution, generated contracts, receipt honesty, stale/suspended bindings, and restart replay are all exercised."
-    },
-    {
-      "id": "goal-profile-contracts",
-      "npm_script": "check:goal-profile-contracts",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
-      "runtime_assertions": 37,
-      "assertion_names_sha256": "d0a927ee36627292dfaef38146ed89c2e8ee50df0a612105b381a0b2e2fc44fb",
-      "note": "M04.4 generalized definition admission: 37 isolated-daemon assertions prove immutable GoalRunProfile and AgentHarnessAdapter revisions, strict owner-visible WorkflowTemplate/harness/SkillManifest/RuntimeToolContract resolution, exact gateway-adapter selection, canonical skill-owner snapshots, bounded daemon policy/constraints/null overrides, and nonempty topology/worker/model-route/service/primitive/context/verifier requirement-owner classification. Changed registry bytes, unavailable components, caller substitution, and unsupported policy/override families still fail before GoalRun persistence."
+      "id": "launch-chain",
+      "npm_script": "check:launch-chain",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
+      "runtime_assertions": 58,
+      "assertion_names_sha256": "a20d1a6f6cf72b851169f4eadc11ad5c666ebde298aded8b15459a7726c99f2d",
+      "note": "M04.5 shared execution mount: the live Session launch-chain proof remains intact and two source-bound assertions pin bounded GoalRun invocation ordering before adapter/spawn plus reuse of the same launch producer/reducer with invocation-ref-only GoalRun state."
     },
     {
       "id": "m3-goalrun-plane",
@@ -151,68 +138,6 @@
       "note": "M04.6 shared lifecycle closure: a fresh-process GoalRun proves exact executable application-plan, selection-receipt, and topology-less ContextCell persistence; the three-edge shared record chain and active projection; all five durable lifecycle families; principal-or-tenant owner scope; requester-derived cancellation planning without completion claims; archive-first compaction with retained hot logs; tamper refusal; and restart reconstruction without acquiring Session, launch, thread, or HarnessInvocation truth."
     },
     {
-      "id": "command-execution-guardrails",
-      "npm_script": "check:command-execution-guardrails",
-      "source": "apps/hypervisor/scripts/verify-command-execution-guardrail-coverage.mjs",
-      "runtime_assertions": 25,
-      "assertion_names_sha256": "200c7a34ac65b648aab73af023d1f16487700674ac83d177c49706863dccf046",
-      "note": "M01.1 verification-floor closure: twelve named source invariants, eight planted bypass mutations, and five focused behavioral-test execution checks now emit a source-bound runtime census instead of relying on an uncounted fail-only array."
-    },
-    {
-      "id": "enforcement-coverage-producer",
-      "npm_script": "check:enforcement-coverage-producer",
-      "source": "apps/hypervisor/scripts/verify-enforcement-coverage-producer.mjs",
-      "runtime_assertions": 16,
-      "assertion_names_sha256": "8fc4458ae2af9f9a32ff8ee1765ec273e0173a6659b158d58e72534e3ece4fea",
-      "note": "M01.2 verification-floor closure: seven unique source invariants, five producer mutations, and four focused behavioral-test execution checks now emit a source-bound runtime census."
-    },
-    {
-      "id": "runtime-tool-contract-admission",
-      "npm_script": "check:runtime-tool-contract-admission",
-      "source": "apps/hypervisor/scripts/verify-runtime-tool-contract-admission.mjs",
-      "runtime_assertions": 25,
-      "assertion_names_sha256": "ea77618ea6d1c694dbdbb974d67e4495f2631f3e79eeaa1212249dfeb7bee8b8",
-      "note": "M01.3 verification-floor closure: eight immutable-admission source invariants, nine planted bypass mutations, and eight focused behavioral-test execution checks now emit a source-bound runtime census."
-    },
-    {
-      "id": "provider-proposal-provenance",
-      "npm_script": "check:provider-proposal-provenance",
-      "source": "apps/hypervisor/scripts/verify-provider-proposal-provenance.mjs",
-      "runtime_assertions": 23,
-      "assertion_names_sha256": "507c820ed5cf8edc4f8c5a623544303ca22d8a569042a94f5b1e32b0f4645782",
-      "note": "M01.8 global-floor promotion: eighteen opaque proposal source/route invariants, the planted inline-literal bypass, and four focused behavioral-test execution checks emit a source-bound runtime census."
-    },
-    {
-      "id": "launch-chain",
-      "npm_script": "check:launch-chain",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-launch-chain.mjs",
-      "runtime_assertions": 58,
-      "assertion_names_sha256": "a20d1a6f6cf72b851169f4eadc11ad5c666ebde298aded8b15459a7726c99f2d",
-      "note": "M04.5 shared execution mount: the live Session launch-chain proof remains intact and two source-bound assertions pin bounded GoalRun invocation ordering before adapter/spawn plus reuse of the same launch producer/reducer with invocation-ref-only GoalRun state."
-    },
-    {
-      "id": "session-authority",
-      "npm_script": "check:session-authority",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-session-authority.mjs",
-      "runtime_assertions": 24,
-      "assertion_names_sha256": "5c1a667527e308ae9d1053457838e1d1b47b1d09578871a5c8bbf05242482c92",
-      "note": "E7 cockpit retirement (2026-08-20): this row was `work-cockpit` (51). The Work cockpit slice it verified was removed with its registry rows and module, so every assertion that drove a rendered /work \u00b7 /work/sessions \u00b7 /work/new-session page went with the surface. The 24 that remain have LIVE subjects and are the estate's only coverage of them \u2014 the session family's owned-verb inventory, its identity GATE (rule-E 401s, forged internal-dispatch, exposure-marked create), the INV-37 provision + teardown receipts, the served /sessions typed 410, the protected seeds, and a positive check that the eight retired lanes now serve no surface. The surface journey they used to ride is proven end to end by check:launch-chain (56)."
-    },
-    {
-      "id": "projects-saga",
-      "npm_script": "check:projects-saga",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-projects-saga.mjs",
-      "runtime_assertions": 11,
-      "assertion_names_sha256": "9816111389711e17fd8a94074a18eaf6d5cd94edf5e4f1ba75d71e5d31be42b3"
-    },
-    {
-      "id": "provider-transport",
-      "npm_script": "check:provider-transport",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
-      "runtime_assertions": 31,
-      "assertion_names_sha256": "dadcb9063840018c1cc447fd6d9e4624fafb6114a85cf267c8cf6e10ac1597d4"
-    },
-    {
       "id": "model-route-authority",
       "npm_script": "check:model-route-authority",
       "source": "apps/hypervisor/scripts/verify-hypervisor-model-route-authority.mjs",
@@ -227,26 +152,47 @@
       "assertion_names_sha256": "6488317a49ba059f84308ae8ed7d9a54a2cd1c4bf2853755e3eea5bc3a9b884f"
     },
     {
-      "id": "backup-restore",
-      "npm_script": "check:backup-restore",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-backup-restore.mjs",
-      "runtime_assertions": 76,
-      "assertion_names_sha256": "d8f97b56224f06f837f6ba29d0a2104af58ccfe57cb1f8df5f8304955a9c1c3c"
+      "id": "named-gap-truth",
+      "npm_script": "check:named-gap-truth",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-named-gap-truth.mjs",
+      "runtime_assertions": 12,
+      "assertion_names_sha256": "a5b48e4d875cd97ab1c6367d417d65438c9c3061419f762e443650e2b2066781"
     },
     {
-      "id": "env-lease-authority",
-      "npm_script": "check:env-lease-authority",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-env-lease-authority.mjs",
-      "runtime_assertions": 33,
-      "assertion_names_sha256": "2d0fd595ba0a729d56f91b83a660f48179e5e20f87bda546a43097b7d8df0017",
-      "note": "Exercises the former privilege escalation and port-preview cross-consumer path as closed properties: 33 live assertions cover all seven handles, material side-effect absence, daemon-minted ids, bind-before-bytes failure ordering, owner-only enumeration, typed legacy administration, deprovisioned-owner disposal, exact-token browser proxies, and a live cross-environment target refusal with an exact positive control. The chained 19-assertion source contract and 22-mutation RED-ON-TARGET battery make ADR 0035 plus M03.2's implementation shape replayable in the same gate."
+      "id": "native-shell",
+      "npm_script": "check:native-shell",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs",
+      "runtime_assertions": 117,
+      "assertion_names_sha256": "ed13d10e13588379feea9e7511a7459c39faf3821402d7aa318f6c278a5c0509",
+      "note": "M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census."
     },
     {
-      "id": "environment-custody",
-      "npm_script": "check:environment-custody",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-environment-custody.mjs",
-      "runtime_assertions": 53,
-      "assertion_names_sha256": "fb0f330aebd04b483fad7a8cd918abb561aa86a51aa4b93d910ca4e34f068236"
+      "id": "odk-contract-and-domainapp",
+      "npm_script": "check:odk-contract-and-domainapp",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-odk-contract-and-domainapp.mjs",
+      "runtime_assertions": 58,
+      "assertion_names_sha256": "6f27f584f0e7f0d7939d6a88cf98d4d17658fd83d11230b2fe7c485d5422e0d9"
+    },
+    {
+      "id": "ontology-admission-census",
+      "npm_script": "check:ontology-admission-census",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-admission-census.mjs",
+      "runtime_assertions": 27,
+      "assertion_names_sha256": "c618843e8612785cbb31cb49efc65d56a4a7e6f32473ecfb1aaa35e25380f60d"
+    },
+    {
+      "id": "ontology-backend-families",
+      "npm_script": "check:ontology-backend-families",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-backend-families.mjs",
+      "runtime_assertions": 86,
+      "assertion_names_sha256": "a6295d669c82fb4c79b1d02d2516cdbde4705f922cf3577c01a4b43498392bc7"
+    },
+    {
+      "id": "ontology-journey",
+      "npm_script": "check:ontology-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
+      "runtime_assertions": 56,
+      "assertion_names_sha256": "b6fbaf5306d3642c33cd69e52934e4d82c1bfbce9c79d2f88e8b1bcf8c64ccef"
     },
     {
       "id": "operational-depth",
@@ -257,12 +203,50 @@
       "note": "E7 cockpit retirement (2026-08-20): 154 -> 147. The per-registry-surface state-invariant loop emits one assertion per row, and eight rows left the registry (seven of them in that loop; `applications` was read_only_by_contract and emitted none there). The eight matching entries were also removed from REFERENCELESS_SURFACES, because this file's own stale-name assertion rejects a list that can name a surface the registry lacks. PRE-EXISTING PIN DRIFT recorded rather than hidden: this row read 136 while the branch's measured run was 154 \u2014 the remediation program added registry rows without raising the pin; 147 is measured. M08.2 re-derivation replaced the stale claim that ProvenanceAssertion was unstarted with the tracked bounded registered-contract truth while retaining explicit checks for the missing graph, challenge, and verifier-resolution lifecycles."
     },
     {
+      "id": "packages-journey",
+      "npm_script": "check:packages-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-packages-journey.mjs",
+      "runtime_assertions": 50,
+      "assertion_names_sha256": "58d10eb0f6f48fdad889f0c2679641488040a38779605b0ad56da249a5d0253b",
+      "note": "Measured after the recall successor and eligibility-cascade journey landed: 50 assertions exercise recall, replay, launcher-feed removal, restart survival, and terminal uninstall truth."
+    },
+    {
       "id": "ported-seed",
       "npm_script": "check:ported-seed",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ported-seed-invariant.mjs",
       "runtime_assertions": 11,
       "assertion_names_sha256": "64d574c84406ef32ac454b65f990f1be24976155da6c58b71faf4cbaf6d86ccd",
       "note": "Records named INVARIANTS over a much larger raw assertion total. The per-asset and per-route sweeps assert every item individually but record one named result each: a census scaled to the owned bundle's file COUNT would duplicate check:shipped-products, which already pins that count and the tree sha256, and would churn this floor on every asset change."
+    },
+    {
+      "id": "projects-saga",
+      "npm_script": "check:projects-saga",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-projects-saga.mjs",
+      "runtime_assertions": 11,
+      "assertion_names_sha256": "9816111389711e17fd8a94074a18eaf6d5cd94edf5e4f1ba75d71e5d31be42b3"
+    },
+    {
+      "id": "provider-proposal-provenance",
+      "npm_script": "check:provider-proposal-provenance",
+      "source": "apps/hypervisor/scripts/verify-provider-proposal-provenance.mjs",
+      "runtime_assertions": 23,
+      "assertion_names_sha256": "507c820ed5cf8edc4f8c5a623544303ca22d8a569042a94f5b1e32b0f4645782",
+      "note": "M01.8 global-floor promotion: eighteen opaque proposal source/route invariants, the planted inline-literal bypass, and four focused behavioral-test execution checks emit a source-bound runtime census."
+    },
+    {
+      "id": "provider-transport",
+      "npm_script": "check:provider-transport",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-provider-transport.mjs",
+      "runtime_assertions": 31,
+      "assertion_names_sha256": "dadcb9063840018c1cc447fd6d9e4624fafb6114a85cf267c8cf6e10ac1597d4"
+    },
+    {
+      "id": "runtime-tool-contract-admission",
+      "npm_script": "check:runtime-tool-contract-admission",
+      "source": "apps/hypervisor/scripts/verify-runtime-tool-contract-admission.mjs",
+      "runtime_assertions": 25,
+      "assertion_names_sha256": "ea77618ea6d1c694dbdbb974d67e4495f2631f3e79eeaa1212249dfeb7bee8b8",
+      "note": "M01.3 verification-floor closure: eight immutable-admission source invariants, nine planted bypass mutations, and eight focused behavioral-test execution checks now emit a source-bound runtime census."
     },
     {
       "id": "seed-provenance",
@@ -273,12 +257,35 @@
       "note": "Was fail-only (empty failures array on a green run, so a count read zero). Now records one positive CHECKPOINT per invariant group; the 62 fail sites are untouched. Only the full tracked gate emits a census (--shared/--surface/--require-ready run different subsets), and a FAILING run emits nothing, which this gate reads as RED. The floor consumes the COUNT; pass/fail is carried by the verifier's exit code, so every flag in an emitted census is true by construction and is not evidence on its own."
     },
     {
-      "id": "governed-effect-assurance",
-      "npm_script": "check:governed-effect-assurance-floor",
-      "source": "apps/hypervisor/scripts/verify-governed-effect-assurance-floor.mjs",
-      "runtime_assertions": 4,
-      "assertion_names_sha256": "ddc37a0eca07c6aa808cc7ea13a04f1038cb8039012f2cca03354daba19e6134",
-      "note": "Promoted after the green T7 integrated capstone. Each wrapper assertion pins the child gate's exact semantic count: the complete spend-free workload fault matrix, five planted bypasses, six portable-bundle tests, and forty fully resealed C8 relying-party mutations. The owner-local real-evidence verifier remains mandatory outside public CI because its retained paid-campaign inputs are intentionally private."
+      "id": "session-authority",
+      "npm_script": "check:session-authority",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-session-authority.mjs",
+      "runtime_assertions": 24,
+      "assertion_names_sha256": "5c1a667527e308ae9d1053457838e1d1b47b1d09578871a5c8bbf05242482c92",
+      "note": "E7 cockpit retirement (2026-08-20): this row was `work-cockpit` (51). The Work cockpit slice it verified was removed with its registry rows and module, so every assertion that drove a rendered /work \u00b7 /work/sessions \u00b7 /work/new-session page went with the surface. The 24 that remain have LIVE subjects and are the estate's only coverage of them \u2014 the session family's owned-verb inventory, its identity GATE (rule-E 401s, forged internal-dispatch, exposure-marked create), the INV-37 provision + teardown receipts, the served /sessions typed 410, the protected seeds, and a positive check that the eight retired lanes now serve no surface. The surface journey they used to ride is proven end to end by check:launch-chain (56)."
+    },
+    {
+      "id": "shell-parity",
+      "npm_script": "check:shell-parity",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-shell-parity.mjs",
+      "runtime_assertions": 6,
+      "assertion_names_sha256": "0bc72110665ccc4855bb79e8aec8aa8e076b550c2ae23e1cec2b5cb6d4d847d1"
+    },
+    {
+      "id": "skill-contracts",
+      "npm_script": "check:skill-contracts",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-skill-contracts.mjs",
+      "runtime_assertions": 17,
+      "assertion_names_sha256": "067e175f2eab2598759b4c898b4343068c0f2b3528762ff8c9898de56fd4fe60",
+      "note": "M04.3 closure: an isolated live daemon proves the immutable SkillManifest, successor-versioned owner SkillEntry binding, and exact run-scoped ActiveSkillSetSnapshot lifetimes; explicit legacy import, identity-first reads, admitted owner-scoped work-subject resolution, hash substitution, generated contracts, receipt honesty, stale/suspended bindings, and restart replay are all exercised."
+    },
+    {
+      "id": "studio-journey",
+      "npm_script": "check:studio-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-studio-journey.mjs",
+      "runtime_assertions": 33,
+      "assertion_names_sha256": "81a366ec57539e244108b450404aad5aa9a8dd2fc10a4b49cd48a59919a2b254",
+      "note": "Measured after the STU-3 canonical landing transfer: the runtime count remains 33, while landing/ownership assertion names now describe the shipped family landing rather than the predecessor wording."
     }
   ],
   "excluded": [

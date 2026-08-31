@@ -1527,58 +1527,528 @@ pub(crate) async fn handle_odk_manifest_list(State(st): State<Arc<DaemonState>>)
 // is now registered — as the record this lane ACTUALLY mints, divergences and all — and this route
 // validates what it writes against it before admitting.
 //
-// TWO THINGS THAT DID NOT HAPPEN HERE, DELIBERATELY. The canonical successor
-// `ioi.ontology-development-kit-manifest.v2` is registered beside v1, with canon's sixteen member
-// lists under canon's own names; this build does not yet AUTHOR it, because the split of v1's folded
-// members — `recipe_refs` into `data_recipe_refs`, `eval_refs` into dataset and benchmark refs,
-// `mcp_operator_contracts` into operator and MCP refs — cannot be performed by a migration: a v1
-// record does not record which member is which, so only the author can say. And v1's wire contract
-// is not narrowed by stealth: the two passthrough fields keep their names and their meaning. What
-// changes is that a record this route cannot project is REFUSED at authoring instead of admitted and
-// then unreadable, and the refusal names the failing field.
+// THE SUCCESSOR IS AUTHORED HERE, AND v1 IS CLOSED TO NEW AUTHORING. `ioi.ontology-development-kit-manifest.v2`
+// carries canon's member lists under canon's own names and commits itself under a registered domain
+// separator. A stored v1 stays READABLE at the owner seam and MIGRATABLE by an explicit act, and is
+// never minted again: leaving it authorable would keep producing records that need the very
+// migration this version exists to end.
+//
+// THE SPLIT IS THE AUTHOR'S, NEVER THE ROUTE'S. v1 folds three pairs of canonical members into single
+// lists — `recipe_refs` for `data_recipe_refs`, one `eval_refs` for `evaluation_dataset_refs` plus
+// `benchmark_profile_refs`, one `mcp_operator_contracts` for `operator_contract_refs` plus
+// `mcp_contract_refs`. A route that guessed which member each legacy entry belongs to would be
+// inventing provenance, so the legacy names are a typed refusal that NAMES the successor members the
+// author must choose between. That is the whole difference between a migration and a rename.
 const ODK_MANIFEST_V1_SCHEMA_VERSION: &str = "ioi.hypervisor.odk.manifest.v1";
 const ODK_MANIFEST_V2_SCHEMA_VERSION: &str = "ioi.ontology-development-kit-manifest.v2";
 const ODK_MANIFEST_V1_CONTRACT_ID: &str =
     "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1";
+const ODK_MANIFEST_V2_CONTRACT_ID: &str =
+    "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2";
+const ODK_MANIFEST_SCOPE_KIND: &str = "hypervisor-odk-manifest";
+const ODK_MANIFEST_REF_PREFIX: &str = "odk-manifest://";
+/// The projection envelope a v2 manifest row is stored in. The registered record is closed, so the
+/// two runtime stamps live beside it rather than inside a contract that has no field for them.
+const ODK_MANIFEST_PROJECTION_SCHEMA: &str = "ioi.hypervisor.odk.manifest-projection.v2";
+const ODK_MANIFEST_CONTENT_DOMAIN: &str =
+    "ioi.ontology-development-kit-manifest-content-commitment-jcs-sha256.v2";
+const ODK_MANIFEST_V1_CONTENT_DOMAIN: &str =
+    "ioi.hypervisor.odk.manifest-v1-content-commitment-jcs-sha256.v1";
+
+/// The v2 contract's material list, in the registered invariant profile's own set.
+const ODK_MANIFEST_MATERIAL_FIELDS: &[&str] = &[
+    "schema_version",
+    "odk_manifest_id",
+    "name",
+    "version",
+    "owner_ref",
+    "ontology_refs",
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "connector_mapping_refs",
+    "policy_bound_data_view_refs",
+    "ontology_projection_refs",
+    "surface_descriptor_refs",
+    "workflow_schema_refs",
+    "evaluation_dataset_refs",
+    "benchmark_profile_refs",
+    "worker_plan_refs",
+    "operator_contract_refs",
+    "mcp_contract_refs",
+    "conformance_profile_refs",
+    "package_refs",
+    "receipt_obligations",
+    "status",
+    "migration",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "does_not_assert",
+];
+
+/// THE PREDECESSOR IS HASHED UNDER ITS OWN CONTRACT, over the bytes the CHAIN holds.
+///
+/// The two runtime stamps are excluded because the admitted payload does not carry them — `odk_admit`
+/// strips wall-clock before admission, so a v1 record read back from its owner seam has neither.
+/// Including them would hash a `null` that the row happens to fill in, which is a commitment to the
+/// projection rather than to the admitted record.
+const ODK_MANIFEST_V1_MATERIAL_FIELDS: &[&str] = &[
+    "schema_version",
+    "object",
+    "id",
+    "ref",
+    "name",
+    "description",
+    "status",
+    "ontology_refs",
+    "recipe_refs",
+    "surface_descriptor_refs",
+    "connector_mappings",
+    "policy_bound_views",
+    "eval_refs",
+    "worker_plan_refs",
+    "mcp_operator_contracts",
+];
+
+/// The seven nonclaims every v2 manifest carries. `package_admission` is the one this family needs
+/// that no other does: a manifest is the packaging object, and 'packaged' reading as 'admitted' is
+/// the exact stage-skip the composable-application journey calls a defect.
+const ODK_MANIFEST_NONCLAIMS: &[&str] = &[
+    "authority",
+    "capability_lease_crossing",
+    "runtime_truth",
+    "semantic_truth",
+    "permission_truth",
+    "marketplace_truth",
+    "package_admission",
+];
+
+/// The fifteen v2 ref-list members an author supplies, under canon's own names.
+const ODK_MANIFEST_REF_MEMBERS: &[&str] = &[
+    "canonical_object_model_refs",
+    "data_recipe_refs",
+    "connector_mapping_refs",
+    "policy_bound_data_view_refs",
+    "ontology_projection_refs",
+    "surface_descriptor_refs",
+    "workflow_schema_refs",
+    "evaluation_dataset_refs",
+    "benchmark_profile_refs",
+    "worker_plan_refs",
+    "operator_contract_refs",
+    "mcp_contract_refs",
+    "conformance_profile_refs",
+    "package_refs",
+    "receipt_obligations",
+];
+
+/// Legacy member names, each answered with the successor member(s) the author must choose between.
+const ODK_MANIFEST_LEGACY_FIELDS: &[(&str, &str)] = &[
+    (
+        "recipe_refs",
+        "data_recipe_refs — the term-boundary ruling makes a generic executable recipe family a defect, so every recipe is owner-qualified",
+    ),
+    (
+        "eval_refs",
+        "evaluation_dataset_refs OR benchmark_profile_refs — a dataset and a benchmark profile are different objects with different owners, and only the author knows which each entry is",
+    ),
+    (
+        "mcp_operator_contracts",
+        "operator_contract_refs OR mcp_contract_refs — an operator contract and an MCP profile have different consumers, and only the author knows which each entry is",
+    ),
+    (
+        "connector_mappings",
+        "connector_mapping_refs",
+    ),
+    (
+        "policy_bound_views",
+        "policy_bound_data_view_refs",
+    ),
+];
+
+const ODK_MANIFEST_MIGRATION_SOURCE_KEY: &str = "migrated_from_manifest_ref";
 
 /// Refuse an authoring request naming any manifest contract this build does not write.
+///
+/// DOWNGRADE IS A REFUSAL BY NAME. A caller naming v1 is answered as v1 — not read as v2, and not
+/// written as v1 — because writing one would reopen the lane whose folds this version exists to end.
 fn require_manifest_authored_version(body: &Value) -> Result<(), (StatusCode, Json<Value>)> {
     match body.get("schema_version") {
         None | Some(Value::Null) => Ok(()),
-        Some(Value::String(declared)) if declared == ODK_MANIFEST_V1_SCHEMA_VERSION => Ok(()),
-        Some(Value::String(declared)) if declared == ODK_MANIFEST_V2_SCHEMA_VERSION => Err(bad(
-            "odk_manifest_successor_not_authored_here",
+        Some(Value::String(declared)) if declared == ODK_MANIFEST_V2_SCHEMA_VERSION => Ok(()),
+        Some(Value::String(declared)) if declared == ODK_MANIFEST_V1_SCHEMA_VERSION => Err(bad(
+            "odk_manifest_predecessor_not_authorable",
             &format!(
-                "'{ODK_MANIFEST_V2_SCHEMA_VERSION}' is registered canon but this build does not author it: v1 folds three pairs of canonical members into single lists and no migration can say which member is which. Authoring a successor is an explicit act by the author who knows"
+                "'{ODK_MANIFEST_V1_SCHEMA_VERSION}' folds three pairs of canonical members into single lists and is no longer authorable; new manifests are authored at '{ODK_MANIFEST_V2_SCHEMA_VERSION}'. Stored v1 records remain readable and are migrated by an explicit act that names the predecessor"
             ),
         )),
         Some(declared) => Err(bad(
             "odk_manifest_contract_unsupported",
             &format!(
-                "this build authors {ODK_MANIFEST_V1_SCHEMA_VERSION} only; {declared} is refused rather than downgraded"
+                "this build authors {ODK_MANIFEST_V2_SCHEMA_VERSION} only; {declared} is refused rather than downgraded"
             ),
         )),
     }
 }
 
-/// Validate one assembled manifest against its REGISTERED contract before it can be admitted.
+/// Refuse a legacy member name outright, naming the successor member(s) the author must choose.
+fn refuse_legacy_manifest_fields(body: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    for (legacy, successor) in ODK_MANIFEST_LEGACY_FIELDS {
+        if body.get(*legacy).is_some() {
+            return Err(bad(
+                "odk_manifest_legacy_member_name",
+                &format!(
+                    "'{legacy}' is a v1 member name and is refused rather than translated; author {successor}. Silently mapping it would make the convergence invisible and leave two spellings alive for one fact"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn odk_manifest_content_hash(record: &Value) -> String {
+    domain_separated_hash(
+        record,
+        ODK_MANIFEST_CONTENT_DOMAIN,
+        ODK_MANIFEST_MATERIAL_FIELDS,
+    )
+}
+
+fn odk_manifest_v1_content_hash(record: &Value) -> String {
+    domain_separated_hash(
+        record,
+        ODK_MANIFEST_V1_CONTENT_DOMAIN,
+        ODK_MANIFEST_V1_MATERIAL_FIELDS,
+    )
+}
+
+/// Validate one assembled manifest against the contract IT declares, never against the other one.
 fn manifest_registered_valid(record: &Value) -> Result<(), (StatusCode, Json<Value>)> {
+    let contract_id = match record.get("schema_version").and_then(Value::as_str) {
+        Some(ODK_MANIFEST_V2_SCHEMA_VERSION) => ODK_MANIFEST_V2_CONTRACT_ID,
+        Some(ODK_MANIFEST_V1_SCHEMA_VERSION) => ODK_MANIFEST_V1_CONTRACT_ID,
+        unknown => {
+            return Err(bad(
+                "odk_manifest_contract_unsupported",
+                &format!(
+                    "a manifest declaring '{}' has no registered contract in this build",
+                    unknown.unwrap_or("(no schema_version)")
+                ),
+            ))
+        }
+    };
     ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-        ODK_MANIFEST_V1_CONTRACT_ID,
+        contract_id,
         record,
     )
     .map_err(|reason| {
         bad(
             "odk_manifest_not_registered_valid",
             &format!(
-                "the manifest this request builds is not valid against {ODK_MANIFEST_V1_CONTRACT_ID}: {reason}"
+                "the manifest this request builds is not valid against {contract_id}: {reason}"
             ),
         )
     })
 }
 
-/// POST /v1/hypervisor/odk/manifests — create an OntologyDevelopmentKitManifest DRAFT bundling
-/// ontology refs (required, ≥1) + recipe + surface-descriptor refs + named contract refs.
+/// The read-model row for one admitted manifest, in the shape ITS OWN registered version stores.
+fn odk_manifest_row(
+    record: &Value,
+    created_at: &str,
+    updated_at: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    match record.get("schema_version").and_then(Value::as_str) {
+        Some(ODK_MANIFEST_V2_SCHEMA_VERSION) => Ok(json!({
+            "schema_version": ODK_MANIFEST_PROJECTION_SCHEMA,
+            "manifest_contract_id": ODK_MANIFEST_V2_CONTRACT_ID,
+            "manifest": record,
+            "created_at": created_at,
+            "updated_at": updated_at,
+        })),
+        Some(ODK_MANIFEST_V1_SCHEMA_VERSION) => {
+            let mut inlined = record.clone();
+            inlined["created_at"] = json!(created_at);
+            inlined["updated_at"] = json!(updated_at);
+            Ok(inlined)
+        }
+        unknown => Err((
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "odk_manifest_projection_failed",
+                    "message": format!(
+                        "a manifest admitted as '{}' has no projection shape in this build; it is refused rather than stored under a contract it was never admitted under",
+                        unknown.unwrap_or("(no schema_version)")
+                    )
+                }
+            })),
+        )),
+    }
+}
+
+/// One admitted ODK manifest, resolved from the Agentgres chain rather than from the read model.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedOdkManifest {
+    pub(crate) manifest_ref: String,
+    pub(crate) schema_version: String,
+    /// The canonical admitted record, byte-exact as the chain holds it.
+    pub(crate) record: Value,
+    /// The commitment this manifest's own version publishes over its own bytes.
+    pub(crate) content_hash: String,
+    pub(crate) admitted_head: String,
+    pub(crate) index_state: &'static str,
+    pub(crate) projected_created_at: String,
+    pub(crate) projected_updated_at: String,
+}
+
+/// Resolve one manifest for a caller entitled to see it, FROM THE CHAIN.
+///
+/// THE PACKAGING LANE NEEDED THIS AND DID NOT HAVE IT. It found a manifest by sweeping the record
+/// directory for a top-level `ref`, which makes a rebuildable projection load-bearing for an
+/// admission decision: delete the row and a DomainApp could not be packaged; corrupt it and the
+/// package froze whatever the corruption said. It also answered for every owner, so a package could
+/// freeze another tenant's manifest into a candidate the caller owns.
+///
+/// The ref a DomainApp binds is the record's own `odk://<id>`; the SCOPE the admission bound is
+/// `odk-manifest://<id>`. The two forms are reconciled here, once, so no consumer has to know that
+/// this family addresses itself one way and scopes itself another.
+pub(crate) fn resolve_admitted_odk_manifest(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    manifest_ref: &str,
+) -> Result<ResolvedOdkManifest, (StatusCode, Json<Value>)> {
+    let Some(("odk", id)) = split_ref(manifest_ref) else {
+        return Err(bad(
+            "odk_manifest_ref_not_canonical",
+            "a manifest is addressed as 'odk://<id>'",
+        ));
+    };
+    let scope_ref = format!("{ODK_MANIFEST_REF_PREFIX}{id}");
+    let scope = super::substrate_store::authorize_request_resource_scope(
+        data_dir,
+        identity,
+        ODK_MANIFEST_SCOPE_KIND,
+        &scope_ref,
+        None,
+    )
+    .map_err(odk_scope_refusal)?;
+    let history = super::mutation_event_foundation::read_owner_scoped_history(
+        data_dir,
+        identity,
+        &scope,
+        ODK_MANIFEST_SCOPE_KIND,
+        &scope_ref,
+        ODK_NAMESPACE,
+        &odk_hash_tail(ODK_MANIFEST_SCOPE_KIND, &scope_ref),
+    )
+    .map_err(odk_mutation_refusal)?;
+    let Some(latest) = history.last() else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "odk_manifest_not_found",
+                    "message": "this manifest has no admitted history — an absent manifest is a typed absence, never an empty success"
+                }
+            })),
+        ));
+    };
+    let record = latest.operation.payload.clone();
+    let schema_version = record
+        .get("schema_version")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    // EVERY VERSION IS VALIDATED AGAINST ITS OWN CONTRACT, AND AN UNKNOWN ONE FAILS CLOSED.
+    let content_hash = match schema_version.as_str() {
+        ODK_MANIFEST_V2_SCHEMA_VERSION => odk_manifest_content_hash(&record),
+        ODK_MANIFEST_V1_SCHEMA_VERSION => odk_manifest_v1_content_hash(&record),
+        unknown => {
+            return Err((
+                StatusCode::BAD_GATEWAY,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "odk_manifest_version_unsupported",
+                        "message": format!(
+                            "the chain holds a manifest admitted as '{unknown}', which this build neither authors nor projects; an unrecognised stored version is refused rather than served as though it were understood"
+                        )
+                    }
+                })),
+            ))
+        }
+    };
+    manifest_registered_valid(&record).map_err(|(_, Json(payload))| {
+        (
+            StatusCode::BAD_GATEWAY,
+            Json(json!({
+                "ok": false,
+                "error": {
+                    "code": "odk_manifest_projection_failed",
+                    "message": payload.pointer("/error/message").cloned().unwrap_or(Value::Null)
+                }
+            })),
+        )
+    })?;
+    let projected_created_at = history
+        .first()
+        .map(|entry| admitted_stamp_ms(entry.operation.recorded_at_ms))
+        .unwrap_or_default();
+    let projected_updated_at = admitted_stamp_ms(latest.operation.recorded_at_ms);
+    let expected = odk_manifest_row(&record, &projected_created_at, &projected_updated_at)?;
+    let row = load(data_dir, KIND_MANIFEST, id);
+    let index_state = match row.as_ref() {
+        None => "absent_rebuilt_from_agentgres",
+        Some(row) if *row == expected => "agreed_with_agentgres",
+        Some(_) => "stale_rebuilt_from_agentgres",
+    };
+    Ok(ResolvedOdkManifest {
+        manifest_ref: manifest_ref.to_string(),
+        schema_version,
+        record,
+        content_hash,
+        admitted_head: latest.head.clone(),
+        index_state,
+        projected_created_at,
+        projected_updated_at,
+    })
+}
+
+/// Rebuild the local read-model row for one manifest from the chain, and report what changed.
+///
+/// A PURE FUNCTION OF THE ADMITTED HISTORY, and the SAME call the write path finishes with, so a
+/// rebuilt row is byte-identical to what the write produced because it is the same function.
+pub(crate) fn rebuild_odk_manifest_row(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    manifest_ref: &str,
+) -> Result<ResolvedOdkManifest, (StatusCode, Json<Value>)> {
+    let resolved = resolve_admitted_odk_manifest(data_dir, identity, manifest_ref)?;
+    let Some(("odk", id)) = split_ref(manifest_ref) else {
+        return Err(bad(
+            "odk_manifest_ref_not_canonical",
+            "a manifest is addressed as 'odk://<id>'",
+        ));
+    };
+    let row = odk_manifest_row(
+        &resolved.record,
+        &resolved.projected_created_at,
+        &resolved.projected_updated_at,
+    )?;
+    persist_required(
+        data_dir,
+        KIND_MANIFEST,
+        id,
+        &row,
+        "odk_manifest_persistence_failed",
+    )?;
+    Ok(resolved)
+}
+
+/// Assemble one v2 manifest record from an authoring request, plus its migration block.
+///
+/// The migration block has exactly two admissible tuples, and which one applies is decided by
+/// whether the request NAMES a predecessor. A convergence commits that predecessor's exact bytes,
+/// hashed under the v1 contract's own material list and domain separator, so
+/// `migration.from_content_hash` identifies ONE v1 manifest rather than every v1 manifest that
+/// happens to share an owner and a status.
+fn build_manifest_v2(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    body: &Value,
+    id: &str,
+    owner_ref: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    refuse_legacy_manifest_fields(body)?;
+    let ontology_refs = str_refs(body, "ontology_refs");
+    require_local_ref_list(data_dir, &ontology_refs, "ontology", "ontology_ref", true)
+        .map_err(|(c, m)| bad(&c, &m))?;
+    require_local_ref_list(
+        data_dir,
+        &str_refs(body, "surface_descriptor_refs"),
+        "surface-descriptor",
+        "surface_descriptor_ref",
+        false,
+    )
+    .map_err(|(c, m)| bad(&c, &m))?;
+    for member in ODK_MANIFEST_REF_MEMBERS {
+        check_named_refs(data_dir, &str_refs(body, member)).map_err(|(c, m)| bad(&c, &m))?;
+    }
+    // THE PREDECESSOR IS RESOLVED THROUGH ITS OWN OWNER SEAM, never from a row. A convergence that
+    // hashed a record directory entry would freeze whatever the corruption said as the provenance of
+    // the successor, which is the one number a migration exists to make checkable.
+    let migration = match body
+        .get(ODK_MANIFEST_MIGRATION_SOURCE_KEY)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        None => json!({
+            "from_schema_version": Value::Null,
+            "from_manifest_ref": Value::Null,
+            "from_content_hash": Value::Null,
+            "compatibility": "initial",
+            "reinterprets_predecessor": false,
+        }),
+        Some(predecessor_ref) => {
+            let predecessor = resolve_admitted_odk_manifest(data_dir, identity, predecessor_ref)?;
+            if predecessor.schema_version != ODK_MANIFEST_V1_SCHEMA_VERSION {
+                return Err(bad(
+                    "odk_manifest_migration_source_not_predecessor",
+                    &format!(
+                        "a convergence names a stored '{ODK_MANIFEST_V1_SCHEMA_VERSION}' predecessor; '{}' is refused rather than converged, because a record is only ever hashed under the contract it was admitted under",
+                        predecessor.schema_version
+                    ),
+                ));
+            }
+            json!({
+                "from_schema_version": ODK_MANIFEST_V1_SCHEMA_VERSION,
+                "from_manifest_ref": predecessor.manifest_ref,
+                "from_content_hash": predecessor.content_hash,
+                "compatibility": "converged_from_v1",
+                "reinterprets_predecessor": false,
+            })
+        }
+    };
+    let member = |name: &str| json!(str_refs(body, name));
+    let mut record = json!({
+        "schema_version": ODK_MANIFEST_V2_SCHEMA_VERSION,
+        "odk_manifest_id": format!("odk://{id}"),
+        "name": body.get("name").and_then(Value::as_str).unwrap_or("odk-manifest"),
+        "version": body.get("version").and_then(Value::as_str).unwrap_or("0.1.0"),
+        "owner_ref": owner_ref,
+        "ontology_refs": ontology_refs,
+        "canonical_object_model_refs": member("canonical_object_model_refs"),
+        "data_recipe_refs": member("data_recipe_refs"),
+        "connector_mapping_refs": member("connector_mapping_refs"),
+        "policy_bound_data_view_refs": member("policy_bound_data_view_refs"),
+        "ontology_projection_refs": member("ontology_projection_refs"),
+        "surface_descriptor_refs": member("surface_descriptor_refs"),
+        "workflow_schema_refs": member("workflow_schema_refs"),
+        "evaluation_dataset_refs": member("evaluation_dataset_refs"),
+        "benchmark_profile_refs": member("benchmark_profile_refs"),
+        "worker_plan_refs": member("worker_plan_refs"),
+        "operator_contract_refs": member("operator_contract_refs"),
+        "mcp_contract_refs": member("mcp_contract_refs"),
+        "conformance_profile_refs": member("conformance_profile_refs"),
+        "package_refs": member("package_refs"),
+        "receipt_obligations": member("receipt_obligations"),
+        "status": body.get("status").and_then(Value::as_str).unwrap_or("draft"),
+        "migration": migration,
+        "authority_nonclaim": "ontology_development_kit_manifest_grants_no_authority",
+        "truth_nonclaim": "ontology_development_kit_manifest_is_not_runtime_or_semantic_truth",
+        "does_not_assert": ODK_MANIFEST_NONCLAIMS,
+    });
+    record["content_hash"] = json!(odk_manifest_content_hash(&record));
+    manifest_registered_valid(&record)?;
+    Ok(record)
+}
+
+/// POST /v1/hypervisor/odk/manifests — author an OntologyDevelopmentKitManifest at the SUCCESSOR.
+///
+/// `migrated_from_manifest_ref` converges a stored v1: the author supplies the member split that no
+/// migration can infer, and this route commits the predecessor's exact bytes beside it.
 pub(crate) async fn handle_odk_manifest_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -1587,77 +2057,38 @@ pub(crate) async fn handle_odk_manifest_create(
     if let Err(response) = require_manifest_authored_version(&body) {
         return response;
     }
-    let ontology_refs = str_refs(&body, "ontology_refs");
-    if let Err((c, m)) = require_local_ref_list(
-        &st.data_dir,
-        &ontology_refs,
-        "ontology",
-        "ontology_ref",
-        true,
-    ) {
-        return bad(&c, &m);
-    }
-    let recipe_refs = str_refs(&body, "recipe_refs");
-    if let Err((c, m)) =
-        require_local_ref_list(&st.data_dir, &recipe_refs, "recipe", "recipe_ref", false)
-    {
-        return bad(&c, &m);
-    }
-    let sd_refs = str_refs(&body, "surface_descriptor_refs");
-    if let Err((c, m)) = require_local_ref_list(
-        &st.data_dir,
-        &sd_refs,
-        "surface-descriptor",
-        "surface_descriptor_ref",
-        false,
-    ) {
-        return bad(&c, &m);
-    }
-    for key in ["eval_refs", "worker_plan_refs", "mcp_operator_contracts"] {
-        if let Err((c, m)) = check_named_refs(&st.data_dir, &str_refs(&body, key)) {
-            return bad(&c, &m);
-        }
-    }
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let owner_ref = body
+        .get("owner_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
     let id = odk_derived_id(
         "odk",
-        body.get("owner_ref").and_then(|v| v.as_str()).unwrap_or(""),
+        owner_ref,
         body.get("idempotency_key")
             .and_then(|v| v.as_str())
             .unwrap_or(""),
     );
-    let now = iso_now();
-    let record = json!({
-        "schema_version": "ioi.hypervisor.odk.manifest.v1",
-        "object": "ioi.hypervisor.odk.manifest",
-        "id": id,
-        "ref": format!("odk://{id}"),
-        "name": body.get("name").and_then(|v| v.as_str()).unwrap_or("odk-manifest"),
-        "description": body.get("description").and_then(|v| v.as_str()).unwrap_or(""),
-        "status": "draft",
-        "ontology_refs": ontology_refs,
-        "recipe_refs": recipe_refs,
-        "surface_descriptor_refs": sd_refs,
-        "connector_mappings": body.get("connector_mappings").cloned().unwrap_or_else(|| json!([])),
-        "policy_bound_views": body.get("policy_bound_views").cloned().unwrap_or_else(|| json!([])),
-        // Named refs only (eval suites, worker plans, MCP/operator contracts).
-        "eval_refs": str_refs(&body, "eval_refs"),
-        "worker_plan_refs": str_refs(&body, "worker_plan_refs"),
-        "mcp_operator_contracts": str_refs(&body, "mcp_operator_contracts"),
-        "created_at": now,
-        "updated_at": now
-    });
-    odk_admit(
+    let record = match build_manifest_v2(&st.data_dir, &identity, &body, &id, owner_ref) {
+        Ok(record) => record,
+        Err(response) => return response,
+    };
+    odk_admit_with_identity(
         &st.data_dir,
-        &headers,
+        &identity,
         &body,
         OdkAdmission {
             family: KIND_MANIFEST,
-            scope_kind: "hypervisor-odk-manifest",
-            ref_prefix: "odk-manifest://",
+            scope_kind: ODK_MANIFEST_SCOPE_KIND,
+            ref_prefix: ODK_MANIFEST_REF_PREFIX,
             op_kind: "event_stream.hypervisor_odk_manifest_admitted",
             reply_key: "manifest",
             persist_error: "odk_manifest_persistence_failed",
-            projection: OdkProjection::InlineTimestamps,
+            projection: OdkProjection::ManifestFromHistory,
         },
         &id,
         record,
@@ -1665,13 +2096,39 @@ pub(crate) async fn handle_odk_manifest_create(
     )
 }
 
+/// GET /v1/hypervisor/odk/manifests/:id — one manifest, resolved from the chain.
 pub(crate) async fn handle_odk_manifest_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    json_get(&st.data_dir, KIND_MANIFEST, "manifest", &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    match resolve_admitted_odk_manifest(&st.data_dir, &identity, &format!("odk://{id}")) {
+        Ok(resolved) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "manifest": resolved.record,
+                "projection_source": "agentgres_owner_chain",
+                "index_state": resolved.index_state,
+                "content_hash": resolved.content_hash,
+                "admitted_head": resolved.admitted_head,
+                "created_at": resolved.projected_created_at,
+                "updated_at": resolved.projected_updated_at
+            })),
+        ),
+        Err(response) => response,
+    }
 }
 
+/// PATCH /v1/hypervisor/odk/manifests/:id — an ordinary governed revision of a v2 manifest.
+///
+/// A stored v1 is READABLE, NEVER EDITED INTO A v2. Patching one would have to invent the member
+/// split its folded lists cannot supply, which is the silent reinterpretation the succession refuses;
+/// converging one is an explicit create that names it.
 pub(crate) async fn handle_odk_manifest_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -1681,14 +2138,28 @@ pub(crate) async fn handle_odk_manifest_patch(
     if let Err(response) = require_manifest_authored_version(&body) {
         return response;
     }
-    let Some(mut man) = load(&st.data_dir, KIND_MANIFEST, &id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(
-                json!({ "ok": false, "error": { "code": "odk_manifest_not_found", "message": "manifest not found" } }),
+    if let Err(response) = refuse_legacy_manifest_fields(&body) {
+        return response;
+    }
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
+    let manifest_ref = format!("odk://{id}");
+    let resolved = match resolve_admitted_odk_manifest(&st.data_dir, &identity, &manifest_ref) {
+        Ok(resolved) => resolved,
+        Err(response) => return response,
+    };
+    if resolved.schema_version != ODK_MANIFEST_V2_SCHEMA_VERSION {
+        return bad(
+            "odk_manifest_predecessor_not_patchable",
+            &format!(
+                "this manifest is a stored '{}' record; it remains readable exactly as admitted and is never edited into a '{ODK_MANIFEST_V2_SCHEMA_VERSION}'. Converge it explicitly by authoring a successor that names it in {ODK_MANIFEST_MIGRATION_SOURCE_KEY}",
+                resolved.schema_version
             ),
         );
-    };
+    }
+    let mut man = resolved.record.clone();
     // Re-validate any ref set that is being changed (ontology_refs stays required-nonempty).
     if body.get("ontology_refs").is_some() {
         if let Err((c, m)) = require_local_ref_list(
@@ -1697,17 +2168,6 @@ pub(crate) async fn handle_odk_manifest_patch(
             "ontology",
             "ontology_ref",
             true,
-        ) {
-            return bad(&c, &m);
-        }
-    }
-    if body.get("recipe_refs").is_some() {
-        if let Err((c, m)) = require_local_ref_list(
-            &st.data_dir,
-            &str_refs(&body, "recipe_refs"),
-            "recipe",
-            "recipe_ref",
-            false,
         ) {
             return bad(&c, &m);
         }
@@ -1723,45 +2183,42 @@ pub(crate) async fn handle_odk_manifest_patch(
             return bad(&c, &m);
         }
     }
-    for key in ["eval_refs", "worker_plan_refs", "mcp_operator_contracts"] {
-        if body.get(key).is_some() {
-            if let Err((c, m)) = check_named_refs(&st.data_dir, &str_refs(&body, key)) {
+    for member in ODK_MANIFEST_REF_MEMBERS {
+        if body.get(*member).is_some() {
+            if let Err((c, m)) = check_named_refs(&st.data_dir, &str_refs(&body, member)) {
                 return bad(&c, &m);
             }
         }
     }
-    for key in [
-        "name",
-        "description",
-        "ontology_refs",
-        "recipe_refs",
-        "surface_descriptor_refs",
-        "connector_mappings",
-        "policy_bound_views",
-        "eval_refs",
-        "worker_plan_refs",
-        "mcp_operator_contracts",
-    ] {
+    for key in ["name", "version", "status", "ontology_refs"] {
         if let Some(v) = body.get(key) {
             man[key] = v.clone();
         }
     }
+    for member in ODK_MANIFEST_REF_MEMBERS {
+        if body.get(*member).is_some() {
+            man[*member] = json!(str_refs(&body, member));
+        }
+    }
+    // The commitment is recomputed over the record this patch built, so a revision that moved a
+    // member and kept its predecessor's hash is impossible rather than merely unlikely.
+    man["content_hash"] = json!(odk_manifest_content_hash(&man));
     if let Err(response) = manifest_registered_valid(&man) {
         return response;
     }
-    let previous = load(&st.data_dir, KIND_MANIFEST, &id).unwrap_or_else(|| json!({}));
-    odk_admit(
+    let previous = resolved.record.clone();
+    odk_admit_with_identity(
         &st.data_dir,
-        &headers,
+        &identity,
         &body,
         OdkAdmission {
             family: KIND_MANIFEST,
-            scope_kind: "hypervisor-odk-manifest",
-            ref_prefix: "odk-manifest://",
+            scope_kind: ODK_MANIFEST_SCOPE_KIND,
+            ref_prefix: ODK_MANIFEST_REF_PREFIX,
             op_kind: "event_stream.hypervisor_odk_manifest_revised",
             reply_key: "manifest",
             persist_error: "odk_manifest_persistence_failed",
-            projection: OdkProjection::InlineTimestamps,
+            projection: OdkProjection::ManifestFromHistory,
         },
         &id,
         man,
@@ -1885,6 +2342,13 @@ enum OdkProjection {
     /// inline shape. The row a write left behind and the row a repair produced were different bytes
     /// for the same admitted state, and only one of them could be right.
     DescriptorFromHistory,
+    /// A MANIFEST row, written by the same repair path, for the same reason.
+    ///
+    /// The v2 manifest contract is closed too, so its row is an envelope and its runtime stamps have
+    /// nowhere to live inside the record. Routing the write through the repair function keeps one
+    /// producer of the row bytes, so "the row is a projection of the chain" stays a fact about one
+    /// function running twice rather than two implementations that agree today.
+    ManifestFromHistory,
 }
 
 /// The projection envelope schema for a v2 descriptor row and reply.
@@ -2083,6 +2547,17 @@ fn odk_admit_with_identity(
                 // implementations agreeing rather than one function running twice.
                 OdkProjection::DescriptorFromHistory => {
                     if let Err(response) = rebuild_descriptor_row(data_dir, identity, &resource_ref)
+                    {
+                        return response;
+                    }
+                    record
+                }
+                // The scope this family binds is `odk-manifest://<id>` while the ref a DomainApp
+                // binds is `odk://<id>`. The seam takes the addressing form, so the conversion
+                // happens here rather than being duplicated into every caller.
+                OdkProjection::ManifestFromHistory => {
+                    if let Err(response) =
+                        rebuild_odk_manifest_row(data_dir, identity, &format!("odk://{id}"))
                     {
                         return response;
                     }

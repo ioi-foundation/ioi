@@ -382,11 +382,10 @@ fn validate_package_request(request: &PackageCandidateRequest) -> Result<(), Rep
     Ok(())
 }
 
-fn record_by_ref(data_dir: &str, family: &str, field: &str, expected: &str) -> Option<Value> {
-    super::read_record_dir(data_dir, family)
-        .into_iter()
-        .find(|record| record.get(field).and_then(Value::as_str) == Some(expected))
-}
+// `record_by_ref` used to live here: a record-directory sweep that found a source by matching a
+// top-level field. Every one of its callers now resolves through an owner seam instead, so it is
+// removed rather than left available — a helper whose whole purpose is to make a rebuildable
+// projection load-bearing is the next accident waiting for the next consumer.
 
 struct PackageSource {
     domain_app: Value,
@@ -397,6 +396,35 @@ struct PackageSource {
     descriptor_content_hash: Option<String>,
     /// Which registered contract the frozen descriptor was admitted under, recorded verbatim.
     descriptor_schema_version: String,
+    /// Which registered contract the DomainApp was admitted under, and the exact head it was read
+    /// at. A candidate that froze an app without saying which chain position it read cannot be
+    /// checked later against the app it claims to package.
+    domain_app_schema_version: String,
+    domain_app_admitted_head: String,
+    /// The same two facts for the ODK manifest, resolved through its own owner seam.
+    manifest_schema_version: String,
+    manifest_admitted_head: String,
+    manifest_content_hash: String,
+}
+
+/// The DomainApp's canonical identity, at whichever registered contract it was admitted under.
+///
+/// v1 carried identity twice — a bare `domain_app_id` and a scheme-prefixed `domain_app_ref` that
+/// could disagree — and v2 carries it once, as `domain_app_id`. Reading both HERE, at the one place
+/// that has already resolved the record's version through its owner seam, is what keeps the version
+/// difference from leaking into every consumer as a guess about which key exists.
+fn domain_app_identity(record: &Value, schema_version: &str) -> Option<String> {
+    match schema_version {
+        "ioi.domain-app.v2" => record
+            .get("domain_app_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        "ioi.hypervisor.domain-app.v1" => record
+            .get("domain_app_ref")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        _ => None,
+    }
 }
 
 /// M05.5 — THE PACKAGE SOURCE RESOLVES THROUGH THE DESCRIPTOR'S OWNER, NOT THE RECORD DIRECTORY.
@@ -420,14 +448,55 @@ fn resolve_package_source(
     owner_ref: &str,
     domain_app_ref: &str,
 ) -> Result<PackageSource, Reply> {
-    let domain_app = record_by_ref(data_dir, "domain-apps", "domain_app_ref", domain_app_ref)
-        .ok_or_else(|| {
-            bad(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "package_domain_app_unresolved",
-                "domain_app_ref does not resolve to a local DomainApp",
-            )
-        })?;
+    // M05.6 — THE DOMAIN APP RESOLVES THROUGH ITS OWNER SEAM, NOT THE RECORD DIRECTORY.
+    //
+    // This swept `domain-apps` for a top-level `domain_app_ref`, which the v1 row happened to
+    // satisfy because a v1 row WAS the record. Once the registered v2 record moved inside a
+    // projection envelope, the sweep found nothing and a correctly-authored DomainApp became
+    // unpackageable — and the refusal read as "you have not created it yet". Restoring the key at
+    // the row's top level would have fixed the symptom by making package admission depend on a
+    // rebuildable index again: delete the row and the app is unpackageable; corrupt it and the
+    // package freezes whatever the corruption said. The owner seam projects the admitted chain under
+    // that family's own scope, so neither deleting nor corrupting the row can change this decision.
+    let resolved_app = super::domain_apps_routes::resolve_admitted_domain_app(
+        data_dir,
+        identity,
+        domain_app_ref,
+    )
+    .map_err(|(_, Json(payload))| {
+        bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "package_domain_app_unresolved",
+            format!(
+                "domain_app_ref does not resolve to an admitted DomainApp this caller may package: {}",
+                payload
+                    .pointer("/error/message")
+                    .and_then(Value::as_str)
+                    .unwrap_or("refused by its owner")
+            ),
+        )
+    })?;
+    if resolved_app.withdrawn {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "package_domain_app_withdrawn",
+            "the DomainApp was withdrawn; a withdrawal is terminal for the record and a withdrawn app does not become durable product inventory",
+        ));
+    }
+    let domain_app_schema_version = resolved_app.schema_version.clone();
+    let domain_app = resolved_app.record;
+    // The identity the chain holds must be the identity the request named. Resolving by ref and then
+    // freezing a record that calls itself something else is how a candidate ends up packaging one app
+    // under another's coordinates.
+    if domain_app_identity(&domain_app, &domain_app_schema_version).as_deref()
+        != Some(domain_app_ref)
+    {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "package_domain_app_identity_mismatch",
+            "the admitted DomainApp does not carry the identity this request named",
+        ));
+    }
     if domain_app.get("status").and_then(Value::as_str) != Some("draft") {
         return Err(bad(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -464,14 +533,30 @@ fn resolve_package_source(
                 "the DomainApp must bind one resolving surface_descriptor_ref before packaging",
             )
         })?;
-    let manifest =
-        record_by_ref(data_dir, "odk-manifests", "ref", manifest_ref).ok_or_else(|| {
-            bad(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "package_odk_manifest_unresolved",
-                "the DomainApp's odk_manifest_ref does not resolve",
-            )
-        })?;
+    // THE MANIFEST RESOLVES THROUGH ITS OWNER SEAM TOO, for exactly the same reason. It was found by
+    // sweeping the record directory for a top-level `ref`, so a deleted row made a bound manifest
+    // unresolvable and a corrupted one was frozen verbatim into a candidate — and the sweep answered
+    // for every owner, so a package could freeze another tenant's manifest into a candidate this
+    // caller owns.
+    let resolved_manifest =
+        super::odk_routes::resolve_admitted_odk_manifest(data_dir, identity, manifest_ref)
+            .map_err(|(_, Json(payload))| {
+                bad(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "package_odk_manifest_unresolved",
+                    format!(
+                        "the DomainApp's odk_manifest_ref does not resolve to an admitted manifest this caller may package: {}",
+                        payload
+                            .pointer("/error/message")
+                            .and_then(Value::as_str)
+                            .unwrap_or("refused by its owner")
+                    ),
+                )
+            })?;
+    let manifest_schema_version = resolved_manifest.schema_version.clone();
+    let manifest_admitted_head = resolved_manifest.admitted_head.clone();
+    let manifest_content_hash = resolved_manifest.content_hash.clone();
+    let manifest = resolved_manifest.record;
     let resolved = super::odk_routes::resolve_admitted_surface_descriptor(
         data_dir,
         identity,
@@ -559,6 +644,11 @@ fn resolve_package_source(
         descriptor,
         descriptor_content_hash,
         descriptor_schema_version,
+        domain_app_schema_version,
+        domain_app_admitted_head: resolved_app.admitted_head,
+        manifest_schema_version,
+        manifest_admitted_head,
+        manifest_content_hash,
     })
 }
 
@@ -575,12 +665,29 @@ fn descriptor_identity(descriptor: &Value) -> Value {
         .unwrap_or(Value::Null)
 }
 
+/// One manifest's canonical identity, whichever registered contract admitted it.
+///
+/// The same shape as the descriptor's, and for the same reason: a v2 manifest names itself
+/// `odk_manifest_id`, a stored v1 named itself `ref`, and reading only `ref` would freeze `null`
+/// into every candidate built over a successor.
+fn manifest_identity(manifest: &Value) -> Value {
+    manifest
+        .get("odk_manifest_id")
+        .or_else(|| manifest.get("ref"))
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
 fn build_package_candidate(
     request: &PackageCandidateRequest,
     source: &PackageSource,
 ) -> Result<Value, Reply> {
     let domain_app_hash = digest(&source.domain_app)?;
-    let manifest_hash = digest(&source.manifest)?;
+    // THE MANIFEST OWNER'S COMMITMENT, resolved through that family's own seam, exactly as the
+    // descriptor's is. A v2 manifest publishes a `content_hash` its registered invariant commits; a
+    // stored v1 has none, so the seam derives one under the v1 contract's own material list and the
+    // candidate records which kind it holds.
+    let manifest_hash = json!(source.manifest_content_hash);
     // THE OWNER'S COMMITMENT, NOT A SECOND ONE. A v2 descriptor carries a content hash its own
     // registered invariant commits and any relying party can recompute from the bytes; re-digesting
     // the record here would mint a NUMBER BESIDE IT that agrees with nothing and that no reader
@@ -600,7 +707,7 @@ fn build_package_candidate(
         "package_ref": package_ref,
         "owner_ref": request.owner_ref,
         "domain_app_ref": request.domain_app_ref,
-        "odk_manifest_ref": source.manifest["ref"],
+        "odk_manifest_ref": manifest_identity(&source.manifest),
         "surface_descriptor_ref": descriptor_ref,
         "surface_descriptor_schema_version": source.descriptor_schema_version,
         "surface_ref": surface_ref,
@@ -609,6 +716,14 @@ fn build_package_candidate(
         "odk_manifest_content_hash": manifest_hash,
         "surface_descriptor_content_hash": descriptor_hash,
         "surface_descriptor_content_hash_source": descriptor_hash_source,
+        // THE EXACT CHAIN POSITIONS THIS CANDIDATE WAS BUILT FROM. A frozen hash says WHAT was read;
+        // the head says WHERE in that owner's admitted history it was read. Without it a candidate
+        // can be checked for self-consistency but never located against the app and manifest it
+        // claims to package, which is the difference between a snapshot and a citation.
+        "domain_app_schema_version": source.domain_app_schema_version,
+        "domain_app_admitted_head": source.domain_app_admitted_head,
+        "odk_manifest_schema_version": source.manifest_schema_version,
+        "odk_manifest_admitted_head": source.manifest_admitted_head,
     });
     let candidate_content_hash = digest(&material)?;
     Ok(json!({
@@ -618,7 +733,7 @@ fn build_package_candidate(
         "package_id": request.package_id,
         "owner_ref": request.owner_ref,
         "domain_app_ref": request.domain_app_ref,
-        "odk_manifest_ref": source.manifest["ref"],
+        "odk_manifest_ref": manifest_identity(&source.manifest),
         "surface_descriptor_ref": descriptor_ref,
         "surface_ref": surface_ref,
         "surface_class": "extension_application",
@@ -631,6 +746,13 @@ fn build_package_candidate(
             // them apart would verify the second against the first and conclude nothing.
             "surface_descriptor_content_hash_source": descriptor_hash_source,
             "surface_descriptor_schema_version": source.descriptor_schema_version,
+            // Both other sources say which contract admitted them and at which exact head, so the
+            // whole snapshot set is locatable in three owners' chains rather than only checkable
+            // against itself.
+            "domain_app_schema_version": source.domain_app_schema_version,
+            "domain_app_admitted_head": source.domain_app_admitted_head,
+            "odk_manifest_schema_version": source.manifest_schema_version,
+            "odk_manifest_admitted_head": source.manifest_admitted_head,
         },
         "candidate_content_hash": candidate_content_hash,
         "status": "candidate",
@@ -2136,6 +2258,15 @@ mod tests {
                 "sha256:5c6ef4a3be03aec05a0a2bd575dff175b451aaea3f7b02ad53c4118dbfdd2ba0".into(),
             ),
             descriptor_schema_version: "ioi.ontology-surface-descriptor.v2".into(),
+            // M05.6 — the app and manifest arrive from their own owner seams, so the source carries
+            // which contract admitted each and the exact head it was read at. A candidate that froze
+            // three records without saying where in three chains it read them can be checked for
+            // self-consistency and against nothing else.
+            domain_app_schema_version: "ioi.hypervisor.domain-app.v1".into(),
+            domain_app_admitted_head: "sha256:".to_string() + &"1a".repeat(32),
+            manifest_schema_version: "ioi.hypervisor.odk.manifest.v1".into(),
+            manifest_admitted_head: "sha256:".to_string() + &"2b".repeat(32),
+            manifest_content_hash: "sha256:".to_string() + &"3c".repeat(32),
         }
     }
 

@@ -392,6 +392,8 @@ OntologyDevelopmentKitManifestEnvelope:
   status: draft | active | deprecated | revoked
 ```
 
+**Registered contract.** `schema://ioi/foundations/objects/ontology-development-kit-manifest/v1` (`ioi.hypervisor.odk.manifest.v1`, deprecated and read-only) and `.../v2` (`ioi.ontology-development-kit-manifest.v2`) register this envelope. v2 is what the lane authors; v1 is the deprecated shape it minted before, and it diverges from the fields above in three folds it cannot undo by itself: `recipe_refs` for `data_recipe_refs`, one `eval_refs` list for `evaluation_dataset_refs` plus `benchmark_profile_refs`, and one `mcp_operator_contracts` list for `operator_contract_refs` plus `mcp_contract_refs`. v2 carries the members above under these names and commits itself under a registered domain separator. A stored v1 stays readable at its own contract and is never newly authored; converging one is an explicit create naming it in `migrated_from_manifest_ref`, which resolves that predecessor through its owner seam and commits its exact bytes — and the AUTHOR supplies the member split, because a v1 record does not say which member is which and a route that guessed would be inventing provenance. Each legacy member name is a typed refusal naming the successor member or members the author must choose between.
+
 ## OntologySurfaceDescriptorEnvelope
 
 An ontology surface descriptor declares how a UI, domain app, operator console,
@@ -520,6 +522,8 @@ journey owned by
 their absence bounds the app to inspect-only use rather than silently
 permitting effects.
 
+**Registered contract.** `schema://ioi/foundations/objects/domain-app/v1` (`ioi.hypervisor.domain-app.v1`, deprecated and read-only) and `.../v2` (`ioi.domain-app.v2`). v2 adds four things this envelope implies but a wire contract has to carry: `surface_descriptor_schema_version` and `surface_descriptor_content_hash`, which bind the derived snapshot to the exact descriptor bytes it was projected from; `launch_posture`, which states canon's System-binding bound (`inspect_only` unless `system_binding_refs` is non-empty) as a checkable field rather than a rule a reader has to apply; and `content_hash`, a commitment over the whole record. Its `status` conditionals make each advance carry the stage binding that produced it, and its `runtime_posture` conditionals refuse a live posture that names no runtime.
+
 ## DomainAppRuntimeEnvelope
 
 A **DomainAppRuntime** is the durable record of one governed mount of a
@@ -572,6 +576,8 @@ state transitions and emit the same receipt family as voluntary ones, so an
 enforced stop is auditable in exactly the record a voluntary stop produces,
 distinguished only by the receipt's `action` and the terminal `killed` state.
 
+**Registered contract.** `schema://ioi/foundations/objects/domain-app-runtime/v1` (`ioi.hypervisor.domain-app-runtime.v1`, deprecated and read-only) and `.../v2` (`ioi.domain-app-runtime.v2`). v1 carried identity twice, named `rollback_posture` `rollback`, and had NO `external_ingress_ref` at all, so the distinct-admissions rule above had no wire form. v2 adds `owner_ref` and `revision` — the two facts that make the runtime identity a mount receipt binds owner-qualified and revision-exact — and `content_hash`, which is the value the receipt binds so a relying party can check offline that receipt and runtime describe the same state.
+
 ## DomainAppMountReceiptEnvelope
 
 Every DomainApp transition across the governed ladder emits a receipt. A mount
@@ -599,3 +605,5 @@ over its life, and a receipt that names only the app cannot say which mount it
 transitioned. `state_root` commits the transition's admitted facts; it is a
 binding commitment over this receipt's own fields, not a proof about app
 behavior.
+
+**Registered contract.** `schema://ioi/foundations/objects/domain-app-mount-receipt/v1` (`ioi.hypervisor.domain-app-mount-receipt.v1`, deprecated and read-only) and `.../v2` (`ioi.domain-app-mount-receipt.v2`). v1 had no `domain_app_runtime_ref`, so the requirement above was unmet by every receipt this estate had written, and its `state_root` hashed five values joined with pipes — ambiguous under any component containing a pipe, and silent about the runtime. v2 requires the runtime ref and adds `domain_app_runtime_owner_ref`, `domain_app_runtime_revision`, `domain_app_runtime_content_hash` and `domain_app_admitted_head_before`, and its `state_root` is a canonical-JSON commitment over every field including those four. It also carries canon's four nonclaims as a `does_not_assert` array, so the receipt states its own limits in the bytes a relying party reads.

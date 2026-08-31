@@ -1197,8 +1197,11 @@ async function run() {
     ontology_refs: [odkOntologyRef],
     surface_descriptor_refs: [descriptorRef],
   });
-  const manifestRef =
-    manifest.j?.odk_manifest?.ref ?? manifest.j?.manifest?.ref ?? manifest.j?.odk?.ref ?? "";
+  // The same version-aware mechanic as the DomainApp's: M05.6's manifest successor names itself
+  // `odk_manifest_id` once, where the predecessor carried a bare `id` and a `ref` beside it.
+  const manifestRecord =
+    manifest.j?.odk_manifest ?? manifest.j?.manifest ?? manifest.j?.odk ?? {};
+  const manifestRef = manifestRecord.odk_manifest_id ?? manifestRecord.ref ?? "";
   ok(
     "PRECONDITION: an ODK manifest including this descriptor is admitted, so the packaging lane has the complete source mesh it requires",
     manifest.status === 201 && manifestRef.startsWith("odk://"),
@@ -1212,6 +1215,12 @@ async function run() {
     odk_manifest_ref: manifestRef,
   });
   const app = domainApp.j?.domain_app ?? {};
+  // VERSION-AWARE MECHANICS ONLY. M05.6 registered the DomainApp family and its successor carries
+  // identity ONCE, as canon's scheme-prefixed `domain_app_id`; the stored predecessor carried it
+  // twice, as a bare id plus a `domain_app_ref` that could disagree. Reading both here keeps this
+  // gate's claims and their names exactly as they were while it drives whichever contract the build
+  // under test authors.
+  const appRef = app.domain_app_id ?? app.domain_app_ref;
   ok(
     "THE DOMAIN APP PRESERVES THE CANONICAL LINEAGE. Reading v1's names only, a DomainApp over a v2 descriptor derived an EMPTY provenance snapshot and recorded it — nothing failed, and the app said this surface binds no ontology and no data recipe",
     domainApp.status === 201 &&
@@ -1231,7 +1240,7 @@ async function run() {
   const pkg = await req("POST", "/v1/hypervisor/packages", {
     package_id: "intake-review",
     owner_ref: OWNER,
-    domain_app_ref: app.domain_app_ref,
+    domain_app_ref: appRef,
     idempotency_key: "sd-package-1",
   });
   const candidate = pkg.j?.package?.record ?? {};
@@ -1321,7 +1330,7 @@ async function run() {
   const packageWithdrawn = await req("POST", "/v1/hypervisor/packages", {
     package_id: "intake-review-2",
     owner_ref: OWNER,
-    domain_app_ref: app.domain_app_ref,
+    domain_app_ref: appRef,
     idempotency_key: "sd-package-withdrawn",
   });
   ok(

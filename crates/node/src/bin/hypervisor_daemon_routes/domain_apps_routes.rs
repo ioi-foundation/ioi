@@ -31,7 +31,6 @@ use super::{persist_record, remove_record, DaemonState};
 const DAPP_NAMESPACE: &str = "hypervisor-domain-apps";
 
 const KIND_DAPP: &str = "domain-apps";
-const KIND_MANIFEST: &str = "odk-manifests";
 /// Visibility of a draft DomainApp (marketplace_candidate is a flag, not a publish).
 const VISIBILITIES: &[&str] = &["private", "org", "marketplace_candidate"];
 
@@ -403,35 +402,46 @@ fn descriptor_binding(
     })
 }
 
-/// Resolve an optional `odk_manifest_ref`: must be an `odk://` ref that resolves AND whose
-/// surface_descriptor_refs include `sd_ref`.
+/// Resolve an optional `odk_manifest_ref` THROUGH THE MANIFEST OWNER, and require that it names
+/// this descriptor.
+///
+/// This used to `load()` the local row, which made a rebuildable projection load-bearing for an
+/// admission decision: delete the row and a DomainApp could not bind a manifest its owner had
+/// admitted; corrupt it and the "does this manifest name my descriptor" check ran against whatever
+/// the corruption said. The owner reader answers from the Agentgres chain under that family's own
+/// scope, so this consumes an owner-resolved fact instead of re-deriving one from a copy.
 fn resolve_manifest_including(
     data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
     man_ref: &str,
     sd_ref: &str,
 ) -> Result<Value, (String, String)> {
-    match split_ref(man_ref) {
-        Some(("odk", id)) => match load(data_dir, KIND_MANIFEST, id) {
-            Some(m) => {
-                if manifest_includes_descriptor(&m, sd_ref) {
-                    Ok(m)
-                } else {
-                    Err((
-                        "domain_app_manifest_missing_descriptor".into(),
-                        "odk_manifest_ref does not include surface_descriptor_ref in its surface_descriptor_refs".into(),
-                    ))
-                }
-            }
-            None => Err((
-                "domain_app_manifest_unresolved".into(),
-                format!("odk_manifest_ref '{man_ref}' does not resolve to an ODK manifest"),
-            )),
-        },
-        _ => Err((
+    if !matches!(split_ref(man_ref), Some(("odk", _))) {
+        return Err((
             "domain_app_ref_prefix_invalid".into(),
             "odk_manifest_ref must be an 'odk://' ref".into(),
-        )),
+        ));
     }
+    let resolved = super::odk_routes::resolve_admitted_odk_manifest(data_dir, identity, man_ref)
+        .map_err(|(_, axum::Json(payload))| {
+            (
+                "domain_app_manifest_unresolved".to_string(),
+                format!(
+                    "odk_manifest_ref '{man_ref}' does not resolve to an admitted ODK manifest this caller may bind: {}",
+                    payload
+                        .pointer("/error/message")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("refused by its owner")
+                ),
+            )
+        })?;
+    if !manifest_includes_descriptor(&resolved.record, sd_ref) {
+        return Err((
+            "domain_app_manifest_missing_descriptor".into(),
+            "odk_manifest_ref does not include surface_descriptor_ref in its surface_descriptor_refs".into(),
+        ));
+    }
+    Ok(resolved.record)
 }
 fn manifest_includes_descriptor(manifest: &Value, sd_ref: &str) -> bool {
     arr_strs(manifest, "surface_descriptor_refs")
@@ -476,59 +486,73 @@ fn derive_snapshot(descriptor: &Value, manifest: Option<&Value>, body: &Value) -
     let mut policy_bound_data_view_refs = Vec::new();
     let mut operator_contract_refs = Vec::new();
     let mut mcp_contract_refs = Vec::new();
-    let collect = |target: &mut Vec<String>, source: &Value, key: &str| {
-        for r in arr_strs(source, key) {
+    let merge = |target: &mut Vec<String>, refs: Vec<String>| {
+        for r in refs {
             push_unique(target, &r);
         }
     };
-    // From a v2 descriptor: the canonical plural bindings under canon's own names.
-    collect(&mut ontology_refs, descriptor, "ontology_refs");
-    collect(
+    // FROM A v2 DESCRIPTOR: THE CANONICAL PLURAL BINDINGS, READ BY NAME AT EACH SITE.
+    //
+    // Each read is spelled out rather than routed through a helper that takes the key as a
+    // parameter. M05.5 pins these exact call sites, and it is right to: the defect it closed was
+    // this function reading `ontology_ref`/`recipe_refs` — names a v2 descriptor does not carry — so
+    // a DomainApp over a v2 derived an EMPTY lineage and recorded it as provenance. A pin that can
+    // only be satisfied by the literal read is a pin that cannot be satisfied by a refactor which
+    // quietly stops making it.
+    merge(&mut ontology_refs, arr_strs(descriptor, "ontology_refs"));
+    merge(
         &mut canonical_object_model_refs,
-        descriptor,
-        "canonical_object_model_refs",
+        arr_strs(descriptor, "canonical_object_model_refs"),
     );
-    collect(&mut data_recipe_refs, descriptor, "data_recipe_refs");
-    collect(
+    merge(
+        &mut data_recipe_refs,
+        arr_strs(descriptor, "data_recipe_refs"),
+    );
+    merge(
         &mut policy_bound_data_view_refs,
-        descriptor,
-        "policy_bound_data_view_refs",
+        arr_strs(descriptor, "policy_bound_data_view_refs"),
     );
-    collect(
+    merge(
         &mut operator_contract_refs,
-        descriptor,
-        "operator_contract_refs",
+        arr_strs(descriptor, "operator_contract_refs"),
     );
-    collect(&mut mcp_contract_refs, descriptor, "mcp_contract_refs");
+    merge(
+        &mut mcp_contract_refs,
+        arr_strs(descriptor, "mcp_contract_refs"),
+    );
     // From a stored v1 descriptor: the singular ontology_ref and the legacy recipe_refs. v1 carries
     // no object-model or policy-view binding at all, so a snapshot derived from one is EMPTY in
     // those two members because its source has nothing to give — not because this read missed them.
     if let Some(o) = descriptor.get("ontology_ref").and_then(|v| v.as_str()) {
         push_unique(&mut ontology_refs, o);
     }
-    collect(&mut data_recipe_refs, descriptor, "recipe_refs");
+    merge(&mut data_recipe_refs, arr_strs(descriptor, "recipe_refs"));
     // From the manifest, if bound — reading BOTH registered manifest versions. A stored v1 manifest
     // spells recipes `recipe_refs` and folds operator and MCP contracts into one
     // `mcp_operator_contracts` list it cannot tell apart, so the folded list contributes to the MCP
     // member and the operator member stays whatever the descriptor said. A v2 manifest carries the
     // two separately and both land where they belong.
     if let Some(m) = manifest {
-        collect(&mut ontology_refs, m, "ontology_refs");
-        collect(
+        merge(&mut ontology_refs, arr_strs(m, "ontology_refs"));
+        merge(
             &mut canonical_object_model_refs,
-            m,
-            "canonical_object_model_refs",
+            arr_strs(m, "canonical_object_model_refs"),
         );
-        collect(&mut data_recipe_refs, m, "data_recipe_refs");
-        collect(&mut data_recipe_refs, m, "recipe_refs");
-        collect(
+        merge(&mut data_recipe_refs, arr_strs(m, "data_recipe_refs"));
+        merge(&mut data_recipe_refs, arr_strs(m, "recipe_refs"));
+        merge(
             &mut policy_bound_data_view_refs,
-            m,
-            "policy_bound_data_view_refs",
+            arr_strs(m, "policy_bound_data_view_refs"),
         );
-        collect(&mut operator_contract_refs, m, "operator_contract_refs");
-        collect(&mut mcp_contract_refs, m, "mcp_contract_refs");
-        collect(&mut mcp_contract_refs, m, "mcp_operator_contracts");
+        merge(
+            &mut operator_contract_refs,
+            arr_strs(m, "operator_contract_refs"),
+        );
+        merge(&mut mcp_contract_refs, arr_strs(m, "mcp_contract_refs"));
+        merge(
+            &mut mcp_contract_refs,
+            arr_strs(m, "mcp_operator_contracts"),
+        );
     }
     // Plus any author-supplied named mcp_contract_refs.
     for r in str_refs(body, "mcp_contract_refs") {
@@ -1107,7 +1131,7 @@ pub(crate) async fn handle_domain_apps_create(
     let manifest = if man_ref.is_empty() {
         None
     } else {
-        match resolve_manifest_including(&st.data_dir, man_ref, sd_ref) {
+        match resolve_manifest_including(&st.data_dir, &caller.identity, man_ref, sd_ref) {
             Ok(m) => Some(m),
             Err((c, m)) => return bad(&c, &m),
         }
@@ -1418,7 +1442,7 @@ pub(crate) async fn handle_domain_apps_patch(
         let manifest = if man_ref.is_empty() {
             None
         } else {
-            match resolve_manifest_including(&st.data_dir, &man_ref, &sd_ref) {
+            match resolve_manifest_including(&st.data_dir, &caller.identity, &man_ref, &sd_ref) {
                 Ok(m) => Some(m),
                 Err((c, m)) => return bad(&c, &m),
             }
@@ -1838,6 +1862,22 @@ fn load_scheme(data_dir: &str, r: &str, scheme: &str, kind: &str) -> Option<Valu
         _ => None,
     }
 }
+/// One admitted operation on a DomainApp's stream, with everything a replay has to compare.
+///
+/// The idempotency key alone was never enough. A key identifies a caller's INTENT TO ACT ONCE; it
+/// does not say what the action was. Answering a retry on the key alone means a caller who reuses a
+/// key for a different transition — a serve where they had mounted, an unmount with a different
+/// reason — is handed the earlier transition's receipt and told it succeeded, which is a forged
+/// success rather than a replay. So the operation kind, the transition action and the caller's own
+/// request material all travel with the admitted operation and are all compared.
+struct AdmittedLadderEntry {
+    recorded_at_ms: u64,
+    head: String,
+    idem_key: String,
+    op_kind: String,
+    payload: Value,
+}
+
 /// The DomainApp's admitted history, as this caller is entitled to see it.
 ///
 /// Every ladder transition is admitted on the APP's stream — app, runtime and receipts together,
@@ -1849,7 +1889,7 @@ fn ladder_history(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
     domain_app_ref: &str,
-) -> Result<Vec<(u64, String, Value)>, (StatusCode, Json<Value>)> {
+) -> Result<Vec<AdmittedLadderEntry>, (StatusCode, Json<Value>)> {
     let scope = super::substrate_store::authorize_request_resource_scope(
         data_dir,
         identity,
@@ -1878,12 +1918,12 @@ fn ladder_history(
     })?;
     Ok(history
         .into_iter()
-        .map(|entry| {
-            (
-                entry.operation.recorded_at_ms,
-                entry.head.clone(),
-                entry.operation.payload,
-            )
+        .map(|entry| AdmittedLadderEntry {
+            recorded_at_ms: entry.operation.recorded_at_ms,
+            head: entry.head.clone(),
+            idem_key: entry.operation.idem_key.clone(),
+            op_kind: entry.operation.op_kind.clone(),
+            payload: entry.operation.payload,
         })
         .collect())
 }
@@ -1970,10 +2010,11 @@ fn project_receipt(core: &Value, runtime_content_hash: &str, stamp: &str) -> Val
 /// bytes, not their timestamps. That is what makes `POST …/rebuild-index` deterministic and what
 /// makes the deletion or corruption of either directory unable to change any answer this module
 /// gives.
-fn fold_ladder(history: &[(u64, String, Value)]) -> (Option<Value>, Vec<Value>) {
+fn fold_ladder(history: &[AdmittedLadderEntry]) -> (Option<Value>, Vec<Value>) {
     let mut runtime: Option<Value> = None;
     let mut receipts: Vec<Value> = Vec::new();
-    for (recorded_at_ms, _head, payload) in history {
+    for entry in history {
+        let payload = &entry.payload;
         let Some(core) = payload.get("runtime") else {
             continue;
         };
@@ -1981,7 +2022,7 @@ fn fold_ladder(history: &[(u64, String, Value)]) -> (Option<Value>, Vec<Value>) 
             .get("transition_action")
             .and_then(Value::as_str)
             .unwrap_or("domain_app.mount");
-        let stamp = super::mutation_event_foundation::admitted_stamp(*recorded_at_ms);
+        let stamp = super::mutation_event_foundation::admitted_stamp(entry.recorded_at_ms);
         let next = project_runtime(core, runtime.as_ref(), action, &stamp);
         let hash = next
             .get("content_hash")
@@ -1999,6 +2040,109 @@ fn fold_ladder(history: &[(u64, String, Value)]) -> (Option<Value>, Vec<Value>) 
         runtime = Some(next);
     }
     (runtime, receipts)
+}
+
+/// The transition this caller's key ALREADY admitted on this ladder, folded out of the chain.
+///
+/// REPLAY IS RESOLVED BEFORE ANY PRECONDITION IS READ. The mount guard refused a retried mount as
+/// `domain_app_already_mounted`, which is the worst possible answer to the exact situation an
+/// idempotency key exists for: the caller cannot tell "my first attempt landed" from "someone else
+/// mounted this", so the safe move — retry — is the one that stays refused forever. Every ladder
+/// precondition is a statement about live state, and live state is precisely what has moved by the
+/// time a retry arrives. So the key is answered against the ADMITTED HISTORY first, and the original
+/// transition's own projection is returned. The world moving is not a reason to refuse a retry.
+fn replayed_ladder_transition(
+    data_dir: &str,
+    caller: &WriteCaller,
+    domain_app_ref: &str,
+    expected_op_kind: &str,
+    expected_action: &str,
+    request_material: &Value,
+) -> Result<Option<CommittedTransition>, (StatusCode, Json<Value>)> {
+    let history = ladder_history(data_dir, &caller.identity, domain_app_ref)?;
+    let Some(index) = history
+        .iter()
+        .position(|entry| entry.idem_key == caller.idempotency_key)
+    else {
+        return Ok(None);
+    };
+    let entry = &history[index];
+    // A KEY THAT ADMITTED A DIFFERENT COMMAND IS A REFUSAL, NOT A REPLAY, AND IT REFUSES BEFORE ANY
+    // EFFECT. Three things have to agree, because each of them can differ while the other two match:
+    // the operation kind names which route admitted it, the transition action names which rung it
+    // drove, and the request material is what the caller itself authored. Comparing only the key
+    // hands a caller who changed their mind the receipt for the mind they changed.
+    let admitted_action = entry
+        .payload
+        .get("transition_action")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let admitted_material = entry
+        .payload
+        .get("request_material")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let divergence = if entry.op_kind != expected_op_kind {
+        Some(format!(
+            "operation kind '{}' was admitted under this key; this request is '{expected_op_kind}'",
+            entry.op_kind
+        ))
+    } else if admitted_action != expected_action {
+        Some(format!(
+            "transition '{admitted_action}' was admitted under this key; this request is '{expected_action}'"
+        ))
+    } else if &admitted_material != request_material {
+        Some("the request material admitted under this key differs from this request's".to_string())
+    } else {
+        None
+    };
+    if let Some(reason) = divergence {
+        return Err(bad(
+            "domain_app_idempotency_key_reused_for_a_different_command",
+            &format!(
+                "{reason}. An idempotency key identifies one command, so reusing it for another is refused rather than answered with the earlier command's result — which would be a forged success. Nothing was admitted"
+            ),
+        ));
+    }
+    if entry.payload.get("runtime").is_none() {
+        return Ok(None);
+    }
+    // Folded up to AND INCLUDING that operation, so the answer is the state that transition
+    // produced rather than whatever the ladder has done since. Later transitions cannot move it:
+    // the fold reads only operations at or before this one.
+    let (runtime, _) = fold_ladder(&history[..=index]);
+    let Some(runtime) = runtime else {
+        return Ok(None);
+    };
+    let stamp = super::mutation_event_foundation::admitted_stamp(entry.recorded_at_ms);
+    let hash = runtime
+        .get("content_hash")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let receipts = entry
+        .payload
+        .get("receipts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .map(|core| project_receipt(core, &hash, &stamp))
+        .collect();
+    Ok(Some(CommittedTransition {
+        // The DomainApp record this transition admitted, byte-exact from the chain — not the app as
+        // it stands now. A replay answers the command it replays, and that command's answer did not
+        // include anything the ladder has done since.
+        domain_app: entry
+            .payload
+            .get("domain_app")
+            .cloned()
+            .unwrap_or(Value::Null),
+        runtime,
+        receipts,
+        replayed: true,
+        admitted_head: entry.head.clone(),
+    }))
 }
 
 /// This app's current runtime, resolved from the chain.
@@ -2034,6 +2178,66 @@ struct PendingMountReceipt {
     id: String,
     reference: String,
     core: Value,
+}
+
+/// The three fields every owner-scoped write shares, and which no rung authors.
+///
+/// `owner_ref` and `idempotency_key` are consumed by `require_write_caller` and become the caller's
+/// identity rather than the command's content; `expected_head` is a concurrency control the shared
+/// foundation reads. None of them is part of WHAT was asked, so none belongs in the material a
+/// replay compares — `idempotency_key` least of all, since comparing a key against itself is what
+/// the whole comparison exists to stop being sufficient.
+const LADDER_WRITE_CONTROL_FIELDS: &[&str] = &["owner_ref", "idempotency_key", "expected_head"];
+
+/// The caller-authored fields each rung accepts, beyond the shared write controls.
+///
+/// AN ALLOWLIST, NOT A DENYLIST. A field this route does not name is refused rather than ignored,
+/// because an ignored field is a request the caller believes it made and the server never saw — and
+/// under an idempotency key it is worse than that: a retry that adds or drops one would otherwise
+/// compare equal on everything the server bothered to look at and replay as exact.
+fn ladder_allowed_fields(action: &str) -> &'static [&'static str] {
+    match action {
+        "domain_app.mount" => &["approval_request_ref", "release_control_ref"],
+        "domain_app.unmount" | "domain_app.kill_unmount" => &["reason"],
+        // serve and stop-serving reuse the mount's governance and author nothing at all.
+        _ => &[],
+    }
+}
+
+/// Bind EVERY caller-authored field of this request, canonically, as the material a replay compares.
+///
+/// Two halves, and both are needed. The allowlist refuses a field this rung does not author, so an
+/// EXTRA field cannot reach the comparison at all. The map then carries every allowed field —
+/// present or absent, as an explicit null — so a CHANGED or DROPPED one moves the material and the
+/// retry refuses. Naming the fields individually, as the first cut did, made the comparison exactly
+/// as wide as the list somebody remembered to write: a mount retried with a different `reason`, or
+/// with any field the route happened to read elsewhere, compared equal and replayed as exact.
+fn ladder_request_material(body: &Value, action: &str) -> Result<Value, (StatusCode, Json<Value>)> {
+    let allowed = ladder_allowed_fields(action);
+    if let Some(map) = body.as_object() {
+        for key in map.keys() {
+            if LADDER_WRITE_CONTROL_FIELDS.contains(&key.as_str())
+                || allowed.contains(&key.as_str())
+            {
+                continue;
+            }
+            return Err(bad(
+                "domain_app_request_field_unknown",
+                &format!(
+                    "'{key}' is not a field of this transition; it accepts {allowed:?} beside the shared {LADDER_WRITE_CONTROL_FIELDS:?}. An ignored field is a request the caller believes it made and the server never saw, and under an idempotency key it would let a retry that added or dropped it replay as exact"
+                ),
+            ));
+        }
+    }
+    let mut material = serde_json::Map::new();
+    material.insert("transition_action".into(), json!(action));
+    for key in allowed {
+        material.insert(
+            (*key).to_string(),
+            body.get(*key).cloned().unwrap_or(Value::Null),
+        );
+    }
+    Ok(Value::Object(material))
 }
 
 /// Build one receipt core: everything the transition knows BEFORE it is admitted.
@@ -2103,6 +2307,9 @@ fn transition_persist_failure(
 
 /// One committed ladder transition, as its caller sees it after projection.
 struct CommittedTransition {
+    /// The DomainApp record this transition admitted. Carried so a replay answers with the app as
+    /// that command left it rather than as the ladder has since made it.
+    domain_app: Value,
     runtime: Value,
     receipts: Vec<Value>,
     replayed: bool,
@@ -2131,7 +2338,40 @@ fn finalize_domain_app_transition(
     prior_domain_app: &ResolvedDomainApp,
     next_domain_app: &Value,
     receipts: &[PendingMountReceipt],
+    request_material: &Value,
 ) -> Result<CommittedTransition, (StatusCode, Json<Value>)> {
+    // VALIDATE BEFORE ADMITTING, AGAINST A PROBE PROJECTION.
+    //
+    // This checked the projected runtime and receipts AFTER the admission, and its own gate caught
+    // the consequence on the first live run: a receipt that failed the registered contract answered
+    // 400 while the transition it described was already durable on the chain. A refusal that changed
+    // the world is not a refusal.
+    //
+    // The obstacle is real — a runtime's stamps and its content hash are functions of the admission,
+    // so the exact bytes cannot exist before it. What CAN exist is a projection over a probe stamp
+    // and a probe hash, which differs from the real one only in the values of fields whose SHAPE the
+    // probe already satisfies. So a structural defect is refused here, before anything is admitted,
+    // and the post-admission check below can only fail on a projection this build cannot produce —
+    // which it reports as an admitted-but-unprojectable transition rather than as a clean refusal.
+    const PROBE_STAMP: &str = "2000-01-01T00:00:00Z";
+    let probe_runtime = project_runtime(next_runtime_core, prior_runtime, action, PROBE_STAMP);
+    registered_valid(
+        RUNTIME_V2_CONTRACT_ID,
+        &probe_runtime,
+        "domain_app_runtime_not_registered_valid",
+    )?;
+    let probe_hash = probe_runtime
+        .get("content_hash")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    for receipt in receipts {
+        registered_valid(
+            RECEIPT_V2_CONTRACT_ID,
+            &project_receipt(&receipt.core, &probe_hash, PROBE_STAMP),
+            "domain_app_mount_receipt_not_registered_valid",
+        )?;
+    }
     let expected_head = prior_domain_app.admitted_head.clone();
     let commit = admit_owner_scoped_write(
         data_dir,
@@ -2148,6 +2388,11 @@ fn finalize_domain_app_transition(
             // the chain has to know which stamp slot the transition filled. Deriving it from the
             // receipts instead would make a rebuild depend on a receipt array's order.
             "transition_action": action,
+            // WHAT THE CALLER ITSELF AUTHORED, so a retry under the same key can be compared against
+            // the command that key admitted rather than merely against the key. Everything else in
+            // this payload is server-derived, and comparing server-derived bytes would only prove
+            // that this build is deterministic.
+            "request_material": request_material,
             "receipts": receipts.iter().map(|r| r.core.clone()).collect::<Vec<_>>()
         }),
     )?;
@@ -2160,21 +2405,35 @@ fn finalize_domain_app_transition(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_string();
-    registered_valid(
-        RUNTIME_V2_CONTRACT_ID,
-        &runtime,
-        "domain_app_runtime_not_registered_valid",
-    )?;
+    // The probe above already refused every structural defect, so a failure here is a projection
+    // this build cannot produce over an admission that already happened. It is reported as exactly
+    // that — 500 with the transition named as admitted — rather than as a 400 that would tell the
+    // caller nothing changed while the chain says otherwise.
     let projected: Vec<Value> = receipts
         .iter()
         .map(|r| project_receipt(&r.core, &runtime_hash, &stamp))
         .collect();
-    for receipt in &projected {
-        registered_valid(
-            RECEIPT_V2_CONTRACT_ID,
-            receipt,
-            "domain_app_mount_receipt_not_registered_valid",
-        )?;
+    let post_admission = std::iter::once((RUNTIME_V2_CONTRACT_ID, &runtime))
+        .chain(projected.iter().map(|r| (RECEIPT_V2_CONTRACT_ID, r)));
+    for (contract_id, record) in post_admission {
+        if let Err(reason) =
+            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                contract_id,
+                record,
+            )
+        {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "ok": false,
+                    "error": {
+                        "code": "domain_app_transition_admitted_but_unprojectable",
+                        "message": format!("the transition is ADMITTED and its projection failed: {reason}. Replay to reconcile; nothing was rolled back because the admission is canon")
+                    },
+                    "admitted_head": commit.projection.head
+                })),
+            ));
+        }
     }
     let row = domain_app_row(
         next_domain_app,
@@ -2228,6 +2487,7 @@ fn finalize_domain_app_transition(
         written_receipts.push(&pending.id);
     }
     Ok(CommittedTransition {
+        domain_app: next_domain_app.clone(),
         runtime,
         receipts: projected,
         replayed: commit.replayed,
@@ -2248,6 +2508,27 @@ fn runtime_backlink(runtime: &Value) -> Value {
         // there is nothing live to point at and a stale pointer reads exactly like a live one.
         "mount_ref": if mounted { runtime.get("domain_app_runtime_id").cloned().unwrap_or(Value::Null) } else { Value::Null }
     })
+}
+
+/// A stored predecessor app never enters the ladder, because the backlink writer would corrupt it.
+///
+/// `with_runtime_backlink` writes `runtime_posture` and then commits the record under the v2
+/// content-commitment rule — which means it adds a `content_hash` field. The v1 contract is closed,
+/// so that field makes the record invalid against the only contract it was ever admitted under: the
+/// app becomes unreadable at its own owner seam, and the write that did it looked like an ordinary
+/// governed transition. The mount route already refused a predecessor for its own reasons; every
+/// other rung, and governance enforcement, reach the same writer and needed the same fence.
+fn require_v2_for_ladder(app: &ResolvedDomainApp) -> Result<(), (StatusCode, Json<Value>)> {
+    if app.schema_version == DOMAIN_APP_V2_SCHEMA_VERSION {
+        return Ok(());
+    }
+    Err(bad(
+        "domain_app_predecessor_not_mountable",
+        &format!(
+            "this DomainApp is a stored '{}' record; the ladder writes a successor-shaped backlink and commitment onto the record it advances, so advancing a predecessor would leave it invalid against the only contract it was admitted under. It remains readable exactly as admitted",
+            app.schema_version
+        ),
+    ))
 }
 
 /// Apply a runtime backlink to the app record and re-commit it. INVENTORY STATUS IS NOT TOUCHED.
@@ -2295,6 +2576,38 @@ pub(crate) async fn handle_domain_app_mount(
             "domain_app_predecessor_not_mountable",
             "a stored predecessor DomainApp record has no field for the runtime binding this ladder writes; it remains readable and is not mounted",
         );
+    }
+    // A key that already admitted a transition on this ladder is answered from the chain, BEFORE
+    // any precondition reads live state that the first attempt itself moved — and only if the
+    // command under that key was THIS command.
+    let request_material = match ladder_request_material(&body, "domain_app.mount") {
+        Ok(material) => material,
+        Err(response) => return response,
+    };
+    match replayed_ladder_transition(
+        &st.data_dir,
+        &caller,
+        &app_ref,
+        "domain_app.mount",
+        "domain_app.mount",
+        &request_material,
+    ) {
+        Ok(Some(committed)) => {
+            return (
+                StatusCode::CREATED,
+                Json(json!({
+                    "ok": true,
+                    "replayed": true,
+                    "runtime": committed.runtime,
+                    "receipts": committed.receipts,
+                    "receipt": committed.receipts.first().cloned().unwrap_or(Value::Null),
+                    "domain_app": committed.domain_app,
+                    "admitted_head": committed.admitted_head
+                })),
+            )
+        }
+        Ok(None) => {}
+        Err(response) => return response,
     }
     let (existing_runtime, _) =
         match resolve_admitted_runtime(&st.data_dir, &caller.identity, &app_ref) {
@@ -2395,6 +2708,7 @@ pub(crate) async fn handle_domain_app_mount(
         &prior,
         &next_app,
         std::slice::from_ref(&receipt),
+        &request_material,
     ) {
         Ok(committed) => (
             StatusCode::CREATED,
@@ -2402,6 +2716,7 @@ pub(crate) async fn handle_domain_app_mount(
                 "ok": true,
                 "replayed": committed.replayed,
                 "runtime": committed.runtime,
+                "receipts": committed.receipts,
                 "receipt": committed.receipts.first().cloned().unwrap_or(Value::Null),
                 "domain_app": next_app,
                 "admitted_head": committed.admitted_head
@@ -2479,6 +2794,7 @@ fn ladder_subject(
             "this DomainApp was withdrawn; a withdrawn app has no runtime to advance",
         ));
     }
+    require_v2_for_ladder(&app)?;
     let (runtime, _) = resolve_admitted_runtime(data_dir, &caller.identity, &app_ref)?;
     let Some(runtime) = runtime else {
         return Err(bad(
@@ -2552,6 +2868,37 @@ async fn run_ladder_transition(
         Ok(found) => found,
         Err(response) => return response,
     };
+    // Every caller-authored field this rung accepts, bound canonically; anything else is refused
+    // before the comparison rather than dropped into it.
+    let request_material = match ladder_request_material(&body, action) {
+        Ok(material) => material,
+        Err(response) => return response,
+    };
+    match replayed_ladder_transition(
+        &st.data_dir,
+        &caller,
+        &app.domain_app_ref,
+        op_kind,
+        action,
+        &request_material,
+    ) {
+        Ok(Some(committed)) => {
+            return (
+                StatusCode::CREATED,
+                Json(json!({
+                    "ok": true,
+                    "replayed": true,
+                    "runtime": committed.runtime,
+                    "receipts": committed.receipts,
+                    "receipt": committed.receipts.first().cloned().unwrap_or(Value::Null),
+                    "domain_app": committed.domain_app,
+                    "admitted_head": committed.admitted_head
+                })),
+            )
+        }
+        Ok(None) => {}
+        Err(response) => return response,
+    }
     if let Err((c, m)) = precheck(&prior_runtime) {
         return bad(&c, &m);
     }
@@ -2639,6 +2986,7 @@ async fn run_ladder_transition(
         &app,
         &next_app,
         std::slice::from_ref(&receipt),
+        &request_material,
     ) {
         Ok(committed) => (
             StatusCode::CREATED,
@@ -2646,6 +2994,7 @@ async fn run_ladder_transition(
                 "ok": true,
                 "replayed": committed.replayed,
                 "runtime": committed.runtime,
+                "receipts": committed.receipts,
                 "receipt": committed.receipts.first().cloned().unwrap_or(Value::Null),
                 "domain_app": next_app,
                 "admitted_head": committed.admitted_head
@@ -2939,6 +3288,7 @@ pub(crate) fn kill_enforce_runtime(
         ));
     };
     let app = resolve_admitted_domain_app(data_dir, &caller.identity, &domain_app_ref)?;
+    require_v2_for_ladder(&app)?;
     // THE ROW THAT FOUND THIS RUNTIME IS NOT THE RUNTIME. `runtimes_for_kill_target` scans the
     // record directory because the governance enforce path calls it before it has resolved an
     // owner, so what it hands back is a projection. Enforcement re-resolves the runtime from the
@@ -3029,6 +3379,12 @@ pub(crate) fn kill_enforce_runtime(
         &app,
         &next_app,
         &receipts,
+        // Enforcement authors no request body — the KillSwitch subject is the whole command, and it
+        // is already the resource this transition is scoped to. The material is built through the
+        // same function every voluntary rung uses, over an empty body, so an enforced stop's replay
+        // comparison is the same comparison rather than a hand-written value that could drift from
+        // it. `kill_unmount` allows only `reason`, which enforcement leaves null.
+        &ladder_request_material(&json!({}), "domain_app.kill_unmount")?,
     )?;
     Ok(emitted)
 }
@@ -3046,6 +3402,10 @@ mod domain_apps_tests {
     const RECEIPT_PROFILE: &str = include_str!(
         "../../../../../docs/architecture/_meta/schemas/invariants/domain-app-mount-receipt.v2.invariants.json"
     );
+
+    /// AN EXACT SHA-256 HEAD. The registered contract admits sixty-four lowercase hex digits and no
+    /// other width, because a truncated head names a prefix of a chain rather than a position in it.
+    const HEAD_64: &str = "7c19e4a0bb35d2f81c6047ae9d3b5f207c19e4a0bb35d2f81c6047ae9d3b5f20";
 
     fn caller(key: &str) -> WriteCaller {
         WriteCaller {
@@ -3190,7 +3550,7 @@ mod domain_apps_tests {
             "domain-app-runtime://dartm_0123456789abcdef",
             "org://acme",
             0,
-            "7c19e4a0bb35d2f81c6047ae9d3b5f20",
+            HEAD_64,
             "approval-request://apr_1",
             "release-control://rel_1",
         );
@@ -3208,10 +3568,7 @@ mod domain_apps_tests {
             json!("org://acme")
         );
         assert_eq!(projected["domain_app_runtime_revision"], json!(0));
-        assert_eq!(
-            projected["domain_app_admitted_head_before"],
-            json!("7c19e4a0bb35d2f81c6047ae9d3b5f20")
-        );
+        assert_eq!(projected["domain_app_admitted_head_before"], json!(HEAD_64));
         // The registered contract accepts it, and the registered invariant reproduces its root.
         ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
             RECEIPT_V2_CONTRACT_ID,
@@ -3265,14 +3622,8 @@ mod domain_apps_tests {
         );
     }
 
-    /// THE RUNTIME IS A FOLD OVER THE ADMITTED HISTORY, SO THE ROWS CANNOT CHANGE AN ANSWER.
-    ///
-    /// This is the claim that makes the runtime and receipt record directories projections in the
-    /// strict sense. The fold reads nothing but admitted operations and their admission stamps, so
-    /// running it twice over the same history is byte-identical and deleting every row changes
-    /// nothing — the two properties a "rebuildable index" has to have to deserve the name.
-    #[test]
-    fn the_ladder_fold_is_a_pure_function_of_the_admitted_history() {
+    /// A mount followed by a serve, as the chain would hold them.
+    fn ladder_fixture_history() -> Vec<AdmittedLadderEntry> {
         let mount_core = json!({
             "schema_version": RUNTIME_V2_SCHEMA_VERSION,
             "domain_app_runtime_id": "domain-app-runtime://dartm_0123456789abcdef",
@@ -3299,18 +3650,59 @@ mod domain_apps_tests {
             "mount-receipt://mrcpt_0123456789abcdef",
             "mount-receipt://mrcpt_fedcba9876543210"
         ]);
-        let history = vec![
-            (
-                1_756_400_000_000u64,
-                "head-0".to_string(),
-                json!({ "runtime": mount_core, "transition_action": "domain_app.mount", "receipts": [] }),
-            ),
-            (
-                1_756_400_600_000u64,
-                "head-1".to_string(),
-                json!({ "runtime": serve_core, "transition_action": "domain_app.serve_start", "receipts": [] }),
-            ),
-        ];
+        vec![
+            AdmittedLadderEntry {
+                recorded_at_ms: 1_756_400_000_000,
+                head: "head-0".to_string(),
+                idem_key: "mount-1".to_string(),
+                op_kind: "domain_app.mount".to_string(),
+                payload: json!({ "runtime": mount_core, "transition_action": "domain_app.mount", "receipts": [] }),
+            },
+            AdmittedLadderEntry {
+                recorded_at_ms: 1_756_400_600_000,
+                head: "head-1".to_string(),
+                idem_key: "serve-1".to_string(),
+                op_kind: "domain_app.serve".to_string(),
+                payload: json!({ "runtime": serve_core, "transition_action": "domain_app.serve_start", "receipts": [] }),
+            },
+        ]
+    }
+
+    /// A REPLAY IS FOLDED AT THE OPERATION IT REPLAYS, NOT AT THE HEAD OF THE LADDER.
+    ///
+    /// The claim that makes "replay after later transitions" meaningful: folding `..=index` reads
+    /// only operations at or before the one the key admitted, so the answer is the state THAT
+    /// command produced. Folding the whole history instead would hand a caller retrying their mount
+    /// the runtime as it stands after a serve and an unmount, and call it a replay.
+    #[test]
+    fn a_replay_folds_at_its_own_operation_not_at_the_current_head() {
+        let history = ladder_fixture_history();
+        let (at_mount, _) = fold_ladder(&history[..=0]);
+        let (at_serve, _) = fold_ladder(&history);
+        let at_mount = at_mount.expect("the mount folds");
+        let at_serve = at_serve.expect("the serve folds");
+        assert_eq!(at_mount["revision"], json!(0));
+        assert_eq!(at_mount["state"], json!("mounted"));
+        assert_eq!(at_mount["serving"], json!(false));
+        assert_eq!(at_mount["internal_route_ref"], Value::Null);
+        // The later transition moved the runtime, and the earlier fold did not follow it.
+        assert_eq!(at_serve["revision"], json!(1));
+        assert_ne!(at_mount["content_hash"], at_serve["content_hash"]);
+        // And the earlier fold is byte-stable across repetition, which is what lets a replay answer
+        // identically however many transitions have landed since.
+        let (again, _) = fold_ladder(&history[..=0]);
+        assert_eq!(Some(at_mount), again);
+    }
+
+    /// THE RUNTIME IS A FOLD OVER THE ADMITTED HISTORY, SO THE ROWS CANNOT CHANGE AN ANSWER.
+    ///
+    /// This is the claim that makes the runtime and receipt record directories projections in the
+    /// strict sense. The fold reads nothing but admitted operations and their admission stamps, so
+    /// running it twice over the same history is byte-identical and deleting every row changes
+    /// nothing — the two properties a "rebuildable index" has to have to deserve the name.
+    #[test]
+    fn the_ladder_fold_is_a_pure_function_of_the_admitted_history() {
+        let history = ladder_fixture_history();
         let (first, _) = fold_ladder(&history);
         let (second, _) = fold_ladder(&history);
         assert_eq!(first, second, "the fold is deterministic");
