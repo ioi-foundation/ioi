@@ -6,7 +6,7 @@
   "domain_app_runtime_ref": "domain-app-runtime://dartm_4b81ce07d2a96f15",
   "domain_app_runtime_owner_ref": "org://acme-clinic",
   "domain_app_runtime_revision": 0,
-  "domain_app_admitted_head_before": "7c19e4a0bb35d2f81c6047ae9d3b5f20",
+  "domain_app_admitted_head_before": "7c19e4a0bb35d2f81c6047ae9d3b5f207c19e4a0bb35d2f81c6047ae9d3b5f20",
   "approval_request_ref": "approval-request://apr_intake_queue_mount",
   "release_control_ref": "release-control://rel_intake_queue_2026_08",
   "at": "2026-08-30T17:04:11Z",
@@ -16,5 +16,5 @@
     "external_surface_exists",
     "domain_action_ran"
   ],
-  "state_root": "sha256:65392f741438ac535f18894098b939ffef99963f2fa851ee4c13c5bfc4930889"
+  "state_root": "sha256:bf887928f5f7a91bcb1c6da3d77ea064e1a8c6f237ee348db443ec2a79f8238c"
 }

@@ -20894,7931 +20894,1163 @@ export type ArchitectureContractDifferentialCase = {
   value_json: string | null;
 };
 
+/**
+ * EACH CASE IS TYPED AT ITS OWN LITERAL, NOT UNIONED WITH EVERY OTHER.
+ *
+ * The array below carries one entry per registered fixture and per registered mutation, so it grows
+ * with the corpus. Annotating only the variable leaves TypeScript inferring the whole array literal
+ * first — every object literal widened to its own type, with each id, contract_id and value_json as
+ * distinct string literals — and then checking that union against the annotation. Past a threshold
+ * that inference exceeds the compiler's union-complexity limit and the build fails with TS2590 on
+ * the array expression, which reads as a defect in the generated file rather than as a scale limit
+ * in how it was emitted. Registering four contract families was enough to cross it.
+ *
+ * The threshold is driven by the WIDTH of the value_json literals rather than by the entry count:
+ * four thousand short synthetic entries type-check fine, while this corpus does not. That is why
+ * scripts/lib/architecture-contract-differential-scaling.test.mjs reconstructs the bare-array form
+ * of THIS file's real output and type-checks both, instead of inventing a corpus that would prove
+ * nothing.
+ *
+ * The identity below annotates each element where it is written, so no cross-element union is ever
+ * formed. The emitted values are unchanged; only the point at which they acquire their type moves.
+ */
+const differentialCase = (
+  entry: ArchitectureContractDifferentialCase,
+): ArchitectureContractDifferentialCase => entry;
+
 export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractDifferentialCase> = [
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/attempt/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/capability-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/outcome-room/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/participant-state-bundle/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/resource-offer/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participant-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/room-participation-request/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/verifier-challenge/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-claim-lease/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/applications/ioi-ai/work-frontier-item/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/agent-execution-branch/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/agent-execution-branch/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident-operation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-ref/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/artifact-ref/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/branch-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/branch-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/branch-merge-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/branch-merge-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-thread-orchestration-namespace.json",
-    "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-thread-orchestration-namespace.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-automation-scheduler-namespace.json",
-    "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-automation-scheduler-namespace.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-fabricated-runtime-events-ref.json",
-    "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-fabricated-runtime-events-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-family-minted-sequence.json",
-    "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-family-minted-sequence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-namespace-identity-mismatch.json",
-    "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-namespace-identity-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-no-admitted-class.json",
-    "contract_id": "schema://ioi/components/agentgres/event-stream/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-no-admitted-class.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/operation-log-entry/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/operation-log-entry/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/projection-definition-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/projection-definition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/projection-definition-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/projection-definition-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/projection-definition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/projection-definition-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-active-checkpointed.json",
-    "contract_id": "schema://ioi/components/agentgres/projection-subscription-lease/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-active-checkpointed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-revoked-second-namespace.json",
-    "contract_id": "schema://ioi/components/agentgres/projection-subscription-lease/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-revoked-second-namespace.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-checkpoint-scalar-substituted.json",
-    "contract_id": "schema://ioi/components/agentgres/projection-subscription-lease/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-checkpoint-scalar-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-unbounded-backpressure.json",
-    "contract_id": "schema://ioi/components/agentgres/projection-subscription-lease/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-unbounded-backpressure.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/agentgres/staged-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/agentgres/staged-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json",
-    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json",
-    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json",
-    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json",
-    "contract_id": "schema://ioi/components/agentgres/storage-backend-write-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
-    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
-    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
-    "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/action-request-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/agent-harness-adapter/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/authority-gateway-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/declassification-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/declassification-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/harness-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/harness-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/hypervisoros-node/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/temporal-verification-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/application-surface-registration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json",
-    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json",
-    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json",
-    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json",
-    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/artifact-repair-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
-    "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/backend-capability-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/collection-page/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/collection-page/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/collection-query/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/collection-query/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json",
-    "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json",
-    "contract_id": "schema://ioi/components/hypervisor/auth-factor-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
-    "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json",
-    "contract_id": "schema://ioi/components/hypervisor/c8-certificate/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json",
-    "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json",
-    "contract_id": "schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json",
-    "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json",
-    "contract_id": "schema://ioi/aft/u1-campaign-result/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json",
-    "contract_id": "schema://ioi/aft/measured-result-row/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json",
-    "contract_id": "schema://ioi/aft/measured-result-row/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json",
-    "contract_id": "schema://ioi/aft/measured-results-registry/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json",
-    "contract_id": "schema://ioi/aft/measured-results-registry/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json",
-    "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json",
-    "contract_id": "schema://ioi/foundations/verifier-independence-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json",
-    "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json",
-    "contract_id": "schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
-    "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json",
-    "contract_id": "schema://ioi/foundations/relying-party-acceptance-policy/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json",
-    "contract_id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json",
-    "contract_id": "schema://ioi/foundations/certificate-acceptance-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-readiness/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-spawn/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json",
-    "contract_id": "schema://ioi/components/hypervisor/harness-session-terminal-attach/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-change-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-backup/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json",
-    "contract_id": "schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/mutation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/mutation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/preference-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/preference-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json",
-    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json",
-    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/product-surface-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/product-surface-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/route-retirement-refusal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/route-retirement-refusal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-archive-object/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/surface-installation-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/surface-installation-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/surface-release-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/surface-serving-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/surface-serving-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/hypervisor/system-interface-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/system-interface-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
-    "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
-    "contract_id": "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json",
-    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json",
-    "contract_id": "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
-    "contract_id": "schema://ioi/components/hypervisor/workload-isolation-requirements/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json",
-    "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json",
-    "contract_id": "schema://ioi/foundations/approval-ceremony-context/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/active-skill-set-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/active-skill-set-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json",
-    "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json",
-    "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json",
-    "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json",
-    "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json",
-    "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
-    "contract_id": "schema://ioi/foundations/standing-authority-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
-    "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json",
-    "contract_id": "schema://ioi/foundations/authority-trajectory-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json",
-    "contract_id": "schema://ioi/foundations/trajectory-admission-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json",
-    "contract_id": "schema://ioi/foundations/trajectory-admission-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
-    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json",
-    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json",
-    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json",
-    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json",
-    "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json",
-    "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
-    "contract_id": "schema://ioi/foundations/authority-revocation-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-authority-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-active-profile-set/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/positive-committed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/positive-committed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/negative-missing-approval-root.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/negative-missing-approval-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/positive-committed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/positive-committed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-wrong-op.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-wrong-op.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-status-change.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-amendment-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-status-change.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/positive-claimed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/positive-claimed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/negative-same-root.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain-successor-claim/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/negative-same-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/positive-reserved.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/positive-reserved.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-identity.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-identity.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-plan.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-plan.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/positive-approved.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/positive-approved.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/negative-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/negative-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution-amendment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-continuity-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-desired-topology/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-desired-topology/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-desired-topology/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-dissolution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-home-domain-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-lifecycle-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-membership-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-node-membership/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-operation-log/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json",
-    "contract_id": "schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/cancellation-fanout-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/cancellation-fanout-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json",
-    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json",
-    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json",
-    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json",
-    "contract_id": "schema://ioi/foundations/consequential-effect-fence-context/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json",
-    "contract_id": "schema://ioi/foundations/declassification-approval/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
-    "contract_id": "schema://ioi/foundations/declassification-approval/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
-    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
-    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json",
-    "contract_id": "schema://ioi/foundations/information-flow-label/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json",
-    "contract_id": "schema://ioi/foundations/information-flow-label/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
-    "contract_id": "schema://ioi/foundations/information-flow-label/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json",
-    "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
-    "contract_id": "schema://ioi/foundations/ioi-network-enrollment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-continuity-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json",
-    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json",
-    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json",
-    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json",
-    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json",
-    "contract_id": "schema://ioi/foundations/lost-suffix-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
-    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
-    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion-admission-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion-admission-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/ontology-version/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
-    "contract_id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json",
-    "contract_id": "schema://ioi/foundations/oracle-evidence-admission-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json",
-    "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
-    "contract_id": "schema://ioi/foundations/oracle-evidence-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
-    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
-    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json",
-    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json",
-    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json",
-    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json",
-    "contract_id": "schema://ioi/foundations/ordering-finality-recovery/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json",
-    "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
-    "contract_id": "schema://ioi/foundations/state-transition-commitment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-rejected-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/outcome-delta/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-rejected-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
-    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
-    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
-    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
-    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json",
-    "contract_id": "schema://ioi/foundations/recognition-class/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json",
-    "contract_id": "schema://ioi/foundations/recognition-class/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json",
-    "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/conflict-authority-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json",
-    "contract_id": "schema://ioi/foundations/retention-class/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json",
-    "contract_id": "schema://ioi/foundations/retention-class/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json",
-    "contract_id": "schema://ioi/foundations/retention-class/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
-    "contract_id": "schema://ioi/foundations/verifier-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json",
-    "contract_id": "schema://ioi/foundations/verifier-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json",
-    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
-    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json",
-    "contract_id": "schema://ioi/foundations/availability-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json",
-    "contract_id": "schema://ioi/foundations/finality-certificate/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json",
-    "contract_id": "schema://ioi/foundations/finality-certificate/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json",
-    "contract_id": "schema://ioi/foundations/receipt-checkpoint/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/skill-entry-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/skill-entry/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/skill-entry-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/skill-entry-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/skill-entry/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/skill-entry-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/skill-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/skill-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
-    "contract_id": "schema://ioi/foundations/system-scoped-object-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-record/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-projection/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-archive-segment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-archive-segment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/work-lifecycle-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json",
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json",
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json",
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-over-cardinality.json",
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-over-cardinality.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json",
-    "contract_id": "schema://ioi/foundations/work-result/v3",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/workflow-template/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/workflow-template/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json",
-    "contract_id": "schema://ioi/hypervisor/automation-spec/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json",
-    "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json",
-    "contract_id": "schema://ioi/hypervisor/automation-installation-binding/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json",
-    "contract_id": "schema://ioi/hypervisor/automation-run/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json",
-    "contract_id": "schema://ioi/hypervisor/automation-run/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
-    "contract_id": "schema://ioi/foundations/objects/work-frontier-item-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json",
-    "contract_id": "schema://ioi/foundations/objects/room-participant-lease-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json",
-    "contract_id": "schema://ioi/foundations/objects/participant-state-bundle-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json",
-    "contract_id": "schema://ioi/foundations/objects/work-claim-lease-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
-    "contract_id": "schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
-    "contract_id": "schema://ioi/foundations/objects/attempt-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json",
-    "contract_id": "schema://ioi/foundations/objects/finding-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
-    "contract_id": "schema://ioi/foundations/objects/work-result-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
-    "contract_id": "schema://ioi/foundations/objects/outcome-delta-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json",
-    "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json",
-    "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json",
-    "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json",
-    "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json",
-    "contract_id": "schema://ioi/foundations/objects/collaboration-terms-envelope/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json",
-    "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json",
-    "contract_id": "schema://ioi/foundations/runtime-assignment/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json",
-    "contract_id": "schema://ioi/foundations/download-intent/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json",
-    "contract_id": "schema://ioi/foundations/download-intent/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json",
-    "contract_id": "schema://ioi/foundations/download-intent/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
-    "contract_id": "schema://ioi/foundations/download-intent/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json",
-    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
-    "contract_id": "schema://ioi/foundations/data-retention-disposition/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/support-incident-link/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
-    "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
-    "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json",
-    "contract_id": "schema://ioi/components/wallet-network/authority-review-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json",
-    "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
-    "contract_id": "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json",
-    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json",
-    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json",
-    "contract_id": "schema://ioi/components/wallet-network/wallet-ownership-proof/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/daemon-runtime/compute-session/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json",
-    "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/storage-backends/managed-storage-profile/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json",
-    "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json",
-    "contract_id": "schema://ioi/components/hypervisor/managed-restore-plan/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-recipe-revision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-qualified-measurement/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
-    "contract_id": "schema://ioi/components/hypervisor/foundry-artifact-intent/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json",
-    "contract_id": "schema://ioi/foundations/objects/verifier-challenge-envelope/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-action-contract/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
-    "contract_id": "schema://ioi/foundations/ontology-overlay/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
-    "contract_id": "schema://ioi/foundations/ontology-crosswalk/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
-    "contract_id": "schema://ioi/foundations/semantic-mapping-decision/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
-    "contract_id": "schema://ioi/foundations/ontology-assertion/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-genesis-attested-preserves-v1-semantics.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-genesis-attested-preserves-v1-semantics.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-upheld-challenge-resolution.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-upheld-challenge-resolution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-rejected-challenge-resolution-is-retained.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-rejected-challenge-resolution-is-retained.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-adjudication-without-a-named-challenge.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-adjudication-without-a-named-challenge.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-content-hash-omits-the-challenge-resolution.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-content-hash-omits-the-challenge-resolution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-subject.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-subject.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-revisions-bytes.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-revisions-bytes.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-outside-adjudication.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-outside-adjudication.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-upheld-challenge-reported-as-positive.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-upheld-challenge-reported-as-positive.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-rejected-challenge-reported-as-negative.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-rejected-challenge-reported-as-negative.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-schema-version-on-v2.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-schema-version-on-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-receipt-profile-on-v2.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-receipt-profile-on-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-challenge-envelope-in-the-resolution.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-challenge-envelope-in-the-resolution.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-with-no-reviewer.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-with-no-reviewer.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json",
-    "contract_id": "schema://ioi/foundations/assurance-transition-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json",
-    "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-runtime/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v1",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json",
-    "contract_id": "schema://ioi/foundations/objects/domain-app-mount-receipt/v2",
-    "source_fixture_path": "docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json",
-    "mutation_id": null,
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-timestamp-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-timestamp-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authorized-materialization-id-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authorized-materialization-id-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authority-principal-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authority-principal-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-authority-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-authority-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-key-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-key-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-effect-receipt-ref-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-effect-receipt-ref-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-effect-registry-ref-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-effect-registry-ref-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-policy-hash-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-policy-hash-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-wallet-consumption-request-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-wallet-consumption-request-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-coordinates-ref-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-coordinates-ref-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authority-key-statement-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authority-key-statement-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authority-id-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authority-id-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-issuer-root-id-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-issuer-root-id-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-unsupported-signature-suite",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-unsupported-signature-suite",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-suite-mismatch",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-suite-mismatch",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authority-suite-mismatch",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authority-suite-mismatch",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-oversized-principal",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-oversized-principal",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-nested-authority-claim",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-nested-authority-claim",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-truncated-grant-signature",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-truncated-grant-signature",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-truncated-root-signature",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-truncated-root-signature",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-duplicated-materialization-field-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-duplicated-materialization-field-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-embedded-component-count-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-embedded-component-count-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-embedded-component-identity-duplicate",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-embedded-component-identity-duplicate",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-embedded-component-kind-ref-substitution",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-embedded-component-kind-ref-substitution",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-embedded-deployment-root-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-embedded-deployment-root-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-legacy-deployment-compatibility-root-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-request-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-request-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-consumption-evidence-id-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-consumption-evidence-id-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-policy-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-policy-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-effect-hash-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-effect-hash-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-identity-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-identity-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-snapshot-hash-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-snapshot-hash-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-statement-hash-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-statement-hash-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-binding-hash-self-attestation",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-binding-hash-self-attestation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-binding-coordinates-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-binding-coordinates-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authority-tuple-detached",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authority-tuple-detached",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-scope-uncovered",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-scope-uncovered",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-matched-scope-does-not-cover",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-matched-scope-does-not-cover",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-binding-signed-after-resolution",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-binding-signed-after-resolution",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-binding-expired-at-resolution",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-binding-expired-at-resolution",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-authority-expired-at-resolution",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-authority-expired-at-resolution",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-grant-expired-at-resolution",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-grant-expired-at-resolution",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-boundary-required-ref-missing",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-boundary-required-ref-missing",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-receipt-boundary-extra-ref-injected",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-receipt-boundary-extra-ref-injected",
-    "value_json": null
-  },
-  {
-    "id": "mutation:sequence-zero-materialization-broad-receipt-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1",
-    "source_fixture_path": null,
-    "mutation_id": "sequence-zero-materialization-broad-receipt-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:type-number-for-string",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "type-number-for-string",
-    "value_json": null
-  },
-  {
-    "id": "mutation:required-property-removed",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "required-property-removed",
-    "value_json": null
-  },
-  {
-    "id": "mutation:required-nullable-claim-scope-missing",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "required-nullable-claim-scope-missing",
-    "value_json": null
-  },
-  {
-    "id": "mutation:additional-property-injected",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "additional-property-injected",
-    "value_json": null
-  },
-  {
-    "id": "mutation:referenced-pattern-violated",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "referenced-pattern-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:ecma-whitespace-byte-order-mark-rejected",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "ecma-whitespace-byte-order-mark-rejected",
-    "value_json": null
-  },
-  {
-    "id": "mutation:ecma-non-whitespace-next-line-accepted",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "ecma-non-whitespace-next-line-accepted",
-    "value_json": null
-  },
-  {
-    "id": "mutation:nullable-any-of-violated",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "nullable-any-of-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:optional-non-nullable-input-hash-null",
-    "contract_id": "schema://ioi/foundations/receipt-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "optional-non-nullable-input-hash-null",
-    "value_json": null
-  },
-  {
-    "id": "mutation:unicode-aware-min-length-violated",
-    "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
-    "source_fixture_path": null,
-    "mutation_id": "unicode-aware-min-length-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:closed-enum-violated-with-raw-string-sentinel",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "closed-enum-violated-with-raw-string-sentinel",
-    "value_json": null
-  },
-  {
-    "id": "mutation:minimum-violated",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "minimum-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:array-items-schema-violated",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "array-items-schema-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:deep-unique-items-key-order-duplicate",
-    "contract_id": "schema://ioi/foundations/authority-key-set/v1",
-    "source_fixture_path": null,
-    "mutation_id": "deep-unique-items-key-order-duplicate",
-    "value_json": null
-  },
-  {
-    "id": "mutation:impossible-rfc3339-calendar-date",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "impossible-rfc3339-calendar-date",
-    "value_json": null
-  },
-  {
-    "id": "mutation:closed-const-violated",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": null,
-    "mutation_id": "closed-const-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:one-of-violated",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": null,
-    "mutation_id": "one-of-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:maximum-safe-integer-violated",
-    "contract_id": "schema://ioi/foundations/managed-work-billing-ledger-bundle/v1",
-    "source_fixture_path": null,
-    "mutation_id": "maximum-safe-integer-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:minimum-array-size-violated",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": "minimum-array-size-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:type-less-if-then-max-items-violated",
-    "contract_id": "schema://ioi/foundations/physical-action-execution-receipt/v1",
-    "source_fixture_path": null,
-    "mutation_id": "type-less-if-then-max-items-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:nested-all-of-contains-member-missing",
-    "contract_id": "schema://ioi/foundations/dispute-rail-bundle/v1",
-    "source_fixture_path": null,
-    "mutation_id": "nested-all-of-contains-member-missing",
-    "value_json": null
-  },
-  {
-    "id": "mutation:type-less-if-else-required-hash-violated",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "type-less-if-else-required-hash-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:boolean-const-self-authority-violated",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
-    "source_fixture_path": null,
-    "mutation_id": "boolean-const-self-authority-violated",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-authorized-without-admission-authority-status-evidence",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-authorized-without-admission-authority-status-evidence",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-activated-without-activation-lifecycle-evidence",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-activated-without-activation-lifecycle-evidence",
-    "value_json": null
-  },
-  {
-    "id": "mutation:constitution-active-without-activation-receipt",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
-    "source_fixture_path": null,
-    "mutation_id": "constitution-active-without-activation-receipt",
-    "value_json": null
-  },
-  {
-    "id": "mutation:constitution-draft-with-activation-residue",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
-    "source_fixture_path": null,
-    "mutation_id": "constitution-draft-with-activation-residue",
-    "value_json": null
-  },
-  {
-    "id": "mutation:constitution-draft-with-public-commitment-residue",
-    "contract_id": "schema://ioi/foundations/autonomous-system-constitution/v1",
-    "source_fixture_path": null,
-    "mutation_id": "constitution-draft-with-public-commitment-residue",
-    "value_json": null
-  },
-  {
-    "id": "mutation:ordering-active-without-conformance-evidence",
-    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
-    "source_fixture_path": null,
-    "mutation_id": "ordering-active-without-conformance-evidence",
-    "value_json": null
-  },
-  {
-    "id": "mutation:ordering-draft-with-conformance-residue",
-    "contract_id": "schema://ioi/foundations/ordering-admission-finality-profile/v1",
-    "source_fixture_path": null,
-    "mutation_id": "ordering-draft-with-conformance-residue",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-committed-without-terminal-proof-set",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-committed-without-terminal-proof-set",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-proposed-with-decision-residue",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-proposed-with-decision-residue",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-transition-receipt-initialize-wrong-sequence",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-transition-receipt-initialize-wrong-sequence",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-transition-receipt-initialize-missing-source-artifact",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-transition-receipt-initialize-missing-source-artifact",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-transition-receipt-initialize-detached-subject",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-transition-receipt-initialize-detached-subject",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-transition-receipt-initialize-wrong-scope",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-transition-receipt-initialize-wrong-scope",
-    "value_json": null
-  },
-  {
-    "id": "mutation:lifecycle-transition-receipt-cannot-claim-activation",
-    "contract_id": "schema://ioi/foundations/lifecycle-transition-receipt/v1",
-    "source_fixture_path": null,
-    "mutation_id": "lifecycle-transition-receipt-cannot-claim-activation",
-    "value_json": null
-  },
-  {
-    "id": "mutation:chain-operation-log-required",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": null,
-    "mutation_id": "chain-operation-log-required",
-    "value_json": null
-  },
-  {
-    "id": "mutation:chain-operation-log-root-required",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": null,
-    "mutation_id": "chain-operation-log-root-required",
-    "value_json": null
-  },
-  {
-    "id": "mutation:proposal-home-domain-must-be-derived-form",
-    "contract_id": "schema://ioi/foundations/autonomous-system-activation-proposal/v1",
-    "source_fixture_path": null,
-    "mutation_id": "proposal-home-domain-must-be-derived-form",
-    "value_json": null
-  },
-  {
-    "id": "mutation:chain-home-domain-must-be-derived-form",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": null,
-    "mutation_id": "chain-home-domain-must-be-derived-form",
-    "value_json": null
-  },
-  {
-    "id": "mutation:chain-home-domain-binding-must-be-content-addressed",
-    "contract_id": "schema://ioi/foundations/autonomous-system-chain/v1",
-    "source_fixture_path": null,
-    "mutation_id": "chain-home-domain-binding-must-be-content-addressed",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-goal-run-profiles-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-goal-run-profiles-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-workflow-templates-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-workflow-templates-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-automation-specs-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-automation-specs-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-harness-profiles-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-harness-profiles-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-agent-harness-adapters-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-agent-harness-adapters-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-skill-manifests-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-skill-manifests-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-data-recipes-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-data-recipes-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-runtime-tool-contracts-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-runtime-tool-contracts-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:manifest-mcp-gateway-requirements-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-manifest/v1",
-    "source_fixture_path": null,
-    "mutation_id": "manifest-mcp-gateway-requirements-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-goal-run-profiles-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-goal-run-profiles-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-workflow-templates-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-workflow-templates-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-automation-specs-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-automation-specs-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-harness-profiles-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-harness-profiles-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-agent-harness-adapters-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-agent-harness-adapters-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-data-recipes-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-data-recipes-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "mutation:genesis-runtime-tool-contracts-cross-category-ref",
-    "contract_id": "schema://ioi/foundations/autonomous-system-genesis/v1",
-    "source_fixture_path": null,
-    "mutation_id": "genesis-runtime-tool-contracts-cross-category-ref",
-    "value_json": null
-  },
-  {
-    "id": "differential:authority-timestamp-integral-decimal",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v2",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"schema_version\": \"ioi.foundations.authority-grant-envelope.v2\",\n  \"envelope_type\": \"ioi.authority-grant\",\n  \"signature_domain\": \"ioi.authority-grant-envelope.v2\",\n  \"schema_hash\": \"sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e\",\n  \"authority_grant_id\": \"grant://acme/repo-auditor/2\",\n  \"request_id\": \"authority-request://acme/repo-auditor/2\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n  \"issuer_key_set_version\": 4,\n  \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n  \"holder_id\": \"system://acme/delegator\",\n  \"holder_key_id\": \"key://acme/delegator/ed25519-1\",\n  \"audience\": \"runtime://acme/hypervisor/node-7\",\n  \"issued_at\": 1784203200.0,\n  \"not_before\": 1784203200,\n  \"expires_at\": 1784289600,\n  \"parent_grant\": null,\n  \"authority_scopes\": [\n    \"scope:repo.read\",\n    \"scope:repo.write\"\n  ],\n  \"primitive_capability_constraints\": [\n    \"prim:fs.read\",\n    \"prim:fs.write\"\n  ],\n  \"resources\": [\n    \"agentgres://project/hypervisor/source\",\n    \"agentgres://project/hypervisor/source/src\"\n  ],\n  \"attenuating_caveats\": [],\n  \"risk_restrictions\": {\n    \"allowed_risk_classes\": [\n      \"read\",\n      \"draft\"\n    ],\n    \"max_budget_microusd\": 10000000,\n    \"max_calls\": 100,\n    \"approval_required_for\": [\n      \"secret_export\"\n    ]\n  },\n  \"revocation_epoch\": 7,\n  \"body_hash\": \"sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96\",\n  \"signature_suite\": \"ed25519\",\n  \"signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"signature\": \"maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg\"\n}\n"
-  },
-  {
-    "id": "differential:portable-integer-boundary",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 9007199254740991,\n  \"status\": \"active\"\n}\n"
-  },
-  {
-    "id": "differential:portable-integer-over-bound",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 9007199254740992,\n  \"status\": \"active\"\n}\n"
-  },
-  {
-    "id": "differential:portable-integer-over-u64",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 18446744073709551616,\n  \"status\": \"active\"\n}\n"
-  },
-  {
-    "id": "differential:portable-integer-negative",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": -1,\n  \"status\": \"active\"\n}\n"
-  },
-  {
-    "id": "differential:portable-integer-integral-decimal",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 1.0,\n  \"status\": \"active\"\n}\n"
-  },
-  {
-    "id": "differential:proof-index-integral-decimal-equality",
-    "contract_id": "schema://ioi/foundations/receipt-proof-bundle/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\n  \"schema_version\": \"ioi.foundations.receipt-proof-bundle.v1\",\n  \"bundle_type\": \"ioi.receipt-proof-bundle\",\n  \"manifest_domain\": \"ioi.receipt-proof-bundle-manifest.v1\",\n  \"bundle_schema_hash\": \"sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034\",\n  \"manifest_hash\": \"sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b\",\n  \"manifest_signature_suite\": \"ed25519\",\n  \"manifest_signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"manifest_signature\": \"50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw\",\n  \"bundle_id\": \"proof://acme/audit-log/4/receipt-1\",\n  \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n  \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n  \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n  \"receipt\": {\n    \"receipt_id\": \"receipt://run-43/delivery-7\",\n    \"receipt_type\": \"delivery.accepted\",\n    \"receipt_profile_ref\": \"schema://ioi/receipts/delivery-accepted/v1\",\n    \"attested_boundary_fact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"claim_scope_ref\": \"schema://ioi/delivery/acceptance/v1\",\n    \"run_id\": \"run://43\",\n    \"task_id\": \"task://deliver-7\",\n    \"actor_id\": \"runtime://worker-2\",\n    \"input_hash\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"output_hash\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n    \"policy_hash\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n    \"authority_grant_id\": \"grant://delivery-7\",\n    \"primitive_capabilities\": [\n      \"prim:fs.read\"\n    ],\n    \"authority_scopes\": [\n      \"scope:artifact.deliver\"\n    ],\n    \"artifact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"evidence_bundle_refs\": [\n      \"evidence://delivery-7\"\n    ],\n    \"verification_ref\": \"verifier-path://delivery/default/v1\",\n    \"acceptance_ref\": \"acceptance://delivery-7\",\n    \"adjudication_ref\": null,\n    \"settlement_ref\": \"settlement://delivery-7\",\n    \"timestamp\": \"2026-07-16T12:05:00Z\",\n    \"signature\": \"legacy-signature-placeholder\",\n    \"public_commitment_ref\": \"commitment://delivery-7\"\n  },\n  \"receipt_body_hash\": \"sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878\",\n  \"leaf\": {\n    \"algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"domain\": \"ioi.receipt-accumulator-leaf.v1\",\n    \"leaf_index\": 1.0,\n    \"leaf_hash\": \"sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e\"\n  },\n  \"inclusion_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-inclusion.v1\",\n    \"leaf_index\": 1,\n    \"prefix_root\": \"sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0\",\n    \"suffix_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/4\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n    \"accumulator_size\": 4,\n    \"accumulator_root\": \"sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab\",\n    \"previous_checkpoint_ref\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"previous_checkpoint_hash\": \"sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83\",\n    \"previous_accumulator_size\": 2,\n    \"previous_accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203300,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw\"\n  },\n  \"previous_checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n    \"accumulator_size\": 2,\n    \"accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"previous_checkpoint_ref\": null,\n    \"previous_checkpoint_hash\": null,\n    \"previous_accumulator_size\": null,\n    \"previous_accumulator_root\": null,\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203240,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg\"\n  },\n  \"consistency_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-consistency.v1\",\n    \"from_size\": 2,\n    \"from_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"extension_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"trusted_input_refs\": {\n    \"key_set_ref\": \"keyset://acme/security/4\",\n    \"key_set_version\": 4,\n    \"revocation_snapshot_ref\": \"snapshot://acme/security/revocations/8\",\n    \"revocation_epoch\": 8\n  },\n  \"verification_instructions\": {\n    \"profile\": \"ioi.receipt-proof-verification.v1\",\n    \"steps\": [\n      \"Validate registered closed schemas and schema hashes.\",\n      \"Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.\",\n      \"Recompute the indexed leaf and hash-chain inclusion root.\",\n      \"Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.\",\n      \"Recompute append-only consistency from the previous checkpoint root.\"\n    ],\n    \"offline_required_inputs\": [\n      \"trusted_key_set\",\n      \"signed_revocation_snapshot\",\n      \"trusted_time\"\n    ]\n  }\n}\n"
-  },
-  {
-    "id": "differential:canonical-leap-second-z",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:60Z\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:canonical-leap-second-offset",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-02T00:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:noncanonical-space-separator",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01 23:59:59Z\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:noncanonical-compact-offset",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:59+0100\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:noncanonical-hour-offset",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:59+01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:noncanonical-hour-24-leap",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T24:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:noncanonical-minute-60-leap",
-    "contract_id": "schema://ioi/foundations/authority-grant-envelope/v1",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:60:60+00:01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"
-  },
-  {
-    "id": "differential:object-valued-invariant-key-order",
-    "contract_id": "schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2",
-    "source_fixture_path": null,
-    "mutation_id": null,
-    "value_json": "{\"schema_version\":\"ioi.autonomous-system-sequence-zero-materialization-receipt.v2\",\"receipt_id\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_ref\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_type\":\"autonomous_system_sequence_zero_materialization\",\"receipt_profile_ref\":\"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2\",\"actor_id\":\"runtime://hypervisor-runtime\",\"subject_ref\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"op\":\"materialized\",\"attested_boundary_fact_refs\":[\"system://acme/system-alpha\",\"genesis://acme/system-alpha/zero\",\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"constitution://acme/system-alpha/v1\",\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"ordering-profile://acme/system-alpha/poa1\",\"oracle-evidence-profile://acme/system-alpha/public-records\",\"lifecycle-profile://acme/system-alpha/default\",\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"agentgres://domain/acme/research\",\"grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28\",\"wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020\",\"system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020\"],\"bound_facts\":{\"materialization_id\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"materialization_output_hash\":\"sha256:2020202020202020202020202020202020202020202020202020202020202020\",\"governing_authority_ref\":\"agentgres://domain/acme/research\",\"authority_effect_hash\":\"sha256:3a6e54d37bdfa3395f07aa16c0951f27dee4b5f435f6365eae06967ee7d90182\",\"system_id\":\"system://acme/system-alpha\",\"genesis_ref\":\"genesis://acme/system-alpha/zero\",\"genesis_admission_record_root\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"genesis_admission_receipt_ref\":\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"genesis_admission_receipt_root\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"proposed_initial_state_root\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"proposed_initial_receipt_root\":\"sha256:2323232323232323232323232323232323232323232323232323232323232323\",\"package_id\":\"package://acme/outcome-operator\",\"manifest_ref\":\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"admitted_manifest_root\":\"sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b\",\"constitution_ref\":\"constitution://acme/system-alpha/v1\",\"constitution_root\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"profile_bundle_root\":\"sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48\",\"profile_materialization_root\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"deployment_profile_root\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"profile_refs\":{\"deployment_profile_ref\":\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"ordering_admission_finality_profile_ref\":\"ordering-profile://acme/system-alpha/poa1\",\"oracle_evidence_profile_refs\":[\"oracle-evidence-profile://acme/system-alpha/public-records\"],\"lifecycle_continuity_profile_ref\":\"lifecycle-profile://acme/system-alpha/default\",\"network_enrollment_ref\":null},\"component_registry_ref\":\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_registry_root\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_binding_count\":4,\"sequence\":0,\"predecessor_transition_commitment_ref\":null,\"operation_commitment\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"transition_commitment_ref\":\"commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"initial_state_root\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"initial_receipt_root\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"wallet_grant_consumption_ref\":\"wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020\",\"wallet_grant_consumption_evidence_ref\":\"system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020\",\"materialized_pending_activation\":true,\"active_profile_admission\":false,\"initialize_admitted\":false,\"activation_admitted\":false,\"live_chain_created\":false,\"node_membership_created\":false,\"network_effect_admitted\":false,\"runtime_effect_admitted\":false},\"input_hash\":\"sha256:d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94\",\"output_hash\":\"sha256:2020202020202020202020202020202020202020202020202020202020202020\",\"policy_hash\":\"sha256:83e35978e4d35d664c486e18e18696c81839278ee998e38a2038874ceec651b8\",\"effect_hash\":\"sha256:3a6e54d37bdfa3395f07aa16c0951f27dee4b5f435f6365eae06967ee7d90182\",\"authorized_effect\":{\"operation\":\"materialize_sequence_zero\",\"materialization\":{\"schema_version\":\"ioi.autonomous-system-sequence-zero-materialization.v1\",\"materialization_id\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"system_id\":\"system://acme/system-alpha\",\"genesis_ref\":\"genesis://acme/system-alpha/zero\",\"genesis_admission_record_root\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"genesis_admission_receipt_ref\":\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"genesis_admission_receipt_root\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"proposed_initial_state_root\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"proposed_initial_receipt_root\":\"sha256:2323232323232323232323232323232323232323232323232323232323232323\",\"package_id\":\"package://acme/outcome-operator\",\"manifest_ref\":\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"admitted_manifest_root\":\"sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b\",\"constitution_ref\":\"constitution://acme/system-alpha/v1\",\"constitution_root\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"profile_bundle_root\":\"sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48\",\"profile_materialization_root\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"deployment_profile_root\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"profile_refs\":{\"network_enrollment_ref\":null,\"lifecycle_continuity_profile_ref\":\"lifecycle-profile://acme/system-alpha/default\",\"oracle_evidence_profile_refs\":[\"oracle-evidence-profile://acme/system-alpha/public-records\"],\"ordering_admission_finality_profile_ref\":\"ordering-profile://acme/system-alpha/poa1\",\"deployment_profile_ref\":\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"component_registry_ref\":\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_registry_root\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_binding_count\":4,\"component_bindings\":[{\"kind\":\"goal_run_profile\",\"binding_ref\":\"goal-run-profile://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"binding_hash\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"workflow_template\",\"binding_ref\":\"workflow-template://acme/system-alpha/default/revision/sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"binding_hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"harness_profile\",\"binding_ref\":\"harness-profile://acme/system-alpha/default/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"binding_hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"runtime_tool_contract\",\"binding_ref\":\"tool://acme/system-alpha/default/revision/sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"binding_hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"evidence_refs\":[],\"evidence_hashes\":[]}],\"sequence\":0,\"predecessor_transition_commitment_ref\":null,\"operation_commitment\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"transition_commitment_ref\":\"commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"initial_state_root\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"initial_receipt_root\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"materialization_receipt_ref\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"activation_receipt_ref\":null,\"status\":\"materialized_pending_activation\"},\"activation_admitted\":false,\"runtime_effect_admitted\":false},\"wallet_approval_grant\":{\"schema_version\":1,\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"request_hash\":[210,134,39,87,62,25,14,188,107,220,154,12,231,239,146,14,7,198,192,92,253,59,137,160,116,43,93,141,161,252,42,148],\"policy_hash\":[131,227,89,120,228,211,93,102,76,72,110,24,225,134,150,200,24,57,39,142,233,152,227,138,32,56,135,76,238,198,81,184],\"audience\":[3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],\"nonce\":[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],\"counter\":1,\"expires_at\":1784548800000,\"max_usages\":1,\"approver_public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"approver_suite\":-8,\"approver_sig\":[20,184,190,106,10,53,124,23,253,28,92,113,82,45,175,160,28,244,5,19,58,98,91,175,103,5,32,28,132,59,10,59,219,61,130,136,2,1,199,135,92,171,41,81,177,95,146,235,4,152,244,234,141,159,239,165,178,67,77,154,88,43,11,12]},\"principal_authority_binding\":{\"schema_version\":1,\"principal_ref\":\"agentgres://domain/acme/research\",\"authority_kind\":\"approval\",\"coordinates\":{\"binding_ref\":\"wallet.network://principal-authority-binding/3dc8682a39fc1a7af4ef21c46af6f8ee3d464e48072aef5d07128b7af13509e4\",\"binding_version\":1,\"binding_hash\":[61,200,104,42,57,252,26,122,244,239,33,196,106,246,248,238,61,70,78,72,7,42,239,93,7,18,139,122,241,53,9,228]},\"required_scope\":\"scope:autonomous_system.genesis_materialize\",\"matched_scope\":\"scope:autonomous_system.genesis_materialize\",\"approval_authority\":{\"schema_version\":1,\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"signature_suite\":-8,\"expires_at\":1784548800000,\"revoked\":false,\"scope_allowlist\":[\"scope:autonomous_system.genesis_materialize\"]},\"approval_authority_snapshot_hash\":[195,34,101,132,126,155,116,25,212,249,137,134,100,106,160,204,169,148,48,253,7,94,53,201,209,46,127,39,145,51,124,244],\"binding_proof\":{\"schema_version\":1,\"statement\":{\"schema_version\":1,\"principal_ref\":\"agentgres://domain/acme/research\",\"authority_kind\":\"approval\",\"binding_version\":1,\"status\":\"active\",\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"authority_public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"authority_signature_suite\":-8,\"approval_authority_snapshot_hash\":[195,34,101,132,126,155,116,25,212,249,137,134,100,106,160,204,169,148,48,253,7,94,53,201,209,46,127,39,145,51,124,244],\"signed_at_ms\":1784462400000,\"expires_at_ms\":1784548800000,\"issuer_root_account_id\":[109,251,167,30,168,49,141,153,53,187,19,174,74,201,69,116,138,138,29,36,170,112,9,231,248,48,177,155,160,27,31,233],\"reason\":\"Held PR 91 portable architecture-contract fixture\"},\"statement_hash\":[137,110,121,59,31,59,121,45,109,185,227,108,180,217,188,70,191,38,245,133,141,38,29,98,243,176,203,157,118,126,182,60],\"issuer_signature_proof\":{\"suite\":-8,\"public_key\":[234,74,108,99,226,156,82,10,190,245,80,123,19,46,197,249,149,71,118,174,190,190,123,146,66,30,234,105,20,70,210,44],\"signature\":[28,49,2,13,185,200,151,17,200,51,27,61,122,111,196,58,93,132,56,145,168,143,26,38,68,238,91,71,177,94,63,1,33,40,73,39,6,9,92,89,8,106,66,163,129,145,100,58,203,46,158,39,49,232,9,136,178,56,55,234,191,13,55,15]},\"binding_ref\":\"wallet.network://principal-authority-binding/3dc8682a39fc1a7af4ef21c46af6f8ee3d464e48072aef5d07128b7af13509e4\",\"binding_hash\":[61,200,104,42,57,252,26,122,244,239,33,196,106,246,248,238,61,70,78,72,7,42,239,93,7,18,139,122,241,53,9,228]}},\"authority_resolved_at_ms\":1784462400000,\"hash_scope_excludes\":[],\"assurance_posture\":\"sequence_zero_materialized_not_activated\",\"assurance_note\":\"governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted\",\"verification_ref\":null,\"acceptance_ref\":null,\"claim_scope_ref\":null,\"run_id\":null,\"task_id\":null,\"authority_grant_id\":\"grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28\",\"primitive_capabilities\":[],\"authority_scopes\":[\"scope:autonomous_system.genesis_materialize\"],\"artifact_refs\":[],\"evidence_bundle_refs\":[],\"adjudication_ref\":null,\"settlement_ref\":null,\"signature\":null,\"public_commitment_ref\":null,\"timestamp\":\"2026-07-19T12:00:00Z\",\"outcome\":\"ok\",\"at\":\"2026-07-19T12:00:00Z\"}"
-  }
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/positive-non-room.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-stale-bound-goal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-admission-lease-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-wrong-work-subject-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-non-room-bound-coordinates.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/attempt/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-v3/negative-proposed-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-participant-advertised.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/positive-room-system-suspension.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-foreign-issuer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/capability-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-offer-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-cardinality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json","contract_id":"schema://ioi/applications/ioi-ai/collaborative-work-graph/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaborative-work-graph-v1/negative-over-source-receipts.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-admission-lease-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-proposer-principal-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-wrong-source-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-non-room-bound-coordinates.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-evaluating-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/positive-admitted-create.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-receipt-identity-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-source-kind-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v1/negative-admitted-goal-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/positive-admitted-create.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-source-kind-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-create-missing-profile-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v1/negative-admitted-without-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/positive-direct-research.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v1/negative-direct-with-shared-frontier.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/positive-admitted-create.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-prefix-only-state-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admitted-state-v1/negative-tampered-source-context.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/positive-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-widened-parallel.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-tampered-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-permitted-subjects.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-discussion-projection-v1/negative-over-source-receipts.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/positive-hosted-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-hosted-without-host-domain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-owner-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-cardinality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-objective.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-over-replay-cardinality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json","contract_id":"schema://ioi/applications/ioi-ai/outcome-room/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-room-v2/negative-max-sequence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json","contract_id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-hosted-export.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json","contract_id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/positive-system-issued-expiry.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json","contract_id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-database-access-leakage.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json","contract_id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-foreign-system-issuer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json","contract_id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-encrypted-ref-smuggling.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/participant-state-bundle/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-v3/negative-proposed-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-provider-offered.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/positive-room-system-expiry-transition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-foreign-issuer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/resource-offer/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/resource-offer-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-bounded-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/positive-unbounded-with-governed-exception.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-expiry-without-exception.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-null-ttl-without-exception.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-participant-minted-lease.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-room-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/room-participant-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-hosted-native-null-discovery.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/positive-federated-discovered.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-federated-null-discovery.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-hosted-null-discovery-foreign-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-counteroffer-without-counterterms.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-room-scope-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-private-context-included.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/room-participation-request/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participation-request-v3/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/positive-non-room.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-unsupported-challenger-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/verifier-challenge/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-v3/negative-rejected-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-active-room-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/positive-direct-bilateral.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-participant-lease-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-wrong-task-offer-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/work-claim-lease/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-v3/negative-rejected-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/positive-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-room-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json","contract_id":"schema://ioi/applications/ioi-ai/work-frontier-item/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-v3/negative-evaluating-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/agent-execution-branch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/agent-execution-branch/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-execution-branch-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-opened.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/positive-repaired-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-unbound-restore-validity-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-repaired-without-verification.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident-operation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-operation-v1/negative-foreign-truth-source.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-missing-opened.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/positive-repaired-verified.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-invalid-hash-without-observed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-repaired-without-verification.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-silent-payload-mutation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-operation-lifecycle-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-retired-alias.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json","contract_id":"schema://ioi/components/agentgres/artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-availability-incident-v1/negative-bad-artifact-prefix.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/artifact-ref/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/artifact-ref/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-ref-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/branch-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/branch-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/branch-checkpoint-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/branch-merge-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/branch-merge-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/branch-merge-plan-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-thread-orchestration-namespace.json","contract_id":"schema://ioi/components/agentgres/event-stream/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-thread-orchestration-namespace.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-automation-scheduler-namespace.json","contract_id":"schema://ioi/components/agentgres/event-stream/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/event-stream-v1/positive-automation-scheduler-namespace.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-fabricated-runtime-events-ref.json","contract_id":"schema://ioi/components/agentgres/event-stream/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-fabricated-runtime-events-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-family-minted-sequence.json","contract_id":"schema://ioi/components/agentgres/event-stream/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-family-minted-sequence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-namespace-identity-mismatch.json","contract_id":"schema://ioi/components/agentgres/event-stream/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-namespace-identity-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-no-admitted-class.json","contract_id":"schema://ioi/components/agentgres/event-stream/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/event-stream-v1/negative-no-admitted-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/operation-log-entry/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/operation-log-entry/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/operation-log-entry-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/projection-definition-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/projection-definition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/projection-definition-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/projection-definition-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/projection-definition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/projection-definition-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-active-checkpointed.json","contract_id":"schema://ioi/components/agentgres/projection-subscription-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-active-checkpointed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-revoked-second-namespace.json","contract_id":"schema://ioi/components/agentgres/projection-subscription-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/positive-revoked-second-namespace.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-checkpoint-scalar-substituted.json","contract_id":"schema://ioi/components/agentgres/projection-subscription-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-checkpoint-scalar-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-unbounded-backpressure.json","contract_id":"schema://ioi/components/agentgres/projection-subscription-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/projection-subscription-lease-v1/negative-unbounded-backpressure.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json","contract_id":"schema://ioi/components/agentgres/staged-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/staged-effect-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/agentgres/staged-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/staged-effect-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json","contract_id":"schema://ioi/components/agentgres/storage-backend-write-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/positive-artifact-state-commit.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json","contract_id":"schema://ioi/components/agentgres/storage-backend-write-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-agentgres-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json","contract_id":"schema://ioi/components/agentgres/storage-backend-write-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-write-without-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json","contract_id":"schema://ioi/components/agentgres/storage-backend-write-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json","contract_id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json","contract_id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-new-target-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-converged-replay.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-absent-expected-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-stale-expected-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-overwrite-remote-head-requested.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-unbound-destination.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-whole-workspace-change-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-change-set-unbound-from-proposal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-review-request-failure-reported-as-success.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-shared-effect-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-replay-without-prior-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-idempotency-key-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/negative-content-commitment-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-first-dispatch-published-with-review-request.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-before-dispatch-retry-same-frozen-cas.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-dispatch-before-persistence-recovered.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-lost-response-after-persistence-replayed-terminal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-moved-head-ambiguity-reconciliation-required.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-review-request-ambiguity-independent-reconciliation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/positive-new-target-ref-must-not-exist.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-observed-head-in-operation-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-operation-key-bound-to-observed-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-retry-recomputed-cas-onto-moved-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-converged-recovery-reinvoked-remote-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-replay-without-prior-terminal-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-moved-head-fresh-child-commit.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-ambiguity-absorbed-into-publication.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-remote-effect-before-prepared-persistence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-unbound-destination.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-shared-effect-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-overwrite-remote-head-requested.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-whole-workspace-change-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-review-request-failure-reported-as-success.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-reconciliation-reported-as-published.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v2/negative-must-not-exist-with-expected-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json","contract_id":"schema://ioi/components/daemon-runtime/action-request-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/positive-external-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json","contract_id":"schema://ioi/components/daemon-runtime/action-request-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/action-request-envelope-v1/negative-missing-execution-obligation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/agent-harness-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/agent-harness-adapter-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json","contract_id":"schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-effect-admission-receipt-v2/positive-exact-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json","contract_id":"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/positive-active-pre-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json","contract_id":"schema://ioi/components/daemon-runtime/authority-gateway-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-gateway-profile-v1/negative-active-application-invoker.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/declassification-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/declassification-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/declassification-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-active-enforcement.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-audit-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-scoped-custom-kernel-dependency.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/positive-uncovered.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-attributable-unobservable.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-mediated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-audit-only-preventable.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-custom-kernel-dependency-unbound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-decision-source.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-mediated-unknown-final-invoker.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-positive-claim-missing-mechanism-role.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-passive-observation-mediated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-preventable-unmediated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipt-ingestion-mediated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-contract.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-missing-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-receipted-none-scope.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-missing-gap.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-mode-without-uncovered-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-uncovered-positive-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json","contract_id":"schema://ioi/components/daemon-runtime/enforcement-coverage-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/enforcement-coverage-declaration-v1/negative-verified-stale-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json","contract_id":"schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/gateway-artifact-receipt-v1/positive-no-artifact.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json","contract_id":"schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/gateway-decision-receipt-v1/positive-allowed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json","contract_id":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/positive-external-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json","contract_id":"schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/gateway-execution-receipt-v1/negative-external-effect-without-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/harness-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-profile-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/harness-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/positive-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-posture-without-reference-values.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-asserts-observed-measurement.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-profile-v1/negative-floor-kind-unknown.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-verified.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/positive-refused.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-signed-material-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-verified-on-failed-appraisal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-tee-claim-without-posture.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-boot-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-boot-receipt-v1/negative-foreign-attester.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-node/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-candidate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-node/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/positive-ready.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-node/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-ready-without-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-node/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-commitment-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json","contract_id":"schema://ioi/components/daemon-runtime/hypervisoros-node/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisoros-node-v1/negative-embedded-private-key.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/information-flow-decision-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/information-flow-decision-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/positive-online-fresh.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-duplicate-claim-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-evaluation-hash-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-validity-evaluation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-validity-evaluation-v1/negative-generic-verified-boolean.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-verification-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/positive-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-verification-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-profile-hash-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json","contract_id":"schema://ioi/components/daemon-runtime/temporal-verification-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/temporal-verification-profile-v1/negative-empty-required-claims.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/application-surface-registration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-application-surface-registration-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repaired.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/positive-repair-failed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repaired-without-verification.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-unverified-custody-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json","contract_id":"schema://ioi/components/hypervisor/artifact-repair-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/artifact-repair-receipt-v1/negative-repair-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json","contract_id":"schema://ioi/components/hypervisor/backend-capability-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/positive-live.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/backend-capability-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-backend-capability-declaration-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/collection-page/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/collection-page/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-collection-page-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/collection-query/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/collection-query/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-collection-query-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json","contract_id":"schema://ioi/components/hypervisor/auth-factor-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/positive-standing-effect-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json","contract_id":"schema://ioi/components/hypervisor/auth-factor-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/auth-factor-receipt-v1/negative-authority-missing-context.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json","contract_id":"schema://ioi/components/hypervisor/c8-certificate/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/positive-workload-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json","contract_id":"schema://ioi/components/hypervisor/c8-certificate/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/c8-certificate-v3/negative-missing-result.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json","contract_id":"schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/positive-c7-bounded.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json","contract_id":"schema://ioi/components/hypervisor/governed-effect-claim-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/governed-effect-claim-manifest-v1/negative-unknown-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json","contract_id":"schema://ioi/aft/u1-campaign-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json","contract_id":"schema://ioi/aft/u1-campaign-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aft-u1-campaign-result-v1/negative-partial.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json","contract_id":"schema://ioi/aft/measured-result-row/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/positive-measured-container.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json","contract_id":"schema://ioi/aft/measured-result-row/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aft-measured-result-row-v1/negative-bare-metal-inflation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json","contract_id":"schema://ioi/aft/measured-results-registry/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/positive-empty.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json","contract_id":"schema://ioi/aft/measured-results-registry/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/aft-measured-results-registry-v1/negative-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json","contract_id":"schema://ioi/foundations/verifier-independence-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/positive-first-party-separate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json","contract_id":"schema://ioi/foundations/verifier-independence-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-independence-profile-v1/negative-unknown-axis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json","contract_id":"schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/positive-aft.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json","contract_id":"schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/c8-portable-evidence-bundle-v1/negative-path-traversal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json","contract_id":"schema://ioi/foundations/relying-party-acceptance-policy/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/positive-aft-registry.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json","contract_id":"schema://ioi/foundations/relying-party-acceptance-policy/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/relying-party-acceptance-policy-v1/negative-no-trust-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json","contract_id":"schema://ioi/foundations/certificate-acceptance-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/positive-rejected.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json","contract_id":"schema://ioi/foundations/certificate-acceptance-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/certificate-acceptance-receipt-v1/negative-unknown-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-profile.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/positive-adapter.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-decision-refused.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-truth-claimed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-admission-v1/negative-preview-unbound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-profile-local-mount.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/positive-adapter-proposal-source.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-provider-trust.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-runtime-truth-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-adapter-ctee-custody.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-missing-workspace-read-scope.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json","contract_id":"schema://ioi/components/hypervisor/harness-session-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-binding-v1/negative-receipt-policy-unbound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json","contract_id":"schema://ioi/components/hypervisor/harness-session-readiness/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/positive-probed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json","contract_id":"schema://ioi/components/hypervisor/harness-session-readiness/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-no-checks.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json","contract_id":"schema://ioi/components/hypervisor/harness-session-readiness/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-check-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json","contract_id":"schema://ioi/components/hypervisor/harness-session-readiness/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-failed-check-claims-ready.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json","contract_id":"schema://ioi/components/hypervisor/harness-session-readiness/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-duplicate-check-id.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json","contract_id":"schema://ioi/components/hypervisor/harness-session-readiness/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-readiness-v1/negative-missing-spawn.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json","contract_id":"schema://ioi/components/hypervisor/harness-session-spawn/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/positive-local-qwen.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json","contract_id":"schema://ioi/components/hypervisor/harness-session-spawn/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-premature-state.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json","contract_id":"schema://ioi/components/hypervisor/harness-session-spawn/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-missing-command-line.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json","contract_id":"schema://ioi/components/hypervisor/harness-session-spawn/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-spawn-v1/negative-foreign-pty-transport.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json","contract_id":"schema://ioi/components/hypervisor/harness-session-terminal-attach/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/positive-workbench-codex.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json","contract_id":"schema://ioi/components/hypervisor/harness-session-terminal-attach/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-client-authored-stdin.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json","contract_id":"schema://ioi/components/hypervisor/harness-session-terminal-attach/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-transcript-stream-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json","contract_id":"schema://ioi/components/hypervisor/harness-session-terminal-attach/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/harness-session-terminal-attach-v1/negative-without-readiness.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/positive-restore-successor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-plan-hash-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-duplicate-step-index.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-change-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-change-plan-v1/negative-empty-gates.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-resolved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/positive-required-edges.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-blocked-reason-populated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-duplicate-resolved-service.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe-resolution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-resolution-v1/negative-port-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-repo-detected.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/positive-explicit-devcontainer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-unknown-substrate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-init-task.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-development-environment-recipe/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-development-environment-recipe-v1/negative-duplicate-port.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/positive-requested.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-dropped-manifest-row.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-manifest-root-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-backup/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-backup-v1/negative-complete-without-rows.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/positive-successor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-hash-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-genesis-with-generation-two.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-environment-route-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-environment-route-binding-v1/negative-asserts-observed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-open.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-satisfied.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/positive-escalated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-closed-without-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-escalated-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-resource-cleanup-obligation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-resource-cleanup-obligation-v1/negative-duplicate-resource.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-workbench.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/positive-mission.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-surface-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-workbench-without-adapter.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-session-launch-recipe-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-session-launch-recipe-admission-v1/negative-receipt-preview-unbound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/mutation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/mutation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-mutation-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/preference-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/preference-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-preference-record-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json","contract_id":"schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/positive-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json","contract_id":"schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-wallet-tenant.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/principal-tenant-membership-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-principal-tenant-membership-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/product-surface-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/product-surface-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-product-surface-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/route-retirement-refusal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/route-retirement-refusal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-route-retirement-refusal-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json","contract_id":"schema://ioi/components/hypervisor/storage-archive-object/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-available-local.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json","contract_id":"schema://ioi/components/hypervisor/storage-archive-object/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/positive-impaired-quarantined.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json","contract_id":"schema://ioi/components/hypervisor/storage-archive-object/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-plaintext-at-backend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json","contract_id":"schema://ioi/components/hypervisor/storage-archive-object/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-archive-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json","contract_id":"schema://ioi/components/hypervisor/storage-archive-object/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-archive-object-v1/negative-availability-as-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json","contract_id":"schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-open-missing-bytes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json","contract_id":"schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/positive-repaired-accreted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json","contract_id":"schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-repaired-without-repair-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json","contract_id":"schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-canon-only-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json","contract_id":"schema://ioi/components/hypervisor/storage-artifact-availability-incident/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-artifact-availability-incident-v1/negative-incident-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/surface-installation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-installation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-installation-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-release-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-release-record-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/surface-serving-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-surface-serving-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","contract_id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json","contract_id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/negative-collapsed-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/positive-workload-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json","contract_id":"schema://ioi/components/hypervisor/vm-enforcement-declaration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-vm-enforcement-declaration-v1/negative-network-device.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json","contract_id":"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/positive-exact.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json","contract_id":"schema://ioi/components/hypervisor/workload-bound-effect-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-bound-effect-proposal-v1/negative-wrong-audience.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/positive-consumed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-consumption-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-consumption-receipt-v1/negative-two-invocations.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-cleanup.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/positive-no-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-reinvoked-original.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json","contract_id":"schema://ioi/components/hypervisor/workload-effect-reconciliation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-effect-reconciliation-receipt-v1/negative-cleanup-count.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json","contract_id":"schema://ioi/components/hypervisor/workload-isolation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/positive-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json","contract_id":"schema://ioi/components/hypervisor/workload-isolation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-binding-v1/negative-missing-cleanup.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json","contract_id":"schema://ioi/components/hypervisor/workload-isolation-requirements/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/positive-high-risk.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json","contract_id":"schema://ioi/components/hypervisor/workload-isolation-requirements/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-workload-isolation-requirements-v1/negative-ambient-secret.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json","contract_id":"schema://ioi/foundations/approval-ceremony-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/positive-standing-envelope.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json","contract_id":"schema://ioi/foundations/approval-ceremony-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/active-skill-set-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/active-skill-set-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-subject-kind-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/positive-revoked.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-empty-capabilities.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-legacy-alias-write.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v1/negative-unknown-constraint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/positive-attenuated-child.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-empty-capabilities.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-signature-key-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-stale-schema-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v2/negative-padded-signature.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json","contract_id":"schema://ioi/foundations/authority-grant-envelope/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-grant-envelope-v3/positive-exact-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json","contract_id":"schema://ioi/foundations/standing-authority-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/positive-u1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json","contract_id":"schema://ioi/foundations/standing-authority-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/standing-authority-envelope-v1/negative-auto-topup.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json","contract_id":"schema://ioi/foundations/authority-trajectory-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/positive-derived.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json","contract_id":"schema://ioi/foundations/authority-trajectory-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-trajectory-state-v1/negative-negative-spend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json","contract_id":"schema://ioi/foundations/trajectory-admission-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/positive-deny.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json","contract_id":"schema://ioi/foundations/trajectory-admission-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/trajectory-admission-decision-v1/negative-unknown-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json","contract_id":"schema://ioi/foundations/authority-key-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json","contract_id":"schema://ioi/foundations/authority-key-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/positive-delegator.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json","contract_id":"schema://ioi/foundations/authority-key-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-padded-public-key.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json","contract_id":"schema://ioi/foundations/authority-key-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-key-set-v1/negative-empty-validity-window.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json","contract_id":"schema://ioi/foundations/authority-revocation-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-current.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json","contract_id":"schema://ioi/foundations/authority-revocation-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/positive-delegator-current.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json","contract_id":"schema://ioi/foundations/authority-revocation-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-revocation-snapshot-v1/negative-wrong-domain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-authority-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/positive-initialize.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-authority-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-authority-decision-v1/negative-root-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/positive-initialize.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-detached-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-initialize-mints-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-proposal-v1/negative-activate-missing-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/positive-activate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-receipt-v1/negative-output-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/positive-initialized.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json","contract_id":"schema://ioi/foundations/autonomous-system-activation-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-activation-state-v1/negative-active-without-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json","contract_id":"schema://ioi/foundations/autonomous-system-active-profile-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json","contract_id":"schema://ioi/foundations/autonomous-system-active-profile-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/positive-local-network-candidate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json","contract_id":"schema://ioi/foundations/autonomous-system-active-profile-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-missing-lifecycle.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json","contract_id":"schema://ioi/foundations/autonomous-system-active-profile-set/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v1/negative-non-network-local-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json","contract_id":"schema://ioi/foundations/autonomous-system-active-profile-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/positive-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json","contract_id":"schema://ioi/foundations/autonomous-system-active-profile-set/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-active-profile-set-v2/negative-missing-supersedes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/positive-amend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-execution-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-decision-v1/negative-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/positive-amend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-illegal-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-scope-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-execution-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-execution-proposal-v1/negative-commitment-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/positive-committed.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/positive-committed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/negative-missing-approval-root.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-receipt-v1/negative-missing-approval-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/positive-committed.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/positive-committed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-wrong-op.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-wrong-op.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-status-change.json","contract_id":"schema://ioi/foundations/autonomous-system-amendment-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-amendment-transition-v1/negative-status-change.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/positive-claimed.json","contract_id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/positive-claimed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/negative-same-root.json","contract_id":"schema://ioi/foundations/autonomous-system-chain-successor-claim/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-successor-claim-v1/negative-same-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/positive-reserved.json","contract_id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/positive-reserved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-identity.json","contract_id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-plan.json","contract_id":"schema://ioi/foundations/autonomous-system-chain-writer-reservation/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-writer-reservation-v1/negative-detached-plan.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-active-sequence-two.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/positive-later-governed-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-missing-operation-log.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-chain-v1/negative-chain-root-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/positive-approved.json","contract_id":"schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/positive-approved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/negative-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-constitution-amendment-approval-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-approval-decision-v1/negative-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json","contract_id":"schema://ioi/foundations/autonomous-system-constitution-amendment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/positive-proposed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json","contract_id":"schema://ioi/foundations/autonomous-system-constitution-amendment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-amendment-v1/negative-committed-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json","contract_id":"schema://ioi/foundations/autonomous-system-constitution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/positive-draft.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json","contract_id":"schema://ioi/foundations/autonomous-system-constitution/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-constitution-v1/negative-self-authorize.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json","contract_id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-succession-pending.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json","contract_id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/positive-dissolving.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json","contract_id":"schema://ioi/foundations/autonomous-system-continuity-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-continuity-state-v1/negative-operational-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json","contract_id":"schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/positive-candidate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-root-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json","contract_id":"schema://ioi/foundations/autonomous-system-deployment-profile-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-deployment-profile-revision-v1/negative-cross-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json","contract_id":"schema://ioi/foundations/autonomous-system-desired-topology/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/positive-declared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json","contract_id":"schema://ioi/foundations/autonomous-system-desired-topology/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-asserts-observed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json","contract_id":"schema://ioi/foundations/autonomous-system-desired-topology/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-desired-topology-v1/negative-duplicate-role-target.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-open-disposition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/positive-record-domain-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-open-with-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-transition-v1/negative-resulting-disposition-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-open.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/positive-terminal-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-missing-domain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-terminal-complete-pending-domain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-disposition-v1/negative-escalated-without-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/positive-committed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-wrong-assurance-posture.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-pending-domain-state.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json","contract_id":"schema://ioi/foundations/autonomous-system-dissolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-dissolution-receipt-v1/negative-completion-equals-initiate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/positive-proposed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-genesis-v1/negative-nonzero-sequence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json","contract_id":"schema://ioi/foundations/autonomous-system-home-domain-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/positive-non-domain-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json","contract_id":"schema://ioi/foundations/autonomous-system-home-domain-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-home-domain-binding-v1/negative-forged-domain-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json","contract_id":"schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/positive-closed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json","contract_id":"schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-hollow-profile-bodies.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json","contract_id":"schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-missing-enrollment-slot.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json","contract_id":"schema://ioi/foundations/autonomous-system-initial-profile-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-initial-profile-bundle-v1/negative-foreign-oracle-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json","contract_id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/positive-suspended.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json","contract_id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-reserved-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-lifecycle-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-lifecycle-state-v1/negative-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/positive-reusable-release.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-manifest-v1/negative-live-system-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json","contract_id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/positive-admit-node.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json","contract_id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-status-open.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json","contract_id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-writer-authority-claimed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-commitment-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json","contract_id":"schema://ioi/foundations/autonomous-system-membership-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-membership-transition-v1/negative-node-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json","contract_id":"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/positive-acknowledged.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-migration-destination-acknowledgement/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-migration-destination-acknowledgement-v1/negative-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json","contract_id":"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/positive-enroll-local.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json","contract_id":"schema://ioi/foundations/autonomous-system-network-enrollment-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-network-enrollment-transition-v1/negative-exit-retains-enrollment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json","contract_id":"schema://ioi/foundations/autonomous-system-node-membership/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json","contract_id":"schema://ioi/foundations/autonomous-system-node-membership/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/positive-active-ready.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json","contract_id":"schema://ioi/foundations/autonomous-system-node-membership/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-verified-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json","contract_id":"schema://ioi/foundations/autonomous-system-node-membership/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-writer-epoch-unbound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json","contract_id":"schema://ioi/foundations/autonomous-system-node-membership/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-duplicate-role.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json","contract_id":"schema://ioi/foundations/autonomous-system-node-membership/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-node-membership-v1/negative-ready-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json","contract_id":"schema://ioi/foundations/autonomous-system-operation-log/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/positive-activation-prefix.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json","contract_id":"schema://ioi/foundations/autonomous-system-operation-log/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v1/negative-activation-prefix-with-operational-commitment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json","contract_id":"schema://ioi/foundations/autonomous-system-operation-log/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/positive-lifecycle-log.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json","contract_id":"schema://ioi/foundations/autonomous-system-operation-log/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-activation-prefix-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-operation-log/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json","contract_id":"schema://ioi/foundations/autonomous-system-operation-log/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-operation-log-v2/negative-head-sequence-detach.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/positive-suspend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-root-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-decision-v1/negative-irreversibility-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/positive-suspend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-illegal-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-scope-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json","contract_id":"schema://ioi/foundations/autonomous-system-protected-transition-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-protected-transition-proposal-v1/negative-commitment-tamper.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/positive-materialized-pending-activation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-legacy-receipt-type.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-missing-public-commitment-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-incompatible-artifact-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-receipt-identity-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-detached-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-output-hash-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-authority-binding-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v1/negative-activation-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/positive-materialized-pending-activation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-legacy-receipt-type.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-missing-public-commitment-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-incompatible-artifact-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-receipt-identity-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-detached-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-output-hash-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-authority-binding-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-receipt-v2/negative-activation-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/positive-materialized-pending-activation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-activation-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-materialization-id-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-registry-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-count-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-identity-duplicate.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-deployment-profile-root-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-sequence-zero-materialization-v1/negative-component-kind-ref-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-genesis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/positive-promotion.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-genesis-with-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-nongenesis-epoch-one.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-commitment-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-cas-head-detached.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json","contract_id":"schema://ioi/foundations/autonomous-system-writer-epoch-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/autonomous-system-writer-epoch-transition-v1/negative-duplicate-resource-fence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/cancellation-fanout-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/cancellation-fanout-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cancellation-fanout-plan-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json","contract_id":"schema://ioi/foundations/consequential-effect-fence-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/positive-active-writer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json","contract_id":"schema://ioi/foundations/consequential-effect-fence-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-caller-authored-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json","contract_id":"schema://ioi/foundations/consequential-effect-fence-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-writer-epoch-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json","contract_id":"schema://ioi/foundations/consequential-effect-fence-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/consequential-effect-fence-context-v1/negative-commitment-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json","contract_id":"schema://ioi/foundations/declassification-approval/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/positive-exact-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json","contract_id":"schema://ioi/foundations/declassification-approval/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/declassification-approval-v1/negative-missing-reviewed-representation-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json","contract_id":"schema://ioi/foundations/dispute-rail-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/positive-marketplace-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json","contract_id":"schema://ioi/foundations/dispute-rail-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/dispute-rail-bundle-v1/negative-value-unit-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json","contract_id":"schema://ioi/foundations/information-flow-label/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-public-verified.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json","contract_id":"schema://ioi/foundations/information-flow-label/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/positive-private-untrusted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json","contract_id":"schema://ioi/foundations/information-flow-label/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/information-flow-label-v1/negative-missing-instruction-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json","contract_id":"schema://ioi/foundations/ioi-network-enrollment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/positive-local-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json","contract_id":"schema://ioi/foundations/ioi-network-enrollment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ioi-network-enrollment-v1/negative-compatible-selected-service.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json","contract_id":"schema://ioi/foundations/lifecycle-continuity-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/positive-successor-governed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json","contract_id":"schema://ioi/foundations/lifecycle-continuity-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-continuity-profile-v1/negative-enabled-without-trigger.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-initialize.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/positive-protected-pause.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-output-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-missing-sequence-zero-artifact-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-wrong-sequence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-receipt-v1/negative-initialize-mints-live-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-proposal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-initialize-committed-without-state-transition-commitment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-without-state-transition-commitment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/positive-pause-committed-with-state-transition-commitment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-pause-carries-genesis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lifecycle-transition-v1/negative-initialize-committed-with-state-transition-commitment.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json","contract_id":"schema://ioi/foundations/lost-suffix-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-open-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json","contract_id":"schema://ioi/foundations/lost-suffix-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/positive-reconciled.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json","contract_id":"schema://ioi/foundations/lost-suffix-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-closed-with-retained-ambiguous.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json","contract_id":"schema://ioi/foundations/lost-suffix-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-resolved-without-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json","contract_id":"schema://ioi/foundations/lost-suffix-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/lost-suffix-record-v1/negative-dropped-entry.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-work-billing-ledger-bundle-v1/negative-floating-credit-units.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json","contract_id":"schema://ioi/foundations/ontology-assertion/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/positive-proposed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json","contract_id":"schema://ioi/foundations/ontology-assertion/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v1/negative-admitted-without-receipts.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json","contract_id":"schema://ioi/foundations/ontology-assertion-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/positive-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json","contract_id":"schema://ioi/foundations/ontology-assertion-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-admission-receipt-v1/negative-admitted-without-oracle.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-genesis-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-migrated-successor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/positive-cross-namespace-same-local-name-draft.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-foreign-namespace-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-version-label-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-predecessor-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-source-not-earlier.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-admission-binds-other-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-migration-reinterprets-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-active-without-admission.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-genesis-carries-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-globally-canonical-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-missing-valid-time.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-unsupported-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-entry-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json","contract_id":"schema://ioi/foundations/ontology-version/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-version-v1/negative-term-mapping-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json","contract_id":"schema://ioi/foundations/oracle-evidence-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/positive-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json","contract_id":"schema://ioi/foundations/oracle-evidence-admission-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/oracle-evidence-admission-receipt-v1/negative-rejected-with-consequence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json","contract_id":"schema://ioi/foundations/oracle-evidence-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/positive-fail-closed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json","contract_id":"schema://ioi/foundations/oracle-evidence-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/oracle-evidence-profile-v1/negative-escalation-without-adjudicator.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json","contract_id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/positive-single-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json","contract_id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ordering-admission-finality-profile-v1/negative-threshold-exceeds-eligible.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json","contract_id":"schema://ioi/foundations/ordering-finality-recovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/positive-committed-bft.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json","contract_id":"schema://ioi/foundations/ordering-finality-recovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-single-writer-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json","contract_id":"schema://ioi/foundations/ordering-finality-recovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-committed-without-result.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json","contract_id":"schema://ioi/foundations/ordering-finality-recovery/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ordering-finality-recovery-v1/negative-progressed-without-trigger-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json","contract_id":"schema://ioi/foundations/state-transition-commitment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/positive-profile-native-recovery.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json","contract_id":"schema://ioi/foundations/state-transition-commitment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/state-transition-commitment-v1/negative-profile-proof-and-writer-epoch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/foundations/outcome-delta/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json","contract_id":"schema://ioi/foundations/outcome-delta/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/positive-direct-non-room.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json","contract_id":"schema://ioi/foundations/outcome-delta/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-over-cardinality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-rejected-carries-admitted-roots.json","contract_id":"schema://ioi/foundations/outcome-delta/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-v3/negative-rejected-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json","contract_id":"schema://ioi/foundations/physical-action-execution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/positive-committed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json","contract_id":"schema://ioi/foundations/physical-action-execution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-flat-unbundled.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json","contract_id":"schema://ioi/foundations/physical-action-execution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-envelope-input-hash-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json","contract_id":"schema://ioi/foundations/physical-action-execution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/physical-action-execution-receipt-v1/negative-committed-missing-dispatch-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json","contract_id":"schema://ioi/foundations/recognition-class/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/recognition-class-v1/positive-k3.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json","contract_id":"schema://ioi/foundations/recognition-class/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/recognition-class-v1/negative-unknown-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json","contract_id":"schema://ioi/foundations/conflict-authority-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/positive-consumption.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/conflict-authority-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conflict-authority-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json","contract_id":"schema://ioi/foundations/retention-class/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/retention-class-v1/positive-bounded.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json","contract_id":"schema://ioi/foundations/retention-class/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-unknown-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json","contract_id":"schema://ioi/foundations/retention-class/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/retention-class-v1/negative-under-replicated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json","contract_id":"schema://ioi/foundations/verifier-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/positive-single-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json","contract_id":"schema://ioi/foundations/verifier-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-contract-v1/negative-unknown-axis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json","contract_id":"schema://ioi/foundations/availability-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/positive-local.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json","contract_id":"schema://ioi/foundations/availability-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-unknown-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json","contract_id":"schema://ioi/foundations/availability-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/availability-manifest-v1/negative-under-replicated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json","contract_id":"schema://ioi/foundations/finality-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/positive-single-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json","contract_id":"schema://ioi/foundations/finality-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finality-certificate-v1/negative-variant-profile-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-current.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/positive-previous.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-wrong-domain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-stale-schema-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v1/negative-signature-key-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/positive-single-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json","contract_id":"schema://ioi/foundations/receipt-checkpoint/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-checkpoint-v2/negative-certificate-checkpoint-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/positive-assured.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-bad-profile-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-empty-boundary-facts.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/positive-offline.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-wrong-domain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-stale-schema-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v1/negative-leaf-index-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/positive-offline-single-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/receipt-proof-bundle-v2/negative-authority-epoch-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/skill-entry-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/skill-entry/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/skill-entry-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/skill-entry-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/skill-entry/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/skill-entry-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/skill-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/skill-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/skill-manifest-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/system-scoped-object-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json","contract_id":"schema://ioi/foundations/system-scoped-object-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-scoped-object-binding-v1/negative-parallel-admission-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/work-lifecycle-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json","contract_id":"schema://ioi/foundations/work-lifecycle-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/positive-underscored-object-ref-child-reference.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/work-lifecycle-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-record-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/work-lifecycle-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/work-lifecycle-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/work-lifecycle-archive-segment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/work-lifecycle-archive-segment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-archive-segment-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/work-lifecycle-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/work-lifecycle-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-lifecycle-snapshot-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/foundations/work-result/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json","contract_id":"schema://ioi/foundations/work-result/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-v3/positive-direct-non-room.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json","contract_id":"schema://ioi/foundations/work-result/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-array-uncertainty.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-over-cardinality.json","contract_id":"schema://ioi/foundations/work-result/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-over-cardinality.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json","contract_id":"schema://ioi/foundations/work-result/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-v3/negative-evaluating-carries-admitted-roots.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/workflow-template/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/workflow-template-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/workflow-template/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/workflow-template-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json","contract_id":"schema://ioi/hypervisor/automation-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/automation-spec-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json","contract_id":"schema://ioi/hypervisor/automation-spec/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/automation-spec-v1/negative-live-grant.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json","contract_id":"schema://ioi/hypervisor/automation-installation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/positive-enabled.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json","contract_id":"schema://ioi/hypervisor/automation-installation-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/automation-installation-binding-v1/negative-owns-trigger.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json","contract_id":"schema://ioi/hypervisor/automation-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/automation-run-v1/positive-queued.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json","contract_id":"schema://ioi/hypervisor/automation-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/automation-run-v1/negative-unpaired-parameter-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/work-frontier-item-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/work-frontier-item-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json","contract_id":"schema://ioi/foundations/objects/work-frontier-item-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-frontier-item-envelope-v1/negative-open-duplication-policy.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/room-participant-lease-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/room-participant-lease-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json","contract_id":"schema://ioi/foundations/objects/room-participant-lease-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/room-participant-lease-envelope-v1/negative-unadmitted-role.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/participant-state-bundle-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/participant-state-bundle-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json","contract_id":"schema://ioi/foundations/objects/participant-state-bundle-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/participant-state-bundle-envelope-v1/negative-room-database-access-required.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/work-claim-lease-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/work-claim-lease-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json","contract_id":"schema://ioi/foundations/objects/work-claim-lease-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-claim-lease-envelope-v1/negative-frontier-duplication-policy.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-unchallengeable-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-assertion-subject-refused.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v1/negative-ontology-mapping-subject-refused.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json","contract_id":"schema://ioi/foundations/objects/local-agent-pairing-session-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/local-agent-pairing-session-envelope-v1/negative-bootstrap-grants-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/attempt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/attempt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json","contract_id":"schema://ioi/foundations/objects/attempt-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/attempt-envelope-v1/negative-invented-outcome-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/finding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/finding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json","contract_id":"schema://ioi/foundations/objects/finding-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-envelope-v1/negative-verified-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/work-result-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/work-result-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json","contract_id":"schema://ioi/foundations/objects/work-result-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/work-result-envelope-v1/negative-over-bound-ref-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/outcome-delta-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/outcome-delta-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json","contract_id":"schema://ioi/foundations/objects/outcome-delta-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/outcome-delta-envelope-v1/negative-invented-delta-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-room-scoped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/positive-collaboration-scoped-successor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unscoped-terms.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-unregistered-settlement-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json","contract_id":"schema://ioi/foundations/objects/collaboration-terms-envelope/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collaboration-terms-envelope-v1/negative-wrong-body-hash-profile.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json","contract_id":"schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/managed-worker-runtime-policy/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-worker-runtime-policy-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json","contract_id":"schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/positive-installed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json","contract_id":"schema://ioi/components/daemon-runtime/managed-worker-instance-state/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-worker-instance-state-v1/negative-agentgres-in-object-bytes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json","contract_id":"schema://ioi/foundations/runtime-assignment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/positive-managed-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json","contract_id":"schema://ioi/foundations/runtime-assignment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/runtime-assignment-v1/negative-open-placement.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json","contract_id":"schema://ioi/foundations/download-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-active-range-capable.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json","contract_id":"schema://ioi/foundations/download-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/download-intent-v1/positive-revoked.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json","contract_id":"schema://ioi/foundations/download-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-unhashed-payload.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json","contract_id":"schema://ioi/foundations/download-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/download-intent-v1/negative-stored-expired-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json","contract_id":"schema://ioi/foundations/data-retention-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/positive-declared-held.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json","contract_id":"schema://ioi/foundations/data-retention-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json","contract_id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json","contract_id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json","contract_id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json","contract_id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json","contract_id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json","contract_id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/positive-issued-evm.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json","contract_id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/wallet-authentication-challenge-v1/negative-no-session-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json","contract_id":"schema://ioi/components/wallet-network/wallet-ownership-proof/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-eoa.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json","contract_id":"schema://ioi/components/wallet-network/wallet-ownership-proof/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/positive-erc1271.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json","contract_id":"schema://ioi/components/wallet-network/wallet-ownership-proof/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/wallet-ownership-proof-v1/negative-unverified.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json","contract_id":"schema://ioi/components/daemon-runtime/compute-session/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compute-session-v1/positive-ready.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/daemon-runtime/compute-session/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compute-session-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json","contract_id":"schema://ioi/components/storage-backends/managed-storage-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/positive-local-private.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/storage-backends/managed-storage-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-storage-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json","contract_id":"schema://ioi/components/hypervisor/managed-restore-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/positive-prepared.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/managed-restore-plan/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/managed-restore-plan-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json","contract_id":"schema://ioi/components/hypervisor/foundry-recipe-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/positive-ready.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json","contract_id":"schema://ioi/components/hypervisor/foundry-recipe-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-recipe-revision-v1/negative-open-operator.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json","contract_id":"schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/positive-materialized.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json","contract_id":"schema://ioi/components/hypervisor/foundry-dataset-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-dataset-snapshot-v1/negative-unknown-split.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/positive-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v1/negative-legacy-token-map.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json","contract_id":"schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/positive-complete.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json","contract_id":"schema://ioi/components/hypervisor/foundry-checkpoint-artifact/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-checkpoint-artifact-v1/negative-legacy-token-map.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/positive-proposal-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json","contract_id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-qualified-measurement-v1/negative-open-fingerprint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json","contract_id":"schema://ioi/components/hypervisor/foundry-artifact-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/positive-pending-dataset.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json","contract_id":"schema://ioi/components/hypervisor/foundry-artifact-intent/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-artifact-intent-v1/negative-intent-ref-hash-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-genesis-attested.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-exploit-outcome-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-verified-negative-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/positive-settled-adjudicated-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-stage-skip-attested-to-verified.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-empty-does-not-assert.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-verified-omits-acceptance-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unknown-outcome-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-unsupported-subject-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-genesis-carries-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-missing-verdict-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-ladder-position-ahead-of-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-subject-hash-echoes-own-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-identity-family-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-binds-other-transition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v1/negative-admission-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-assertion-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/positive-ontology-mapping-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-unchallengeable-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json","contract_id":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verifier-challenge-envelope-v2/negative-v1-schema-version-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-genesis-external-message.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/positive-successor-physical-action.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-gate-removed-from-the-ladder.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-mutable-latest-ontology-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-retired-action-term-membership-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-action-term-from-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-tool-revision-of-another-tool.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-authored-at-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/positive-converged-from-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-ontology-ref-field-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-legacy-recipe-refs-field-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-mutable-latest-ontology-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-missing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-member-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-capability-lease-nonclaim-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-v1-schema-version-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-count-narrowed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-named-revision-without-owner-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-revision-bound-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-binding-set-equal-count-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-partial-tuple.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v2/negative-migration-mixed-tuple.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-genesis-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-predecessor-transaction-interval-closed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-successor-rebased-on-a-newer-base.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/positive-two-base-revisions-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-family-is-not-under-its-base.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-binding-names-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-base-revision-bound-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-predecessor-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-source-not-earlier.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-admission-binds-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unsupported-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-mints-a-term-in-the-base-namespace.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-removes-a-base-term.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-mutable-latest-base-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-overlay-diverges-in-no-way.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-genesis-carries-a-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-active-with-a-closed-transaction-interval.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-migration-reinterprets-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json","contract_id":"schema://ioi/foundations/ontology-overlay/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-overlay-v1/negative-unadmitted-overlay-on-the-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-in-domain-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-cross-domain-declared-never-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-overlay-is-a-first-class-endpoint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-challenge-changes-standing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-upheld-challenge-revokes-the-mapping.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/positive-rejected-challenge-is-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-endpoint-list-names-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-source-binding-is-of-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-both-endpoints-are-one-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-ambiguity-count-understated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-one-correspondence-declared-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-predecessor-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-admission-binds-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-cross-domain-mapping-is-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-incompatible-mapping-is-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unacceptable-risk-is-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-challenged-with-no-open-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-upheld-without-a-resolution-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unchallenged-carrying-challenge-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-mutable-latest-endpoint.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unsupported-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-silent-field-equivalence-without-loss.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-migration-reinterprets-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json","contract_id":"schema://ioi/foundations/ontology-crosswalk/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-crosswalk-v1/negative-unadmitted-mapping-on-the-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-in-domain-active-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-refused-ambiguity-is-a-real-disposition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-rejected-review-is-retained-and-blocks-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/positive-challenged-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-crosswalk-binding-names-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-crosswalk-binding-is-of-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-endpoint-list-names-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-acceptance-understates-declared-loss.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-risk-class-downgraded-at-application.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-compatibility-relabelled-at-application.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-reviewer-counted-twice-in-one-role.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-one-ambiguity-disposed-of-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-receipt-is-not-the-admitting-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-admission-binds-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-cross-domain-without-terms-acceptance.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-in-domain-carrying-a-terms-acceptance.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-rejected-review-but-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-applied-challenged-crosswalk-but-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-incompatible-application-is-active.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-legal-conformity-asserted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-application-with-no-target.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-decision-with-no-reviewer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unacceptable-risk-accepted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-challenged-with-no-open-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-v1-challenge-envelope-on-a-semantic-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unsupported-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-mutable-latest-crosswalk-application.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json","contract_id":"schema://ioi/foundations/semantic-mapping-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/semantic-mapping-decision-v1/negative-unadmitted-decision-on-the-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-affirmative-admitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-negative-polarity-is-a-claim-not-an-absence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-held-unknown-declines-to-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-contradiction-is-retained-not-resolved-by-deletion.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-superseded-predecessor-keeps-its-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-challenge-changes-standing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-upheld-challenge-rejects-the-assertion.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-rejected-challenge-is-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/positive-v1-oracle-profile-carried-without-reinterpretation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-content-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predicate-is-a-term-of-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-bound-revision-is-of-another-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-assertion-supersedes-itself.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-source-attributed-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-one-evidence-counted-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-predecessor-hash-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-migration-source-not-earlier.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admission-binds-another-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradicted-with-an-empty-contradiction-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-class-none-but-refs-present.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-contradiction-not-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-held-unknown-carrying-a-confidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-point-confidence-without-a-number.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-evidence.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-admitted-without-a-consequence-scope.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unattributed-assertion.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-profile-without-its-admission-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-oracle-receipt-without-its-profile.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-disputed-without-an-open-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-upheld-without-a-resolution-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unchallenged-carrying-challenge-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v1-challenge-envelope-on-a-semantic-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-resolution-contract-is-not-the-assurance-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-supersession-target-without-a-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-v2-claims-it-reinterprets-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unsupported-schema-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-mutable-latest-ontology-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json","contract_id":"schema://ioi/foundations/ontology-assertion/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-assertion-v2/negative-unadmitted-assertion-on-the-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-genesis-attested-preserves-v1-semantics.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-genesis-attested-preserves-v1-semantics.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-upheld-challenge-resolution.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-upheld-challenge-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-rejected-challenge-resolution-is-retained.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-rejected-challenge-resolution-is-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-adjudication-without-a-named-challenge.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/positive-adjudication-without-a-named-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-content-hash-omits-the-challenge-resolution.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-content-hash-omits-the-challenge-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-subject.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-revisions-bytes.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-names-another-revisions-bytes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-outside-adjudication.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-outside-adjudication.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-upheld-challenge-reported-as-positive.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-upheld-challenge-reported-as-positive.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-rejected-challenge-reported-as-negative.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-rejected-challenge-reported-as-negative.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-schema-version-on-v2.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-schema-version-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-receipt-profile-on-v2.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-receipt-profile-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-challenge-envelope-in-the-resolution.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-v1-challenge-envelope-in-the-resolution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-with-no-reviewer.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-with-no-reviewer.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-authored-at-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/positive-converged-from-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-mcp-operator-contracts-field-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-legacy-recipe-refs-field-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-mixed-tuple.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-migration-partial-tuple.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-missing-canonical-object-model-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-package-admission-nonclaim-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v2/negative-v1-schema-version-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json","contract_id":"schema://ioi/foundations/objects/domain-app/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v1/positive-stored-v1-draft.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-policy-view-snapshot-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-stage-binding-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v1/negative-status-advanced-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-converged-from-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-draft-inspect-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/positive-installed-and-serving.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-admitted-without-package-release.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-draft-claims-a-registration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-installed-without-installation-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-legacy-domain-app-ref-field-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-migration-partial-tuple.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-mounted-without-naming-its-runtime.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-registration-nonclaim-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-runtime-state-as-inventory-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-serving-without-mounted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-system-bound-with-no-system-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json","contract_id":"schema://ioi/foundations/objects/domain-app/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-v2/negative-unmounted-posture-keeps-its-route.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/positive-stored-v1-mounted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-external-ingress-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-rollback-posture-name-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v1/negative-route-populated-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-mounted-not-serving.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-serving-internal-route-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/positive-unmounted-terminal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-external-ingress-nonclaim-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-internal-route-while-not-serving.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-killed-still-mounted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-legacy-rollback-field-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-no-receipt-refs.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-serving-without-internal-route.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-stale-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-keeps-external-ingress.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json","contract_id":"schema://ioi/foundations/objects/domain-app-runtime/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-runtime-v2/negative-unmounted-still-serving.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/positive-stored-v1-mount.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v1/negative-runtime-binding-on-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-kill-unmount-binds-the-same-runtime.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/positive-mount-binds-its-runtime.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-admitted-head-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-domain-action-nonclaim-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-mount-attests-a-non-genesis-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-content-hash-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-owner-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-runtime-ref-omitted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-stale-state-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-substituted-runtime-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json","contract_id":"schema://ioi/foundations/objects/domain-app-mount-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/domain-app-mount-receipt-v2/negative-v1-schema-version-on-v2.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-authority-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-authority-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-key-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-key-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-effect-receipt-ref-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-effect-receipt-ref-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-effect-registry-ref-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-effect-registry-ref-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-policy-hash-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-policy-hash-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-wallet-consumption-request-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-wallet-consumption-request-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-coordinates-ref-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-coordinates-ref-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authority-key-statement-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-key-statement-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authority-id-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-id-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-issuer-root-id-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-issuer-root-id-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-unsupported-signature-suite","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-unsupported-signature-suite","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-suite-mismatch","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-suite-mismatch","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authority-suite-mismatch","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-suite-mismatch","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-oversized-principal","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-oversized-principal","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-nested-authority-claim","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-nested-authority-claim","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-truncated-grant-signature","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-truncated-grant-signature","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-truncated-root-signature","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-truncated-root-signature","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-duplicated-materialization-field-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-duplicated-materialization-field-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-embedded-component-count-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-embedded-component-count-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-embedded-component-identity-duplicate","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-embedded-component-identity-duplicate","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-embedded-component-kind-ref-substitution","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-embedded-component-kind-ref-substitution","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-embedded-deployment-root-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-embedded-deployment-root-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-legacy-deployment-compatibility-root-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-legacy-deployment-compatibility-root-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-request-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-request-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-consumption-evidence-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-consumption-evidence-id-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-policy-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-policy-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-effect-hash-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-effect-hash-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-identity-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-identity-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-snapshot-hash-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-snapshot-hash-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-statement-hash-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-statement-hash-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-binding-hash-self-attestation","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-binding-hash-self-attestation","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-binding-coordinates-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-binding-coordinates-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authority-tuple-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-tuple-detached","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-scope-uncovered","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-scope-uncovered","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-matched-scope-does-not-cover","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-matched-scope-does-not-cover","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-binding-signed-after-resolution","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-binding-signed-after-resolution","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-binding-expired-at-resolution","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-binding-expired-at-resolution","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-authority-expired-at-resolution","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-expired-at-resolution","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-grant-expired-at-resolution","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-grant-expired-at-resolution","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-boundary-required-ref-missing","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-boundary-required-ref-missing","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-receipt-boundary-extra-ref-injected","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-boundary-extra-ref-injected","value_json":null}),
+  differentialCase({"id":"mutation:sequence-zero-materialization-broad-receipt-ref","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization/v1","source_fixture_path":null,"mutation_id":"sequence-zero-materialization-broad-receipt-ref","value_json":null}),
+  differentialCase({"id":"mutation:type-number-for-string","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"type-number-for-string","value_json":null}),
+  differentialCase({"id":"mutation:required-property-removed","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"required-property-removed","value_json":null}),
+  differentialCase({"id":"mutation:required-nullable-claim-scope-missing","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"required-nullable-claim-scope-missing","value_json":null}),
+  differentialCase({"id":"mutation:additional-property-injected","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"additional-property-injected","value_json":null}),
+  differentialCase({"id":"mutation:referenced-pattern-violated","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"referenced-pattern-violated","value_json":null}),
+  differentialCase({"id":"mutation:ecma-whitespace-byte-order-mark-rejected","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"ecma-whitespace-byte-order-mark-rejected","value_json":null}),
+  differentialCase({"id":"mutation:ecma-non-whitespace-next-line-accepted","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"ecma-non-whitespace-next-line-accepted","value_json":null}),
+  differentialCase({"id":"mutation:nullable-any-of-violated","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"nullable-any-of-violated","value_json":null}),
+  differentialCase({"id":"mutation:optional-non-nullable-input-hash-null","contract_id":"schema://ioi/foundations/receipt-envelope/v1","source_fixture_path":null,"mutation_id":"optional-non-nullable-input-hash-null","value_json":null}),
+  differentialCase({"id":"mutation:unicode-aware-min-length-violated","contract_id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","source_fixture_path":null,"mutation_id":"unicode-aware-min-length-violated","value_json":null}),
+  differentialCase({"id":"mutation:closed-enum-violated-with-raw-string-sentinel","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":"closed-enum-violated-with-raw-string-sentinel","value_json":null}),
+  differentialCase({"id":"mutation:minimum-violated","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":"minimum-violated","value_json":null}),
+  differentialCase({"id":"mutation:array-items-schema-violated","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":"array-items-schema-violated","value_json":null}),
+  differentialCase({"id":"mutation:deep-unique-items-key-order-duplicate","contract_id":"schema://ioi/foundations/authority-key-set/v1","source_fixture_path":null,"mutation_id":"deep-unique-items-key-order-duplicate","value_json":null}),
+  differentialCase({"id":"mutation:impossible-rfc3339-calendar-date","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":"impossible-rfc3339-calendar-date","value_json":null}),
+  differentialCase({"id":"mutation:closed-const-violated","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":null,"mutation_id":"closed-const-violated","value_json":null}),
+  differentialCase({"id":"mutation:one-of-violated","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":null,"mutation_id":"one-of-violated","value_json":null}),
+  differentialCase({"id":"mutation:maximum-safe-integer-violated","contract_id":"schema://ioi/foundations/managed-work-billing-ledger-bundle/v1","source_fixture_path":null,"mutation_id":"maximum-safe-integer-violated","value_json":null}),
+  differentialCase({"id":"mutation:minimum-array-size-violated","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":"minimum-array-size-violated","value_json":null}),
+  differentialCase({"id":"mutation:type-less-if-then-max-items-violated","contract_id":"schema://ioi/foundations/physical-action-execution-receipt/v1","source_fixture_path":null,"mutation_id":"type-less-if-then-max-items-violated","value_json":null}),
+  differentialCase({"id":"mutation:nested-all-of-contains-member-missing","contract_id":"schema://ioi/foundations/dispute-rail-bundle/v1","source_fixture_path":null,"mutation_id":"nested-all-of-contains-member-missing","value_json":null}),
+  differentialCase({"id":"mutation:type-less-if-else-required-hash-violated","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"type-less-if-else-required-hash-violated","value_json":null}),
+  differentialCase({"id":"mutation:boolean-const-self-authority-violated","contract_id":"schema://ioi/foundations/autonomous-system-constitution/v1","source_fixture_path":null,"mutation_id":"boolean-const-self-authority-violated","value_json":null}),
+  differentialCase({"id":"mutation:genesis-authorized-without-admission-authority-status-evidence","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-authorized-without-admission-authority-status-evidence","value_json":null}),
+  differentialCase({"id":"mutation:genesis-activated-without-activation-lifecycle-evidence","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-activated-without-activation-lifecycle-evidence","value_json":null}),
+  differentialCase({"id":"mutation:constitution-active-without-activation-receipt","contract_id":"schema://ioi/foundations/autonomous-system-constitution/v1","source_fixture_path":null,"mutation_id":"constitution-active-without-activation-receipt","value_json":null}),
+  differentialCase({"id":"mutation:constitution-draft-with-activation-residue","contract_id":"schema://ioi/foundations/autonomous-system-constitution/v1","source_fixture_path":null,"mutation_id":"constitution-draft-with-activation-residue","value_json":null}),
+  differentialCase({"id":"mutation:constitution-draft-with-public-commitment-residue","contract_id":"schema://ioi/foundations/autonomous-system-constitution/v1","source_fixture_path":null,"mutation_id":"constitution-draft-with-public-commitment-residue","value_json":null}),
+  differentialCase({"id":"mutation:ordering-active-without-conformance-evidence","contract_id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","source_fixture_path":null,"mutation_id":"ordering-active-without-conformance-evidence","value_json":null}),
+  differentialCase({"id":"mutation:ordering-draft-with-conformance-residue","contract_id":"schema://ioi/foundations/ordering-admission-finality-profile/v1","source_fixture_path":null,"mutation_id":"ordering-draft-with-conformance-residue","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-committed-without-terminal-proof-set","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":null,"mutation_id":"lifecycle-committed-without-terminal-proof-set","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-proposed-with-decision-residue","contract_id":"schema://ioi/foundations/lifecycle-transition/v1","source_fixture_path":null,"mutation_id":"lifecycle-proposed-with-decision-residue","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-transition-receipt-initialize-wrong-sequence","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":null,"mutation_id":"lifecycle-transition-receipt-initialize-wrong-sequence","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-transition-receipt-initialize-missing-source-artifact","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":null,"mutation_id":"lifecycle-transition-receipt-initialize-missing-source-artifact","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-transition-receipt-initialize-detached-subject","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":null,"mutation_id":"lifecycle-transition-receipt-initialize-detached-subject","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-transition-receipt-initialize-wrong-scope","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":null,"mutation_id":"lifecycle-transition-receipt-initialize-wrong-scope","value_json":null}),
+  differentialCase({"id":"mutation:lifecycle-transition-receipt-cannot-claim-activation","contract_id":"schema://ioi/foundations/lifecycle-transition-receipt/v1","source_fixture_path":null,"mutation_id":"lifecycle-transition-receipt-cannot-claim-activation","value_json":null}),
+  differentialCase({"id":"mutation:chain-operation-log-required","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":null,"mutation_id":"chain-operation-log-required","value_json":null}),
+  differentialCase({"id":"mutation:chain-operation-log-root-required","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":null,"mutation_id":"chain-operation-log-root-required","value_json":null}),
+  differentialCase({"id":"mutation:proposal-home-domain-must-be-derived-form","contract_id":"schema://ioi/foundations/autonomous-system-activation-proposal/v1","source_fixture_path":null,"mutation_id":"proposal-home-domain-must-be-derived-form","value_json":null}),
+  differentialCase({"id":"mutation:chain-home-domain-must-be-derived-form","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":null,"mutation_id":"chain-home-domain-must-be-derived-form","value_json":null}),
+  differentialCase({"id":"mutation:chain-home-domain-binding-must-be-content-addressed","contract_id":"schema://ioi/foundations/autonomous-system-chain/v1","source_fixture_path":null,"mutation_id":"chain-home-domain-binding-must-be-content-addressed","value_json":null}),
+  differentialCase({"id":"mutation:manifest-goal-run-profiles-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-goal-run-profiles-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-workflow-templates-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-workflow-templates-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-automation-specs-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-automation-specs-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-harness-profiles-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-harness-profiles-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-agent-harness-adapters-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-agent-harness-adapters-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-skill-manifests-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-skill-manifests-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-data-recipes-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-data-recipes-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-runtime-tool-contracts-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-runtime-tool-contracts-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:manifest-mcp-gateway-requirements-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-manifest/v1","source_fixture_path":null,"mutation_id":"manifest-mcp-gateway-requirements-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-goal-run-profiles-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-goal-run-profiles-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-workflow-templates-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-workflow-templates-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-automation-specs-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-automation-specs-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-harness-profiles-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-harness-profiles-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-agent-harness-adapters-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-agent-harness-adapters-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-data-recipes-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-data-recipes-cross-category-ref","value_json":null}),
+  differentialCase({"id":"mutation:genesis-runtime-tool-contracts-cross-category-ref","contract_id":"schema://ioi/foundations/autonomous-system-genesis/v1","source_fixture_path":null,"mutation_id":"genesis-runtime-tool-contracts-cross-category-ref","value_json":null}),
+  differentialCase({"id":"differential:authority-timestamp-integral-decimal","contract_id":"schema://ioi/foundations/authority-grant-envelope/v2","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"schema_version\": \"ioi.foundations.authority-grant-envelope.v2\",\n  \"envelope_type\": \"ioi.authority-grant\",\n  \"signature_domain\": \"ioi.authority-grant-envelope.v2\",\n  \"schema_hash\": \"sha256:5d702231006db3551371f3d5f581532292c6a616c30c314b331ae747adfc219e\",\n  \"authority_grant_id\": \"grant://acme/repo-auditor/2\",\n  \"request_id\": \"authority-request://acme/repo-auditor/2\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n  \"issuer_key_set_version\": 4,\n  \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n  \"holder_id\": \"system://acme/delegator\",\n  \"holder_key_id\": \"key://acme/delegator/ed25519-1\",\n  \"audience\": \"runtime://acme/hypervisor/node-7\",\n  \"issued_at\": 1784203200.0,\n  \"not_before\": 1784203200,\n  \"expires_at\": 1784289600,\n  \"parent_grant\": null,\n  \"authority_scopes\": [\n    \"scope:repo.read\",\n    \"scope:repo.write\"\n  ],\n  \"primitive_capability_constraints\": [\n    \"prim:fs.read\",\n    \"prim:fs.write\"\n  ],\n  \"resources\": [\n    \"agentgres://project/hypervisor/source\",\n    \"agentgres://project/hypervisor/source/src\"\n  ],\n  \"attenuating_caveats\": [],\n  \"risk_restrictions\": {\n    \"allowed_risk_classes\": [\n      \"read\",\n      \"draft\"\n    ],\n    \"max_budget_microusd\": 10000000,\n    \"max_calls\": 100,\n    \"approval_required_for\": [\n      \"secret_export\"\n    ]\n  },\n  \"revocation_epoch\": 7,\n  \"body_hash\": \"sha256:1cb1754a47d624efd29717b210773b0c3be5d8c9d60b255fc656fddee5e11c96\",\n  \"signature_suite\": \"ed25519\",\n  \"signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"signature\": \"maOqb4ZoJ231trhjheA8z2ADYLSW4gOx-CJvpadrhR_8PF3kQ1RbcOAgmmIsbwc-xZunocrhnTzrZZPMtCIdBg\"\n}\n"}),
+  differentialCase({"id":"differential:portable-integer-boundary","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 9007199254740991,\n  \"status\": \"active\"\n}\n"}),
+  differentialCase({"id":"differential:portable-integer-over-bound","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 9007199254740992,\n  \"status\": \"active\"\n}\n"}),
+  differentialCase({"id":"differential:portable-integer-over-u64","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 18446744073709551616,\n  \"status\": \"active\"\n}\n"}),
+  differentialCase({"id":"differential:portable-integer-negative","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": -1,\n  \"status\": \"active\"\n}\n"}),
+  differentialCase({"id":"differential:portable-integer-integral-decimal","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"authority_grant_id\": \"grant://acme/repo-auditor/7\",\n  \"request_id\": \"authority-request://acme/repo-auditor/7\",\n  \"issuer_id\": \"wallet://acme/security\",\n  \"subject_id\": \"agent://repo-auditor\",\n  \"authority_scopes\": [\"scope:repo.read\"],\n  \"primitive_capability_constraints\": [\"prim:fs.read\"],\n  \"resources\": [\"agentgres://project/hypervisor/source\"],\n  \"constraints\": {\n    \"max_budget_usd\": 10,\n    \"expires_at\": \"2026-08-01T00:00:00Z\",\n    \"max_calls\": 100,\n    \"approval_required_for\": [\"external_message\"]\n  },\n  \"revocation_epoch\": 1.0,\n  \"status\": \"active\"\n}\n"}),
+  differentialCase({"id":"differential:proof-index-integral-decimal-equality","contract_id":"schema://ioi/foundations/receipt-proof-bundle/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\n  \"schema_version\": \"ioi.foundations.receipt-proof-bundle.v1\",\n  \"bundle_type\": \"ioi.receipt-proof-bundle\",\n  \"manifest_domain\": \"ioi.receipt-proof-bundle-manifest.v1\",\n  \"bundle_schema_hash\": \"sha256:24be22eada0a71ee53c4e5e4ac9184399d11492fa2bda8a9f66f5ac6c689b034\",\n  \"manifest_hash\": \"sha256:e99b823b8972c4807ef88ea530d4e35d1781a7be238965cd88e3eefc0a2a038b\",\n  \"manifest_signature_suite\": \"ed25519\",\n  \"manifest_signature_key_id\": \"key://acme/security/ed25519-4\",\n  \"manifest_signature\": \"50XUkaXhTHaqBTE6SkN_PfnudDbouYA_IFg0yns7YgE6zSCmrrS--SJuKe1V32wULp_7ECvhTX3aXJRUzAT9Cw\",\n  \"bundle_id\": \"proof://acme/audit-log/4/receipt-1\",\n  \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n  \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n  \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n  \"receipt\": {\n    \"receipt_id\": \"receipt://run-43/delivery-7\",\n    \"receipt_type\": \"delivery.accepted\",\n    \"receipt_profile_ref\": \"schema://ioi/receipts/delivery-accepted/v1\",\n    \"attested_boundary_fact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"claim_scope_ref\": \"schema://ioi/delivery/acceptance/v1\",\n    \"run_id\": \"run://43\",\n    \"task_id\": \"task://deliver-7\",\n    \"actor_id\": \"runtime://worker-2\",\n    \"input_hash\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"output_hash\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\n    \"policy_hash\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n    \"authority_grant_id\": \"grant://delivery-7\",\n    \"primitive_capabilities\": [\n      \"prim:fs.read\"\n    ],\n    \"authority_scopes\": [\n      \"scope:artifact.deliver\"\n    ],\n    \"artifact_refs\": [\n      \"artifact://sha256/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n    ],\n    \"evidence_bundle_refs\": [\n      \"evidence://delivery-7\"\n    ],\n    \"verification_ref\": \"verifier-path://delivery/default/v1\",\n    \"acceptance_ref\": \"acceptance://delivery-7\",\n    \"adjudication_ref\": null,\n    \"settlement_ref\": \"settlement://delivery-7\",\n    \"timestamp\": \"2026-07-16T12:05:00Z\",\n    \"signature\": \"legacy-signature-placeholder\",\n    \"public_commitment_ref\": \"commitment://delivery-7\"\n  },\n  \"receipt_body_hash\": \"sha256:26235f9318d765e5db6a07604252991fa2d0080fa799e7f8ee0aa60bf860e878\",\n  \"leaf\": {\n    \"algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"domain\": \"ioi.receipt-accumulator-leaf.v1\",\n    \"leaf_index\": 1.0,\n    \"leaf_hash\": \"sha256:3106fb2cf30ba8a026bbee76b6417ae1cb83a0699470a86ca066d3ee7aee415e\"\n  },\n  \"inclusion_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-inclusion.v1\",\n    \"leaf_index\": 1,\n    \"prefix_root\": \"sha256:460db93cda9696e422ac7c713c2164899bdadb73e3ea3b0c16cdc64ce3f369b0\",\n    \"suffix_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/4\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n    \"accumulator_size\": 4,\n    \"accumulator_root\": \"sha256:a80a2341d4c1ba4de8047edef681c8b77c8494198c8f0c6f3763f6594c23e5ab\",\n    \"previous_checkpoint_ref\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"previous_checkpoint_hash\": \"sha256:0bb941cdfd91654e8c7c53575444d5ad4d9474de7454a12c0520af2b2a49ba83\",\n    \"previous_accumulator_size\": 2,\n    \"previous_accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203300,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:6a40cf01bb7d68413083f165fbe34b6fa5fb92987156198190b0997e13ccd398\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"2YmJcKolLbbOqbFrGf6QYeXKDjxFKFsSb0bPP6AzfQZbIqwCShQKm9cUSGcZ8ama7HaxaqfIVzZpogSVnktrCw\"\n  },\n  \"previous_checkpoint\": {\n    \"schema_version\": \"ioi.foundations.receipt-checkpoint.v1\",\n    \"checkpoint_type\": \"ioi.receipt-checkpoint\",\n    \"signature_domain\": \"ioi.receipt-checkpoint.v1\",\n    \"schema_hash\": \"sha256:65d68f598f638e62e1e5cfa41f3e7b3e4525401ef7c81b85dd3f56a1fb6a976b\",\n    \"checkpoint_id\": \"receipt-checkpoint://acme/audit-log/2\",\n    \"receipt_log_id\": \"receipt-log://acme/audit-log\",\n    \"accumulator_algorithm\": \"ioi.receipt-hash-chain-jcs-sha256.v1\",\n    \"receipt_body_hash_profile\": \"ioi.receipt-envelope-jcs-sha256.v1\",\n    \"receipt_contract_id\": \"schema://ioi/foundations/receipt-envelope/v1\",\n    \"receipt_schema_hash\": \"sha256:76d2ce07623700a3d25e31f5bb131006e3d638559ec4338b09843674e5e51edc\",\n    \"accumulator_size\": 2,\n    \"accumulator_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"previous_checkpoint_ref\": null,\n    \"previous_checkpoint_hash\": null,\n    \"previous_accumulator_size\": null,\n    \"previous_accumulator_root\": null,\n    \"issuer_id\": \"wallet://acme/security\",\n    \"issuer_key_set_ref\": \"keyset://acme/security/4\",\n    \"issuer_key_set_version\": 4,\n    \"issuer_key_id\": \"key://acme/security/ed25519-4\",\n    \"issued_at\": 1784203240,\n    \"build_identity_ref\": \"build://ioi/hypervisor-daemon/fixture-2026-07-16\",\n    \"policy_posture_ref\": \"policy://acme/receipt-checkpoint/default\",\n    \"body_hash\": \"sha256:ffbba18526ca57f325f69831819a0c8e74b7d835fcf33413c17dba6ccf39bc00\",\n    \"signature_suite\": \"ed25519\",\n    \"signature_key_id\": \"key://acme/security/ed25519-4\",\n    \"signature\": \"vEyfYScqYA2RxllOdr8IGxkj99lom13W2fSKRUHDIkX4uHD7Q_JjcCjgIIWDs_X06F5aAQAlbiXIxQUd9cEhBg\"\n  },\n  \"consistency_proof\": {\n    \"profile\": \"ioi.receipt-hash-chain-consistency.v1\",\n    \"from_size\": 2,\n    \"from_root\": \"sha256:352831248cff9098cbdba9a6792a17227868988358abc028697639dac80cf54d\",\n    \"extension_leaf_hashes\": [\n      \"sha256:afea425012150fea14923cf80c17910a3646fc55c64e4d26b9cd53de2e7acfaa\",\n      \"sha256:2027b71d4dbb2160d9b8a3470c416f1fa87314068dc2e93d0328f91df92c279f\"\n    ]\n  },\n  \"trusted_input_refs\": {\n    \"key_set_ref\": \"keyset://acme/security/4\",\n    \"key_set_version\": 4,\n    \"revocation_snapshot_ref\": \"snapshot://acme/security/revocations/8\",\n    \"revocation_epoch\": 8\n  },\n  \"verification_instructions\": {\n    \"profile\": \"ioi.receipt-proof-verification.v1\",\n    \"steps\": [\n      \"Validate registered closed schemas and schema hashes.\",\n      \"Recompute the manifest and exact ReceiptEnvelope RFC 8785 JCS SHA-256 hashes.\",\n      \"Recompute the indexed leaf and hash-chain inclusion root.\",\n      \"Verify the current and previous checkpoint Ed25519 signatures against trusted local inputs.\",\n      \"Recompute append-only consistency from the previous checkpoint root.\"\n    ],\n    \"offline_required_inputs\": [\n      \"trusted_key_set\",\n      \"signed_revocation_snapshot\",\n      \"trusted_time\"\n    ]\n  }\n}\n"}),
+  differentialCase({"id":"differential:canonical-leap-second-z","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:60Z\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:canonical-leap-second-offset","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-02T00:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:noncanonical-space-separator","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01 23:59:59Z\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:noncanonical-compact-offset","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:59+0100\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:noncanonical-hour-offset","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:59:59+01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:noncanonical-hour-24-leap","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T24:59:60+01:00\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:noncanonical-minute-60-leap","contract_id":"schema://ioi/foundations/authority-grant-envelope/v1","source_fixture_path":null,"mutation_id":null,"value_json":"{\"authority_grant_id\":\"grant://acme/repo-auditor/7\",\"request_id\":\"authority-request://acme/repo-auditor/7\",\"issuer_id\":\"wallet://acme/security\",\"subject_id\":\"agent://repo-auditor\",\"authority_scopes\":[\"scope:repo.read\"],\"primitive_capability_constraints\":[\"prim:fs.read\"],\"resources\":[\"agentgres://project/hypervisor/source\"],\"constraints\":{\"max_budget_usd\":10,\"expires_at\":\"2025-01-01T23:60:60+00:01\",\"max_calls\":100,\"approval_required_for\":[\"external_message\"]},\"revocation_epoch\":7,\"status\":\"active\"}"}),
+  differentialCase({"id":"differential:object-valued-invariant-key-order","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":null,"value_json":"{\"schema_version\":\"ioi.autonomous-system-sequence-zero-materialization-receipt.v2\",\"receipt_id\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_ref\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"receipt_type\":\"autonomous_system_sequence_zero_materialization\",\"receipt_profile_ref\":\"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2\",\"actor_id\":\"runtime://hypervisor-runtime\",\"subject_ref\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"op\":\"materialized\",\"attested_boundary_fact_refs\":[\"system://acme/system-alpha\",\"genesis://acme/system-alpha/zero\",\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"constitution://acme/system-alpha/v1\",\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"ordering-profile://acme/system-alpha/poa1\",\"oracle-evidence-profile://acme/system-alpha/public-records\",\"lifecycle-profile://acme/system-alpha/default\",\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"agentgres://domain/acme/research\",\"grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28\",\"wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020\",\"system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020\"],\"bound_facts\":{\"materialization_id\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"materialization_output_hash\":\"sha256:2020202020202020202020202020202020202020202020202020202020202020\",\"governing_authority_ref\":\"agentgres://domain/acme/research\",\"authority_effect_hash\":\"sha256:3a6e54d37bdfa3395f07aa16c0951f27dee4b5f435f6365eae06967ee7d90182\",\"system_id\":\"system://acme/system-alpha\",\"genesis_ref\":\"genesis://acme/system-alpha/zero\",\"genesis_admission_record_root\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"genesis_admission_receipt_ref\":\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"genesis_admission_receipt_root\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"proposed_initial_state_root\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"proposed_initial_receipt_root\":\"sha256:2323232323232323232323232323232323232323232323232323232323232323\",\"package_id\":\"package://acme/outcome-operator\",\"manifest_ref\":\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"admitted_manifest_root\":\"sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b\",\"constitution_ref\":\"constitution://acme/system-alpha/v1\",\"constitution_root\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"profile_bundle_root\":\"sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48\",\"profile_materialization_root\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"deployment_profile_root\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"profile_refs\":{\"deployment_profile_ref\":\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"ordering_admission_finality_profile_ref\":\"ordering-profile://acme/system-alpha/poa1\",\"oracle_evidence_profile_refs\":[\"oracle-evidence-profile://acme/system-alpha/public-records\"],\"lifecycle_continuity_profile_ref\":\"lifecycle-profile://acme/system-alpha/default\",\"network_enrollment_ref\":null},\"component_registry_ref\":\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_registry_root\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_binding_count\":4,\"sequence\":0,\"predecessor_transition_commitment_ref\":null,\"operation_commitment\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"transition_commitment_ref\":\"commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"initial_state_root\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"initial_receipt_root\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"wallet_grant_consumption_ref\":\"wallet.network://approval-effect-consumption/d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94/2020202020202020202020202020202020202020202020202020202020202020\",\"wallet_grant_consumption_evidence_ref\":\"system-sequence-zero-authority-consumption://aszmc_2020202020202020202020202020202020202020202020202020202020202020\",\"materialized_pending_activation\":true,\"active_profile_admission\":false,\"initialize_admitted\":false,\"activation_admitted\":false,\"live_chain_created\":false,\"node_membership_created\":false,\"network_effect_admitted\":false,\"runtime_effect_admitted\":false},\"input_hash\":\"sha256:d28627573e190ebc6bdc9a0ce7ef920e07c6c05cfd3b89a0742b5d8da1fc2a94\",\"output_hash\":\"sha256:2020202020202020202020202020202020202020202020202020202020202020\",\"policy_hash\":\"sha256:83e35978e4d35d664c486e18e18696c81839278ee998e38a2038874ceec651b8\",\"effect_hash\":\"sha256:3a6e54d37bdfa3395f07aa16c0951f27dee4b5f435f6365eae06967ee7d90182\",\"authorized_effect\":{\"operation\":\"materialize_sequence_zero\",\"materialization\":{\"schema_version\":\"ioi.autonomous-system-sequence-zero-materialization.v1\",\"materialization_id\":\"system-materialization://sequence-zero/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"system_id\":\"system://acme/system-alpha\",\"genesis_ref\":\"genesis://acme/system-alpha/zero\",\"genesis_admission_record_root\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"genesis_admission_receipt_ref\":\"receipt://asgr_7777777777777777777777777777777777777777777777777777777777777777\",\"genesis_admission_receipt_root\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"proposed_initial_state_root\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\",\"proposed_initial_receipt_root\":\"sha256:2323232323232323232323232323232323232323232323232323232323232323\",\"package_id\":\"package://acme/outcome-operator\",\"manifest_ref\":\"package://acme/outcome-operator/release/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"admitted_manifest_root\":\"sha256:78ca76fbeb4fc51bdc114f68afd9078cedf52c8a3760ed1e2bb3be173091858b\",\"constitution_ref\":\"constitution://acme/system-alpha/v1\",\"constitution_root\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"profile_bundle_root\":\"sha256:eba5d6e0594d6d3ba68f46c287b30fa5b922fe3ba4a3b740da043180ce422e48\",\"profile_materialization_root\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"deployment_profile_root\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"profile_refs\":{\"network_enrollment_ref\":null,\"lifecycle_continuity_profile_ref\":\"lifecycle-profile://acme/system-alpha/default\",\"oracle_evidence_profile_refs\":[\"oracle-evidence-profile://acme/system-alpha/public-records\"],\"ordering_admission_finality_profile_ref\":\"ordering-profile://acme/system-alpha/poa1\",\"deployment_profile_ref\":\"deployment-profile://acme/system-alpha/local/revision/sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\"},\"component_registry_ref\":\"agentgres://object-set/autonomous-system-components/sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_registry_root\":\"sha256:5555555555555555555555555555555555555555555555555555555555555555\",\"component_binding_count\":4,\"component_bindings\":[{\"kind\":\"goal_run_profile\",\"binding_ref\":\"goal-run-profile://acme/system-alpha/default/revision/sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"binding_hash\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"workflow_template\",\"binding_ref\":\"workflow-template://acme/system-alpha/default/revision/sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"binding_hash\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"harness_profile\",\"binding_ref\":\"harness-profile://acme/system-alpha/default/revision/sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"binding_hash\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"evidence_refs\":[],\"evidence_hashes\":[]},{\"kind\":\"runtime_tool_contract\",\"binding_ref\":\"tool://acme/system-alpha/default/revision/sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"binding_hash\":\"sha256:4444444444444444444444444444444444444444444444444444444444444444\",\"evidence_refs\":[],\"evidence_hashes\":[]}],\"sequence\":0,\"predecessor_transition_commitment_ref\":null,\"operation_commitment\":\"sha256:6666666666666666666666666666666666666666666666666666666666666666\",\"transition_commitment_ref\":\"commitment://ioi/system-sequence-zero/sha256:7777777777777777777777777777777777777777777777777777777777777777\",\"initial_state_root\":\"sha256:8888888888888888888888888888888888888888888888888888888888888888\",\"initial_receipt_root\":\"sha256:9999999999999999999999999999999999999999999999999999999999999999\",\"materialization_receipt_ref\":\"receipt://aszmr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"activation_receipt_ref\":null,\"status\":\"materialized_pending_activation\"},\"activation_admitted\":false,\"runtime_effect_admitted\":false},\"wallet_approval_grant\":{\"schema_version\":1,\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"request_hash\":[210,134,39,87,62,25,14,188,107,220,154,12,231,239,146,14,7,198,192,92,253,59,137,160,116,43,93,141,161,252,42,148],\"policy_hash\":[131,227,89,120,228,211,93,102,76,72,110,24,225,134,150,200,24,57,39,142,233,152,227,138,32,56,135,76,238,198,81,184],\"audience\":[3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],\"nonce\":[4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4],\"counter\":1,\"expires_at\":1784548800000,\"max_usages\":1,\"approver_public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"approver_suite\":-8,\"approver_sig\":[20,184,190,106,10,53,124,23,253,28,92,113,82,45,175,160,28,244,5,19,58,98,91,175,103,5,32,28,132,59,10,59,219,61,130,136,2,1,199,135,92,171,41,81,177,95,146,235,4,152,244,234,141,159,239,165,178,67,77,154,88,43,11,12]},\"principal_authority_binding\":{\"schema_version\":1,\"principal_ref\":\"agentgres://domain/acme/research\",\"authority_kind\":\"approval\",\"coordinates\":{\"binding_ref\":\"wallet.network://principal-authority-binding/3dc8682a39fc1a7af4ef21c46af6f8ee3d464e48072aef5d07128b7af13509e4\",\"binding_version\":1,\"binding_hash\":[61,200,104,42,57,252,26,122,244,239,33,196,106,246,248,238,61,70,78,72,7,42,239,93,7,18,139,122,241,53,9,228]},\"required_scope\":\"scope:autonomous_system.genesis_materialize\",\"matched_scope\":\"scope:autonomous_system.genesis_materialize\",\"approval_authority\":{\"schema_version\":1,\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"signature_suite\":-8,\"expires_at\":1784548800000,\"revoked\":false,\"scope_allowlist\":[\"scope:autonomous_system.genesis_materialize\"]},\"approval_authority_snapshot_hash\":[195,34,101,132,126,155,116,25,212,249,137,134,100,106,160,204,169,148,48,253,7,94,53,201,209,46,127,39,145,51,124,244],\"binding_proof\":{\"schema_version\":1,\"statement\":{\"schema_version\":1,\"principal_ref\":\"agentgres://domain/acme/research\",\"authority_kind\":\"approval\",\"binding_version\":1,\"status\":\"active\",\"authority_id\":[219,79,65,147,122,1,52,168,97,19,202,55,31,33,46,22,113,38,76,163,13,192,242,149,125,68,226,26,81,25,44,238],\"authority_public_key\":[253,23,36,56,90,160,199,91,100,251,120,205,96,47,161,217,145,253,235,247,107,19,197,142,215,2,234,200,53,233,246,24],\"authority_signature_suite\":-8,\"approval_authority_snapshot_hash\":[195,34,101,132,126,155,116,25,212,249,137,134,100,106,160,204,169,148,48,253,7,94,53,201,209,46,127,39,145,51,124,244],\"signed_at_ms\":1784462400000,\"expires_at_ms\":1784548800000,\"issuer_root_account_id\":[109,251,167,30,168,49,141,153,53,187,19,174,74,201,69,116,138,138,29,36,170,112,9,231,248,48,177,155,160,27,31,233],\"reason\":\"Held PR 91 portable architecture-contract fixture\"},\"statement_hash\":[137,110,121,59,31,59,121,45,109,185,227,108,180,217,188,70,191,38,245,133,141,38,29,98,243,176,203,157,118,126,182,60],\"issuer_signature_proof\":{\"suite\":-8,\"public_key\":[234,74,108,99,226,156,82,10,190,245,80,123,19,46,197,249,149,71,118,174,190,190,123,146,66,30,234,105,20,70,210,44],\"signature\":[28,49,2,13,185,200,151,17,200,51,27,61,122,111,196,58,93,132,56,145,168,143,26,38,68,238,91,71,177,94,63,1,33,40,73,39,6,9,92,89,8,106,66,163,129,145,100,58,203,46,158,39,49,232,9,136,178,56,55,234,191,13,55,15]},\"binding_ref\":\"wallet.network://principal-authority-binding/3dc8682a39fc1a7af4ef21c46af6f8ee3d464e48072aef5d07128b7af13509e4\",\"binding_hash\":[61,200,104,42,57,252,26,122,244,239,33,196,106,246,248,238,61,70,78,72,7,42,239,93,7,18,139,122,241,53,9,228]}},\"authority_resolved_at_ms\":1784462400000,\"hash_scope_excludes\":[],\"assurance_posture\":\"sequence_zero_materialized_not_activated\",\"assurance_note\":\"governed materialization of immutable activation candidates and sequence-zero roots; active-profile admission, initialize, activation, live-chain, membership, network, and runtime effects remain unadmitted\",\"verification_ref\":null,\"acceptance_ref\":null,\"claim_scope_ref\":null,\"run_id\":null,\"task_id\":null,\"authority_grant_id\":\"grant://wallet.network/approval/sha256:532a589db6bbe43e6ec16fc94d68764c05f8b389532318a1f2d3586286f85e28\",\"primitive_capabilities\":[],\"authority_scopes\":[\"scope:autonomous_system.genesis_materialize\"],\"artifact_refs\":[],\"evidence_bundle_refs\":[],\"adjudication_ref\":null,\"settlement_ref\":null,\"signature\":null,\"public_commitment_ref\":null,\"timestamp\":\"2026-07-19T12:00:00Z\",\"outcome\":\"ok\",\"at\":\"2026-07-19T12:00:00Z\"}"}),
 ];
 
 export type ArchitectureContractJcsDifferentialCase = {
@@ -29068,6 +22300,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:schema|policy)://[^\\s]+$",
   "^(?:schema|policy)://[^\\s]{1,500}$",
   "^(?:schema|profile)://[^\\s]{1,500}$",
+  "^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$",
   "^(?:sha256:[0-9a-f]{64}|commitment://[^\\s]{1,400})$",
   "^(?:skill|skill-entry)://[^\\s]{1,500}$",
   "^(?:spend|contribution|receipt)://[^\\s]{1,500}$",
@@ -29150,7 +22383,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
-  "^[0-9a-f]{16,128}$",
   "^[0-9a-f]{40}$",
   "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
@@ -29946,7 +23178,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/domain-app-runtime/v1": "sha256:2e455269a381c59e808be5238d96aad05442e7bb131075fbb80a0fe048624d73",
   "schema://ioi/foundations/objects/domain-app-runtime/v2": "sha256:da120e17bc1bff39eb7c6c2cdf0f16363fa387fc45769ec0e353c0352f735c8f",
   "schema://ioi/foundations/objects/domain-app-mount-receipt/v1": "sha256:b009b108a377b45b5875f1dd25824e9cf2dc74dc654a879f8db9b237cf0cd2df",
-  "schema://ioi/foundations/objects/domain-app-mount-receipt/v2": "sha256:a5f884b7a49085387e24f0aef90d1dd2895e04db851bacc20457eed3e70959a1"
+  "schema://ioi/foundations/objects/domain-app-mount-receipt/v2": "sha256:3a35f155eb6ca2aff68cae82e99e781c263fd2053452e968617895b6696abb3d"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -107670,8 +100902,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "domain_app_admitted_head_before": {
         "type": "string",
-        "pattern": "^[0-9a-f]{16,128}$",
-        "description": "The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."
+        "pattern": "^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$",
+        "description": "The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. EXACTLY ONE SHA-256, sixty-four lowercase hex digits, with or without the `sha256:` prefix the substrate happens to issue; the prefix is tolerated only because reformatting a head would stop it matching the chain it names, never because the width is negotiable. A range like sixteen-to-a-hundred-and-twenty-eight would admit a truncated head, and a truncated head names a prefix of the chain rather than a position in it — which is exactly the ambiguity this field exists to remove. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."
       },
       "approval_request_ref": {
         "type": "string",

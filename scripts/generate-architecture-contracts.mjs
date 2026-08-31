@@ -3240,7 +3240,35 @@ export type ArchitectureContractDifferentialCase = {
   value_json: string | null;
 };
 
-export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractDifferentialCase> = ${JSON.stringify(differentialCases, null, 2)};
+/**
+ * EACH CASE IS TYPED AT ITS OWN LITERAL, NOT UNIONED WITH EVERY OTHER.
+ *
+ * The array below carries one entry per registered fixture and per registered mutation, so it grows
+ * with the corpus. Annotating only the variable leaves TypeScript inferring the whole array literal
+ * first — every object literal widened to its own type, with each id, contract_id and value_json as
+ * distinct string literals — and then checking that union against the annotation. Past a threshold
+ * that inference exceeds the compiler's union-complexity limit and the build fails with TS2590 on
+ * the array expression, which reads as a defect in the generated file rather than as a scale limit
+ * in how it was emitted. Registering four contract families was enough to cross it.
+ *
+ * The threshold is driven by the WIDTH of the value_json literals rather than by the entry count:
+ * four thousand short synthetic entries type-check fine, while this corpus does not. That is why
+ * scripts/lib/architecture-contract-differential-scaling.test.mjs reconstructs the bare-array form
+ * of THIS file's real output and type-checks both, instead of inventing a corpus that would prove
+ * nothing.
+ *
+ * The identity below annotates each element where it is written, so no cross-element union is ever
+ * formed. The emitted values are unchanged; only the point at which they acquire their type moves.
+ */
+const differentialCase = (
+  entry: ArchitectureContractDifferentialCase,
+): ArchitectureContractDifferentialCase => entry;
+
+export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<ArchitectureContractDifferentialCase> = [
+${differentialCases
+  .map((entry) => "  differentialCase(" + JSON.stringify(entry) + "),")
+  .join("\n")}
+];
 
 export type ArchitectureContractJcsDifferentialCase = {
   id: string;

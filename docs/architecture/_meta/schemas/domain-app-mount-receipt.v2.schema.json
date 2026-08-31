@@ -74,8 +74,8 @@
     },
     "domain_app_admitted_head_before": {
       "type": "string",
-      "pattern": "^[0-9a-f]{16,128}$",
-      "description": "The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."
+      "pattern": "^(?:sha256:[0-9a-f]{64}|[0-9a-f]{64})$",
+      "description": "The exact head of the DomainApp's admitted stream that this transition was admitted AGAINST — the compare-and-swap value the writer presented. EXACTLY ONE SHA-256, sixty-four lowercase hex digits, with or without the `sha256:` prefix the substrate happens to issue; the prefix is tolerated only because reformatting a head would stop it matching the chain it names, never because the width is negotiable. A range like sixteen-to-a-hundred-and-twenty-eight would admit a truncated head, and a truncated head names a prefix of the chain rather than a position in it — which is exactly the ambiguity this field exists to remove. It locates the receipt at one position in one chain, so a receipt cannot be replayed against a different history and still read as consistent."
     },
     "approval_request_ref": {
       "type": "string",
