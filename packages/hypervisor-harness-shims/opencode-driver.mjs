@@ -44,6 +44,17 @@ const configPath = writeTempConfig("ioi-opencode-", "opencode.json", JSON.string
       models: { [model]: { name: model } },
     },
   },
+  // This verifier-facing adapter must make the same admitted tool decision for the same model,
+  // prompt, and workspace bytes. Pin the supported sampling controls at the primary agent rather
+  // than normalizing model output after the fact; the runtime still observes and seals the exact
+  // bytes the model asked the edit tool to write.
+  agent: {
+    build: {
+      temperature: 0,
+      top_p: 1,
+      options: { seed: 4_049 },
+    },
+  },
   permission: {
     read: "allow",
     write: "deny",
