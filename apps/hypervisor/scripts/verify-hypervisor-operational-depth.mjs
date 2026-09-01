@@ -358,29 +358,28 @@ async function run() {
   const horizons = readFileSync(join(APP, "..", "..", "docs", "architecture", "_meta", "execution-horizons.md"), "utf8");
   ok("the contract-first build sequence remains canonical (14 ordered steps; closure = working proof, no PR numbers)", horizons.includes("## The build sequence (contract-first)") && /1\. Bounded-system constitutional core/.test(horizons) && /14\. Connected\/secured network-service proof/.test(horizons) && /Completion is not forced into an arbitrary PR\s+number|not forced into an arbitrary PR number/.test(horizons.replace(/\n/g, " ")) && deltaDoc.includes("execution-horizons.md#the-build-sequence-contract-first"));
 
-  // FALSE-CLAIM GUARDS: merged build-step-3 objects must remain honestly partial, while unrelated
-  // precedent-only rows must never be promoted by proximity.
+  // FALSE-CLAIM GUARDS: merged build-step-3 and semantic-plane objects must describe the exact
+  // bounded lifecycle that landed, while keeping their later-owner nonclaims explicit.  These
+  // checks intentionally follow executable milestones: requiring an implemented row to remain
+  // "not started" would turn this regression into a brake on owner-correct progress.
   const row = (name) => (deltaDoc.split("\n").find((l) => l.startsWith(`| \`${name}\` |`)) || "");
-  // RE-DERIVED AGAINST THE LEDGER AS IT IS, not as the drifted guard remembered it. These three
-  // guards were written against wording ("partial and merged") that a later canon pass replaced, and
-  // because this verifier crashed before reaching them nothing noticed: two assertions that could
-  // only ever fail, sitting in a file that never ran. What they were built to prevent has not
-  // changed — these rows must never quietly claim a CURRENT v2 producer, lifecycle, verdict or
-  // execution authority exists — so the guard is rewritten against the text that is actually there.
-  const NOT_STARTED = /current executable lifecycle not started/;
-  const NO_CURRENT_PRODUCER = (name) => new RegExp(`no current v2 room ${name} producer or lifecycle exists`);
-  const FENCED = /generation-fenced from current v2 rooms/;
-  for (const name of ["Attempt", "Finding"]) {
-    ok(`\`${name}\` row records the PREDECESSOR lifecycle as generation-fenced history and claims no current v2 producer, lifecycle, or execution authority`,
-      NO_CURRENT_PRODUCER(name).test(row(name)) && NOT_STARTED.test(row(name)) && FENCED.test(row(name))
-        && /predecessor/.test(row(name)) && !/current executable lifecycle (partial|complete|shipped)/.test(row(name)),
-      row(name) ? "row present" : "ROW MISSING");
-  }
-  ok("`VerifierChallenge` row records the predecessor lifecycle as generation-fenced history AND keeps verdict, acceptance, settlement and federation with their later owners",
-    NO_CURRENT_PRODUCER("VerifierChallenge").test(row("VerifierChallenge"))
-      && NOT_STARTED.test(row("VerifierChallenge"))
-      && FENCED.test(row("VerifierChallenge"))
-      && /keep verdict, acceptance, settlement, and federation with their later owners/.test(row("VerifierChallenge")),
+  ok("`Attempt` row records the bounded M04.8 lifecycle while retaining kernel ownership and later federation/settlement/acceptance nonclaims",
+    /M04\.8 admits the current Attempt/.test(row("Attempt"))
+      && /bounded hosted Attempt create\/transition\/read lifecycle runtime-implemented/.test(row("Attempt"))
+      && /does not own Session, launch, thread, HarnessInvocation, or child kernel truth/.test(row("Attempt"))
+      && /no federation, settlement, or acceptance/.test(row("Attempt")),
+    row("Attempt") ? "row present" : "ROW MISSING");
+  ok("`Finding` row records the bounded M04.8 lifecycle while keeping evaluation, verdict, acceptance, and Contribution outside it",
+    /M04\.8 admits the current Finding/.test(row("Finding"))
+      && /bounded hosted Finding create\/dispute\/read lifecycle runtime-implemented/.test(row("Finding"))
+      && /no verdict, acceptance, or Contribution object exists/.test(row("Finding"))
+      && /evaluation\/verdict and acceptance remain absent/.test(row("Finding")),
+    row("Finding") ? "row present" : "ROW MISSING");
+  ok("`VerifierChallenge` row records the bounded M04.8 challenge and keeps resolution, verdict, discovery, settlement, and acceptance with later owners",
+    /M04\.8 admits the current challenge/.test(row("VerifierChallenge"))
+      && /bounded hosted challenge create\/read lifecycle and dispute composition runtime-implemented/.test(row("VerifierChallenge"))
+      && /answers no question, mints no verdict, and cannot absorb discovery, settlement, or acceptance authority/.test(row("VerifierChallenge"))
+      && /resolution verdict remains later/.test(row("VerifierChallenge")),
     row("VerifierChallenge") ? "row present" : "ROW MISSING");
 
   // AND THE OTHER DIRECTION, which is the one that matters. Every guard above is a
@@ -414,16 +413,25 @@ async function run() {
       row(name).length > 0 && promoted.length === 0,
       promoted.map(String).join(" | ") || "no promotion language");
   }
-  for (const obj of ["OntologyVersion", "SemanticMappingDecision"]) {
-    ok(`\`${obj}\` row: not started with an explicitly LABELED implementation precedent (a precedent is never partial)`, row(obj).includes("not started") && !/\| partial/.test(row(obj)) && /implementation precedent/i.test(row(obj)));
-  }
+  ok("`OntologyVersion` row records the immutable M05.1 owner-qualified chain and its exact executable gate",
+    /M05\.1 admits one immutable revision per owner-qualified family/.test(row("OntologyVersion"))
+      && /bitemporal query and restart\/replay equivalence runtime-implemented/.test(row("OntologyVersion"))
+      && /check:ontology-version-lifecycle/.test(row("OntologyVersion"))
+      && /schema:\/\/ioi\/foundations\/ontology-version\/v1/.test(row("OntologyVersion")));
+  ok("`SemanticMappingDecision` row records the exact M05.2 decision lifecycle and its cross-domain fail-closed boundary",
+    /semantic-mapping-decision\.v1.*registered contract/.test(row("SemanticMappingDecision"))
+      && /durable chain/.test(row("SemanticMappingDecision"))
+      && /implemented for in-domain application/.test(row("SemanticMappingDecision"))
+      && /Cross-domain application is refused by name/.test(row("SemanticMappingDecision"))
+      && /check:semantic-mapping-lifecycle/.test(row("SemanticMappingDecision")));
   const provenanceAssertion = row("ProvenanceAssertion");
-  ok("`ProvenanceAssertion` row records the bounded registered assertion-as-object slice without promoting its missing graph, challenge, or verifier-resolution lifecycles",
-    provenanceAssertion.includes("registered contract")
-      && provenanceAssertion.includes("durable assertion-as-object")
-      && provenanceAssertion.includes("bounded backend slice")
-      && provenanceAssertion.includes("challenge workflow")
-      && provenanceAssertion.includes("verifier-receipt resolution"));
+  ok("`ProvenanceAssertion` row records the M05.3 graph, explicit v1→v2 succession, owner-resolved terms, and unchanged v1 slice",
+    /ontology-assertion\.v2.*EXPLICIT SUCCESSOR of v1/.test(provenanceAssertion)
+      && /general graph is implemented/.test(provenanceAssertion)
+      && /challenge, resolution, restart\/replay/.test(provenanceAssertion)
+      && /resolve_admitted_term/.test(provenanceAssertion)
+      && /exact-single-source v1 oracle slice is UNCHANGED/.test(provenanceAssertion)
+      && /check:provenance-assertion-graph/.test(provenanceAssertion));
   const estateRecord = `${deltaDoc}\n${JSON.stringify(atlas)}`;
   ok("merged estate work is no longer described as held or unlanded (delta doc + atlas)", !/already-landed|shipped state|held stack|not yet\s+merged(?:\s+to master)?/i.test(estateRecord));
 
