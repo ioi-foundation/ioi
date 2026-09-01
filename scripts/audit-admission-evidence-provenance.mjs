@@ -295,7 +295,10 @@ const H_BASELINE = [
   "connector_execution_routes.rs::handle_set_delete",
   "connector_mapping_routes.rs::handle_connector_mapping_create",
   "connector_mapping_routes.rs::handle_connector_mapping_delete",
-  "connector_mapping_routes.rs::handle_connector_mapping_patch",
+  // "connector_mapping_routes.rs::handle_connector_mapping_patch" — LEFT the baseline
+  // 2026-09-01 (M05.7): patch now resolves RequestIdentity before reading the exact
+  // owner-qualified ConnectorMapping head, then admits the immutable successor through
+  // the ordinary mapping-family seam. The disappearance is the intended ratchet shrink.
   "connector_session_routes.rs::handle_session_cancel",
   "connector_session_routes.rs::handle_session_create",
   "connector_session_routes.rs::handle_session_delete",
@@ -424,7 +427,10 @@ const H_BASELINE = [
   // widened in the same commit to recognise those seams; without that it would have kept
   // reporting four of the five as unauthenticated while they were not, which understates
   // the ratchet and would let a later regression pass unnoticed.
-  "odk_routes.rs::handle_odk_descriptor_delete",
+  // "odk_routes.rs::handle_odk_descriptor_delete" — LEFT the baseline 2026-09-01
+  // (M05.6): delete now resolves RequestIdentity first and records a governed successor
+  // transition for the exact owner-qualified descriptor family. It no longer belongs to
+  // the middleware-only legacy surface, so retaining the pin would make improvement red.
   "ontology_projection_routes.rs::handle_projection_create",
   "ontology_projection_routes.rs::handle_projection_delete",
   "ontology_projection_routes.rs::handle_projection_patch",
