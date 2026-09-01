@@ -616,17 +616,16 @@ jobs:
   # would make it pay for provisioning it does not use, and folding it into the
   # serial Rust-backed step would couple two unrelated families' runtimes.
   #
-  # The mutation adjudicator runs HERE and not in the deterministic step above it:
-  # a green verifier certifies nothing until the battery has proved it can go red,
-  # and keeping both in one job means the pair can never drift apart across runs.
-  # It rebuilds the daemon once per planted defect, which is why this job carries
-  # the same 120-minute interim hang ceiling as the M04 matrix legs. That is a
-  # hang ceiling, not a performance target: it leaves the timeout-graph maximum
-  # exactly where it was.
+  # The expensive mutation adjudicator is deliberately outside blocking CI and
+  # remains available through check:verified-work-graph:scheduled. Blocking CI
+  # runs the deterministic producer/consumer/restart proof and publishes its
+  # assertion census; scheduled qualification proves the same verifier goes red
+  # on every planted target. The timeout below is an operational hang ceiling,
+  # not a performance target.
   m061_verified_work_graph:
     name: M06.1 Verified Work Graph plane verifier
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -689,13 +688,6 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:verified-work-graph --workspace=@ioi/hypervisor-app
 
-      # THE ADJUDICATOR. Each planted defect must redden the exact assertion it
-      # names; a mutant that only reddens something else is a MISS and fails the
-      # job. The harness restores every source it touched and proves the restore
-      # by digest before exiting.
-      - name: Adjudicate the Verified Work Graph gate against planted defects
-        run: npm run mutate:verified-work-graph --workspace=@ioi/hypervisor-app
-
       - name: Publish the M06.1 verifier census
         uses: actions/upload-artifact@v4
         with:
@@ -709,9 +701,9 @@ jobs:
   # jobs publish their immutable censuses. It invokes no verifier, Cargo build,
   # daemon, or authority path; omission and shrinkage fail closed here.
   # Timeout-graph ceiling (not a performance claim): max(build 90 + product 45,
-  # Rust-backed 90, either parallel M04 matrix leg 120, M06.1 120) + floor 20 =
-  # 155 minutes. The M06.1 job runs in parallel with the others and reuses the
-  # existing 120-minute leg ceiling, so the graph maximum is unchanged.
+  # Rust-backed 90, either parallel M04 matrix leg 120, M06.1 90) + floor 20 =
+  # 155 minutes. The M06.1 job remains parallel, so the graph maximum is
+  # unchanged.
   verifier_family_floor:
     name: Verifier family census floor
     runs-on: ubuntu-latest

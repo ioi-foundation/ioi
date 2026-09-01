@@ -83,6 +83,7 @@
     "check:u1-placement-attestation": "node scripts/verify-u1-placement-attestation.mjs",
     "check:u1-real-campaign-relying-party": "node scripts/verify-u1-real-campaign-relying-party.mjs --self-test",
     "check:verified-work-graph": "node scripts/verify-hypervisor-verified-work-graph.mjs",
+    "check:verified-work-graph:scheduled": "npm run check:verified-work-graph && npm run mutate:verified-work-graph",
     "check:verifier-floors": "node scripts/check-verifier-floors.mjs",
     "dev": "vite",
     "generate:c7-c8-capstone": "node scripts/generate-c7-c8-certificate.mjs",
