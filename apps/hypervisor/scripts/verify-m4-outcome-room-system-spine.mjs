@@ -69,6 +69,11 @@ const checks = [];
 // the five-surface pending-intent fence loop each contribute four executions beyond their one
 // static call site. Any case-count change must update this explanation and the exact done bar.
 const EXPECTED_CHECKS = 104;
+// The debug daemon and the ported product shell exercise the same strict owner projection. Keep
+// their hang ceilings identical so the client cannot abandon a projection that the daemon still
+// considers live. This is a bounded liveness ceiling only; no elapsed-time acceptance claim is
+// made and every semantic assertion below remains unchanged.
+const OWNER_PROJECTION_TIMEOUT_MS = 1_200_000;
 // npm workspace scripts execute with apps/hypervisor as cwd, while the daemon's honest harness
 // probe resolves its shipped shim from either an explicit absolute path or the process cwd. Bind
 // the repository-owned verifier prerequisite explicitly so `npm run check:* --workspace=...`
@@ -1087,7 +1092,7 @@ try {
     // Five strict owner projections are intentionally serialized. An instrumented debug daemon
     // can take longer than the product's two-minute default without being unavailable, so the
     // verifier uses a bounded 20-minute hang ceiling. No elapsed-time acceptance claim is made.
-    IOI_M4_OWNER_PROJECTION_TIMEOUT_MS: "1200000",
+    IOI_M4_OWNER_PROJECTION_TIMEOUT_MS: String(OWNER_PROJECTION_TIMEOUT_MS),
   };
   plane = await startIsolatedPlane({
     dataDir,
@@ -6816,13 +6821,13 @@ try {
       room.outcome_room_id,
     )}`,
     operatorHeaders,
-    150_000,
+    OWNER_PROJECTION_TIMEOUT_MS,
   );
   const goalSpaceHtml = goalSpaceResponse.body;
   const runTimelineResponse = await readHttpText(
     `${plane.serveUrl}/__ioi/run-timeline/goal-run/${collectiveGoalRunId}`,
     operatorHeaders,
-    150_000,
+    OWNER_PROJECTION_TIMEOUT_MS,
   );
   const runTimelineHtml = runTimelineResponse.body;
   let localEnvCacheResponse = { status: 0, body: "" };
