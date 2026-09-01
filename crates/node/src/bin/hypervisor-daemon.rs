@@ -236,6 +236,10 @@ mod transformation_run_routes;
 mod vast_candidate_source;
 #[path = "hypervisor_daemon_routes/verifier_challenge_routes.rs"]
 mod verifier_challenge_routes;
+#[path = "hypervisor_daemon_routes/vertical_ontology_pack_routes.rs"]
+mod vertical_ontology_pack_routes;
+#[path = "hypervisor_daemon_routes/vertical_pack_worker_binding_routes.rs"]
+mod vertical_pack_worker_binding_routes;
 #[path = "hypervisor_daemon_routes/wallet_network_capability_client.rs"]
 mod wallet_network_capability_client;
 #[path = "hypervisor_daemon_routes/work_frontier_claim_routes.rs"]
@@ -1757,6 +1761,26 @@ async fn async_main() -> anyhow::Result<()> {
                 policy_bound_data_view_revision_routes::handle_policy_bound_data_view_materialization_query,
             )
             .post(policy_bound_data_view_revision_routes::handle_policy_bound_data_view_materialize),
+        )
+        // M05.10 — the vertical pack and its compiled worker binding. The pack DECLARES a vertical's
+        // task classes, action/risk mappings, integration requirements, output fields, evidence
+        // requirements and review modes against an exact admitted ontology revision; the binding
+        // COMPILES one pack revision onto one worker composition, resolving every input through its
+        // owner's read-only seam and emitting exactly one row per declared field into compiled
+        // contracts, abstentions or escalations. Neither family decides legality, reviewer
+        // qualification, authority, marketplace eligibility, payment or correctness, and neither
+        // forks the daemon, wallet.network, Agentgres or the marketplace.
+        .route(
+            "/v1/hypervisor/vertical-ontology-packs",
+            get(vertical_ontology_pack_routes::handle_vertical_ontology_pack_query)
+                .post(vertical_ontology_pack_routes::handle_vertical_ontology_pack_admit),
+        )
+        .route(
+            "/v1/hypervisor/vertical-pack-worker-bindings",
+            get(vertical_pack_worker_binding_routes::handle_vertical_pack_worker_binding_query)
+                .post(
+                    vertical_pack_worker_binding_routes::handle_vertical_pack_worker_binding_compile,
+                ),
         )
         // M05.9: the four Data-owned media/demonstration/trajectory families. Each rides the same
         // owner-namespaced Agentgres chain; none of them mints authority, owns a Session, or writes

@@ -102,6 +102,14 @@ jobs:
       - name: Test the shipped Hypervisor daemon
         run: cargo test --locked -p ioi-node --bin hypervisor-daemon
 
+      # M05.10 is a Rust-backed live-daemon gate. Keep it beside the daemon build and full daemon
+      # test so the Node-only product job never invokes Cargo implicitly. The verifier refuses an
+      # out-of-worktree binary and exercises only synthetic records on an isolated data directory.
+      - name: Verify vertical ontology pack compilation
+        env:
+          IOI_M0510_DAEMON_PREBUILT: "1"
+        run: npm run check:vertical-ontology-pack-compiler --workspace=@ioi/hypervisor-app
+
       # ADR 0038's named merge lane. The full daemon suite above also contains
       # these tests; the exact invocation keeps the M04.8 claim boundary visible
       # and prevents the scheduled real-wallet soak from drifting back into PR CI.

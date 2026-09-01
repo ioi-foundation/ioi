@@ -443,9 +443,16 @@ const PINNED = {
   // movement below. The production writer populations, judged family positions and raw-filesystem
   // calls do not move: v2 persists through the shared owner-scoped Agentgres mutation boundary,
   // while the v1 ODK route remains the sole recorded admitter for its distinct predecessor family.
-  modules: 109,
+  // M05.9/M05.10 runtime re-derivation (2026-09-01): the media/trajectory runtime and the two
+  // vertical-pack compiler modules add three reachable modules, 2,151 source tokens, 112 opaque
+  // initialisers, 21 foreign-qualified names, three registered-fixture `include_str!` reads (all
+  // three with non-literal concat arguments), and three test-region compile-time assemblies. They
+  // add no ODK-family-resolving position, production writer bucket, family mention, or raw
+  // filesystem call. All new families admit only through the shared owner-scoped Agentgres
+  // mutation boundary; the unchanged 57/237/302 writer census is the owner-spine result.
+  modules: 112,
   familyMentions: 285,
-  tokenMentions: 141999,
+  tokenMentions: 144150,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
@@ -466,17 +473,17 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4431,
-    "opaque-initialiser": 2581,
+    "foreign-qualified": 4452,
+    "opaque-initialiser": 2693,
     "bare-undeclared": 532,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,
     "resolution-cycle": 0,
   },
   /** `include!` splices code and is followed; the data forms carry no Rust and are pinned. */
-  includes: { splicedCode: 0, dataStr: 88, dataBytes: 0, dataOpaqueArg: 19 },
+  includes: { splicedCode: 0, dataStr: 91, dataBytes: 0, dataOpaqueArg: 22 },
   /** Compile-time name assembly. Every production one must be READABLE and is followed. */
-  compileAssembly: { production: 0, test: 21 },
+  compileAssembly: { production: 0, test: 24 },
 };
 
 /**

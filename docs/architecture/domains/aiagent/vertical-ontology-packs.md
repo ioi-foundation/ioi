@@ -4,12 +4,16 @@ Status: canonical architecture authority.
 Canonical owner: this file for installable domain extensions over the aiagent Digital Worker Ontology.
 Supersedes: plan prose that models verticals as hardcoded categories or separate runtimes.
 Superseded by: none.
-Last alignment pass: 2026-06-17.
+Last alignment pass: 2026-09-01.
 Doctrine status: canonical
-Implementation status: partial (registration only — the `VerticalOntologyPack` v1 and `VerticalPackWorkerBinding` v1 wire contracts are registered with invariant profiles, a fixture corpus and both generated projections; NO daemon route, store, resolver, compiler or verifier produces or enforces either family, and `runtime_worker_package_install_admission.rs` still accepts an unresolved `vertical_pack:` string)
+Implementation status: built for M05.10 — the registered `VerticalOntologyPack` v1 and `VerticalPackWorkerBinding` v1 contracts are produced and consumed by owner-scoped Agentgres admission routes, exact owner seams, deterministic compilation, restart/replay and a blocking mutation-tested live verifier. `WorkerComposition` remains explicitly unresolved and M14-owned, and `runtime_worker_package_install_admission.rs` still treats the legacy `vertical_pack:` value as display identity rather than resolving it as this revision family.
 Implementation refs:
   - `docs/architecture/_meta/schemas/vertical-ontology-pack.v1.schema.json`
   - `docs/architecture/_meta/schemas/vertical-pack-worker-binding.v1.schema.json`
+  - `crates/node/src/bin/hypervisor_daemon_routes/vertical_ontology_pack_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/vertical_pack_worker_binding_routes.rs`
+  - `apps/hypervisor/scripts/verify-hypervisor-vertical-ontology-pack-compiler.mjs`
+  - `apps/hypervisor/scripts/mutate-hypervisor-vertical-ontology-pack-compiler.mjs`
   - `crates/services/src/agentic/runtime/kernel/runtime_worker_package_install_admission.rs`
 Last implementation audit: 2026-09-01
 

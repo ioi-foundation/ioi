@@ -5,7 +5,7 @@
   "rules": [
     {
       "rule_id": "vertical_pack_worker_binding.content_hash.commits_the_whole_compilation",
-      "description": "Every field except the hash itself, committed under a domain separator — the exact pack revision AND its bytes, the base ontology and its bytes, the composition and its stated non-resolution, the effective boundary binding, the declared field set, all six compiled arrays, the abstentions, the escalations, the three counts, jurisdictions, succession, migration and every nonclaim. Compiling the same resolved inputs twice therefore yields the same number, and a relying party holding only the record recomputes it offline.",
+      "description": "Every field except the hash itself, committed under a domain separator — the exact pack revision AND its bytes, the base ontology and its bytes, the composition and its stated non-resolution, the effective boundary binding, the declared field set, every compiled array, the risk ladder, the abstentions, the escalations, jurisdictions, succession, migration and every nonclaim. The material list below is the authority on what is committed; this sentence describes it and does not enumerate it, because a prose count that drifts from the list is a false statement about the commitment. Compiling the same resolved inputs twice therefore yields the same number, and a relying party holding only the record recomputes it offline.",
       "expression": {
         "operator": "jcs_sha256_equals",
         "algorithm": "jcs_sha256",

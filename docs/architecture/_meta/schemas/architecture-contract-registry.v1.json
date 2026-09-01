@@ -14847,7 +14847,7 @@
         {
           "path": "fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json",
           "expected_failure": "invariant",
-          "expected_rule_id": "vertical_ontology_pack.action_bindings.every_action_is_declared_by_a_task_class"
+          "expected_rule_id": "vertical_ontology_pack.action_bindings.each_action_appears_once"
         },
         {
           "path": "fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json",
@@ -14905,7 +14905,8 @@
         }
       ],
       "positive_fixture_refs": [
-        "fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json"
+        "fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json",
+        "fixtures/vertical-pack-worker-binding-v1/positive-challenged-decision-and-insufficient-evidence.json"
       ],
       "negative_fixture_refs": [
         {

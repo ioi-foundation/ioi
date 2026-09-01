@@ -1,13 +1,13 @@
 {
   "schema_version": "ioi.vertical-pack-worker-binding.v1",
-  "vertical_pack_worker_binding_id": "vertical-binding://acme.records-worker",
-  "revision_ref": "vertical-binding://acme.records-worker/revision/1",
+  "vertical_pack_worker_binding_id": "vertical-binding://acme-records/records-worker",
+  "revision_ref": "vertical-binding://acme-records/records-worker/revision/1",
   "owner_ref": "org://local",
   "tenant_ref": "tenant://org.local",
   "principal_resolution": "server_resolved",
   "resolved_principal_ref": "user://owner",
-  "vertical_ontology_pack_revision_ref": "vertical-pack://acme.synthetic-sensitive-records/revision/1",
-  "vertical_ontology_pack_content_hash": "sha256:5f0576dc447151a3bb65c8a719d18093fc4c2a97184318ffad4b042ca0290d30",
+  "vertical_ontology_pack_revision_ref": "vertical-pack://acme-records/synthetic-sensitive/revision/1",
+  "vertical_ontology_pack_content_hash": "sha256:08cc5f192b9efec4a3733038d7f24825a7b1b09201760f936b2eea19d87e8793",
   "base_ontology_revision_ref": "ontology://acme-records/intake/revision/1",
   "base_ontology_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
   "worker_composition_ref": "composition://acme/records-worker/1.0.0/local",
@@ -248,5 +248,5 @@
     "measured_field_confidence",
     "worker_composition_resolution"
   ],
-  "content_hash": "sha256:3742e2bfddbf7154d8953810a2d2f491eb18c8c7fe5449b7a0f92225d28144f5"
+  "content_hash": "sha256:9f94d18183c2c571d5e88eb12050b7c98d67f2378381169bfeb5771a22653d8d"
 }

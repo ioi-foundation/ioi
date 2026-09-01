@@ -8,8 +8,12 @@
   "additionalProperties": false,
   "$defs": {
     "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "packFamilyRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}$" },
-    "packRevisionRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "packFamilyRef": {
+      "type": "string",
+      "pattern": "^vertical-pack://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
+      "description": "OWNER-QUALIFIED, TWO SEGMENTS: `vertical-pack://<namespace>/<name>`. A single-segment family would put every vertical in one flat space where two owners can collide on a name, which is the same defect the ontology and action-contract families already refuse by carrying their namespace in the identity itself."
+    },
+    "packRevisionRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
     "ownerRef": { "type": "string", "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
     "tenantRef": { "type": "string", "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
     "principalRef": { "type": "string", "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },

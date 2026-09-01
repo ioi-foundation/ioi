@@ -147,10 +147,10 @@
   ],
   "abstentions": [
     {
-      "output_field_ref": "field://acme/claim-line/place-of-service",
-      "requirement": "conditional",
-      "cause": "policy_bound_view_excludes_the_field",
-      "cause_ref": "view://acme.records-intake/revision/1",
+      "output_field_ref": "field://acme/claim-line/service-code",
+      "requirement": "required",
+      "cause": "insufficient_evidence",
+      "cause_ref": "evidence-contract://acme/records/code-set",
       "governing_disposition": "not_applicable",
       "no_value_was_produced": true
     },
@@ -165,11 +165,20 @@
   ],
   "escalations": [
     {
+      "output_field_ref": "field://acme/claim-line/place-of-service",
+      "requirement": "conditional",
+      "cause": "mapping_decision_challenged",
+      "cause_ref": "ontology-mapping://acme-records/payer-map/decision/revision/1",
+      "governing_disposition": "challenged",
+      "no_value_was_produced": true,
+      "escalated_to_owner_ref": "org://local"
+    },
+    {
       "output_field_ref": "field://acme/claim-line/rendering-party",
       "requirement": "required",
-      "cause": "required_field_unmapped",
-      "cause_ref": "ontology-mapping://acme-records/payer-map/decision/revision/1",
-      "governing_disposition": "carried_as_unmapped",
+      "cause": "reviewer_decision_superseded",
+      "cause_ref": "ontology-mapping://acme-records/payer-map/decision/revision/2",
+      "governing_disposition": "superseded",
       "no_value_was_produced": true,
       "escalated_to_owner_ref": "org://local"
     }
@@ -216,5 +225,5 @@
     "measured_field_confidence",
     "worker_composition_resolution"
   ],
-  "content_hash": "sha256:9edc198b1981882d77bde8b2921838c902a8d2599470b050b0bd7e0c3a5d4efc"
+  "content_hash": "sha256:a072f2f2650f13fe834138c618beabb1b109494c67fa050febf4c6da39e3a6de"
 }

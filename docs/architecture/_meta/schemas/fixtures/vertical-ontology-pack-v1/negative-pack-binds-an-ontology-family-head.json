@@ -1,7 +1,7 @@
 {
   "schema_version": "ioi.vertical-ontology-pack.v1",
-  "vertical_ontology_pack_id": "vertical-pack://acme.synthetic-sensitive-records",
-  "revision_ref": "vertical-pack://acme.synthetic-sensitive-records/revision/1",
+  "vertical_ontology_pack_id": "vertical-pack://acme-records/synthetic-sensitive",
+  "revision_ref": "vertical-pack://acme-records/synthetic-sensitive/revision/1",
   "owner_ref": "org://local",
   "tenant_ref": "tenant://org.local",
   "principal_resolution": "server_resolved",
@@ -164,5 +164,5 @@
     "live_medical_suitability",
     "credential_custody"
   ],
-  "content_hash": "sha256:5d205f5d521c07bc838492ca8dcc78bb2adf023b4bc156a35510cbed2ecc65e8"
+  "content_hash": "sha256:5d29f39e7549c6eadd7dae8be83c3b4329e373e0bb1fcf5737124a1ca473d052"
 }

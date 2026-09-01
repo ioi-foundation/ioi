@@ -2163,6 +2163,117 @@ pub(crate) async fn handle_ontology_action_contract_admit(
     )
 }
 
+// -------------------------------------------------------------------------------- the owner seam
+
+/// ONE resolved action-contract revision, as a caller entitled to it may see it.
+///
+/// THE REDUCED BINDING, NOT THE WHOLE DOCUMENT. A consumer compiling meaning onto a worker needs
+/// this family's identity, its committed bytes, the risk class it actually carries and the gate
+/// ladder it still owes — and nothing else. Handing back the projection wholesale would invite a
+/// consumer to reinterpret fields this module owns.
+#[derive(Clone, Debug)]
+pub(crate) struct ResolvedActionContract {
+    pub(crate) ontology_action_id: String,
+    pub(crate) action_family_ref: String,
+    pub(crate) content_hash: String,
+    pub(crate) risk_class: String,
+    pub(crate) status: String,
+    pub(crate) required_gates: Vec<String>,
+    pub(crate) ontology_revision_ref: String,
+    pub(crate) ontology_content_hash: String,
+}
+
+impl ResolvedActionContract {
+    /// A contract is USABLE only while it is the family's current, unsuperseded revision.
+    ///
+    /// A deprecated contract stays addressable — that is the point of an immutable revision — but a
+    /// consumer compiling a NEW binding onto it would be compiling onto meaning its owner has
+    /// already moved past. The distinction is the consumer's to act on, so it is reported rather
+    /// than enforced here.
+    pub(crate) fn is_active(&self) -> bool {
+        self.status == "active"
+    }
+}
+
+/// Resolve ONE EXACT admitted action-contract revision for a caller entitled to see it.
+///
+/// THIS LIVES IN THE OWNER MODULE ON PURPOSE. M05.10's compiler binds an action to the contract it
+/// passes through; reading this family's chain from there would make the compiler a second namer of
+/// another module's family — the exact defect `7074564aa` closed for the three v1 families and the
+/// one M03.4 ruled on for `connector_execution_routes`. There is one reader, it is here, and it is
+/// the same `authorized_lineage` the query route serves from: same owner scope, same chain
+/// projection, same content-hash re-derivation. It adds no storage reader and never widens scope.
+///
+/// EXACT, NOT LATEST. The ordinal is selected out of the projected lineage, so a predecessor stays
+/// resolvable after successors land, and a family head is refused by the ref grammar rather than
+/// resolved to whatever the family last carried.
+///
+/// IT GRANTS NOTHING. It returns an identity, a hash, a risk class and the six gates the compiled
+/// action must still pass somewhere that is not here (NN 9).
+pub(crate) fn resolve_admitted_action_contract(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    action_revision_ref: &str,
+) -> Result<ResolvedActionContract, Reply> {
+    if !canonical_action_revision_ref(action_revision_ref) {
+        return Err(refuse(
+            "ontology_action_contract_revision_ref_not_canonical",
+            "an action contract is addressed as 'ontology-action://<namespace>/<name>/<action>/revision/<n>'; a family head, a mutable latest, or a spelling that needs normalising is refused rather than repaired",
+        ));
+    }
+    let rest = action_revision_ref
+        .strip_prefix("ontology-action://")
+        .unwrap_or_default();
+    let parts: Vec<&str> = rest.split('/').collect();
+    let family = family_ref(parts[0], parts[1], parts[2]);
+    let ordinal: u64 = parts[4].parse().unwrap_or_default();
+
+    let (lineage, scope) = authorized_lineage(data_dir, identity, &family)?;
+    // The cache is consulted only to REPORT agreement; the lineage is already projected, so it
+    // cannot contribute to the answer. Touching it here keeps a resolver read on the same footing as
+    // a query read rather than leaving a reader's entry stale behind its own resolution.
+    let _ = projection_cache_state(&projection_cache_key(&scope, &family), &lineage);
+    let Some(document) = lineage
+        .iter()
+        .find(|document| ordinal_of(document) == ordinal)
+    else {
+        return Err(bad(
+            StatusCode::NOT_FOUND,
+            "ontology_action_contract_absent",
+            format!(
+                "this action family has no admitted revision {ordinal}; an absent revision is a typed absence, never the nearest one"
+            ),
+        ));
+    };
+    let text = |key: &str| {
+        document
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    Ok(ResolvedActionContract {
+        ontology_action_id: text("ontology_action_id"),
+        action_family_ref: family,
+        content_hash: text("content_hash"),
+        risk_class: text("risk_class"),
+        status: text("status"),
+        required_gates: document
+            .get("required_gates")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default(),
+        ontology_revision_ref: text("ontology_revision_ref"),
+        ontology_content_hash: text("ontology_content_hash"),
+    })
+}
+
 // ------------------------------------------------------------------------------- consumer route
 
 #[derive(serde::Deserialize)]

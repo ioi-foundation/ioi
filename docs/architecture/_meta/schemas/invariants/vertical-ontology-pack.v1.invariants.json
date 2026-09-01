@@ -73,8 +73,8 @@
       }
     },
     {
-      "rule_id": "vertical_ontology_pack.action_bindings.every_action_is_declared_by_a_task_class",
-      "description": "Each declared action binding must be reachable from the task-class vocabulary — a pack that mapped a risk class onto an action no task class names has declared a risk about work it does not describe.",
+      "rule_id": "vertical_ontology_pack.action_bindings.each_action_appears_once",
+      "description": "ONE ACTION, ONE BINDING. Two rows for one action type would leave which risk class, which contract and which review mode govern it undecided, and a consumer reading the first row would silently take whichever it saw. THE NAME OF THIS RULE CLAIMS ONLY WHAT THE EXPRESSION CHECKS: an earlier draft called it `every_action_is_declared_by_a_task_class` over this same uniqueness expression, which is an assertion satisfied by a different element than it names. Task-class reachability — that every declared action binding is named by some `declared_task_classes[].action_type_refs` entry — is genuinely inexpressible here, because the portable language cannot project a scalar out of an array nested inside array items. It is enforced instead by the admitting runtime and asserted by the unit's own gate.",
       "expression": {
         "operator": "array_unique_by_fields",
         "array_path": "$.declared_action_bindings",

@@ -8,9 +8,13 @@
   "additionalProperties": false,
   "$defs": {
     "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "bindingFamilyRef": { "type": "string", "pattern": "^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}$" },
-    "bindingRevisionRef": { "type": "string", "pattern": "^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
-    "packRevisionRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "bindingFamilyRef": {
+      "type": "string",
+      "pattern": "^vertical-binding://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$",
+      "description": "OWNER-QUALIFIED, TWO SEGMENTS, matching the pack it compiles. A binding namespaced differently from the family it is a compilation of would make 'whose vertical is this' answerable two ways."
+    },
+    "bindingRevisionRef": { "type": "string", "pattern": "^vertical-binding://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
+    "packRevisionRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
     "ownerRef": { "type": "string", "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
     "tenantRef": { "type": "string", "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
     "principalRef": { "type": "string", "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
@@ -46,21 +50,23 @@
       "enum": [
         "field_proposal_absent",
         "stale_code_or_form",
+        "insufficient_evidence",
         "policy_bound_view_not_active",
         "policy_bound_view_excludes_the_field",
         "policy_bound_view_denies_the_use",
         "effective_policy_moved"
       ],
-      "description": "THE WORKER CANNOT SAY. Each cause names a fact the compiler RESOLVED and found wanting; none of them is a caller's assertion. An abstention is a refusal to produce a value, not a low-confidence value."
+      "description": "THE WORKER CANNOT SAY. Each cause names a fact the compiler RESOLVED and found wanting; none of them is a caller's assertion. An abstention is a refusal to produce a value, not a low-confidence value. `insufficient_evidence` is DISTINCT from every mapping cause: the mapping may be exact, admitted, unchallenged and current, and the field still have no admitted evidence satisfying the pack's own declared `evidence_requirement_ref` for it. Collapsing that into `stale_code_or_form` or an escalation would report a meaning problem where there is an evidence problem, and send it to the wrong desk."
     },
     "escalationCause": {
       "enum": [
         "required_field_unmapped",
         "mapping_ambiguous",
+        "mapping_decision_challenged",
         "reviewer_decision_superseded",
         "required_field_proposal_absent"
       ],
-      "description": "AN ACCOUNTABLE OWNER MUST DECIDE. The difference from an abstention is who has to act: a required field with no admitted mapping is not the worker declining to answer, it is the vertical unable to proceed."
+      "description": "AN ACCOUNTABLE OWNER MUST DECIDE. The difference from an abstention is who has to act: a required field with no admitted mapping is not the worker declining to answer, it is the vertical unable to proceed. `mapping_decision_challenged` is DISTINCT from `reviewer_decision_superseded` and from `mapping_ambiguous`, and the three go to different people: a challenge is an OPEN dispute somebody raised and nobody has resolved, a supersession is a decision that was replaced by a later one, and an ambiguity is a crosswalk that never resolved to a single term. Filing a live challenge as a supersession would report a settled question where one is open."
     },
     "governingDisposition": {
       "enum": [
@@ -75,9 +81,13 @@
         "approved_with_conditions",
         "rejected",
         "abstained",
+        "challenged",
+        "upheld",
+        "unchallenged",
+        "superseded",
         "not_applicable"
       ],
-      "description": "M05.2'S OWN TOKENS, VERBATIM, plus `not_applicable` for the causes that do not come from a mapping decision at all. This module invents no parallel abstention vocabulary: a second spelling of `refused_ambiguous` would let two records describe one fact and disagree."
+      "description": "M05.2'S OWN TOKENS, VERBATIM — its review decisions, its ambiguity and unmapped dispositions, AND its challenge-standing vocabulary (`challenged`, `upheld`, `unchallenged`) — plus `superseded` and `not_applicable` for the causes that do not come from a mapping decision at all. This module invents no parallel abstention vocabulary: a second spelling of `refused_ambiguous` would let two records describe one fact and disagree. Carrying the exact standing here is what lets an operator see WHICH fact fired: `mapping_decision_challenged` covers both an open dispute (`challenged`) and one that succeeded and revoked the map (`upheld`), and those go to different desks."
     }
   },
   "required": [
