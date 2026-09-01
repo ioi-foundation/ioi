@@ -1,0 +1,281 @@
+{
+  "evidence_format": "ioi.m05.semantic-plane-qualification.v1",
+  "recorded_at": "2026-09-01",
+  "scope": "M05.1 through M05.10 plus the smallest M06.1 and M10.3 owner-correct prerequisites",
+  "ancestry": {
+    "program_start": "91132b5fdde0ef3b29b6b501520ca53df574c878",
+    "required_ancestor": "18222ccfa30b3a5e77a87ee37140fde7e079336c",
+    "required_ancestor_verified": true,
+    "qualified_runtime_candidate": "eb9adfe84d28c3d5a3173cd2cb86aa7c41b59c6f",
+    "canon_status_candidate": "0a90590dc82e5480fb93946186f1005a31fbdd98",
+    "final_integration_commit_resolution": "the local master commit containing this evidence record; the record cannot contain its own Git object id, so the final handback must report git rev-parse master and this path's containing commit",
+    "integrated_commit_count_before_this_record": 62,
+    "integrated_commit_manifest_command": "git log --format='%H %s' --reverse 91132b5fdde0ef3b29b6b501520ca53df574c878..0a90590dc82e5480fb93946186f1005a31fbdd98",
+    "integrated_commit_manifest_sha256": "44a756a62047ece980f55e65329f21a306ad079b77a3f2ec4e25af4abd53acd2",
+    "origin_master_tracking_ref": "aae7dfa9c0a6bfebe9471aed2c7338b274ce9e6a",
+    "origin_master_ls_remote": "aae7dfa9c0a6bfebe9471aed2c7338b274ce9e6a",
+    "origin_observed_at": "2026-09-01",
+    "remote_mutated": false
+  },
+  "program_structure": {
+    "modules": 14,
+    "build_units": 154,
+    "acceptance_gates": 21,
+    "reachable_documents": 47,
+    "older_counts_restored": false
+  },
+  "canonical_posture": {
+    "source_neutral": true,
+    "operational_truth_owner": "Agentgres",
+    "second_truth_spine_created": false,
+    "finality_profiles": [
+      "bft_consensus/bft_consensus_aft_v1 (default)",
+      "single_authority/single_authority_v1 (explicit non-default)"
+    ],
+    "finality_profiles_added": 0,
+    "goalrun_kernel_ownership_changed": false,
+    "artifact_ref_remains_passive": true,
+    "semantic_meaning_grants_authority": false,
+    "connection_or_credential_possession_grants_authority": false
+  },
+  "contract_projection_manifest": {
+    "registry": {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "sha256": "ebf78811f46cc02a2b7ce96508a6863cc22625cf7453381ff320863967b3ea9d"
+    },
+    "rust_projection": {
+      "path": "crates/types/src/app/generated/architecture_contracts.rs",
+      "sha256": "aad7fcced88ffdfd31a68fdaba5efae7ba8376b4f3e72553e15599bc78606c1c"
+    },
+    "typescript_projection": {
+      "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+      "sha256": "2a7adc19bb4549b8312aca8deb03bbe8d92b8c6e61ff40864266b0a53fb7930e"
+    },
+    "m05_contracts_and_prerequisites": [
+      ["ioi.ontology-version.v1", "ontology-version.v1.schema.json", "50d1baf41b3557fa95422cb4e8600a174a063ba0eb84f29826299524ee0c157a"],
+      ["ioi.ontology-overlay.v1", "ontology-overlay.v1.schema.json", "9ba78159aacdea4a7e76244da9c619fda34d2d9adbf0e78319f6b6719adb4224"],
+      ["ioi.ontology-crosswalk.v1", "ontology-crosswalk.v1.schema.json", "ac271c2bbb0484e7fea6c72963f67a6f6bc88df8d9ee2998e2f52d6890b24712"],
+      ["ioi.semantic-mapping-decision.v1", "semantic-mapping-decision.v1.schema.json", "19f7f0488c5500e25b13750a82da2ad333671f4e887497e6c7a7811843be4afe"],
+      ["ioi.ontology-assertion.v2", "ontology-assertion.v2.schema.json", "1a178b36c5f4f9701fca935f3c69175032f1b2bd7341b8978ee13e1e095d220e"],
+      ["ioi.foundations.verifier-challenge-envelope.v2", "verifier-challenge-envelope.v2.schema.json", "cbe7b7e6aaefaf357da33fe102f13b25c06cb6952d9fb97a9cb6441c0e8a574d"],
+      ["ioi.assurance-transition-receipt.v2", "assurance-transition-receipt.v2.schema.json", "99de3c69e6b3adab8c0ba6fd94418bf33491b1f508ea12b30d32652f797f0318"],
+      ["ioi.ontology-action-contract.v1", "ontology-action-contract.v1.schema.json", "3a53f783fe740f52a91e61577149bbab641da98dc7379d3bb789d86b9184c710"],
+      ["ioi.hypervisor.odk.surface-descriptor.v1", "ontology-surface-descriptor.v1.schema.json", "1d1f78d6ecc917b8c197ce328e0b4f4e8db3db2e432fef1586146d574e92c37b"],
+      ["ioi.ontology-surface-descriptor.v2", "ontology-surface-descriptor.v2.schema.json", "35fdad5c8a6ef40a0df2e2d07b643608f79863e74be0baac7c50271c521d690b"],
+      ["ioi.hypervisor.odk.manifest.v1", "ontology-development-kit-manifest.v1.schema.json", "6ca2249d830ca3674cb64968904f1b75a43f5a88602ff6e01f22ff9bb57170bb"],
+      ["ioi.ontology-development-kit-manifest.v2", "ontology-development-kit-manifest.v2.schema.json", "41c2c6bb8bbbf2ff4cabd823436656a4758885491904bca46a70c0d57484ac17"],
+      ["ioi.hypervisor.domain-app.v1", "domain-app.v1.schema.json", "0d2933598fbbc4c79481ba405897eb5f7681b58a4e2f83fcdc1c92bb0850e627"],
+      ["ioi.domain-app.v2", "domain-app.v2.schema.json", "edd880bd4b6c1a92717ea98e424828df7e1806ad23d7e2564370b7e3242a6e0a"],
+      ["ioi.hypervisor.domain-app-runtime.v1", "domain-app-runtime.v1.schema.json", "4cb69dd11289aa54a5d16ffcf3ed479f939e671251e936b906b8c1fcd7f9ef90"],
+      ["ioi.domain-app-runtime.v2", "domain-app-runtime.v2.schema.json", "39817a042308bd720ee25115fb906f2dd36896c89ab7487e533598aecd763a19"],
+      ["ioi.hypervisor.domain-app-mount-receipt.v1", "domain-app-mount-receipt.v1.schema.json", "3736ab4e3da17c9652ae108d9fb2ccf8252bca1098fa7970bfbd30b5d32272a2"],
+      ["ioi.domain-app-mount-receipt.v2", "domain-app-mount-receipt.v2.schema.json", "0bc6263db021519066fa64584364ab3fcd944a6a0ddd8dc0fdd4fba3cb31f96d"],
+      ["ioi.hypervisor.odk.data-recipe.v1", "data-recipe.v1.schema.json", "78cb69834d2b3503ab77c78ca7b079a976d5aed138e8a8af53116a3af2051452"],
+      ["ioi.data-recipe.v2", "data-recipe.v2.schema.json", "048653b5e8718d9c0fb4281c6cfaa2ccb9c22c10ea6427e6c1bf634329becb7b"],
+      ["ioi.hypervisor.odk.connector-mapping.v1", "connector-mapping.v1.schema.json", "dfb2376230aa0e6a0f2e80b2fee87b8de8cd4b8590406e7f06843df9dd33116a"],
+      ["ioi.connector-mapping.v2", "connector-mapping.v2.schema.json", "00eea1b62d3d26ae4f73868b1ac3f90774ca16dc879ed70167c7b0d68b5df745"],
+      ["ioi.hypervisor.odk.transformation-run.v1", "transformation-run.v1.schema.json", "7e27312b2416f600f6dd7247123fcf8957bbd93b474c45f412417d3ed351b043"],
+      ["ioi.transformation-run.v2", "transformation-run.v2.schema.json", "1b9e4bfef3f3e76138c00150a980b5d80199a3c77470406e6a1f1dbd5bd6c094"],
+      ["ioi.learning-source-rights-claim.v1", "learning-source-rights-claim.v1.schema.json", "076f8595c7beb434ef239fdebc1adc21036f9618eb00d4579d052f5298120384"],
+      ["ioi.institutional-learning-boundary-profile.v1", "institutional-learning-boundary-profile.v1.schema.json", "f0b95f0cf573216eb20483471c5acddd8c1802e47ed2467233ebc91a8de9f3a2"],
+      ["ioi.learning-evidence-eligibility.v1", "learning-evidence-eligibility.v1.schema.json", "6efc4dc0b55df88be7619630f7684a7d0b8d07b1854c833844cae63f57e55b3a"],
+      ["ioi.learning-egress-receipt.v1", "learning-egress-receipt.v1.schema.json", "f2419936b98897a3b1ca6b4d0c806f427e6c85ea60ae9bce28e2e9f15e39ee5b"],
+      ["ioi.model-route-rights-contract.v1", "model-route-rights-contract.v1.schema.json", "8388d030e955658678edd6971c1d9b2b59593370a5b3b8f843d83c84379eafb8"],
+      ["ioi.hypervisor.odk.policy-bound-data-view.v1", "policy-bound-data-view.v1.schema.json", "281f0c374e5522db2ddcd8e618d68aef0f85141b1b6694b2e5970fd9ba48f3d6"],
+      ["ioi.policy-bound-data-view.v2", "policy-bound-data-view.v2.schema.json", "322331f583880bf3f83e54ca4486ad40c3ccd52a708f487cf4e07d33a0da23a3"],
+      ["ioi.policy-bound-media-snapshot.v1", "policy-bound-media-snapshot.v1.schema.json", "b8621c053aefc5dd76cf94adf12ea59afd42e0acda79aa5502eace1c23ea6b60"],
+      ["ioi.observation-action-episode.v1", "observation-action-episode.v1.schema.json", "f0e48a8ba17070a8c24598fc116047ed72c73af26685bebe3c0272563b6c311c"],
+      ["ioi.dataset-split-manifest.v1", "dataset-split-manifest.v1.schema.json", "03c07b3d32ee062cc93c94ecb98f2827846eaa983ffef4556cce5b81cd12a92c"],
+      ["ioi.media-corpus-qualification-census.v1", "media-corpus-qualification-census.v1.schema.json", "2b6b9e79e8e789bd5db46769cc294783ae47a359e6e4dc67457cf3ed09a69e26"],
+      ["ioi.vertical-ontology-pack.v1", "vertical-ontology-pack.v1.schema.json", "674990160ed52e748ff43d628b7b2b72d4286fc10efacb08e37bbaa74a2a2ad4"],
+      ["ioi.vertical-pack-worker-binding.v1", "vertical-pack-worker-binding.v1.schema.json", "e11c5bd953ab07b9e45c9a93d3acc332ccb66d6e3e270c3f9b6728128960166e"]
+    ]
+  },
+  "schema_fixture_census": {
+    "family_directories": 37,
+    "positive": 86,
+    "negative": 416,
+    "total": 502,
+    "scope": "M05 current contracts, explicit predecessors and M06.1/M10.3 prerequisites"
+  },
+  "storage_migration_index_census": {
+    "canonical_store": "Agentgres admitted chain",
+    "operational_family_count": 28,
+    "second_truth_stores": 0,
+    "explicit_contract_successions": 12,
+    "immutable_revision_families": true,
+    "exact_head_required_for_successors": true,
+    "read_projections_are_rebuildable": true,
+    "projection_deletion_or_corruption_changes_truth": false,
+    "rebuild_signal": "rebuilt_from_agentgres",
+    "migration_rule": "v1 bytes remain valid; explicit v2 successors bind predecessor bytes and refuse downgrade; no silent v1 reinterpretation"
+  },
+  "producer_consumer_census": {
+    "runtime_producers": [
+      "ontology_version_routes.rs",
+      "semantic_mapping_routes.rs",
+      "provenance_assertion_routes.rs",
+      "ontology_action_contract_routes.rs",
+      "odk_routes.rs and domain_apps_routes.rs",
+      "data_transformation_routes.rs",
+      "institutional_learning_boundary_routes.rs",
+      "policy_bound_data_view_revision_routes.rs and policy_bound_data_view_routes.rs",
+      "media_trajectory_dataset_routes.rs",
+      "vertical_ontology_pack_routes.rs and vertical_pack_worker_binding_routes.rs"
+    ],
+    "native_http_consumers": 10,
+    "generated_projection_consumers": ["Rust", "TypeScript"],
+    "policy_bound_view_product_paths": ["native", "SDK", "CLI", "bounded MCP"],
+    "offline_verifiers": 10,
+    "product_projection_nonclaim": "No unclaimed OpenAPI/SDK/CLI/MCP representation is relabeled as present; G-4 scanners fail if a surface starts claiming an omitted family."
+  },
+  "deterministic_verification": {
+    "M05.1": "54/54; mutation 10/10 RED ON TARGET",
+    "M05.2": "80/80; mutation 27/27 RED ON TARGET",
+    "M05.3": "55/55; mutation 21/21 RED ON TARGET",
+    "M05.4": "63/63; mutation 22/22 RED ON TARGET",
+    "M05.5": "65/65; mutation 23/23 RED ON TARGET",
+    "M05.6": "58/58; mutation 25/25 RED ON TARGET; harness sha256:1c1847d52f664b15a0df7d05aa0bb4bff2601570c1833c317545963d8bb1fd7d; source restored",
+    "M05.7": "85/85; mutation 23/23 RED ON TARGET; source restored",
+    "M05.8": "80/80; mutation 38/38 RED ON TARGET",
+    "M05.9": "83/83; mutation 52/52 RED ON TARGET",
+    "M05.10": "25/25; mutation 5/5 RED ON TARGET; focused Rust 9/9",
+    "M06.1_prerequisite": "86/86; mutation 16/16 RED ON TARGET",
+    "M10.3_prerequisite": "47/47; mutation 17/17 RED ON TARGET",
+    "ontology_backend": "86/86",
+    "ontology_admission": "111 files; 16 pinned leads; 201/201 H-census",
+    "operational_depth": "147/147",
+    "CI_verifier_floor": "37 CI-gated verifiers; 1441 runtime assertions; 1 typed exclusion; 38 verifier checks",
+    "architecture_docs": "163 files; 11 rules; work-items 10/41 anchors",
+    "architecture_contracts": "generated projections fresh",
+    "cargo_fmt": "green",
+    "ioi_node_daemon_tests": "1109 passed; 0 failed; 8 environment-gated ignored",
+    "agentgres_tests": "87 passed; 0 failed",
+    "types_api_pii_telemetry_tests": "413 core plus 1 live-authority source-policy plus 5 system-genesis source-policy; all doc tests green"
+  },
+  "crash_restart_replay_matrix": {
+    "M05.1": ["torn tail", "restart", "bitemporal replay", "index rebuild"],
+    "M05.2": ["challenge and resolution replay", "restart", "index rebuild"],
+    "M05.3": ["negative and disputed history replay", "restart", "index rebuild"],
+    "M05.4": ["exact retry", "successor replay", "restart", "index rebuild"],
+    "M05.5": ["historical retry after dependency movement", "projection delete/corrupt", "restart", "index rebuild"],
+    "M05.6": ["command-bound replay after later transition", "record-directory destruction", "restart", "chain rebuild"],
+    "M05.7": ["idempotent run retry", "changed-definition refusal", "restart", "index rebuild"],
+    "M05.8": ["view and materialization byte-identical replay", "projection deletion", "restart", "cross-principal isolation"],
+    "M05.9": ["bounded queue", "typed backpressure gap", "checkpoint resume after process restart", "byte-identical family roots"],
+    "M05.10": ["same-key replay", "process restart", "index deletion/rebuild", "deterministic recompilation"]
+  },
+  "authority_and_information_flow_refusals": [
+    "fork, gap, predecessor, namespace, time, version and hash substitution",
+    "unknown, ambiguous, stale, contradicted, challenged and superseded mappings",
+    "semantic action meaning as authority or effect invocation",
+    "descriptor, ODK generation, artifact visibility or connected status as authority",
+    "changed-definition replay, mapping substitution, mutable-latest input and cross-tenant output",
+    "cross-tenant source, excess row/field, expired consent, stale policy, declassification, destination, residency, revocation, missing source and redaction-as-permission",
+    "media rights gaps, controller-truth promotion, leakage, timebase drift and label substitution",
+    "vertical stale codes/forms, missing jurisdiction, ambiguous/challenged mappings and insufficient evidence"
+  ],
+  "scheduled_media_qualification": {
+    "command": "npm --prefix apps/hypervisor run check:media-trajectory-scale-soak",
+    "verifier_sha256": "ff39e1845793188c24d8be9ecbd07726afe52761d4aeb2727ea8a4a921ed161d",
+    "result": "30/30",
+    "corpus": {
+      "profile": "interactive-learned",
+      "seed": "m059-scale-soak",
+      "synthetic": true,
+      "authorized": true,
+      "content_addressed": true,
+      "raw": {"seconds": 9243, "files": 307, "bytes": 20119552, "frames_or_samples": 277290, "chunks": 3684},
+      "accepted": {"seconds_before_deduplication": 9060, "seconds_after_deduplication": 8280, "files": 276, "bytes": 18087936, "frames_or_samples": 248400, "chunks": 3312},
+      "rejected": {"seconds": 183, "files": 5, "bytes": 327680, "frames_or_samples": 5490, "chunks": 60},
+      "deduplicated": {"seconds": 780, "files": 26, "bytes": 1703936, "frames_or_samples": 23400, "chunks": 312, "exact_duplicates": 14, "near_duplicates": 12},
+      "distinct_payloads": 293,
+      "bounded_episodes": 12,
+      "tasks": 12,
+      "source_sessions": 3,
+      "required_label_classes": 9,
+      "observed_required_label_classes": 9
+    },
+    "runtime_evidence": {
+      "backpressure_window": 8,
+      "pending_events": 24,
+      "delivered_events": 8,
+      "typed_outcome": "bounded_by_backpressure_window",
+      "interruption_count": 1,
+      "resume_count": 1,
+      "durability_class": "local_only",
+      "restart_roots_equal": true
+    },
+    "performance_tripwire_claimed": false
+  },
+  "m04_ci_branch_disposition": {
+    "source_tip": "357d7b45de75443a6abd7b1dcfa866a52ac0237b",
+    "integrated_intent_commit": "745139d1afcc694fda9b55f4c6ac80260b640513",
+    "merged_blindly": false,
+    "goalrun_verifier": "52/52",
+    "outcome_room_system_spine_verifier": "104/104",
+    "node_only_job_invokes_cargo": false,
+    "rust_native_daemon_job_owns_both_verifiers": true,
+    "census_artifacts_feed_family_floor": true,
+    "critical_path": "parallel M04 verifier matrix followed by census floor; 120-minute per-leg ceiling and 155-minute dependency-graph ceiling are interim CI ceilings, not accepted performance doctrine"
+  },
+  "stash_reconciliation": [
+    {
+      "stash_commit": "f750728621b960d902fdfa2ae42bac911b816b35",
+      "disposition": "unique compatible user-authored architecture documentation reconciled in a clean worktree and integrated through commit 881ae969bd396370a1747e9a237a576ec91d63d5; stash preserved"
+    },
+    {
+      "stash_commit": "5199a30100415f23f989beda05b2c45240f5d52d",
+      "disposition": "patch-equivalent duplicate of work already integrated by 8c1f98510; no unique surviving patch; stash preserved"
+    }
+  ],
+  "delegation_ledger": [
+    {
+      "session_id": "d7391e55-5baf-46ec-a356-36adfec6e595",
+      "actual_model_metadata": "claude-opus-5",
+      "entitlement": "local Claude Max fixed-cost UI",
+      "role": "isolated M05.10 writer",
+      "accepted": true,
+      "integrated_commits": ["394f3c97ee9193bd6add50583c3d7c996b502091", "d29bad24825a76462a5b2677c58213fa7326a1f3"]
+    },
+    {
+      "session_id": "ae6b1825-f77c-44df-8567-f3f08f4cc4d3",
+      "actual_model_metadata": "claude-opus-5",
+      "entitlement": "local Claude Max fixed-cost UI",
+      "role": "bounded M05.10 verifier follow-up",
+      "accepted": false,
+      "reason": "no durable deliverable; session stalled and was terminated"
+    }
+  ],
+  "preexisting_failure_adjudication": {
+    "command": "cargo clippy --locked -p ioi-node --bin hypervisor-daemon",
+    "candidate_exit": 101,
+    "start_commit_exit": 101,
+    "same_errors": [
+      "crates/services/src/wallet_network/mail_ontology.rs:580 absurd extreme comparison",
+      "crates/services/src/wallet_network/mail_ontology.rs:594 absurd extreme comparison"
+    ],
+    "owner": "ioi-services wallet.network mail ontology",
+    "m05_impact": "none; exact failure reproduced in a clean detached worktree at the required start commit"
+  },
+  "resource_spend_and_external_posture": {
+    "metered_spend_usd": 0,
+    "remote_mutations": 0,
+    "pushes": 0,
+    "releases": 0,
+    "deployments": 0,
+    "provider_contacts": 0,
+    "external_accounts_connected": 0,
+    "live_payment_rail_uses": 0,
+    "real_sensitive_records_accessed": 0,
+    "dcrypt_tmp_builds_removed_with_owner_authorization": true
+  },
+  "explicit_nonclaims_and_remaining_owners": [
+    "M11.1 still owns cross-domain terms acceptance; M05.2 fails closed without it.",
+    "General WorkResult assurance and Verified Work Graph remain M06.1 beyond the minimal M05.3 receipt seam.",
+    "External DomainApp ingress and governance kill-target discovery remain later owner work.",
+    "M09.2 retains the DevelopmentEnvironmentRecipe object rename.",
+    "WorkerComposition resolution and package installation remain M14-owned.",
+    "No legality, reviewer qualification, marketplace eligibility, payment, correctness, live medical suitability, publication or deployment decision is made by M05."
+  ]
+}
