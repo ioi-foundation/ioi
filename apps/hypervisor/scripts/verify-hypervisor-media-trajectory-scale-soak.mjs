@@ -145,10 +145,11 @@ const snapshotBody = (key, family, session, seeds) => ({
   },
   information_flow_label_refs: ["ifc-label://acme/internal"],
   quarantine: {
-    quarantine_state: "released",
-    quarantine_reason: null,
-    released_by_ref: "user://acme.reviewer",
-    released_at: "2026-08-31T11:45:00Z",
+    quarantine_state: "accepted",
+    pii_decision_receipt_refs: [`receipt://acme.pii/session-${session}`],
+    rejected_segment_count: corpus.files.filter(
+      (row) => row.session_index === session && row.disposition === "rejected",
+    ).length,
   },
   redaction: {
     recipe_revision_ref: seeds.recipe.revision_ref,
@@ -333,13 +334,11 @@ const censusBody = (evidence) => {
     degeneracy_findings: [
       {
         finding_class: "repeated_file",
-        severity: "excluded",
         affected_file_count: corpus.deduplicated.exact_duplicate_file_count,
         evidence_ref: "artifact://acme/scale/exact-duplicates",
       },
       {
         finding_class: "padded_span",
-        severity: "refused",
         affected_file_count: corpus.file_dispositions.filter((row) => row.reason_class === "padded").length,
         evidence_ref: "artifact://acme/scale/padded",
       },
@@ -610,33 +609,43 @@ async function run() {
       R.SNAPS,
       snapshotBody(`m059-soak-snap-${session}`, `acme.desk-s${session}`, session, seeds),
     );
-    snapshots.push(response.j?.media_snapshot ?? { __status: response.status, __code: code(response.j) });
+    snapshots.push(
+      response.j?.media_snapshot ?? {
+        __status: response.status,
+        __code: code(response.j),
+        __message: response.j?.error?.message ?? "",
+      },
+    );
   }
   ok(
     "S9 every Session's snapshot is admitted through the owner-scoped chain and binds its M05.7/M05.8 seams",
     snapshots.length >= 2 &&
       snapshots.every((snap, index) =>
         snap.revision_ref === `media-snapshot://acme.desk-s${index}/revision/1` &&
-        (snap.resolved_source_impact_lineage ?? []).some((entry) => entry.kind === "transformation_run") &&
-        (snap.resolved_source_impact_lineage ?? []).some((entry) => entry.kind === "data_recipe") &&
-        (snap.resolved_source_impact_lineage ?? []).some((entry) => entry.kind === "connector_mapping")),
+        (snap.source_impact_lineage?.transformation_run_refs ?? []).includes(seeds.run.transformation_run_id) &&
+        (snap.source_impact_lineage?.data_recipe_revision_refs ?? []).includes(seeds.recipe.revision_ref) &&
+        (snap.source_impact_lineage?.connector_mapping_revision_refs ?? []).includes(seeds.mapping.revision_ref)),
     `snapshots=${snapshots.length} first=${snapshots[0]?.revision_ref ?? JSON.stringify(snapshots[0])}`,
   );
   ok(
     "S10 permits_learned_use is DERIVED from the claims this seam resolved, never taken from the caller",
-    snapshots.every((snap) => typeof snap.permits_learned_use === "boolean"),
-    `values=${[...new Set(snapshots.map((s) => String(s.permits_learned_use)))].join(",")}`,
+    snapshots.every((snap) => typeof snap.source_rights?.permits_learned_use === "boolean"),
+    `values=${[...new Set(snapshots.map((s) => String(s.source_rights?.permits_learned_use)))].join(",")}`,
   );
 
   // ------------------------------------------------------------ C · every bounded episode, at scale
   const episodes = [];
+  let episodeHead = "";
   for (const episode of corpus.episodes) {
     const snapshot = snapshots[episode.session_index];
+    const body = episodeBody(episode, snapshot.revision_ref, snapshot.content_hash);
+    if (episodeHead) body.expected_head = episodeHead;
     const response = await req(
       "POST",
       R.EPISODES,
-      episodeBody(episode, snapshot.revision_ref, snapshot.content_hash),
+      body,
     );
+    episodeHead = response.j?.expected_head_for_successor ?? episodeHead;
     episodes.push(response.j?.observation_action_episode ?? { __status: response.status, __code: code(response.j) });
   }
   ok(
@@ -645,7 +654,7 @@ async function run() {
       episodes.every((ep, index) =>
         typeof ep.revision_ref === "string" &&
         ep.session_ref === `session://acme.desk-${corpus.episodes[index].session_index}` &&
-        ep.timebase_id === TIMEBASE),
+        ep.bounds?.timebase_id === TIMEBASE),
     `episodes=${episodes.length}/${corpus.episodes.length} first_code=${episodes[0]?.__code ?? "none"}`,
   );
   ok(
@@ -813,16 +822,18 @@ async function run() {
   ok(
     "S24 erasure produces an IMPACT GRAPH over dependents and rewrites no historical evidence",
     impact.status === 200 &&
-      (impact.j?.dependent_episode_revision_refs ?? []).length > 0 &&
-      impact.j?.decision === "governed_rebuild_or_withdrawal_required",
-    `status=${impact.status} episodes=${(impact.j?.dependent_episode_revision_refs ?? []).length} decision=${impact.j?.decision}`,
+      (impact.j?.affected_episode_revision_refs ?? []).length > 0 &&
+      impact.j?.decision_class === "governed_rebuild_or_withdrawal_required" &&
+      impact.j?.historical_evidence_rewritten === false &&
+      impact.j?.impact_is_a_decision_not_a_deletion === true,
+    `status=${impact.status} episodes=${(impact.j?.affected_episode_revision_refs ?? []).length} decision=${impact.j?.decision_class}`,
   );
 
   // ----------------------------------------------------------------------------- G · the nonclaims
   ok(
     "S25 the census claims no throughput or latency, and no such number is asserted anywhere in this lane",
     cen.does_not_claim_throughput_or_latency === true &&
-      !results.some((r) => /(throughput|latency|per second|ms\b|seconds per)/iu.test(r.name)),
+      !results.some((r) => /(throughput|latency|per second|\bms\b|seconds per)/iu.test(r.name)),
     `nonclaim=${cen.does_not_claim_throughput_or_latency}`,
   );
   ok(
