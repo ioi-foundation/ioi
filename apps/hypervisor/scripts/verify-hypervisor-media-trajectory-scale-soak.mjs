@@ -81,6 +81,25 @@ const req = (...args) => lane.req(...args);
 // Generated ONCE, before the daemon exists, so nothing the runtime does can shape the input.
 const corpus = generateCorpus({ profile: PROFILE, seed: "m059-scale-soak", sessions: 3, episodesPerSession: 4 });
 
+const snapshotArtifacts = (session) => [
+  {
+    artifact_ref: `artifact://acme/session-${session}/recording`,
+    sha256: sha256(`rec-${session}`),
+    media_type: "video/mp4",
+    size_bytes: 51200000,
+    manifest_root: sha256(`man-rec-${session}`),
+    role: "recording",
+  },
+  {
+    artifact_ref: `artifact://acme/session-${session}/control`,
+    sha256: sha256(`ctl-${session}`),
+    media_type: "application/jsonl",
+    size_bytes: 240000,
+    manifest_root: sha256(`man-ctl-${session}`),
+    role: "control_stream",
+  },
+];
+
 const snapshotBody = (key, family, session, seeds) => ({
   owner_ref: OWNER,
   idempotency_key: key,
@@ -117,24 +136,7 @@ const snapshotBody = (key, family, session, seeds) => ({
     ],
   },
   valid_time: { from: "2026-08-31T09:00:00Z", to: "2026-08-31T11:30:00Z" },
-  artifact_bindings: [
-    {
-      artifact_ref: `artifact://acme/session-${session}/recording`,
-      sha256: sha256(`rec-${session}`),
-      media_type: "video/mp4",
-      size_bytes: 51200000,
-      manifest_root: sha256(`man-rec-${session}`),
-      role: "recording",
-    },
-    {
-      artifact_ref: `artifact://acme/session-${session}/control`,
-      sha256: sha256(`ctl-${session}`),
-      media_type: "application/jsonl",
-      size_bytes: 240000,
-      manifest_root: sha256(`man-ctl-${session}`),
-      role: "control_stream",
-    },
-  ],
+  artifact_bindings: snapshotArtifacts(session),
   availability: {
     availability_manifest_ref: `availability-manifest://acme/${session}`,
     retention_class_ref: "retention-class://bounded_retention",
@@ -172,22 +174,23 @@ const snapshotBody = (key, family, session, seeds) => ({
     connector_mapping_revision_refs: [seeds.mapping.revision_ref],
     transformation_run_refs: [seeds.run.transformation_run_id],
   },
-  // The per-snapshot census is this Session's slice of the generated corpus, summed from its rows.
-  raw_census: sessionCensus(session, null),
-  accepted_census: sessionCensus(session, "accepted"),
+  // A snapshot binds the two Session-level aggregate artifacts above. Chunk-level raw/rejected/
+  // deduplicated accounting belongs to the corpus census; restating those chunks as snapshot files
+  // would disagree with the snapshot's own enumerated artifacts.
+  raw_census: sessionSnapshotCensus(session),
+  accepted_census: sessionSnapshotCensus(session),
   registry_status: "active",
 });
 
-/** One Session's slice of the corpus, SUMMED FROM the generated rows rather than asserted. */
-function sessionCensus(session, disposition) {
-  const rows = corpus.files.filter(
-    (row) => row.session_index === session && (disposition === null || row.disposition === disposition),
-  );
+/** One Session's accepted aggregate snapshot, derived from its exact bound artifacts and rows. */
+function sessionSnapshotCensus(session) {
+  const rows = corpus.files.filter((row) => row.session_index === session && row.disposition === "accepted");
+  const artifacts = snapshotArtifacts(session);
   const seconds = rows.reduce((total, row) => total + row.source_seconds, 0);
   return {
     source_seconds: seconds,
-    file_count: rows.length,
-    byte_count: rows.reduce((total, row) => total + row.byte_count, 0),
+    file_count: artifacts.length,
+    byte_count: artifacts.reduce((total, artifact) => total + artifact.size_bytes, 0),
     frame_or_sample_count: seconds * 30,
     chunk_count: rows.length * 12,
   };
@@ -328,8 +331,18 @@ const censusBody = (evidence) => {
       variable_rate_inputs_handled: corpus.file_dispositions.filter((r) => r.reason_class === "variable_rate").length,
     },
     degeneracy_findings: [
-      { finding_class: "repeated_file", severity: "excluded", evidence_ref: "artifact://acme/scale/exact-duplicates" },
-      { finding_class: "padded_span", severity: "refused", evidence_ref: "artifact://acme/scale/padded" },
+      {
+        finding_class: "repeated_file",
+        severity: "excluded",
+        affected_file_count: corpus.deduplicated.exact_duplicate_file_count,
+        evidence_ref: "artifact://acme/scale/exact-duplicates",
+      },
+      {
+        finding_class: "padded_span",
+        severity: "refused",
+        affected_file_count: corpus.file_dispositions.filter((row) => row.reason_class === "padded").length,
+        evidence_ref: "artifact://acme/scale/padded",
+      },
     ],
   };
   body.corpus_content_root = corpusContentRoot(body);
