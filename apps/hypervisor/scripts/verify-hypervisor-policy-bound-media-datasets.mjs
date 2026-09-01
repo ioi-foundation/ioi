@@ -1562,8 +1562,10 @@ const MUTANTS = [
   {
     id: "redaction-output-class-may-fall-below-the-source-class",
     source: MODULE,
-    from: `    if item_str(&redaction, "source_privacy_class") != item_str(&redaction, "output_privacy_class") {`,
-    to: `    if false {`,
+    from: `    if item_str(&redaction, "source_privacy_class") != item_str(&redaction, "output_privacy_class")
+    {`,
+    to: `    if false
+    {`,
     reddens: "B8 redaction that lowers the output privacy class below its source is refused as a declassification",
   },
   {
