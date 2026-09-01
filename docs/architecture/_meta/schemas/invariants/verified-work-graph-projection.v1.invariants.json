@@ -1,0 +1,100 @@
+{
+  "$id": "invariant://ioi/foundations/verified-work-graph-projection/rebuildable-work-result-graph/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+  "rules": [
+    {
+      "rule_id": "verified_work_graph.transitions.every_row_binds_this_projections_work_result",
+      "description": "Every projected transition is about the WorkResult this projection names. Without this, a well-formed graph over WorkResult A could carry B's ladder and every shape check would pass — the reader would see a stage ladder attached to the wrong work, which is the single most consequential thing a graph can get wrong.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "subject_ref",
+        "expected_path": "$.work_result_ref"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transitions.every_row_binds_the_work_result_family",
+      "description": "And every row is a WORK RESULT transition. The assurance contract is subject-general, so a ladder over an ontology revision or an assertion is structurally projectable here; this rule is what keeps another family's ladder from being rendered as work assurance.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "subject_family",
+        "expected_path": "$.subject_family"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transition_count.matches_the_projected_rows",
+      "description": "The count a consumer reads is the number of rows actually carried. A count that overstated its rows would let a projection claim a fuller ladder than it can show, and one that understated them would hide a transition in plain sight.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.transitions",
+        "count_path": "$.transition_count"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transitions.retain_their_own_authority_nonclaim",
+      "description": "The assurance receipt carries its authority nonclaim on every record precisely so a consumer cannot read authority in by omission. A projection that flattened the ladder and dropped that field would defeat the nonclaim at exactly the layer a product surface reads. Restated at the top level so the comparison is checkable offline.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "authority_nonclaim",
+        "expected_path": "$.transition_authority_nonclaim"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transitions.retain_their_own_verdict_nonclaim",
+      "description": "The same argument for the verdict nonclaim. 'Verified' is an assurance path, and a graph that stripped the not-a-verdict marker while rendering a stage called verified would be manufacturing exactly the reading canon refuses.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "verdict_nonclaim",
+        "expected_path": "$.transition_verdict_nonclaim"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.stages.expose_each_ladder_member_exactly_once",
+      "description": "Stages are exposed INDEPENDENTLY, which requires that each member appear on its own and only once. A projection that listed verified twice — once reached, once not — would let a consumer pick the row it preferred, and independence would become ambiguity.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.stages",
+        "fields": [
+          "stage"
+        ]
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.stages.ordinals_are_distinct",
+      "description": "And their ordinals are distinct, so the ladder's ORDER cannot be forged by repeating a position. Order is what makes a skipped member visible.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.stages",
+        "fields": [
+          "stage_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.bound_versions.are_distinct_work_result_content_hashes",
+      "description": "THE MUTABLE-VERSION RULE, PORTABLY. A WorkResult's bytes change when its owner admits an outcome_delta_refs or review_refs backlink, so the version list is the evidence that the URI alone was never stable. Duplicate hashes in that list would collapse two distinct versions into one entry and hide the very distinction the list exists to make; the daemon dedupes by first binding, and this proves the result offline.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.bound_work_result_content_hashes",
+        "fields": [
+          "content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.commitment.is_not_echoed_from_the_first_bound_version_ordinal",
+      "description": "Each bound version records WHICH transition first bound it, and those ordinals are distinct per entry. Two entries claiming the same first binding would mean one transition bound two different versions of one record, which the chain cannot produce and which would make the version history unreadable.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.bound_work_result_content_hashes",
+        "fields": [
+          "first_bound_at_transition_ordinal"
+        ]
+      }
+    }
+  ]
+}

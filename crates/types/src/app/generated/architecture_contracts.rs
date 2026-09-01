@@ -276,6 +276,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/semantic-mapping-decision/v1", "sha256:a35f12979fc1f3f4d9b70f498464b8aff0af33b02e82999aa2d98c98a0b2c8b9"),
     ("schema://ioi/foundations/ontology-assertion/v2", "sha256:96b4877140e1a0f091332bc306927a8c1e7ca886f38caa7a015cba6876639712"),
     ("schema://ioi/foundations/assurance-transition-receipt/v2", "sha256:366535c143fb479d1a375ef44a863961baa133cd663582351d9b2a396f704a5c"),
+    ("schema://ioi/foundations/verified-work-graph-projection/v1", "sha256:bf7f39e9563027bb1d1f6fa18194728089e17702f237b1527f00285238c3bf36"),
     ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", "sha256:03cc0996970dba20c7259bdbfedae89c89e1b49d8d0844d0725169360c2c0476"),
     ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", "sha256:80b79d3440f7aff4483eb88dd3951c27b23f33a391d82a437f053d50d5285fa9"),
     ("schema://ioi/foundations/objects/domain-app/v1", "sha256:ff30212b40a5b1309e9fadbb48b99f1e738c2baf9622992fdda48c03d9624693"),
@@ -108242,6 +108243,830 @@ pub enum AssuranceTransitionReceiptV2ChallengeResolutionChallengeContractRef {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifiedWorkGraphProjectionV1 {
+    pub schema_version: VerifiedWorkGraphProjectionV1SchemaVersion,
+    pub projection_contract_ref: VerifiedWorkGraphProjectionV1ProjectionContractRef,
+    pub projection_kind: VerifiedWorkGraphProjectionV1ProjectionKind,
+    pub work_result_ref: String,
+    pub work_result_content_hash: String,
+    pub work_result_commitment_domain: VerifiedWorkGraphProjectionV1WorkResultCommitmentDomain,
+    pub work_result_resolved_by: String,
+    pub work_result_outcome_class: VerifiedWorkGraphProjectionV1WorkResultOutcomeClass,
+    pub work_result_status: VerifiedWorkGraphProjectionV1WorkResultStatus,
+    pub subject_family: VerifiedWorkGraphProjectionV1SubjectFamily,
+    pub stages: Vec<VerifiedWorkGraphProjectionV1StagesItem>,
+    pub reached_stage: Option<VerifiedWorkGraphProjectionV1ReachedStage>,
+    pub reached_stage_ordinal: ArchitectureContractInteger,
+    pub transition_count: ArchitectureContractInteger,
+    pub transitions: Vec<VerifiedWorkGraphProjectionV1TransitionsItem>,
+    pub outcome_class_census: VerifiedWorkGraphProjectionV1OutcomeClassCensus,
+    pub bound_work_result_content_hashes:
+        Vec<VerifiedWorkGraphProjectionV1BoundWorkResultContentHashesItem>,
+    pub current_binding_state: VerifiedWorkGraphProjectionV1CurrentBindingState,
+    pub transition_authority_nonclaim: VerifiedWorkGraphProjectionV1TransitionAuthorityNonclaim,
+    pub transition_verdict_nonclaim: VerifiedWorkGraphProjectionV1TransitionVerdictNonclaim,
+    pub rebuildable_index_state: VerifiedWorkGraphProjectionV1RebuildableIndexState,
+    pub truth_source: VerifiedWorkGraphProjectionV1TruthSource,
+    pub does_not_assert: Vec<VerifiedWorkGraphProjectionV1DoesNotAssertItem>,
+    pub authority_nonclaim: VerifiedWorkGraphProjectionV1AuthorityNonclaim,
+    pub verdict_nonclaim: VerifiedWorkGraphProjectionV1VerdictNonclaim,
+}
+
+impl<'de> serde::Deserialize<'de> for VerifiedWorkGraphProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/verified-work-graph-projection/v1","title":"VerifiedWorkGraphProjection","description":"A REBUILDABLE READ PROJECTION over one WorkResult's assurance posture. economic-flywheel-and-pricing-boundaries.md § Verified Work Graph states that the graph 'is not a single database, chain, or UI' and that it 'preserves these states independently'; this contract is the machine-checkable form of both sentences. It owns no bytes: every field is re-derived on each read from the WorkResult owner's admitted record and that subject's Agentgres assurance chain, so destroying any cache changes no answer. The six frozen assurance_stage members are exposed as independent rows, each with its own reached flag, so acceptance is never inferable from verification nor settlement from acceptance. Outcome classes are carried verbatim on BOTH sides and are never mapped onto each other: the WorkResult vocabulary has exploit_found and lacks disputed and no_fault, while the assurance ladder has exploit, disputed and no_fault, and collapsing the two would be exactly the normalisation NN 21 forbids. 'Verified' here names an assurance PATH, never a claim of correctness, acceptance, adjudication, settlement or value — the complete closed nonclaim set travels on every record as data rather than prose.","x-ioi-schema-version":"ioi.verified-work-graph-projection.v1","type":"object","additionalProperties":false,"required":["schema_version","projection_contract_ref","projection_kind","work_result_ref","work_result_content_hash","work_result_commitment_domain","work_result_resolved_by","work_result_outcome_class","work_result_status","subject_family","stages","reached_stage","reached_stage_ordinal","transition_count","transitions","outcome_class_census","bound_work_result_content_hashes","current_binding_state","transition_authority_nonclaim","transition_verdict_nonclaim","rebuildable_index_state","truth_source","does_not_assert","authority_nonclaim","verdict_nonclaim"],"properties":{"schema_version":{"const":"ioi.verified-work-graph-projection.v1"},"projection_contract_ref":{"const":"schema://ioi/foundations/verified-work-graph-projection/v1"},"projection_kind":{"description":"Declared in the bytes so a consumer cannot mistake this for a durable object. There is exactly one legal value: this family never becomes a store.","const":"read_projection"},"work_result_ref":{"$ref":"#/$defs/workResultRef"},"work_result_content_hash":{"description":"The WorkResult owner's commitment over the EXACT admitted record bytes, carried verbatim. Deliberately a whole-record commitment: a WorkResult changes when its owner admits an outcome_delta_refs or review_refs backlink, so each admitted version has a DISTINCT hash and the URI alone is never treated as a stable identity.","$ref":"#/$defs/sha256"},"work_result_commitment_domain":{"description":"The explicit domain separator and version of the commitment above, so a relying party can recompute it without guessing which preimage was used.","const":"ioi.work-result-record-commitment-jcs-sha256.v1"},"work_result_resolved_by":{"description":"The exact owner seam that re-resolved the WorkResult. A projection naming no resolver is one whose subject was taken on faith.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"work_result_outcome_class":{"description":"The WorkResult owner's OWN vocabulary, verbatim. Note exploit_found, and note the absence of disputed and no_fault: this is not the assurance ladder's outcome_class and is never mapped onto it.","enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"subject_family":{"description":"This projection is over WorkResult owner truth only. Finding and Attempt remain named, fail-closed gaps at the assurance seam and are not projectable here.","const":"work_result"},"stages":{"description":"One row per frozen ladder member, ALWAYS all six and always in canonical order. An unreached stage is present with reached:false and null everything, which is a different statement from absence and a very different statement from success.","type":"array","minItems":6,"maxItems":6,"items":{"$ref":"#/$defs/stageRow"}},"reached_stage":{"description":"The furthest member actually reached, or null when no transition exists. Never inferred from the WorkResult's own status.","oneOf":[{"$ref":"#/$defs/assuranceStage"},{"type":"null"}]},"reached_stage_ordinal":{"description":"Zero when nothing was reached; otherwise the ordinal of reached_stage.","type":"integer","minimum":0,"maximum":6},"transition_count":{"type":"integer","minimum":0,"maximum":6},"transitions":{"description":"The subject's projected assurance ladder, carried verbatim from the assurance owner. Rows are not rewritten, filtered or re-ordered here.","type":"array","maxItems":6,"items":{"$ref":"#/$defs/projectedTransition"}},"outcome_class_census":{"description":"Every assurance ladder outcome counted, including the ones nobody likes to report. All eight members are REQUIRED to be present: a census that omitted a key when its count was zero would let a projection stop mentioning failures at exactly the moment failures matter.","type":"object","additionalProperties":false,"required":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"],"properties":{"positive":{"$ref":"#/$defs/censusCount"},"negative":{"$ref":"#/$defs/censusCount"},"inconclusive":{"$ref":"#/$defs/censusCount"},"invalid":{"$ref":"#/$defs/censusCount"},"exploit":{"$ref":"#/$defs/censusCount"},"superseded":{"$ref":"#/$defs/censusCount"},"disputed":{"$ref":"#/$defs/censusCount"},"no_fault":{"$ref":"#/$defs/censusCount"}}},"bound_work_result_content_hashes":{"description":"The DISTINCT WorkResult versions this ladder actually bound, in the order first bound. More than one entry means the subject's bytes changed under an owner-admitted backlink while the ladder advanced, and the earlier transitions still attest the earlier bytes.","type":"array","maxItems":6,"items":{"$ref":"#/$defs/boundVersion"}},"current_binding_state":{"description":"Whether the ladder's bindings still name what the owner currently commits. bound_to_superseded_bytes is reported rather than smoothed: hiding it would let a stale attestation read as a current one.","enum":["no_transition","current_bytes_bound","bound_to_superseded_bytes"]},"transition_authority_nonclaim":{"description":"The assurance receipt's own authority nonclaim, restated so an invariant can prove this projection did not strip it while flattening the ladder.","const":"assurance_transition_grants_no_authority"},"transition_verdict_nonclaim":{"const":"assurance_transition_is_not_a_verdict"},"rebuildable_index_state":{"description":"What the process-local, non-truth cache held before this read replaced it. Reported so a verifier can assert rebuild by POSITIVE detection rather than by an unchanged answer, which is also consistent with a cache that was never dropped. `not_consulted_no_bound_scope` is the reading for a caller with no bound scope on this subject: it answers the empty graph without touching the cache, so that a WorkResult nobody has attested and one whose ladder belongs to another principal are indistinguishable.","enum":["rebuilt_from_agentgres","agreed_with_agentgres","stale_rebuilt_from_agentgres","unavailable_rebuilt_from_agentgres","not_consulted_no_bound_scope"]},"truth_source":{"description":"Both owners, named. This projection is the only place they are read together and it is not a third owner.","const":"work_result_owner_and_agentgres_owner_scoped_chain"},"does_not_assert":{"description":"The complete closed nonclaim set, carried on every record. It is fixed at exactly twelve unique members: a dropped member is a SCHEMA refusal, because a projection that quietly stopped disclaiming settlement or legality would still satisfy every count-based check.","type":"array","minItems":12,"maxItems":12,"uniqueItems":true,"items":{"$ref":"#/$defs/nonclaimToken"},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"verdict"}},{"contains":{"const":"correctness"}},{"contains":{"const":"acceptance"}},{"contains":{"const":"adjudication"}},{"contains":{"const":"settlement"}},{"contains":{"const":"payment_or_economic_value"}},{"contains":{"const":"external_world_occurrence"}},{"contains":{"const":"deployment"}},{"contains":{"const":"provider_connectivity"}},{"contains":{"const":"legality"}},{"contains":{"const":"live_medical_suitability"}}]},"authority_nonclaim":{"const":"verified_work_graph_grants_no_authority"},"verdict_nonclaim":{"const":"verified_work_graph_is_not_a_verdict"}},"allOf":[{"description":"A projection with no transition has reached nothing. Stating it as a conditional keeps a zero-length ladder from carrying a reached stage it derived from the WorkResult's own status.","if":{"properties":{"transition_count":{"type":"integer","minimum":0,"maximum":0}},"required":["transition_count"]},"then":{"properties":{"reached_stage":{"type":"null"},"reached_stage_ordinal":{"type":"integer","minimum":0,"maximum":0},"current_binding_state":{"const":"no_transition"}}}},{"description":"And conversely: once a transition exists, no_transition is unavailable as a binding state.","if":{"properties":{"transition_count":{"type":"integer","minimum":1,"maximum":6}},"required":["transition_count"]},"then":{"properties":{"reached_stage":{"$ref":"#/$defs/assuranceStage"},"reached_stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"current_binding_state":{"enum":["current_bytes_bound","bound_to_superseded_bytes"]}}}}],"$defs":{"assuranceStage":{"description":"Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This projection renders the ladder; it does not choose its members.","enum":["attested","evidenced","verified","accepted","adjudicated","settled"]},"assuranceOutcomeClass":{"description":"ACC-8 clause 2, verbatim. No member is mapped toward positive anywhere in this contract.","enum":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"]},"stageRow":{"type":"object","additionalProperties":false,"required":["stage","stage_ordinal","reached","transition_ref","transition_content_hash","outcome_class","actor_ref","recorded_at","bound_work_result_content_hash"],"properties":{"stage":{"$ref":"#/$defs/assuranceStage"},"stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"reached":{"type":"boolean"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"},{"type":"null"}]},"transition_content_hash":{"$ref":"#/$defs/nullableSha256"},"outcome_class":{"oneOf":[{"$ref":"#/$defs/assuranceOutcomeClass"},{"type":"null"}]},"actor_ref":{"oneOf":[{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"},{"type":"null"}]},"recorded_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]},"bound_work_result_content_hash":{"$ref":"#/$defs/nullableSha256"}},"allOf":[{"description":"AN UNREACHED STAGE CARRIES NOTHING. Without this, a projection could report reached:false while still populating an outcome and an actor, and a consumer skimming the rows would read a stage that nobody stood behind.","if":{"properties":{"reached":{"const":false}},"required":["reached"]},"then":{"properties":{"transition_ref":{"type":"null"},"transition_content_hash":{"type":"null"},"outcome_class":{"type":"null"},"actor_ref":{"type":"null"},"recorded_at":{"type":"null"},"bound_work_result_content_hash":{"type":"null"}}}},{"description":"A reached stage names its transition, its bytes, its outcome, its actor and the exact WorkResult version it bound. A reached row missing any of these is an assertion with nobody behind it.","if":{"properties":{"reached":{"const":true}},"required":["reached"]},"then":{"properties":{"transition_ref":{"type":"string"},"transition_content_hash":{"$ref":"#/$defs/sha256"},"outcome_class":{"$ref":"#/$defs/assuranceOutcomeClass"},"actor_ref":{"type":"string"},"recorded_at":{"$ref":"#/$defs/canonicalDateTime"},"bound_work_result_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"projectedTransition":{"description":"One row of the assurance ladder as this projection depends on it. additionalProperties stays OPEN because the row is the assurance owner's document carried verbatim and this contract is not entitled to re-shape it; what is declared here is exactly the set of fields the projection's own invariants reason about, so a dependency cannot be asserted portably without being stated. Note what is deliberately NOT constrained here: subject_ref and subject_family are declared with the assurance contract's own grammars rather than pinned to this projection's work_result_ref and family, because binding them is the INVARIANT layer's job — pinning them in the schema would make a mis-bound row fail as a shape error and the binding rules would become unfalsifiable. The two nonclaim fields are likewise declared but NOT required, so a projection that strips them is caught by the retention invariants rather than by required-ness.","type":"object","additionalProperties":true,"required":["transition_id","subject_ref","subject_family","to_stage","outcome_class","content_hash"],"properties":{"transition_id":{"type":"string"},"subject_ref":{"type":"string","pattern":"^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"},"subject_family":{"enum":["work_result","ontology_revision","ontology_mapping_revision","ontology_assertion","finding","attempt"]},"subject_content_hash":{"$ref":"#/$defs/sha256"},"to_stage":{"$ref":"#/$defs/assuranceStage"},"to_stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"transition_ordinal":{"type":"integer","minimum":1,"maximum":6},"outcome_class":{"$ref":"#/$defs/assuranceOutcomeClass"},"actor_ref":{"type":"string"},"content_hash":{"$ref":"#/$defs/sha256"},"authority_nonclaim":{"type":"string"},"verdict_nonclaim":{"type":"string"}}},"boundVersion":{"type":"object","additionalProperties":false,"required":["content_hash","first_bound_at_transition_ordinal"],"properties":{"content_hash":{"$ref":"#/$defs/sha256"},"first_bound_at_transition_ordinal":{"type":"integer","minimum":1,"maximum":6}}},"nonclaimToken":{"enum":["authority","verdict","correctness","acceptance","adjudication","settlement","payment_or_economic_value","external_world_occurrence","deployment","provider_connectivity","legality","live_medical_suitability"]},"censusCount":{"type":"integer","minimum":0,"maximum":6},"workResultRef":{"type":"string","pattern":"^work-result://[^\\s]{1,460}$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableSha256":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<VerifiedWorkGraphProjectionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection_contract_ref: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1ProjectionContractRef,
+            >(
+                object
+                    .remove(r#"projection_contract_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_contract_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            projection_kind: serde_json::from_value::<VerifiedWorkGraphProjectionV1ProjectionKind>(
+                object
+                    .remove(r#"projection_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"projection_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"work_result_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_commitment_domain: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1WorkResultCommitmentDomain,
+            >(
+                object
+                    .remove(r#"work_result_commitment_domain"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"work_result_commitment_domain"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_resolved_by: serde_json::from_value::<String>(
+                object
+                    .remove(r#"work_result_resolved_by"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_resolved_by"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_outcome_class: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1WorkResultOutcomeClass,
+            >(
+                object
+                    .remove(r#"work_result_outcome_class"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"work_result_outcome_class"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            work_result_status: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1WorkResultStatus,
+            >(
+                object
+                    .remove(r#"work_result_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"work_result_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_family: serde_json::from_value::<VerifiedWorkGraphProjectionV1SubjectFamily>(
+                object
+                    .remove(r#"subject_family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stages: serde_json::from_value::<Vec<VerifiedWorkGraphProjectionV1StagesItem>>(
+                object
+                    .remove(r#"stages"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stages"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reached_stage: serde_json::from_value::<
+                Option<VerifiedWorkGraphProjectionV1ReachedStage>,
+            >(
+                object
+                    .remove(r#"reached_stage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reached_stage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reached_stage_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"reached_stage_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reached_stage_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"transition_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transitions:
+                serde_json::from_value::<Vec<VerifiedWorkGraphProjectionV1TransitionsItem>>(
+                    object
+                        .remove(r#"transitions"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"transitions"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            outcome_class_census: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1OutcomeClassCensus,
+            >(
+                object
+                    .remove(r#"outcome_class_census"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_class_census"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_work_result_content_hashes: serde_json::from_value::<
+                Vec<VerifiedWorkGraphProjectionV1BoundWorkResultContentHashesItem>,
+            >(
+                object
+                    .remove(r#"bound_work_result_content_hashes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_work_result_content_hashes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_binding_state: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1CurrentBindingState,
+            >(
+                object
+                    .remove(r#"current_binding_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_binding_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_authority_nonclaim: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1TransitionAuthorityNonclaim,
+            >(
+                object
+                    .remove(r#"transition_authority_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transition_authority_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_verdict_nonclaim: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1TransitionVerdictNonclaim,
+            >(
+                object
+                    .remove(r#"transition_verdict_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transition_verdict_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rebuildable_index_state: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1RebuildableIndexState,
+            >(
+                object
+                    .remove(r#"rebuildable_index_state"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rebuildable_index_state"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_source: serde_json::from_value::<VerifiedWorkGraphProjectionV1TruthSource>(
+                object
+                    .remove(r#"truth_source"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_source"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<
+                Vec<VerifiedWorkGraphProjectionV1DoesNotAssertItem>,
+            >(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1AuthorityNonclaim,
+            >(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verdict_nonclaim:
+                serde_json::from_value::<VerifiedWorkGraphProjectionV1VerdictNonclaim>(
+                    object
+                        .remove(r#"verdict_nonclaim"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"verdict_nonclaim"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.verified-work-graph-projection.v1"#)]
+    IoiVerifiedWorkGraphProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1ProjectionContractRef {
+    #[serde(rename = r#"schema://ioi/foundations/verified-work-graph-projection/v1"#)]
+    SchemaIoiFoundationsVerifiedWorkGraphProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1ProjectionKind {
+    #[serde(rename = r#"read_projection"#)]
+    ReadProjection,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1WorkResultCommitmentDomain {
+    #[serde(rename = r#"ioi.work-result-record-commitment-jcs-sha256.v1"#)]
+    IoiWorkResultRecordCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1WorkResultOutcomeClass {
+    #[serde(rename = r#"positive"#)]
+    Positive,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"exploit_found"#)]
+    ExploitFound,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1WorkResultStatus {
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"blocked"#)]
+    Blocked,
+    #[serde(rename = r#"partial"#)]
+    Partial,
+    #[serde(rename = r#"challenged"#)]
+    Challenged,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1SubjectFamily {
+    #[serde(rename = r#"work_result"#)]
+    WorkResult,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifiedWorkGraphProjectionV1StagesItem {
+    pub stage: VerifiedWorkGraphProjectionV1StagesItemStage,
+    pub stage_ordinal: ArchitectureContractInteger,
+    pub reached: bool,
+    pub transition_ref: Option<String>,
+    pub transition_content_hash: Option<String>,
+    pub outcome_class: Option<VerifiedWorkGraphProjectionV1StagesItemOutcomeClass>,
+    pub actor_ref: Option<String>,
+    pub recorded_at: Option<String>,
+    pub bound_work_result_content_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for VerifiedWorkGraphProjectionV1StagesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["stage","stage_ordinal","reached","transition_ref","transition_content_hash","outcome_class","actor_ref","recorded_at","bound_work_result_content_hash"],"properties":{"stage":{"$ref":"#/$defs/assuranceStage"},"stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"reached":{"type":"boolean"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"},{"type":"null"}]},"transition_content_hash":{"$ref":"#/$defs/nullableSha256"},"outcome_class":{"oneOf":[{"$ref":"#/$defs/assuranceOutcomeClass"},{"type":"null"}]},"actor_ref":{"oneOf":[{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"},{"type":"null"}]},"recorded_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]},"bound_work_result_content_hash":{"$ref":"#/$defs/nullableSha256"}},"allOf":[{"description":"AN UNREACHED STAGE CARRIES NOTHING. Without this, a projection could report reached:false while still populating an outcome and an actor, and a consumer skimming the rows would read a stage that nobody stood behind.","if":{"properties":{"reached":{"const":false}},"required":["reached"]},"then":{"properties":{"transition_ref":{"type":"null"},"transition_content_hash":{"type":"null"},"outcome_class":{"type":"null"},"actor_ref":{"type":"null"},"recorded_at":{"type":"null"},"bound_work_result_content_hash":{"type":"null"}}}},{"description":"A reached stage names its transition, its bytes, its outcome, its actor and the exact WorkResult version it bound. A reached row missing any of these is an assertion with nobody behind it.","if":{"properties":{"reached":{"const":true}},"required":["reached"]},"then":{"properties":{"transition_ref":{"type":"string"},"transition_content_hash":{"$ref":"#/$defs/sha256"},"outcome_class":{"$ref":"#/$defs/assuranceOutcomeClass"},"actor_ref":{"type":"string"},"recorded_at":{"$ref":"#/$defs/canonicalDateTime"},"bound_work_result_content_hash":{"$ref":"#/$defs/sha256"}}}}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            stage: serde_json::from_value::<VerifiedWorkGraphProjectionV1StagesItemStage>(
+                object
+                    .remove(r#"stage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stage_ordinal: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"stage_ordinal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stage_ordinal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reached: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"reached"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reached"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transition_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"transition_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome_class: serde_json::from_value::<
+                Option<VerifiedWorkGraphProjectionV1StagesItemOutcomeClass>,
+            >(
+                object
+                    .remove(r#"outcome_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actor_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"actor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"actor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recorded_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"recorded_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bound_work_result_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"bound_work_result_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bound_work_result_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1StagesItemStage {
+    #[serde(rename = r#"attested"#)]
+    Attested,
+    #[serde(rename = r#"evidenced"#)]
+    Evidenced,
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"adjudicated"#)]
+    Adjudicated,
+    #[serde(rename = r#"settled"#)]
+    Settled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1StagesItemOutcomeClass {
+    #[serde(rename = r#"positive"#)]
+    Positive,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"exploit"#)]
+    Exploit,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"no_fault"#)]
+    NoFault,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1ReachedStage {
+    #[serde(rename = r#"attested"#)]
+    Attested,
+    #[serde(rename = r#"evidenced"#)]
+    Evidenced,
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"adjudicated"#)]
+    Adjudicated,
+    #[serde(rename = r#"settled"#)]
+    Settled,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifiedWorkGraphProjectionV1TransitionsItem {
+    pub transition_id: String,
+    pub subject_ref: String,
+    pub subject_family: VerifiedWorkGraphProjectionV1TransitionsItemSubjectFamily,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_content_hash: Option<String>,
+    pub to_stage: VerifiedWorkGraphProjectionV1TransitionsItemToStage,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_stage_ordinal: Option<ArchitectureContractInteger>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transition_ordinal: Option<ArchitectureContractInteger>,
+    pub outcome_class: VerifiedWorkGraphProjectionV1TransitionsItemOutcomeClass,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_ref: Option<String>,
+    pub content_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authority_nonclaim: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verdict_nonclaim: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for VerifiedWorkGraphProjectionV1TransitionsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+            r##"{"description":"One row of the assurance ladder as this projection depends on it. additionalProperties stays OPEN because the row is the assurance owner's document carried verbatim and this contract is not entitled to re-shape it; what is declared here is exactly the set of fields the projection's own invariants reason about, so a dependency cannot be asserted portably without being stated. Note what is deliberately NOT constrained here: subject_ref and subject_family are declared with the assurance contract's own grammars rather than pinned to this projection's work_result_ref and family, because binding them is the INVARIANT layer's job — pinning them in the schema would make a mis-bound row fail as a shape error and the binding rules would become unfalsifiable. The two nonclaim fields are likewise declared but NOT required, so a projection that strips them is caught by the retention invariants rather than by required-ness.","type":"object","additionalProperties":true,"required":["transition_id","subject_ref","subject_family","to_stage","outcome_class","content_hash"],"properties":{"transition_id":{"type":"string"},"subject_ref":{"type":"string","pattern":"^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"},"subject_family":{"enum":["work_result","ontology_revision","ontology_mapping_revision","ontology_assertion","finding","attempt"]},"subject_content_hash":{"$ref":"#/$defs/sha256"},"to_stage":{"$ref":"#/$defs/assuranceStage"},"to_stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"transition_ordinal":{"type":"integer","minimum":1,"maximum":6},"outcome_class":{"$ref":"#/$defs/assuranceOutcomeClass"},"actor_ref":{"type":"string"},"content_hash":{"$ref":"#/$defs/sha256"},"authority_nonclaim":{"type":"string"},"verdict_nonclaim":{"type":"string"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            transition_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transition_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transition_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_family: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1TransitionsItemSubjectFamily,
+            >(
+                object
+                    .remove(r#"subject_family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_content_hash: match object.remove(r#"subject_content_hash"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            to_stage:
+                serde_json::from_value::<VerifiedWorkGraphProjectionV1TransitionsItemToStage>(
+                    object
+                        .remove(r#"to_stage"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"to_stage"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            to_stage_ordinal: match object.remove(r#"to_stage_ordinal"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<ArchitectureContractInteger>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            transition_ordinal: match object.remove(r#"transition_ordinal"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<ArchitectureContractInteger>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            outcome_class: serde_json::from_value::<
+                VerifiedWorkGraphProjectionV1TransitionsItemOutcomeClass,
+            >(
+                object
+                    .remove(r#"outcome_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            actor_ref: match object.remove(r#"actor_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: match object.remove(r#"authority_nonclaim"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            verdict_nonclaim: match object.remove(r#"verdict_nonclaim"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1TransitionsItemSubjectFamily {
+    #[serde(rename = r#"work_result"#)]
+    WorkResult,
+    #[serde(rename = r#"ontology_revision"#)]
+    OntologyRevision,
+    #[serde(rename = r#"ontology_mapping_revision"#)]
+    OntologyMappingRevision,
+    #[serde(rename = r#"ontology_assertion"#)]
+    OntologyAssertion,
+    #[serde(rename = r#"finding"#)]
+    Finding,
+    #[serde(rename = r#"attempt"#)]
+    Attempt,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1TransitionsItemToStage {
+    #[serde(rename = r#"attested"#)]
+    Attested,
+    #[serde(rename = r#"evidenced"#)]
+    Evidenced,
+    #[serde(rename = r#"verified"#)]
+    Verified,
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"adjudicated"#)]
+    Adjudicated,
+    #[serde(rename = r#"settled"#)]
+    Settled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1TransitionsItemOutcomeClass {
+    #[serde(rename = r#"positive"#)]
+    Positive,
+    #[serde(rename = r#"negative"#)]
+    Negative,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+    #[serde(rename = r#"invalid"#)]
+    Invalid,
+    #[serde(rename = r#"exploit"#)]
+    Exploit,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"no_fault"#)]
+    NoFault,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifiedWorkGraphProjectionV1OutcomeClassCensus {
+    pub positive: ArchitectureContractInteger,
+    pub negative: ArchitectureContractInteger,
+    pub inconclusive: ArchitectureContractInteger,
+    pub invalid: ArchitectureContractInteger,
+    pub exploit: ArchitectureContractInteger,
+    pub superseded: ArchitectureContractInteger,
+    pub disputed: ArchitectureContractInteger,
+    pub no_fault: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for VerifiedWorkGraphProjectionV1OutcomeClassCensus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+            r##"{"description":"Every assurance ladder outcome counted, including the ones nobody likes to report. All eight members are REQUIRED to be present: a census that omitted a key when its count was zero would let a projection stop mentioning failures at exactly the moment failures matter.","type":"object","additionalProperties":false,"required":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"],"properties":{"positive":{"$ref":"#/$defs/censusCount"},"negative":{"$ref":"#/$defs/censusCount"},"inconclusive":{"$ref":"#/$defs/censusCount"},"invalid":{"$ref":"#/$defs/censusCount"},"exploit":{"$ref":"#/$defs/censusCount"},"superseded":{"$ref":"#/$defs/censusCount"},"disputed":{"$ref":"#/$defs/censusCount"},"no_fault":{"$ref":"#/$defs/censusCount"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            positive: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"positive"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"positive"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            negative: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"negative"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"negative"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            inconclusive: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"inconclusive"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"inconclusive"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invalid: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"invalid"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invalid"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exploit: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"exploit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exploit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            superseded: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"superseded"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"superseded"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disputed: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"disputed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disputed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            no_fault: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"no_fault"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"no_fault"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerifiedWorkGraphProjectionV1BoundWorkResultContentHashesItem {
+    pub content_hash: String,
+    pub first_bound_at_transition_ordinal: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerifiedWorkGraphProjectionV1BoundWorkResultContentHashesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["content_hash","first_bound_at_transition_ordinal"],"properties":{"content_hash":{"$ref":"#/$defs/sha256"},"first_bound_at_transition_ordinal":{"type":"integer","minimum":1,"maximum":6}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            first_bound_at_transition_ordinal:
+                serde_json::from_value::<ArchitectureContractInteger>(
+                    object
+                        .remove(r#"first_bound_at_transition_ordinal"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"first_bound_at_transition_ordinal"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1CurrentBindingState {
+    #[serde(rename = r#"no_transition"#)]
+    NoTransition,
+    #[serde(rename = r#"current_bytes_bound"#)]
+    CurrentBytesBound,
+    #[serde(rename = r#"bound_to_superseded_bytes"#)]
+    BoundToSupersededBytes,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1TransitionAuthorityNonclaim {
+    #[serde(rename = r#"assurance_transition_grants_no_authority"#)]
+    AssuranceTransitionGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1TransitionVerdictNonclaim {
+    #[serde(rename = r#"assurance_transition_is_not_a_verdict"#)]
+    AssuranceTransitionIsNotAVerdict,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1RebuildableIndexState {
+    #[serde(rename = r#"rebuilt_from_agentgres"#)]
+    RebuiltFromAgentgres,
+    #[serde(rename = r#"agreed_with_agentgres"#)]
+    AgreedWithAgentgres,
+    #[serde(rename = r#"stale_rebuilt_from_agentgres"#)]
+    StaleRebuiltFromAgentgres,
+    #[serde(rename = r#"unavailable_rebuilt_from_agentgres"#)]
+    UnavailableRebuiltFromAgentgres,
+    #[serde(rename = r#"not_consulted_no_bound_scope"#)]
+    NotConsultedNoBoundScope,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1TruthSource {
+    #[serde(rename = r#"work_result_owner_and_agentgres_owner_scoped_chain"#)]
+    WorkResultOwnerAndAgentgresOwnerScopedChain,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"verdict"#)]
+    Verdict,
+    #[serde(rename = r#"correctness"#)]
+    Correctness,
+    #[serde(rename = r#"acceptance"#)]
+    Acceptance,
+    #[serde(rename = r#"adjudication"#)]
+    Adjudication,
+    #[serde(rename = r#"settlement"#)]
+    Settlement,
+    #[serde(rename = r#"payment_or_economic_value"#)]
+    PaymentOrEconomicValue,
+    #[serde(rename = r#"external_world_occurrence"#)]
+    ExternalWorldOccurrence,
+    #[serde(rename = r#"deployment"#)]
+    Deployment,
+    #[serde(rename = r#"provider_connectivity"#)]
+    ProviderConnectivity,
+    #[serde(rename = r#"legality"#)]
+    Legality,
+    #[serde(rename = r#"live_medical_suitability"#)]
+    LiveMedicalSuitability,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1AuthorityNonclaim {
+    #[serde(rename = r#"verified_work_graph_grants_no_authority"#)]
+    VerifiedWorkGraphGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerifiedWorkGraphProjectionV1VerdictNonclaim {
+    #[serde(rename = r#"verified_work_graph_is_not_a_verdict"#)]
+    VerifiedWorkGraphIsNotAVerdict,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct OntologyDevelopmentKitManifestV1 {
     pub schema_version: OntologyDevelopmentKitManifestV1SchemaVersion,
     pub object: OntologyDevelopmentKitManifestV1Object,
@@ -139721,6 +140546,142 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.transitions.every_row_binds_this_projections_work_result"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.transitions.every_row_binds_the_work_result_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.transition_count.matches_the_projected_rows"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.transitions.retain_their_own_authority_nonclaim"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.transitions.retain_their_own_verdict_nonclaim"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.stages.expose_each_ladder_member_exactly_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("verified_work_graph.bound_versions.are_distinct_work_result_content_hashes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/verified-work-graph-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
         path: "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
         expected_accept: true,
@@ -154369,6 +155330,193 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json"#,
+        contract_id: r#"schema://ioi/foundations/verified-work-graph-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json"#,
         contract_id: r#"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1"#,
         source_fixture_path: Some(
@@ -159512,6 +160660,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/semantic-mapping-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/semantic-mapping-decision/v1","title":"SemanticMappingDecision","description":"An OntologyMappingEnvelope carrying mapping_record_profile semantic_mapping_decision: one immutable, receipted, challengeable APPLICATION of one exact OntologyCrosswalk revision to one concrete target. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologymappingenvelope. It is a decision object, not a config row: it binds the exact crosswalk revision and hash, both endpoint revisions and hashes carried verbatim from that crosswalk, named reviewer lineage with per-reviewer decisions, an explicit acceptance of the declared mapping risk, and an explicit disposition for every ambiguous and every unmapped term the crosswalk named. Deciding is not being right and is not being permitted: the decision asserts no correctness, no legal conformity and no authority, and a cross-domain decision binds only under accepted terms (INV-30).","x-ioi-schema-version":"ioi.semantic-mapping-decision.v1","type":"object","additionalProperties":false,"required":["schema_version","ontology_mapping_id","mapping_family_ref","mapping_record_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","applied_crosswalk_ref","applied_crosswalk_binding","crosswalk_resolved_by","source_ontology_ref","target_ontology_ref","source_and_target_version_refs","source_binding","target_binding","domain_relationship","application_target_refs","decided_by_ref","decision_timestamp","reviewer_lineage","mapping_risk_acceptance","ambiguity_dispositions","unmapped_term_dispositions","terms_acceptance","compatibility_result","policy_bound_view_refs","validation_and_challenge_refs","policy_hash","valid_time","transaction_time","migration","admission","mapping_decision_receipt_ref","challenge_state","correctness_nonclaim","authority_nonclaim","legal_conformity_claim","global_canonicality_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.semantic-mapping-decision.v1"},"ontology_mapping_id":{"$ref":"#/$defs/decisionRevisionRef"},"mapping_family_ref":{"$ref":"#/$defs/decisionFamilyRef"},"mapping_record_profile":{"const":"semantic_mapping_decision"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"applied_crosswalk_ref":{"description":"The canonical OntologyMappingEnvelope field, pinned to an EXACT crosswalk revision. A decision that applied 'the crosswalk' rather than one revision of it cannot say afterwards what it applied.","$ref":"#/$defs/crosswalkRevisionRef"},"applied_crosswalk_binding":{"type":"object","additionalProperties":false,"required":["mapping_family_ref","ontology_mapping_id","content_hash","revision_ordinal","compatibility_result","risk_class","declared_loss","challenge_standing"],"properties":{"mapping_family_ref":{"$ref":"#/$defs/crosswalkFamilyRef"},"ontology_mapping_id":{"$ref":"#/$defs/crosswalkRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"risk_class":{"enum":["low","moderate","high","unacceptable"]},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"challenge_standing":{"description":"The crosswalk's standing AS OF THIS DECISION, resolved from the crosswalk owner's chain. It is inside the content commitment, so 'we applied a mapping nobody had challenged' becomes a checkable historical claim rather than a memory.","enum":["unchallenged","challenged","upheld","rejected"]}}},"crosswalk_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"source_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"target_ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"source_and_target_version_refs":{"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"$ref":"#/$defs/endpointRevisionRef"}},"source_binding":{"$ref":"#/$defs/endpointBinding"},"target_binding":{"$ref":"#/$defs/endpointBinding"},"domain_relationship":{"enum":["in_domain","cross_domain"]},"application_target_refs":{"description":"The concrete things this decision was applied to. Non-empty by construction: an application with no target is a declaration wearing a decision's clothes.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:packet|handoff|object|query|ontology-action|artifact)://[^\\s]{1,240}$"}},"decided_by_ref":{"description":"Server-resolved from the authenticated principal. A caller may assert it and may never author it.","type":"string","pattern":"^(?:system|worker|org|user|project|service|domain|policy)://[^\\s]{1,240}$"},"decision_timestamp":{"$ref":"#/$defs/dateTime"},"reviewer_lineage":{"description":"Who reviewed, in which role, when, and what they decided. Non-empty by construction, and a rejected review cannot coexist with an active decision.","type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["reviewer_ref","review_role","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"review_role":{"enum":["source_domain_reviewer","target_domain_reviewer","mapping_owner","independent_verifier"]},"reviewed_at":{"$ref":"#/$defs/dateTime"},"review_decision":{"enum":["approved","approved_with_conditions","rejected","abstained"]}}}},"mapping_risk_acceptance":{"description":"The declared risk the decider accepted, carried verbatim from the crosswalk. Accepting a risk is not reducing it, and it is not a claim that the loss did not happen.","type":"object","additionalProperties":false,"required":["accepted_risk_class","accepted_loss","accepted_by_ref","residual_risk_refs"],"properties":{"accepted_risk_class":{"enum":["low","moderate","high"]},"accepted_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units","unmapped"]},"accepted_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"},"residual_risk_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:policy|finding|evidence)://[^\\s]{1,240}$"}}}},"ambiguity_dispositions":{"description":"One entry for every ambiguous term the applied crosswalk named. An unadjudicated ambiguity is refused before admission; 'refused_ambiguous' is a real disposition that keeps the term out of the applied projection rather than guessing it.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition","adjudicated_by_ref"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["adjudicated_exact","adjudicated_broader","adjudicated_narrower","refused_ambiguous"]},"adjudicated_by_ref":{"type":"string","pattern":"^(?:user|org|worker|service|system|domain)://[^\\s]{1,240}$"}}}},"unmapped_term_dispositions":{"description":"One entry for every source term the crosswalk left unmapped. Dropping a term silently is the defect this list exists to prevent.","type":"array","maxItems":512,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_term_id","disposition"],"properties":{"source_term_id":{"$ref":"#/$defs/anyTermRef"},"disposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated"]}}}},"terms_acceptance":{"description":"INV-30. In-domain application binds nothing across a boundary and carries null. Cross-domain application requires each required party's governed decision over the exact terms root, whose owner is M11.1; this build has no landed acceptance resolver, so a cross-domain decision is refused by name at admission rather than admitted on the strength of a caller-supplied acceptance. The shape is registered now so the resolver can land behind it without a wire change.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["collaboration_terms_ref","terms_body_root","accepting_domain_refs","acceptance_resolved_by"],"properties":{"collaboration_terms_ref":{"type":"string","pattern":"^collaboration-terms://[^\\s]{1,240}$"},"terms_body_root":{"$ref":"#/$defs/sha256"},"accepting_domain_refs":{"type":"array","minItems":2,"maxItems":16,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"}},"acceptance_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}]},"compatibility_result":{"enum":["exact","compatible","lossy","requires_adapter","incompatible"]},"policy_bound_view_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:view|restricted_view)://[^\\s]{1,240}$"}},"validation_and_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:test|verifier-challenge|evidence)://[^\\s]{1,240}$"}},"policy_hash":{"$ref":"#/$defs/sha256"},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/decisionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"$ref":"#/$defs/mappingAdmission"},"mapping_decision_receipt_ref":{"description":"The canonical decision receipt: the admitting batch's own Agentgres receipt, server-resolved. It attests that this domain admitted this decision, and nothing about whether the mapping is right.","oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"challenge_state":{"$ref":"#/$defs/challengeState"},"correctness_nonclaim":{"const":"semantic_mapping_decision_is_not_a_correctness_claim"},"authority_nonclaim":{"const":"semantic_mapping_decision_grants_no_authority"},"legal_conformity_claim":{"const":"not_determined"},"global_canonicality_nonclaim":{"const":"semantic_mapping_decision_asserts_no_globally_canonical_ontology"},"status":{"enum":["proposed","validated","active","challenged","deprecated","revoked"]}},"allOf":[{"description":"An in-domain decision crosses no boundary and therefore accepts no terms; a null here is the absence being stated rather than omitted.","if":{"properties":{"domain_relationship":{"const":"in_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"null"}}}},{"description":"INV-30. A cross-domain decision without a resolved terms acceptance is unrepresentable, so an admitted record can never be the evidence that terms were accepted when they were not.","if":{"properties":{"domain_relationship":{"const":"cross_domain"}},"required":["domain_relationship"]},"then":{"properties":{"terms_acceptance":{"type":"object"}}}},{"description":"A rejected review cannot coexist with an active decision. Retaining the rejection is the point; presenting it as agreement is the defect.","if":{"properties":{"reviewer_lineage":{"type":"array","contains":{"type":"object","properties":{"review_decision":{"const":"rejected"}},"required":["review_decision"]}}},"required":["reviewer_lineage"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"An incompatible or unacceptably risky application is never active, exactly as for the crosswalk it applies.","if":{"properties":{"compatibility_result":{"const":"incompatible"}},"required":["compatibility_result"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"description":"Applying a crosswalk that is under challenge, or one whose challenge was upheld, cannot produce an active decision: the standing it recorded is the standing it must live with.","if":{"properties":{"applied_crosswalk_binding":{"type":"object","properties":{"challenge_standing":{"enum":["challenged","upheld"]}},"required":["challenge_standing"]}},"required":["applied_crosswalk_binding"]},"then":{"properties":{"status":{"enum":["proposed","validated","challenged","deprecated","revoked"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"challenged"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"revoked"}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"enum":["validated","active"]}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"},"mapping_decision_receipt_ref":{"type":"string"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"decisionFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision$"},"decisionRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"},"crosswalkFamilyRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"endpointFamilyRef":{"description":"Either a base ontology family or an overlay family: an overlay is a first-class endpoint, which is what lets a domain map from its own local divergence without first folding that divergence back into the base. Written as an explicit two-branch alternation rather than an optional group so the projection can represent it exactly.","type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})$"},"endpointRevisionRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/revision/[1-9][0-9]{0,8}$"},"anyTermRef":{"type":"string","pattern":"^(?:ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}|ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62})/term/[a-z0-9][a-z0-9-]{0,62}$"},"endpointBinding":{"type":"object","additionalProperties":false,"required":["ontology_ref","ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_profile"],"properties":{"ontology_ref":{"$ref":"#/$defs/endpointFamilyRef"},"ontology_version_ref":{"$ref":"#/$defs/endpointRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_profile":{"enum":["ontology_version","ontology_overlay"]}}},"challengeState":{"type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"}}},"mappingAdmission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["ontology_mapping_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"ontology_mapping_id":{"type":"string","pattern":"^ontology-mapping://[^\\s]{1,240}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-ontology-mappings"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]}}}"##),
     ("schema://ioi/foundations/ontology-assertion/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/ontology-assertion/v2","title":"ProvenanceAssertion","description":"An OntologyAssertionEnvelope carrying assertion_profile provenance_assertion, as an immutable revision on its own owner-qualified chain. Derived from docs/architecture/foundations/objects/semantic-plane.md#ontologyassertionenvelope. v2 is the EXPLICIT successor of v1 and reinterprets nothing: v1 records remain valid, addressable and unaltered at v1, and the bounded exact-single-source oracle admission that produces them keeps its own contract. What v2 adds is the general plane v1 could not express -- an exact bitemporal revision chain, affirmative AND negative polarity, structured uncertainty, retained contradiction, per-source and per-evidence lineage, supersession, and challenge standing resolved through VerifierChallengeEnvelope v2 and AssuranceTransitionReceipt v2. Admission records that this domain holds the claim as operational truth. It never makes the proposition universally true, and it grants no authority.","x-ioi-schema-version":"ioi.ontology-assertion.v2","type":"object","additionalProperties":false,"required":["schema_version","assertion_id","assertion_family_ref","assertion_profile","namespace","name","owner_id","governing_scope_ref","admission_domain_ref","version","revision_ordinal","predecessor_version_ref","predecessor_content_hash","content_hash","ontology_ref","ontology_binding","ontology_resolved_by","fact_class_ref","subject_ref","predicate_ref","object_or_value_ref","polarity","valid_time","transaction_time","source_attribution","evidence_lineage","uncertainty","contradiction_state","supersession","applicability_scope_ref","permitted_consequence_scope_refs","causal_or_counterfactual_context_ref","oracle_evidence_profile_ref","oracle_evidence_admission_receipt_ref","predecessor_contract_ref","reinterpretation_nonclaim","policy_hash","migration","admission","challenge_state","universality_nonclaim","authority_nonclaim","status"],"properties":{"schema_version":{"const":"ioi.ontology-assertion.v2"},"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"assertion_family_ref":{"$ref":"#/$defs/assertionFamilyRef"},"assertion_profile":{"const":"provenance_assertion"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"owner_id":{"type":"string","pattern":"^(?:org|project|service|system|wallet)://[^\\s]{1,240}$"},"governing_scope_ref":{"type":"string","pattern":"^(?:domain|org|project|service|system)://[^\\s]{1,240}$"},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,224}$"},"version":{"type":"string","pattern":"^v[1-9][0-9]{0,8}$"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"predecessor_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/sha256"},"ontology_ref":{"description":"The canonical OntologyAssertionEnvelope field: the ontology FAMILY whose vocabulary this assertion speaks.","$ref":"#/$defs/ontologyFamilyRef"},"ontology_binding":{"description":"The EXACT admitted revision that gives the predicate its meaning, bound by ref AND by that owner's committed content hash. Without it, 'the price was 4' is a sentence in no particular language: the term could be redefined by a later revision and the assertion would silently change meaning.","type":"object","additionalProperties":false,"required":["ontology_version_ref","content_hash","namespace","name","revision_ordinal","record_status"],"properties":{"ontology_version_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"namespace":{"$ref":"#/$defs/nameToken"},"name":{"$ref":"#/$defs/nameToken"},"revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"record_status":{"enum":["active","deprecated"]}}},"ontology_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"fact_class_ref":{"oneOf":[{"$ref":"#/$defs/termRef"},{"type":"null"}]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"predicate_ref":{"description":"A term of the BOUND revision, checked for membership against that revision's own declared vocabulary rather than for shape alone. A well-formed, correctly namespaced term the revision never declared is refused.","$ref":"#/$defs/termRef"},"object_or_value_ref":{"anyOf":[{"type":"string","minLength":1,"maxLength":2048},{"type":"number","minimum":-9007199254740991,"maximum":9007199254740991},{"type":"boolean"},{"type":"null"}]},"polarity":{"description":"v2's first structural addition. An affirmative assertion claims the proposition holds; a negative assertion claims it does NOT. Both are recorded claims with sources and evidence, and neither is the absence of a record -- collapsing 'asserted false' into 'nothing asserted' is the loss this member exists to prevent.","enum":["affirmative","negative"]},"valid_time":{"description":"When the claim is held to hold. Content: it is inside the content commitment, so 'true from June' cannot be edited without minting a new revision.","type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/dateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"transaction_time":{"description":"When the claim was recorded, and when a successor closed that interval. Admission, deliberately outside the content commitment.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/dateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}}},"source_attribution":{"description":"Who or what said so. Non-empty by construction: an unattributed assertion is a rendering of a log, which is exactly what this object exists instead of.","type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["source_ref","source_class","observed_at"],"properties":{"source_ref":{"$ref":"#/$defs/canonicalRef"},"source_class":{"enum":["observation","oracle","human_reviewer","worker","derived","external_system","self_report"]},"observed_at":{"$ref":"#/$defs/dateTime"}}}},"evidence_lineage":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["evidence_ref","evidence_class","supports"],"properties":{"evidence_ref":{"type":"string","pattern":"^(?:evidence|receipt|artifact|assurance-evidence)://[^\\s]{1,240}$"},"evidence_class":{"enum":["direct","corroborating","contradicting","inconclusive"]},"supports":{"description":"Which side of the claim this evidence bears on. Evidence that contradicts is retained AS contradicting rather than dropped, so a bundle cannot look unanimous by omission.","enum":["affirmative","negative","neither"]}}}},"uncertainty":{"description":"Structured rather than a bare number: a confidence with no stated kind cannot be compared across estimators, and 'unknown' is a distinct epistemic state from 'zero confidence'.","type":"object","additionalProperties":false,"required":["uncertainty_kind","confidence","estimator_ref"],"properties":{"uncertainty_kind":{"enum":["point_confidence","qualitative","unknown","disputed_estimate"]},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"estimator_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]}}},"contradiction_state":{"description":"Contradictions are RETAINED, never resolved by deletion. A contradicted assertion keeps pointing at what contradicts it and keeps its own sources and evidence; the reader decides, and the record does not pretend the disagreement was not there.","type":"object","additionalProperties":false,"required":["contradiction_class","contradicting_assertion_refs","retained"],"properties":{"contradiction_class":{"enum":["none","direct_negation","value_conflict","scope_conflict","temporal_conflict"]},"contradicting_assertion_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:ontology-assertion|finding)://[^\\s]{1,240}$"}},"retained":{"const":true}}},"supersession":{"type":"object","additionalProperties":false,"required":["supersedes_ref","supersession_reason"],"properties":{"supersedes_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"supersession_reason":{"enum":["none","corrected","refined","retracted","reclassified","superseded_by_evidence"]}}},"applicability_scope_ref":{"oneOf":[{"$ref":"#/$defs/canonicalRef"},{"type":"null"}]},"permitted_consequence_scope_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^policy://[^\\s]{1,240}$"}},"causal_or_counterfactual_context_ref":{"oneOf":[{"type":"string","pattern":"^(?:artifact|finding)://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_profile_ref":{"description":"Retained from v1 so a v1-shaped oracle assertion has a v2 home without either record reinterpreting the other. Null on the general path; a v2 record carrying a profile must also carry that profile's admission receipt.","oneOf":[{"type":"string","pattern":"^oracle-evidence-profile://[^\\s]{1,240}$"},{"type":"null"}]},"oracle_evidence_admission_receipt_ref":{"oneOf":[{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},{"type":"null"}]},"predecessor_contract_ref":{"description":"The exact predecessor contract this version succeeds. Naming it inside the record is what makes the succession auditable from the bytes rather than only from a registry entry.","const":"schema://ioi/foundations/ontology-assertion/v1"},"reinterpretation_nonclaim":{"const":"provenance_assertion_v2_does_not_reinterpret_v1_records"},"policy_hash":{"$ref":"#/$defs/sha256"},"migration":{"type":"object","additionalProperties":false,"required":["from_version_ref","from_content_hash","from_revision_ordinal","compatibility","reinterprets_predecessor"],"properties":{"from_version_ref":{"oneOf":[{"$ref":"#/$defs/assertionRevisionRef"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":999999999},"compatibility":{"enum":["initial","additive","breaking"]},"reinterprets_predecessor":{"const":false}}},"admission":{"oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["assertion_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"assertion_id":{"$ref":"#/$defs/assertionRevisionRef"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-provenance-assertions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,240}$"},"agentgres_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"challenge_state":{"description":"A fact about the chain, outside the content commitment. A challenge against an assertion is admissible and changes its STANDING without editing the claim it challenged; resolution binds an AssuranceTransitionReceipt v1, which is evidence and not a verdict.","type":"object","additionalProperties":false,"required":["standing","open_challenge_refs","resolved_challenge_refs","resolution_receipt_refs","challenge_contract_ref","resolution_contract_ref"],"properties":{"standing":{"enum":["unchallenged","challenged","upheld","rejected"]},"open_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolved_challenge_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,240}$"}},"resolution_receipt_refs":{"type":"array","maxItems":64,"uniqueItems":true,"items":{"type":"string","pattern":"^receipt://[^\\s]{1,240}$"}},"challenge_contract_ref":{"const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"resolution_contract_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v2","description":"The exact registered contract a resolution's receipt is admitted under. Pinned to v2 because v1 structurally cannot bind the verifier-challenge:// identity being resolved, so a v1 receipt could never prove it resolved THIS challenge."}}},"universality_nonclaim":{"const":"provenance_assertion_admission_is_not_universal_truth"},"authority_nonclaim":{"const":"provenance_assertion_grants_no_authority"},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","contradicted","superseded","disputed","rejected"]}},"allOf":[{"description":"A held_unknown assertion is the one state where the domain declines to claim. Its uncertainty must say so rather than encode a number, and it carries no consequence scope.","if":{"properties":{"status":{"const":"held_unknown"}},"required":["status"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"unknown"},"confidence":{"type":"null"}}},"permitted_consequence_scope_refs":{"type":"array","maxItems":0}}}},{"description":"A point confidence is a number; declaring the kind and omitting the number is an estimate that cannot be read.","if":{"properties":{"uncertainty":{"type":"object","properties":{"uncertainty_kind":{"const":"point_confidence"}},"required":["uncertainty_kind"]}},"required":["uncertainty"]},"then":{"properties":{"uncertainty":{"type":"object","properties":{"confidence":{"type":"number"},"estimator_ref":{"type":"string"}}}}}},{"description":"A contradicted assertion names what contradicts it. A status that says 'contradicted' over an empty contradiction set is a label rather than a finding.","if":{"properties":{"status":{"const":"contradicted"}},"required":["status"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","minItems":1},"contradiction_class":{"enum":["direct_negation","value_conflict","scope_conflict","temporal_conflict"]}}}}}},{"description":"And the converse: naming contradictions and calling the record clean is the same defect from the other side.","if":{"properties":{"contradiction_state":{"type":"object","properties":{"contradiction_class":{"const":"none"}},"required":["contradiction_class"]}},"required":["contradiction_state"]},"then":{"properties":{"contradiction_state":{"type":"object","properties":{"contradicting_assertion_refs":{"type":"array","maxItems":0}}},"status":{"enum":["proposed","evidence_pending","held_unknown","admitted","superseded","disputed","rejected"]}}}},{"description":"A superseded assertion names what it superseded or was superseded by, with a stated reason. Supersession without a reason is a deletion with extra steps.","if":{"properties":{"status":{"const":"superseded"}},"required":["status"]},"then":{"properties":{"transaction_time":{"type":"object","properties":{"superseded_at":{"type":"string"}}}}}},{"description":"A record that names a supersession target states why; 'none' is reserved for a record that supersedes nothing.","if":{"properties":{"supersession":{"type":"object","properties":{"supersedes_ref":{"type":"string"}},"required":["supersedes_ref"]}},"required":["supersession"]},"then":{"properties":{"supersession":{"type":"object","properties":{"supersession_reason":{"enum":["corrected","refined","retracted","reclassified","superseded_by_evidence"]}}}}}},{"description":"A disputed assertion has an open challenge; a challenge that changed nothing about standing did not happen.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"challenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","minItems":1}}},"status":{"const":"disputed"}}}},{"description":"An upheld challenge rejects the assertion it upheld, and the resolution is receipted through the assurance ladder rather than asserted here.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"upheld"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}},"status":{"const":"rejected"}}}},{"description":"A rejected challenge is retained beside the assertion it failed to unseat.","if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"rejected"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","minItems":1},"resolution_receipt_refs":{"type":"array","minItems":1}}}}}},{"if":{"properties":{"challenge_state":{"type":"object","properties":{"standing":{"const":"unchallenged"}},"required":["standing"]}},"required":["challenge_state"]},"then":{"properties":{"challenge_state":{"type":"object","properties":{"open_challenge_refs":{"type":"array","maxItems":0},"resolved_challenge_refs":{"type":"array","maxItems":0},"resolution_receipt_refs":{"type":"array","maxItems":0}}}}}},{"description":"A v1-profile oracle assertion carried into v2 keeps BOTH of v1's requirements: the profile and its qualified admission receipt travel together or neither is present.","if":{"properties":{"oracle_evidence_profile_ref":{"type":"string"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"string"},"fact_class_ref":{"type":"string"}}}},{"if":{"properties":{"oracle_evidence_profile_ref":{"type":"null"}},"required":["oracle_evidence_profile_ref"]},"then":{"properties":{"oracle_evidence_admission_receipt_ref":{"type":"null"}}}},{"description":"An admitted assertion carries at least one piece of evidence and a bounded consequence scope. Admission with neither is a belief the domain has agreed to act on for no stated reason.","if":{"properties":{"status":{"const":"admitted"}},"required":["status"]},"then":{"properties":{"evidence_lineage":{"type":"array","minItems":1},"permitted_consequence_scope_refs":{"type":"array","minItems":1}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"null"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":1,"maximum":1},"predecessor_content_hash":{"type":"null"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"null"},"from_content_hash":{"type":"null"},"from_revision_ordinal":{"type":"integer","minimum":0,"maximum":0},"compatibility":{"const":"initial"}}}}}},{"if":{"properties":{"predecessor_version_ref":{"type":"string"}},"required":["predecessor_version_ref"]},"then":{"properties":{"revision_ordinal":{"type":"integer","minimum":2,"maximum":999999999},"predecessor_content_hash":{"type":"string"},"migration":{"type":"object","properties":{"from_version_ref":{"type":"string"},"from_content_hash":{"type":"string"},"from_revision_ordinal":{"type":"integer","minimum":1,"maximum":999999999},"compatibility":{"enum":["additive","breaking"]}}}}}},{"properties":{"admission":{"type":"object"}}}],"$defs":{"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nameToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,62}$"},"assertionFamilyRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"assertionRevisionRef":{"type":"string","pattern":"^ontology-assertion://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyFamilyRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"termRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9-]*://[^\\s]{1,240}$"}}}"##),
     ("schema://ioi/foundations/assurance-transition-receipt/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/assurance-transition-receipt/v2","title":"AssuranceTransitionReceipt","description":"One step of the canonical assurance ladder as an immutable, exact-head object over an owner-resolved subject. v2 is the EXPLICIT successor of v1 and reinterprets nothing: every v1 property, enumeration, nullability and conditional is preserved byte-for-byte, v1 records remain valid and addressable at v1, and the stage member set stays frozen by canonical-enums.md. The single addition is challenge_resolution, because v1 structurally cannot carry the fact a semantic-plane challenge resolution has to state: its evidenceRef grammar admits only evidence|assurance-evidence|artifact|receipt and therefore cannot bind the exact verifier-challenge:// identity being resolved, and it has no typed resolution outcome or adjudicator lineage. Widening a registered grammar is a new version, not an edit. The receipt names its actor, its evidence and what it does not assert; it is not a verdict and grants no authority.","x-ioi-schema-version":"ioi.assurance-transition-receipt.v2","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_type","receipt_profile_ref","transition_id","subject_ref","subject_family","subject_content_hash","subject_resolved_by","from_stage","to_stage","to_stage_ordinal","transition_ordinal","outcome_class","actor_ref","evidence_refs","does_not_assert","valid_time","transaction_time","expected_predecessor_transition_ref","expected_predecessor_transition_hash","resulting_stage_head_hash","content_hash","authority_nonclaim","verdict_nonclaim","admission","challenge_resolution","predecessor_contract_ref"],"properties":{"schema_version":{"const":"ioi.assurance-transition-receipt.v2"},"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"assurance_transition"},"receipt_profile_ref":{"const":"schema://ioi/foundations/assurance-transition-receipt/v2"},"transition_id":{"type":"string","pattern":"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"},"subject_ref":{"$ref":"#/$defs/subjectRef"},"subject_family":{"description":"The closed discriminator naming which owner is entitled to resolve subject_ref. Present so a later unit can add its own resolver without reinterpreting a v1 record: an unresolvable family is refused by name, never admitted on the strength of its URI prefix.","enum":["work_result","ontology_revision","ontology_mapping_revision","ontology_assertion","finding","attempt"]},"subject_content_hash":{"description":"The subject owner's committed content hash, carried verbatim from that owner's own resolution. Never recomputed here and never asserted by the caller.","$ref":"#/$defs/sha256"},"subject_resolved_by":{"description":"The exact owner seam that re-resolved the subject for this transition. A record that names no resolver is a record whose subject was taken on faith. Deliberately a pattern rather than a closed enum: a later unit adds its own resolver and emits its own seam name without a v1 wire change, while the set of families this build can actually resolve stays a runtime fact that fails closed by name.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"from_stage":{"oneOf":[{"$ref":"#/$defs/assuranceStage"},{"type":"null"}]},"to_stage":{"$ref":"#/$defs/assuranceStage"},"to_stage_ordinal":{"description":"The ladder position of to_stage, 1-based in canonical order. It exists so that 'no stage skips' is a PORTABLE check rather than a runtime habit: a registered invariant pins it equal to transition_ordinal, and transition_ordinal is derived from the subject's own chain length. A transition that jumps attested -> verified therefore carries ordinal 3 at chain position 2 and fails offline, with no daemon present.","type":"integer","minimum":1,"maximum":6},"transition_ordinal":{"type":"integer","minimum":1,"maximum":6},"outcome_class":{"description":"ACC-8 clause 2. Retained verbatim; no consumer or projection may collapse a non-positive member into positive.","enum":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"]},"actor_ref":{"description":"Who stands behind this stage. Server-resolved from the authenticated principal; a caller may assert it but never author it.","$ref":"#/$defs/principalRef"},"evidence_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/evidenceRef"}},"does_not_assert":{"description":"The explicit nonclaim set. Non-empty by construction: a transition that disclaims nothing is the collapse of NN 20 into a bare success flag.","type":"array","minItems":1,"maxItems":8,"uniqueItems":true,"items":{"enum":["correctness","external_world_occurrence","causality","acceptance","adjudication","settlement","economic_value","authority"]}},"valid_time":{"type":"object","additionalProperties":false,"required":["starts_at","ends_at"],"properties":{"starts_at":{"$ref":"#/$defs/canonicalDateTime"},"ends_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}},"transaction_time":{"description":"Admission time, deliberately outside the content commitment. When the stage was claimed true is content; when it was recorded is admission.","type":"object","additionalProperties":false,"required":["recorded_at","superseded_at"],"properties":{"recorded_at":{"$ref":"#/$defs/canonicalDateTime"},"superseded_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]}}},"expected_predecessor_transition_ref":{"oneOf":[{"type":"string","pattern":"^assurance-transition://[^\\s]{1,460}$"},{"type":"null"}]},"expected_predecessor_transition_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"resulting_stage_head_hash":{"$ref":"#/$defs/sha256"},"content_hash":{"$ref":"#/$defs/sha256"},"admission":{"description":"Server-resolved admission evidence from the owner-scoped Agentgres chain. Explicitly null on a portable record rather than absent, because the registered admission invariants are defined over null-or-object and an absent key would leave them silently unevaluated.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["transition_id","content_hash","owner_namespace","stream_tail","agentgres_operation_ref","agentgres_receipt_ref","admission_seq","admission_head","admission_root","expected_predecessor_head"],"properties":{"transition_id":{"type":"string","pattern":"^assurance-transition://[^\\s]{1,460}$"},"content_hash":{"$ref":"#/$defs/sha256"},"owner_namespace":{"const":"hypervisor-assurance-transitions"},"stream_tail":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$"},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://[^\\s]{1,460}$"},"agentgres_receipt_ref":{"description":"The admitting batch's receipt ref. It is a receipt:// ref, not an agentgres:// one, because that is what the substrate's own ref builder emits.","type":"string","pattern":"^receipt://[^\\s]{1,460}$"},"admission_seq":{"type":"integer","minimum":0,"maximum":9007199254740991},"admission_head":{"$ref":"#/$defs/sha256"},"admission_root":{"$ref":"#/$defs/sha256"},"expected_predecessor_head":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}}]},"admission_domain_ref":{"type":"string","pattern":"^agentgres://domain/[^\\s]{1,460}$"},"authority_nonclaim":{"const":"assurance_transition_grants_no_authority"},"verdict_nonclaim":{"const":"assurance_transition_is_not_a_verdict"},"predecessor_contract_ref":{"description":"The exact predecessor contract this version succeeds, repeated inside the record so the succession is auditable from the bytes rather than only from a registry entry.","const":"schema://ioi/foundations/assurance-transition-receipt/v1"},"challenge_resolution":{"description":"Present exactly when this transition ADJUDICATES a named challenge. It binds the challenge by its exact verifier-challenge:// identity and re-states the challenged subject and the owner-resolved hash this receipt already carries, so a consumer can check the receipt is about the subject and the challenge it claims without trusting the caller who cited it. Null on an ordinary ladder step.","oneOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["verifier_challenge_id","challenged_subject_ref","challenged_subject_content_hash","resolution","adjudicator_ref","adjudicator_policy_ref","reviewer_lineage","challenge_contract_ref","challenge_resolved_by"],"properties":{"verifier_challenge_id":{"type":"string","pattern":"^verifier-challenge://[^\\s]{1,460}$"},"challenged_subject_ref":{"$ref":"#/$defs/subjectRef"},"challenged_subject_content_hash":{"$ref":"#/$defs/sha256"},"resolution":{"description":"The typed outcome of the challenge itself, which is a different fact from outcome_class: outcome_class describes the SUBJECT's standing, resolution describes what happened to the CHALLENGE.","enum":["upheld","rejected"]},"adjudicator_ref":{"$ref":"#/$defs/principalRef"},"adjudicator_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,460}$"},"reviewer_lineage":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["reviewer_ref","reviewed_at","review_decision"],"properties":{"reviewer_ref":{"$ref":"#/$defs/principalRef"},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"review_decision":{"enum":["upheld","rejected","abstained"]}}}},"challenge_contract_ref":{"description":"Pinned to VerifierChallengeEnvelope v2, whose challenged_ref widening is what makes a semantic-plane subject nameable at all.","const":"schema://ioi/foundations/objects/verifier-challenge-envelope/v2"},"challenge_resolved_by":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"}}}]}},"allOf":[{"description":"attested is ladder position 1 and is the entry member: it advances from nothing.","if":{"properties":{"to_stage":{"const":"attested"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[1]},"from_stage":{"type":"null"}}}},{"description":"evidenced is ladder position 2 and advances only from attested.","if":{"properties":{"to_stage":{"const":"evidenced"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[2]},"from_stage":{"const":"attested"}}}},{"description":"verified is ladder position 3 and advances only from evidenced.","if":{"properties":{"to_stage":{"const":"verified"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[3]},"from_stage":{"const":"evidenced"}}}},{"description":"accepted is ladder position 4 and advances only from verified.","if":{"properties":{"to_stage":{"const":"accepted"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[4]},"from_stage":{"const":"verified"}}}},{"description":"adjudicated is ladder position 5 and advances only from accepted.","if":{"properties":{"to_stage":{"const":"adjudicated"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[5]},"from_stage":{"const":"accepted"}}}},{"description":"settled is ladder position 6 and advances only from adjudicated. v1 represents no no-contest shortcut to settlement; introducing one is a later owner ruling with its own evidence, not an omission to be read in here.","if":{"properties":{"to_stage":{"const":"settled"}},"required":["to_stage"]},"then":{"properties":{"to_stage_ordinal":{"type":"integer","enum":[6]},"from_stage":{"const":"adjudicated"}}}},{"description":"The first transition of a subject enters the ladder at its narrowest member and names no predecessor.","if":{"properties":{"from_stage":{"type":"null"}},"required":["from_stage"]},"then":{"properties":{"to_stage":{"const":"attested"},"transition_ordinal":{"type":"integer","enum":[1]},"expected_predecessor_transition_ref":{"type":"null"},"expected_predecessor_transition_hash":{"type":"null"}}}},{"description":"A successor names the exact predecessor it advanced from; a stage that arrives without one is an unlinked claim.","if":{"properties":{"from_stage":{"type":"string"}},"required":["from_stage"]},"then":{"properties":{"transition_ordinal":{"type":"integer","minimum":2,"maximum":6},"expected_predecessor_transition_ref":{"type":"string"},"expected_predecessor_transition_hash":{"type":"string"}}}},{"description":"A stage short of acceptance may not omit the acceptance nonclaim, and one short of settlement may not omit the settlement nonclaim. This is the schema-level half of NN 20; the ordered no-skip rule itself is a portable invariant.","if":{"properties":{"to_stage":{"enum":["attested","evidenced","verified"]}},"required":["to_stage"]},"then":{"properties":{"does_not_assert":{"type":"array","allOf":[{"type":"array","contains":{"const":"acceptance"}},{"type":"array","contains":{"const":"settlement"}}]}}}},{"description":"A challenge resolution IS an adjudication. Binding it to that exact stage is what stops 'resolved' from being claimable at any rung of the ladder. The converse is deliberately NOT required: an adjudication for some reason other than a named challenge stays representable, so this addition narrows nothing v1 allowed.","if":{"properties":{"challenge_resolution":{"type":"object"}},"required":["challenge_resolution"]},"then":{"properties":{"to_stage":{"const":"adjudicated"}}}},{"description":"An UPHELD challenge is not a positive outcome for the subject it unseated, and a REJECTED one is not a negative one. Coupling the two keeps a receipt from reporting a sustained finding as a clean pass.","if":{"properties":{"challenge_resolution":{"type":"object","properties":{"resolution":{"const":"upheld"}},"required":["resolution"]}},"required":["challenge_resolution"]},"then":{"properties":{"outcome_class":{"enum":["negative","invalid","exploit","disputed"]}}}},{"if":{"properties":{"challenge_resolution":{"type":"object","properties":{"resolution":{"const":"rejected"}},"required":["resolution"]}},"required":["challenge_resolution"]},"then":{"properties":{"outcome_class":{"enum":["positive","no_fault","inconclusive"]}}}}],"$defs":{"assuranceStage":{"description":"Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This contract registers and drives the ladder; it does not choose its members.","enum":["attested","evidenced","verified","accepted","adjudicated","settled"]},"subjectRef":{"type":"string","pattern":"^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,460}$"},"principalRef":{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact|receipt)://[^\\s]{1,460}$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/foundations/verified-work-graph-projection/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/verified-work-graph-projection/v1","title":"VerifiedWorkGraphProjection","description":"A REBUILDABLE READ PROJECTION over one WorkResult's assurance posture. economic-flywheel-and-pricing-boundaries.md § Verified Work Graph states that the graph 'is not a single database, chain, or UI' and that it 'preserves these states independently'; this contract is the machine-checkable form of both sentences. It owns no bytes: every field is re-derived on each read from the WorkResult owner's admitted record and that subject's Agentgres assurance chain, so destroying any cache changes no answer. The six frozen assurance_stage members are exposed as independent rows, each with its own reached flag, so acceptance is never inferable from verification nor settlement from acceptance. Outcome classes are carried verbatim on BOTH sides and are never mapped onto each other: the WorkResult vocabulary has exploit_found and lacks disputed and no_fault, while the assurance ladder has exploit, disputed and no_fault, and collapsing the two would be exactly the normalisation NN 21 forbids. 'Verified' here names an assurance PATH, never a claim of correctness, acceptance, adjudication, settlement or value — the complete closed nonclaim set travels on every record as data rather than prose.","x-ioi-schema-version":"ioi.verified-work-graph-projection.v1","type":"object","additionalProperties":false,"required":["schema_version","projection_contract_ref","projection_kind","work_result_ref","work_result_content_hash","work_result_commitment_domain","work_result_resolved_by","work_result_outcome_class","work_result_status","subject_family","stages","reached_stage","reached_stage_ordinal","transition_count","transitions","outcome_class_census","bound_work_result_content_hashes","current_binding_state","transition_authority_nonclaim","transition_verdict_nonclaim","rebuildable_index_state","truth_source","does_not_assert","authority_nonclaim","verdict_nonclaim"],"properties":{"schema_version":{"const":"ioi.verified-work-graph-projection.v1"},"projection_contract_ref":{"const":"schema://ioi/foundations/verified-work-graph-projection/v1"},"projection_kind":{"description":"Declared in the bytes so a consumer cannot mistake this for a durable object. There is exactly one legal value: this family never becomes a store.","const":"read_projection"},"work_result_ref":{"$ref":"#/$defs/workResultRef"},"work_result_content_hash":{"description":"The WorkResult owner's commitment over the EXACT admitted record bytes, carried verbatim. Deliberately a whole-record commitment: a WorkResult changes when its owner admits an outcome_delta_refs or review_refs backlink, so each admitted version has a DISTINCT hash and the URI alone is never treated as a stable identity.","$ref":"#/$defs/sha256"},"work_result_commitment_domain":{"description":"The explicit domain separator and version of the commitment above, so a relying party can recompute it without guessing which preimage was used.","const":"ioi.work-result-record-commitment-jcs-sha256.v1"},"work_result_resolved_by":{"description":"The exact owner seam that re-resolved the WorkResult. A projection naming no resolver is one whose subject was taken on faith.","type":"string","pattern":"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"},"work_result_outcome_class":{"description":"The WorkResult owner's OWN vocabulary, verbatim. Note exploit_found, and note the absence of disputed and no_fault: this is not the assurance ladder's outcome_class and is never mapped onto it.","enum":["positive","negative","inconclusive","invalid","exploit_found","superseded"]},"work_result_status":{"enum":["completed","failed","blocked","partial","challenged","superseded"]},"subject_family":{"description":"This projection is over WorkResult owner truth only. Finding and Attempt remain named, fail-closed gaps at the assurance seam and are not projectable here.","const":"work_result"},"stages":{"description":"One row per frozen ladder member, ALWAYS all six and always in canonical order. An unreached stage is present with reached:false and null everything, which is a different statement from absence and a very different statement from success.","type":"array","minItems":6,"maxItems":6,"items":{"$ref":"#/$defs/stageRow"}},"reached_stage":{"description":"The furthest member actually reached, or null when no transition exists. Never inferred from the WorkResult's own status.","oneOf":[{"$ref":"#/$defs/assuranceStage"},{"type":"null"}]},"reached_stage_ordinal":{"description":"Zero when nothing was reached; otherwise the ordinal of reached_stage.","type":"integer","minimum":0,"maximum":6},"transition_count":{"type":"integer","minimum":0,"maximum":6},"transitions":{"description":"The subject's projected assurance ladder, carried verbatim from the assurance owner. Rows are not rewritten, filtered or re-ordered here.","type":"array","maxItems":6,"items":{"$ref":"#/$defs/projectedTransition"}},"outcome_class_census":{"description":"Every assurance ladder outcome counted, including the ones nobody likes to report. All eight members are REQUIRED to be present: a census that omitted a key when its count was zero would let a projection stop mentioning failures at exactly the moment failures matter.","type":"object","additionalProperties":false,"required":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"],"properties":{"positive":{"$ref":"#/$defs/censusCount"},"negative":{"$ref":"#/$defs/censusCount"},"inconclusive":{"$ref":"#/$defs/censusCount"},"invalid":{"$ref":"#/$defs/censusCount"},"exploit":{"$ref":"#/$defs/censusCount"},"superseded":{"$ref":"#/$defs/censusCount"},"disputed":{"$ref":"#/$defs/censusCount"},"no_fault":{"$ref":"#/$defs/censusCount"}}},"bound_work_result_content_hashes":{"description":"The DISTINCT WorkResult versions this ladder actually bound, in the order first bound. More than one entry means the subject's bytes changed under an owner-admitted backlink while the ladder advanced, and the earlier transitions still attest the earlier bytes.","type":"array","maxItems":6,"items":{"$ref":"#/$defs/boundVersion"}},"current_binding_state":{"description":"Whether the ladder's bindings still name what the owner currently commits. bound_to_superseded_bytes is reported rather than smoothed: hiding it would let a stale attestation read as a current one.","enum":["no_transition","current_bytes_bound","bound_to_superseded_bytes"]},"transition_authority_nonclaim":{"description":"The assurance receipt's own authority nonclaim, restated so an invariant can prove this projection did not strip it while flattening the ladder.","const":"assurance_transition_grants_no_authority"},"transition_verdict_nonclaim":{"const":"assurance_transition_is_not_a_verdict"},"rebuildable_index_state":{"description":"What the process-local, non-truth cache held before this read replaced it. Reported so a verifier can assert rebuild by POSITIVE detection rather than by an unchanged answer, which is also consistent with a cache that was never dropped. `not_consulted_no_bound_scope` is the reading for a caller with no bound scope on this subject: it answers the empty graph without touching the cache, so that a WorkResult nobody has attested and one whose ladder belongs to another principal are indistinguishable.","enum":["rebuilt_from_agentgres","agreed_with_agentgres","stale_rebuilt_from_agentgres","unavailable_rebuilt_from_agentgres","not_consulted_no_bound_scope"]},"truth_source":{"description":"Both owners, named. This projection is the only place they are read together and it is not a third owner.","const":"work_result_owner_and_agentgres_owner_scoped_chain"},"does_not_assert":{"description":"The complete closed nonclaim set, carried on every record. It is fixed at exactly twelve unique members: a dropped member is a SCHEMA refusal, because a projection that quietly stopped disclaiming settlement or legality would still satisfy every count-based check.","type":"array","minItems":12,"maxItems":12,"uniqueItems":true,"items":{"$ref":"#/$defs/nonclaimToken"},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"verdict"}},{"contains":{"const":"correctness"}},{"contains":{"const":"acceptance"}},{"contains":{"const":"adjudication"}},{"contains":{"const":"settlement"}},{"contains":{"const":"payment_or_economic_value"}},{"contains":{"const":"external_world_occurrence"}},{"contains":{"const":"deployment"}},{"contains":{"const":"provider_connectivity"}},{"contains":{"const":"legality"}},{"contains":{"const":"live_medical_suitability"}}]},"authority_nonclaim":{"const":"verified_work_graph_grants_no_authority"},"verdict_nonclaim":{"const":"verified_work_graph_is_not_a_verdict"}},"allOf":[{"description":"A projection with no transition has reached nothing. Stating it as a conditional keeps a zero-length ladder from carrying a reached stage it derived from the WorkResult's own status.","if":{"properties":{"transition_count":{"type":"integer","minimum":0,"maximum":0}},"required":["transition_count"]},"then":{"properties":{"reached_stage":{"type":"null"},"reached_stage_ordinal":{"type":"integer","minimum":0,"maximum":0},"current_binding_state":{"const":"no_transition"}}}},{"description":"And conversely: once a transition exists, no_transition is unavailable as a binding state.","if":{"properties":{"transition_count":{"type":"integer","minimum":1,"maximum":6}},"required":["transition_count"]},"then":{"properties":{"reached_stage":{"$ref":"#/$defs/assuranceStage"},"reached_stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"current_binding_state":{"enum":["current_bytes_bound","bound_to_superseded_bytes"]}}}}],"$defs":{"assuranceStage":{"description":"Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This projection renders the ladder; it does not choose its members.","enum":["attested","evidenced","verified","accepted","adjudicated","settled"]},"assuranceOutcomeClass":{"description":"ACC-8 clause 2, verbatim. No member is mapped toward positive anywhere in this contract.","enum":["positive","negative","inconclusive","invalid","exploit","superseded","disputed","no_fault"]},"stageRow":{"type":"object","additionalProperties":false,"required":["stage","stage_ordinal","reached","transition_ref","transition_content_hash","outcome_class","actor_ref","recorded_at","bound_work_result_content_hash"],"properties":{"stage":{"$ref":"#/$defs/assuranceStage"},"stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"reached":{"type":"boolean"},"transition_ref":{"oneOf":[{"type":"string","pattern":"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"},{"type":"null"}]},"transition_content_hash":{"$ref":"#/$defs/nullableSha256"},"outcome_class":{"oneOf":[{"$ref":"#/$defs/assuranceOutcomeClass"},{"type":"null"}]},"actor_ref":{"oneOf":[{"type":"string","pattern":"^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"},{"type":"null"}]},"recorded_at":{"oneOf":[{"$ref":"#/$defs/canonicalDateTime"},{"type":"null"}]},"bound_work_result_content_hash":{"$ref":"#/$defs/nullableSha256"}},"allOf":[{"description":"AN UNREACHED STAGE CARRIES NOTHING. Without this, a projection could report reached:false while still populating an outcome and an actor, and a consumer skimming the rows would read a stage that nobody stood behind.","if":{"properties":{"reached":{"const":false}},"required":["reached"]},"then":{"properties":{"transition_ref":{"type":"null"},"transition_content_hash":{"type":"null"},"outcome_class":{"type":"null"},"actor_ref":{"type":"null"},"recorded_at":{"type":"null"},"bound_work_result_content_hash":{"type":"null"}}}},{"description":"A reached stage names its transition, its bytes, its outcome, its actor and the exact WorkResult version it bound. A reached row missing any of these is an assertion with nobody behind it.","if":{"properties":{"reached":{"const":true}},"required":["reached"]},"then":{"properties":{"transition_ref":{"type":"string"},"transition_content_hash":{"$ref":"#/$defs/sha256"},"outcome_class":{"$ref":"#/$defs/assuranceOutcomeClass"},"actor_ref":{"type":"string"},"recorded_at":{"$ref":"#/$defs/canonicalDateTime"},"bound_work_result_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"projectedTransition":{"description":"One row of the assurance ladder as this projection depends on it. additionalProperties stays OPEN because the row is the assurance owner's document carried verbatim and this contract is not entitled to re-shape it; what is declared here is exactly the set of fields the projection's own invariants reason about, so a dependency cannot be asserted portably without being stated. Note what is deliberately NOT constrained here: subject_ref and subject_family are declared with the assurance contract's own grammars rather than pinned to this projection's work_result_ref and family, because binding them is the INVARIANT layer's job — pinning them in the schema would make a mis-bound row fail as a shape error and the binding rules would become unfalsifiable. The two nonclaim fields are likewise declared but NOT required, so a projection that strips them is caught by the retention invariants rather than by required-ness.","type":"object","additionalProperties":true,"required":["transition_id","subject_ref","subject_family","to_stage","outcome_class","content_hash"],"properties":{"transition_id":{"type":"string"},"subject_ref":{"type":"string","pattern":"^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"},"subject_family":{"enum":["work_result","ontology_revision","ontology_mapping_revision","ontology_assertion","finding","attempt"]},"subject_content_hash":{"$ref":"#/$defs/sha256"},"to_stage":{"$ref":"#/$defs/assuranceStage"},"to_stage_ordinal":{"type":"integer","minimum":1,"maximum":6},"transition_ordinal":{"type":"integer","minimum":1,"maximum":6},"outcome_class":{"$ref":"#/$defs/assuranceOutcomeClass"},"actor_ref":{"type":"string"},"content_hash":{"$ref":"#/$defs/sha256"},"authority_nonclaim":{"type":"string"},"verdict_nonclaim":{"type":"string"}}},"boundVersion":{"type":"object","additionalProperties":false,"required":["content_hash","first_bound_at_transition_ordinal"],"properties":{"content_hash":{"$ref":"#/$defs/sha256"},"first_bound_at_transition_ordinal":{"type":"integer","minimum":1,"maximum":6}}},"nonclaimToken":{"enum":["authority","verdict","correctness","acceptance","adjudication","settlement","payment_or_economic_value","external_world_occurrence","deployment","provider_connectivity","legality","live_medical_suitability"]},"censusCount":{"type":"integer","minimum":0,"maximum":6},"workResultRef":{"type":"string","pattern":"^work-result://[^\\s]{1,460}$"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableSha256":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","title":"OntologyDevelopmentKitManifestV1","description":"THE PREDECESSOR, REGISTERED SO IT CAN BE NAMED EXACTLY — DEPRECATED AND READ-ONLY. This is the record the ODK manifest lane minted while no `_meta/schemas/` entry existed for any ODK family and `ioi.hypervisor.odk.manifest.v1` was a local Rust constant. It diverges from the canonical `OntologyDevelopmentKitManifestEnvelope` in five ways that a successor has to fix rather than paper over: the identity field is a bare `id` plus a separate `ref` where canon carries one `odk_manifest_id`; the recipe binding is `recipe_refs`, the unqualified name the term-boundary ruling forbids, where canon carries `data_recipe_refs`; `mcp_operator_contracts` folds two canonical members (`operator_contract_refs` and `mcp_contract_refs`) into one list; canon's `canonical_object_model_refs`, `ontology_projection_refs`, `workflow_schema_refs`, `benchmark_profile_refs`, `conformance_profile_refs`, `package_refs` and `receipt_obligations` are absent entirely; and `status` never advances past `draft` because nothing writes it. It is registered for the same three reasons the v1 descriptor is: so `successor_of` on v2 names a contract that exists, so a convergence can commit this predecessor's EXACT bytes under its own domain separator, and so 'v1 carries none of the canonical member set' is a checked expectation with fixtures rather than a claim in prose. AUTHORING AT v1 IS CLOSED — the daemon refuses `schema_version: ioi.hypervisor.odk.manifest.v1` on create. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.odk.manifest.v1","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","status","ontology_refs","recipe_refs","surface_descriptor_refs","connector_mappings","policy_bound_views","eval_refs","worker_plan_refs","mcp_operator_contracts","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"object":{"const":"ioi.hypervisor.odk.manifest"},"id":{"type":"string","pattern":"^odk_[0-9a-f]{16}$","description":"Derived from owner plus caller idempotency key by `odk_derived_id`, which takes the first sixteen hex digits of the digest. The width is stated exactly so a record minted by some other producer cannot pass as one this daemon admitted."},"ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$","description":"v1 carried identity twice, as a bare id and as a scheme-prefixed ref. v2 carries `odk_manifest_id` once, in canon's own scheme-prefixed form."},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PINNED VALUE. Canon's vocabulary is draft | active | deprecated | revoked; the v1 producer writes the literal `draft` at create and no path advances it, so the enum here is the single value a stored v1 record can actually hold. Registering the pin as a pin is what makes 'status never advanced' checkable rather than assumed."},"ontology_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","maxLength":512},"description":"Locally resolvable ontology refs. v1 checks resolvability only: no owner resolution, no committed hash, and no requirement that a ref name an exact admitted revision."},"recipe_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"THE UNQUALIFIED NAME. Canon's member is `data_recipe_refs`; `recipe_refs` is the generic spelling the term-boundary ruling calls a defect. v2 renames it and refuses this spelling on an authoring request rather than translating it."},"surface_descriptor_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"connector_mappings":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"A PASSTHROUGH FIELD, REGISTERED AS THE REF LIST IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying structured members rather than refs does not satisfy this contract and fails closed at the owner seam with a typed refusal. That population needs an explicit convergence, which this contract records rather than performs; canon's member is `connector_mapping_refs`."},"policy_bound_views":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"The same passthrough treatment as `connector_mappings`. Canon's member is `policy_bound_data_view_refs`."},"eval_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"v1's single evaluation list. Canon splits it into `evaluation_dataset_refs` and `benchmark_profile_refs`, which are different objects with different owners."},"worker_plan_refs":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512}},"mcp_operator_contracts":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":512},"description":"TWO CANONICAL MEMBERS FOLDED INTO ONE. Canon carries `operator_contract_refs` and `mcp_contract_refs` separately because an operator contract and an MCP profile are different contracts with different consumers. v1 cannot tell them apart, which is why a convergence cannot split this list without the author saying which is which."},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
     ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v2","title":"OntologyDevelopmentKitManifestV2","description":"THE CANONICAL ODK MANIFEST, REGISTERED. Non-negotiable 10 says an ODK manifest can scaffold surfaces, domain apps, evals, workers and packages but cannot become runtime truth, permission truth, semantic truth or marketplace truth by itself. Until this contract landed, that boundary had no wire form: `ioi.hypervisor.odk.manifest.v1` was a Rust string literal, no `_meta/schemas/` entry existed for any ODK family, and G-4 therefore forbade every surface from claiming one. This version carries canon's sixteen member lists under canon's own names, splits the three places v1 folded distinct members together (`recipe_refs` into `data_recipe_refs`; `eval_refs` into `evaluation_dataset_refs` and `benchmark_profile_refs`; `mcp_operator_contracts` into `operator_contract_refs` and `mcp_contract_refs`), and carries the nonclaims as fields so a relying party holding only the bytes can check what the manifest declines to assert. A manifest is a builder and conformance object: it packages contracts, and packaging is not admission.","x-ioi-schema-version":"ioi.ontology-development-kit-manifest.v2","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"manifestRef":{"type":"string","pattern":"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"refList":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}},"required":["schema_version","odk_manifest_id","name","version","owner_ref","ontology_refs","canonical_object_model_refs","data_recipe_refs","connector_mapping_refs","policy_bound_data_view_refs","ontology_projection_refs","surface_descriptor_refs","workflow_schema_refs","evaluation_dataset_refs","benchmark_profile_refs","worker_plan_refs","operator_contract_refs","mcp_contract_refs","conformance_profile_refs","package_refs","receipt_obligations","status","migration","authority_nonclaim","truth_nonclaim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.ontology-development-kit-manifest.v2"},"odk_manifest_id":{"$ref":"#/$defs/manifestRef","description":"ONE IDENTITY FIELD, IN CANON'S SCHEME-PREFIXED FORM. v1 carried a bare `id` and a separate `ref` that could disagree with each other; canon carries `odk_manifest_id: odk://…` once."},"name":{"type":"string","minLength":1,"maxLength":200},"version":{"type":"string","minLength":1,"maxLength":128,"description":"Canon's `semver_or_hash`. A manifest version is the builder's own declared version of the package it describes; it is not the version of any ontology it binds, and advancing it re-means nothing downstream."},"owner_ref":{"type":"string","pattern":"^(?:org|user|system|project)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$","description":"The owner the admission was scoped to. A manifest is owned; it is not a global registry entry."},"ontology_refs":{"type":"array","minItems":1,"maxItems":128,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512},"description":"At least one owning ontology. A kit manifest that binds no meaning is packaging nothing this layer owns."},"canonical_object_model_refs":{"$ref":"#/$defs/refList"},"data_recipe_refs":{"$ref":"#/$defs/refList","description":"THE QUALIFIED NAME. v1 called this `recipe_refs`; the term-boundary ruling makes a generic executable recipe family a defect, so every recipe is owner-qualified. An authoring request naming `recipe_refs` is refused rather than translated."},"connector_mapping_refs":{"$ref":"#/$defs/refList"},"policy_bound_data_view_refs":{"$ref":"#/$defs/refList"},"ontology_projection_refs":{"$ref":"#/$defs/refList"},"surface_descriptor_refs":{"$ref":"#/$defs/refList","description":"The descriptors this manifest packages. Packaging a descriptor neither admits it nor registers it: the composable-application journey admits each stage's own fact and a generator that appears to skip one has skipped an admission."},"workflow_schema_refs":{"$ref":"#/$defs/refList"},"evaluation_dataset_refs":{"$ref":"#/$defs/refList","description":"One half of v1's single `eval_refs` list. A dataset and a benchmark profile are different objects with different owners, and a convergence cannot split the legacy list without the author saying which member is which."},"benchmark_profile_refs":{"$ref":"#/$defs/refList"},"worker_plan_refs":{"$ref":"#/$defs/refList","description":"An `OntologyToWorkerPlan` can propose workers, tools, schemas, evals and manifests. Naming one here proposes; it grants no authority (non-negotiable 9)."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList","description":"The other half of v1's folded `mcp_operator_contracts`. An operator contract and an MCP profile have different consumers, so they are different members."},"conformance_profile_refs":{"$ref":"#/$defs/refList"},"package_refs":{"$ref":"#/$defs/refList","description":"Artifact refs for the packaged bytes. A package ref is not a local package admission and not a marketplace listing."},"receipt_obligations":{"$ref":"#/$defs/refList","description":"What a consumer of this manifest owes receipts for. An obligation stated here is a requirement on the consumer, never a permission granted to it."},"status":{"enum":["draft","active","deprecated","revoked"],"description":"Canon's four members, verbatim. INVENTORY STATUS ONLY (G-6): it says where this manifest sits in its own lifecycle and says nothing about whether anything it packages is mounted, serving, installed or launchable. Those are other planes' state, on other objects."},"migration":{"type":"object","additionalProperties":false,"description":"EXPLICIT MIGRATION, NEVER SILENT REINTERPRETATION — AND EXACTLY TWO ADMISSIBLE TUPLES. A manifest authored fresh at v2 has no predecessor and says so in all three provenance slots at once; one converged from a stored v1 names that predecessor's contract, its ref AND its exact content hash, all three. Independently nullable fields would admit partial tuples that READ AS COMPLETE — `converged_from_v1` with a null hash claims a provenance while naming no bytes anyone could check — so the two conditionals below partition the compatibility enum exactly and a partial or mixed block is a SCHEMA refusal.","required":["from_schema_version","from_manifest_ref","from_content_hash","compatibility","reinterprets_predecessor"],"properties":{"from_schema_version":{"oneOf":[{"const":"ioi.hypervisor.odk.manifest.v1"},{"type":"null"}]},"from_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"from_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}],"description":"The predecessor's bytes, hashed over the v1 contract's OWN enumerated fields under the v1 domain separator. Hashing a v1 record with the v2 material list would read almost every field as absent and hand two unrelated v1 manifests the same commitment."},"compatibility":{"enum":["initial","converged_from_v1"]},"reinterprets_predecessor":{"const":false}},"allOf":[{"title":"authored fresh at v2 — all three provenance slots are null together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}},"then":{"properties":{"from_schema_version":{"type":"null"},"from_manifest_ref":{"type":"null"},"from_content_hash":{"type":"null"}}}},{"title":"converged from a stored v1 — all three provenance slots are present together","if":{"required":["compatibility"],"properties":{"compatibility":{"const":"converged_from_v1"}}},"then":{"properties":{"from_schema_version":{"const":"ioi.hypervisor.odk.manifest.v1"},"from_manifest_ref":{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},"from_content_hash":{"$ref":"#/$defs/sha256"}}}}]},"authority_nonclaim":{"const":"ontology_development_kit_manifest_grants_no_authority"},"truth_nonclaim":{"const":"ontology_development_kit_manifest_is_not_runtime_or_semantic_truth","description":"Non-negotiable 10, as a field."},"does_not_assert":{"type":"array","minItems":6,"maxItems":10,"uniqueItems":true,"items":{"enum":["authority","capability_lease_crossing","runtime_truth","semantic_truth","permission_truth","marketplace_truth","package_admission","installation","registration","conformance_result"]},"allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_lease_crossing"}},{"contains":{"const":"runtime_truth"}},{"contains":{"const":"semantic_truth"}},{"contains":{"const":"permission_truth"}},{"contains":{"const":"marketplace_truth"}},{"contains":{"const":"package_admission"}}],"description":"Seven mandatory members. `package_admission` is the one this family needs that the descriptor's list does not: a manifest is the packaging object, and 'packaged' reading as 'admitted' is the exact stage-skip the composable-application journey calls a defect."},"content_hash":{"$ref":"#/$defs/sha256","description":"A commitment over every other field of this contract under a domain separator, so a relying party with only the bytes can recompute it and a stale or substituted hash fails offline. Verified by the registered invariant profile, not merely computed by the producer."}}}"##),
     ("schema://ioi/foundations/objects/domain-app/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/domain-app/v1","title":"DomainAppV1","description":"THE PREDECESSOR, REGISTERED SO ITS DIVERGENCES CAN BE NAMED — DEPRECATED AND READ-ONLY. This is the record the Domain Apps foundation cut minted while `ioi.hypervisor.domain-app.v1` was a Rust string literal with no registered contract behind it. Three divergences from `DomainAppEnvelope` are byte-verified rather than asserted, and this contract states each one so it is checkable. First, `status` is written as the literal `draft` at create and NO path advances it: the four other canonical states (`admitted`, `installed`, `deprecated`, `revoked`) are unreachable, so the field records a pin rather than a lifecycle. Second, the four composable-application stage bindings canon requires — `surface_registration_ref`, `package_release_ref`, `installation_ref`, `system_binding_refs` — do not exist as fields at all, so 'this app has no admitted registration' and 'this record cannot express a registration' are the same absence. Third, the derived provenance snapshot covers ontology, data-recipe and MCP refs only; canon's `canonical_object_model_refs` and `policy_bound_data_view_refs` are absent, so a v1 DomainApp over a descriptor that binds eight object models records none of them. AUTHORING AT v1 IS CLOSED. Stored v1 records remain readable exactly as admitted and are never reinterpreted as v2.","x-ioi-schema-version":"ioi.hypervisor.domain-app.v1","type":"object","additionalProperties":false,"$defs":{"refList":{"type":"array","maxItems":128,"items":{"type":"string","maxLength":512}},"timestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"required":["schema_version","object","domain_app_id","domain_app_ref","name","description","status","surface_descriptor_ref","odk_manifest_ref","project_ref","owner_ref","visibility","ontology_refs","data_recipe_refs","mcp_contract_refs","authority_requirement_refs","operator_contract_refs","receipt_obligations","generated_artifact_refs","runtime_posture"],"properties":{"schema_version":{"const":"ioi.hypervisor.domain-app.v1"},"object":{"const":"ioi.hypervisor.domain_app"},"domain_app_id":{"type":"string","pattern":"^dapp_[0-9a-f]{16}$","description":"A BARE ID WHERE CANON CARRIES A REF. Canon's `domain_app_id` is `domain-app://…`; v1 puts the unprefixed id here and the ref in a second field beside it, so two fields can disagree about one identity. Derived from owner plus caller idempotency key by `replay_stable_id`, sixteen hex digits wide."},"domain_app_ref":{"type":"string","pattern":"^domain-app://dapp_[0-9a-f]{16}$"},"name":{"type":"string","maxLength":200},"description":{"type":"string","maxLength":2000},"status":{"enum":["draft"],"description":"THE PIN, REGISTERED AS A PIN. The producer writes the literal `draft` and no transition — not mount, not serve, not registration, not admission — ever moves it. Canon's vocabulary is draft | admitted | installed | deprecated | revoked; four of those five are unreachable in this contract, which is exactly what makes 'status is pinned' a checked fact here rather than a claim in a delta row."},"surface_descriptor_ref":{"type":"string","pattern":"^surface-descriptor://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$","description":"Required, and resolved through the descriptor owner seam with `composition_pattern == domain_app` enforced. That half of the contract was already correct at v1."},"odk_manifest_ref":{"oneOf":[{"type":"string","pattern":"^odk://odk_[0-9a-f]{16}$"},{"type":"null"}]},"project_ref":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}],"description":"A PASSTHROUGH FIELD, REGISTERED AS THE REF IT IS USED AS. The v1 route copies whatever the caller sent under this key without validating it, so a legacy record carrying a structured value here does not satisfy this contract and fails closed at the owner seam rather than being silently repaired."},"owner_ref":{"type":"string","minLength":1,"maxLength":256,"description":"Resolved from the authenticated caller at create. The v1 PATCH path also copies a caller-supplied `owner_ref` straight onto the record, which is why this field is typed as a string rather than as the owner-scheme pattern v2 requires."},"visibility":{"enum":["private","org","marketplace_candidate"],"description":"`marketplace_candidate` is a flag on a draft, never a publication."},"ontology_refs":{"$ref":"#/$defs/refList","description":"Half of the derived snapshot canon defines. `canonical_object_model_refs` and `policy_bound_data_view_refs` have no field in this contract, so a descriptor's object-model and policy-view bindings are dropped on the floor at create."},"data_recipe_refs":{"$ref":"#/$defs/refList"},"mcp_contract_refs":{"$ref":"#/$defs/refList"},"authority_requirement_refs":{"$ref":"#/$defs/refList","description":"Author-supplied and unresolved. Declaring an authority requirement is a statement of what the app will owe; it grants nothing (non-negotiable 9)."},"operator_contract_refs":{"$ref":"#/$defs/refList"},"receipt_obligations":{"$ref":"#/$defs/refList"},"generated_artifact_refs":{"$ref":"#/$defs/refList"},"runtime_posture":{"type":"object","additionalProperties":false,"required":["mounted","route","note"],"description":"The backlink projection of the runtime. v1's version is the union of the key sets five different writers put here — create, mount, serve, unmount and kill enforcement each write their own shape — which is why `serving` and `mount_ref` are optional: a record written by the create path has neither, and a reader cannot tell 'not serving' from 'this writer did not say'.","properties":{"mounted":{"type":"boolean"},"serving":{"type":"boolean"},"route":{"oneOf":[{"type":"string","maxLength":512},{"type":"null"}]},"note":{"type":"string","maxLength":512},"mount_ref":{"type":"string","maxLength":512},"approval_request_ref":{"type":"string","maxLength":512},"release_control_ref":{"type":"string","maxLength":512}}},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"$ref":"#/$defs/timestamp"},"admitted_head":{"type":"string","maxLength":256,"description":"The head the NEXT writer must present. It is a fact about the stream projected onto the row, not part of the admitted payload — the payload has it removed before admission so a successor is not byte-different from its own replay."}}}"##),
@@ -159775,6 +160924,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/semantic-mapping-decision/v1", r#"[{"rule_id":"semantic_mapping_decision.identity.binds_family_revision_path","description":"A decision revision id is its decision family's ref plus an explicit revision path. The /decision/ segment is what keeps an application from ever being addressed as the crosswalk it applied.","expression":{"operator":"field_starts_with_path","path":"$.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"semantic_mapping_decision.family.binds_owner_namespace","description":"Identity is owner-qualified: the decision family ref opens with the owning namespace.","expression":{"operator":"field_starts_with_path","path":"$.mapping_family_ref","prefix":"ontology-mapping://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"semantic_mapping_decision.identity.binds_version_label","description":"The readable version label is the revision segment of the identity.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.ontology_mapping_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"semantic_mapping_decision.content_hash.commits_crosswalk_reviewers_dispositions_and_valid_time","description":"The content hash commits identity, lineage, the exact applied crosswalk revision and its hash, both endpoint bindings, every reviewer and their individual decision, the accepted risk, every ambiguity and unmapped-term disposition, the terms-acceptance binding and VALID time. Transaction time, admission, the decision receipt, challenge standing and status are excluded: what was decided is content, when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.semantic-mapping-decision-content-commitment-jcs-sha256.v1"},"ontology_mapping_id":{"path":"$.ontology_mapping_id"},"mapping_family_ref":{"path":"$.mapping_family_ref"},"mapping_record_profile":{"path":"$.mapping_record_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"applied_crosswalk_ref":{"path":"$.applied_crosswalk_ref"},"applied_crosswalk_binding":{"path":"$.applied_crosswalk_binding"},"crosswalk_resolved_by":{"path":"$.crosswalk_resolved_by"},"source_ontology_ref":{"path":"$.source_ontology_ref"},"target_ontology_ref":{"path":"$.target_ontology_ref"},"source_and_target_version_refs":{"path":"$.source_and_target_version_refs"},"source_binding":{"path":"$.source_binding"},"target_binding":{"path":"$.target_binding"},"domain_relationship":{"path":"$.domain_relationship"},"application_target_refs":{"path":"$.application_target_refs"},"decided_by_ref":{"path":"$.decided_by_ref"},"decision_timestamp":{"path":"$.decision_timestamp"},"reviewer_lineage":{"path":"$.reviewer_lineage"},"mapping_risk_acceptance":{"path":"$.mapping_risk_acceptance"},"ambiguity_dispositions":{"path":"$.ambiguity_dispositions"},"unmapped_term_dispositions":{"path":"$.unmapped_term_dispositions"},"terms_acceptance":{"path":"$.terms_acceptance"},"compatibility_result":{"path":"$.compatibility_result"},"policy_bound_view_refs":{"path":"$.policy_bound_view_refs"},"validation_and_challenge_refs":{"path":"$.validation_and_challenge_refs"},"policy_hash":{"path":"$.policy_hash"},"valid_time":{"path":"$.valid_time"},"migration":{"path":"$.migration"},"correctness_nonclaim":{"path":"$.correctness_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"global_canonicality_nonclaim":{"path":"$.global_canonicality_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"semantic_mapping_decision.applied_crosswalk.is_the_bound_revision","description":"The canonical applied_crosswalk_ref field and the hash-bearing crosswalk binding name the SAME revision. A decision that cites one crosswalk and binds another's bytes applied something other than what it says it applied.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_ref","$.applied_crosswalk_binding.ontology_mapping_id"]}},{"rule_id":"semantic_mapping_decision.applied_crosswalk.binds_its_own_family_path","description":"The applied crosswalk revision opens with the crosswalk family the binding claims, so the two cannot be edited apart.","expression":{"operator":"field_starts_with_path","path":"$.applied_crosswalk_binding.ontology_mapping_id","prefix":"ontology-mapping://","expected_path":"$.applied_crosswalk_binding.mapping_family_ref","strip_prefix":"ontology-mapping://","suffix":"/revision/"}},{"rule_id":"semantic_mapping_decision.endpoints.are_exactly_the_two_bound_revisions","description":"The declared endpoint list and the two hash-bearing endpoint bindings are the SAME set; both are carried verbatim from the applied crosswalk rather than re-asserted by the decider.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.source_and_target_version_refs","required_paths":["$.source_binding.ontology_version_ref","$.target_binding.ontology_version_ref"],"required_array_paths":[]}},{"rule_id":"semantic_mapping_decision.source_binding.binds_its_declared_family","description":"The source endpoint's exact revision is a revision OF the declared source family.","expression":{"operator":"fields_equal","paths":["$.source_ontology_ref","$.source_binding.ontology_ref"]}},{"rule_id":"semantic_mapping_decision.target_binding.binds_its_declared_family","description":"The target endpoint's exact revision is a revision OF the declared target family.","expression":{"operator":"fields_equal","paths":["$.target_ontology_ref","$.target_binding.ontology_ref"]}},{"rule_id":"semantic_mapping_decision.risk_acceptance.accepts_the_declared_loss","description":"The accepted loss is the loss the applied crosswalk declared. Accepting a smaller loss than the crosswalk declared is a decision about a different mapping.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.declared_loss","$.mapping_risk_acceptance.accepted_loss"]}},{"rule_id":"semantic_mapping_decision.risk_acceptance.accepts_the_declared_risk_class","description":"And the accepted risk class is the crosswalk's declared class, so a high-risk map cannot be applied under a low-risk acceptance.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.risk_class","$.mapping_risk_acceptance.accepted_risk_class"]}},{"rule_id":"semantic_mapping_decision.compatibility.is_the_crosswalks_own_result","description":"A decision reports the compatibility its crosswalk computed; relabelling a lossy map as exact at application time is the silent field equivalence canon forbids.","expression":{"operator":"fields_equal","paths":["$.applied_crosswalk_binding.compatibility_result","$.compatibility_result"]}},{"rule_id":"semantic_mapping_decision.reviewers.are_named_once_each_per_role","description":"One reviewer holds one role in one lineage. A repeated row would let a single reviewer stand in for a quorum of roles.","expression":{"operator":"array_unique_by_fields","array_path":"$.reviewer_lineage","fields":["reviewer_ref","review_role"]}},{"rule_id":"semantic_mapping_decision.ambiguity_dispositions.name_each_term_once","description":"One ambiguous term receives one disposition. Two dispositions for one term is the ambiguity restated rather than adjudicated.","expression":{"operator":"array_unique_by_fields","array_path":"$.ambiguity_dispositions","fields":["source_term_id"]}},{"rule_id":"semantic_mapping_decision.unmapped_dispositions.name_each_term_once","description":"One unmapped term receives one disposition.","expression":{"operator":"array_unique_by_fields","array_path":"$.unmapped_term_dispositions","fields":["source_term_id"]}},{"rule_id":"semantic_mapping_decision.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"semantic_mapping_decision.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor decision cannot reinterpret the decision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"semantic_mapping_decision.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"semantic_mapping_decision.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not a new decision.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"semantic_mapping_decision.admission.binds_this_revision","description":"Admission evidence names this exact decision revision.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"ontology_mapping_id","expected_path":"$.ontology_mapping_id"}},{"rule_id":"semantic_mapping_decision.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}},{"rule_id":"semantic_mapping_decision.receipt.is_the_admitting_batch_receipt","description":"The canonical mapping decision receipt is the admitting batch's own Agentgres receipt, not a second receipt minted beside it. Binding them together is what stops a decision from citing a receipt that attests some other admission.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"agentgres_receipt_ref","expected_path":"$.mapping_decision_receipt_ref"}}]"#),
     ("schema://ioi/foundations/ontology-assertion/v2", r#"[{"rule_id":"provenance_assertion.identity.binds_family_revision_path","description":"An assertion revision id is its family's ref plus an explicit revision path; it can never name another assertion lineage.","expression":{"operator":"field_starts_with_path","path":"$.assertion_id","prefix":"ontology-assertion://","expected_path":"$.assertion_family_ref","strip_prefix":"ontology-assertion://","suffix":"/revision/"}},{"rule_id":"provenance_assertion.family.binds_owner_namespace","description":"Identity is owner-qualified: the assertion family ref opens with the owning namespace, so two domains may assert about the same-named subject without either becoming the other's truth.","expression":{"operator":"field_starts_with_path","path":"$.assertion_family_ref","prefix":"ontology-assertion://","expected_path":"$.namespace","suffix":"/"}},{"rule_id":"provenance_assertion.family.binds_local_name","description":"The assertion family ref carries this lineage's own local name verbatim.","expression":{"operator":"field_ends_with","path":"$.assertion_family_ref","expected_path":"$.name"}},{"rule_id":"provenance_assertion.identity.binds_version_label","description":"The readable version label is the revision segment of the identity.","expression":{"operator":"field_suffix_equals_prefixed_field","source_path":"$.assertion_id","delimiter":"/","target_path":"$.version","target_prefix":"v"}},{"rule_id":"provenance_assertion.content_hash.commits_claim_sources_evidence_uncertainty_and_valid_time","description":"The content hash commits identity, lineage, the exact bound ontology revision and its owner's hash, the claim itself with its POLARITY, every attributed source, every piece of evidence with which side it bears on, the structured uncertainty, the retained contradiction set, the supersession statement and VALID time. Transaction time, admission, challenge standing and status are excluded: what was claimed is content; when it was recorded and how its standing later moved are facts about the chain.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.provenance-assertion-content-commitment-jcs-sha256.v2"},"assertion_id":{"path":"$.assertion_id"},"assertion_family_ref":{"path":"$.assertion_family_ref"},"assertion_profile":{"path":"$.assertion_profile"},"namespace":{"path":"$.namespace"},"name":{"path":"$.name"},"owner_id":{"path":"$.owner_id"},"governing_scope_ref":{"path":"$.governing_scope_ref"},"version":{"path":"$.version"},"revision_ordinal":{"path":"$.revision_ordinal"},"predecessor_version_ref":{"path":"$.predecessor_version_ref"},"predecessor_content_hash":{"path":"$.predecessor_content_hash"},"ontology_ref":{"path":"$.ontology_ref"},"ontology_binding":{"path":"$.ontology_binding"},"ontology_resolved_by":{"path":"$.ontology_resolved_by"},"fact_class_ref":{"path":"$.fact_class_ref"},"subject_ref":{"path":"$.subject_ref"},"predicate_ref":{"path":"$.predicate_ref"},"object_or_value_ref":{"path":"$.object_or_value_ref"},"polarity":{"path":"$.polarity"},"valid_time":{"path":"$.valid_time"},"source_attribution":{"path":"$.source_attribution"},"evidence_lineage":{"path":"$.evidence_lineage"},"uncertainty":{"path":"$.uncertainty"},"contradiction_state":{"path":"$.contradiction_state"},"supersession":{"path":"$.supersession"},"applicability_scope_ref":{"path":"$.applicability_scope_ref"},"permitted_consequence_scope_refs":{"path":"$.permitted_consequence_scope_refs"},"causal_or_counterfactual_context_ref":{"path":"$.causal_or_counterfactual_context_ref"},"oracle_evidence_profile_ref":{"path":"$.oracle_evidence_profile_ref"},"oracle_evidence_admission_receipt_ref":{"path":"$.oracle_evidence_admission_receipt_ref"},"predecessor_contract_ref":{"path":"$.predecessor_contract_ref"},"reinterpretation_nonclaim":{"path":"$.reinterpretation_nonclaim"},"policy_hash":{"path":"$.policy_hash"},"migration":{"path":"$.migration"},"universality_nonclaim":{"path":"$.universality_nonclaim"},"authority_nonclaim":{"path":"$.authority_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"provenance_assertion.ontology_binding.binds_the_declared_family","description":"The bound revision is a revision OF the declared ontology family. A well-formed revision of some other family would give the predicate a different meaning while the record still read as though it had not moved.","expression":{"operator":"field_starts_with_path","path":"$.ontology_binding.ontology_version_ref","prefix":"ontology://","expected_path":"$.ontology_ref","strip_prefix":"ontology://","suffix":"/revision/"}},{"rule_id":"provenance_assertion.predicate.is_a_term_of_the_bound_family","description":"The predicate is a term of the SAME family the assertion bound. Shape alone cannot say this: a canonical term of another domain's namespace is well-formed and still means nothing here.","expression":{"operator":"field_starts_with_path","path":"$.predicate_ref","prefix":"ontology://","expected_path":"$.ontology_ref","strip_prefix":"ontology://","suffix":"/term/"}},{"rule_id":"provenance_assertion.ontology_binding.binds_the_owning_namespace","description":"The bound revision's namespace is the one the binding names, so an assertion cannot silently attribute its vocabulary to a domain that never declared it.","expression":{"operator":"field_starts_with_path","path":"$.ontology_ref","prefix":"ontology://","expected_path":"$.ontology_binding.namespace","suffix":"/"}},{"rule_id":"provenance_assertion.supersession.does_not_supersede_itself","description":"An assertion that supersedes itself is a cycle, not a correction.","expression":{"operator":"fields_not_equal","paths":["$.assertion_id","$.supersession.supersedes_ref"]}},{"rule_id":"provenance_assertion.sources.are_attributed_once_each","description":"One source contributes one attribution row per revision; a repeated source would let a single observation read as corroboration.","expression":{"operator":"array_unique_by_fields","array_path":"$.source_attribution","fields":["source_ref"]}},{"rule_id":"provenance_assertion.evidence.is_named_once_each","description":"One piece of evidence appears once. Counting the same artifact twice is how a thin evidence set looks thick.","expression":{"operator":"array_unique_by_fields","array_path":"$.evidence_lineage","fields":["evidence_ref"]}},{"rule_id":"provenance_assertion.predecessor.binds_migration_source","description":"The migration migrates from exactly the declared predecessor.","expression":{"operator":"fields_equal","paths":["$.predecessor_version_ref","$.migration.from_version_ref"]}},{"rule_id":"provenance_assertion.predecessor_hash.binds_migration_source","description":"The migration carries the predecessor's exact content hash, so a successor assertion cannot reinterpret the revision it succeeds.","expression":{"operator":"fields_equal","paths":["$.predecessor_content_hash","$.migration.from_content_hash"]}},{"rule_id":"provenance_assertion.migration.source_revision_is_strictly_earlier","description":"A migration source is strictly earlier than the revision it produces.","expression":{"operator":"numbers_lt","paths":["$.migration.from_revision_ordinal","$.revision_ordinal"]}},{"rule_id":"provenance_assertion.content_hash.differs_from_predecessor","description":"A successor whose content hash equals its predecessor's is a replayed revision, not a corrected claim.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.predecessor_content_hash"]}},{"rule_id":"provenance_assertion.admission.binds_this_revision","description":"Admission evidence names this exact assertion revision; a borrowed admission cannot make another claim durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"assertion_id","expected_path":"$.assertion_id"}},{"rule_id":"provenance_assertion.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}}]"#),
     ("schema://ioi/foundations/assurance-transition-receipt/v2", r#"[{"rule_id":"assurance_transition.ladder.position_matches_chain_position","description":"THE NO-SKIP RULE, PORTABLY. The ladder position of to_stage must equal the transition's position in its subject's own chain. transition_ordinal is derived from the durable chain length and to_stage_ordinal is pinned to to_stage by the schema, so a transition that jumps a member carries a ladder position its chain position cannot support and fails with no daemon present. This is the offline half of ACC-8 clause 1: a stage nobody stood behind cannot be reached by skipping the one before it.","expression":{"operator":"fields_equal","paths":["$.to_stage_ordinal","$.transition_ordinal"]}},{"rule_id":"assurance_transition.content_hash.commits_subject_stage_outcome_challenge_and_valid_time","description":"The content hash commits everything v1 committed PLUS the challenge resolution, so a receipt cannot have the challenge it adjudicated, its typed outcome or its adjudicator lineage swapped after admission. Transaction time and the admission block stay outside, exactly as in v1.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.assurance-transition-content-commitment-jcs-sha256.v2"},"transition_id":{"path":"$.transition_id"},"subject_ref":{"path":"$.subject_ref"},"subject_family":{"path":"$.subject_family"},"subject_content_hash":{"path":"$.subject_content_hash"},"subject_resolved_by":{"path":"$.subject_resolved_by"},"from_stage":{"path":"$.from_stage"},"to_stage":{"path":"$.to_stage"},"to_stage_ordinal":{"path":"$.to_stage_ordinal"},"transition_ordinal":{"path":"$.transition_ordinal"},"outcome_class":{"path":"$.outcome_class"},"actor_ref":{"path":"$.actor_ref"},"evidence_refs":{"path":"$.evidence_refs"},"does_not_assert":{"path":"$.does_not_assert"},"expected_predecessor_transition_ref":{"path":"$.expected_predecessor_transition_ref"},"expected_predecessor_transition_hash":{"path":"$.expected_predecessor_transition_hash"},"valid_time":{"path":"$.valid_time"},"challenge_resolution":{"path":"$.challenge_resolution"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"assurance_transition.identity.binds_subject_family","description":"A transition id names the family of the subject it moves, so a record cannot be lifted onto another family's ladder while keeping its identity.","expression":{"operator":"field_starts_with_path","path":"$.transition_id","prefix":"assurance-transition://","expected_path":"$.subject_family","suffix":"/"}},{"rule_id":"assurance_transition.subject_hash.is_not_this_records_own_hash","description":"The subject's committed hash is the SUBJECT OWNER's, carried verbatim. An implementation that echoes this record's own content hash into the subject slot would satisfy every shape check while binding nothing, so the two are required to differ.","expression":{"operator":"fields_not_equal","paths":["$.subject_content_hash","$.content_hash"]}},{"rule_id":"assurance_transition.predecessor.is_not_this_record","description":"A successor whose predecessor hash equals its own content hash is a self-linked record, not a step; the chain would close into a loop that reads as history.","expression":{"operator":"fields_not_equal","paths":["$.content_hash","$.expected_predecessor_transition_hash"]}},{"rule_id":"assurance_transition.nonclaims.does_not_assert_is_non_empty","description":"NN 20 as a checkable field. A transition that disclaims nothing has collapsed 'who stands behind what' into a bare success flag, which is the exact reading this ladder exists to refuse.","expression":{"operator":"non_empty","path":"$.does_not_assert"}},{"rule_id":"assurance_transition.evidence.is_non_empty","description":"Each transition names its evidence. A stage asserted with no evidence ref is prose wearing a receipt's shape.","expression":{"operator":"non_empty","path":"$.evidence_refs"}},{"rule_id":"assurance_transition.admission.binds_this_transition","description":"Admission evidence names this exact transition; a borrowed admission cannot make another record durable.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"transition_id","expected_path":"$.transition_id"}},{"rule_id":"assurance_transition.admission.binds_this_content_hash","description":"Admission evidence names this exact content hash, so admitted bytes and addressed bytes cannot diverge.","expression":{"operator":"optional_field_equals","optional_object_path":"$.admission","field":"content_hash","expected_path":"$.content_hash"}},{"rule_id":"assurance_transition.challenge_resolution.binds_this_receipts_own_subject","description":"The challenge this receipt adjudicates is a challenge against the subject this receipt is ABOUT. Without this, a well-formed receipt over subject A could be cited as the resolution of a challenge against subject B, and every shape check would pass.","expression":{"operator":"optional_field_equals","optional_object_path":"$.challenge_resolution","field":"challenged_subject_ref","expected_path":"$.subject_ref"}},{"rule_id":"assurance_transition.challenge_resolution.binds_the_owner_resolved_subject_hash","description":"And it binds the exact bytes the subject owner resolved, carried verbatim from this receipt's own subject_content_hash — so a resolution cannot be re-pointed at a later revision of the same subject.","expression":{"operator":"optional_field_equals","optional_object_path":"$.challenge_resolution","field":"challenged_subject_content_hash","expected_path":"$.subject_content_hash"}}]"#),
+    ("schema://ioi/foundations/verified-work-graph-projection/v1", r#"[{"rule_id":"verified_work_graph.transitions.every_row_binds_this_projections_work_result","description":"Every projected transition is about the WorkResult this projection names. Without this, a well-formed graph over WorkResult A could carry B's ladder and every shape check would pass — the reader would see a stage ladder attached to the wrong work, which is the single most consequential thing a graph can get wrong.","expression":{"operator":"array_field_equals","array_path":"$.transitions","field":"subject_ref","expected_path":"$.work_result_ref"}},{"rule_id":"verified_work_graph.transitions.every_row_binds_the_work_result_family","description":"And every row is a WORK RESULT transition. The assurance contract is subject-general, so a ladder over an ontology revision or an assertion is structurally projectable here; this rule is what keeps another family's ladder from being rendered as work assurance.","expression":{"operator":"array_field_equals","array_path":"$.transitions","field":"subject_family","expected_path":"$.subject_family"}},{"rule_id":"verified_work_graph.transition_count.matches_the_projected_rows","description":"The count a consumer reads is the number of rows actually carried. A count that overstated its rows would let a projection claim a fuller ladder than it can show, and one that understated them would hide a transition in plain sight.","expression":{"operator":"array_length_equals","array_path":"$.transitions","count_path":"$.transition_count"}},{"rule_id":"verified_work_graph.transitions.retain_their_own_authority_nonclaim","description":"The assurance receipt carries its authority nonclaim on every record precisely so a consumer cannot read authority in by omission. A projection that flattened the ladder and dropped that field would defeat the nonclaim at exactly the layer a product surface reads. Restated at the top level so the comparison is checkable offline.","expression":{"operator":"array_field_equals","array_path":"$.transitions","field":"authority_nonclaim","expected_path":"$.transition_authority_nonclaim"}},{"rule_id":"verified_work_graph.transitions.retain_their_own_verdict_nonclaim","description":"The same argument for the verdict nonclaim. 'Verified' is an assurance path, and a graph that stripped the not-a-verdict marker while rendering a stage called verified would be manufacturing exactly the reading canon refuses.","expression":{"operator":"array_field_equals","array_path":"$.transitions","field":"verdict_nonclaim","expected_path":"$.transition_verdict_nonclaim"}},{"rule_id":"verified_work_graph.stages.expose_each_ladder_member_exactly_once","description":"Stages are exposed INDEPENDENTLY, which requires that each member appear on its own and only once. A projection that listed verified twice — once reached, once not — would let a consumer pick the row it preferred, and independence would become ambiguity.","expression":{"operator":"array_unique_by_fields","array_path":"$.stages","fields":["stage"]}},{"rule_id":"verified_work_graph.stages.ordinals_are_distinct","description":"And their ordinals are distinct, so the ladder's ORDER cannot be forged by repeating a position. Order is what makes a skipped member visible.","expression":{"operator":"array_unique_by_fields","array_path":"$.stages","fields":["stage_ordinal"]}},{"rule_id":"verified_work_graph.bound_versions.are_distinct_work_result_content_hashes","description":"THE MUTABLE-VERSION RULE, PORTABLY. A WorkResult's bytes change when its owner admits an outcome_delta_refs or review_refs backlink, so the version list is the evidence that the URI alone was never stable. Duplicate hashes in that list would collapse two distinct versions into one entry and hide the very distinction the list exists to make; the daemon dedupes by first binding, and this proves the result offline.","expression":{"operator":"array_unique_by_fields","array_path":"$.bound_work_result_content_hashes","fields":["content_hash"]}},{"rule_id":"verified_work_graph.commitment.is_not_echoed_from_the_first_bound_version_ordinal","description":"Each bound version records WHICH transition first bound it, and those ordinals are distinct per entry. Two entries claiming the same first binding would mean one transition bound two different versions of one record, which the chain cannot produce and which would make the version history unreadable.","expression":{"operator":"array_unique_by_fields","array_path":"$.bound_work_result_content_hashes","fields":["first_bound_at_transition_ordinal"]}}]"#),
     ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v1", r#"[]"#),
     ("schema://ioi/foundations/objects/ontology-development-kit-manifest/v2", r#"[{"rule_id":"odk_manifest.content_hash.commits_the_whole_manifest","description":"THE COMMITMENT IS VERIFIED, NOT MERELY COMPUTED. A hash the producer writes and no registered rule checks is a number the record carries, not a commitment anyone can test. This rule commits EVERY field of the contract except the hash itself, under a domain separator, over a flat canonical-JSON material map. A relying party holding only the bytes recomputes it; a stale or substituted hash fails offline, with no daemon consulted.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.ontology-development-kit-manifest-content-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"odk_manifest_id":{"path":"$.odk_manifest_id"},"name":{"path":"$.name"},"version":{"path":"$.version"},"owner_ref":{"path":"$.owner_ref"},"ontology_refs":{"path":"$.ontology_refs"},"canonical_object_model_refs":{"path":"$.canonical_object_model_refs"},"data_recipe_refs":{"path":"$.data_recipe_refs"},"connector_mapping_refs":{"path":"$.connector_mapping_refs"},"policy_bound_data_view_refs":{"path":"$.policy_bound_data_view_refs"},"ontology_projection_refs":{"path":"$.ontology_projection_refs"},"surface_descriptor_refs":{"path":"$.surface_descriptor_refs"},"workflow_schema_refs":{"path":"$.workflow_schema_refs"},"evaluation_dataset_refs":{"path":"$.evaluation_dataset_refs"},"benchmark_profile_refs":{"path":"$.benchmark_profile_refs"},"worker_plan_refs":{"path":"$.worker_plan_refs"},"operator_contract_refs":{"path":"$.operator_contract_refs"},"mcp_contract_refs":{"path":"$.mcp_contract_refs"},"conformance_profile_refs":{"path":"$.conformance_profile_refs"},"package_refs":{"path":"$.package_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"status":{"path":"$.status"},"migration":{"path":"$.migration"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/foundations/objects/domain-app/v1", r#"[]"#),
@@ -163218,6 +164368,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^work-lifecycle://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^work-result://[^\s]{1,460}$"#,
+        r#"^work-result://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,460}$"#,
+    ),
+    (
         r#"^work-result://[^\s]{1,500}$"#,
         r#"^work-result://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -165352,6 +166506,23 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json"))),
     ("docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json"))),
     ("docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json"))),
     ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json"))),
     ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json"))),
     ("docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json"))),
@@ -166841,6 +168012,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/verified-work-graph-projection/v1" => {
+            serde_json::from_value::<VerifiedWorkGraphProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1" => {
             serde_json::from_value::<OntologyDevelopmentKitManifestV1>(value.clone())
                 .map(|_| ())
@@ -168147,6 +169323,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/verified-work-graph-projection/v1" => {
+            let projection = serde_json::from_value::<VerifiedWorkGraphProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1" => {
             let projection = serde_json::from_value::<OntologyDevelopmentKitManifestV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -168418,8 +169599,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1271,
-            "the registered golden corpus must remain the explicit 1271-fixture bar",
+            1288,
+            "the registered golden corpus must remain the explicit 1288-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -168661,7 +169842,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 901,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 902,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

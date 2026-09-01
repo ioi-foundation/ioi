@@ -1,0 +1,164 @@
+{
+  "schema_version": "ioi.verified-work-graph-projection.v1",
+  "projection_contract_ref": "schema://ioi/foundations/verified-work-graph-projection/v1",
+  "projection_kind": "read_projection",
+  "work_result_ref": "work-result://wr_0f1e2d3c",
+  "work_result_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d",
+  "work_result_commitment_domain": "ioi.work-result-record-commitment-jcs-sha256.v1",
+  "work_result_resolved_by": "work_result_routes::resolve_admitted_work_result",
+  "work_result_outcome_class": "negative",
+  "work_result_status": "completed",
+  "subject_family": "work_result",
+  "stages": [
+    {
+      "stage": "attested",
+      "stage_ordinal": 1,
+      "reached": true,
+      "transition_ref": "assurance-transition://work_result/wr-0f1e2d3c~0a1b2c3d0a1b2c3d/transition/1",
+      "transition_content_hash": "sha256:2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f",
+      "outcome_class": "positive",
+      "actor_ref": "user://p_alpha",
+      "recorded_at": "2026-09-01T10:00:00Z",
+      "bound_work_result_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d"
+    },
+    {
+      "stage": "evidenced",
+      "stage_ordinal": 2,
+      "reached": true,
+      "transition_ref": "assurance-transition://work_result/wr-0f1e2d3c~0a1b2c3d0a1b2c3d/transition/2",
+      "transition_content_hash": "sha256:3d4e5f603d4e5f603d4e5f603d4e5f603d4e5f603d4e5f603d4e5f603d4e5f60",
+      "outcome_class": "negative",
+      "actor_ref": "user://p_alpha",
+      "recorded_at": "2026-09-01T10:05:00Z",
+      "bound_work_result_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d"
+    },
+    {
+      "stage": "verified",
+      "stage_ordinal": 3,
+      "reached": true,
+      "transition_ref": "assurance-transition://work_result/wr-0f1e2d3c~0a1b2c3d0a1b2c3d/transition/3",
+      "transition_content_hash": "sha256:4e5f60714e5f60714e5f60714e5f60714e5f60714e5f60714e5f60714e5f6071",
+      "outcome_class": "inconclusive",
+      "actor_ref": "worker://verifier_beta",
+      "recorded_at": "2026-09-01T10:11:00Z",
+      "bound_work_result_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d"
+    },
+    {
+      "stage": "accepted",
+      "stage_ordinal": 4,
+      "reached": false,
+      "transition_ref": null,
+      "transition_content_hash": null,
+      "outcome_class": null,
+      "actor_ref": null,
+      "recorded_at": null,
+      "bound_work_result_content_hash": null
+    },
+    {
+      "stage": "adjudicated",
+      "stage_ordinal": 5,
+      "reached": false,
+      "transition_ref": null,
+      "transition_content_hash": null,
+      "outcome_class": null,
+      "actor_ref": null,
+      "recorded_at": null,
+      "bound_work_result_content_hash": null
+    },
+    {
+      "stage": "settled",
+      "stage_ordinal": 6,
+      "reached": false,
+      "transition_ref": null,
+      "transition_content_hash": null,
+      "outcome_class": null,
+      "actor_ref": null,
+      "recorded_at": null,
+      "bound_work_result_content_hash": null
+    }
+  ],
+  "reached_stage": "verified",
+  "reached_stage_ordinal": 3,
+  "transition_count": 3,
+  "transitions": [
+    {
+      "transition_id": "assurance-transition://work_result/wr-0f1e2d3c~0a1b2c3d0a1b2c3d/transition/1",
+      "subject_ref": "work-result://wr_0f1e2d3c",
+      "subject_family": "work_result",
+      "subject_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d",
+      "to_stage": "attested",
+      "to_stage_ordinal": 1,
+      "transition_ordinal": 1,
+      "outcome_class": "positive",
+      "actor_ref": "user://p_alpha",
+      "content_hash": "sha256:2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f2c3d4e5f",
+      "authority_nonclaim": "assurance_transition_grants_no_authority",
+      "verdict_nonclaim": "assurance_transition_is_not_a_verdict"
+    },
+    {
+      "transition_id": "assurance-transition://work_result/wr-0f1e2d3c~0a1b2c3d0a1b2c3d/transition/2",
+      "subject_ref": "work-result://wr_0f1e2d3c",
+      "subject_family": "work_result",
+      "subject_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d",
+      "to_stage": "evidenced",
+      "to_stage_ordinal": 2,
+      "transition_ordinal": 2,
+      "outcome_class": "negative",
+      "actor_ref": "user://p_alpha",
+      "content_hash": "sha256:3d4e5f603d4e5f603d4e5f603d4e5f603d4e5f603d4e5f603d4e5f603d4e5f60",
+      "authority_nonclaim": "assurance_transition_grants_no_authority",
+      "verdict_nonclaim": "assurance_transition_is_not_a_verdict"
+    },
+    {
+      "transition_id": "assurance-transition://work_result/wr-0f1e2d3c~0a1b2c3d0a1b2c3d/transition/3",
+      "subject_ref": "work-result://wr_0f1e2d3c",
+      "subject_family": "work_result",
+      "subject_content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d",
+      "to_stage": "verified",
+      "to_stage_ordinal": 3,
+      "transition_ordinal": 3,
+      "outcome_class": "inconclusive",
+      "actor_ref": "worker://verifier_beta",
+      "content_hash": "sha256:4e5f60714e5f60714e5f60714e5f60714e5f60714e5f60714e5f60714e5f6071",
+      "authority_nonclaim": "assurance_transition_grants_no_authority",
+      "verdict_nonclaim": "assurance_transition_is_not_a_verdict"
+    }
+  ],
+  "outcome_class_census": {
+    "positive": 1,
+    "negative": 1,
+    "inconclusive": 1,
+    "invalid": 0,
+    "exploit": 0,
+    "superseded": 0,
+    "disputed": 0,
+    "no_fault": 0
+  },
+  "bound_work_result_content_hashes": [
+    {
+      "content_hash": "sha256:0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d0a1b2c3d",
+      "first_bound_at_transition_ordinal": 1
+    }
+  ],
+  "current_binding_state": "current_bytes_bound",
+  "transition_authority_nonclaim": "assurance_transition_grants_no_authority",
+  "transition_verdict_nonclaim": "assurance_transition_is_not_a_verdict",
+  "rebuildable_index_state": "agreed_with_agentgres",
+  "truth_source": "work_result_owner_and_agentgres_owner_scoped_chain",
+  "does_not_assert": [
+    "authority",
+    "verdict",
+    "correctness",
+    "acceptance",
+    "adjudication",
+    "settlement",
+    "payment_or_economic_value",
+    "external_world_occurrence",
+    "deployment",
+    "provider_connectivity",
+    "legality",
+    "live_medical_suitability"
+  ],
+  "authority_nonclaim": "verified_work_graph_grants_no_authority",
+  "verdict_nonclaim": "verified_work_graph_is_not_a_verdict"
+}

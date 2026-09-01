@@ -866,6 +866,13 @@ async fn async_main() -> anyhow::Result<()> {
             post(assurance_transition_routes::handle_assurance_transition_admit)
                 .get(assurance_transition_routes::handle_assurance_transition_query),
         )
+        // M06.1 — the Verified Work Graph. A READ PROJECTION over WorkResult owner truth and that
+        // subject's assurance chain: GET only, because there is nothing here to write to. It owns no
+        // store, mints no object, and grants nothing.
+        .route(
+            "/v1/hypervisor/verified-work-graph",
+            get(assurance_transition_routes::handle_verified_work_graph),
+        )
         .route(
             "/v1/action-requests",
             post(authority_gateway_routes::handle_action_request_create),

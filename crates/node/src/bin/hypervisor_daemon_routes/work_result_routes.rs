@@ -363,6 +363,132 @@ pub(crate) fn resolve_work_result_storage_key_strict(
     }
 }
 
+// ------------------------------------------------- the WorkResult owner's published subject resolver
+
+/// The domain separator for the WorkResult RECORD commitment (M06.1).
+///
+/// Deliberately NOT `record_output_hash`/`RESULT_HASH_EXCLUDES`. That digest exists for the
+/// ADMISSION RECEIPT and excludes the plane-owned mutable fields on purpose, so a later backlink
+/// cannot invalidate a frozen receipt. Reusing it here would be the exact pretense M06.1 is required
+/// to refuse: two genuinely different versions of one record — before and after an owner-admitted
+/// `outcome_delta_refs` or `review_refs` backlink — would collide under one hash, and a consumer
+/// binding "the exact bytes" would be binding a hash that cannot tell them apart. This commitment
+/// covers the WHOLE record, so each owner-admitted version is a DISTINCT content hash and the URI
+/// alone is never treated as a stable identity.
+pub(crate) const WORK_RESULT_COMMITMENT_DOMAIN: &str =
+    "ioi.work-result-record-commitment-jcs-sha256.v1";
+
+/// One WorkResult, resolved by its own owner: the exact admitted record, the bytes it currently
+/// commits to, and the two verbatim vocabulary members a consumer may never re-derive for itself.
+#[derive(Debug)]
+pub(crate) struct ResolvedWorkResult {
+    pub content_hash: String,
+    pub record: Value,
+    /// Carried VERBATIM from the WorkResult vocabulary (which has `exploit_found`, and has neither
+    /// `disputed` nor `no_fault`). It is NOT the assurance ladder's `outcome_class` and must never
+    /// be mapped onto it: two vocabularies that overlap in most members and disagree in three are
+    /// exactly where a silent normalisation would hide.
+    pub outcome_class: String,
+    pub status: String,
+}
+
+/// Commit the EXACT record bytes under an explicit domain and version.
+fn work_result_record_commitment(record: &Value) -> Result<String, String> {
+    let material = json!({
+        "domain": WORK_RESULT_COMMITMENT_DOMAIN,
+        "record": record,
+    });
+    serde_jcs::to_vec(&material)
+        .map(|bytes| format!("sha256:{:x}", Sha256::digest(&bytes)))
+        .map_err(|error| format!("WorkResult record could not be canonicalized ({error})"))
+}
+
+/// The WorkResult owner's visibility reader, exposed for neighbouring planes that must resolve a
+/// `work-result://` subject WITHOUT widening or narrowing what this owner would show the same
+/// caller. It is the same computation `global_truth_reader` performs; both go through here so the
+/// two can never drift into two different answers about who may see a result.
+pub(crate) fn work_truth_visibility_reader(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<Option<String>, (StatusCode, Json<Value>)> {
+    match super::lifecycle_routes::deployment_auth_posture(data_dir, headers) {
+        "local_development" => Ok(None),
+        "exposed_untrusted" => Err((
+            StatusCode::FORBIDDEN,
+            Json(
+                json!({"error":{"code":"work_truth_exposed_untrusted_refused","message":"Global WorkResult and OutcomeDelta truth is unavailable on an exposed deployment without enforced identity."}}),
+            ),
+        )),
+        _ => {
+            let principal = super::lifecycle_routes::resolve_principal(data_dir, headers)
+                .ok_or_else(|| (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({"error":{"code":"work_truth_authentication_required","message":"Authentication is required before reading global WorkResult or OutcomeDelta truth."}})),
+                ))?;
+            let principal_id = s(&principal, "principal_id", "");
+            if principal_id.is_empty() {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    Json(
+                        json!({"error":{"code":"work_truth_principal_unresolved","message":"The authenticated request did not resolve a principal identity."}}),
+                    ),
+                ));
+            }
+            Ok(Some(format!("user://{principal_id}")))
+        }
+    }
+}
+
+/// Resolve one `work-result://` subject through THIS owner, or refuse by name.
+///
+/// THE PREFIX IS NEVER THE PROOF. A well-formed `work-result://` that names nothing admitted is
+/// refused as absent, and a record this reader is not entitled to see is refused with the same
+/// code and message as one that does not exist — a caller must not be able to use the graph as an
+/// oracle for the existence of another owner's results.
+///
+/// `reader` is this owner's own visibility answer (see `work_truth_visibility_reader`), threaded in
+/// rather than recomputed, so a consumer sees exactly what `GET /v1/hypervisor/work-results/:id`
+/// would show the same caller.
+pub(crate) fn resolve_admitted_work_result(
+    data_dir: &str,
+    reader: Option<&str>,
+    result_ref: &str,
+) -> Result<ResolvedWorkResult, (String, String)> {
+    let absent = || {
+        verr(
+            "work_result_subject_not_admitted",
+            format!("no admitted WorkResult resolves '{result_ref}' for this reader"),
+        )
+    };
+    let record = load_work_result_strict(data_dir, result_ref)
+        .map_err(|message| verr("work_result_subject_unreadable", message))?
+        .ok_or_else(absent)?;
+    if let Some(owner) = reader {
+        // The owner's OWN entitlement check, not a second interpretation of it.
+        if !result_owner_matches(data_dir, &record, owner)
+            .map_err(|message| verr("work_result_subject_unreadable", message))?
+        {
+            return Err(absent());
+        }
+    }
+    let content_hash = work_result_record_commitment(&record)
+        .map_err(|message| verr("work_result_subject_commitment_failed", message))?;
+    let outcome_class = s(&record, "outcome_class", "");
+    let status = s(&record, "status", "");
+    if outcome_class.is_empty() || status.is_empty() {
+        return Err(verr(
+            "work_result_subject_vocabulary_absent",
+            "the admitted WorkResult carries no outcome_class/status pair to carry verbatim",
+        ));
+    }
+    Ok(ResolvedWorkResult {
+        content_hash,
+        record,
+        outcome_class,
+        status,
+    })
+}
+
 fn canonical_verifier_challenge_ref(reference: &str) -> bool {
     reference
         .strip_prefix("verifier-challenge://vc_")
@@ -1376,36 +1502,14 @@ fn registry_refusal(kind: &str, error: String) -> (StatusCode, Json<Value>) {
     )
 }
 
+/// This plane's own reader. It DELEGATES to `work_truth_visibility_reader` rather than repeating
+/// the computation, so the answer a neighbouring resolver gets is the same answer these handlers
+/// act on — by construction, not by two copies agreeing today.
 fn global_truth_reader(
     st: &DaemonState,
     headers: &HeaderMap,
 ) -> Result<Option<String>, (StatusCode, Json<Value>)> {
-    match super::lifecycle_routes::deployment_auth_posture(&st.data_dir, headers) {
-        "local_development" => Ok(None),
-        "exposed_untrusted" => Err((
-            StatusCode::FORBIDDEN,
-            Json(
-                json!({"error":{"code":"work_truth_exposed_untrusted_refused","message":"Global WorkResult and OutcomeDelta truth is unavailable on an exposed deployment without enforced identity."}}),
-            ),
-        )),
-        _ => {
-            let principal = super::lifecycle_routes::resolve_principal(&st.data_dir, headers)
-                .ok_or_else(|| (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({"error":{"code":"work_truth_authentication_required","message":"Authentication is required before reading global WorkResult or OutcomeDelta truth."}})),
-                ))?;
-            let principal_id = s(&principal, "principal_id", "");
-            if principal_id.is_empty() {
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    Json(
-                        json!({"error":{"code":"work_truth_principal_unresolved","message":"The authenticated request did not resolve a principal identity."}}),
-                    ),
-                ));
-            }
-            Ok(Some(format!("user://{principal_id}")))
-        }
-    }
+    work_truth_visibility_reader(&st.data_dir, headers)
 }
 
 fn fence_pending_room_projection(data_dir: &str) -> Result<(), (StatusCode, Json<Value>)> {
@@ -2976,6 +3080,157 @@ mod work_result_tests {
         } else {
             assert_eq!(code, "work_result_receipt_persist_failed"); // root bypasses dir perms in some CI
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ------------------------------------------------ M06.1: the published WorkResult subject seam
+
+    #[test]
+    fn work_result_subject_resolver_refuses_a_prefix_that_names_nothing() {
+        let dir = temp_dir("m061-absent");
+        let data_dir = dir.to_str().unwrap();
+        // A perfectly well-formed identity for a record that was never admitted. THE POINT: the
+        // resolver must not treat the spelling as evidence the subject exists.
+        let (code, _message) =
+            resolve_admitted_work_result(data_dir, None, "work-result://wr_never_admitted")
+                .expect_err("an unadmitted subject must refuse");
+        assert_eq!(code, "work_result_subject_not_admitted");
+
+        // And a malformed identity is refused by the owner's own reader rather than probed.
+        let (code, _message) = resolve_admitted_work_result(data_dir, None, "goal://not-a-result")
+            .expect_err("a foreign scheme must refuse");
+        assert_eq!(code, "work_result_subject_unreadable");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn work_result_commitment_distinguishes_owner_admitted_backlink_versions() {
+        // THE CONSTRAINT THIS EXISTS FOR. A WorkResult is not immutable: its owner admits
+        // `review_refs` and `outcome_delta_refs` backlinks in place. If the subject commitment
+        // excluded those fields — as the ADMISSION RECEIPT's hash deliberately does — then version 1
+        // and version 2 of one record would share a hash, and a transition sealed over the first
+        // would silently read as attesting the second. Binding "the exact record bytes" has to mean
+        // exactly that, or the URI is being passed off as a stable identity.
+        let dir = temp_dir("m061-versions");
+        let data_dir = dir.to_str().unwrap();
+        let result_ref = "work-result://wr_versions";
+        let challenge_ref = format!("verifier-challenge://vc_{}", "b".repeat(64));
+        let mut prior = validate_work_result(&valid_result_body(), &no_resolve, &no_room).unwrap();
+        prior["work_result_id"] = json!(result_ref);
+        persist_record(data_dir, RESULT_DIR, "wr_versions", &prior).unwrap();
+
+        let v1 = resolve_admitted_work_result(data_dir, None, result_ref).expect("v1 resolves");
+        assert!(v1.content_hash.starts_with("sha256:"));
+        assert_eq!(
+            v1.record, prior,
+            "the resolver carries the exact admitted record"
+        );
+        assert_eq!(v1.outcome_class, "positive");
+        assert_eq!(v1.status, "completed");
+
+        // The owner admits a backlink, in place, through its own seam.
+        let successor =
+            verifier_challenge_backlink_successor(&prior, result_ref, &challenge_ref).unwrap();
+        bind_verifier_challenge_locked(
+            data_dir,
+            result_ref,
+            &challenge_ref,
+            &prior,
+            &successor,
+            "vci_m061",
+        )
+        .unwrap();
+
+        let v2 = resolve_admitted_work_result(data_dir, None, result_ref).expect("v2 resolves");
+        assert_ne!(
+            v1.content_hash, v2.content_hash,
+            "an owner-admitted backlink must produce a DISTINCT content-hash version"
+        );
+        // AND THE CASE WHERE THE TWO DIGESTS GENUINELY DIVERGE. `RESULT_HASH_EXCLUDES` omits
+        // `outcome_delta_refs` (but NOT `review_refs`), so an admitted OutcomeDelta backlink leaves
+        // the admission-receipt digest byte-identical while changing the record. That is correct for
+        // a receipt — it must not be invalidated by a later plane-owned backlink — and it is exactly
+        // why the subject commitment could not reuse it: under the receipt's digest these two
+        // versions are indistinguishable, and a transition sealed over the first would silently read
+        // as attesting the second.
+        let mut with_delta = successor.clone();
+        with_delta["outcome_delta_refs"] = json!(["outcome-delta://od_m061"]);
+        assert_eq!(
+            record_output_hash(&successor, RESULT_HASH_EXCLUDES),
+            record_output_hash(&with_delta, RESULT_HASH_EXCLUDES),
+            "the admission-receipt digest is deliberately blind to an OutcomeDelta backlink",
+        );
+        assert_ne!(
+            work_result_record_commitment(&successor).unwrap(),
+            work_result_record_commitment(&with_delta).unwrap(),
+            "the subject commitment must SEE the version the receipt digest is blind to",
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn work_result_commitment_binds_its_domain_and_the_whole_record() {
+        // The commitment is recomputable by a relying party from the declared domain plus the exact
+        // bytes, and nothing else. A domain that drifted would silently change every subject hash.
+        let record = json!({
+            "work_result_id": "work-result://wr_domain",
+            "outcome_class": "negative",
+            "status": "completed",
+        });
+        let expected = {
+            let material = json!({
+                "domain": "ioi.work-result-record-commitment-jcs-sha256.v1",
+                "record": record,
+            });
+            format!(
+                "sha256:{:x}",
+                Sha256::digest(&serde_jcs::to_vec(&material).unwrap())
+            )
+        };
+        assert_eq!(work_result_record_commitment(&record).unwrap(), expected);
+        assert_eq!(
+            WORK_RESULT_COMMITMENT_DOMAIN,
+            "ioi.work-result-record-commitment-jcs-sha256.v1"
+        );
+
+        // A single changed byte anywhere in the record moves the hash.
+        let mut altered = record.clone();
+        altered["status"] = json!("failed");
+        assert_ne!(
+            work_result_record_commitment(&record).unwrap(),
+            work_result_record_commitment(&altered).unwrap()
+        );
+    }
+
+    #[test]
+    fn work_result_subject_resolver_answers_absence_and_non_entitlement_identically() {
+        // A graph over a result the caller may not see must not become an existence oracle for
+        // another owner's work. Absence and not-entitled therefore share one code and one message.
+        let dir = temp_dir("m061-scope");
+        let data_dir = dir.to_str().unwrap();
+        let result_ref = "work-result://wr_scoped";
+        let mut record = validate_work_result(&valid_result_body(), &no_resolve, &no_room).unwrap();
+        record["work_result_id"] = json!(result_ref);
+        persist_record(data_dir, RESULT_DIR, "wr_scoped", &record).unwrap();
+
+        // With no reader the owner's global posture applies and the record resolves.
+        assert!(resolve_admitted_work_result(data_dir, None, result_ref).is_ok());
+
+        // With a reader that does not own the backing goal, the SAME refusal an absent record gets.
+        let (scoped_code, scoped_message) =
+            resolve_admitted_work_result(data_dir, Some("user://someone_else"), result_ref)
+                .expect_err("a non-entitled reader must refuse");
+        let (absent_code, absent_message) = resolve_admitted_work_result(
+            data_dir,
+            Some("user://someone_else"),
+            "work-result://wr_absent",
+        )
+        .expect_err("an absent record must refuse");
+        assert_eq!(scoped_code, absent_code);
+        assert_eq!(scoped_code, "work_result_subject_not_admitted");
+        // The messages differ only by the ref the caller itself supplied, never by what exists.
+        assert!(scoped_message.contains(result_ref));
+        assert!(absent_message.contains("work-result://wr_absent"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

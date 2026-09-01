@@ -61,6 +61,10 @@ use super::semantic_mapping_routes::resolve_admitted_mapping_revision;
 use super::substrate_store::{
     authorize_request_resource_scope, authorized_request_resource_refs,
     bind_request_resource_scope, resolve_request_identity, RequestIdentity, RequestResourceScope,
+    RequestScopeRefusal,
+};
+use super::work_result_routes::{
+    resolve_admitted_work_result, work_truth_visibility_reader, WORK_RESULT_COMMITMENT_DOMAIN,
 };
 use super::DaemonState;
 
@@ -269,9 +273,15 @@ struct ResolvedSubject {
 /// family still without a landed owner reader remains well-formed on the wire and REFUSED BY NAME
 /// here, because a build that cannot resolve a family must never admit a transition over it on the
 /// strength of a URI prefix.
+///
+/// `headers` are threaded in for ONE reason: the `work-result://` owner answers visibility from the
+/// request the way it always has (`work_truth_visibility_reader`), and this seam must inherit that
+/// answer rather than compute a second one. The three semantic-plane arms below ignore it and are
+/// behaviourally unchanged.
 fn resolve_subject(
     data_dir: &str,
     identity: &RequestIdentity,
+    headers: &HeaderMap,
     subject_ref: &str,
 ) -> Result<ResolvedSubject, Reply> {
     let Some(family) = SubjectFamily::classify(subject_ref) else {
@@ -338,8 +348,43 @@ fn resolve_subject(
                 resolved_by: "provenance_assertion_routes::resolve_admitted_assertion".to_string(),
             })
         }
+        // THE FOURTH REAL ONE, LANDED BY M06.1 — the general WorkResult ladder this contract was
+        // shaped for. Same discipline as every arm above: the WorkResult owner's OWN published
+        // reader, under that owner's OWN visibility answer, with the hash carried verbatim.
+        //
+        // The one thing this arm does differently, because the family is different: a WorkResult
+        // record CHANGES when its owner admits an `outcome_delta_refs` or `review_refs` backlink.
+        // The owner therefore commits the WHOLE record, so each admitted version has a DISTINCT
+        // hash. A transition sealed over version 1 keeps naming version 1's bytes after version 2
+        // lands — which is the point. The URI was never the stable thing.
+        SubjectFamily::WorkResult => {
+            let reader = work_truth_visibility_reader(data_dir, headers)
+                .map_err(|(status, body)| (status, body))?;
+            let resolved =
+                resolve_admitted_work_result(data_dir, reader.as_deref(), subject_ref).map_err(
+                    |(code, message)| {
+                        // Absence and not-entitled share one code by construction in the owner's
+                        // resolver; keep the transport status uniform too so the pair cannot be
+                        // separated by a 404-vs-403 side channel.
+                        bad(StatusCode::UNPROCESSABLE_ENTITY, &code, message)
+                    },
+                )?;
+            if !is_sha256(&resolved.content_hash) {
+                return Err(bad(
+                    StatusCode::BAD_GATEWAY,
+                    "assurance_transition_subject_hash_not_canonical",
+                    "the subject owner resolved this subject to a content hash that is not a canonical sha256; a transition is not sealed over a malformed binding",
+                ));
+            }
+            Ok(ResolvedSubject {
+                family,
+                content_hash: resolved.content_hash,
+                resolved_by: "work_result_routes::resolve_admitted_work_result".to_string(),
+            })
+        }
         // FAIL CLOSED, BY NAME. Not "unsupported subject" — the exact family and the exact unit that
         // owns its reader, so this refusal can never be mistaken for the subject being absent.
+        // `finding` and `attempt` remain here, named, with no landed resolver.
         other => Err(bad(
             StatusCode::NOT_IMPLEMENTED,
             "assurance_transition_subject_family_unresolvable",
@@ -1413,7 +1458,12 @@ pub(crate) async fn handle_assurance_transition_admit(
     // THE SUBJECT IS RESOLVED BEFORE ANY SCOPE IS BOUND OR ANY BYTE IS WRITTEN. A family with no
     // landed resolver stops here, so an unresolvable subject can never acquire a stream, a scope or a
     // durable transition on the strength of its spelling.
-    let subject = match resolve_subject(&st.data_dir, &caller.identity, &proposal.subject_ref) {
+    let subject = match resolve_subject(
+        &st.data_dir,
+        &caller.identity,
+        &headers,
+        &proposal.subject_ref,
+    ) {
         Ok(subject) => subject,
         Err(response) => return response,
     };
@@ -1949,6 +1999,277 @@ pub(crate) async fn handle_assurance_transition_query(
     )
 }
 
+// ============================================================== the Verified Work Graph projection
+//
+// M06.1. `economic-flywheel-and-pricing-boundaries.md` § Verified Work Graph says the graph "is not
+// a single database, chain, or UI" and that it "preserves these states independently". Both
+// sentences are implemented literally below: this endpoint OWNS NO BYTES. Every value it answers is
+// re-derived, on each request, from two existing owners — the WorkResult owner's admitted record and
+// that subject's Agentgres assurance chain. Delete nothing, corrupt nothing, restart anything: the
+// answer is recomputed or it is refused.
+
+const GRAPH_CONTRACT_ID: &str = "schema://ioi/foundations/verified-work-graph-projection/v1";
+const GRAPH_SCHEMA_VERSION: &str = "ioi.verified-work-graph-projection.v1";
+const GRAPH_FAMILY_PREFIX: &str = "schema://ioi/foundations/verified-work-graph-projection/";
+const GRAPH_AUTHORITY_NONCLAIM: &str = "verified_work_graph_grants_no_authority";
+const GRAPH_VERDICT_NONCLAIM: &str = "verified_work_graph_is_not_a_verdict";
+
+/// The closed nonclaim set this projection carries on EVERY answer.
+///
+/// "Verified" in the graph's name is an assurance PATH, not a claim that anything here is true,
+/// accepted, adjudicated, settled, or worth money. Canon states the negative list; carrying it as
+/// data rather than prose is what stops a consumer reading a claim in by omission.
+const GRAPH_NONCLAIMS: &[&str] = &[
+    "authority",
+    "verdict",
+    "correctness",
+    "acceptance",
+    "adjudication",
+    "settlement",
+    "payment_or_economic_value",
+    "external_world_occurrence",
+    "deployment",
+    "provider_connectivity",
+    "legality",
+    "live_medical_suitability",
+];
+
+#[derive(serde::Deserialize)]
+pub(crate) struct GraphQuery {
+    work_result_ref: Option<String>,
+    projection_contract_ref: Option<String>,
+}
+
+/// GET /v1/hypervisor/verified-work-graph — one WorkResult's assurance posture, rebuilt.
+///
+/// THE STAGES ARE EXPOSED INDEPENDENTLY. Each of the six frozen ladder members gets its own row with
+/// its own `reached` flag, so nothing about `accepted` can be inferred from `verified`, and nothing
+/// about `settled` from `accepted`. A ladder that stopped at `evidenced` answers four rows with
+/// `reached: false` and null everything — which is a different statement from "not applicable" and a
+/// very different statement from "fine".
+///
+/// OUTCOMES ARE CARRIED VERBATIM ON BOTH SIDES. The WorkResult vocabulary and the assurance
+/// vocabulary overlap in five members and disagree in three (`exploit_found` vs `exploit`; the
+/// ladder alone has `disputed` and `no_fault`). They are reported in separate fields and NEITHER is
+/// mapped onto the other. Collapsing them would be the normalisation NN 21 forbids, wearing the
+/// costume of a convenience.
+pub(crate) async fn handle_verified_work_graph(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Query(query): Query<GraphQuery>,
+) -> Reply {
+    // THE CONSUMER'S CONTRACT VERSION IS SETTLED BEFORE ANYTHING IS READ. A consumer that asks for a
+    // version this build does not emit is refused, never quietly served v1 bytes under its own
+    // preferred label — that is the downgrade this gate exists to deny.
+    if let Some(asked) = query.projection_contract_ref.as_deref() {
+        if asked != GRAPH_CONTRACT_ID {
+            let (code, message) = if asked.starts_with(GRAPH_FAMILY_PREFIX) {
+                (
+                    "verified_work_graph_contract_version_downgraded",
+                    format!(
+                        "this build emits '{GRAPH_CONTRACT_ID}' only; '{asked}' names another version of the same family and is refused rather than served under a label it did not produce"
+                    ),
+                )
+            } else {
+                (
+                    "verified_work_graph_contract_version_unknown",
+                    format!(
+                        "'{asked}' is not a Verified Work Graph projection contract; this build emits '{GRAPH_CONTRACT_ID}'"
+                    ),
+                )
+            };
+            return refuse(code, message);
+        }
+    }
+
+    let identity = match resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return scope_refusal_reply(error),
+    };
+    let Some(work_result_ref) = query.work_result_ref.as_deref() else {
+        return refuse(
+            "verified_work_graph_work_result_ref_required",
+            "work_result_ref must name the exact work-result:// subject this projection is about",
+        );
+    };
+    // A PREFIX IS NOT PROOF, RESTATED AT THE CONSUMER. The classifier keeps the graph from being
+    // pointed at an ontology revision or a finding and answering as though it had a WorkResult.
+    if SubjectFamily::classify(work_result_ref) != Some(SubjectFamily::WorkResult) {
+        return refuse(
+            "verified_work_graph_subject_family_invalid",
+            "work_result_ref must be a work-result:// identity; this projection is over WorkResult owner truth only",
+        );
+    }
+
+    // OWNER TRUTH FIRST. The WorkResult owner answers whether this reader may see this result at
+    // all, and what bytes it currently commits. If it refuses, no ladder is read and no scope is
+    // bound — a graph over a result the caller cannot see must not become an existence oracle.
+    let reader = match work_truth_visibility_reader(&st.data_dir, &headers) {
+        Ok(reader) => reader,
+        Err((status, body)) => return (status, body),
+    };
+    let resolved =
+        match resolve_admitted_work_result(&st.data_dir, reader.as_deref(), work_result_ref) {
+            Ok(resolved) => resolved,
+            Err((code, message)) => return bad(StatusCode::UNPROCESSABLE_ENTITY, &code, message),
+        };
+
+    // NO BOUND SCOPE MEANS NO LADDER VISIBLE TO THIS CALLER — which is an ANSWER, not a refusal.
+    //
+    // This is the one place the graph deliberately differs from the assurance query route, and the
+    // reason is indistinguishability. A WorkResult that nobody has attested yet and a WorkResult
+    // whose ladder belongs to another principal must look the same to this caller; if the first
+    // answered "none" and the second answered 403, the status code would itself be the oracle,
+    // announcing that somebody else's assurance exists. Both therefore answer the empty graph.
+    // EVERY OTHER scope refusal — unauthenticated, invalid principal, tenant authority, substrate
+    // unavailable — still propagates unchanged, so this widens nothing.
+    let (ladder, index_state) = match authorize_request_resource_scope(
+        &st.data_dir,
+        &identity,
+        RESOURCE_KIND,
+        work_result_ref,
+        None,
+    ) {
+        Ok(scope) => {
+            let ladder = match read_ladder(&st.data_dir, &identity, &scope, work_result_ref) {
+                Ok(ladder) => ladder,
+                Err(response) => return response,
+            };
+            let state =
+                projection_cache_state(&projection_cache_key(&scope, work_result_ref), &ladder);
+            (ladder, state)
+        }
+        Err(RequestScopeRefusal::ResourceScopeRequired) => {
+            (Vec::new(), "not_consulted_no_bound_scope")
+        }
+        Err(other) => return scope_refusal_reply(other),
+    };
+
+    // ---- the six frozen members, each answered on its own terms
+    let mut stages = Vec::with_capacity(STAGES.len());
+    for (index, stage) in STAGES.iter().enumerate() {
+        let row = ladder
+            .iter()
+            .find(|document| document.get("to_stage").and_then(Value::as_str) == Some(*stage));
+        stages.push(json!({
+            "stage": stage,
+            "stage_ordinal": index + 1,
+            "reached": row.is_some(),
+            "transition_ref": row.and_then(|d| d.get("transition_id").cloned()).unwrap_or(Value::Null),
+            "transition_content_hash": row.and_then(|d| d.get("content_hash").cloned()).unwrap_or(Value::Null),
+            "outcome_class": row.and_then(|d| d.get("outcome_class").cloned()).unwrap_or(Value::Null),
+            "actor_ref": row.and_then(|d| d.get("actor_ref").cloned()).unwrap_or(Value::Null),
+            "recorded_at": row
+                .and_then(|d| d.pointer("/transaction_time/recorded_at").cloned())
+                .unwrap_or(Value::Null),
+            "bound_work_result_content_hash": row
+                .and_then(|d| d.get("subject_content_hash").cloned())
+                .unwrap_or(Value::Null),
+        }));
+    }
+
+    // ---- every ladder member counted, including the ones nobody likes to report
+    let mut census = Map::new();
+    for outcome in OUTCOME_CLASSES {
+        let count = ladder
+            .iter()
+            .filter(|document| {
+                document.get("outcome_class").and_then(Value::as_str) == Some(*outcome)
+            })
+            .count();
+        census.insert((*outcome).to_string(), json!(count));
+    }
+
+    // ---- the distinct WorkResult versions this ladder actually bound
+    //
+    // An owner-admitted backlink gives the same URI new bytes and therefore a new hash. Reporting
+    // the DISTINCT bound hashes, in the order they were first bound, is how a consumer sees that a
+    // transition attests bytes that are no longer current — instead of a URI that silently means
+    // something new.
+    let mut bound_versions: Vec<Value> = Vec::new();
+    for document in &ladder {
+        let Some(hash) = document.get("subject_content_hash").and_then(Value::as_str) else {
+            continue;
+        };
+        if bound_versions
+            .iter()
+            .any(|entry| entry.get("content_hash").and_then(Value::as_str) == Some(hash))
+        {
+            continue;
+        }
+        bound_versions.push(json!({
+            "content_hash": hash,
+            "first_bound_at_transition_ordinal": ordinal_of(document),
+        }));
+    }
+    let current_binding_state = if ladder.is_empty() {
+        "no_transition"
+    } else if bound_versions.len() == 1
+        && bound_versions[0]
+            .get("content_hash")
+            .and_then(Value::as_str)
+            == Some(resolved.content_hash.as_str())
+    {
+        "current_bytes_bound"
+    } else {
+        // Either the ladder bound several versions, or the one it bound is no longer what the owner
+        // commits. Both are reported rather than smoothed: a graph that hid this would let a stale
+        // attestation read as a current one.
+        "bound_to_superseded_bytes"
+    };
+
+    let reached_stage = ladder
+        .last()
+        .and_then(|document| document.get("to_stage").cloned())
+        .unwrap_or(Value::Null);
+    let reached_stage_ordinal = ladder
+        .last()
+        .and_then(|document| document.get("to_stage_ordinal").and_then(Value::as_u64))
+        .unwrap_or(0);
+
+    let document = json!({
+        "schema_version": GRAPH_SCHEMA_VERSION,
+        "projection_contract_ref": GRAPH_CONTRACT_ID,
+        "projection_kind": "read_projection",
+        "work_result_ref": work_result_ref,
+        "work_result_content_hash": resolved.content_hash,
+        "work_result_commitment_domain": WORK_RESULT_COMMITMENT_DOMAIN,
+        "work_result_resolved_by": "work_result_routes::resolve_admitted_work_result",
+        "work_result_outcome_class": resolved.outcome_class,
+        "work_result_status": resolved.status,
+        "subject_family": SubjectFamily::WorkResult.label(),
+        "stages": stages,
+        "reached_stage": reached_stage,
+        "reached_stage_ordinal": reached_stage_ordinal,
+        "transition_count": ladder.len(),
+        "transitions": ladder,
+        "outcome_class_census": Value::Object(census),
+        "bound_work_result_content_hashes": bound_versions,
+        "current_binding_state": current_binding_state,
+        "transition_authority_nonclaim": AUTHORITY_NONCLAIM,
+        "transition_verdict_nonclaim": VERDICT_NONCLAIM,
+        "rebuildable_index_state": index_state,
+        "truth_source": "work_result_owner_and_agentgres_owner_scoped_chain",
+        "does_not_assert": GRAPH_NONCLAIMS,
+        "authority_nonclaim": GRAPH_AUTHORITY_NONCLAIM,
+        "verdict_nonclaim": GRAPH_VERDICT_NONCLAIM,
+    });
+
+    // THE PROJECTION IS VALIDATED AGAINST ITS OWN REGISTERED CONTRACT BEFORE IT IS SERVED. A
+    // projection that cannot satisfy the contract it names is a defect to refuse, not bytes to ship.
+    if let Err(reason) = validate_architecture_contract(GRAPH_CONTRACT_ID, &document) {
+        return bad(
+            StatusCode::BAD_GATEWAY,
+            "verified_work_graph_projection_invalid",
+            format!("the derived Verified Work Graph is not registered-valid: {reason}"),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "verified_work_graph": document })),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2354,6 +2675,185 @@ mod tests {
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"subject_content_hash"));
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"outcome_class"));
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"does_not_assert"));
+    }
+
+    // -------------------------------------------------- M06.1: the Verified Work Graph projection
+
+    #[test]
+    fn work_result_is_the_only_family_this_build_newly_resolves() {
+        // M06.1 wires exactly ONE arm. Finding and Attempt stay nameable and fail closed BY NAME,
+        // and this asserts the boundary rather than trusting the comment above it.
+        assert_eq!(SubjectFamily::WorkResult.owning_unit(), "M04.1");
+        assert_eq!(SubjectFamily::Finding.owning_unit(), "M04.8");
+        assert_eq!(SubjectFamily::Attempt.owning_unit(), "M04.8");
+        assert_eq!(SubjectFamily::WorkResult.label(), "work_result");
+        // The three M05 arms are untouched: their owning units are still the units that landed them.
+        assert_eq!(SubjectFamily::OntologyRevision.owning_unit(), "M05.1");
+        assert_eq!(
+            SubjectFamily::OntologyMappingRevision.owning_unit(),
+            "M05.2"
+        );
+        assert_eq!(SubjectFamily::OntologyAssertion.owning_unit(), "M05.3");
+    }
+
+    #[test]
+    fn graph_nonclaims_are_the_complete_closed_canonical_set() {
+        // Canon's negative list for the Verified Work Graph, as data. A future edit that quietly
+        // drops one — settlement and economic value being the tempting ones — fails here and again
+        // at the registered schema, which pins the same twelve.
+        for required in [
+            "authority",
+            "verdict",
+            "correctness",
+            "acceptance",
+            "adjudication",
+            "settlement",
+            "payment_or_economic_value",
+            "external_world_occurrence",
+            "deployment",
+            "provider_connectivity",
+            "legality",
+            "live_medical_suitability",
+        ] {
+            assert!(
+                GRAPH_NONCLAIMS.contains(&required),
+                "the graph must disclaim {required}"
+            );
+        }
+        assert_eq!(GRAPH_NONCLAIMS.len(), 12, "the nonclaim set is closed");
+    }
+
+    #[test]
+    fn the_two_outcome_vocabularies_are_never_mapped_onto_each_other() {
+        // THE NORMALISATION TRAP, PINNED. The WorkResult vocabulary and the assurance vocabulary
+        // overlap in five members and genuinely disagree in three. A projection that "helpfully"
+        // translated `exploit_found` into `exploit` would be collapsing a distinction two owners
+        // maintain, which is the normalisation NN 21 forbids. The graph reports both verbatim in
+        // separate fields, so this asserts the disagreement is REAL and therefore worth preserving.
+        assert!(OUTCOME_CLASSES.contains(&"exploit"));
+        assert!(!OUTCOME_CLASSES.contains(&"exploit_found"));
+        assert!(OUTCOME_CLASSES.contains(&"disputed"));
+        assert!(OUTCOME_CLASSES.contains(&"no_fault"));
+    }
+
+    #[test]
+    fn the_graph_contract_is_registered_and_its_positives_validate() {
+        // The projection validates every answer against this contract before serving it, so the
+        // contract has to be present in the generated registry the daemon actually links.
+        for fixture in [
+            "positive-no-transition-graph.json",
+            "positive-negative-outcome-retained.json",
+            "positive-superseded-bytes-across-two-versions.json",
+        ] {
+            let document = graph_fixture(fixture);
+            validate_architecture_contract(GRAPH_CONTRACT_ID, &document).unwrap_or_else(|error| {
+                panic!("{fixture} must satisfy {GRAPH_CONTRACT_ID}: {error}")
+            });
+        }
+    }
+
+    #[test]
+    fn a_downgraded_or_unknown_graph_contract_is_refused_not_served() {
+        // The consumer-path version gate, exercised on the exact strings a consumer would send.
+        // A downgrade is named distinctly from an unrecognised id so the refusal tells the caller
+        // whether it asked for the wrong VERSION or the wrong FAMILY.
+        assert!("schema://ioi/foundations/verified-work-graph-projection/v0"
+            .starts_with(GRAPH_FAMILY_PREFIX));
+        assert!("schema://ioi/foundations/verified-work-graph-projection/v2"
+            .starts_with(GRAPH_FAMILY_PREFIX));
+        assert!(!"schema://ioi/foundations/assurance-transition-receipt/v2"
+            .starts_with(GRAPH_FAMILY_PREFIX));
+        assert!(GRAPH_CONTRACT_ID.starts_with(GRAPH_FAMILY_PREFIX));
+        // And the registry rejects a downgraded ref in the bytes themselves.
+        let downgraded = graph_fixture("negative-downgraded-projection-contract-ref.json");
+        assert!(validate_architecture_contract(GRAPH_CONTRACT_ID, &downgraded).is_err());
+    }
+
+    #[test]
+    fn the_graph_refuses_to_declare_itself_a_store() {
+        // "The graph is not a single database, chain, or UI." The only legal projection_kind is
+        // read_projection, so a later edit cannot turn this family into a second truth store
+        // without the contract refusing it.
+        let durable = graph_fixture("negative-projection-kind-declared-durable.json");
+        assert!(
+            validate_architecture_contract(GRAPH_CONTRACT_ID, &durable).is_err(),
+            "a projection declaring itself durable must be refused"
+        );
+    }
+
+    #[test]
+    fn an_empty_ladder_cannot_borrow_a_reached_stage() {
+        // Stage independence has a floor: with no transition at all, nothing is reached. A
+        // projection that read the WorkResult's own `status` and reported a stage from it would be
+        // manufacturing assurance out of the subject's self-description.
+        let borrowed = graph_fixture("negative-empty-ladder-claims-a-reached-stage.json");
+        assert!(validate_architecture_contract(GRAPH_CONTRACT_ID, &borrowed).is_err());
+    }
+
+    #[test]
+    fn a_stale_or_skipped_stage_row_carries_nothing() {
+        // An unreached row populated with an outcome is the shape a skimming consumer misreads.
+        let populated = graph_fixture("negative-unreached-stage-carries-an-outcome.json");
+        assert!(validate_architecture_contract(GRAPH_CONTRACT_ID, &populated).is_err());
+    }
+
+    #[test]
+    fn a_projection_may_not_strip_the_transitions_own_nonclaims() {
+        for fixture in [
+            "negative-projection-strips-the-transition-authority-nonclaim.json",
+            "negative-projection-strips-the-transition-verdict-nonclaim.json",
+        ] {
+            let document = graph_fixture(fixture);
+            let error = validate_architecture_contract(GRAPH_CONTRACT_ID, &document)
+                .expect_err("a stripped nonclaim must refuse");
+            assert!(
+                error.contains("retain_their_own"),
+                "{fixture} must fail the retention rule, got: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_row_about_another_work_result_or_family_is_refused() {
+        let foreign = graph_fixture("negative-transition-names-another-work-result.json");
+        let error = validate_architecture_contract(GRAPH_CONTRACT_ID, &foreign)
+            .expect_err("a foreign subject row must refuse");
+        assert!(
+            error.contains("every_row_binds_this_projections_work_result"),
+            "{error}"
+        );
+
+        let family = graph_fixture("negative-transition-from-another-subject-family.json");
+        let error = validate_architecture_contract(GRAPH_CONTRACT_ID, &family)
+            .expect_err("a foreign family row must refuse");
+        assert!(
+            error.contains("every_row_binds_the_work_result_family"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn duplicate_bound_versions_collapse_a_distinction_and_are_refused() {
+        // The mutable-version distinction is the whole reason the version list exists.
+        let duplicate = graph_fixture("negative-duplicate-bound-version-hash.json");
+        let error = validate_architecture_contract(GRAPH_CONTRACT_ID, &duplicate)
+            .expect_err("duplicate versions must refuse");
+        assert!(
+            error.contains("are_distinct_work_result_content_hashes"),
+            "{error}"
+        );
+    }
+
+    /// Load one registered Verified Work Graph fixture from the canonical corpus.
+    fn graph_fixture(name: &str) -> Value {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(
+                "../../docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1",
+            )
+            .join(name);
+        let bytes = std::fs::read(&path)
+            .unwrap_or_else(|error| panic!("registered fixture {name} is readable: {error}"));
+        serde_json::from_slice(&bytes).expect("registered fixture is JSON")
     }
 }
 

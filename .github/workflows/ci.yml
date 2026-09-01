@@ -610,17 +610,119 @@ jobs:
       # from which root — is an open question in the implementation guide, and inventing a
       # working-directory here would answer it by accident.
 
+  # M06.1's deterministic gate on its own runner, beside the other verifier
+  # families rather than inside them. It boots the daemon it just built and needs
+  # no wallet fixture, model route, or network, so folding it into the M04 matrix
+  # would make it pay for provisioning it does not use, and folding it into the
+  # serial Rust-backed step would couple two unrelated families' runtimes.
+  #
+  # The mutation adjudicator runs HERE and not in the deterministic step above it:
+  # a green verifier certifies nothing until the battery has proved it can go red,
+  # and keeping both in one job means the pair can never drift apart across runs.
+  # It rebuilds the daemon once per planted defect, which is why this job carries
+  # the same 120-minute interim hang ceiling as the M04 matrix legs. That is a
+  # hang ceiling, not a performance target: it leaves the timeout-graph maximum
+  # exactly where it was.
+  m061_verified_work_graph:
+    name: M06.1 Verified Work Graph plane verifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install native deps for daemon-backed verification
+        run: |
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y \
+            pkg-config \
+            cmake \
+            libdbus-1-dev \
+            protobuf-compiler \
+            libxcb1-dev \
+            libxdo-dev
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.93.1
+          override: true
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.0
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Cache M06.1 verifier dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-m061-verified-work-graph-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # A restored target/ is a cache, never proof that the runnable daemon
+      # matches this revision. Build the current checkout explicitly.
+      - name: Build the daemon this verifier boots
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+
+      # The registered contract, its invariant profile and its fixture corpus are
+      # checked with no daemon present, because the offline half has to hold for a
+      # relying party who has only the bytes.
+      - name: Verify the registered contract projections are current
+        run: npm run check:architecture-contracts
+
+      - name: Verify the WorkResult resolver and graph projection focused tests
+        run: |
+          cargo test --locked -p ioi-node --bin hypervisor-daemon assurance_transition_routes::tests
+          cargo test --locked -p ioi-node --bin hypervisor-daemon work_result_routes::work_result_tests
+
+      - name: Verify the Verified Work Graph plane
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:verified-work-graph --workspace=@ioi/hypervisor-app
+
+      # THE ADJUDICATOR. Each planted defect must redden the exact assertion it
+      # names; a mutant that only reddens something else is a MISS and fails the
+      # job. The harness restores every source it touched and proves the restore
+      # by digest before exiting.
+      - name: Adjudicate the Verified Work Graph gate against planted defects
+        run: npm run mutate:verified-work-graph --workspace=@ioi/hypervisor-app
+
+      - name: Publish the M06.1 verifier census
+        uses: actions/upload-artifact@v4
+        with:
+          name: m061-verified-work-graph-census
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .artifacts/verifier-census
+
   # Every verifier is pinned at the assertion count it actually executed. This
-  # final job starts only after the independent Node, Rust-backed, and two M04
+  # final job starts only after the independent Node, Rust-backed, M04, and M06.1
   # jobs publish their immutable censuses. It invokes no verifier, Cargo build,
   # daemon, or authority path; omission and shrinkage fail closed here.
   # Timeout-graph ceiling (not a performance claim): max(build 90 + product 45,
-  # Rust-backed 90, either parallel M04 matrix leg 120) + floor 20 = 155 minutes.
+  # Rust-backed 90, either parallel M04 matrix leg 120, M06.1 120) + floor 20 =
+  # 155 minutes. The M06.1 job runs in parallel with the others and reuses the
+  # existing 120-minute leg ceiling, so the graph maximum is unchanged.
   verifier_family_floor:
     name: Verifier family census floor
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [product_surfaces, rust_backed_verifiers, m4_plane_verifiers]
+    needs:
+      [
+        product_surfaces,
+        rust_backed_verifiers,
+        m4_plane_verifiers,
+        m061_verified_work_graph,
+      ]
     steps:
       - uses: actions/checkout@v4
 
@@ -650,6 +752,12 @@ jobs:
         with:
           pattern: m4-plane-verifier-census-*
           merge-multiple: true
+          path: .artifacts/verifier-census
+
+      - name: Download the M06.1 Verified Work Graph census
+        uses: actions/download-artifact@v4
+        with:
+          name: m061-verified-work-graph-census
           path: .artifacts/verifier-census
 
       - name: Verify the verifier family did not shrink

@@ -12575,6 +12575,115 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+      "canonical_name": "VerifiedWorkGraphProjection",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/economic-flywheel-and-pricing-boundaries.md#verified-work-graph",
+      "schema_version": "ioi.verified-work-graph-projection.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "not_applicable"
+      },
+      "schema_ref": "verified-work-graph-projection.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/verified-work-graph-projection/rebuildable-work-result-graph/v1",
+          "path": "invariants/verified-work-graph-projection.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "VerifiedWorkGraphProjectionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "VerifiedWorkGraphProjectionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json",
+        "fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json",
+        "fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.transitions.every_row_binds_this_projections_work_result"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.transitions.every_row_binds_the_work_result_family"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.transition_count.matches_the_projected_rows"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.transitions.retain_their_own_authority_nonclaim"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.transitions.retain_their_own_verdict_nonclaim"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.stages.expose_each_ladder_member_exactly_once"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "verified_work_graph.bound_versions.are_distinct_work_result_content_hashes"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
       "canonical_name": "OntologyDevelopmentKitManifest",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologydevelopmentkitmanifestenvelope",

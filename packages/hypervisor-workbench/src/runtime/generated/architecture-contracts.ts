@@ -9961,6 +9961,69 @@ export type AssuranceTransitionReceiptV2 = {
     };
 };
 
+export type VerifiedWorkGraphProjectionV1 = {
+  schema_version: "ioi.verified-work-graph-projection.v1";
+  projection_contract_ref: "schema://ioi/foundations/verified-work-graph-projection/v1";
+  projection_kind: "read_projection";
+  work_result_ref: string;
+  work_result_content_hash: string;
+  work_result_commitment_domain: "ioi.work-result-record-commitment-jcs-sha256.v1";
+  work_result_resolved_by: string;
+  work_result_outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit_found" | "superseded";
+  work_result_status: "completed" | "failed" | "blocked" | "partial" | "challenged" | "superseded";
+  subject_family: "work_result";
+  stages: Array<{
+        stage: "attested" | "evidenced" | "verified" | "accepted" | "adjudicated" | "settled";
+        stage_ordinal: number;
+        reached: boolean;
+        transition_ref: string | null;
+        transition_content_hash: string | null;
+        outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit" | "superseded" | "disputed" | "no_fault" | null;
+        actor_ref: string | null;
+        recorded_at: string | null;
+        bound_work_result_content_hash: string | null;
+      }>;
+  reached_stage: "attested" | "evidenced" | "verified" | "accepted" | "adjudicated" | "settled" | null;
+  reached_stage_ordinal: number;
+  transition_count: number;
+  transitions: Array<{
+        transition_id: string;
+        subject_ref: string;
+        subject_family: "work_result" | "ontology_revision" | "ontology_mapping_revision" | "ontology_assertion" | "finding" | "attempt";
+        subject_content_hash?: string;
+        to_stage: "attested" | "evidenced" | "verified" | "accepted" | "adjudicated" | "settled";
+        to_stage_ordinal?: number;
+        transition_ordinal?: number;
+        outcome_class: "positive" | "negative" | "inconclusive" | "invalid" | "exploit" | "superseded" | "disputed" | "no_fault";
+        actor_ref?: string;
+        content_hash: string;
+        authority_nonclaim?: string;
+        verdict_nonclaim?: string;
+      }>;
+  outcome_class_census: {
+      positive: number;
+      negative: number;
+      inconclusive: number;
+      invalid: number;
+      exploit: number;
+      superseded: number;
+      disputed: number;
+      no_fault: number;
+    };
+  bound_work_result_content_hashes: Array<{
+        content_hash: string;
+        first_bound_at_transition_ordinal: number;
+      }>;
+  current_binding_state: "no_transition" | "current_bytes_bound" | "bound_to_superseded_bytes";
+  transition_authority_nonclaim: "assurance_transition_grants_no_authority";
+  transition_verdict_nonclaim: "assurance_transition_is_not_a_verdict";
+  rebuildable_index_state: "rebuilt_from_agentgres" | "agreed_with_agentgres" | "stale_rebuilt_from_agentgres" | "unavailable_rebuilt_from_agentgres" | "not_consulted_no_bound_scope";
+  truth_source: "work_result_owner_and_agentgres_owner_scoped_chain";
+  does_not_assert: Array<"authority" | "verdict" | "correctness" | "acceptance" | "adjudication" | "settlement" | "payment_or_economic_value" | "external_world_occurrence" | "deployment" | "provider_connectivity" | "legality" | "live_medical_suitability">;
+  authority_nonclaim: "verified_work_graph_grants_no_authority";
+  verdict_nonclaim: "verified_work_graph_is_not_a_verdict";
+};
+
 export type OntologyDevelopmentKitManifestV1 = {
   schema_version: "ioi.hypervisor.odk.manifest.v1";
   object: "ioi.hypervisor.odk.manifest";
@@ -19320,6 +19383,142 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.transitions.every_row_binds_this_projections_work_result"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.transitions.every_row_binds_the_work_result_family"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.transition_count.matches_the_projected_rows"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.transitions.retain_their_own_authority_nonclaim"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.transitions.retain_their_own_verdict_nonclaim"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.stages.expose_each_ladder_member_exactly_once"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "verified_work_graph.bound_versions.are_distinct_work_result_content_hashes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json",
     "expected": "accept",
@@ -25468,6 +25667,23 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-challenge-ref-is-not-a-challenge.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-resolution-omits-its-resolver-seam.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json","contract_id":"schema://ioi/foundations/assurance-transition-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/assurance-transition-receipt-v2/negative-successor-contract-ref-substituted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-no-transition-graph.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-negative-outcome-retained.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/positive-superseded-bytes-across-two-versions.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-names-another-work-result.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-from-another-subject-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-transition-count-overstates-its-rows.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-authority-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-strips-the-transition-verdict-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-stage-listed-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-duplicate-bound-version-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-unreached-stage-carries-an-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-dropped-settlement-nonclaim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-work-result-outcome-normalised-to-assurance-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-census-omits-the-disputed-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-empty-ladder-claims-a-reached-stage.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-projection-kind-declared-durable.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json","contract_id":"schema://ioi/foundations/verified-work-graph-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/verified-work-graph-projection-v1/negative-downgraded-projection-contract-ref.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/positive-stored-v1-record.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-canonical-member-on-v1.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-development-kit-manifest/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/odk-manifest-v1/negative-status-advanced-on-v1.json","mutation_id":null,"value_json":null}),
@@ -26839,6 +27055,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^work-lifecycle-archive://[^\\s]+$",
   "^work-lifecycle-snapshot://[^\\s]+$",
   "^work-lifecycle://[^\\s]+$",
+  "^work-result://[^\\s]{1,460}$",
   "^work-result://[^\\s]{1,500}$",
   "^work-run://[^\\s]{1,248}$",
   "^work_item://[^\\s]{1,500}$",
@@ -27087,6 +27304,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/semantic-mapping-decision/v1": "sha256:a35f12979fc1f3f4d9b70f498464b8aff0af33b02e82999aa2d98c98a0b2c8b9",
   "schema://ioi/foundations/ontology-assertion/v2": "sha256:96b4877140e1a0f091332bc306927a8c1e7ca886f38caa7a015cba6876639712",
   "schema://ioi/foundations/assurance-transition-receipt/v2": "sha256:366535c143fb479d1a375ef44a863961baa133cd663582351d9b2a396f704a5c",
+  "schema://ioi/foundations/verified-work-graph-projection/v1": "sha256:bf7f39e9563027bb1d1f6fa18194728089e17702f237b1527f00285238c3bf36",
   "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1": "sha256:03cc0996970dba20c7259bdbfedae89c89e1b49d8d0844d0725169360c2c0476",
   "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2": "sha256:80b79d3440f7aff4483eb88dd3951c27b23f33a391d82a437f053d50d5285fa9",
   "schema://ioi/foundations/objects/domain-app/v1": "sha256:ff30212b40a5b1309e9fadbb48b99f1e738c2baf9622992fdda48c03d9624693",
@@ -102812,6 +103030,654 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/verified-work-graph-projection/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/verified-work-graph-projection/v1",
+    "title": "VerifiedWorkGraphProjection",
+    "description": "A REBUILDABLE READ PROJECTION over one WorkResult's assurance posture. economic-flywheel-and-pricing-boundaries.md § Verified Work Graph states that the graph 'is not a single database, chain, or UI' and that it 'preserves these states independently'; this contract is the machine-checkable form of both sentences. It owns no bytes: every field is re-derived on each read from the WorkResult owner's admitted record and that subject's Agentgres assurance chain, so destroying any cache changes no answer. The six frozen assurance_stage members are exposed as independent rows, each with its own reached flag, so acceptance is never inferable from verification nor settlement from acceptance. Outcome classes are carried verbatim on BOTH sides and are never mapped onto each other: the WorkResult vocabulary has exploit_found and lacks disputed and no_fault, while the assurance ladder has exploit, disputed and no_fault, and collapsing the two would be exactly the normalisation NN 21 forbids. 'Verified' here names an assurance PATH, never a claim of correctness, acceptance, adjudication, settlement or value — the complete closed nonclaim set travels on every record as data rather than prose.",
+    "x-ioi-schema-version": "ioi.verified-work-graph-projection.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "projection_contract_ref",
+      "projection_kind",
+      "work_result_ref",
+      "work_result_content_hash",
+      "work_result_commitment_domain",
+      "work_result_resolved_by",
+      "work_result_outcome_class",
+      "work_result_status",
+      "subject_family",
+      "stages",
+      "reached_stage",
+      "reached_stage_ordinal",
+      "transition_count",
+      "transitions",
+      "outcome_class_census",
+      "bound_work_result_content_hashes",
+      "current_binding_state",
+      "transition_authority_nonclaim",
+      "transition_verdict_nonclaim",
+      "rebuildable_index_state",
+      "truth_source",
+      "does_not_assert",
+      "authority_nonclaim",
+      "verdict_nonclaim"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.verified-work-graph-projection.v1"
+      },
+      "projection_contract_ref": {
+        "const": "schema://ioi/foundations/verified-work-graph-projection/v1"
+      },
+      "projection_kind": {
+        "description": "Declared in the bytes so a consumer cannot mistake this for a durable object. There is exactly one legal value: this family never becomes a store.",
+        "const": "read_projection"
+      },
+      "work_result_ref": {
+        "$ref": "#/$defs/workResultRef"
+      },
+      "work_result_content_hash": {
+        "description": "The WorkResult owner's commitment over the EXACT admitted record bytes, carried verbatim. Deliberately a whole-record commitment: a WorkResult changes when its owner admits an outcome_delta_refs or review_refs backlink, so each admitted version has a DISTINCT hash and the URI alone is never treated as a stable identity.",
+        "$ref": "#/$defs/sha256"
+      },
+      "work_result_commitment_domain": {
+        "description": "The explicit domain separator and version of the commitment above, so a relying party can recompute it without guessing which preimage was used.",
+        "const": "ioi.work-result-record-commitment-jcs-sha256.v1"
+      },
+      "work_result_resolved_by": {
+        "description": "The exact owner seam that re-resolved the WorkResult. A projection naming no resolver is one whose subject was taken on faith.",
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"
+      },
+      "work_result_outcome_class": {
+        "description": "The WorkResult owner's OWN vocabulary, verbatim. Note exploit_found, and note the absence of disputed and no_fault: this is not the assurance ladder's outcome_class and is never mapped onto it.",
+        "enum": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit_found",
+          "superseded"
+        ]
+      },
+      "work_result_status": {
+        "enum": [
+          "completed",
+          "failed",
+          "blocked",
+          "partial",
+          "challenged",
+          "superseded"
+        ]
+      },
+      "subject_family": {
+        "description": "This projection is over WorkResult owner truth only. Finding and Attempt remain named, fail-closed gaps at the assurance seam and are not projectable here.",
+        "const": "work_result"
+      },
+      "stages": {
+        "description": "One row per frozen ladder member, ALWAYS all six and always in canonical order. An unreached stage is present with reached:false and null everything, which is a different statement from absence and a very different statement from success.",
+        "type": "array",
+        "minItems": 6,
+        "maxItems": 6,
+        "items": {
+          "$ref": "#/$defs/stageRow"
+        }
+      },
+      "reached_stage": {
+        "description": "The furthest member actually reached, or null when no transition exists. Never inferred from the WorkResult's own status.",
+        "oneOf": [
+          {
+            "$ref": "#/$defs/assuranceStage"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "reached_stage_ordinal": {
+        "description": "Zero when nothing was reached; otherwise the ordinal of reached_stage.",
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "transition_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "transitions": {
+        "description": "The subject's projected assurance ladder, carried verbatim from the assurance owner. Rows are not rewritten, filtered or re-ordered here.",
+        "type": "array",
+        "maxItems": 6,
+        "items": {
+          "$ref": "#/$defs/projectedTransition"
+        }
+      },
+      "outcome_class_census": {
+        "description": "Every assurance ladder outcome counted, including the ones nobody likes to report. All eight members are REQUIRED to be present: a census that omitted a key when its count was zero would let a projection stop mentioning failures at exactly the moment failures matter.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit",
+          "superseded",
+          "disputed",
+          "no_fault"
+        ],
+        "properties": {
+          "positive": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "negative": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "inconclusive": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "invalid": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "exploit": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "superseded": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "disputed": {
+            "$ref": "#/$defs/censusCount"
+          },
+          "no_fault": {
+            "$ref": "#/$defs/censusCount"
+          }
+        }
+      },
+      "bound_work_result_content_hashes": {
+        "description": "The DISTINCT WorkResult versions this ladder actually bound, in the order first bound. More than one entry means the subject's bytes changed under an owner-admitted backlink while the ladder advanced, and the earlier transitions still attest the earlier bytes.",
+        "type": "array",
+        "maxItems": 6,
+        "items": {
+          "$ref": "#/$defs/boundVersion"
+        }
+      },
+      "current_binding_state": {
+        "description": "Whether the ladder's bindings still name what the owner currently commits. bound_to_superseded_bytes is reported rather than smoothed: hiding it would let a stale attestation read as a current one.",
+        "enum": [
+          "no_transition",
+          "current_bytes_bound",
+          "bound_to_superseded_bytes"
+        ]
+      },
+      "transition_authority_nonclaim": {
+        "description": "The assurance receipt's own authority nonclaim, restated so an invariant can prove this projection did not strip it while flattening the ladder.",
+        "const": "assurance_transition_grants_no_authority"
+      },
+      "transition_verdict_nonclaim": {
+        "const": "assurance_transition_is_not_a_verdict"
+      },
+      "rebuildable_index_state": {
+        "description": "What the process-local, non-truth cache held before this read replaced it. Reported so a verifier can assert rebuild by POSITIVE detection rather than by an unchanged answer, which is also consistent with a cache that was never dropped. `not_consulted_no_bound_scope` is the reading for a caller with no bound scope on this subject: it answers the empty graph without touching the cache, so that a WorkResult nobody has attested and one whose ladder belongs to another principal are indistinguishable.",
+        "enum": [
+          "rebuilt_from_agentgres",
+          "agreed_with_agentgres",
+          "stale_rebuilt_from_agentgres",
+          "unavailable_rebuilt_from_agentgres",
+          "not_consulted_no_bound_scope"
+        ]
+      },
+      "truth_source": {
+        "description": "Both owners, named. This projection is the only place they are read together and it is not a third owner.",
+        "const": "work_result_owner_and_agentgres_owner_scoped_chain"
+      },
+      "does_not_assert": {
+        "description": "The complete closed nonclaim set, carried on every record. It is fixed at exactly twelve unique members: a dropped member is a SCHEMA refusal, because a projection that quietly stopped disclaiming settlement or legality would still satisfy every count-based check.",
+        "type": "array",
+        "minItems": 12,
+        "maxItems": 12,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/nonclaimToken"
+        },
+        "allOf": [
+          {
+            "contains": {
+              "const": "authority"
+            }
+          },
+          {
+            "contains": {
+              "const": "verdict"
+            }
+          },
+          {
+            "contains": {
+              "const": "correctness"
+            }
+          },
+          {
+            "contains": {
+              "const": "acceptance"
+            }
+          },
+          {
+            "contains": {
+              "const": "adjudication"
+            }
+          },
+          {
+            "contains": {
+              "const": "settlement"
+            }
+          },
+          {
+            "contains": {
+              "const": "payment_or_economic_value"
+            }
+          },
+          {
+            "contains": {
+              "const": "external_world_occurrence"
+            }
+          },
+          {
+            "contains": {
+              "const": "deployment"
+            }
+          },
+          {
+            "contains": {
+              "const": "provider_connectivity"
+            }
+          },
+          {
+            "contains": {
+              "const": "legality"
+            }
+          },
+          {
+            "contains": {
+              "const": "live_medical_suitability"
+            }
+          }
+        ]
+      },
+      "authority_nonclaim": {
+        "const": "verified_work_graph_grants_no_authority"
+      },
+      "verdict_nonclaim": {
+        "const": "verified_work_graph_is_not_a_verdict"
+      }
+    },
+    "allOf": [
+      {
+        "description": "A projection with no transition has reached nothing. Stating it as a conditional keeps a zero-length ladder from carrying a reached stage it derived from the WorkResult's own status.",
+        "if": {
+          "properties": {
+            "transition_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
+            }
+          },
+          "required": [
+            "transition_count"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reached_stage": {
+              "type": "null"
+            },
+            "reached_stage_ordinal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 0
+            },
+            "current_binding_state": {
+              "const": "no_transition"
+            }
+          }
+        }
+      },
+      {
+        "description": "And conversely: once a transition exists, no_transition is unavailable as a binding state.",
+        "if": {
+          "properties": {
+            "transition_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            }
+          },
+          "required": [
+            "transition_count"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reached_stage": {
+              "$ref": "#/$defs/assuranceStage"
+            },
+            "reached_stage_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 6
+            },
+            "current_binding_state": {
+              "enum": [
+                "current_bytes_bound",
+                "bound_to_superseded_bytes"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "assuranceStage": {
+        "description": "Frozen by docs/architecture/foundations/canonical-enums.md#assurance-stages-assurance_stage. This projection renders the ladder; it does not choose its members.",
+        "enum": [
+          "attested",
+          "evidenced",
+          "verified",
+          "accepted",
+          "adjudicated",
+          "settled"
+        ]
+      },
+      "assuranceOutcomeClass": {
+        "description": "ACC-8 clause 2, verbatim. No member is mapped toward positive anywhere in this contract.",
+        "enum": [
+          "positive",
+          "negative",
+          "inconclusive",
+          "invalid",
+          "exploit",
+          "superseded",
+          "disputed",
+          "no_fault"
+        ]
+      },
+      "stageRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stage",
+          "stage_ordinal",
+          "reached",
+          "transition_ref",
+          "transition_content_hash",
+          "outcome_class",
+          "actor_ref",
+          "recorded_at",
+          "bound_work_result_content_hash"
+        ],
+        "properties": {
+          "stage": {
+            "$ref": "#/$defs/assuranceStage"
+          },
+          "stage_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "reached": {
+            "type": "boolean"
+          },
+          "transition_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transition_content_hash": {
+            "$ref": "#/$defs/nullableSha256"
+          },
+          "outcome_class": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/assuranceOutcomeClass"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "actor_ref": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^(?:system|user|wallet|org|project|domain|worker|agent|service|provider|policy|governance|runtime)://[^\\s]{1,460}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recorded_at": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/canonicalDateTime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bound_work_result_content_hash": {
+            "$ref": "#/$defs/nullableSha256"
+          }
+        },
+        "allOf": [
+          {
+            "description": "AN UNREACHED STAGE CARRIES NOTHING. Without this, a projection could report reached:false while still populating an outcome and an actor, and a consumer skimming the rows would read a stage that nobody stood behind.",
+            "if": {
+              "properties": {
+                "reached": {
+                  "const": false
+                }
+              },
+              "required": [
+                "reached"
+              ]
+            },
+            "then": {
+              "properties": {
+                "transition_ref": {
+                  "type": "null"
+                },
+                "transition_content_hash": {
+                  "type": "null"
+                },
+                "outcome_class": {
+                  "type": "null"
+                },
+                "actor_ref": {
+                  "type": "null"
+                },
+                "recorded_at": {
+                  "type": "null"
+                },
+                "bound_work_result_content_hash": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "description": "A reached stage names its transition, its bytes, its outcome, its actor and the exact WorkResult version it bound. A reached row missing any of these is an assertion with nobody behind it.",
+            "if": {
+              "properties": {
+                "reached": {
+                  "const": true
+                }
+              },
+              "required": [
+                "reached"
+              ]
+            },
+            "then": {
+              "properties": {
+                "transition_ref": {
+                  "type": "string"
+                },
+                "transition_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "outcome_class": {
+                  "$ref": "#/$defs/assuranceOutcomeClass"
+                },
+                "actor_ref": {
+                  "type": "string"
+                },
+                "recorded_at": {
+                  "$ref": "#/$defs/canonicalDateTime"
+                },
+                "bound_work_result_content_hash": {
+                  "$ref": "#/$defs/sha256"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "projectedTransition": {
+        "description": "One row of the assurance ladder as this projection depends on it. additionalProperties stays OPEN because the row is the assurance owner's document carried verbatim and this contract is not entitled to re-shape it; what is declared here is exactly the set of fields the projection's own invariants reason about, so a dependency cannot be asserted portably without being stated. Note what is deliberately NOT constrained here: subject_ref and subject_family are declared with the assurance contract's own grammars rather than pinned to this projection's work_result_ref and family, because binding them is the INVARIANT layer's job — pinning them in the schema would make a mis-bound row fail as a shape error and the binding rules would become unfalsifiable. The two nonclaim fields are likewise declared but NOT required, so a projection that strips them is caught by the retention invariants rather than by required-ness.",
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "transition_id",
+          "subject_ref",
+          "subject_family",
+          "to_stage",
+          "outcome_class",
+          "content_hash"
+        ],
+        "properties": {
+          "transition_id": {
+            "type": "string"
+          },
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^(?:work-result|ontology|ontology-mapping|ontology-assertion|finding|attempt)://[^\\s]{1,460}$"
+          },
+          "subject_family": {
+            "enum": [
+              "work_result",
+              "ontology_revision",
+              "ontology_mapping_revision",
+              "ontology_assertion",
+              "finding",
+              "attempt"
+            ]
+          },
+          "subject_content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "to_stage": {
+            "$ref": "#/$defs/assuranceStage"
+          },
+          "to_stage_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "transition_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "outcome_class": {
+            "$ref": "#/$defs/assuranceOutcomeClass"
+          },
+          "actor_ref": {
+            "type": "string"
+          },
+          "content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "authority_nonclaim": {
+            "type": "string"
+          },
+          "verdict_nonclaim": {
+            "type": "string"
+          }
+        }
+      },
+      "boundVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "content_hash",
+          "first_bound_at_transition_ordinal"
+        ],
+        "properties": {
+          "content_hash": {
+            "$ref": "#/$defs/sha256"
+          },
+          "first_bound_at_transition_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          }
+        }
+      },
+      "nonclaimToken": {
+        "enum": [
+          "authority",
+          "verdict",
+          "correctness",
+          "acceptance",
+          "adjudication",
+          "settlement",
+          "payment_or_economic_value",
+          "external_world_occurrence",
+          "deployment",
+          "provider_connectivity",
+          "legality",
+          "live_medical_suitability"
+        ]
+      },
+      "censusCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "workResultRef": {
+        "type": "string",
+        "pattern": "^work-result://[^\\s]{1,460}$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nullableSha256": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/sha256"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
   "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1",
@@ -129605,6 +130471,101 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/verified-work-graph-projection/v1": [
+    {
+      "rule_id": "verified_work_graph.transitions.every_row_binds_this_projections_work_result",
+      "description": "Every projected transition is about the WorkResult this projection names. Without this, a well-formed graph over WorkResult A could carry B's ladder and every shape check would pass — the reader would see a stage ladder attached to the wrong work, which is the single most consequential thing a graph can get wrong.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "subject_ref",
+        "expected_path": "$.work_result_ref"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transitions.every_row_binds_the_work_result_family",
+      "description": "And every row is a WORK RESULT transition. The assurance contract is subject-general, so a ladder over an ontology revision or an assertion is structurally projectable here; this rule is what keeps another family's ladder from being rendered as work assurance.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "subject_family",
+        "expected_path": "$.subject_family"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transition_count.matches_the_projected_rows",
+      "description": "The count a consumer reads is the number of rows actually carried. A count that overstated its rows would let a projection claim a fuller ladder than it can show, and one that understated them would hide a transition in plain sight.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.transitions",
+        "count_path": "$.transition_count"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transitions.retain_their_own_authority_nonclaim",
+      "description": "The assurance receipt carries its authority nonclaim on every record precisely so a consumer cannot read authority in by omission. A projection that flattened the ladder and dropped that field would defeat the nonclaim at exactly the layer a product surface reads. Restated at the top level so the comparison is checkable offline.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "authority_nonclaim",
+        "expected_path": "$.transition_authority_nonclaim"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.transitions.retain_their_own_verdict_nonclaim",
+      "description": "The same argument for the verdict nonclaim. 'Verified' is an assurance path, and a graph that stripped the not-a-verdict marker while rendering a stage called verified would be manufacturing exactly the reading canon refuses.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.transitions",
+        "field": "verdict_nonclaim",
+        "expected_path": "$.transition_verdict_nonclaim"
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.stages.expose_each_ladder_member_exactly_once",
+      "description": "Stages are exposed INDEPENDENTLY, which requires that each member appear on its own and only once. A projection that listed verified twice — once reached, once not — would let a consumer pick the row it preferred, and independence would become ambiguity.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.stages",
+        "fields": [
+          "stage"
+        ]
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.stages.ordinals_are_distinct",
+      "description": "And their ordinals are distinct, so the ladder's ORDER cannot be forged by repeating a position. Order is what makes a skipped member visible.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.stages",
+        "fields": [
+          "stage_ordinal"
+        ]
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.bound_versions.are_distinct_work_result_content_hashes",
+      "description": "THE MUTABLE-VERSION RULE, PORTABLY. A WorkResult's bytes change when its owner admits an outcome_delta_refs or review_refs backlink, so the version list is the evidence that the URI alone was never stable. Duplicate hashes in that list would collapse two distinct versions into one entry and hide the very distinction the list exists to make; the daemon dedupes by first binding, and this proves the result offline.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.bound_work_result_content_hashes",
+        "fields": [
+          "content_hash"
+        ]
+      }
+    },
+    {
+      "rule_id": "verified_work_graph.commitment.is_not_echoed_from_the_first_bound_version_ordinal",
+      "description": "Each bound version records WHICH transition first bound it, and those ordinals are distinct per entry. Two entries claiming the same first binding would mean one transition bound two different versions of one record, which the chain cannot produce and which would make the version history unreadable.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.bound_work_result_content_hashes",
+        "fields": [
+          "first_bound_at_transition_ordinal"
+        ]
+      }
+    }
+  ],
   "schema://ioi/foundations/objects/ontology-development-kit-manifest/v1": [],
   "schema://ioi/foundations/objects/ontology-development-kit-manifest/v2": [
     {
@@ -136033,6 +136994,12 @@ export function validateAssuranceTransitionReceiptV2(
   value: unknown,
 ): value is AssuranceTransitionReceiptV2 {
   return validateArchitectureContract("schema://ioi/foundations/assurance-transition-receipt/v2", value).ok;
+}
+
+export function validateVerifiedWorkGraphProjectionV1(
+  value: unknown,
+): value is VerifiedWorkGraphProjectionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/verified-work-graph-projection/v1", value).ok;
 }
 
 export function validateOntologyDevelopmentKitManifestV1(
