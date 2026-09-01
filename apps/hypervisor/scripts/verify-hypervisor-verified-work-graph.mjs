@@ -406,53 +406,18 @@ async function run() {
 
   // ------------------------------------------------------- the empty graph, before anything happened
   const empty = await graphOf(SUBJECT);
-  const emptyGraph = empty.j?.verified_work_graph ?? {};
   ok(
-    "a WorkResult with NO assurance transition still projects a complete graph: all six frozen stages present and unreached, no borrowed reached stage, and the binding state says so explicitly",
-    empty.status === 200 &&
-      (emptyGraph.stages ?? []).length === 6 &&
-      (emptyGraph.stages ?? []).every((row) => row.reached === false) &&
-      emptyGraph.reached_stage === null &&
-      emptyGraph.reached_stage_ordinal === 0 &&
-      emptyGraph.transition_count === 0 &&
-      emptyGraph.current_binding_state === "no_transition",
-    `status ${empty.status} stages ${(emptyGraph.stages ?? []).length} reached ${emptyGraph.reached_stage} binding ${emptyGraph.current_binding_state}`,
+    "a WorkResult with NO resolvable assurance scope gets a typed not-resolvable refusal, never an empty graph that would falsely assert absence",
+    empty.status !== 200 &&
+      code(empty.j) === "verified_work_graph_not_resolvable_for_this_reader" &&
+      empty.j?.verified_work_graph === undefined,
+    `status ${empty.status}/${code(empty.j)}`,
   );
   ok(
-    "an empty ladder does NOT inherit the WorkResult's own status: the result is `completed` and the graph still reports nothing reached — assurance is never derived from a subject's self-description",
-    recordV1?.status === "completed" && emptyGraph.reached_stage === null,
-    `work_result.status=${recordV1?.status} reached_stage=${emptyGraph.reached_stage}`,
-  );
-  ok(
-    "the graph binds the WorkResult commitment RECOMPUTED IN THIS VERIFIER from the owner's record bytes and the domain the registered contract declares — not a hash the daemon asserted about itself",
-    emptyGraph.work_result_content_hash === commitmentV1.digest &&
-      emptyGraph.work_result_commitment_domain === commitmentV1.domain &&
-      emptyGraph.work_result_resolved_by ===
-        "work_result_routes::resolve_admitted_work_result",
-    `graph ${emptyGraph.work_result_content_hash} recomputed ${commitmentV1.digest}`,
-  );
-  ok(
-    "the graph carries the COMPLETE closed nonclaim set the registered contract declares — authority, verdict, correctness, acceptance, adjudication, settlement, payment/economic value, external occurrence, deployment, provider connectivity, legality and live-medical suitability are all disclaimed as data, never by omission",
-    (() => {
-      const declared = registeredNonclaims();
-      const carried = emptyGraph.does_not_assert ?? [];
-      return (
-        declared.length === 12 &&
-        declared.every((token) => carried.includes(token)) &&
-        carried.length === 12 &&
-        emptyGraph.authority_nonclaim === "verified_work_graph_grants_no_authority" &&
-        emptyGraph.verdict_nonclaim === "verified_work_graph_is_not_a_verdict"
-      );
-    })(),
-    `carried ${JSON.stringify(emptyGraph.does_not_assert)}`,
-  );
-  ok(
-    "the graph declares itself a READ PROJECTION over both owners and names neither a store nor a third owner",
-    emptyGraph.projection_kind === "read_projection" &&
-      emptyGraph.truth_source ===
-        "work_result_owner_and_agentgres_owner_scoped_chain" &&
-      emptyGraph.projection_contract_ref === GRAPH_CONTRACT,
-    `kind ${emptyGraph.projection_kind} source ${emptyGraph.truth_source}`,
+    "the WorkResult's own completed status does not manufacture assurance: the owner record remains readable while the graph remains not resolvable",
+    recordV1?.status === "completed" &&
+      code(empty.j) === "verified_work_graph_not_resolvable_for_this_reader",
+    `work_result.status=${recordV1?.status} graph=${code(empty.j)}`,
   );
 
   // ------------------------------------------------------------------- prefix is not proof
@@ -512,7 +477,6 @@ async function run() {
   );
 
   // ------------------------------------------------------------------- content substitution refused
-  const beforeSubstitution = await graphState(SUBJECT);
   const substituted = await req(
     "POST",
     AT,
@@ -523,13 +487,11 @@ async function run() {
     }),
     { as: "A" },
   );
-  const afterSubstitution = await graphState(SUBJECT);
   ok(
     "an ASSERTED subject content hash that disagrees with the owner's commitment is refused and appends nothing — the binding is the WorkResult owner's, never the caller's",
     substituted.status !== 201 &&
-      afterSubstitution.count === beforeSubstitution.count &&
-      afterSubstitution.hash === beforeSubstitution.hash,
-    `status ${substituted.status}/${code(substituted.j)} count ${beforeSubstitution.count}->${afterSubstitution.count}`,
+      code(substituted.j) === "assurance_transition_subject_hash_substituted",
+    `status ${substituted.status}/${code(substituted.j)}`,
   );
 
   // ------------------------------------------------------------------------- the ladder, one at a time
@@ -541,6 +503,7 @@ async function run() {
   ok(
     "the first transition binds the WorkResult owner's EXACT committed bytes and names the owner seam that resolved them",
     t1.status === 201 &&
+      t1Record.to_stage_ordinal === 1 &&
       t1Record.subject_content_hash === commitmentV1.digest &&
       t1Record.subject_family === "work_result" &&
       t1Record.subject_resolved_by ===
@@ -618,6 +581,27 @@ async function run() {
 
   const laddered = await graphState(SUBJECT);
   const g = laddered.graph;
+  ok(
+    "the graph binds the WorkResult commitment RECOMPUTED IN THIS VERIFIER from the owner's record bytes and the domain the registered contract declares — not a hash the daemon asserted about itself",
+    g.work_result_content_hash === commitmentV1.digest &&
+      g.work_result_commitment_domain === commitmentV1.domain &&
+      g.work_result_resolved_by === "work_result_routes::resolve_admitted_work_result",
+    `graph ${g.work_result_content_hash} recomputed ${commitmentV1.digest}`,
+  );
+  ok(
+    "the graph carries the COMPLETE closed nonclaim set the registered contract declares — authority, verdict, correctness, acceptance, adjudication, settlement, payment/economic value, external occurrence, deployment, provider connectivity, legality and live-medical suitability are all disclaimed as data, never by omission",
+    (() => {
+      const declared = registeredNonclaims();
+      const carried = g.does_not_assert ?? [];
+      return declared.length === 12 && declared.every((token) => carried.includes(token)) && carried.length === 12 && g.authority_nonclaim === "verified_work_graph_grants_no_authority" && g.verdict_nonclaim === "verified_work_graph_is_not_a_verdict";
+    })(),
+    `carried ${JSON.stringify(g.does_not_assert)}`,
+  );
+  ok(
+    "the graph declares itself a READ PROJECTION over both owners and names neither a store nor a third owner",
+    g.projection_kind === "read_projection" && g.truth_source === "work_result_owner_and_agentgres_owner_scoped_chain" && g.projection_contract_ref === GRAPH_CONTRACT,
+    `kind ${g.projection_kind} source ${g.truth_source}`,
+  );
   ok(
     "the ladder advanced to `verified` and the graph reports it from the CHAIN, with every projected row carried verbatim",
     t2.status === 201 &&
@@ -771,6 +755,19 @@ async function run() {
     `status ${delta.status}/${code(delta.j)} ${delta.text?.slice(0, 300)} v1 ${commitmentV1.digest} v2 ${commitmentV2.digest}`,
   );
   const afterDelta = await graphState(SUBJECT);
+  const replayAfterBacklink = await req(
+    "POST",
+    AT,
+    transition({ subject: SUBJECT, key: "t3", expectedHead: head2, outcome: "exploit" }),
+    { as: "A" },
+  );
+  ok(
+    "an unchanged idempotent replay remains valid after an owner-admitted WorkResult backlink changes today's subject hash: replay confirms the exact stored command rather than comparing it to today's bytes",
+    replayAfterBacklink.status === 200 &&
+      replayAfterBacklink.j?.replayed === true &&
+      replayAfterBacklink.j?.assurance_transition?.subject_content_hash === commitmentV1.digest,
+    `status ${replayAfterBacklink.status}/${code(replayAfterBacklink.j)} replayed ${replayAfterBacklink.j?.replayed}`,
+  );
   ok(
     "THE URI ALONE WAS NEVER STABLE, AND THE GRAPH SAYS SO: the current commitment has moved to v2 while the three admitted transitions still bind v1, and the projection reports `bound_to_superseded_bytes` rather than letting a stale attestation read as a current one",
     afterDelta.hash === commitmentV2.digest &&
@@ -861,25 +858,19 @@ async function run() {
   const foreignAbsent = await graphOf("work-result://wr_never_admitted", "", "B");
   ok(
     "a co-tenant principal who owns none of this subject's LADDER sees NONE of its transitions: the assurance half stays owner-scoped and the projection does not widen it",
-    foreignGraph.j?.verified_work_graph?.transition_count === 0 &&
-      (foreignGraph.j?.verified_work_graph?.transitions ?? []).length === 0 &&
+    foreignGraph.status !== 200 &&
+      code(foreignGraph.j) === "verified_work_graph_not_resolvable_for_this_reader" &&
       !JSON.stringify(foreignGraph.j ?? {}).includes("/transition/"),
-    `status ${foreignGraph.status} count ${foreignGraph.j?.verified_work_graph?.transition_count}`,
+    `status ${foreignGraph.status}/${code(foreignGraph.j)}`,
   );
   ok(
     "AND THAT ANSWER IS INDISTINGUISHABLE from the one B gets for a WorkResult nobody has attested at all — same status, same empty ladder, same cache reading — so the graph cannot become an existence oracle announcing that another principal's assurance exists",
     unattested.status === 201 &&
       foreignGraph.status === unattestedGraph.status &&
-      foreignGraph.status === 200 &&
-      foreignGraph.j?.verified_work_graph?.transition_count ===
-        unattestedGraph.j?.verified_work_graph?.transition_count &&
-      foreignGraph.j?.verified_work_graph?.current_binding_state ===
-        unattestedGraph.j?.verified_work_graph?.current_binding_state &&
-      foreignGraph.j?.verified_work_graph?.rebuildable_index_state ===
-        unattestedGraph.j?.verified_work_graph?.rebuildable_index_state &&
-      foreignGraph.j?.verified_work_graph?.rebuildable_index_state ===
-        "not_consulted_no_bound_scope",
-    `foreign ${foreignGraph.status}/${foreignGraph.j?.verified_work_graph?.rebuildable_index_state} unattested ${unattestedGraph.status}/${unattestedGraph.j?.verified_work_graph?.rebuildable_index_state}`,
+      code(foreignGraph.j) === code(unattestedGraph.j) &&
+      code(foreignGraph.j) === "verified_work_graph_not_resolvable_for_this_reader" &&
+      foreignGraph.text === unattestedGraph.text,
+    `foreign ${foreignGraph.status}/${code(foreignGraph.j)} unattested ${unattestedGraph.status}/${code(unattestedGraph.j)}`,
   );
   ok(
     "the WorkResult owner's OWN layer is still separately enforced underneath: a work-result:// that names nothing admitted is refused by that owner before any ladder question is asked, so the graph inherits each owner's visibility exactly and invents no third policy",
@@ -1011,6 +1002,22 @@ async function run() {
 
 // Each mutant names the ONE assertion it must redden. A mutant that reddens something else is a MISS.
 const MUTANTS = [
+  {
+    id: "replay-compares-the-stored-command-to-todays-mutable-subject-hash",
+    file: GRAPH_SOURCE,
+    reddens:
+      "an unchanged idempotent replay remains valid after an owner-admitted WorkResult backlink changes today's subject hash: replay confirms the exact stored command rather than comparing it to today's bytes",
+    from: '    "subject_ref",\n    "outcome_class",',
+    to: '    "subject_ref",\n    "subject_content_hash",\n    "outcome_class",',
+  },
+  {
+    id: "scope-refusal-is-misreported-as-an-empty-graph",
+    file: GRAPH_SOURCE,
+    reddens:
+      "a WorkResult with NO resolvable assurance scope gets a typed not-resolvable refusal, never an empty graph that would falsely assert absence",
+    from: '        Err(RequestScopeRefusal::ResourceScopeRequired) => {\n            return refuse(\n                "verified_work_graph_not_resolvable_for_this_reader",\n                "no assurance ladder is resolvable for this reader; this is not a claim that no transition exists",\n            );\n        }',
+    to: '        Err(RequestScopeRefusal::ResourceScopeRequired) => {\n            (Vec::new(), "not_consulted_no_bound_scope")\n        }',
+  },
   {
     id: "work-result-prefix-admitted-without-resolution",
     file: OWNER_SOURCE,

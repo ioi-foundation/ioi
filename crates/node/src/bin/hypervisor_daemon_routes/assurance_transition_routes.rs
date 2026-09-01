@@ -1026,13 +1026,12 @@ fn validate_proposal(body: &Value) -> Result<ProposedTransition, Reply> {
 /// alongside the command it keyed. The substrate refuses same-key-different-bytes at the admission
 /// boundary, but a replay that is answered from the projected ladder never REACHES that boundary —
 /// so without this comparison a caller could reuse a key with a different outcome class, different
-/// evidence, a different validity interval or a subject whose owner has since re-hashed it, and
+/// evidence or a different validity interval, and
 /// receive the ORIGINAL transition back as though the new intent had been recorded. That is a silent
 /// substitution of one claim for another, and it is worst exactly where it matters most: quietly
 /// answering "yes, your NEGATIVE finding was recorded" with a stored POSITIVE one.
 const REPLAY_INTENT_FIELDS: &[&str] = &[
     "subject_ref",
-    "subject_content_hash",
     "outcome_class",
     "evidence_refs",
     "does_not_assert",
@@ -1049,12 +1048,10 @@ const REPLAY_INTENT_FIELDS: &[&str] = &[
 fn replay_intent_divergence(
     prior: &Value,
     proposal: &ProposedTransition,
-    subject: &ResolvedSubject,
     body: &Value,
 ) -> Option<&'static str> {
     let now = json!({
         "subject_ref": proposal.subject_ref,
-        "subject_content_hash": subject.content_hash,
         "outcome_class": proposal.outcome_class,
         "evidence_refs": proposal.evidence_refs,
         "does_not_assert": proposal.does_not_assert,
@@ -1521,7 +1518,7 @@ pub(crate) async fn handle_assurance_transition_admit(
             // REPLAY ONLY AN IDENTICAL COMMAND. Reaching the stored answer without first comparing
             // what is being asked would turn the idempotency key into a way to receive one claim in
             // answer to a different one.
-            if let Some(field) = replay_intent_divergence(&document, &proposal, &subject, &body) {
+            if let Some(field) = replay_intent_divergence(&document, &proposal, &body) {
                 return bad(
                     StatusCode::CONFLICT,
                     "assurance_transition_replay_intent_changed",
@@ -2114,7 +2111,10 @@ pub(crate) async fn handle_verified_work_graph(
             Err((code, message)) => return bad(StatusCode::UNPROCESSABLE_ENTITY, &code, message),
         };
 
-    // NO BOUND SCOPE MEANS NO LADDER VISIBLE TO THIS CALLER — which is an ANSWER, not a refusal.
+    // NO BOUND SCOPE MEANS NO LADDER IS RESOLVABLE FOR THIS CALLER. It is a typed refusal, never an
+    // empty graph: an empty graph would affirm that no transition exists when another principal's
+    // ladder may exist. The same refusal is returned for an unattested result and a foreign ladder,
+    // preserving indistinguishability without manufacturing an absence claim.
     //
     // This is the one place the graph deliberately differs from the assurance query route, and the
     // reason is indistinguishability. A WorkResult that nobody has attested yet and a WorkResult
@@ -2140,7 +2140,10 @@ pub(crate) async fn handle_verified_work_graph(
             (ladder, state)
         }
         Err(RequestScopeRefusal::ResourceScopeRequired) => {
-            (Vec::new(), "not_consulted_no_bound_scope")
+            return refuse(
+                "verified_work_graph_not_resolvable_for_this_reader",
+                "no assurance ladder is resolvable for this reader; this is not a claim that no transition exists",
+            );
         }
         Err(other) => return scope_refusal_reply(other),
     };
@@ -2675,6 +2678,11 @@ mod tests {
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"subject_content_hash"));
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"outcome_class"));
         assert!(CONTENT_MATERIAL_FIELDS.contains(&"does_not_assert"));
+    }
+
+    #[test]
+    fn replay_identity_uses_the_stored_subject_version_not_todays_owner_hash() {
+        assert!(!REPLAY_INTENT_FIELDS.contains(&"subject_content_hash"));
     }
 
     // -------------------------------------------------- M06.1: the Verified Work Graph projection
