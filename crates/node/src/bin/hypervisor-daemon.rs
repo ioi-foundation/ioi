@@ -130,6 +130,8 @@ mod managed_runtime_routes;
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
 mod materializing_run_routes;
+#[path = "hypervisor_daemon_routes/media_trajectory_dataset_routes.rs"]
+mod media_trajectory_dataset_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
 mod microvm;
 #[path = "hypervisor_daemon_routes/model_route_rights_routes.rs"]
@@ -148,8 +150,6 @@ mod ontology_projection_routes;
 mod ontology_version_routes;
 #[path = "hypervisor_daemon_routes/ontology_workbench_routes.rs"]
 mod ontology_workbench_routes;
-#[path = "hypervisor_daemon_routes/media_trajectory_dataset_routes.rs"]
-mod media_trajectory_dataset_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
 #[path = "hypervisor_daemon_routes/operations_support_routes.rs"]

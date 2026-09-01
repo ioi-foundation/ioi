@@ -65,9 +65,7 @@ use super::model_route_rights_routes::{
     projection_cache_state, read_stream, refuse, reject_authored, replay_for_key,
     require_exact_head, sha256_of, AdmittedRecord, FamilySpec, Reply, StreamQuery,
 };
-use super::mutation_event_foundation::{
-    admitted_stamp, require_write_caller, scope_refusal_reply,
-};
+use super::mutation_event_foundation::{admitted_stamp, require_write_caller, scope_refusal_reply};
 use super::policy_bound_data_view_revision_routes::resolve_admitted_policy_bound_data_view;
 use super::substrate_store::{
     authorize_request_resource_scope, bind_request_resource_scope, resolve_request_identity,
@@ -89,7 +87,8 @@ const CONTROLLER_RECORDED: &str = "controller_recorded";
 
 /// The quality findings that may never be absorbed. A corpus that RETAINED one of these and carried
 /// on has put a known defect into a dataset.
-const NEVER_RETAINED_FINDINGS: &[&str] = &["corrupt_chunk", "truncated_file", "variable_rate_segment"];
+const NEVER_RETAINED_FINDINGS: &[&str] =
+    &["corrupt_chunk", "truncated_file", "variable_rate_segment"];
 
 /// The dispositions those findings must carry instead.
 const REFUSING_SEVERITIES: &[&str] = &["refused", "excluded"];
@@ -412,11 +411,7 @@ fn regenerate_payload(recipe: &Value) -> Option<Vec<u8>> {
         .filter_map(Value::as_u64)
         .collect();
     let seed = Sha256::digest(
-        format!(
-            "ioi.m059.corpus.payload:{}",
-            item_str(recipe, "seed_tag")
-        )
-        .as_bytes(),
+        format!("ioi.m059.corpus.payload:{}", item_str(recipe, "seed_tag")).as_bytes(),
     );
     let mut bytes = vec![0u8; blocks * width];
     for block in 0..blocks {
@@ -487,7 +482,12 @@ fn hamming_distance_hex(left: &str, right: &str) -> Option<u64> {
     Some(distance)
 }
 
-fn object_list(body: &Value, key: &str, limit: usize, spec: &FamilySpec) -> Result<Vec<Value>, Reply> {
+fn object_list(
+    body: &Value,
+    key: &str,
+    limit: usize,
+    spec: &FamilySpec,
+) -> Result<Vec<Value>, Reply> {
     let Some(items) = body.get(key).and_then(Value::as_array) else {
         return Err(refuse(
             &spec.code("list_not_canonical"),
@@ -497,7 +497,10 @@ fn object_list(body: &Value, key: &str, limit: usize, spec: &FamilySpec) -> Resu
     if items.len() > limit {
         return Err(refuse(
             &spec.code("list_too_long"),
-            format!("'{key}' carries {} entries; this contract bounds it at {limit}", items.len()),
+            format!(
+                "'{key}' carries {} entries; this contract bounds it at {limit}",
+                items.len()
+            ),
         ));
     }
     if items.iter().any(|item| !item.is_object()) {
@@ -716,7 +719,15 @@ pub(crate) async fn handle_media_snapshot_admit(
     };
     // REPLAY BEFORE PRECONDITIONS: a retry after an ambiguous response necessarily observes a newer
     // head than the one it first compare-and-swapped against.
-    match replay_for_key(spec, &st, &caller, &scope, &resource, &stream, "media_snapshot") {
+    match replay_for_key(
+        spec,
+        &st,
+        &caller,
+        &scope,
+        &resource,
+        &stream,
+        "media_snapshot",
+    ) {
         Ok(Some(reply)) => return reply,
         Ok(None) => {}
         Err(response) => return response,
@@ -737,7 +748,10 @@ pub(crate) async fn handle_media_snapshot_admit(
     }
 
     let acquisition_class = body_str(&body, "acquisition_class");
-    if !matches!(acquisition_class.as_str(), "imported_recording" | "live_demonstration") {
+    if !matches!(
+        acquisition_class.as_str(),
+        "imported_recording" | "live_demonstration"
+    ) {
         return refuse(
             &spec.code("acquisition_class_outside_vocabulary"),
             "'acquisition_class' is imported_recording or live_demonstration; imported media must not silently become a live-capture dependency",
@@ -949,7 +963,8 @@ pub(crate) async fn handle_media_snapshot_admit(
             "redaction never severs lineage; a redacted snapshot still cites what it was derived from",
         );
     }
-    if item_str(&redaction, "source_privacy_class") != item_str(&redaction, "output_privacy_class") {
+    if item_str(&redaction, "source_privacy_class") != item_str(&redaction, "output_privacy_class")
+    {
         return refuse(
             &spec.code("redaction_declassifies_refused"),
             "the redacted output's privacy class must equal its source class; a silently repaired declassification is a declassification that happened and was not recorded, and declassification stays Governance-owned",
@@ -1675,7 +1690,15 @@ pub(crate) async fn handle_corpus_census_admit(
         Ok(stream) => stream,
         Err(response) => return response,
     };
-    match replay_for_key(spec, &st, &caller, &scope, &resource, &stream, "media_corpus_census") {
+    match replay_for_key(
+        spec,
+        &st,
+        &caller,
+        &scope,
+        &resource,
+        &stream,
+        "media_corpus_census",
+    ) {
         Ok(Some(reply)) => return reply,
         Ok(None) => {}
         Err(response) => return response,
@@ -1825,13 +1848,19 @@ pub(crate) async fn handle_corpus_census_admit(
         if item_u64(payload, "byte_count") != Some(bytes.len() as u64) {
             return refuse(
                 &spec.code("payload_byte_count_is_not_of_its_bytes"),
-                format!("payload {digest} claims {} bytes and regenerates to {}", item_u64(payload, "byte_count").unwrap_or(0), bytes.len()),
+                format!(
+                    "payload {digest} claims {} bytes and regenerates to {}",
+                    item_u64(payload, "byte_count").unwrap_or(0),
+                    bytes.len()
+                ),
             );
         }
         let Some(derived_fingerprint) = similarity_fingerprint(&bytes) else {
             return refuse(
                 &spec.code("payload_fingerprint_is_not_computable"),
-                format!("payload {digest} regenerates to bytes no 64-block fingerprint is defined over"),
+                format!(
+                    "payload {digest} regenerates to bytes no 64-block fingerprint is defined over"
+                ),
             );
         };
         if item_str(payload, "similarity_fingerprint") != derived_fingerprint {
@@ -1864,17 +1893,27 @@ pub(crate) async fn handle_corpus_census_admit(
         // Every INSTANCE of a payload carries that payload's regenerated length; a row free to
         // state its own size could inflate the byte census over bytes the recipe never produced.
         for index in rows_at {
-            if item_u64(&file_dispositions[*index], "byte_count") != item_u64(payload, "byte_count") {
+            if item_u64(&file_dispositions[*index], "byte_count") != item_u64(payload, "byte_count")
+            {
                 return refuse(
                     &spec.code("row_byte_count_is_not_its_payload_length"),
-                    format!("{} claims {} bytes while payload {digest} regenerates to {}", item_str(&file_dispositions[*index], "source_file_ref"), item_u64(&file_dispositions[*index], "byte_count").unwrap_or(0), item_u64(payload, "byte_count").unwrap_or(0)),
+                    format!(
+                        "{} claims {} bytes while payload {digest} regenerates to {}",
+                        item_str(&file_dispositions[*index], "source_file_ref"),
+                        item_u64(&file_dispositions[*index], "byte_count").unwrap_or(0),
+                        item_u64(payload, "byte_count").unwrap_or(0)
+                    ),
                 );
             }
         }
         if item_u64(payload, "instance_count") != Some(rows_at.len() as u64) {
             return refuse(
                 &spec.code("payload_instance_count_drifted"),
-                format!("payload {digest} declares {} instances over {} rows", item_u64(payload, "instance_count").unwrap_or(0), rows_at.len()),
+                format!(
+                    "payload {digest} declares {} instances over {} rows",
+                    item_u64(payload, "instance_count").unwrap_or(0),
+                    rows_at.len()
+                ),
             );
         }
         let accepted_here: Vec<usize> = rows_at
@@ -2029,7 +2068,8 @@ pub(crate) async fn handle_corpus_census_admit(
         }
 
         // --- and only now the metric, recomputed over the payload table's own fingerprints
-        let Some(distance) = hamming_distance_hex(&source_fingerprint, &retained_fingerprint) else {
+        let Some(distance) = hamming_distance_hex(&source_fingerprint, &retained_fingerprint)
+        else {
             return refuse(
                 &spec.code("near_duplicate_fingerprints_are_not_comparable"),
                 format!("{source_ref} and {retained_ref} carry fingerprints that are not two equal-length lowercase-hex digests, so no distance between them is defined"),
@@ -2154,7 +2194,8 @@ pub(crate) async fn handle_corpus_census_admit(
         Ok(value) => value,
         Err(response) => return response,
     };
-    let declared_bound = item_u64(&runtime_evidence, "max_undelivered_events_declared").unwrap_or(0);
+    let declared_bound =
+        item_u64(&runtime_evidence, "max_undelivered_events_declared").unwrap_or(0);
     let high_water = item_u64(&runtime_evidence, "queue_high_water").unwrap_or(u64::MAX);
     if high_water > declared_bound {
         return refuse(
@@ -2400,11 +2441,15 @@ pub(crate) async fn handle_media_snapshot_erasure_impact(
         Ok(identity) => identity,
         Err(error) => return scope_refusal_reply(error),
     };
-    let snapshot =
-        match resolve_admitted_media_snapshot(&st.data_dir, &identity, None, &query.snapshot_revision_ref) {
-            Ok(snapshot) => snapshot,
-            Err(response) => return response,
-        };
+    let snapshot = match resolve_admitted_media_snapshot(
+        &st.data_dir,
+        &identity,
+        None,
+        &query.snapshot_revision_ref,
+    ) {
+        Ok(snapshot) => snapshot,
+        Err(response) => return response,
+    };
 
     let mut affected_episodes = Vec::new();
     if let Some(family) = query.episode_family.as_deref() {
