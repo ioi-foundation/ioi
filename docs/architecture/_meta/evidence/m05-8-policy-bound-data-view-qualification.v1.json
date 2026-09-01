@@ -1,0 +1,104 @@
+{
+  "evidence_format": "ioi.m058.policy-bound-data-view-qualification.v1",
+  "recorded_at": "2026-08-31",
+  "scope": "M05.8 runtime-enforced PolicyBoundDataView",
+  "ancestry": {
+    "program_start": "91132b5fdde0ef3b29b6b501520ca53df574c878",
+    "implementation_candidate": "44ca39721",
+    "implementation_commits": ["507506f3c", "ebeb9183f", "44ca39721"],
+    "remote_mutated": false
+  },
+  "contracts": [
+    {
+      "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v1",
+      "schema_version": "ioi.policy-bound-data-view.v1",
+      "schema_sha256": "281f0c374e5522db2ddcd8e618d68aef0f85141b1b6694b2e5970fd9ba48f3d6",
+      "posture": "registered read-only predecessor"
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/policy-bound-data-view/v2",
+      "schema_version": "ioi.policy-bound-data-view.v2",
+      "schema_sha256": "322331f583880bf3f83e54ca4486ad40c3ccd52a708f487cf4e07d33a0da23a3",
+      "invariants_sha256": "4d421a9c7991ee33c940ed10437205510969acd6c8c6f63350581c125f0549b3",
+      "posture": "canonical immutable admitted revision"
+    }
+  ],
+  "generated_projections": {
+    "registry_sha256": "15579a43235863f6e7542d6e47beb5bbb3ab61c451c3294dd5ccf7476b23c09c",
+    "rust_sha256": "c96272d4e7ca93e00de368874b948d0621fd1b4b3c4fe9d0e693ddcb33d162e5",
+    "typescript_sha256": "103c91ac03e0ab81778b7d98ea73b5debf016a7f5355502def6f03c34db4a5fe"
+  },
+  "fixture_census": {
+    "v1_positive": 1,
+    "v1_negative": 7,
+    "v2_positive": 2,
+    "v2_negative": 26,
+    "total": 36
+  },
+  "runtime": {
+    "canonical_store": "Agentgres admitted chain",
+    "second_truth_store": false,
+    "immutable_revision_identity": "view://{owner}.{family}/revision/{n}",
+    "migration": "explicit v1-to-v2 convergence binds the predecessor bytes and refuses downgrade",
+    "indexes": "principal/family and materialization projections are rebuildable from Agentgres",
+    "index_deletion_changes_truth": false,
+    "producer": "hypervisor daemon PolicyBoundDataView admission and materialization routes",
+    "consumers": ["native HTTP", "TypeScript SDK", "CLI", "bounded local MCP shim"],
+    "authority_owner": "current owner seams; the view grants no authority",
+    "payload_custody_claimed": false
+  },
+  "materialization_enforcement": {
+    "revalidated_before_every_materialization": [
+      "current_authority",
+      "current_rights",
+      "revocation_state",
+      "expiry",
+      "retention_and_hold",
+      "residency",
+      "destination_class",
+      "consent_state"
+    ],
+    "cross_path_refusals": [
+      "cross_tenant_source",
+      "excess_field",
+      "stale_policy",
+      "declassification",
+      "redaction_as_permission",
+      "missing_source",
+      "destination_without_authority",
+      "excess_row",
+      "residency",
+      "expired_consent",
+      "revocation",
+      "unauthenticated",
+      "cross_principal"
+    ],
+    "granted_projection": "descriptor only; exact permitted fields, rows, time window, representation, destination and egress ceiling; payload_bytes_included=false"
+  },
+  "crash_restart_replay": {
+    "real_process_restart": true,
+    "view_replay_byte_identical": true,
+    "materialization_replay_byte_identical": true,
+    "index_deleted_before_rebuild": true,
+    "rebuild_signal": "rebuilt_from_agentgres",
+    "cross_principal_isolation_after_rebuild": true,
+    "duplicate_read_idempotency": "same key replays the existing decision"
+  },
+  "verification": {
+    "blocking_command": "cd apps/hypervisor && IOI_PBDV_DAEMON_PREBUILT=1 npm run --silent check:policy-bound-data-view",
+    "blocking_result": "80/80",
+    "cross_path_surfaces": ["native", "sdk", "cli", "mcp"],
+    "mutation_command": "cd apps/hypervisor && npm run --silent mutate:policy-bound-data-view",
+    "mutation_result": "38/38 RED ON TARGET",
+    "mutation_anchor_result": "38/38 resolve exactly once with distinct targets",
+    "mutation_harness_digest": "sha256:972eb31ec7e718f937493279d4c6b1fea6f45ee2ed5445e66ce80e5c7f0c4443",
+    "source_restored": true
+  },
+  "explicit_nonclaims": [
+    "No provider connection, credential, grant or authority is created.",
+    "No protected payload bytes are stored in a granted descriptor.",
+    "Redaction creates no right and severs no lineage.",
+    "The MCP shim is not the M01.11 outward gateway.",
+    "No deployment, provider access, network egress or sensitive-data use occurred."
+  ]
+}
