@@ -644,13 +644,13 @@ async function run() {
       { id: "amount", name: "Amount", value_type: "money" }] }],
     action_types: [], link_types: [],
   } }, { as: "A" })).j?.ontology;
-  const mapping = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { name: `${tag}-map`, data_source_id: source, ontology_ref: corpusOntology?.ref, object_type_id: "loan",
+  const mapping = (await jd("POST", "/v1/hypervisor/odk/connector-mappings", { owner_ref: P.A.owner, idempotency_key: `${tag}-mapping-create`, name: `${tag}-map`, data_source_id: source, ontology_ref: corpusOntology?.ref, object_type_id: "loan",
     key_mapping: { source_field: "id", property_id: "loan_id", source_type: "string" },
     title_mapping: { source_field: "disp", property_id: "title", source_type: "string" },
     field_mappings: [{ source_field: "amt", property_id: "amount", source_type: "double" }] }, { as: "A" })).j?.connector_mapping?.id;
   const view = (await jd("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: mapping, name: `${tag}-gate`, authority_subjects: ["agent://materializer"],
     allowed_operations: ["read", "transform"], purpose: "analysis", property_scope: ["loan_id", "title", "amount"], retention_posture: "bounded" }, { as: "A" })).j?.policy_bound_data_view?.id;
-  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { connector_mapping_id: mapping, policy_view_id: view, name: `${tag}-trun` }, { as: "A" })).j?.transformation_run?.id;
+  const trun = (await jd("POST", "/v1/hypervisor/odk/transformation-runs", { owner_ref: P.A.owner, idempotency_key: `${tag}-transformation-run-create`, connector_mapping_id: mapping, policy_view_id: view, name: `${tag}-trun` }, { as: "A" })).j?.transformation_run?.id;
   await jd("POST", `/v1/hypervisor/odk/transformation-runs/${trun}/dry-run`, null, { as: "A" });
   const projection = (await jd("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: mapping, policy_view_id: view, name: `${tag}-explorer`, visible_properties: ["loan_id", "title", "amount"] }, { as: "A" })).j?.ontology_projection?.id;
   const plan = (await jd("POST", "/v1/hypervisor/odk/capability-lease-plans", { data_source_id: source, connector_mapping_id: mapping, policy_view_id: view,
@@ -690,7 +690,7 @@ async function run() {
   // authority ref is read at boot, and BLOCKING when unavailable. That is a follow-up packet.
   ok("the materialization ladder is REAL up to its wallet crossing — every rung admitted through the product's own routes, ending at a run that holds no lease",
     Boolean(source && corpusOntology?.ref && mapping && view && trun && projection && plan && mrun),
-    `source ${Boolean(source)} map ${Boolean(mapping)} plan ${Boolean(plan)} run ${Boolean(mrun)}`);
+    `source ${Boolean(source)} ontology ${Boolean(corpusOntology?.ref)} map ${Boolean(mapping)} view ${Boolean(view)} trun ${Boolean(trun)} projection ${Boolean(projection)} plan ${Boolean(plan)} run ${Boolean(mrun)}`);
   ok("and the crossing that would PRODUCE a corpus is genuinely wallet-gated — it refuses typed, names the authority it needs, and the estate contacted NO source without it",
     leaseChallenge.status === 501
       && String(leaseChallenge.j?.reason ?? "").includes("authority_required")
