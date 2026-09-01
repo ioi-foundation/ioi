@@ -2,11 +2,12 @@
 
 Status: canonical architecture authority.
 Canonical owner: this file for public security/privacy/policy invariants;
-conformance details live in
-`../../conformance/hypervisor-core/`.
+subject-owner status and released protocol-profile evidence, where applicable,
+own conformance details; the separate conformance document class is retired.
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-26.
+Last alignment pass: 2026-08-30 (retired conformance-tree ownership and current
+wallet-bound/provider-replacement posture aligned).
 Doctrine status: canonical
 Implementation status: partial (authority/receipt gates are enforced across existing owner planes; registered multi-axis information-flow and declassification schemas, invariants, fixtures, and generated projections provide contract substrate only; the shared pre-effect evaluator and production propagation/enforcement across HTTP connectors, MCP, hosted models, browsers, memory, OutcomeRoom, ContextCell, general computer use, and inbound connectors/webhooks remain planned; local-agent pairing and TEE/cTEE/L1 items follow their owners and remain planned where not exposed by live routes)
 Implementation refs:
@@ -52,10 +53,12 @@ registry invariant, the registry wording wins on conflict.
 4. No sensitive action without a persisted policy decision.
 5. No policy-required approval without exact request hash, policy hash, scope, expiry, and revocation epoch.
 6. No raw root secrets to agents, apps, marketplace workers, or untrusted runtimes.
-7. wallet.network is the portable delegated authority plane for secrets,
-   provider credentials, external effects, spend, decryption, high-risk
-   approvals, and payments; local/domain governance may own local policy
-   decisions that do not cross those boundaries.
+7. On current IOI served routes, wallet.network is the first-party portable
+   delegated-authority plane for secrets, provider credentials, external
+   effects, spend, decryption, high-risk approvals, and payments; local/domain
+   governance may own local policy decisions that do not cross those
+   boundaries. A future released IOI Authority Protocol profile may replace
+   that provider role without weakening this boundary.
 8. Agentgres records authority artifacts, policy decisions, governance owner
    refs, and receipt links, but does not issue grants or own root secrets.
 9. Providers may supply cognition, compute, storage, connectors, venues, and
@@ -213,10 +216,12 @@ security-domain application.
    settlement profile may reach IOI L1.
 7. Sealed state archives are cold encrypted payloads; Agentgres owns archive
    refs and restore receipts, while authority providers and local/domain policy
-   own restore authority. wallet.network is mandatory for portable delegated
-   authority and its owned decryption, secret, declassification, spend,
-   external-effect, or high-risk restore scopes; ordinary locally authorized
-   restore/apply is not wallet-dependent by definition.
+   own restore authority. Current served portable-delegation routes remain
+   wallet.network-bound for decryption, secret, declassification, spend,
+   external-effect, or high-risk restore scopes. Provider replacement is a
+   future released IOI Authority Protocol target with no alternate served
+   adapter today. Ordinary locally authorized restore/apply is not wallet-
+   dependent by definition.
 8. Hypervisor Node state-transition commitment records are Agentgres/domain truth. A root
    reaches an external settlement service only under the declared profile; IOI
    L1 is valid only for explicitly enrolled, selected services.

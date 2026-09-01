@@ -4,15 +4,28 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-07-20.
+Last alignment pass: 2026-08-30 (Machine Authority and IOI Authority Protocol
+made the first-read security/category substrate).
 Doctrine status: canonical
 Implementation status: mixed (reader entry point over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
 
 ## Five-Minute Mental Model
 
-IOI is the open operating stack for bounded distributed autonomous systems and
-the Internet of Intelligence:
+IOI is building the open Machine Authority substrate for bounded distributed
+autonomous systems and the Internet of Intelligence:
+
+> **IOI's target is to give machines bounded, delegated, revocable power; admit
+> the exact effects they perform; and produce independently verifiable outcome
+> evidence.**
+
+[`machine-authority.md`](../foundations/machine-authority.md) owns that category
+and its completeness contract.
+[`ioi-authority-protocol.md`](../foundations/ioi-authority-protocol.md) owns the
+portable external profile family. The broader operating stack is IOI's
+first-party implementation and extension fabric, not a prerequisite for future
+protocol compatibility; no release is formally designated as the reference
+implementation today.
 
 > **IOI turns intelligence into bounded autonomous institutions. L0 makes one
 > institution safely distributable across governed compute, state,

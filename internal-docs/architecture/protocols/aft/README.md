@@ -17,3 +17,6 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`formal/`](./formal/) — TLA+ source, configs, proof source, and formal-model READMEs.
 - [`RUNBOOKS.md`](./RUNBOOKS.md) — operational runbooks.
 - [`OPERATIONAL_POLICY.md`](./OPERATIONAL_POLICY.md) — operational policy.
+- [`packets/`](./packets/) — historical review and external-evidence packets.
+- [`twin/`](./twin/) — completed in-session clean-room precedent, explicitly
+  bounded to specification clarity and vector agreement.

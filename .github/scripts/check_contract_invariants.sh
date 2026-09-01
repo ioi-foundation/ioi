@@ -26,10 +26,10 @@ else
 fi
 
 required_files=(
-  "docs/conformance/agentic-runtime/CIRC.md"
-  "docs/conformance/agentic-runtime/CEC.md"
   "docs/architecture/_meta/vocabulary.md"
   "docs/architecture/foundations/common-objects-and-envelopes.md"
+  "docs/architecture/foundations/machine-authority.md"
+  "docs/architecture/foundations/ioi-authority-protocol.md"
 )
 
 for file in "${required_files[@]}"; do
@@ -53,10 +53,10 @@ for stale in \
   "crates/types/src/workloads/spec.rs" \
   "crates/services/src/search/mod.rs"; do
   if search_fixed "$stale" \
-    docs/conformance/agentic-runtime/CIRC.md \
-    docs/conformance/agentic-runtime/CEC.md \
     docs/architecture/_meta/vocabulary.md \
-    docs/architecture/foundations/common-objects-and-envelopes.md; then
+    docs/architecture/foundations/common-objects-and-envelopes.md \
+    docs/architecture/foundations/machine-authority.md \
+    docs/architecture/foundations/ioi-authority-protocol.md; then
     fail "stale path reference detected in docs: $stale"
   fi
 done
@@ -66,14 +66,16 @@ for term in intent policy evidence receipt; do
   search_regex "^- \`${term}\`:" docs/architecture/_meta/vocabulary.md \
     || fail "runtime vocabulary term missing or malformed: ${term}"
 done
-for term in Intent Capability Tool; do
-  search_regex "^- \`${term}\`:" docs/conformance/agentic-runtime/CIRC.md \
-    || fail "CIRC ontology term missing or malformed: ${term}"
-done
 search_fixed "TaskEnvelope" docs/architecture/foundations/common-objects-and-envelopes.md \
   || fail "common object envelope missing TaskEnvelope"
 search_fixed "lease ref" docs/architecture/foundations/common-objects-and-envelopes.md \
   || fail "common object envelope missing lease reference"
+search_fixed "MAC-12 — Portable implementation and exit" \
+  docs/architecture/foundations/machine-authority.md \
+  || fail "Machine Authority completeness contract is missing MAC-12"
+search_fixed "ProtocolSurfaceManifest" \
+  docs/architecture/foundations/ioi-authority-protocol.md \
+  || fail "IOI Authority Protocol is missing its surface-manifest boundary"
 
 # Optional local guard when CODEX.txt is present (file is gitignored in this repo).
 if [[ -f "CODEX.txt" ]]; then

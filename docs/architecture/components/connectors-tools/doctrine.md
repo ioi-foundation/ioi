@@ -25,9 +25,10 @@ auth posture, dry-run previews, approval requests, run state, and receipts.
 They must not hold connector secrets or call provider APIs directly. Connector
 execution flows through daemon tool calls, the applicable
 local/domain/protocol authority provider, policy decisions, and receipts.
-wallet.network remains mandatory when the operation uses portable delegated
-authority or its owned spend, secret/decryption, declassification, external
-effect, or other high-risk scope.
+Current served portable-delegation routes remain wallet.network-bound for
+spend, secret/decryption, declassification, external effects, or other high-
+risk scopes. Provider replacement is a future released IOI Authority Protocol
+target with no alternate served adapter or interop proof.
 
 ## Product Surface Doctrine
 

@@ -4,7 +4,8 @@ Status: canonical vocabulary reference.
 Canonical owner: this file for the full register of runtime, audit, substrate, projection, and naming vocabulary — one entry per named thing. It does not own term boundaries.
 Supersedes: overlapping runtime vocabulary in plans/specs when names conflict.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-30 (Machine Authority and IOI Authority Protocol
+names registered).
 Doctrine status: reference
 Implementation status: mixed (naming reference across all maturity levels)
 Last implementation audit: 2026-07-25
@@ -771,6 +772,27 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   durable raw secrets or unrestricted authority.
 ### wallet.network Authority
 
+- `MachineAuthority`: the category of independently verifiable, bounded,
+  delegated, revocable machine power over consequential effects. Its complete
+  meaning and claim ladder are owned by
+  [`machine-authority.md`](../foundations/machine-authority.md); it is not a
+  product name, authentication state, consent receipt, or tool permission.
+- `IOIAuthorityProtocol`: the profile-based portable protocol family that
+  implements Machine Authority across replaceable authority providers,
+  policy-enforcement points, invokers, stores, and verifiers. The exact profile
+  and release contract are owned by
+  [`ioi-authority-protocol.md`](../foundations/ioi-authority-protocol.md); it is
+  not the entire IOI stack or a mandatory hosted dependency. All named profiles
+  remain targets until an exact manifest and evidence release exists.
+- `ProtocolSurfaceManifest`: the future immutable, content-addressed closure of
+  one exact IOI Authority Protocol profile: constituent manifests, contracts,
+  invariants, encodings, signature domains, role/adapter behavior, trust inputs,
+  effect surfaces, transitions, refusal classes, vectors, verifier identity,
+  entitlements, governance, and independence evidence. The target shape is
+  owned by [`ioi-authority-protocol.md`](../foundations/ioi-authority-protocol.md);
+  it is not yet a registered contract, and the architecture registry or a prose
+  list cannot substitute for it.
+
 - `WalletAuthorityCore`: the reusable wallet.network authority pipeline behind
   Wallet, embedded dapp approvals, agents, Hypervisor, CLI prompts, and advanced
   consoles. It evaluates intent, simulation, risk, eligibility, policy,
@@ -1020,9 +1042,10 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   workspace snapshots, non-public app outputs, managed-instance metadata, or
   meaningful local app checkpoints. Storage backends hold encrypted bytes;
   authority providers and local/domain policy control
-  viewing/decryption/mutation authority, with wallet.network mandatory for
-  portable delegated authority, secrets, decryption leases, external effects,
-  or high-risk approval; IOI L1 stores public/economic/cross-domain
+  viewing/decryption/mutation authority. Current served portable-delegation
+  routes remain wallet.network-bound; provider replacement is a future released
+  IOI Authority Protocol target with no alternate served adapter or interop
+  proof. IOI L1 stores public/economic/cross-domain
   commitments only for explicitly enrolled systems under their selected
   settlement profiles.
 ### Artifact Refs And Storage Backends
@@ -1057,9 +1080,10 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
 - `FilecoinCASBackend`: a content-addressed storage backend profile for payload
   availability. It may hold packages, evidence, traces, checkpoints, delivery
   payloads, datasets, and sealed archive bytes, but Agentgres owns their
-  meaning/validity and authority providers control authority/decryption, with
-  wallet.network mandatory when portable delegated authority, secret custody,
-  or decryption leases are required.
+  meaning/validity and authority providers control authority/decryption.
+  Current served portable-delegation routes remain wallet.network-bound.
+  Provider replacement is a future released IOI Authority Protocol target; no
+  alternate served adapter or interoperability proof exists.
 ### Canon Meta Documents
 
 - `CanonImplementationMatrix`: the meta index that maps architecture concepts

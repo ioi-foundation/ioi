@@ -4,10 +4,11 @@ Status: canonical low-level reference.
 Canonical owner: this file for runtime events, receipts, delivery bundles, trace bundles, and quality records.
 Supersedes: overlapping event/receipt examples in plans/specs when event, trace, or receipt fields conflict.
 Superseded by: none.
-Last alignment pass: 2026-08-28.
+Last alignment pass: 2026-08-30 (qualified live SCM v2 admission emission and
+revalidation status reconciled).
 Doctrine status: canonical
-Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, physical-action, and GoalRun activation machine contracts have registered schemas and generated projections; production portable cryptographic verification/CLI support, exact-action receipt emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full OutcomeRoom/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
-Last implementation audit: 2026-07-30
+Implementation status: mixed (receipts/events live across existing owner planes; portable checkpoint/proof, temporal verification/evaluation, exact-action review/admission, managed-work billing/dispute, physical-action, and GoalRun activation machine contracts have registered schemas and generated projections; the qualified live SCM path emits, persists, and revalidates `AuthorityEffectAdmissionReceiptV2` with exact wallet consumption before its finalizer; a portable admission-signature profile, public verifier CLI/package, broader exact-action emitters, managed-work billing/dispute kernels, physical execution, daemon/Agentgres billing/dispute/physical/checkpoint emission, supplier-statement resolution, adjudication/remedy receipts, cross-plane information-flow events, environment backup/restore/route-binding/cleanup receipts, full OutcomeRoom/Campaign/embodied lineage, spacetime reservation, physical segment commitments, and delivery-bundle settlement remain planned; dormant inference-computation-proof and composed-delivery-link excerpts remain unregistered)
+Last implementation audit: 2026-08-30
 
 ## Purpose
 
@@ -1084,9 +1085,11 @@ evidence, authenticator ceremony evidence, principal-authority resolution,
 grant issuance, effect admission, and execution as separate facts.
 
 The closed `AuthorityReviewReceipt` v1 schema and generated Rust/TypeScript
-projections are registered. Its production wallet emitter and the v3 grant
-issuer/verifier remain implementation work; projections alone are not evidence
-that the review boundary ran.
+projections are registered. The raw-v3 Rust verifier is implemented, including
+request/review/ceremony/grant binding and the locally trusted closed-world
+allocation-closure limitation. The production wallet review emitter and grant
+minting path remain implementation work; projections or verifier tests alone
+are not evidence that the review/issuance boundary ran in production.
 
 Registered review-receipt contract:
 `schema://ioi/components/wallet-network/authority-review-receipt/v1`.
@@ -1322,11 +1325,14 @@ or resource PEP makes the exact effect decision. Imported `verified`,
 
 ## Authority Effect Admission Receipt
 
-`AuthorityEffectAdmissionReceiptV2` is the registered target
+`AuthorityEffectAdmissionReceiptV2` is the registered
 policy-enforcement-point evidence that closes the review-to-effect gap. The
 earlier registered v1 is an immutable flat compatibility precursor and cannot
-be rewritten into this `ReceiptEnvelope` wrapper. Production emission and
-verification of v2 remain implementation work.
+be rewritten into this `ReceiptEnvelope` wrapper. Production emission,
+persistence, owner recovery, and finalizer revalidation of v2 are implemented
+for the qualified live SCM portable-authority path. Broader effect surfaces,
+the portable outer-signature profile, and a public verifier release remain
+implementation work.
 
 Registered target contract:
 `schema://ioi/components/daemon-runtime/authority-effect-admission-receipt/v2`.

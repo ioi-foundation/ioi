@@ -6,8 +6,8 @@ Implementation status: mixed (each invariant lists where it is enforced today)
 Canonical owner: this file for the canonical one-sentence wording of cross-cutting invariants; subject owners apply them.
 Supersedes: repeated restatements of these invariants across foundations, components, and domains docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-08-28 (INV-41 one admission owner per domain and
-INV-42 non-expansion upgrade law added).
+Last alignment pass: 2026-08-30 (INV-43 authority-lifecycle separation added;
+INV-41 and INV-42 retained).
 Last implementation audit: 2026-08-08 (registry names owner-doc applications, not code anchors; all cross-links resolve).
 
 ## Purpose
@@ -82,14 +82,18 @@ substitute for the state actually claimed.
 Owner application: [`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
 
 **INV-10 — The quadrant.** Local/domain governance owns local policy, and the
-applicable authority provider issues authority under that policy.
-wallet.network owns portable principal-to-approval-authority binding and is
-mandatory for portable delegated authority and designated high-risk external
-effects; it does not absorb ordinary deployment-local governance. Agentgres
+applicable authority provider issues authority under that policy. Current IOI
+served portable-delegation routes remain wallet.network-bound, including the
+portable principal-to-approval-authority path and designated high-risk external
+effects. A future released IOI Authority Protocol profile is the provider-
+replacement contract; no alternate served adapter or interoperability proof
+exists. wallet.network does not own the protocol category or absorb ordinary
+deployment-local governance. Agentgres
 owns admitted operational truth; storage backends own payload bytes; a
 selected settlement service, including IOI L1 when enrolled, settles triggered
 public commitments. No layer absorbs another's role.
-Owner application: [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md),
+Owner application: [`ioi-authority-protocol.md`](./ioi-authority-protocol.md),
+[`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md),
 [`../components/agentgres/doctrine.md`](../components/agentgres/doctrine.md),
 [`../components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md).
 
@@ -469,6 +473,21 @@ Owner application:
 [`governed-autonomous-systems.md`](./governed-autonomous-systems.md),
 [`domain-kernels.md`](./domain-kernels.md),
 [`../components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md).
+
+**INV-43 — Authority lifecycle stages do not collapse.** An action proposal,
+canonical reviewed representation, policy decision, approval evidence,
+AuthorityGrant, currentness evaluation, exact-effect admission, authority
+consumption, final invocation, outcome observation, reconciliation, acceptance,
+adjudication, and settlement are distinct facts. A later stage must bind the
+required earlier facts but cannot manufacture or rewrite them; an artifact
+received across a sovereignty boundary remains evidence until the local
+authority owner and final policy-enforcement point independently validate it.
+No imported `approved`, `authorized`, `verified`, `executed`, or `settled` flag
+may auto-elevate into the corresponding local fact.
+Owner application: [`machine-authority.md`](./machine-authority.md),
+[`ioi-authority-protocol.md`](./ioi-authority-protocol.md),
+[`../components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md),
+[`../components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md).
 
 ## Citation Rule
 

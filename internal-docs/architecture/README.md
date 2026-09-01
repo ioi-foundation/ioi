@@ -1,4 +1,4 @@
-# internal-docs/architecture — Proposal And Private-Protocol Space, Never Canon
+# internal-docs/architecture — Proposal, Research, And Private-Protocol Space, Never Canon
 
 Status: directory rule and index; non-canonical.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win
@@ -20,17 +20,32 @@ retirement. A file that cannot honestly carry the header does not belong here
 — move it. The directory rule was recorded 2026-08-04 alongside the
 canon-agenda ratification.
 
-## Contents
+## Active Programs
+
+- [`machine-authority-category-program.md`](./machine-authority-category-program.md)
+  — the live evidence, profile-closure, independent-reproduction, adoption, and
+  promotion program for the canonical Machine Authority category and IOI
+  Authority Protocol. It tracks work; it owns no doctrine or implementation
+  status.
+
+## Private Protocol Corpora
+
+- [`protocols/`](./protocols/) — the indexed internal protocol research,
+  specification-development, formal, and clean-room-test corpora. They support
+  canon owners and never override them.
+
+## Historical Rationale And Completed Tracks
 
 - [`canonical-ioi-thesis-and-canon-change-recommendations.md`](./canonical-ioi-thesis-and-canon-change-recommendations.md)
-  — the ratified sequenced canon agenda (owner ruling 2026-08-04) and the IoI
-  thesis drafted for canon adoption.
-- [`licensing-adr-track-opener.md`](./licensing-adr-track-opener.md) — R-03
-  parallel track: decision space and legal-review questions for the licensing
-  ADR.
+  — archived executed 2026-08-04/05 canon agenda; retained as rationale and
+  closure history only.
+- [`licensing-adr-track-opener.md`](./licensing-adr-track-opener.md) — archived
+  R-03 decision-space record, succeeded by accepted ADR 0033.
 - [`internet-of-intelligence-target-architecture-synthesis.md`](./internet-of-intelligence-target-architecture-synthesis.md)
-  — promotion-complete 2026-07-11 synthesis; retained as rationale history.
-- [`protocols/`](./protocols/) — private protocol corpora (AFT, ai-url):
-  supporting context for canon owners, not owners themselves.
+  — archived promotion-complete 2026-07-11 synthesis; retained as rationale
+  history only.
+
+## Historical Change Reports
+
 - [`_meta/changelog/`](./_meta/changelog/) — historical alignment and refactor
   reports.

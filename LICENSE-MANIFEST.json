@@ -16,7 +16,7 @@
       "spdx": "Apache-2.0",
       "text": "LICENSE-APACHE-2.0",
       "effective": "now",
-      "rationale": "The protocol surface. Anything a third party must read, implement, or run to verify IOI's honesty or to build an interoperable implementation is permissively licensed today, not on the Change Date. Canon requires the open surface to be independently implementable and operable; a surface under a competition-restricted license is not that."
+      "rationale": "The currently enumerated protocol source pool. Anything a third party must read, implement, or run for a future interoperable profile must be permissively licensed before that profile is released. Licensing establishes legal inspectability; it does not by itself establish frozen profile closure, specification sufficiency, conformance, or independent operability."
     },
     "cc_by_4_0": {
       "spdx": "CC-BY-4.0",
@@ -31,7 +31,7 @@
       "effective": "now",
       "converts_to": "Apache-2.0",
       "change_date": "2029-11-06",
-      "rationale": "The reference implementation. Use is broadly permitted; only redistribution as a competing blockchain development framework or SDK is restricted, and that restriction expires on the Change Date."
+      "rationale": "The first-party implementation code and build configuration. No formal reference-release designation is implied. Use is broadly permitted; only redistribution as a competing blockchain development framework or SDK is restricted, and that restriction expires on the Change Date."
     },
     "third_party": {
       "spdx": "SEE-LICENSE-IN-SUBTREE",
@@ -74,14 +74,13 @@
         "LICENSE-APACHE-2.0",
         "LICENSE-DOCS",
         "docs/architecture/_meta/schemas/**",
-        "docs/conformance/**",
         "crates/types/src/app/generated/architecture_contracts.rs",
         "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
         "packages/wallet-protocol/**",
         "packages/agent-sdk/**",
         "packages/hypervisor-adapter-targets/**"
       ],
-      "note": "The open protocol surface: registered contracts, JSON Schemas, cross-field invariants, fixtures, both generated projections, the conformance tree, and the client-facing protocol type libraries. The license texts themselves are listed here so they remain reproducible with any distribution, as Apache-2.0 section 4 in any case requires; listing LICENSE-BBSL here licenses the TEXT of that license, not the work it governs."
+      "note": "The currently licensed protocol source pool: registered contracts, JSON Schemas, cross-field invariants, fixtures, both generated projections, and client-facing protocol type libraries. The retired docs/conformance document class is intentionally absent. A future executable protocol artifact must be added at its exact path before release. The license texts themselves are listed here so they remain reproducible with any distribution, as Apache-2.0 section 4 in any case requires; listing LICENSE-BBSL here licenses the TEXT of that license, not the work it governs."
     },
     {
       "class": "cc_by_4_0",
@@ -121,11 +120,11 @@
         "*.sh",
         "*.lock"
       ],
-      "note": "The reference implementation and its build configuration. Paths already matched by an earlier rule are not reached by this one; in particular the two generated projections and the client-facing protocol packages are Apache-2.0. Build, CI, and repository configuration ride with the implementation they build."
+      "note": "The first-party implementation code and its build configuration; this class does not imply formal reference-release designation. Paths already matched by an earlier rule are not reached by this one; in particular the two generated projections and the client-facing protocol packages are Apache-2.0. Build, CI, and repository configuration ride with the implementation they build."
     }
   ],
   "open_protocol_surface": {
-    "note": "The enumeration required by foundations/economic-flywheel-and-pricing-boundaries.md and referenced by the reference-implementation contract in foundations/web4-and-ioi-stack.md. Every entry below is Apache-2.0 or CC-BY-4.0 as of this manifest's effective date, which is what makes the surface independently implementable.",
+    "note": "The currently licensed source-pool enumeration required by foundations/economic-flywheel-and-pricing-boundaries.md and referenced by the reference-designation contract in foundations/web4-and-ioi-stack.md. Every entry below is Apache-2.0 or CC-BY-4.0 as of this manifest's effective date. That establishes legal inspectability only; an exact released profile manifest, public verifier, vectors, and independent parity are still required for an independently implementable protocol claim.",
     "members": [
       "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
       "docs/architecture/_meta/schemas/*.schema.json",
@@ -133,7 +132,6 @@
       "docs/architecture/_meta/schemas/fixtures/**",
       "crates/types/src/app/generated/architecture_contracts.rs",
       "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
-      "docs/conformance/**",
       "docs/architecture/foundations/**",
       "docs/decisions/**"
     ]

@@ -138,7 +138,7 @@ open, independently operable L0
   Agentgres ref and object model
   provider / connector / harness adapter contracts
   SDK / ADK / ODK interfaces and portable package formats
-  complete self-hostable reference stack
+  complete self-hostable first-party stack
   conformance tests
 
 protected commercial implementations (allowed, never required for compatibility)
@@ -162,7 +162,7 @@ The open L0 must be implementable and independently operable, not merely
 inspectable. It should use permissive or standards-compatible terms wherever
 adoption, third-party implementation, offline verification, portability, or
 challengeability is load-bearing. Commercial implementations may remain
-protected when a complete compatible reference path exists. The
+protected when a complete compatible first-party path exists. The
 network/operations layer becomes a defensible business only where voluntary
 participation creates distribution, routing, managed-execution, or commercial-
 trust value greater than the coordination, disclosure, and switching costs
@@ -354,7 +354,7 @@ The system-level enrollment profiles make the economic boundary explicit:
 
 | Enrollment | What the network supplies | Economic rule |
 | --- | --- | --- |
-| `ioi_compatible` | Open L0 contracts, formats, reference implementation, and local conformance. No IOI Network assurance. | No mandatory fee, token, L1 use, or network contribution. Adoption may improve tooling and ecosystem reach but creates no automatic L1 demand. |
+| `ioi_compatible` | Open L0 contracts and formats plus first-party implementation source; target local conformance. No formal reference release, released IAP profile, or IOI Network assurance is implied. | No mandatory fee, token, L1 use, or network contribution. Adoption may improve tooling and ecosystem reach but creates no automatic L1 demand. |
 | `ioi_connected` | Selected registry, rights, reputation, escrow, dispute, settlement, or endpoint services. | Pay only for the selected service under its fee basis; connection alone does not imply shared security or certification. |
 | `ioi_secured` | Standard DAS conformance plus named verifier, guardian, availability, ordering, finality, arbitration, or related shared-security coverage. | Explicit service fees, bonds/stake, slashing/claim terms, or a declared network-contribution covenant pay for scarce neutral trust. |
 

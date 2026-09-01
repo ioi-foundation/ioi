@@ -1,5 +1,9 @@
 # Clean-Room Twin Result — UBC Seal-Share Verifier (AFT-CB P4.5b)
 
+Status: completed internal in-session twin result; non-canonical.
+Authority: AFT canonical owners and accepted ADRs win on drift; this result is
+not an external audit, neutral certification, or independent adoption proof.
+
 **Provenance label (owner ruling, verbatim scope): in-session clean-room
 twin. Establishes specification clarity and vector agreement. NOT an
 external audit, independent peer review, public adversarial validation,

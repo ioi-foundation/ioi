@@ -1,9 +1,11 @@
 # Internet of Intelligence Target Architecture
 
-Status: promotion-complete synthesis; non-canonical rationale and pressure-test
-source. Its target state was distributed into canonical owners under
-`docs/architecture/` on 2026-07-11. Canonical owner docs and accepted ADRs win
-if this synthesis later drifts.
+Status: archived promotion-complete synthesis; non-canonical historical
+rationale and pressure-test source. Its target state was distributed into
+canonical owners under `docs/architecture/` on 2026-07-11.
+Authority: canonical owner docs and accepted ADRs win on drift; this file is
+frozen and must not direct current work.
+Archived: 2026-08-30.
 
 Date: 2026-07-11.
 

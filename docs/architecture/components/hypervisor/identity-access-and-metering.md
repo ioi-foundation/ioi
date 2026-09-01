@@ -47,8 +47,8 @@ Identity / access  answers: WHO is this principal, and what org-surface
                    (settings, membership) access do they hold?
 Policy/authority   answers: MAY this principal/agent/client perform this
                    specific consequential crossing?
-wallet.network     is mandatory for portable delegated authority and the
-                   designated high-risk external effects assigned to it.
+IOI Authority      targets provider-replaceable portable delegation;
+Protocol           current served routes remain wallet.network-bound.
 Hypervisor Daemon  admits and enforces authorized work.
 Agentgres          records admitted operational truth.
 ```
@@ -386,16 +386,20 @@ authentication (who)            session / API token / SSO — gated when exposed
 ```
 
 Authentication and scope can only *narrow*; they never grant a crossing. The
-applicable policy/authority ring authorizes. wallet.network is mandatory for
-portable delegated authority and the high-risk external effects assigned to it;
-it is not required merely to represent every deployment-local product action.
+applicable policy/authority ring authorizes. Current served portable-delegation
+routes remain wallet.network-bound for their assigned high-risk external
+effects. Provider replacement is a future released IOI Authority Protocol
+target with no alternate served adapter or interop proof. wallet.network is not
+required merely to represent every deployment-local product action.
 
 ## Conformance Checks
 
 - Identity/roles must never authorize a consequential crossing by themselves.
   Every crossing requires the policy/authority evidence named by its domain and
-  risk profile; portable delegation and designated high-risk external effects
-  require a wallet.network grant or capability lease regardless of role/session.
+  risk profile. On current IOI served routes, portable delegation and designated
+  high-risk external effects require a wallet.network grant or capability lease
+  regardless of role/session; a future released provider-replacement profile
+  may satisfy that boundary through another conforming provider.
 - Passwords and inbound tokens (API access tokens, SCIM tokens, SSO client
   secrets) must be hashed/sealed at rest; plaintext is surfaced at most once and
   never recoverable from a list/read.

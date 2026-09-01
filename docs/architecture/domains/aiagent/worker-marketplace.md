@@ -887,9 +887,10 @@ User opt-ins should be equally explicit. A user may choose to:
 
 Opt-in does not grant authority by itself. Effectful invocation still requires
 policy admission, the relevant authority gate, approval where required, runtime
-assignment, receipts, and Agentgres state updates. wallet.network remains
-mandatory for portable delegated authority, secrets, spend, decryption, external
-effects, or high-risk approvals.
+assignment, receipts, and Agentgres state updates. Current served portable-
+delegation routes remain wallet.network-bound for secrets, spend, decryption,
+external effects, or high-risk approvals. Provider replacement is a future
+released IOI Authority Protocol target with no alternate served adapter.
 
 ## User Without Hypervisor
 

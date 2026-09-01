@@ -91,7 +91,7 @@ Consequential sub-rulings:
    Work remains a policy-filtered projection over typed subjects, which may
    include application-contributed subjects.
 5. **The open-reference invariant is load-bearing.** The orchestration
-   application ships in the open reference stack. If it ever became
+   application ships in the open first-party stack. If it ever became
    account-gated or closed, sovereign-local completeness and the adoption
    calculus would both fail; this is an explicit invariant of the ruling.
 6. **Substrate-generic guarantees stay substrate.** INV-37, the
@@ -155,7 +155,9 @@ not by drift.
   `components/hypervisor/core-clients-surfaces.md`.
 - **Proof wording** — SLC and north-star language restated as "instantiate
   the packaged application locally" / "AIIP + package contracts"; substance
-  unchanged. Owner: `_meta/execution-horizons.md`, `docs/conformance/`.
+  unchanged. Owner: `_meta/execution-horizons.md` and the applicable subject
+  owner. The former `docs/conformance/` document class was retired on
+  2026-08-12 and is not a current claim authority.
 
 ## Non-Goals
 

@@ -158,5 +158,7 @@ deleted section, not a lost guarantee.
 - [`../architecture/../architecture/domains/ioi-ai/goal-run-execution.md`](../architecture/../architecture/domains/ioi-ai/goal-run-execution.md)
 - [`../architecture/components/hypervisor/core-clients-surfaces.md`](../architecture/components/hypervisor/core-clients-surfaces.md)
 - [`../architecture/foundations/term-boundaries.md`](../architecture/foundations/term-boundaries.md)
-- `../conformance/hypervisor-core/sovereign-local-completeness.md`
-- `../conformance/README.md`
+
+The former `../conformance/hypervisor-core/sovereign-local-completeness.md` and
+`../conformance/README.md` references were retired with that document class on
+2026-08-12; they are historical, not current claim authorities.

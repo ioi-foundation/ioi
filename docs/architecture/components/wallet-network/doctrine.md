@@ -4,32 +4,43 @@ Status: canonical architecture authority.
 Canonical owner: this file for wallet.network authority doctrine; wallet product, exchange, route-source, exposure, protection, approval-inbox, and receipt doctrine lives in [`product-exchange-risk.md`](./product-exchange-risk.md); low-level scope APIs live in [`api-authority-scopes.md`](./api-authority-scopes.md).
 Supersedes: older generic capability-grant wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-08-29.
+Last alignment pass: 2026-08-30 (wallet.network designated the first-party IOI
+Authority Protocol provider rather than owner of the external category).
 Doctrine status: canonical
-Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, and exact grant-hash-keyed effect consumption with immutable replay receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action issuance/verification/admission plus embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, ProviderConnectionBinding/ceremony/disconnect lifecycle, WalletReceipt v2, wallet interoperability, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
+Implementation status: partial (capability-lease authority, sealed credentials, approval gates, the principal-to-approval-authority resolver, complete raw-v3 verification with locally trusted allocation closure, exact grant-hash-keyed consumption, and registered v2 admission emission/revalidation on the qualified live SCM path are implemented; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant minting, a portable signed allocation closure, public verifier CLI/package, broader effect admission, embedded account/factor/passkey/recovery APIs, guardian surfaces, key shards, MPC vault, ProviderConnectionBinding/ceremony/disconnect lifecycle, WalletReceipt v2, wallet interoperability, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/`
+  - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs`
   - `crates/types/src/app/wallet_network/principal_authority.rs`
+  - `crates/services/src/wallet_network/portable_authority.rs`
+  - `crates/services/src/wallet_network/handlers/portable_authority.rs`
+  - `crates/services/src/wallet_network/tests/portable_authority_state.rs`
   - `crates/services/src/wallet_network/handlers/principal_authority.rs`
-Last implementation audit: 2026-07-19
+Last implementation audit: 2026-08-30
 
 ## Canonical Definition
 
-**wallet.network is the canonical Web4 authority layer: the identity, secret,
-authority-scope, approval-token, payment, exchange-authority, portable
-data-use authority, decryption-lease, and revocation control plane for
-autonomous software.**
+**wallet.network is IOI's first-party authority provider and control plane:
+identity, secret custody, authority scope, approval, payment,
+exchange-authority, portable data-use authority, decryption leases, and
+revocation for autonomous software.**
 
 It owns identity, secrets, authority scope grants, session authority,
 approval-token issuance, payments, revocation, and audit lineage for delegated
 machine power. It is the authority wallet and control cockpit for autonomous
 agents. It is not merely a crypto wallet.
 
-Within canonical Web4, wallet.network is the machine-authority issuer and
-revocation plane. It converts human, organization, domain, contract, and policy
-intent into machine-readable authority requests, leases, denials, challenges,
-spend limits, declassification decisions, data-use permissions, payment
-authority, and revocation events.
+Within IOI's current served Web4 stack, wallet.network implements the intended
+IOI Authority Protocol issuer and revocation roles. It converts human,
+organization, domain,
+contract, and policy intent into machine-readable authority requests, leases,
+denials, challenges, spend limits, declassification decisions, data-use
+permissions, payment authority, and revocation events. The protocol remains
+targeted for implementation by another conforming authority provider, but no
+released profile, alternate served provider adapter, or interoperability proof
+exists today. wallet.network owns its product and first-party implementation,
+not the Machine Authority category.
 
 wallet.network must not become the owner of every product permission in the
 system, and it does not need to be a visible destination for every permission

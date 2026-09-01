@@ -83,7 +83,9 @@ this ruling being wrong is schedule, not architecture.
 ## Canonical References
 
 - [`../architecture/_meta/execution-horizons.md`](../architecture/_meta/execution-horizons.md)
-- `../conformance/hypervisor-core/sovereign-local-completeness.md`
-- `../conformance/README.md`
 - [`../architecture/foundations/web4-and-ioi-stack.md`](../architecture/foundations/web4-and-ioi-stack.md)
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
+
+The former `../conformance/hypervisor-core/sovereign-local-completeness.md` and
+`../conformance/README.md` references were retired with that document class on
+2026-08-12; they are historical, not current claim authorities.

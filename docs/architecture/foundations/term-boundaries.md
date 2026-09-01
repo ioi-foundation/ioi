@@ -4,7 +4,8 @@ Status: canonical term-boundary authority.
 Canonical owner: this file for the `Term | Canonical Meaning | Must Not Mean` boundary of every protected core term, for each term's ontological category, and for the alias and forbidden-alias register.
 Supersedes: the `Terminology Boundary Table` that was carried as an H3 subsection under `Package Release And Live-System Genesis` inside the single-file `common-objects-and-envelopes.md`; scattered restatements of these boundaries in owner docs when wordings drift.
 Superseded by: none.
-Last alignment pass: 2026-07-25.
+Last alignment pass: 2026-08-30 (Machine Authority category and IOI Authority
+Protocol boundaries added).
 Doctrine status: canonical
 Implementation status: mixed (a terminology contract over subjects at every maturity level; the deprecated-alias register is a review obligation with no machine enforcement — see `Deprecated and Forbidden Aliases` below)
 Implementation refs:
@@ -65,6 +66,9 @@ observed in this canon and its implementation records.
 | Term | Category | Canonical Meaning | Must Not Mean |
 | --- | --- | --- | --- |
 | Internet of Intelligence | protocol | The network condition in which independently governed intelligent institutions exchange bounded, verifiable work under machine authority: an economy of accountable intelligent labor across sovereign boundaries — identity-bound actors, leased authority, attributable evidence, challengeable results, and sparse settlement. Owned by [`internet-of-intelligence.md`](./internet-of-intelligence.md). | A shared or global model; a federated-learning network or any protocol whose substrate is pooled knowledge, parameters, or gradients; an agent swarm or leaderboard; one provider's agent ecosystem; a global collaboration database. Also not a synonym for IOI the product, and never a claim that the north-star network proof has been passed. |
+| Machine Authority | authority | Independently verifiable, bounded, delegated, revocable power exercised by a machine over consequential effects, with content-bound admission, controlled consumption, and attributable outcome evidence. Completeness and claim boundaries are owned by [`machine-authority.md`](./machine-authority.md). | Authentication, identity, capability, secret possession, a policy result, a signed proposal or consent record, a tool schema, a generic receipt, a payment signature, or permission for a machine to widen its own power. Passing a narrow action-authorization profile is not a complete Machine Authority claim. |
+| IOI Authority Protocol | protocol | The target open, profile-based external protocol family through which independently governed authority providers, policy-enforcement points, invokers, stores, and verifiers implement Machine Authority. Owned by [`ioi-authority-protocol.md`](./ioi-authority-protocol.md); no named profile is currently released. | The whole IOI stack; a future requirement to use wallet.network, Hypervisor, Agentgres, AIIP, IOI L1, an IOI account, or an IOI-hosted service; an unqualified generic category name; or permission to claim a broader profile than the exact surface passed. |
+| Protocol Surface Manifest | protocol release | The future immutable, content-addressed closure of one exact IOI Authority Protocol profile and its entitlements, owned by [`ioi-authority-protocol.md`](./ioi-authority-protocol.md). | The full architecture contract registry, a package version, prose list, mutable “latest” selector, first-party test run, or proof that any profile is released today. |
 | Autonomous System Package | definition | The reusable developer-facing build artifact binding worker responsibility, topology, capabilities, authority requirements, memory/state/artifact contracts, evals, profile templates/constraints, and receipt obligations. | A raw workflow file, connector config, daemon process, live system identity, or node membership. |
 | AutonomousSystemManifest | definition | The immutable release-manifest contract that makes an Autonomous System Package deterministic, portable, evaluable, and receipted. | A live system, second runtime, or React Flow truth store. |
 | AutonomousSystemGenesis | durable object | The one-time binding of a selected package release to a new `system_id`, constitution, initial active profiles, authority decision, and cryptographic initial state. | A package publication, ordinary upgrade, node join, or network enrollment. |
@@ -176,7 +180,7 @@ and three different questions:
   providers authorize; Agentgres records admitted truth. This never moves.
 - **Whose domain objects are these?** The goal/room family belongs to the
   **ioi.ai orchestration application** — an openly packaged domain
-  application in the reference stack, deployable on any Hypervisor locally
+  application in the first-party stack, deployable on any Hypervisor locally
   and offline with no ioi.ai account. Its truth is admitted through daemon +
   Agentgres in its bounded domain like any application domain.
 - **What does an external party speak?** AIIP packet families plus the room
@@ -212,7 +216,7 @@ matter:
   lifecycle, authority, budget, or evidence until the daemon admits a GoalRun.
 - An ioi.ai projection is a projection. It must not become a competing
   operational source of truth, and it must not be the only place a fact exists.
-- The orchestration application ships in the open reference stack — this is a
+- The orchestration application ships in the open first-party stack — this is a
   load-bearing invariant of ADR 0022, because the **target** standalone
   contract requires a compatible local deployment to create, admit, run, and
   replay this work without an `ioi.ai` account.

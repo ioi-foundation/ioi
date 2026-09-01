@@ -1,26 +1,29 @@
 # The Canonical Categorical Internet Of Intelligence — Thesis For Adoption And Canon Change Recommendations
 
-Status: ratified sequenced canon agenda (owner ruling 2026-08-04), **EXECUTED IN
-FULL on 2026-08-05** — see the status table below. Still non-canonical as text;
-the canon it recommended now lives at its owners, and this file is the record of
-what was recommended, what was measured, and what closed. Nothing in this file amends a canonical owner under
-`docs/architecture/`. Canonical owner docs and accepted ADRs win if this
-document later drifts.
+Status: archived executed canon agenda; promotion complete; non-canonical
+historical record. Executed in full on 2026-08-05 and frozen as rationale.
+Authority: `docs/architecture/` owners and accepted ADRs are canonical and win
+on drift; this file must not direct current work.
+Archived: 2026-08-30.
+Succeeded by: the canonical owners named in the status table below and the live
+[`machine-authority-category-program.md`](./machine-authority-category-program.md)
+for new category evidence and promotion work.
 
 Date: 2026-08-04. Regime restatement: 2026-08-05.
 
-**This register is now the sole live carrier of the Tier-2 gap namings.** The
-program estate that co-named them — `internal-docs/implementation/` (master
-guide, stages, modules, work items, `NOW.md`, and the whole sequencer toolchain)
-— was deleted on 2026-08-05 by the ratified merge-and-strip directive
-([`../overhaul/2026-08-05-merge-and-strip-action-plan.md`](../overhaul/2026-08-05-merge-and-strip-action-plan.md)
-§5.1), together with the certification harness, the checker/ratchet fleet, and
-the retained-evidence tree. Nothing in that estate survives to re-raise R-08
-through R-12; if this file stops naming a gap, the gap stops being named
-anywhere. Passages below that cite stage records, `NOW.md` blockers, or the M5
-branch are therefore rewritten as obligations owed by canon on their own terms.
-Dated provenance and the dated ruling record are kept verbatim as history — they
-record what was true when the agenda was ratified, not what binds work today.
+**Historical regime note.** At execution time this register became the sole
+remaining carrier of the then-open Tier-2 gap names after the program estate —
+`internal-docs/implementation/` (master guide, stages, modules, work items,
+`NOW.md`, and the whole sequencer toolchain) — was deleted on 2026-08-05 by the
+ratified merge-and-strip directive (historical deleted path
+`internal-docs/overhaul/2026-08-05-merge-and-strip-action-plan.md` §5.1,
+retained in Git history at the 2026-08-05 transition), together with the
+certification harness, the checker/ratchet fleet, and
+the retained-evidence tree. Every R-item later closed and the current owners now
+carry their own implementation status; this archived register is no longer a
+live gap or sequencing authority. Dated provenance and the dated ruling record
+are kept as history—they record what was true when the agenda was ratified, not
+what binds work today.
 
 ## Ruling Record (2026-08-04) — history, kept verbatim
 

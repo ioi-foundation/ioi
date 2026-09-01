@@ -385,11 +385,13 @@ The response is an `ioi.hypervisor.project_operation_proposal.v1` object:
 Project operation proposals are not execution admissions. Archive/restore
 execution still requires the current approval and lease of the authority
 provider that owns the requested scopes, Agentgres operation refs, receipts,
-state roots, and the approved-operation admission boundary. wallet.network is
-mandatory when restore/apply requires portable delegated authority or its
-owned secret, decryption, declassification, spend, external-effect, or
-high-risk scope; an ordinary deployment-local restore is not wallet-dependent
-by definition. A v1 adapter may read historical `requires_wallet_lease` and
+state roots, and the approved-operation admission boundary. Current served
+portable-delegation routes remain wallet.network-bound for secret, decryption,
+declassification, spend, external-effect, or high-risk scopes. Provider
+replacement is a future released IOI Authority Protocol target; no alternate
+served adapter or interop proof exists. An ordinary deployment-local restore is
+not wallet-dependent by definition. A v1 adapter may read historical
+`requires_wallet_lease` and
 `wallet_lease_ref` fields only when that wallet-owned posture actually applies;
 target canonical state emits the provider-neutral fields above.
 
@@ -1381,10 +1383,11 @@ retirement refusal. The adopted ported client estate does not yet consume that
 projection app by app; its compatibility routes, fixture branches, and local
 catalog assumptions remain migration inputs. The daemon implementation is not
 client cutover or release closure: per-surface operational-journey depth and
-product claims bind through the conformance claim coverage index
-(`../../../conformance/README.md`), not through private
-program gates. This status was measured on 2026-07-30 and has not been
-re-derived since; treat it as stale until re-verified.
+product claims bind through this owner's implementation status, the
+[`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md), and retained
+release/profile evidence—not through private program gates or the retired
+`docs/conformance/` tree. This status was measured on 2026-07-30 and has not
+been re-derived since; treat it as stale until re-verified.
 
 ```http
 POST /v1/hypervisor/session-launch-recipe-admissions
@@ -1460,9 +1463,10 @@ POST /v1/hypervisor/approved-operations
 `POST /v1/hypervisor/approved-operations` admits an already-proposed
 Hypervisor operation for execution only after the operation has passed the
 applicable local/domain/protocol authority path and the Agentgres truth path.
-wallet.network is mandatory when the operation invokes portable delegated
-authority or one of its owned spend, secret/decryption, declassification,
-external-effect, or high-risk scopes.
+Current served portable-delegation routes remain wallet.network-bound for
+spend, secret/decryption, declassification, external-effect, or high-risk
+scopes. A future released IOI Authority Protocol profile is the provider-
+replacement boundary; no alternate served adapter is implemented.
 
 Request body:
 

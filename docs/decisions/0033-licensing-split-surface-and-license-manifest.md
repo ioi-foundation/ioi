@@ -5,6 +5,9 @@
 - Owners: IOI Foundation (licensor) / architecture canon owners / conformance
   and certification owners
 - Refines: ADR 0015
+- Refined by: ADR 0040 for the 2026-08-12 retirement of the separate
+  `docs/conformance/` document class and the future exact IOI Authority Protocol
+  artifact boundary
 - Unaffected: the Change Date (November 6, 2029); the Section 2 Use Limitation;
   every technical contract, schema, and invariant in this canon
 - Confidence: settled as the licensing architecture and as the repair of two
@@ -26,6 +29,19 @@ resolves the *architecture* question that every downstream adoption property was
 waiting on; it does not convert that resolution into a legal opinion, and this
 ADR must not be cited as one.
 
+## 2026-08-30 Refinement: The Retired Conformance Tree Is Not A Surface
+
+The `docs/conformance/` document class was retired on 2026-08-12. References
+below to “the conformance tree” describe the surface as it existed when this ADR
+was accepted; they no longer designate a live artifact, runnable profile, or
+manifest member. ADR 0040 controls that later architecture decision.
+
+`LICENSE-MANIFEST.json` no longer lists the deleted glob. A future IOI Authority
+Protocol runner, vectors, manifest, or package must be added under its exact
+public path with an explicit license-manifest refinement before release. The
+remaining permissive grants are unchanged. Removal of an empty deleted glob
+does not withdraw rights from any previously distributed file.
+
 ## Context
 
 Canon named this the single most load-bearing adopt-vs-fork input: may a third
@@ -45,37 +61,38 @@ contracts, services, consulting, hosting, validation, or private forks. The
 problem was never that the license was closed. It was two drafting defects that
 undermine the adoption calculus regardless of which licensing option is chosen,
 and one structural mismatch between a kernel-era license and a monorepo that now
-carries the daemon, Agentgres, product surfaces, marketplaces, schemas, and the
-conformance tree.
+carries the daemon, Agentgres, product surfaces, marketplaces, schemas, and, at
+the time of this decision, a conformance document tree later retired.
 
 ## Decision
 
 ### 1. Split the surface
 
-The protocol surface is licensed permissively **now**; the reference
-implementation remains under `LICENSE-BBSL` until the Change Date.
+The protocol source pool is licensed permissively **now**; first-party
+implementation code remains under `LICENSE-BBSL` until the Change Date. A
+formal reference-release designation is separate and has not occurred.
 
 | Class | License | Covers | Effective |
 | --- | --- | --- | --- |
-| `apache_2_0` | Apache-2.0 | registered contracts, JSON Schemas, cross-field invariants, fixtures, both generated projections, the conformance tree, client-facing protocol type libraries | now |
+| `apache_2_0` | Apache-2.0 | registered contracts, JSON Schemas, cross-field invariants, fixtures, both generated projections, client-facing protocol type libraries, and any future exact protocol artifact only after it is added to the manifest | now |
 | `cc_by_4_0` | CC BY 4.0 | specification and decision prose under `docs/` | now |
-| `bbsl_1_1` | BBSL 1.1 → Apache-2.0 | the reference implementation and its build configuration | now, converting 2029-11-06 |
+| `bbsl_1_1` | BBSL 1.1 → Apache-2.0 | first-party implementation code and its build configuration; no formal reference designation implied | now, converting 2029-11-06 |
 | `third_party` | per subtree | vendored material with its own `LICENSE` | now |
 | `reserved` | none granted | internal working material, evidence, marks, brand assets | now |
 
 The reasoning is the covenant canon already made: **anything a third party must
 read, implement, or run to verify IOI's honesty must be inspectable and
-independently operable.** A conformance suite an adopter may not legally run
-does not make them able to self-certify, and a schema registry under a
+independently operable.** A future conformance suite an adopter may not legally
+run does not make them able to self-certify, and a schema registry under a
 competition-restricted license does not make a protocol surface open. Those are
 the artifacts that carry the openness claim, so those are the artifacts that get
 permissive terms today rather than in 2029.
 
 What the split does **not** give away is what the Use Limitation was actually
-protecting: the reference implementation stays under BBSL, and redistributing it
-as a competing blockchain development framework stays restricted until the
-Change Date. Publishing the specification has never been how a framework moat is
-lost.
+protecting: first-party implementation code stays under BBSL, and
+redistributing it as a competing blockchain development framework stays
+restricted until the Change Date. Publishing the specification has never been
+how a framework moat is lost.
 
 ### 2. Define the Licensed Work by manifest
 
@@ -143,9 +160,10 @@ rights would need a versioned successor and the change process in
 - R-05's reference-implementation contract gains a legal footing: a third party
   proving parity against a named surface may now legally read, implement, and
   run every artifact that surface consists of.
-- R-07's public conformance profile becomes legally runnable by an outsider. It
-  is still not *operationally* runnable — no runner exists — and this ADR does
-  not change that.
+- At acceptance, R-07's then-proposed public conformance path was legally
+  runnable but not operationally runnable. That document class was later
+  retired. No current IOI Authority Protocol profile or runner exists; its
+  future exact artifact path must be added to the manifest before release.
 - `crates/*/Cargo.toml` entries carrying `license-file = "LICENSE-BBSL"` remain
   correct: those crates are `bbsl_1_1` under the manifest.
 - Contributions continue under § 4 with no CLA or DCO formality. This is
@@ -154,10 +172,9 @@ rights would need a versioned successor and the change process in
 ## Rejected Alternatives
 
 - **Option B — whole-repo BBSL with the defects fixed.** Cheapest legally, and
-  rejected because it leaves the conformance suite and schema registry
-  non-permissive. That directly contradicts the outsider-runnable certification
-  requirement and would have made the adoption calculus's own table read
-  "recorded gap" for a reason we had chosen.
+  rejected because it leaves the schema registry and any future conformance
+  suite non-permissive. That directly contradicts outsider-runnable
+  interoperability and would leave a chosen legal gap in the adoption calculus.
 - **Option C — full permissive now.** Maximal adoption credibility, and
   rejected as strictly more than the problem required: the defects and the
   closed protocol surface are what damaged the calculus, not the Use Limitation,
@@ -200,5 +217,6 @@ ADR costs IOI optionality and never costs an adopter their footing.
   — certification and issuers.
 - [`../architecture/foundations/economic-flywheel-and-pricing-boundaries.md`](../architecture/foundations/economic-flywheel-and-pricing-boundaries.md)
   — the open-L0 covenant and the protocol-surface manifest requirement.
-- `../conformance/README.md` — the public
-  conformance profile this ADR makes legally runnable.
+- [`0040-make-machine-authority-the-category-and-ioi-authority-the-portable-protocol.md`](./0040-make-machine-authority-the-category-and-ioi-authority-the-portable-protocol.md)
+  — retires the former conformance-document assumption and requires the future
+  executable artifact at an exact licensed path.

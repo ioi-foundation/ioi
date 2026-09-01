@@ -1,5 +1,9 @@
 # Seal-Share Verifier — Specification for an Independent Implementation
 
+Status: retained internal twin-input specification; non-canonical.
+Authority: AFT canonical owners and accepted ADRs win on drift; this file is
+evidence of the frozen in-session packet, not a public protocol owner.
+
 **AFT-CB P4.5b. This document specifies the UBC seal-share verifier and
 the double-signer extraction procedure with enough precision that an
 independent implementation, written from THIS document and the

@@ -10,11 +10,12 @@ Supersedes: prose that treats provider privacy terms, model selection, a private
 workspace, or data ownership alone as a complete institutional-learning
 boundary.
 Superseded by: none.
-Last alignment pass: 2026-07-13.
+Last alignment pass: 2026-08-30 (retired conformance-tree references aligned;
+the end-to-end profile remains unreleased).
 Doctrine status: canonical
 Implementation status: planned cross-cutting profile over partial underlying
-primitives; do not claim end-to-end enforcement until the golden conformance
-profile passes.
+primitives; do not claim end-to-end enforcement until an owner-bound,
+outsider-runnable profile passes.
 
 ## Canonical Definition
 
@@ -444,8 +445,10 @@ The flagship enterprise proof must be automated and adversarial:
 8. use packet capture or an equivalent mock transport assertion to prove the
    canary never crossed the prohibited boundary.
 
-The normative pass/fail contract is
-`../../conformance/hypervisor-core/institutional-learning-boundary.md`.
+The target pass/fail behavior remains in this owner and its cited object,
+receipt, and implementation-status owners. No separate conformance document or
+outsider-runnable profile currently exists; the former conformance tree is
+retired.
 
 ## Claims And Non-Claims
 

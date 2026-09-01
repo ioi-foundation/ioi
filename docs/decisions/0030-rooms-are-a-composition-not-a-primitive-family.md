@@ -142,9 +142,12 @@ argument. It is not permission to preserve a second hosted-room spine now.
 
 ## Canonical References
 
-- `docs/architecture/foundations/objects/collaborative-pursuit.md`
 - `docs/architecture/foundations/web4-and-ioi-stack.md`
 - `docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md`
 - `docs/architecture/components/agentgres/api-object-model.md`
 - `docs/architecture/components/agentgres/doctrine.md`
-- `docs/conformance/hypervisor-core/outcome-room-admission.md`
+- [`collaborative-pursuit.md`](../architecture/domains/ioi-ai/collaborative-pursuit.md)
+
+The former `docs/conformance/hypervisor-core/outcome-room-admission.md`
+reference was retired with that document class on 2026-08-12; it is historical,
+not a current claim authority.

@@ -7,9 +7,8 @@ files named in [source-of-truth-map.md](./source-of-truth-map.md).
 Supersedes: the inline "Current canonical defaults" digest formerly embedded in
 [source-of-truth-map.md](./source-of-truth-map.md).
 Superseded by: none.
-Last alignment pass: 2026-08-28 (source-neutral admission kernel contract,
-non-expansion upgrade law, institution boundary, and the versioned
-ordering/finality vocabulary with its compatibility map).
+Last alignment pass: 2026-08-30 (Machine Authority completeness and IOI
+Authority Protocol profile/role boundaries added to the cross-owner digest).
 Doctrine status: canonical
 Implementation status: mixed (cross-owner digest)
 Last implementation audit: 2026-07-22
@@ -36,6 +35,18 @@ synchronized.
 
 ### Capability, authority, and runtime ownership
 
+- Machine Authority is the product-independent category of independently
+  verifiable, bounded, delegated, revocable power over consequential effects;
+  the full claim requires the MAC-1–MAC-12 completeness contract in
+  [`machine-authority.md`](../foundations/machine-authority.md);
+- the IOI Authority Protocol is the external profile family. Its Core,
+  Delegated Authority, Governed Effect, and Complete profiles carry distinct
+  entitlements; passing a narrow action-authorization profile never implies a
+  complete Machine Authority claim;
+- protocol roles are replaceable. wallet.network is the first-party authority
+  provider, Hypervisor Daemon is the first-party PEP/final-invoker mediator, and
+  Agentgres is the first-party admitted-truth implementation; none is a required
+  hosted dependency for protocol compatibility;
 - `prim:*` means primitive execution capability;
 - `scope:*` means wallet/provider authority scope;
 - daemon/public runtime APIs own execution semantics;
@@ -1007,7 +1018,8 @@ applicable;
   state. ioi.ai connector/auth escalation is a handoff through these
   contracts, wallet.network authority, daemon admission, and Agentgres
   receipts, not a direct provider path;
-- wallet.network is the portable delegated-authority wallet and gateway for
+- within current IOI served routes, wallet.network is the first-party portable
+  delegated-authority wallet and gateway for
   connected identity, auth factors, guardian surfaces, key shards, provider
   credential bindings, delegated authority, leases, approvals, secrets,
   spend, data-use permission, declassification, revocation, policy simulation
@@ -1141,9 +1153,10 @@ applicable;
 - private user/app state follows the same split as private agent state:
   Agentgres owns canonical refs and meaning, storage backends hold encrypted
   bytes, authority providers and local/domain policy control
-  viewing/decryption/mutation authority, wallet.network is mandatory for
-  portable delegated authority, secrets, decryption leases, external effects,
-  or high-risk approval, and IOI L1 receives public/economic/cross-domain
+  viewing/decryption/mutation authority. Current served portable-delegation
+  routes remain wallet.network-bound; provider replacement is a future released
+  IOI Authority Protocol target with no alternate served adapter or interop
+  proof. IOI L1 receives public/economic/cross-domain
   commitments only for explicitly enrolled systems under their selected
   settlement profiles;
 - wallet.network is the authority wallet/gateway for autonomous agents and

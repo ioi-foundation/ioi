@@ -1275,10 +1275,11 @@ object heads and state roots make truth replayable
 artifact refs define payload meaning
 storage backends hold bytes
 authority providers and local/domain policy authorize read, write, decrypt,
-export, forget, and restore, with wallet.network mandatory when the operation
-requires portable delegated authority, secrets, decryption leases,
-declassification, external effects, spend, or another wallet-owned high-risk
-scope; ordinary locally authorized restore/apply does not require wallet.network
+export, forget, and restore. Current served portable-delegation routes remain
+wallet.network-bound for secrets, decryption leases, declassification, external
+effects, spend, or another wallet-owned high-risk scope; provider replacement
+is a future released IOI Authority Protocol target with no alternate served
+adapter. Ordinary locally authorized restore/apply does not require wallet.network
 by definition
 ```
 

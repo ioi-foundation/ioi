@@ -17,9 +17,11 @@ restore, export, update, roll back, and audit a managed instance. It does not
 execute the worker and does not own runtime truth.
 
 Execution remains with a Hypervisor Daemon runtime node. Authority is resolved
-by local/domain governance and authority providers; wallet.network is mandatory
-for portable delegated authority, secrets, spend, decryption, external effects,
-and high-risk approvals. Truth remains with Agentgres. Payload bytes remain in
+by local/domain governance and authority providers. Current served portable-
+delegation routes remain wallet.network-bound for secrets, spend, decryption,
+external effects, and high-risk approvals. Provider replacement is a future
+released IOI Authority Protocol target with no alternate served adapter. Truth
+remains with Agentgres. Payload bytes remain in
 storage backends under Agentgres-governed refs.
 
 For user-facing managed instances, the console is the default human interaction
@@ -149,9 +151,11 @@ ManagedAgentConsoleProjection:
 
 Console actions are proposals. Consequential actions must pass the relevant
 authority provider or local/domain governance gate plus daemon policy, then
-become Agentgres operations and receipts. wallet.network is required when the
-action needs portable delegated authority, secrets, spend, decryption, external
-effects, or high-risk approval.
+become Agentgres operations and receipts. On current IOI served routes,
+wallet.network is required when the action needs portable delegated authority,
+secrets, spend, decryption, external effects, or high-risk approval. A future
+released provider-replacement profile may satisfy that boundary through
+another conforming authority provider.
 Marketplace or L1 settlement is used only when install rights, subscription,
 dispute, payout, reputation, or public commitments require it.
 

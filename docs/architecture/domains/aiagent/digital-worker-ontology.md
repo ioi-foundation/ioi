@@ -203,8 +203,10 @@ DigitalWorkerOntologyProfile:
 Ontology metadata can be indexed by aiagent.xyz, but it does not execute work or
 grant authority. Consequential transitions require daemon gates, the relevant
 authority provider or local/domain governance gate, Agentgres admission, and
-receipts. wallet.network is mandatory when the action needs portable delegated
-authority, secrets, spend, decryption, external effects, or high-risk approval.
+receipts. Current served portable-delegation routes remain wallet.network-bound
+for secrets, spend, decryption, external effects, or high-risk approval.
+Provider replacement is a future released IOI Authority Protocol target with no
+alternate served adapter or interop proof.
 IOI L1 is used only when an active connected/secured enrollment selected that
 service and its listing, license, payout, dispute, reputation, rights, or
 cross-domain settlement trigger applies.

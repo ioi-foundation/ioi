@@ -123,4 +123,7 @@ the object yet; the recorded delta row marks it not started.
 - [`../architecture/components/daemon-runtime/doctrine.md`](../architecture/components/daemon-runtime/doctrine.md)
 - [`../architecture/domains/ioi-ai/control-plane.md`](../architecture/domains/ioi-ai/control-plane.md)
 - [`../architecture/foundations/term-boundaries.md`](../architecture/foundations/term-boundaries.md)
-- `../conformance/hypervisor-core/goal-run-admission-and-activation.md`
+
+The former `../conformance/hypervisor-core/goal-run-admission-and-activation.md`
+reference was retired with that document class on 2026-08-12; it is historical,
+not a current claim authority.

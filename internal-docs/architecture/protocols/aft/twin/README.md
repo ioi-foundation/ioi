@@ -1,5 +1,9 @@
 # In-Session Clean-Room Twin — UBC Seal-Share Verifier (AFT-CB P4.5b)
 
+Status: completed internal in-session twin evidence; non-canonical.
+Authority: AFT canonical owners and accepted ADRs win on drift; this result does
+not establish external or organizational independence.
+
 **What this is, and what it is NOT.** An independent Go reimplementation
 of the UBC seal-share verifier and double-signer extractor, written by a
 procedurally-isolated fresh-context implementer from `seal_share_verifier_spec.md`

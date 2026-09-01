@@ -42,8 +42,11 @@ never an inference from the absence of an auth check.
 - Route census mechanics and census evidence. The prior program-control census
   artifact was removed with the proof apparatus and has no current successor;
   when one is rebuilt it is named here as a tracked path or not at all.
-- Conformance claims and their owners (the claim coverage index in
-  `../../conformance/README.md`).
+- Conformance claims and their owners: those bind to each subject owner's
+  implementation status and to the exact manifest/evidence of a released
+  protocol profile, including the entitlements in
+  [`ioi-authority-protocol.md`](../foundations/ioi-authority-protocol.md) for
+  authority claims.
 - The authority model (wallet grants, leases, receipts) or any product
   taxonomy; public surfaces present, they never admit.
 
@@ -77,9 +80,10 @@ Naming on public properties follows the canonical vocabulary owners
 
 ## Public Claims Discipline
 
-- A public property may publish a capability claim only when the conformance
-  claim coverage index names that claim's owner and the claim's evidence is
-  retained; unshipped capability is described as a target or not at all.
+- A public property may publish a capability claim only when the canonical
+  source-of-truth map names its owner, that owner's implementation status permits
+  the claim, and the exact claimed release/profile evidence is retained;
+  unshipped capability is described as a target or not at all.
 - Nonclaims stay explicit: what the system does not do or has not proven is
   stated in the same register as what it does.
 - Evidence artifacts referenced publicly (reports, attestations, badges) are
@@ -89,8 +93,9 @@ Naming on public properties follows the canonical vocabulary owners
 
 - [`source-of-truth-map.md`](./source-of-truth-map.md) — subject ownership
   routing.
-- `../../conformance/README.md` — claim
-  coverage index.
+- [`source-of-truth-map.md`](./source-of-truth-map.md), subject-owner
+  `Implementation status:` declarations, and released protocol manifests — the
+  retired `docs/conformance/` tree is not a public-claim authority.
 - [`../components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
   — route-binding drift classes for served endpoints.
 - [`../foundations/security-privacy-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md)

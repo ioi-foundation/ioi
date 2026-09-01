@@ -4,7 +4,8 @@ Status: canonical architecture authority.
 Canonical owner: this file for the Internet of Intelligence category definition, its necessity argument, and the north-star network proof.
 Supersedes: the duplicated north-star network proof previously carried in both [`../_meta/start-here.md`](../_meta/start-here.md) and [`../README.md`](../README.md); scattered definitional use of the term across the domains tree.
 Superseded by: none.
-Last alignment pass: 2026-08-12.
+Last alignment pass: 2026-08-30 (Machine Authority category/protocol ownership
+linked and retired conformance-tree reference removed).
 Doctrine status: canonical
 Implementation status: mixed (category definition; the network proof is an unmet target — see [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md))
 Last implementation audit: 2026-08-05
@@ -150,9 +151,10 @@ between self-interested parties; federated learning is a metaphor that treats
 intelligence as a poolable fluid. The machine version of the Internet of
 Intelligence therefore needs machine-speed versions of the institutional
 primitives: leases for agency law, receipts for attribution, challenges for
-courts, sparse settlement for money. That is precisely the machine-authority
-protocol plus the cryptographic labor economy. The canonical IoI recapitulates
-the solution that worked, rather than the one that is academically elegant.
+courts, sparse settlement for money. That is precisely the Machine Authority
+category implemented through a portable authority protocol, plus the
+cryptographic labor economy. The canonical IoI recapitulates the solution that
+worked, rather than the one that is academically elegant.
 
 ## What Carries The Necessity
 
@@ -162,6 +164,8 @@ makes it defensible:
 - **Machine authority is the near-analytic half.** Any network in which bounded
   non-human actors take consequential cross-boundary action among
   self-interested parties requires scoped, revocable, receipted delegation.
+  Its complete meaning is owned by
+  [`machine-authority.md`](./machine-authority.md), not redefined here.
   This holds under every market structure — including a model-provider
   oligopoly, where the *users* of those models still require authority
   boundaries against their providers (the provider-trust boundary in
@@ -236,10 +240,10 @@ measured indicator is owned by
   [`verifiable-bounded-agency.md`](./verifiable-bounded-agency.md) bounds it.
 - It does not claim the current estate passes the north-star network proof. The
   honest distance is recorded by
-  [`../_meta/implementation-matrix.md`](../_meta/implementation-matrix.md) and
-  the claim coverage index in
-  `../../conformance/README.md`; no claim of
-  passing may be sourced from this file.
+  [`../_meta/canon-to-code-delta.md`](../_meta/canon-to-code-delta.md), the
+  tracked [`../_meta/work-items/`](../_meta/work-items/) records, and each
+  subject owner's `Implementation status:` declaration; no claim of passing may
+  be sourced from this file.
 - It does not claim token or L1 inevitability; product, network, and token
   value remain three ledgers until evidence couples them.
 - It does not claim verification is solved; it names verifier economics as the
@@ -248,7 +252,7 @@ measured indicator is owned by
 ## Related Canon
 
 - [`web4-and-ioi-stack.md`](./web4-and-ioi-stack.md) — the Web4 category and
-  the IOI reference stack; the sibling definitional owner.
+  the IOI first-party stack; the sibling definitional owner.
 - [`term-boundaries.md`](./term-boundaries.md) — the protected-term row for
   this name.
 - [`aiip.md`](./aiip.md) — the interop protocol that carries contractible

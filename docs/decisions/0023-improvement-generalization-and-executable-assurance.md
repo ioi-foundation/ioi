@@ -113,4 +113,6 @@ coordinated), so nothing existing is orphaned by being wrong.
 - [`../architecture/foundations/objects/bounded-improvement.md`](../architecture/foundations/objects/bounded-improvement.md)
 - [`../architecture/foundations/canonical-enums.md`](../architecture/foundations/canonical-enums.md)
 - [`../architecture/components/daemon-runtime/platform-operability.md`](../architecture/components/daemon-runtime/platform-operability.md)
-- `../conformance/README.md`
+
+The former `../conformance/README.md` reference was retired with that document
+class on 2026-08-12; it is historical, not a current claim authority.

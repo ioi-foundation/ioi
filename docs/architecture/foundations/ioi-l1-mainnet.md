@@ -87,7 +87,7 @@ source/build/manifest candidate roots
 
 Approval of a kernel release means that the IOI Network recognizes that release
 under a named conformance/security profile. It is not permission to use, fork,
-or independently operate the open L0 contracts and reference stack. This lets
+or independently operate the open L0 contracts and first-party stack. This lets
 IOI L1 govern IOI Network-recognized releases without becoming the day-to-day
 manager of the monorepo, compatible deployments, or application-domain state.
 

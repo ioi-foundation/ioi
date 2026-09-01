@@ -4,10 +4,12 @@ Status: canonical architecture authority.
 Canonical owner: this file for IOI's neutrality as protocol specification owner and network operator — the change process, capture resistance, and versioning rights over the protocol surface.
 Supersedes: the implicit assumption that routing/marketplace neutrality covers specification neutrality.
 Superseded by: none.
-Last alignment pass: 2026-08-05.
+Last alignment pass: 2026-08-30 (IOI Authority Protocol profile ownership and
+retired conformance-tree disposition aligned).
 Doctrine status: canonical
 Implementation status: planned (a governance contract; no change-process tooling, registry of designations, or objection mechanism exists on current master)
-Last implementation audit: 2026-08-05
+Last implementation audit: 2026-08-30 (governance tooling and role-separation
+posture rechecked; the posture remains planned and procedural)
 
 ## Purpose And Boundary
 
@@ -17,10 +19,14 @@ placement, anti-cannibalization, and contribution accounting. It answers "does
 IOI favor its own workers and services when routing work?"
 
 It does not answer the prior question: **does IOI favor itself when deciding
-what the protocol is?** IOI writes the specification, operates a network on it,
-and ships the reference implementation. Those are three roles, and an adopter's
-rational move to adopt rather than fork depends on the third role not silently
-serving the first two. This file owns that question and nothing else.
+what the protocol is?** IOI writes the specification, develops first-party
+implementations intended to qualify for later reference designation, controls
+the marks, and operates or plans related network and certification functions.
+No release is formally designated as the reference implementation and no
+structurally independent certifier exists today. The concentration risk still
+exists, and an adopter's rational move to adopt rather than fork depends on one
+role not silently serving another. This file owns that question and nothing
+else.
 
 The distinction matters because routing neutrality is defeasible by
 specification capture. A router that treats every worker identically is not
@@ -32,16 +38,55 @@ them can implement it well.
 | Role | What it controls | Held by |
 | --- | --- | --- |
 | **Specification owner** | what the protocol surface is: contracts, invariants, versioning | canon owners under `_meta/source-of-truth-map.md`, amended through the change process below |
-| **Reference implementer** | one designated release implementing a named surface | the contract in [`web4-and-ioi-stack.md`](./web4-and-ioi-stack.md) § The Reference-Implementation Contract |
-| **Certifier and marks holder** | who may claim conformance, and who may use the names | [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md) and the licensing ADR |
+| **Reference implementer** | one designated release implementing a named surface | none designated; IOI develops candidate implementations and [`web4-and-ioi-stack.md`](./web4-and-ioi-stack.md) owns the designation contract |
+| **Certifier and marks holder** | who may claim certification, and who may use the names | no structurally independent certifier is designated; assurance doctrine and marks/licensing remain with [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md) and the licensing ADR |
 
 **The separation rule.** No single act may exercise more than one of these roles
 at once. Shipping code is not amending the specification (that rule is stated at
 its owner); certifying an implementation is not designating it the reference;
-and holding the marks confers no vote over what the specification says. Where
-one organization currently performs all three — as IOI does today — the
-separation is procedural rather than structural, and this file says so plainly
-rather than implying an independence that does not yet exist.
+and holding the marks confers no vote over what the specification says. IOI
+currently controls the specification, candidate implementation work, marks,
+and planned certification design. The separation is therefore procedural where
+those roles are exercised and nonexistent where a role has not yet been
+designated—not structural independence.
+
+## Promotion Boundary
+
+Protocol publication, conformance, and neutral certification are different
+events. Their evidence may compose; their labels may not collapse.
+
+| Designation | Minimum governance evidence | Forbidden implication |
+| --- | --- | --- |
+| **candidate profile** | immutable candidate manifest, exact owners, public change record, license, reference limits, and reproducible first-party runner | stable interoperability, independent implementation, or certification |
+| **stable profile** | the candidate evidence plus recorded objections and dispositions, declared migration/deprecation window, independently implemented parity, and a durable designation decision separate from merely shipping the reference release | neutral certification, broad adoption, or complete Machine Authority |
+| **conforming implementation** | a named implementation passes the exact frozen manifest and states its entitlement ceiling and exclusions | that it is the reference implementation, certified, safe for every effect, or allowed to change the profile |
+| **neutrally certified implementation** | a publicly accountable certification program evaluates the frozen profile through a certifier structurally independent of the implementation under review | protocol ownership, product endorsement, legal approval, or effect correctness |
+
+While the specification, candidate reference implementations, first-party
+conformance work, and marks remain under common IOI control, IOI may publish
+first-party conformance results and name them exactly that. It may not describe
+those results as neutral certification or imply a formal reference designation.
+Structural independence requires a separate control and conflict boundary, not
+only different employees, repositories, or review meetings.
+
+Before a profile is designated stable:
+
+1. its proposal, candidate bytes, review period, substantive objections,
+   answers, and final designation are inspectable outside IOI;
+2. at least one qualifying independent implementation has exercised the frozen
+   surface, and every resulting specification issue has a recorded disposition;
+3. a candidate or designated reference implementation cannot amend the profile
+   through its tests, release notes, or de facto behavior;
+4. the designation names the exact manifest hash, evidence bundle, unresolved
+   limitations, entitlement ceiling, and compatibility window; and
+5. the specification, reference, and certifier/marks accountabilities and any
+   conflicts are disclosed in one durable record.
+
+The complete Machine Authority profile has two additional promotion gates: an
+outside-operated consequential-effect demonstration and a portable-exit
+demonstration with no mandatory IOI-hosted dependency. Those gates establish
+the declared evidence only; they do not manufacture adoption or universal
+safety.
 
 ## The Change Process
 
@@ -134,9 +179,11 @@ Four resistances, each falsifiable rather than aspirational:
 
 ## Non-Claims
 
-- This file does not claim IOI is currently structurally neutral. One
-  organization holds all three roles; the separation is procedural, and saying
-  otherwise would be the exact theater the adoption calculus forbids.
+- This file does not claim IOI is currently structurally neutral. IOI controls
+  specification, candidate implementation work, marks, and planned
+  certification design; no release or independent certifier is designated.
+  Calling that structural separation would be the exact theater the adoption
+  calculus forbids.
 - It does not claim a change process exists in tooling. No proposal registry,
   objection mechanism, or designation record is implemented on current master;
   this is the contract they would have to satisfy.
@@ -146,6 +193,10 @@ Four resistances, each falsifiable rather than aspirational:
 
 ## Related Canon
 
+- [`ioi-authority-protocol.md`](./ioi-authority-protocol.md) — named authority
+  profiles, release manifests, claim entitlements, and stable-release gates.
+- [`machine-authority.md`](./machine-authority.md) — the category completeness
+  boundary that protocol governance must not weaken.
 - [`web4-and-ioi-stack.md`](./web4-and-ioi-stack.md) — the adoption calculus and
   the reference-implementation contract.
 - [`internet-of-intelligence.md`](./internet-of-intelligence.md) — the category
@@ -154,5 +205,6 @@ Four resistances, each falsifiable rather than aspirational:
   — in-network routing neutrality.
 - [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md)
   — certification, issuers, and liability.
-- `../../conformance/README.md` — the claim
-  coverage index and the public conformance profile.
+- Each subject owner's `Implementation status:` declaration and the frozen
+  manifest/evidence of any released protocol profile — the retired
+  `docs/conformance/` document tree is not an authority source.

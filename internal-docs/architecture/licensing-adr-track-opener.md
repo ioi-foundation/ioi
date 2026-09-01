@@ -1,12 +1,19 @@
 # Licensing ADR Track Opener (R-03) — Decision Space And Questions For Legal Review
 
-Status: track opener; non-canonical working draft. Opened by owner ruling
-2026-08-04 as a parallel track independent of every program gate. The accepted
-ADR lands in `docs/decisions/` through its own canon leg after legal review;
-nothing here rides the M5 branch or amends canon. Canonical owner docs and accepted ADRs win
-if this document later drifts.
+Status: archived internal track opener; non-canonical historical record. The
+architecture decision closed through accepted ADR 0033 on 2026-08-05.
+Authority: canonical owner docs and accepted ADRs win on drift; this file is
+frozen and must not direct current work or imply that the track remains open.
+Archived: 2026-08-30.
+Succeeded by: [`0033-licensing-split-surface-and-license-manifest.md`](../../docs/decisions/0033-licensing-split-surface-and-license-manifest.md).
 
 Parent: [`canonical-ioi-thesis-and-canon-change-recommendations.md`](./canonical-ioi-thesis-and-canon-change-recommendations.md), R-03.
+
+> **Frozen historical body.** Everything below records the question and byte
+> posture as assessed on 2026-08-04. It is not a current open flank. Accepted
+> [ADR 0033](../../docs/decisions/0033-licensing-split-surface-and-license-manifest.md)
+> controls current architecture; current licensing bytes and legal conclusions
+> must be reassessed from their live owners.
 
 ## The Question The ADR Must Answer
 

@@ -4,8 +4,8 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-08-28 (source-neutral admission kernel contract,
-institution boundary, and non-negotiables 37–38).
+Last alignment pass: 2026-08-30 (Machine Authority promoted to its own category
+owner and IOI Authority Protocol extracted as the portable external family).
 Doctrine status: canonical
 Implementation status: mixed (navigation index over built, partial, planned, and speculative subjects)
 Last implementation audit: 2026-07-19
@@ -35,9 +35,14 @@ Start with [`START_HERE.md`](./START_HERE.md). Then use:
   convergence target from later gated horizons;
 - [`term-boundaries.md`](./foundations/term-boundaries.md) when a name is
   ambiguous — it owns what each protected term means and must not mean;
+- [`machine-authority.md`](./foundations/machine-authority.md) for the security
+  category and completeness contract, and
+  [`ioi-authority-protocol.md`](./foundations/ioi-authority-protocol.md) for the
+  portable external profile family;
 - [`internet-of-intelligence.md`](./foundations/internet-of-intelligence.md)
-  and [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) for the two
-  categories IOI claims to implement, and the north-star network proof;
+  and [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) for the
+  broader network and system categories IOI builds on that substrate, and the
+  north-star network proof;
 - [`vocabulary.md`](./_meta/vocabulary.md) and
   [`canonical-enums.md`](./foundations/canonical-enums.md) for shared names and
   values;
@@ -52,8 +57,12 @@ parallel canon.
 
 ## Category And Target End State
 
-IOI is the open operating stack for bounded distributed autonomous systems and
-the Internet of Intelligence:
+IOI is building the open Machine Authority substrate for bounded distributed
+autonomous systems and the Internet of Intelligence:
+
+> **IOI's target is to give machines bounded, delegated, revocable power; admit
+> the exact effects they perform; and produce independently verifiable outcome
+> evidence.**
 
 > **IOI turns intelligence into bounded autonomous institutions. L0 makes one
 > institution safely distributable across governed compute, state,
@@ -134,7 +143,8 @@ Operating substrate
 
 Policy composition, authority, truth, memory, and evidence
   InstitutionalLearningBoundaryProfile and LearningEgressReceipt
-  wallet.network plus local/domain policy and authority providers
+  target IOI Authority Protocol profiles across replaceable authority providers and PEPs
+  wallet.network on all current served portable-delegation routes
   Agentgres operations, object heads, projections, and state roots
   MemorySpace and policy-filtered MemoryProjections
   receipts, evidence bundles, verification, acceptance, replay, artifacts
@@ -378,7 +388,7 @@ governance, activation, monitoring, and recovery path remains decisive.
 records the durable allocation: GoalRun, GoalRunProfile, GoalRunActivation,
 OutcomeRoom, and the room object family are domain objects of the **ioi.ai
 orchestration application** — an openly packaged domain application in the
-reference stack, deployable on any Hypervisor locally and offline with no
+first-party stack, deployable on any Hypervisor locally and offline with no
 `ioi.ai` account. The daemon admits, executes, and receipts them like any
 application domain; Hypervisor's own surfaces and API namespace speak session
 vocabulary, and goal runs and rooms are not Hypervisor surfaces. The
@@ -422,9 +432,11 @@ evidence, and verification gates.
 
 Policy and authority providers authorize. The Hypervisor Daemon admits,
 enforces, schedules, executes or mediates, receipts, and fails closed.
-wallet.network is mandatory for portable delegated authority and the high-risk
-external actions assigned to it; local/domain governance may own local
-authority where canon permits.
+Current IOI served portable-delegation routes remain wallet.network-bound. A
+future released IOI Authority Protocol profile is the provider-replacement
+contract; no alternate served authority-provider adapter or interoperability
+proof exists. Local/domain governance may own local authority where canon
+permits.
 
 ### Receipts are not the final assurance claim
 
@@ -467,7 +479,8 @@ actuator commands, safety heartbeats, or emergency-stop authorities.
 
 | Area | Canonical owners |
 | --- | --- |
-| stack and category | [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md), [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) |
+| Machine Authority category and protocol | [`machine-authority.md`](./foundations/machine-authority.md), [`ioi-authority-protocol.md`](./foundations/ioi-authority-protocol.md) |
+| Web4 and IOI stack | [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md), [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) |
 | invariants and security | [`invariants.md`](./foundations/invariants.md), [`security-privacy-policy-invariants.md`](./foundations/security-privacy-policy-invariants.md) |
 | protected term boundaries | [`term-boundaries.md`](./foundations/term-boundaries.md) |
 | shared objects and values | [`common-objects-and-envelopes.md`](./foundations/common-objects-and-envelopes.md) (family index over [`foundations/objects/`](./foundations/objects/)), [`canonical-enums.md`](./foundations/canonical-enums.md) |
@@ -534,7 +547,7 @@ namespace.
 | Hypervisor Core | shared client/control substrate | independent authority or truth beside daemon/Agentgres |
 | Hypervisor Daemon | admission, scheduling, mediation/execution, receipts, fail-closed runtime boundary | inventing authority or universal truth |
 | HypervisorOS | daemon-rooted bare-metal profile and node integrity | confidential-compute claim by itself |
-| wallet.network | portable delegated and designated high-risk authority | runtime execution or operational truth |
+| wallet.network | first-party IOI Authority Protocol provider for portable delegated and designated high-risk authority | ownership of the protocol category, runtime execution, or operational truth |
 | Agentgres | admitted domain-local operations, object heads, projections, roots | all memory, payload bytes, or one global graph |
 | MemorySpace | portable governed memory truth | runtime admission or public settlement |
 | storage backends | payload bytes and availability | semantic meaning or authority |

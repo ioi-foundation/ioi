@@ -7,16 +7,22 @@ brokerage, economic-contract-kernel, rail-adapter, payment, exchange, exposure,
 protection, receipt, wallet authority client, and revocation APIs.
 Supersedes: older wallet authority API wording when it conflicts with `scope:*` authority grants.
 Superseded by: none.
-Last alignment pass: 2026-08-29.
+Last alignment pass: 2026-08-30 (API surface framed as the first-party IOI
+Authority Protocol provider implementation).
 Doctrine status: reference
-Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, and exact grant-hash-keyed effect consumption with immutable replayable receipts are live on named qualified owner paths; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant issuance, portable verification, admission-receipt emission, temporal evaluation, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, ProviderConnectionBinding/ceremony/disconnect lifecycle, WalletReceipt v2, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
+Implementation status: partial (authority-client seams, lease APIs, portable principal-to-approval-authority binding resolution, complete raw-v3 verification with locally trusted allocation closure, exact grant-hash-keyed effect consumption, and registered v2 admission emission/revalidation on the qualified live SCM path are implemented; request v2, ceremony v1, review-receipt v1, grant v3, and admission-receipt v2 are registered machine contracts with generated projections; production exact-action review/grant minting, a portable signed allocation closure, public verifier CLI/package, broader effect-surface admission, account/factor, WebAuthn ceremony, device/session lifecycle, recovery, guardian, shard, ProviderConnectionBinding/ceremony/disconnect lifecycle, WalletReceipt v2, and the economic-contract-kernel/typed-family/rail-adapter surfaces remain planned)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs`
-Last implementation audit: 2026-07-19
+  - `crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs`
+  - `crates/services/src/wallet_network/portable_authority.rs`
+  - `crates/services/src/wallet_network/handlers/portable_authority.rs`
+  - `crates/services/src/wallet_network/tests/portable_authority_state.rs`
+Last implementation audit: 2026-08-30
 
 ## Purpose
 
-wallet.network is the canonical Web4 authority layer. It owns identity,
+wallet.network is IOI's first-party IOI Authority Protocol provider. It owns
+its identity,
 auth factors, guardian surfaces, key shards, secrets, BYOK keys, connector
 credentials, provider credential bindings, authority scope grants, training-data
 permissions, decryption leases, approvals, payments, exchange authority,

@@ -4,13 +4,14 @@
 - Date: 2026-05-22
 - Owners: IOI architecture / daemon runtime / wallet.network / Agentgres / policy
 
-Current-canon refinement (2026-07-19): the ownership list below records the
+Current-canon refinement (2026-08-30): the ownership list below records the
 decision's original wallet-centered context. Under `INV-10`, local/domain
 governance selects the applicable authority provider for ordinary local
-authority; wallet.network owns portable principal-to-approval-authority binding
-and is mandatory only for portable delegated authority and designated
-high-risk external scopes. The bounded-agency decision is unchanged: every
-consequential action still requires exact scoped authority and a receipt.
+authority. Current first-party served portable-authority routes are
+wallet.network-bound; the target IOI Authority Protocol makes each protocol
+role replaceable under an exact released profile. The bounded-agency decision
+is unchanged: every consequential action still requires exact scoped authority
+and a receipt.
 
 ## Context
 
@@ -96,5 +97,9 @@ The architecture also adopts the following boundaries:
 - `docs/architecture/components/daemon-runtime/doctrine.md`
 - `docs/architecture/components/wallet-network/doctrine.md`
 - `docs/architecture/components/agentgres/doctrine.md`
-- `docs/conformance/agentic-runtime/CIRC.md`
-- `docs/conformance/agentic-runtime/CEC.md`
+- [`machine-authority.md`](../architecture/foundations/machine-authority.md)
+- [`ioi-authority-protocol.md`](../architecture/foundations/ioi-authority-protocol.md)
+
+The former `docs/conformance/agentic-runtime/CIRC.md` and `CEC.md` references
+were retired with that document class on 2026-08-12; they are historical, not
+current claim authorities.

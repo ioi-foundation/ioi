@@ -4,10 +4,11 @@ Status: canonical low-level reference.
 Canonical owner: this file for the shared object shapes of authority scope requests, approval ceremony context, authority grants, authority clients, access-point bindings, and step-up challenges.
 Supersedes: the same object definitions when they were carried inside the single `common-objects-and-envelopes.md` file.
 Superseded by: none.
-Last alignment pass: 2026-08-24.
+Last alignment pass: 2026-08-30 (qualified live SCM portable-admission and
+finalizer-revalidation status reconciled).
 Doctrine status: canonical
-Implementation status: mixed (`AuthorityScopeRequestEnvelope` v2, `ApprovalCeremonyContextEnvelope` v1, `AuthorityGrantEnvelope` v1/v2/v3, `AuthorityKeySet` v1, and `AuthorityRevocationSnapshot` v1 have registered schemas and generated Rust/TypeScript projections; production v3 issuance, complete-chain cryptographic verification, and offline CLI support remain in progress)
-Last implementation audit: 2026-08-24
+Implementation status: mixed (`AuthorityScopeRequestEnvelope` v2, `ApprovalCeremonyContextEnvelope` v1, `AuthorityGrantEnvelope` v1/v2/v3, `AuthorityKeySet` v1, and `AuthorityRevocationSnapshot` v1 have registered schemas and generated Rust/TypeScript projections; the Rust owner path verifies complete v3 chains with a locally trusted allocation closure and the live SCM path persists/consumes/revalidates exact portable admission, while production grant minting, a portable signed allocation-closure object, public offline CLI/package support, and broader effect-surface coverage remain incomplete)
+Last implementation audit: 2026-08-30
 
 ## Purpose
 
@@ -468,8 +469,11 @@ issuance bundle, consumes the single-use ceremony in the same transaction, and
 atomically meters an exact-effect use into an immutable idempotency receipt.
 Registration and every consumption independently resolve the issuer's current
 principal authority; request-carried key material cannot replace it. The daemon
-PEP still has to persist the registered v2 admission and revalidate it before
-the final invoker, so this is not yet a served portable effect path. A
+PEP now persists the exact wallet-owned consumption/admission pair on the live
+SCM publication path, re-censuses the current temporal context, byte-compares
+the recovered pair, and revalidates owner authority immediately before the
+exactly-once final-invoker claim. That is a served qualified first-party path, not
+estate-wide portable effect coverage. A
 control-plane refresh replaces only key-set, revocation-snapshot, local closure,
 and current-owner evidence after re-verifying the immutable bundle; explicit
 revocation is durable and idempotent, and neither transition can restore uses.

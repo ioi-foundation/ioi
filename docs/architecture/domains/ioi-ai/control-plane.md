@@ -71,9 +71,10 @@ Expanded doctrine:
 ```text
 ioi.ai conducts goals across sessions, agents/workers, connectors, and attempts;
 Hypervisor executes; authority providers and local/domain governance authorize
-as required, with wallet.network mandatory for portable delegated authority and
-high-risk external effects; Agentgres records; Foundry builds/evaluates;
-aiagent.xyz supplies and attributes workers.
+as required. Current served portable-delegation routes remain wallet.network-
+bound for high-risk external effects; provider replacement is a future released
+IOI Authority Protocol target with no alternate served adapter. Agentgres
+records; Foundry builds/evaluates; aiagent.xyz supplies and attributes workers.
 ```
 
 The product is one Goal Space subscription, not separate single-node and
@@ -413,9 +414,11 @@ Environments / Providers canon is owned by
 [`components/hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md).
 ioi.ai owns the web/account/org coordination view; Hypervisor App/Web/CLI
 clients host the hands-on operator presentations; Hypervisor Daemon executes;
-authority providers and local/domain governance authorize as required, with
-wallet.network mandatory for portable delegated authority and high-risk
-external effects; Agentgres records admitted truth.
+authority providers and local/domain governance authorize as required. Current
+served portable-delegation routes remain wallet.network-bound for high-risk
+external effects; provider replacement is a future released IOI Authority
+Protocol target with no alternate served adapter. Agentgres records admitted
+truth.
 
 ## Optional Connected Control-Plane Flow
 

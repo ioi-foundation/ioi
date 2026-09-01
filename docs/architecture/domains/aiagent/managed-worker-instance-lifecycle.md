@@ -131,9 +131,10 @@ State rules:
   memory archive refs, and storage backend payload refs.
 - Restore is an Agentgres-backed operation, not silent file mutation.
 - Export requires the relevant authority provider or local/domain governance
-  gate and produces export receipts. wallet.network is mandatory when export
-  needs portable delegated authority, decryption, external effects, or
-  high-risk approval.
+  gate and produces export receipts. Current served portable-delegation routes
+  remain wallet.network-bound for decryption, external-effect, or high-risk
+  approval scopes. Provider replacement is a future released IOI Authority
+  Protocol target with no alternate served adapter.
 - Delete/forget semantics distinguish billing deletion, archive deletion, and
   policy-governed memory erasure.
 - Prompts, outputs, traces, corrections, evals, accepted memory, datasets,

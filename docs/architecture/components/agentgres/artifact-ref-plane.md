@@ -30,10 +30,11 @@ documents, non-public service outputs, managed-instance metadata, and local app
 state checkpoints may live as encrypted payload bytes in storage backends.
 Agentgres records their refs, state roots, policy, authority context, receipts,
 and restore/import validity. Authority providers and local/domain policy decide
-who can decrypt, view, mutate, export, or declassify them; wallet.network is
-mandatory when that decision requires portable delegated authority, secrets,
-decryption leases, external effects, declassification, or other high-risk
-approval.
+who can decrypt, view, mutate, export, or declassify them. Current served
+portable-delegation routes remain wallet.network-bound for secrets, decryption
+leases, external effects, declassification, or other high-risk approval;
+provider replacement is a future released IOI Authority Protocol target with
+no alternate served adapter or interop proof.
 
 Encrypted payloads and archive blobs may be continuously refreshed from local
 or remote workspaces, similar to pushing commits or uploading checkpointed

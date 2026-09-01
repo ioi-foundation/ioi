@@ -92,9 +92,10 @@ Doctrine sentence:
 ioi.ai conducts Goal Spaces across sessions, agents/workers, connectors,
 claims, attempts, and verifier paths;
 Hypervisor executes; authority providers and local/domain governance authorize
-as required, with wallet.network mandatory for portable delegated authority and
-high-risk external effects; Agentgres records; Foundry builds/evaluates;
-aiagent.xyz supplies and attributes workers.
+as required. Current served portable-delegation routes remain wallet.network-
+bound for high-risk external effects; provider replacement is a future released
+IOI Authority Protocol target with no alternate served adapter. Agentgres
+records; Foundry builds/evaluates; aiagent.xyz supplies and attributes workers.
 ```
 
 ioi.ai dogfoods Hypervisor. It is a first-party intent-to-outcome product built

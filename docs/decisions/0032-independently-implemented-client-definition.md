@@ -96,9 +96,10 @@ does not speak to implementations, and the two have been conflated.
 
 - Any canon, conformance, or release statement using "independently implemented
   client" now carries its axis list, or it is not a statement.
-- The claim coverage index in `docs/conformance/README.md` can record a
-  two-client claim as a set of named axes rather than a boolean, which makes a
-  partial claim expressible instead of forcing it to overstate.
+- A released profile manifest and evidence result can record a two-client claim
+  as a set of named axes rather than a boolean, which makes a partial claim
+  expressible instead of forcing it to overstate. The former
+  `docs/conformance/README.md` index is retired.
 - `INV-18`'s scope is clarified rather than changed: it governs the party axis,
   and this ADR supplies the implementation axes it was being stretched to cover.
 - No client category, adapter target, or protocol gateway boundary changes.
@@ -133,4 +134,6 @@ list they carry.
 - [`0013-hypervisor-core-clients-surfaces-and-adapters.md`](./0013-hypervisor-core-clients-surfaces-and-adapters.md)
 - [`../architecture/components/hypervisor/core-clients-surfaces.md`](../architecture/components/hypervisor/core-clients-surfaces.md)
 - [`../architecture/foundations/invariants.md`](../architecture/foundations/invariants.md) — `INV-18`
-- `../conformance/README.md`
+- [`../architecture/foundations/ioi-authority-protocol.md`](../architecture/foundations/ioi-authority-protocol.md)
+  — authority-profile manifests and independence disclosure where this ADR is
+  applied.

@@ -3,12 +3,13 @@
 Status: canonical architecture authority.
 Canonical owner: this file for the Web4 category definition, the IOI stack
 boundary, the source-neutral deterministic admission kernel contract (C1–C12),
-and the institution boundary as stated for the Web4 stack.
+and the institution boundary as stated for the Web4 stack. Machine Authority
+category and protocol-family ownership live in [`machine-authority.md`](./machine-authority.md)
+and [`ioi-authority-protocol.md`](./ioi-authority-protocol.md).
 Supersedes: overlapping product or plan prose when the Web4 stack definition conflicts.
 Superseded by: none.
-Last alignment pass: 2026-08-28 (source-neutral admission kernel contract and
-institution boundary added; Agentgres designated the first-party conforming
-implementation and current runtime owner).
+Last alignment pass: 2026-08-30 (Machine Authority category and IOI Authority
+Protocol ownership extracted; Web4 retained as the broader system category).
 Doctrine status: canonical
 Implementation status: mixed (category definition; stack layers span built to speculative)
 Last implementation audit: 2026-07-19
@@ -24,9 +25,9 @@ verifiable policy and sparse settlement.**
 
 Category definition:
 
-> **Web4 is the protocol category for machine authority: bounded autonomous
-> actors receiving scoped power to perform consequential work with attributable
-> evidence, revocation, interop, and settlement.**
+> **Web4 is the system and application category built on Machine Authority:
+> bounded autonomous actors use scoped power to perform consequential work with
+> attributable evidence, revocation, interop, and optional settlement.**
 
 Short form:
 
@@ -56,10 +57,12 @@ Builder/category thesis:
 > institutions contractible; IOI L1 supplies optional shared trust and economic
 > finality.**
 
-Hypervisor is the reference execution and control environment; locally
-canonical Domain Ontologies plus optional accepted mappings are the semantic
-world plane; machine authority is the security protocol; and Agentgres is the
-operational truth substrate.
+Hypervisor is IOI's first-party execution and control environment; no release
+is yet designated as the reference implementation under this file's contract.
+Locally canonical Domain Ontologies plus optional accepted mappings are the
+semantic world plane; the IOI Authority Protocol is the portable Machine
+Authority protocol-family target; and Agentgres is the operational truth
+substrate.
 
 The ontology-centered operating environment and Hypervisor's deployment,
 resource-relationship, and autonomy-capability facets are not competing
@@ -137,16 +140,18 @@ state-root/proof drilldowns must let technical users, auditors, counterparties,
 and autonomous systems inspect the underlying commitments when public trust,
 settlement, governance, or dispute resolution depends on them.
 
-## Category Ownership Doctrine
+## Machine Authority Dependency
 
-IOI's Web4 category claim is to make **machine authority** the legible
-primitive.
+Web4 depends on **Machine Authority** as its legible security primitive. The
+category definition, completeness bar, role boundary, and claim ladder are
+owned by [`machine-authority.md`](./machine-authority.md); this file does not
+redefine them.
 
-Machine authority is the protocolized ability for a non-human actor, worker,
-runtime, workflow, service, or autonomous system to receive limited power from a
-human, organization, domain, or contract and use that power across real systems.
-The power is bounded by identity, scope, policy, purpose, time, budget, data
-permission, approval requirements, revocation, receipts, replay, and settlement.
+Within Web4, a non-human actor, worker, runtime, workflow, service, or autonomous
+system receives limited power from a human, organization, domain, or contract
+and uses that power across real systems. The power remains bounded by identity,
+scope, policy, purpose, time, budget, data permission, approval requirements,
+revocation, exact-effect admission, receipts, and replay.
 
 The category is not won by calling every agent a wallet or every application a
 chain. It is won by making the machine-authority path portable and unavoidable:
@@ -165,10 +170,10 @@ intent
      selected settlement profile require shared public trust
 ```
 
-This is the protocol substrate for autonomous work. It is source-neutral: any
+This is the security substrate for autonomous work. It is source-neutral: any
 model, runtime, connector, worker, marketplace, enterprise domain, or sovereign
-application can participate if it speaks the same authority, receipt, interop,
-and settlement semantics.
+application can participate if it satisfies the applicable authority, receipt,
+interop, and settlement profiles.
 
 The category claim is not that every Web4 product should become an IOI-hosted
 L1. The claim is that the IOI L0/kernel, Hypervisor, SDK, ADK, AIIP,
@@ -177,20 +182,19 @@ autonomous-system domains that can remain sovereign at the edge while becoming
 interoperable, attributable, and economically legible through shared authority,
 receipt, reputation, and settlement semantics.
 
-IOI's category wedge is therefore:
+The resulting layer relationship is:
 
 ```text
-machine authority protocol
+Machine Authority                         category and completeness boundary
+  -> IOI Authority Protocol               portable external protocol family
+     -> wallet.network + Hypervisor        first-party authority/PEP path
+     -> Agentgres                          first-party admitted truth and replay
   + edge-in domain kernels
-  + wallet.network authority leases
   + locally canonical semantic object/action contracts and optional mappings
   + Goal Kernel bounded pursue/verify/course-correct loops
-  + optional ImprovementCampaign evidence and proposal lifecycles
-  + OutcomeRoom collaborative work frontiers
-  + Hypervisor execution and admission
-  + Agentgres operational truth
+  + optional ImprovementCampaign and OutcomeRoom lifecycles
   + AIIP work interop
-  + IOI L1 sparse settlement
+  + optional IOI L1 sparse settlement
   = IOI's canonical Web4 operating fabric
 ```
 
@@ -205,27 +209,26 @@ papered over.
 
 | Property | Owning contract today | Honest state |
 | --- | --- | --- |
-| Open protocol surface | the enumerated open surface and offline-verifiability requirements in [`economic-flywheel-and-pricing-boundaries.md`](./economic-flywheel-and-pricing-boundaries.md), enumerated and versioned in [`../../../LICENSE-MANIFEST.json`](../../../LICENSE-MANIFEST.json) `open_protocol_surface` under [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md) | contracted; the surface is enumerated and permissively licensed, and ADR 0033 is unreviewed by counsel |
+| Open protocol surface | the currently licensed source pool in [`../../../LICENSE-MANIFEST.json`](../../../LICENSE-MANIFEST.json) `open_protocol_surface` under [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md), plus the future exact profile manifest owned by [`ioi-authority-protocol.md`](./ioi-authority-protocol.md) | legal inspectability is enumerated and permissively licensed, subject to the ADR's counsel caveat; exact IAP profile closure, offline verifier, and independent implementability are not yet established |
 | Reference implementation | § The Reference-Implementation Contract below — five designation conditions, the parity claim (fixture, refusal, surface completeness, independence disclosure), and the rule that a designated release cannot legislate | contracted, planned; no release is designated and no parity claim exists |
-| Conformance certification | `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md), plus the defined public profile `ioi_public_conformance_profile_v1` in `../../conformance/README.md` | contracted, planned; the public profile is defined and unpopulated, and no issuer-accreditation or issuer-separation rule exists |
+| Conformance certification | the profile and entitlement contract in [`ioi-authority-protocol.md`](./ioi-authority-protocol.md), plus `ConformanceProfile` / `CertificationClaim` / `EcosystemAssuranceProfile` in [`ecosystem-assurance-certification-liability.md`](./ecosystem-assurance-certification-liability.md) | target profiles are defined but unreleased; no frozen public surface manifest, outsider-runnable artifact, computed parity membership, or issuer-accreditation/separation rule exists |
 | Credible neutrality | [`marketplace-neutrality.md`](../domains/marketplace-neutrality.md) for routing/marketplace; [`protocol-governance-neutrality.md`](./protocol-governance-neutrality.md) for IOI as spec owner and network operator | both owned; the governance contract is written and its change process, objection record, and designation record are unimplemented |
 | Portable exit | enrollment exit transitions ([`objects/bounded-system-genesis.md`](./objects/bounded-system-genesis.md)), `ParticipantStateBundle`, portable memory vault, SLC attach/detach cases, and attach-lane adapter portability ([`daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)) | best-covered; every lane is contracted, none is evaluator-proven |
 
-Why the rational move is adopt, stated so a hostile reader can attack it:
-compatibility is free and untaxed (`ioi_compatible` owes no fee, token, or
-enrollment); honesty is verifiable offline (receipts, authority envelopes,
-routing decisions, and state roots check against open schemas without a hosted
-IOI); exit is typed, so adoption is not a one-way door; and forking the
-contracts buys nothing that compatibility does not already give, while losing
-certification lineage and interop reach. That argument currently has two open
-flanks, and pretending otherwise would be exactly the theater this doctrine
-forbids:
+The target rational move is adopt, stated so a hostile reader can attack it:
+compatibility remains free and untaxed (`ioi_compatible` owes no fee, token, or
+enrollment); a released profile makes its exact claims verifiable offline; exit
+is typed, so adoption is not a one-way door; and a fork should buy nothing that
+compatibility does not already provide while losing shared interoperability.
+Today the schemas and focused verifier paths are inspectable, but no frozen IAP
+manifest, public profile runner, portable outer-signature closure, or
+independent parity makes that full argument true. It has two open flanks:
 
 1. **The license question is architecturally resolved and legally unreviewed.**
    [ADR 0033](../../decisions/0033-licensing-split-surface-and-license-manifest.md)
    splits the surface: the protocol surface — registered contracts, schemas,
-   invariants, fixtures, both generated projections, the conformance tree, and
-   the client-facing protocol type libraries — is Apache-2.0 **now**;
+   invariants, fixtures, both generated projections, and the client-facing
+   protocol type libraries — is Apache-2.0 **now**;
    specification and decision prose is CC BY 4.0 **now**; the reference
    implementation stays under `LICENSE-BBSL` until the 2029-11-06 Change Date;
    marks and certification are separate. `LICENSE-MANIFEST.json` defines the
@@ -235,19 +238,19 @@ forbids:
    **The remaining flank is that ADR 0033 has not been reviewed by external
    counsel**, and it says so itself; no public release should rely on it until
    that review happens.
-2. **The conformance suite is not yet runnable by an outsider.** What an
-   adopter runs and what passing entitles them to say is now defined —
-   `ioi_public_conformance_profile_v1` in
-   `../../conformance/README.md` § The Public
-   Conformance Profile — but the profile is **defined and unpopulated**: no
-   runner, no published fixture bundle for outside execution, no computed
-   membership. Adopters still cannot self-certify today. Owner: that claim
-   coverage index, sequenced by the first-proof ruling in
-   [`execution-horizons.md`](../_meta/execution-horizons.md).
+2. **The authority profiles are not yet runnable by an outsider.** What a
+   passing implementation may and may not claim is defined in
+   [`ioi-authority-protocol.md`](./ioi-authority-protocol.md), but no profile has
+   a frozen `ProtocolSurfaceManifest`, public clone-and-run verifier, complete
+   published fixture bundle, or computed parity membership. The retired
+   `docs/conformance/` document tree is not recreated; the runnable artifact
+   must ship with the public protocol surface and remain usable without private
+   program state. Adopters cannot self-certify today.
 
-Neither flank is closed by wording. They are closed by the licensing ADR and
-by the sovereign-local-completeness proof landing — which is one reason that
-proof is sequenced first.
+Neither flank is closed by wording. The licensing flank closes only through the
+manifest plus counsel review. The runnability flank closes only through a
+frozen profile manifest, public vectors and verifier, served path, independent
+parity, operational governance, and the applicable complete-system proof.
 
 ## Web Evolution
 
@@ -271,7 +274,7 @@ binaries. A Hypervisor Node includes model routing and invocation boundaries;
 local weights, local servers, BYOK providers, hosted pools, TEE/DePIN sessions,
 or customer VPC endpoints are mounted by policy and deployment profile.
 
-## IOI Reference Stack
+## IOI First-Party Stack
 
 ```text
 IOI Kernel / L0 Substrate
@@ -475,10 +478,10 @@ A canonical Web4 application should have:
 16. **Work interop** — AIIP moves delegated work, authority leases, receipts,
     settlement intents, disputes, reputation queries, and handoffs between
     bounded execution domains.
-17. **Machine-authority protocol compliance** — authority requests, leases,
-    denials, step-up challenges, delegation, revocation, proof obligations, and
-    settlement intents use portable machine-readable envelopes rather than
-    product-local permission checks.
+17. **IOI Authority Protocol profile compliance** — authority requests,
+    decisions, leases, denials, step-up challenges, delegation, revocation,
+    exact-effect admission, proof obligations, and applicable settlement intents
+    use a named portable profile rather than product-local permission checks.
 18. **Local-first semantic contracts** — ontologies are locally canonical,
     namespaced, versioned, mappable, and policy-bound; executable actions bind
     semantic meaning to capability, authority, effects, compensation, evidence,
@@ -871,7 +874,7 @@ A canonical Web4 app is a stateful, authority-aware, autonomous application doma
 | wallet.network | Authority vault and scope control plane. |
 | Agentgres | State/change/provenance substrate for Web4 application domains. |
 | IOI L1 | Optional IOI Network registry, shared-security, rights, dispute, governance, and economic-finality layer for connected or secured systems. |
-| Machine Authority Protocol | Portable authority-request, lease, revocation, proof, and settlement semantics that let machines act without receiving ambient secrets or uncontrolled power. |
+| IOI Authority Protocol | Portable action-authorization, delegated-authority, and governed-effect profiles implementing the Machine Authority completeness contract without requiring the complete IOI stack. |
 
 ## Core Doctrine
 

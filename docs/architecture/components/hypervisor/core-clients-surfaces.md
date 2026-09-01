@@ -3726,9 +3726,10 @@ semantics of an Ontology, workflow, System, dependency, Work, or embodied graph.
 > durable semantics. Registered JSON Schemas own the admitted wire shapes, and
 > daemon/app source implements them; neither code nor this hand-maintained wall
 > may silently redefine the other. Presence here is not a shipped or released
-> claim — see the file's `Implementation status` and the conformance claim
-> coverage index (`../../../conformance/README.md`),
-> which is where a capability claim binds. Generator TODO: project the
+> claim — see the file's `Implementation status`, the canonical
+> [`canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md), and retained
+> release/profile evidence, which is where a capability claim binds. The retired
+> `docs/conformance/` tree is not an authority source. Generator TODO: project the
 > registered shapes alongside this semantic wall without transferring ownership to
 > generated output.
 

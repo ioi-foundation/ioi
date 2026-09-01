@@ -38,11 +38,13 @@ Adapters submit action requests, previews, observations, and approval decisions.
 The daemon owns policy, authority scopes, effect execution, receipts, replay,
 settlement hooks, secrets, and durable runtime state.
 
-Current canon refines that historical shorthand without changing this
-sidecar decision: local/domain governance owns local policy, the applicable
-authority provider issues authority under that policy, the daemon enforces the
-selected policy and exact-effect boundary, and wallet.network is mandatory for
-portable delegated authority and designated high-risk external effects.
+Current canon refines that historical shorthand without changing this sidecar
+decision: local/domain governance owns local policy, the applicable authority
+provider issues authority under that policy, and the daemon enforces the
+selected policy and exact-effect boundary. Current first-party served portable-
+delegation and designated high-risk routes are wallet.network-bound. A future
+released IOI Authority Protocol profile is the provider-replacement contract;
+no alternate served provider adapter or interoperability proof exists today.
 
 ## Consequences
 

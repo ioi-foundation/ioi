@@ -8,10 +8,11 @@ Canonical architecture prose still lives under `docs/architecture/`; ADRs
 explain the accepted decision when that history remains useful.
 
 ADRs neither define nor close proof gates. **Canon defines no `PG-*` identifier
-family and confers no authority through one.** Public canon and ADRs bind
-capability claims through the conformance claim coverage index
-(`docs/conformance/README.md`). Any `PG-*` projection appearing in a tracked
-artifact is oversight reporting only, never closure authority.
+family and confers no authority through one.** Public capability claims bind to
+the exact canonical owner status and, where applicable, a released protocol
+manifest plus retained evidence. The retired `docs/conformance/` tree is not an
+authority source. Any `PG-*` projection appearing in a tracked artifact is
+oversight reporting only, never closure authority.
 
 ## Proposed ADRs
 
@@ -57,3 +58,4 @@ artifact is oversight reporting only, never closure authority.
 - [ADR 0036: Hosted Participation Is Native; Discovery Is The Cross-Domain Lane](./0036-hosted-participation-is-native-and-discovery-is-the-cross-domain-lane.md) (refines ADRs 0020, 0022, and 0030; CONTRACT LAYER ONLY — no runtime code lands under it; agent-implemented under program authority and owner-reversible — re-confirm before any daemon handler persists a participation request with a null `room_discovery_ref`)
 - [ADR 0037: Room Attempts Retain The Exact Host Admission Owner](./0037-room-attempts-retain-the-exact-host-admission-owner.md) (refines ADRs 0030 and 0036; accepted from live M04.8 evidence so a System-hosted room never fabricates a domain alias)
 - [ADR 0038: Split Deterministic Merge Verification From Wallet-Authority Soaks](./0038-split-deterministic-merge-verification-from-wallet-authority-soaks.md) (qualifies verifier claims by mechanism; preserves the full M04.8 real-chain journey as nightly/manual release evidence and tracks its latency as a defect)
+- [ADR 0040: Make Machine Authority The Category And IOI Authority The Portable Protocol](./0040-make-machine-authority-the-category-and-ioi-authority-the-portable-protocol.md) (refines ADRs 0008, 0010, 0015, 0032, and 0033; doctrine and ownership only—no wire, runtime, release, or conformance claim change)

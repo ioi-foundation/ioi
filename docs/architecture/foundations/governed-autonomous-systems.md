@@ -82,9 +82,10 @@ machine authority, operational evidence, proposal-mediated improvement, and
 lifecycle continuity of autonomous systems rather than by analogy to an
 existing chain framework.
 
-Hypervisor is the reference execution and control environment; the ontology
-layer is the semantic world plane. They are complementary parts of the same
-open operating fabric, not competing product theses.
+Hypervisor is IOI's first-party execution and control environment; no release
+is formally designated as the reference implementation. The ontology layer is
+the semantic world plane. They are complementary parts of the same open
+operating fabric, not competing product theses.
 
 ## The Bounded-System Contract
 
