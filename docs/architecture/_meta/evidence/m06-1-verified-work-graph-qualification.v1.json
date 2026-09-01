@@ -1,0 +1,147 @@
+{
+  "evidence_format": "ioi.m06-1-verified-work-graph-qualification.v1",
+  "recorded_at": "2026-09-01T21:44:21Z",
+  "scope": {
+    "module": "M06.1",
+    "base_commit": "fd50ec38fc5afe22fbf2176fad2418edcbd93be5",
+    "qualified_implementation_commit": "d377cd6d858fb51f36fd4b4451c1ee5b3d893487",
+    "selection": "work-result:// owner resolution at the existing assurance subject seam and a rebuildable Verified Work Graph read projection over WorkResult owner truth plus the existing Agentgres assurance chain",
+    "excluded": [
+      "M05 reopening",
+      "ADR 0039 finality profiles",
+      "batching",
+      "JMT or backend replacement",
+      "fractal partitioning",
+      "performance tripwires",
+      "deployment defaults",
+      "M06.2 and later M06 work",
+      "unrelated M09, M10, M11, and M14 work"
+    ]
+  },
+  "authoritative_m05_record": {
+    "path": "docs/architecture/_meta/evidence/m05-semantic-plane-qualification.v1.json",
+    "expected_sha256": "a701fac6c6e30d9a9474c0a4be0503a2bcdeb4f8d30e46a270b7aec983ce2f98",
+    "observed_sha256_before": "a701fac6c6e30d9a9474c0a4be0503a2bcdeb4f8d30e46a270b7aec983ce2f98",
+    "observed_sha256_after": "a701fac6c6e30d9a9474c0a4be0503a2bcdeb4f8d30e46a270b7aec983ce2f98",
+    "adjudication": "MATCH"
+  },
+  "ancestry": {
+    "18222ccfa30b3a5e77a87ee37140fde7e079336c": true,
+    "91132b5fdde0ef3b29b6b501520ca53df574c878": true,
+    "reconciled_m04_ci_intent_745139d1": true,
+    "historical_tip_357d7b45_merged": false
+  },
+  "remote_observation": {
+    "initial_local_tracking_ref": "aae7dfa9c0a6bfebe9471aed2c7338b274ce9e6a",
+    "initial_ls_remote_origin_master": "aae7dfa9c0a6bfebe9471aed2c7338b274ce9e6a",
+    "final_local_tracking_ref": "aae7dfa9c0a6bfebe9471aed2c7338b274ce9e6a",
+    "final_ls_remote_origin_master": "aae7dfa9c0a6bfebe9471aed2c7338b274ce9e6a",
+    "movement": "none",
+    "writes": "none"
+  },
+  "implementation_truth": {
+    "producer": "WorkResult admission and owner-admitted backlink routes; assurance transition admission appends ordinary owner-scoped Agentgres chain rows",
+    "consumer": "GET /v1/hypervisor/verified-work-graph re-resolves the WorkResult owner record and reads the existing owner-scoped Agentgres assurance chain",
+    "restart_replay": "a real daemon restart re-derived the same four-transition graph and positively reported rebuilt_from_agentgres on the first read, then agreed_with_agentgres",
+    "offline_verifier": "registered verified-work-graph-projection/v1 schema, portable invariant profile, generated Rust and TypeScript projections, three positive fixtures, and fourteen registered negative fixtures",
+    "red_on_target": "16/16 source mutants failed their named assertions; both touched sources were digest-restored and rebuilt",
+    "no_second_store": true,
+    "accepted_write_head_rule": "ordinary owner admission and exact canonical heads",
+    "projection_rule": "reads may use the rebuildable process-local cache; Agentgres and WorkResult owners remain truth"
+  },
+  "claim_honesty_adjudication": {
+    "mutable_replay": "an unchanged idempotent replay after an owner-admitted WorkResult backlink compares caller assertions with the stored command, not today's re-resolved subject hash",
+    "scope_refusal": "an unattested subject and a foreign ladder both return verified_work_graph_not_resolvable_for_this_reader; neither is represented as an empty graph or an absence claim",
+    "contract_version": "the exact v1 contract is served and other family versions or unknown contracts are refused",
+    "outcome_boundaries": "WorkResult and assurance outcome vocabularies are preserved separately without mapping",
+    "subject_gaps": "Finding and Attempt remain named fail-closed owner gaps"
+  },
+  "deterministic_verification": {
+    "cargo_build_ioi_node_hypervisor_daemon": "PASS",
+    "cargo_fmt_all_check": "PASS",
+    "architecture_contract_projection_check": "PASS",
+    "assurance_transition_focused_tests": "23 passed, 0 failed",
+    "work_result_owner_focused_tests": "20 passed, 0 failed",
+    "generated_rust_contract_golden_test": "1 passed, 0 failed",
+    "verified_work_graph_live_gate": "40/40",
+    "baseline_assurance_transition_live_gate": "86/86 at fd50ec38fc5afe22fbf2176fad2418edcbd93be5",
+    "baseline_assurance_transition_mutation": "16/16 RED_ON_TARGET at fd50ec38fc5afe22fbf2176fad2418edcbd93be5",
+    "git_diff_check": "PASS"
+  },
+  "scheduled_qualification": {
+    "lane": "check:verified-work-graph:scheduled",
+    "final_candidate_live_gate": "40/40",
+    "final_candidate_mutation": "16/16 RED_ON_TARGET",
+    "restored_source_sha256": {
+      "assurance_transition_routes.rs": "c6721dd1c0db4b4a8daee2364f8dcdddbf8b6f35ebf0db0cb96070da32513366",
+      "work_result_routes.rs": "847bfc6d3814a781e995ab2cc0b3178a79bfb07af1c5034299ec3e5471153929"
+    },
+    "pre_final_run": "16/17 exposed and then removed one obsolete empty-graph mutant after the scope-refusal contract made that branch unreachable; sources were restored before the successor candidate",
+    "separation": "the deterministic 40-assertion lane is blocking CI; the expensive mutation battery remains an explicitly named scheduled/manual lane",
+    "timeout_posture": "CI timeout values are operational ceilings, not performance doctrine"
+  },
+  "delegation_ledger": [
+    {
+      "launch_uuid": "dc46ab1d-a611-4305-80a1-7d130c1454a9",
+      "status": "rejected",
+      "reason": "CLI argument failure before a model session or deliverable"
+    },
+    {
+      "session_id": "e48ad796-1e75-4ea2-93e7-503a5f779018",
+      "resolved_models": ["claude-opus-5"],
+      "status": "rejected",
+      "reason": "read-only investigator did not complete a deliverable and was interrupted; repository remained clean"
+    },
+    {
+      "session_id": "1131af2d-eace-4ed5-b769-aca4d1406aec",
+      "resolved_models": ["claude-opus-5"],
+      "status": "accepted",
+      "role": "bounded writer",
+      "base_commit": "fd50ec38fc5afe22fbf2176fad2418edcbd93be5",
+      "writer_commit": "eabe8c641176c72dab1db22747eabe227796cc45",
+      "integrated_as": "34a0e0100"
+    },
+    {
+      "session_id": "a4f68502-5f70-4092-b9b8-abd2f57f9ad3",
+      "result_uuid": "1627e223-0adc-4f7d-84f4-47de8433292e",
+      "resolved_models": ["claude-opus-5"],
+      "status": "accepted",
+      "role": "read-only reviewer",
+      "disposition": "two blocking findings fixed in 341c0440c; no reviewer edits"
+    }
+  ],
+  "owner_boundaries_and_nonclaims": {
+    "agentgres_operational_truth_spine": true,
+    "adr_0039_two_profile_finality_boundary_reopened": false,
+    "M11_1_cross_domain_terms_acceptance": "unchanged owner",
+    "M09_2_development_environment_recipe_naming": "unchanged owner",
+    "M14_worker_composition_and_package_installation": "unchanged owner",
+    "established_identity_authority_semantics_odk_demonstration_evaluation_owners": "unchanged",
+    "grants": {
+      "authority": false,
+      "legality": false,
+      "correctness": false,
+      "payment_or_economic_value": false,
+      "deployment": false,
+      "provider_connectivity": false,
+      "live_medical_suitability": false
+    }
+  },
+  "preexisting_failure_adjudication": {
+    "repository_failures": "none observed",
+    "setup_only_event": "the first baseline live-verifier attempt lacked a built daemon and failed ENOENT; after building at the exact base the gate passed 86/86, so this was not classified as a pre-existing repository failure"
+  },
+  "stash_reconciliation": {
+    "f750728621b960d902fdfa2ae42bac911b816b35": "immutable commit object; not popped or removed",
+    "5199a30100415f23f989beda05b2c45240f5d52d": "immutable commit object; not popped or removed"
+  },
+  "resource_spend_and_external_posture": {
+    "claude_entitlement": "first-party fixed-cost claude.ai Max subscription; every accepted model resolved exactly to claude-opus-5",
+    "cli_cost_fields": "estimates only; not metered API billing",
+    "metered_spend_usd": 0,
+    "push_force_fetch_merge_history_rewrite_release_deploy_publish": false,
+    "provider_contact_paid_resource_payment_rail_external_account_sensitive_data": false,
+    "disk_free_before_gib": 267,
+    "disk_free_before_cleanup_gib": 215
+  }
+}
