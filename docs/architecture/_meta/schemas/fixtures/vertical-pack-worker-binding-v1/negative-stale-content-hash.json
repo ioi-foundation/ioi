@@ -1,0 +1,252 @@
+{
+  "schema_version": "ioi.vertical-pack-worker-binding.v1",
+  "vertical_pack_worker_binding_id": "vertical-binding://acme.records-worker",
+  "revision_ref": "vertical-binding://acme.records-worker/revision/1",
+  "owner_ref": "org://local",
+  "tenant_ref": "tenant://org.local",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "user://owner",
+  "vertical_ontology_pack_revision_ref": "vertical-pack://acme.synthetic-sensitive-records/revision/1",
+  "vertical_ontology_pack_content_hash": "sha256:5f0576dc447151a3bb65c8a719d18093fc4c2a97184318ffad4b042ca0290d30",
+  "base_ontology_revision_ref": "ontology://acme-records/intake/revision/1",
+  "base_ontology_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "worker_composition_ref": "composition://acme/records-worker/1.0.0/local",
+  "worker_composition_resolution": "declared_unresolved_owned_by_m14",
+  "effective_boundary_binding": {
+    "boundary_profile_revision_ref": "learning-boundary://acme.records/revision/1",
+    "boundary_profile_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "effective_learning_boundary_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+    "boundary_status_at_binding": "active"
+  },
+  "declared_output_fields": [
+    "field://acme/claim-line/subject-id",
+    "field://acme/claim-line/service-code",
+    "field://acme/claim-line/place-of-service",
+    "field://acme/claim-line/rendering-party",
+    "field://acme/claim-line/units"
+  ],
+  "compiled_task_classes": [
+    {
+      "task_class_ref": "task-class://acme/records/intake",
+      "label": "Intake a synthetic encounter record",
+      "action_type_refs": ["ontology://acme-records/intake/term/read-encounter"]
+    },
+    {
+      "task_class_ref": "task-class://acme/records/coding",
+      "label": "Prepare a synthetic coded claim line",
+      "action_type_refs": [
+        "ontology://acme-records/intake/term/draft-claim-line",
+        "ontology://acme-records/intake/term/submit-claim-line"
+      ]
+    }
+  ],
+  "compiled_action_risk_mappings": [
+    {
+      "action_type_ref": "ontology://acme-records/intake/term/read-encounter",
+      "pack_declared_risk_class": "read",
+      "action_contract_revision_ref": "ontology-action://acme-records/intake/read-encounter/revision/1",
+      "action_contract_content_hash": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "action_contract_risk_class": "read",
+      "action_contract_required_gates": ["capability", "policy", "authority", "daemon_admission", "evidence", "verification"],
+      "review_mode": "no_review_required",
+      "required_integration_surface": "browser_saas"
+    },
+    {
+      "action_type_ref": "ontology://acme-records/intake/term/draft-claim-line",
+      "pack_declared_risk_class": "draft",
+      "action_contract_revision_ref": "ontology-action://acme-records/intake/draft-claim-line/revision/1",
+      "action_contract_content_hash": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "action_contract_risk_class": "draft",
+      "action_contract_required_gates": ["capability", "policy", "authority", "daemon_admission", "evidence", "verification"],
+      "review_mode": "sampled_review",
+      "required_integration_surface": "browser_saas"
+    },
+    {
+      "action_type_ref": "ontology://acme-records/intake/term/submit-claim-line",
+      "pack_declared_risk_class": "external_message",
+      "action_contract_revision_ref": "ontology-action://acme-records/intake/submit-claim-line/revision/1",
+      "action_contract_content_hash": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "action_contract_risk_class": "external_message",
+      "action_contract_required_gates": ["capability", "policy", "authority", "daemon_admission", "evidence", "verification"],
+      "review_mode": "exact_payload_review",
+      "required_integration_surface": "webhook_api"
+    }
+  ],
+  "pack_declared_risk_ladder": ["read", "draft", "external_message"],
+  "compiled_integration_requirements": [
+    {
+      "integration_surface": "browser_saas",
+      "connector_mapping_revision_ref": "mapping://acme.records-intake/revision/1",
+      "connector_mapping_content_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "credential_custody_nonclaim": "pack_connectors_do_not_imply_credential_custody",
+      "safety_envelope_required": false
+    },
+    {
+      "integration_surface": "webhook_api",
+      "connector_mapping_revision_ref": "mapping://acme.records-submit/revision/1",
+      "connector_mapping_content_hash": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "credential_custody_nonclaim": "pack_connectors_do_not_imply_credential_custody",
+      "safety_envelope_required": false
+    }
+  ],
+  "compiled_field_contracts": [
+    {
+      "output_field_ref": "field://acme/claim-line/subject-id",
+      "requirement": "required",
+      "source_ref": "agentgres://object/acme_encounter/2026-09",
+      "source_span": { "span_kind": "record_field", "locator": "encounter.subject.identifier" },
+      "data_recipe_revision_ref": "data-recipe://acme.records-normalize/revision/1",
+      "data_recipe_content_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "transformation_run_ref": "transform://trun_0123456789abcdef0123456789abcdef",
+      "transformation_run_content_hash": "sha256:aaaa999999999999999999999999999999999999999999999999999999999999",
+      "ontology_revision_ref": "ontology://acme-records/intake/revision/1",
+      "ontology_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "source_term_ref": "ontology://acme-records/intake/term/subject",
+      "crosswalk_revision_ref": "ontology-mapping://acme-records/payer-map/crosswalk/revision/1",
+      "crosswalk_content_hash": "sha256:bbbb999999999999999999999999999999999999999999999999999999999999",
+      "mapping_decision_revision_ref": "ontology-mapping://acme-records/payer-map/decision/revision/1",
+      "mapping_decision_content_hash": "sha256:cccc999999999999999999999999999999999999999999999999999999999999",
+      "connector_mapping_revision_ref": "mapping://acme.records-intake/revision/1",
+      "connector_mapping_content_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "worker_composition_ref": "composition://acme/records-worker/1.0.0/local",
+      "model_or_rule_version_ref": "model-route-rights://acme.records-inference/revision/1",
+      "model_or_rule_version_content_hash": "sha256:dddd999999999999999999999999999999999999999999999999999999999999",
+      "uncertainty": {
+        "basis": "resolved_crosswalk_relation",
+        "crosswalk_relation": "exact",
+        "declared_loss": "none",
+        "confidence": null,
+        "confidence_is_measured": false
+      },
+      "policy_bound_data_view_revision_ref": "view://acme.records-intake/revision/1",
+      "policy_bound_data_view_content_hash": "sha256:eeee999999999999999999999999999999999999999999999999999999999999",
+      "effective_policy_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "output_field_ref": "field://acme/claim-line/service-code",
+      "requirement": "required",
+      "source_ref": "agentgres://object/acme_encounter/2026-09",
+      "source_span": { "span_kind": "record_field", "locator": "encounter.line[0].code" },
+      "data_recipe_revision_ref": "data-recipe://acme.records-normalize/revision/1",
+      "data_recipe_content_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "transformation_run_ref": "transform://trun_0123456789abcdef0123456789abcdef",
+      "transformation_run_content_hash": "sha256:aaaa999999999999999999999999999999999999999999999999999999999999",
+      "ontology_revision_ref": "ontology://acme-records/intake/revision/1",
+      "ontology_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "source_term_ref": "ontology://acme-records/intake/term/service-code",
+      "crosswalk_revision_ref": "ontology-mapping://acme-records/payer-map/crosswalk/revision/1",
+      "crosswalk_content_hash": "sha256:bbbb999999999999999999999999999999999999999999999999999999999999",
+      "mapping_decision_revision_ref": "ontology-mapping://acme-records/payer-map/decision/revision/1",
+      "mapping_decision_content_hash": "sha256:cccc999999999999999999999999999999999999999999999999999999999999",
+      "connector_mapping_revision_ref": "mapping://acme.records-intake/revision/1",
+      "connector_mapping_content_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "worker_composition_ref": "composition://acme/records-worker/1.0.0/local",
+      "model_or_rule_version_ref": "model-route-rights://acme.records-inference/revision/1",
+      "model_or_rule_version_content_hash": "sha256:dddd999999999999999999999999999999999999999999999999999999999999",
+      "uncertainty": {
+        "basis": "resolved_crosswalk_relation",
+        "crosswalk_relation": "broader",
+        "declared_loss": "lossy_scope",
+        "confidence": null,
+        "confidence_is_measured": false
+      },
+      "policy_bound_data_view_revision_ref": "view://acme.records-intake/revision/1",
+      "policy_bound_data_view_content_hash": "sha256:eeee999999999999999999999999999999999999999999999999999999999999",
+      "effective_policy_hash": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "compiled_evidence_requirements": [
+    {
+      "evidence_requirement_ref": "evidence-contract://acme/records/subject-identity",
+      "applies_to_risk_class": "read",
+      "verifier_obligation_ref": "verifier-contract://acme/records/identity/v1"
+    },
+    {
+      "evidence_requirement_ref": "evidence-contract://acme/records/code-set",
+      "applies_to_risk_class": "draft",
+      "verifier_obligation_ref": "verifier-contract://acme/records/code-set/v1"
+    },
+    {
+      "evidence_requirement_ref": "evidence-contract://acme/records/submission",
+      "applies_to_risk_class": "external_message",
+      "verifier_obligation_ref": "verifier-contract://acme/records/submission/v1"
+    }
+  ],
+  "compiled_review_modes": [
+    { "risk_class": "read", "review_mode": "no_review_required", "review_owner_module": "M03.15", "this_binding_performed_no_review": true },
+    { "risk_class": "draft", "review_mode": "sampled_review", "review_owner_module": "M03.15", "this_binding_performed_no_review": true },
+    { "risk_class": "external_message", "review_mode": "exact_payload_review", "review_owner_module": "M03.15", "this_binding_performed_no_review": true }
+  ],
+  "abstentions": [
+    {
+      "output_field_ref": "field://acme/claim-line/place-of-service",
+      "requirement": "conditional",
+      "cause": "policy_bound_view_excludes_the_field",
+      "cause_ref": "view://acme.records-intake/revision/1",
+      "governing_disposition": "not_applicable",
+      "no_value_was_produced": true
+    },
+    {
+      "output_field_ref": "field://acme/claim-line/units",
+      "requirement": "optional",
+      "cause": "stale_code_or_form",
+      "cause_ref": "ontology://acme-records/intake/revision/2",
+      "governing_disposition": "not_applicable",
+      "no_value_was_produced": true
+    }
+  ],
+  "escalations": [
+    {
+      "output_field_ref": "field://acme/claim-line/rendering-party",
+      "requirement": "required",
+      "cause": "required_field_unmapped",
+      "cause_ref": "ontology-mapping://acme-records/payer-map/decision/revision/1",
+      "governing_disposition": "carried_as_unmapped",
+      "no_value_was_produced": true,
+      "escalated_to_owner_ref": "org://local"
+    }
+  ],
+  "jurisdiction_refs": ["jurisdiction://synthetic/acme-sandbox"],
+  "registry_status": "active",
+  "admitted_at": "2026-09-01T08:05:00Z",
+  "succession": {
+    "succession_reason": "genesis",
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null,
+    "supersedes_predecessor": false
+  },
+  "migration": {
+    "compatibility": "initial",
+    "downgrade_to_predecessor": "refused",
+    "refused_legacy_view_scheme": "policy-bound-data-view://"
+  },
+  "constants": {
+    "commitment_domain": "ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1",
+    "lifecycle_id": "vertical_pack_worker_binding_lifecycle.v1",
+    "review_owner_module": "M03.15",
+    "authority_token": "authority",
+    "measured_confidence_token": "measured_field_confidence",
+    "compilation_is_deterministic": true,
+    "worker_composition_owner_module": "M14"
+  },
+  "authority_nonclaim": "vertical_pack_worker_binding_grants_no_authority",
+  "truth_nonclaim": "vertical_pack_worker_binding_is_a_compiled_reading_of_admitted_revisions_not_domain_correctness",
+  "legal_conformity_claim": "not_determined",
+  "does_not_assert": [
+    "authority",
+    "capability_grant",
+    "lease",
+    "policy_decision",
+    "effect_admission",
+    "invocation",
+    "legality",
+    "reviewer_qualification",
+    "marketplace_eligibility",
+    "payment",
+    "domain_correctness",
+    "live_medical_suitability",
+    "measured_field_confidence",
+    "worker_composition_resolution"
+  ],
+  "content_hash": "sha256:70a65564d671ab408cb590a0b7f0e36ae5258d5b1a9c495ea72c89a11ee097fc"
+}

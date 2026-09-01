@@ -14769,6 +14769,176 @@
           "expected_rule_id": "media_corpus_qualification_census.content_hash.commits_the_whole_census"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+      "canonical_name": "VerticalOntologyPack",
+      "canonical_owner_ref": "canon://docs/architecture/domains/aiagent/vertical-ontology-packs.md",
+      "schema_version": "ioi.vertical-ontology-pack.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "vertical-ontology-pack.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/domains/aiagent/vertical-ontology-pack/declared-extension-that-decides-nothing/v1",
+          "path": "invariants/vertical-ontology-pack.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "VerticalOntologyPackV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "VerticalOntologyPackV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/vertical-ontology-pack-v1/positive-synthetic-sensitive-records.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-legal-conformity-is-claimed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-pack-binds-an-ontology-family-head.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-physical-surface-without-a-safety-envelope.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.content_hash.commits_the_whole_revision"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-revision-ref-under-another-family.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.revision_ref.extends_its_own_family"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-declared-field-without-a-requirement.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.field_requirements.cover_the_declared_output_fields_exactly"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-field-requirement-declared-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.field_requirements.cover_the_declared_output_fields_exactly"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.action_bindings.every_action_is_declared_by_a_task_class"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.integration_requirements.each_surface_appears_once"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-two-review-modes-for-one-risk-class.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.review_modes.each_risk_class_appears_once"
+        },
+        {
+          "path": "fixtures/vertical-ontology-pack-v1/negative-legality-nonclaim-dropped.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_ontology_pack.nonclaims.the_pack_decides_no_legality_and_no_reviewer_qualification"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+      "canonical_name": "VerticalPackWorkerBinding",
+      "canonical_owner_ref": "canon://docs/architecture/domains/aiagent/vertical-ontology-packs.md",
+      "schema_version": "ioi.vertical-pack-worker-binding.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "explicit_adapter_required",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "vertical-pack-worker-binding.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/domains/aiagent/vertical-pack-worker-binding/total-per-field-provenance/v1",
+          "path": "invariants/vertical-pack-worker-binding.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "VerticalPackWorkerBindingV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "VerticalPackWorkerBindingV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/vertical-pack-worker-binding-v1/negative-stale-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_pack_worker_binding.content_hash.commits_the_whole_compilation"
+        },
+        {
+          "path": "fixtures/vertical-pack-worker-binding-v1/negative-declared-field-covered-by-nothing.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_pack_worker_binding.coverage.every_declared_field_is_covered_exactly_once"
+        },
+        {
+          "path": "fixtures/vertical-pack-worker-binding-v1/negative-declared-field-in-two-buckets.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_pack_worker_binding.coverage.every_declared_field_is_covered_exactly_once"
+        },
+        {
+          "path": "fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_pack_worker_binding.field_contracts.every_field_compiles_under_the_bindings_own_effective_policy"
+        },
+        {
+          "path": "fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_pack_worker_binding.field_contracts.every_field_names_the_composition_the_binding_compiled_for"
+        },
+        {
+          "path": "fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "vertical_pack_worker_binding.risk.the_resolved_contract_column_agrees_with_the_ladder"
+        }
+      ]
     }
   ]
 }

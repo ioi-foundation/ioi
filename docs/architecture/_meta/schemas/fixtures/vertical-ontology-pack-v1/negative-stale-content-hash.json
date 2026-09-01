@@ -1,0 +1,168 @@
+{
+  "schema_version": "ioi.vertical-ontology-pack.v1",
+  "vertical_ontology_pack_id": "vertical-pack://acme.synthetic-sensitive-records",
+  "revision_ref": "vertical-pack://acme.synthetic-sensitive-records/revision/1",
+  "owner_ref": "org://local",
+  "tenant_ref": "tenant://org.local",
+  "principal_resolution": "server_resolved",
+  "resolved_principal_ref": "user://owner",
+  "legacy_pack_id": "vertical_pack:acme.synthetic_sensitive_records.v1",
+  "legacy_pack_id_is_display_only": true,
+  "display_name": "Synthetic sensitive records intake and coding",
+  "base_ontology_revision_ref": "ontology://acme-records/intake/revision/1",
+  "base_ontology_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "declared_object_type_refs": [
+    "ontology://acme-records/intake/term/encounter",
+    "ontology://acme-records/intake/term/claim-line",
+    "ontology://acme-records/intake/term/subject"
+  ],
+  "declared_task_classes": [
+    {
+      "task_class_ref": "task-class://acme/records/intake",
+      "label": "Intake a synthetic encounter record",
+      "action_type_refs": ["ontology://acme-records/intake/term/read-encounter"]
+    },
+    {
+      "task_class_ref": "task-class://acme/records/coding",
+      "label": "Prepare a synthetic coded claim line",
+      "action_type_refs": [
+        "ontology://acme-records/intake/term/draft-claim-line",
+        "ontology://acme-records/intake/term/submit-claim-line"
+      ]
+    }
+  ],
+  "declared_action_bindings": [
+    {
+      "action_type_ref": "ontology://acme-records/intake/term/read-encounter",
+      "risk_class": "read",
+      "action_contract_revision_ref": "ontology-action://acme-records/intake/read-encounter/revision/1",
+      "review_mode": "no_review_required",
+      "required_integration_surface": "browser_saas"
+    },
+    {
+      "action_type_ref": "ontology://acme-records/intake/term/draft-claim-line",
+      "risk_class": "draft",
+      "action_contract_revision_ref": "ontology-action://acme-records/intake/draft-claim-line/revision/1",
+      "review_mode": "sampled_review",
+      "required_integration_surface": "browser_saas"
+    },
+    {
+      "action_type_ref": "ontology://acme-records/intake/term/submit-claim-line",
+      "risk_class": "external_message",
+      "action_contract_revision_ref": "ontology-action://acme-records/intake/submit-claim-line/revision/1",
+      "review_mode": "exact_payload_review",
+      "required_integration_surface": "webhook_api"
+    }
+  ],
+  "declared_integration_requirements": [
+    {
+      "integration_surface": "browser_saas",
+      "connector_mapping_revision_ref": "mapping://acme.records-intake/revision/1",
+      "credential_custody_nonclaim": "pack_connectors_do_not_imply_credential_custody",
+      "safety_envelope_required": false
+    },
+    {
+      "integration_surface": "webhook_api",
+      "connector_mapping_revision_ref": "mapping://acme.records-submit/revision/1",
+      "credential_custody_nonclaim": "pack_connectors_do_not_imply_credential_custody",
+      "safety_envelope_required": false
+    }
+  ],
+  "declared_output_fields": [
+    "field://acme/claim-line/subject-id",
+    "field://acme/claim-line/service-code",
+    "field://acme/claim-line/place-of-service",
+    "field://acme/claim-line/rendering-party",
+    "field://acme/claim-line/units"
+  ],
+  "declared_field_requirements": [
+    {
+      "output_field_ref": "field://acme/claim-line/subject-id",
+      "requirement": "required",
+      "source_term_ref": "ontology://acme-records/intake/term/subject",
+      "evidence_requirement_ref": "evidence-contract://acme/records/subject-identity"
+    },
+    {
+      "output_field_ref": "field://acme/claim-line/service-code",
+      "requirement": "required",
+      "source_term_ref": "ontology://acme-records/intake/term/service-code",
+      "evidence_requirement_ref": "evidence-contract://acme/records/code-set"
+    },
+    {
+      "output_field_ref": "field://acme/claim-line/place-of-service",
+      "requirement": "conditional",
+      "source_term_ref": "ontology://acme-records/intake/term/place-of-service",
+      "evidence_requirement_ref": "evidence-contract://acme/records/place"
+    },
+    {
+      "output_field_ref": "field://acme/claim-line/rendering-party",
+      "requirement": "required",
+      "source_term_ref": "ontology://acme-records/intake/term/rendering-party",
+      "evidence_requirement_ref": "evidence-contract://acme/records/party"
+    },
+    {
+      "output_field_ref": "field://acme/claim-line/units",
+      "requirement": "optional",
+      "source_term_ref": "ontology://acme-records/intake/term/units",
+      "evidence_requirement_ref": "evidence-contract://acme/records/units"
+    }
+  ],
+  "declared_evidence_requirements": [
+    {
+      "evidence_requirement_ref": "evidence-contract://acme/records/subject-identity",
+      "applies_to_risk_class": "read",
+      "verifier_obligation_ref": "verifier-contract://acme/records/identity/v1"
+    },
+    {
+      "evidence_requirement_ref": "evidence-contract://acme/records/code-set",
+      "applies_to_risk_class": "draft",
+      "verifier_obligation_ref": "verifier-contract://acme/records/code-set/v1"
+    },
+    {
+      "evidence_requirement_ref": "evidence-contract://acme/records/submission",
+      "applies_to_risk_class": "external_message",
+      "verifier_obligation_ref": "verifier-contract://acme/records/submission/v1"
+    }
+  ],
+  "declared_review_modes": [
+    { "risk_class": "read", "review_mode": "no_review_required", "review_owner_module": "M03.15" },
+    { "risk_class": "draft", "review_mode": "sampled_review", "review_owner_module": "M03.15" },
+    { "risk_class": "external_message", "review_mode": "exact_payload_review", "review_owner_module": "M03.15" }
+  ],
+  "forbidden_action_refs": [
+    "autonomous_submission_without_exact_payload_review",
+    "prescription_like_output",
+    "bulk_export_of_subject_records"
+  ],
+  "jurisdiction_refs": ["jurisdiction://synthetic/acme-sandbox"],
+  "registry_status": "active",
+  "admitted_at": "2026-09-01T08:00:00Z",
+  "succession": {
+    "succession_reason": "genesis",
+    "predecessor_revision_ref": null,
+    "predecessor_content_hash": null,
+    "supersedes_predecessor": false
+  },
+  "migration": { "compatibility": "initial", "downgrade_to_predecessor": "refused" },
+  "constants": {
+    "commitment_domain": "ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1",
+    "lifecycle_id": "vertical_ontology_pack_lifecycle.v1",
+    "review_owner_module": "M03.15",
+    "identity_is_the_revision_ref": true,
+    "legality_token": "legality"
+  },
+  "authority_nonclaim": "vertical_ontology_pack_grants_no_authority",
+  "truth_nonclaim": "vertical_ontology_pack_is_a_declared_domain_extension_not_domain_correctness",
+  "legal_conformity_claim": "not_determined",
+  "does_not_decide": [
+    "legality",
+    "reviewer_qualification",
+    "authority",
+    "marketplace_eligibility",
+    "payment",
+    "correctness",
+    "live_medical_suitability",
+    "credential_custody"
+  ],
+  "content_hash": "sha256:5f0576dc447151a3bb65c8a719d18093fc4c2a97184318ffad4b042ca0290d31"
+}

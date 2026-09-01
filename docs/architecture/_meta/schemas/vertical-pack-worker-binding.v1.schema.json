@@ -1,0 +1,536 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+  "title": "VerticalPackWorkerBindingV1",
+  "description": "ONE COMPILATION of one exact `VerticalOntologyPack` revision onto one worker composition. THIS IS A DERIVATION, NOT A SUBMISSION: every `compiled_*` array, the abstentions and the escalations are resolved server-side from the pack and its owners' seams, and a caller that authors one is refused by name. PER-FIELD PROVENANCE IS TOTAL AND SILENCE IS INADMISSIBLE — the pack's `declared_output_fields` must be covered EXACTLY ONCE by `compiled_field_contracts` union `abstentions` union `escalations`; a field in two buckets makes the covering long and refuses, a field in none makes it short and refuses, so there is no branch a later edit can forget. Stale codes/forms, unmapped required fields, ambiguous mappings, superseded reviewer decisions and policy-bound-view refusals produce a typed abstention or escalation, NEVER a guessed authoritative value (ACC-18 clause 8). It decides no legality and claims no domain correctness (clause 13).",
+  "x-ioi-schema-version": "ioi.vertical-pack-worker-binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "bindingFamilyRef": { "type": "string", "pattern": "^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}$" },
+    "bindingRevisionRef": { "type": "string", "pattern": "^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "packRevisionRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "ownerRef": { "type": "string", "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "principalRef": { "type": "string", "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "ontologyRevisionRef": { "type": "string", "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
+    "ontologyTermRef": { "type": "string", "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$" },
+    "actionContractRevisionRef": { "type": "string", "pattern": "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
+    "crosswalkRevisionRef": { "type": "string", "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$" },
+    "mappingDecisionRevisionRef": { "type": "string", "pattern": "^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$" },
+    "connectorMappingRevisionRef": { "type": "string", "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "dataRecipeRevisionRef": { "type": "string", "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "transformationRunRef": { "type": "string", "pattern": "^transform://trun_[0-9a-f]{32}$" },
+    "viewRevisionRef": {
+      "type": "string",
+      "pattern": "^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+      "description": "THE M05.8 v2 SPELLING AND NO OTHER. The predecessor's mutable, wall-clock-identified `policy-bound-data-view://` family is unrepresentable here by construction: a field-provenance citation resting on a record that carries no content commitment is unverifiable, which is the shape `7074564aa` spent a cut removing from three other v1 families."
+    },
+    "routeRightsRevisionRef": { "type": "string", "pattern": "^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "boundaryProfileRevisionRef": { "type": "string", "pattern": "^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "workerCompositionRef": { "type": "string", "pattern": "^composition://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "outputFieldRef": { "type": "string", "pattern": "^field://[a-z0-9][a-z0-9._/-]{0,190}$" },
+    "taskClassRef": { "type": "string", "pattern": "^task-class://[a-z0-9][a-z0-9._/-]{0,190}$" },
+    "riskClass": {
+      "enum": ["read", "draft", "local_write", "write_reversible", "external_message", "commerce", "funds", "credential_access", "policy_widening", "secret_export", "identity_change", "system_destructive", "physical_action"]
+    },
+    "integrationSurfaceClass": {
+      "enum": ["chat_community", "contact_delivery", "game_platform", "browser_saas", "developer_code", "commerce", "finance_trading", "local_computer_use", "enterprise_vpc", "webhook_api", "voice_sms_access", "robotics_physical", "embodied_humanoid", "vehicles_mobility", "field_service_inspection", "education_tutoring", "creative_media", "support_operations"]
+    },
+    "reviewMode": {
+      "enum": ["no_review_required", "sampled_review", "exact_payload_review", "dual_control_review", "supervisory_review"]
+    },
+    "abstentionCause": {
+      "enum": [
+        "field_proposal_absent",
+        "stale_code_or_form",
+        "policy_bound_view_not_active",
+        "policy_bound_view_excludes_the_field",
+        "policy_bound_view_denies_the_use",
+        "effective_policy_moved"
+      ],
+      "description": "THE WORKER CANNOT SAY. Each cause names a fact the compiler RESOLVED and found wanting; none of them is a caller's assertion. An abstention is a refusal to produce a value, not a low-confidence value."
+    },
+    "escalationCause": {
+      "enum": [
+        "required_field_unmapped",
+        "mapping_ambiguous",
+        "reviewer_decision_superseded",
+        "required_field_proposal_absent"
+      ],
+      "description": "AN ACCOUNTABLE OWNER MUST DECIDE. The difference from an abstention is who has to act: a required field with no admitted mapping is not the worker declining to answer, it is the vertical unable to proceed."
+    },
+    "governingDisposition": {
+      "enum": [
+        "carried_as_unmapped",
+        "excluded_from_application",
+        "escalated",
+        "refused_ambiguous",
+        "adjudicated_exact",
+        "adjudicated_broader",
+        "adjudicated_narrower",
+        "approved",
+        "approved_with_conditions",
+        "rejected",
+        "abstained",
+        "not_applicable"
+      ],
+      "description": "M05.2'S OWN TOKENS, VERBATIM, plus `not_applicable` for the causes that do not come from a mapping decision at all. This module invents no parallel abstention vocabulary: a second spelling of `refused_ambiguous` would let two records describe one fact and disagree."
+    }
+  },
+  "required": [
+    "schema_version",
+    "vertical_pack_worker_binding_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "vertical_ontology_pack_revision_ref",
+    "vertical_ontology_pack_content_hash",
+    "base_ontology_revision_ref",
+    "base_ontology_content_hash",
+    "worker_composition_ref",
+    "worker_composition_resolution",
+    "effective_boundary_binding",
+    "declared_output_fields",
+    "compiled_task_classes",
+    "compiled_action_risk_mappings",
+    "pack_declared_risk_ladder",
+    "compiled_integration_requirements",
+    "compiled_field_contracts",
+    "compiled_evidence_requirements",
+    "compiled_review_modes",
+    "abstentions",
+    "escalations",
+    "jurisdiction_refs",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "legal_conformity_claim",
+    "does_not_assert",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.vertical-pack-worker-binding.v1" },
+    "vertical_pack_worker_binding_id": { "$ref": "#/$defs/bindingFamilyRef" },
+    "revision_ref": { "$ref": "#/$defs/bindingRevisionRef" },
+    "owner_ref": { "$ref": "#/$defs/ownerRef" },
+    "tenant_ref": { "$ref": "#/$defs/tenantRef" },
+    "principal_resolution": { "const": "server_resolved" },
+    "resolved_principal_ref": { "$ref": "#/$defs/principalRef" },
+    "vertical_ontology_pack_revision_ref": { "$ref": "#/$defs/packRevisionRef" },
+    "vertical_ontology_pack_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "The bytes the pack served, not only its ref, so a silent re-admission underneath this binding is detectable offline by anyone holding both records."
+    },
+    "base_ontology_revision_ref": { "$ref": "#/$defs/ontologyRevisionRef" },
+    "base_ontology_content_hash": { "$ref": "#/$defs/sha256" },
+    "worker_composition_ref": { "$ref": "#/$defs/workerCompositionRef" },
+    "worker_composition_resolution": {
+      "const": "declared_unresolved_owned_by_m14",
+      "description": "SAID PLAINLY RATHER THAN IMPLIED. `WorkerComposition` has no registered contract and no owner seam at this commit, so this build resolves NOTHING about the composition it names — it commits the declared ref and states that it is undecided. A field that looked resolved because it was well formed would be exactly the silence this estate refuses; M14 owns the family."
+    },
+    "effective_boundary_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary_profile_revision_ref", "boundary_profile_content_hash", "effective_learning_boundary_hash", "boundary_status_at_binding"],
+      "description": "THE EFFECTIVE POLICY THIS WHOLE COMPILATION RAN UNDER, resolved once through M10.3's seam. Every compiled field's `effective_policy_hash` is invariant-equal to `effective_learning_boundary_hash`, so a field cannot claim a policy the binding did not compile under.",
+      "properties": {
+        "boundary_profile_revision_ref": { "$ref": "#/$defs/boundaryProfileRevisionRef" },
+        "boundary_profile_content_hash": { "$ref": "#/$defs/sha256" },
+        "effective_learning_boundary_hash": { "$ref": "#/$defs/sha256" },
+        "boundary_status_at_binding": { "const": "active" }
+      }
+    },
+    "declared_output_fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/outputFieldRef" },
+      "description": "COPIED FROM THE RESOLVED PACK, NEVER FROM THE REQUEST. This is the set the coverage invariant closes over, so a caller able to author it could shorten the very obligation it is checked against."
+    },
+    "compiled_task_classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_class_ref", "label", "action_type_refs"],
+        "properties": {
+          "task_class_ref": { "$ref": "#/$defs/taskClassRef" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "action_type_refs": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "$ref": "#/$defs/ontologyTermRef" } }
+        }
+      }
+    },
+    "compiled_action_risk_mappings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action_type_ref",
+          "pack_declared_risk_class",
+          "action_contract_revision_ref",
+          "action_contract_content_hash",
+          "action_contract_risk_class",
+          "action_contract_required_gates",
+          "review_mode",
+          "required_integration_surface"
+        ],
+        "properties": {
+          "action_type_ref": { "$ref": "#/$defs/ontologyTermRef" },
+          "pack_declared_risk_class": { "$ref": "#/$defs/riskClass" },
+          "action_contract_revision_ref": { "$ref": "#/$defs/actionContractRevisionRef" },
+          "action_contract_content_hash": { "$ref": "#/$defs/sha256" },
+          "action_contract_risk_class": {
+            "$ref": "#/$defs/riskClass",
+            "description": "WHAT M05.4 ACTUALLY SERVED, beside what the pack declared. A pack that filed a `funds` action as `read` would compile a risk mapping that disagrees with the contract the action passes through, and every downstream gate would read the wrong number. The ADMITTING RUNTIME compares the two row by row and refuses. The portable language has no per-row two-field comparison, so offline the agreement is carried as a multiset equality through `pack_declared_risk_ladder` — see that field, which states exactly what that can and cannot see."
+          },
+          "action_contract_required_gates": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "items": { "enum": ["capability", "policy", "authority", "daemon_admission", "evidence", "verification"] },
+            "description": "The canonical six, carried verbatim from the resolved contract. Compiled semantics grant nothing; every one of these still runs somewhere that is not here (NN 9)."
+          },
+          "review_mode": { "$ref": "#/$defs/reviewMode" },
+          "required_integration_surface": { "$ref": "#/$defs/integrationSurfaceClass" }
+        }
+      }
+    },
+    "pack_declared_risk_ladder": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/riskClass" },
+      "description": "THE PACK'S DECLARED RISK CLASS PER ACTION ROW, ENUMERATED INDEPENDENTLY SO THE TWO COLUMNS CAN BE COMPARED OFFLINE. Two registered coverage rules pin this list to BOTH columns of `compiled_action_risk_mappings` — the pack's declaration and the risk class M05.4 actually served — so ladder = pack column and ladder = contract column together entail pack column = contract column. WHAT THIS CANNOT SEE, stated rather than implied: coverage compares MULTISETS, so a transposition that gives row A row B's risk class and vice versa leaves both multisets equal and passes. That case is refused by the admitting runtime, which compares row by row; the portable language has no operator that reads two fields of one array item, and a description claiming otherwise would be an assertion satisfied by a different element than it names. The list is server-derived, so a caller cannot choose a ladder that matches whichever column it prefers."
+    },
+    "compiled_integration_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["integration_surface", "connector_mapping_revision_ref", "connector_mapping_content_hash", "credential_custody_nonclaim", "safety_envelope_required"],
+        "properties": {
+          "integration_surface": { "$ref": "#/$defs/integrationSurfaceClass" },
+          "connector_mapping_revision_ref": { "$ref": "#/$defs/connectorMappingRevisionRef" },
+          "connector_mapping_content_hash": { "$ref": "#/$defs/sha256" },
+          "credential_custody_nonclaim": { "const": "pack_connectors_do_not_imply_credential_custody" },
+          "safety_envelope_required": { "type": "boolean" }
+        }
+      }
+    },
+    "compiled_field_contracts": {
+      "type": "array",
+      "maxItems": 256,
+      "description": "ACC-18 CLAUSE 8, FIELD BY FIELD. Every row binds its source and span, the exact recipe and transformation run that produced it, the ontology and crosswalk revisions that gave it meaning, the connector mapping that carried it, the composition and model/route version that proposed it, its uncertainty, the policy-bound view that permitted reading it, and the effective policy the whole compilation ran under. A row missing any of them is refused by the schema before the invariants are reached.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "output_field_ref",
+          "requirement",
+          "source_ref",
+          "source_span",
+          "data_recipe_revision_ref",
+          "data_recipe_content_hash",
+          "transformation_run_ref",
+          "transformation_run_content_hash",
+          "ontology_revision_ref",
+          "ontology_content_hash",
+          "source_term_ref",
+          "crosswalk_revision_ref",
+          "crosswalk_content_hash",
+          "mapping_decision_revision_ref",
+          "mapping_decision_content_hash",
+          "connector_mapping_revision_ref",
+          "connector_mapping_content_hash",
+          "worker_composition_ref",
+          "model_or_rule_version_ref",
+          "model_or_rule_version_content_hash",
+          "uncertainty",
+          "policy_bound_data_view_revision_ref",
+          "policy_bound_data_view_content_hash",
+          "effective_policy_hash"
+        ],
+        "properties": {
+          "output_field_ref": { "$ref": "#/$defs/outputFieldRef" },
+          "requirement": { "enum": ["required", "conditional", "optional"] },
+          "source_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "source_span": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["span_kind", "locator"],
+            "description": "WHERE IN THE SOURCE, because ACC-18 clause 8 asks for a span or frame and a whole-document citation is not one.",
+            "properties": {
+              "span_kind": { "enum": ["record_field", "document_region", "frame_interval", "row_range", "message_part"] },
+              "locator": { "type": "string", "minLength": 1, "maxLength": 320 }
+            }
+          },
+          "data_recipe_revision_ref": { "$ref": "#/$defs/dataRecipeRevisionRef" },
+          "data_recipe_content_hash": { "$ref": "#/$defs/sha256" },
+          "transformation_run_ref": { "$ref": "#/$defs/transformationRunRef" },
+          "transformation_run_content_hash": { "$ref": "#/$defs/sha256" },
+          "ontology_revision_ref": { "$ref": "#/$defs/ontologyRevisionRef" },
+          "ontology_content_hash": { "$ref": "#/$defs/sha256" },
+          "source_term_ref": { "$ref": "#/$defs/ontologyTermRef" },
+          "crosswalk_revision_ref": { "$ref": "#/$defs/crosswalkRevisionRef" },
+          "crosswalk_content_hash": { "$ref": "#/$defs/sha256" },
+          "mapping_decision_revision_ref": { "$ref": "#/$defs/mappingDecisionRevisionRef" },
+          "mapping_decision_content_hash": { "$ref": "#/$defs/sha256" },
+          "connector_mapping_revision_ref": { "$ref": "#/$defs/connectorMappingRevisionRef" },
+          "connector_mapping_content_hash": { "$ref": "#/$defs/sha256" },
+          "worker_composition_ref": { "$ref": "#/$defs/workerCompositionRef" },
+          "model_or_rule_version_ref": {
+            "$ref": "#/$defs/routeRightsRevisionRef",
+            "description": "The exact M07.2 `ModelRouteRightsContract` revision naming the model route this field's proposal may use. It is a CEILING, never a grant: this binding invokes no model and routes nothing."
+          },
+          "model_or_rule_version_content_hash": { "$ref": "#/$defs/sha256" },
+          "uncertainty": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["basis", "crosswalk_relation", "declared_loss", "confidence", "confidence_is_measured"],
+            "description": "UNCERTAINTY IS CATEGORICAL IN v1 AND SAYS SO. `crosswalk_relation` and `declared_loss` are taken verbatim from the admitted crosswalk row M05.2 served — someone else's measured, receipted, challengeable statement of semantic loss. `confidence` is pinned null with `confidence_is_measured: false`, because a float this module invented and then checked against a neighbouring field it also invented would certify nothing. A measured confidence needs a measurer, and there is none in this cut.",
+            "properties": {
+              "basis": { "const": "resolved_crosswalk_relation" },
+              "crosswalk_relation": {
+                "enum": ["exact", "broader", "narrower", "related"],
+                "description": "`unmapped` is absent BY CONSTRUCTION: an unmapped term never reaches a compiled contract, it becomes an escalation."
+              },
+              "declared_loss": { "enum": ["none", "lossy_precision", "lossy_scope", "lossy_units"] },
+              "confidence": { "type": "null" },
+              "confidence_is_measured": { "const": false }
+            }
+          },
+          "policy_bound_data_view_revision_ref": { "$ref": "#/$defs/viewRevisionRef" },
+          "policy_bound_data_view_content_hash": { "$ref": "#/$defs/sha256" },
+          "effective_policy_hash": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "compiled_evidence_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_requirement_ref", "applies_to_risk_class", "verifier_obligation_ref"],
+        "properties": {
+          "evidence_requirement_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "applies_to_risk_class": { "$ref": "#/$defs/riskClass" },
+          "verifier_obligation_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "compiled_review_modes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk_class", "review_mode", "review_owner_module", "this_binding_performed_no_review"],
+        "properties": {
+          "risk_class": { "$ref": "#/$defs/riskClass" },
+          "review_mode": { "$ref": "#/$defs/reviewMode" },
+          "review_owner_module": { "const": "M03.15" },
+          "this_binding_performed_no_review": { "const": true }
+        }
+      }
+    },
+    "abstentions": {
+      "type": "array",
+      "maxItems": 256,
+      "description": "ONE ROW PER FIELD THE WORKER MAY NOT PRODUCE A VALUE FOR, each naming the exact resolved ref that caused it. An abstention with no cause ref is unrepresentable, because a refusal nobody can trace back to an admitted record is indistinguishable from a shrug.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["output_field_ref", "requirement", "cause", "cause_ref", "governing_disposition", "no_value_was_produced"],
+        "properties": {
+          "output_field_ref": { "$ref": "#/$defs/outputFieldRef" },
+          "requirement": { "enum": ["required", "conditional", "optional"] },
+          "cause": { "$ref": "#/$defs/abstentionCause" },
+          "cause_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 320,
+            "description": "The exact admitted ref whose resolution produced this abstention — the superseding ontology revision, the view revision that refused, the boundary whose hash moved."
+          },
+          "governing_disposition": { "$ref": "#/$defs/governingDisposition" },
+          "no_value_was_produced": {
+            "const": true,
+            "description": "Committed in the row's own bytes. A downstream reader does not have to infer from the absence of a contract row that no value exists; the record says so."
+          }
+        }
+      }
+    },
+    "escalations": {
+      "type": "array",
+      "maxItems": 256,
+      "description": "ONE ROW PER FIELD AN ACCOUNTABLE OWNER MUST DECIDE, carrying M05.2's own disposition token verbatim rather than a re-decision of it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["output_field_ref", "requirement", "cause", "cause_ref", "governing_disposition", "no_value_was_produced", "escalated_to_owner_ref"],
+        "properties": {
+          "output_field_ref": { "$ref": "#/$defs/outputFieldRef" },
+          "requirement": { "enum": ["required", "conditional", "optional"] },
+          "cause": { "$ref": "#/$defs/escalationCause" },
+          "cause_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "governing_disposition": { "$ref": "#/$defs/governingDisposition" },
+          "no_value_was_produced": { "const": true },
+          "escalated_to_owner_ref": { "$ref": "#/$defs/ownerRef" }
+        }
+      }
+    },
+    "jurisdiction_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$" },
+      "description": "FAIL-CLOSED, AND THE FLOOR IS HERE BECAUSE THE WHOLE BINDING FAILS RATHER THAN ONE FIELD. `jurisdiction_absent` is not a per-field abstention: a compilation with no jurisdiction has nothing to be a compilation under, so the admission refuses and no record exists. The pack carries no such floor precisely so that a jurisdictionless pack is admissible and this refusal stays reachable."
+    },
+    "registry_status": { "enum": ["draft", "active", "suspended", "expired", "superseded", "revoked"] },
+    "admitted_at": { "$ref": "#/$defs/canonicalTimestamp" },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["succession_reason", "predecessor_revision_ref", "predecessor_content_hash", "supersedes_predecessor"],
+      "properties": {
+        "succession_reason": { "enum": ["genesis", "pack_revision_change", "input_revision_change", "policy_revision_change", "recompilation", "correction"] },
+        "predecessor_revision_ref": { "oneOf": [{ "$ref": "#/$defs/bindingRevisionRef" }, { "type": "null" }] },
+        "predecessor_content_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "supersedes_predecessor": { "type": "boolean" }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility", "downgrade_to_predecessor", "refused_legacy_view_scheme"],
+      "properties": {
+        "compatibility": { "enum": ["initial", "additive", "breaking"] },
+        "downgrade_to_predecessor": { "const": "refused" },
+        "refused_legacy_view_scheme": {
+          "const": "policy-bound-data-view://",
+          "description": "NAMED AS THE REFUSED FORM. The predecessor v1 view family is mutable and carries no content commitment, so it appears in this contract exactly once — here, as the spelling that is not accepted."
+        }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_domain", "lifecycle_id", "review_owner_module", "compilation_is_deterministic", "worker_composition_owner_module", "authority_token", "measured_confidence_token"],
+      "properties": {
+        "commitment_domain": { "const": "ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1" },
+        "lifecycle_id": { "const": "vertical_pack_worker_binding_lifecycle.v1" },
+        "review_owner_module": { "const": "M03.15" },
+        "authority_token": {
+          "const": "authority",
+          "description": "The token the registered NN-9 nonclaim invariant compares `does_not_assert` against — one committed constant read against one committed list, so a fixture that drops the nonclaim is refused offline rather than by a literal buried in the rule."
+        },
+        "measured_confidence_token": { "const": "measured_field_confidence" },
+        "compilation_is_deterministic": {
+          "const": true,
+          "description": "The same resolved input set compiles to byte-identical `compiled_*` output and therefore to the same `content_hash`, across processes and across a restart with the read index destroyed."
+        },
+        "worker_composition_owner_module": { "const": "M14" }
+      }
+    },
+    "authority_nonclaim": { "const": "vertical_pack_worker_binding_grants_no_authority" },
+    "truth_nonclaim": { "const": "vertical_pack_worker_binding_is_a_compiled_reading_of_admitted_revisions_not_domain_correctness" },
+    "legal_conformity_claim": { "const": "not_determined" },
+    "does_not_assert": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 14,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "authority",
+          "capability_grant",
+          "lease",
+          "policy_decision",
+          "effect_admission",
+          "invocation",
+          "legality",
+          "reviewer_qualification",
+          "marketplace_eligibility",
+          "payment",
+          "domain_correctness",
+          "live_medical_suitability",
+          "measured_field_confidence",
+          "worker_composition_resolution"
+        ]
+      },
+      "description": "NN 9's six plus the six ACC-18/M05 boundary tokens, with a floor of ten so the set cannot be quietly shortened to the comfortable half. `measured_field_confidence` and `worker_composition_resolution` are here because this build genuinely resolves neither, and a record that stayed silent about what it did not do would be overstating itself by omission."
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "title": "a genesis revision carries no predecessor and supersedes nothing",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["succession"],
+        "properties": {
+          "succession": {
+            "type": "object",
+            "required": ["succession_reason"],
+            "properties": { "succession_reason": { "const": "genesis" } }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "succession": {
+            "type": "object",
+            "properties": {
+              "predecessor_revision_ref": { "type": "null" },
+              "predecessor_content_hash": { "type": "null" },
+              "supersedes_predecessor": { "const": false }
+            }
+          },
+          "migration": { "type": "object", "properties": { "compatibility": { "const": "initial" } } }
+        }
+      }
+    },
+    {
+      "title": "every mandatory nonclaim is present",
+      "type": "object",
+      "properties": {
+        "does_not_assert": {
+          "type": "array",
+          "allOf": [
+            { "contains": { "const": "authority" } },
+            { "contains": { "const": "capability_grant" } },
+            { "contains": { "const": "lease" } },
+            { "contains": { "const": "policy_decision" } },
+            { "contains": { "const": "effect_admission" } },
+            { "contains": { "const": "invocation" } },
+            { "contains": { "const": "legality" } },
+            { "contains": { "const": "reviewer_qualification" } },
+            { "contains": { "const": "marketplace_eligibility" } },
+            { "contains": { "const": "domain_correctness" } }
+          ]
+        }
+      },
+      "description": "TEN MANDATORY MEMBERS, EACH NAMED. A `minItems` floor alone would let ten comfortable tokens stand in for the six that carry NN 9 and the four that carry ACC-18's boundary."
+    }
+  ]
+}

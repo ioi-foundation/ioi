@@ -1,0 +1,120 @@
+{
+  "$id": "invariant://ioi/domains/aiagent/vertical-ontology-pack/declared-extension-that-decides-nothing/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+  "rules": [
+    {
+      "rule_id": "vertical_ontology_pack.content_hash.commits_the_whole_revision",
+      "description": "Every field except the hash itself, committed under a domain separator — the bound ontology revision AND its content hash, the declared task classes, action/risk/contract/review/surface rows, integration requirements, the output-field set a binding must cover, the field and evidence requirements, review modes, forbidden actions, jurisdictions, succession and every nonclaim. A relying party holding only the record recomputes it offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "vertical_ontology_pack_id": { "path": "$.vertical_ontology_pack_id" },
+          "revision_ref": { "path": "$.revision_ref" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "tenant_ref": { "path": "$.tenant_ref" },
+          "principal_resolution": { "path": "$.principal_resolution" },
+          "resolved_principal_ref": { "path": "$.resolved_principal_ref" },
+          "legacy_pack_id": { "path": "$.legacy_pack_id" },
+          "legacy_pack_id_is_display_only": { "path": "$.legacy_pack_id_is_display_only" },
+          "display_name": { "path": "$.display_name" },
+          "base_ontology_revision_ref": { "path": "$.base_ontology_revision_ref" },
+          "base_ontology_content_hash": { "path": "$.base_ontology_content_hash" },
+          "declared_object_type_refs": { "path": "$.declared_object_type_refs" },
+          "declared_task_classes": { "path": "$.declared_task_classes" },
+          "declared_action_bindings": { "path": "$.declared_action_bindings" },
+          "declared_integration_requirements": { "path": "$.declared_integration_requirements" },
+          "declared_output_fields": { "path": "$.declared_output_fields" },
+          "declared_field_requirements": { "path": "$.declared_field_requirements" },
+          "declared_evidence_requirements": { "path": "$.declared_evidence_requirements" },
+          "declared_review_modes": { "path": "$.declared_review_modes" },
+          "forbidden_action_refs": { "path": "$.forbidden_action_refs" },
+          "jurisdiction_refs": { "path": "$.jurisdiction_refs" },
+          "registry_status": { "path": "$.registry_status" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "succession": { "path": "$.succession" },
+          "migration": { "path": "$.migration" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "truth_nonclaim": { "path": "$.truth_nonclaim" },
+          "legal_conformity_claim": { "path": "$.legal_conformity_claim" },
+          "does_not_decide": { "path": "$.does_not_decide" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names. A revision ref filed under another family would let one pack's lineage carry another pack's revision, and every later exact-revision citation would resolve against the wrong stream.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.vertical_ontology_pack_id",
+        "prefix": "vertical-pack://",
+        "strip_prefix": "vertical-pack://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.field_requirements.cover_the_declared_output_fields_exactly",
+      "description": "EVERY DECLARED OUTPUT FIELD CARRIES EXACTLY ONE REQUIREMENT ROW, AND NO ROW NAMES A FIELD THE PACK DID NOT DECLARE. Coverage compares length as well as members, so a field declared twice in the requirement table makes the covering long and a field declared with no requirement makes it short. This is what lets the BINDING iterate `declared_output_fields` and know that each one has a `required`/`conditional`/`optional` disposition to escalate or abstain against — without it, a field's requirement would be a lookup that could silently miss.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_output_fields",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          { "path": "$.declared_field_requirements", "field": "output_field_ref" }
+        ]
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.action_bindings.every_action_is_declared_by_a_task_class",
+      "description": "Each declared action binding must be reachable from the task-class vocabulary — a pack that mapped a risk class onto an action no task class names has declared a risk about work it does not describe.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.declared_action_bindings",
+        "fields": ["action_type_ref"]
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.base_ontology.binds_the_bytes_not_only_the_ref",
+      "description": "The bound base ontology's content hash must be present. A ref names a revision that may since have been re-admitted under a rebuilt index; without the hash a silent substitution underneath this pack is undetectable offline.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.base_ontology_content_hash"
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.integration_requirements.each_surface_appears_once",
+      "description": "One surface, one connector-mapping binding. Two rows for one surface would let a pack bind two provider maps to the same integration and leave which one governs undecided.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.declared_integration_requirements",
+        "fields": ["integration_surface"]
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.review_modes.each_risk_class_appears_once",
+      "description": "A risk class with two declared review modes is a pack that has not decided which review its own risk needs, and a consumer reading the first row would silently take the weaker one.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.declared_review_modes",
+        "fields": ["risk_class"]
+      }
+    },
+    {
+      "rule_id": "vertical_ontology_pack.nonclaims.the_pack_decides_no_legality_and_no_reviewer_qualification",
+      "description": "M05 BOUNDARY, AS A CHECKABLE MEMBERSHIP RATHER THAN PROSE. `legality` must be in `does_not_decide`. The module boundary says a vertical pack may not decide legality, reviewer qualification, authority, marketplace eligibility or correctness; dropping the token is how that boundary would quietly stop being stated.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_decide",
+        "expected_path": "$.constants.legality_token"
+      }
+    }
+  ]
+}

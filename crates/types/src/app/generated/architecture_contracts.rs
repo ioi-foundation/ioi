@@ -301,6 +301,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/observation-action-episode/v1", "sha256:7df64e2ede4bbbbe15654b8eb03ac8c464fba8491149a017b5ee3ae4dde8133b"),
     ("schema://ioi/foundations/objects/dataset-split-manifest/v1", "sha256:18172276af0aa49fe45389817839b6e238e84081e84cfbb419ef53bc4256397b"),
     ("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", "sha256:175805eb63f09cbde5e976c4c35e4f44430ba8e7dae9ecc146b38522c6dafa64"),
+    ("schema://ioi/domains/aiagent/vertical-ontology-pack/v1", "sha256:399baf468b8e5621b945c7ac70c2013cf3dde86a9cf06313badc75b803da4cff"),
+    ("schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1", "sha256:c6c30e48a328135618cc749ba0cb477365d2485400902c7770da119e13487588"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -128702,6 +128704,3367 @@ pub enum MediaCorpusQualificationCensusV1AuthorityNonclaim {
     MediaCorpusQualificationCensusGrantsNoAuthority,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1 {
+    pub schema_version: VerticalOntologyPackV1SchemaVersion,
+    pub vertical_ontology_pack_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub principal_resolution: VerticalOntologyPackV1PrincipalResolution,
+    pub resolved_principal_ref: String,
+    pub legacy_pack_id: String,
+    pub legacy_pack_id_is_display_only: VerticalOntologyPackV1LegacyPackIdIsDisplayOnly,
+    pub display_name: String,
+    pub base_ontology_revision_ref: String,
+    pub base_ontology_content_hash: String,
+    pub declared_object_type_refs: Vec<String>,
+    pub declared_task_classes: Vec<VerticalOntologyPackV1DeclaredTaskClassesItem>,
+    pub declared_action_bindings: Vec<VerticalOntologyPackV1DeclaredActionBindingsItem>,
+    pub declared_integration_requirements:
+        Vec<VerticalOntologyPackV1DeclaredIntegrationRequirementsItem>,
+    pub declared_output_fields: Vec<String>,
+    pub declared_field_requirements: Vec<VerticalOntologyPackV1DeclaredFieldRequirementsItem>,
+    pub declared_evidence_requirements: Vec<VerticalOntologyPackV1DeclaredEvidenceRequirementsItem>,
+    pub declared_review_modes: Vec<VerticalOntologyPackV1DeclaredReviewModesItem>,
+    pub forbidden_action_refs: Vec<String>,
+    pub jurisdiction_refs: Vec<String>,
+    pub registry_status: VerticalOntologyPackV1RegistryStatus,
+    pub admitted_at: String,
+    pub succession: VerticalOntologyPackV1Succession,
+    pub migration: VerticalOntologyPackV1Migration,
+    pub constants: VerticalOntologyPackV1Constants,
+    pub authority_nonclaim: VerticalOntologyPackV1AuthorityNonclaim,
+    pub truth_nonclaim: VerticalOntologyPackV1TruthNonclaim,
+    pub legal_conformity_claim: VerticalOntologyPackV1LegalConformityClaim,
+    pub does_not_decide: Vec<VerticalOntologyPackV1DoesNotDecideItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/domains/aiagent/vertical-ontology-pack/v1","title":"VerticalOntologyPackV1","description":"ONE IMMUTABLE REVISION of an installable domain extension over the shared worker ontology. A pack DECLARES a vertical's task classes, action/risk mappings, integration-surface requirements, proposed output fields, evidence requirements and review modes, and it declares them against an EXACT admitted ontology revision it names by ref AND by content hash. IT DECIDES NOTHING. A pack does not decide legality, reviewer qualification, authority, marketplace eligibility, payment, correctness or live medical suitability; those are its own committed nonclaims, and `VerticalPackWorkerBinding` is where the declaration meets the resolved world and either compiles or abstains. Nothing here forks the daemon, wallet.network, Agentgres or the marketplace (`domains/aiagent/vertical-ontology-packs.md`).","x-ioi-schema-version":"ioi.vertical-ontology-pack.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"packFamilyRef":{"type":"string","pattern":"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}$"},"packRevisionRef":{"type":"string","pattern":"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyTermRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"actionContractRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"outputFieldRef":{"type":"string","pattern":"^field://[a-z0-9][a-z0-9._/-]{0,190}$"},"taskClassRef":{"type":"string","pattern":"^task-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"riskClass":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"],"description":"Frozen by `foundations/canonical-enums.md`. A pack SELECTS from the ladder; it does not extend it, and a vertical that needed a thirteenth class would be a finding against the enum owner rather than a local addition here."},"integrationSurfaceClass":{"enum":["chat_community","contact_delivery","game_platform","browser_saas","developer_code","commerce","finance_trading","local_computer_use","enterprise_vpc","webhook_api","voice_sms_access","robotics_physical","embodied_humanoid","vehicles_mobility","field_service_inspection","education_tutoring","creative_media","support_operations"],"description":"Frozen by `domains/aiagent/integration-surface-taxonomy.md`. A surface is a policy and evidence profile, never an authority grant."},"reviewMode":{"enum":["no_review_required","sampled_review","exact_payload_review","dual_control_review","supervisory_review"],"description":"WHAT REVIEW THE PACK DECLARES A CLASS NEEDS — never who is qualified to give it. Reviewer qualification is an accountable owner's decision and is one of this contract's committed nonclaims. `exact_payload_review` is the mode ACC-18 clause 10 names; M03.15 owns the review itself."}},"required":["schema_version","vertical_ontology_pack_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","legacy_pack_id","legacy_pack_id_is_display_only","display_name","base_ontology_revision_ref","base_ontology_content_hash","declared_object_type_refs","declared_task_classes","declared_action_bindings","declared_integration_requirements","declared_output_fields","declared_field_requirements","declared_evidence_requirements","declared_review_modes","forbidden_action_refs","jurisdiction_refs","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","legal_conformity_claim","does_not_decide","content_hash"],"properties":{"schema_version":{"const":"ioi.vertical-ontology-pack.v1"},"vertical_ontology_pack_id":{"$ref":"#/$defs/packFamilyRef"},"revision_ref":{"$ref":"#/$defs/packRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"legacy_pack_id":{"type":"string","pattern":"^vertical_pack:[a-z0-9][a-z0-9._-]{0,190}$","description":"CANON'S OWN SPELLING, CARRIED VERBATIM AND NOT BENT TO SUIT THE REVISION CONVENTION. `vertical-ontology-packs.md` writes `pack_id: vertical_pack:community.discord_moderation.v1`, and `runtime_worker_package_install_admission.rs` already requires that exact prefix. It is retained here as a DISPLAY id so the canonical name stays unbent, and it is explicitly NOT resolvable: identity is `revision_ref`. Tightening the worker-package kernel to demand a resolvable revision is M14.9's cut, not this one."},"legacy_pack_id_is_display_only":{"const":true,"description":"Stated in the record's own bytes rather than only in prose, so a consumer that tried to resolve `legacy_pack_id` is contradicting a committed field rather than making an understandable mistake."},"display_name":{"type":"string","minLength":1,"maxLength":128},"base_ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"The EXACT admitted ontology revision this pack extends — resolved through M05.1's owner seam at admission, never a family head and never `latest`."},"base_ontology_content_hash":{"$ref":"#/$defs/sha256","description":"THE BYTES, NOT ONLY THE REF, taken verbatim from what M05.1 served. A ref alone would let the meaning a pack extends move underneath it undetectably."},"declared_object_type_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/ontologyTermRef"},"description":"Terms of the bound base ontology, each resolved through M05.1's term seam at admission. A well-formed term the revision never declared is refused there rather than accepted as a well-formed string."},"declared_task_classes":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["task_class_ref","label","action_type_refs"],"properties":{"task_class_ref":{"$ref":"#/$defs/taskClassRef"},"label":{"type":"string","minLength":1,"maxLength":128},"action_type_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/ontologyTermRef"}}}},"description":"The routing/index vocabulary a worker claiming this vertical is described by. `TaskClass` is index vocabulary per `digital-worker-ontology.md`; it selects nothing and authorizes nothing."},"declared_action_bindings":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["action_type_ref","risk_class","action_contract_revision_ref","review_mode","required_integration_surface"],"properties":{"action_type_ref":{"$ref":"#/$defs/ontologyTermRef"},"risk_class":{"$ref":"#/$defs/riskClass"},"action_contract_revision_ref":{"$ref":"#/$defs/actionContractRevisionRef","description":"The EXACT `OntologyActionContract` revision this action compiles through, resolved at admission via M05.4's owner seam. Canon's conformance check `pack actions map to declared risk classes and authority scopes` is met by resolving the contract, not by naming it."},"review_mode":{"$ref":"#/$defs/reviewMode"},"required_integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"}}},"description":"ACTION -> RISK -> CONTRACT -> REVIEW -> SURFACE, as one row per action, so no half of the mapping can drift from the other. A pack that named a risk class without the contract that carries it would be asserting a risk nobody compiled."},"declared_integration_requirements":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["integration_surface","connector_mapping_revision_ref","credential_custody_nonclaim","safety_envelope_required"],"properties":{"integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"},"connector_mapping_revision_ref":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$","description":"The EXACT M05.7 `ConnectorMapping` revision this surface binds, resolved through its owner seam."},"credential_custody_nonclaim":{"const":"pack_connectors_do_not_imply_credential_custody","description":"Canon's conformance check, expressed in the record's own bytes. A connector mapping is a field map; possession of one implies no credential and no authority."},"safety_envelope_required":{"type":"boolean"}}}},"declared_output_fields":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/outputFieldRef"},"description":"THE FIELDS THIS PACK PROPOSES A WORKER MAY PRODUCE. This list is what a binding must cover EXACTLY ONCE, by a compiled contract, an abstention or an escalation. It is the reason a binding cannot be silent about a field: silence would leave the covering short."},"declared_field_requirements":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","source_term_ref","evidence_requirement_ref"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"],"description":"A `required` field with no crosswalk term ESCALATES rather than abstaining: the difference between 'this worker cannot say' and 'this vertical cannot proceed' is a difference an accountable owner must see."},"source_term_ref":{"$ref":"#/$defs/ontologyTermRef"},"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320}}}},"declared_evidence_requirements":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["evidence_requirement_ref","applies_to_risk_class","verifier_obligation_ref"],"properties":{"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320},"applies_to_risk_class":{"$ref":"#/$defs/riskClass"},"verifier_obligation_ref":{"type":"string","minLength":1,"maxLength":320}}}},"declared_review_modes":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["risk_class","review_mode","review_owner_module"],"properties":{"risk_class":{"$ref":"#/$defs/riskClass"},"review_mode":{"$ref":"#/$defs/reviewMode"},"review_owner_module":{"const":"M03.15","description":"PINNED TO THE OWNER, so the pack cannot read as though it performed the review. A pack states which mode a risk class needs; M03.15 owns exact-payload review and is the only place one happens."}}}},"forbidden_action_refs":{"type":"array","maxItems":128,"items":{"type":"string","minLength":1,"maxLength":320}},"jurisdiction_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"},"description":"DELIBERATELY WITHOUT A `minItems` FLOOR. An empty list is admissible and is exactly what makes the binding's whole-binding `jurisdiction_absent` fail-closed refusal reachable and therefore testable. A floor here would move the refusal into the schema and leave the runtime rule unfalsifiable."},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor"],"properties":{"succession_reason":{"enum":["genesis","ontology_revision_change","action_or_risk_change","field_or_evidence_change","review_mode_change","integration_change","jurisdiction_change","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/packRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"enum":["initial","additive","breaking"]},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain","lifecycle_id","review_owner_module","identity_is_the_revision_ref","legality_token"],"properties":{"commitment_domain":{"const":"ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1"},"lifecycle_id":{"const":"vertical_ontology_pack_lifecycle.v1"},"review_owner_module":{"const":"M03.15"},"identity_is_the_revision_ref":{"const":true},"legality_token":{"const":"legality","description":"The token the registered nonclaim invariant compares `does_not_decide` against. Pinned here so the rule reads one committed constant against one committed list rather than embedding the literal in the rule, which is what lets a fixture drop the nonclaim and be refused offline."}}},"authority_nonclaim":{"const":"vertical_ontology_pack_grants_no_authority"},"truth_nonclaim":{"const":"vertical_ontology_pack_is_a_declared_domain_extension_not_domain_correctness"},"legal_conformity_claim":{"const":"not_determined","description":"ACC-18 clause 13, in the record's own bytes. No HIPAA, payer, medical, coding or jurisdictional correctness is asserted by a pack, ever."},"does_not_decide":{"type":"array","minItems":8,"maxItems":12,"uniqueItems":true,"items":{"enum":["legality","reviewer_qualification","authority","marketplace_eligibility","payment","correctness","live_medical_suitability","provider_connection","credential_custody","model_routing","agentgres_admission","daemon_execution_truth"]},"description":"THE M05 BOUNDARY AND CANON'S 'DOES NOT OWN' LIST, AS A CLOSED SET WITH A FLOOR OF EIGHT. The seven ACC-18/M05 boundary tokens plus at least one of canon's own; dropping any of the mandatory members is refused by the runtime as well, so the nonclaim cannot be quietly shortened."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor and supersedes nothing","type":"object","if":{"type":"object","required":["succession"],"properties":{"succession":{"type":"object","required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"migration":{"type":"object","properties":{"compatibility":{"const":"initial"}}}}}},{"title":"a physical-action or embodied surface requires a safety envelope","type":"object","if":{"type":"object","required":["declared_integration_requirements"],"properties":{"declared_integration_requirements":{"type":"array","contains":{"type":"object","required":["integration_surface"],"properties":{"integration_surface":{"enum":["robotics_physical","embodied_humanoid","vehicles_mobility"]}}}}}},"then":{"type":"object","properties":{"declared_integration_requirements":{"type":"array","items":{"type":"object","properties":{"safety_envelope_required":{"const":true}}}}}},"description":"Canon: `physical packs reference PhysicalActionPolicy and SafetyEnvelope`. A pack that reached an actuator surface without declaring the envelope would be the exact anti-pattern `vertical-ontology-packs.md` names."}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<VerticalOntologyPackV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            vertical_ontology_pack_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"vertical_ontology_pack_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"vertical_ontology_pack_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_resolution:
+                serde_json::from_value::<VerticalOntologyPackV1PrincipalResolution>(
+                    object.remove(r#"principal_resolution"#).ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"principal_resolution"#)
+                    })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            resolved_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legacy_pack_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"legacy_pack_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legacy_pack_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legacy_pack_id_is_display_only: serde_json::from_value::<
+                VerticalOntologyPackV1LegacyPackIdIsDisplayOnly,
+            >(
+                object
+                    .remove(r#"legacy_pack_id_is_display_only"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"legacy_pack_id_is_display_only"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ontology_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_ontology_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"base_ontology_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ontology_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_ontology_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"base_ontology_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_object_type_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"declared_object_type_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_object_type_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_task_classes: serde_json::from_value::<
+                Vec<VerticalOntologyPackV1DeclaredTaskClassesItem>,
+            >(
+                object
+                    .remove(r#"declared_task_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_task_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_action_bindings: serde_json::from_value::<
+                Vec<VerticalOntologyPackV1DeclaredActionBindingsItem>,
+            >(
+                object
+                    .remove(r#"declared_action_bindings"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_action_bindings"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_integration_requirements: serde_json::from_value::<
+                Vec<VerticalOntologyPackV1DeclaredIntegrationRequirementsItem>,
+            >(
+                object
+                    .remove(r#"declared_integration_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_integration_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_output_fields: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"declared_output_fields"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_output_fields"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_field_requirements: serde_json::from_value::<
+                Vec<VerticalOntologyPackV1DeclaredFieldRequirementsItem>,
+            >(
+                object
+                    .remove(r#"declared_field_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_field_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_evidence_requirements: serde_json::from_value::<
+                Vec<VerticalOntologyPackV1DeclaredEvidenceRequirementsItem>,
+            >(
+                object
+                    .remove(r#"declared_evidence_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_evidence_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_review_modes: serde_json::from_value::<
+                Vec<VerticalOntologyPackV1DeclaredReviewModesItem>,
+            >(
+                object
+                    .remove(r#"declared_review_modes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_review_modes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            forbidden_action_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"forbidden_action_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"forbidden_action_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            jurisdiction_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"jurisdiction_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"jurisdiction_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<VerticalOntologyPackV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<VerticalOntologyPackV1Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<VerticalOntologyPackV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<VerticalOntologyPackV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<VerticalOntologyPackV1AuthorityNonclaim>(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<VerticalOntologyPackV1TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legal_conformity_claim: serde_json::from_value::<
+                VerticalOntologyPackV1LegalConformityClaim,
+            >(
+                object
+                    .remove(r#"legal_conformity_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legal_conformity_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_decide:
+                serde_json::from_value::<Vec<VerticalOntologyPackV1DoesNotDecideItem>>(
+                    object
+                        .remove(r#"does_not_decide"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_decide"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1SchemaVersion {
+    #[serde(rename = r#"ioi.vertical-ontology-pack.v1"#)]
+    IoiVerticalOntologyPackV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1PrincipalResolution {
+    #[serde(rename = r#"server_resolved"#)]
+    ServerResolved,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalOntologyPackV1LegacyPackIdIsDisplayOnly {
+    True,
+}
+
+impl serde::Serialize for VerticalOntologyPackV1LegacyPackIdIsDisplayOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1LegacyPackIdIsDisplayOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1DeclaredTaskClassesItem {
+    pub task_class_ref: String,
+    pub label: String,
+    pub action_type_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1DeclaredTaskClassesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["task_class_ref","label","action_type_refs"],"properties":{"task_class_ref":{"$ref":"#/$defs/taskClassRef"},"label":{"type":"string","minLength":1,"maxLength":128},"action_type_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/ontologyTermRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            task_class_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"task_class_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_class_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_type_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"action_type_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_type_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1DeclaredActionBindingsItem {
+    pub action_type_ref: String,
+    pub risk_class: VerticalOntologyPackV1DeclaredActionBindingsItemRiskClass,
+    pub action_contract_revision_ref: String,
+    pub review_mode: VerticalOntologyPackV1DeclaredActionBindingsItemReviewMode,
+    pub required_integration_surface:
+        VerticalOntologyPackV1DeclaredActionBindingsItemRequiredIntegrationSurface,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1DeclaredActionBindingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["action_type_ref","risk_class","action_contract_revision_ref","review_mode","required_integration_surface"],"properties":{"action_type_ref":{"$ref":"#/$defs/ontologyTermRef"},"risk_class":{"$ref":"#/$defs/riskClass"},"action_contract_revision_ref":{"$ref":"#/$defs/actionContractRevisionRef","description":"The EXACT `OntologyActionContract` revision this action compiles through, resolved at admission via M05.4's owner seam. Canon's conformance check `pack actions map to declared risk classes and authority scopes` is met by resolving the contract, not by naming it."},"review_mode":{"$ref":"#/$defs/reviewMode"},"required_integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            action_type_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_type_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_type_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredActionBindingsItemRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"action_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_mode: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredActionBindingsItemReviewMode,
+            >(
+                object
+                    .remove(r#"review_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_integration_surface: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredActionBindingsItemRequiredIntegrationSurface,
+            >(
+                object
+                    .remove(r#"required_integration_surface"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_integration_surface"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredActionBindingsItemRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredActionBindingsItemReviewMode {
+    #[serde(rename = r#"no_review_required"#)]
+    NoReviewRequired,
+    #[serde(rename = r#"sampled_review"#)]
+    SampledReview,
+    #[serde(rename = r#"exact_payload_review"#)]
+    ExactPayloadReview,
+    #[serde(rename = r#"dual_control_review"#)]
+    DualControlReview,
+    #[serde(rename = r#"supervisory_review"#)]
+    SupervisoryReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredActionBindingsItemRequiredIntegrationSurface {
+    #[serde(rename = r#"chat_community"#)]
+    ChatCommunity,
+    #[serde(rename = r#"contact_delivery"#)]
+    ContactDelivery,
+    #[serde(rename = r#"game_platform"#)]
+    GamePlatform,
+    #[serde(rename = r#"browser_saas"#)]
+    BrowserSaas,
+    #[serde(rename = r#"developer_code"#)]
+    DeveloperCode,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"finance_trading"#)]
+    FinanceTrading,
+    #[serde(rename = r#"local_computer_use"#)]
+    LocalComputerUse,
+    #[serde(rename = r#"enterprise_vpc"#)]
+    EnterpriseVpc,
+    #[serde(rename = r#"webhook_api"#)]
+    WebhookApi,
+    #[serde(rename = r#"voice_sms_access"#)]
+    VoiceSmsAccess,
+    #[serde(rename = r#"robotics_physical"#)]
+    RoboticsPhysical,
+    #[serde(rename = r#"embodied_humanoid"#)]
+    EmbodiedHumanoid,
+    #[serde(rename = r#"vehicles_mobility"#)]
+    VehiclesMobility,
+    #[serde(rename = r#"field_service_inspection"#)]
+    FieldServiceInspection,
+    #[serde(rename = r#"education_tutoring"#)]
+    EducationTutoring,
+    #[serde(rename = r#"creative_media"#)]
+    CreativeMedia,
+    #[serde(rename = r#"support_operations"#)]
+    SupportOperations,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1DeclaredIntegrationRequirementsItem {
+    pub integration_surface:
+        VerticalOntologyPackV1DeclaredIntegrationRequirementsItemIntegrationSurface,
+    pub connector_mapping_revision_ref: String,
+    pub credential_custody_nonclaim:
+        VerticalOntologyPackV1DeclaredIntegrationRequirementsItemCredentialCustodyNonclaim,
+    pub safety_envelope_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1DeclaredIntegrationRequirementsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["integration_surface","connector_mapping_revision_ref","credential_custody_nonclaim","safety_envelope_required"],"properties":{"integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"},"connector_mapping_revision_ref":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$","description":"The EXACT M05.7 `ConnectorMapping` revision this surface binds, resolved through its owner seam."},"credential_custody_nonclaim":{"const":"pack_connectors_do_not_imply_credential_custody","description":"Canon's conformance check, expressed in the record's own bytes. A connector mapping is a field map; possession of one implies no credential and no authority."},"safety_envelope_required":{"type":"boolean"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            integration_surface: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredIntegrationRequirementsItemIntegrationSurface,
+            >(
+                object
+                    .remove(r#"integration_surface"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"integration_surface"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_mapping_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            credential_custody_nonclaim: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredIntegrationRequirementsItemCredentialCustodyNonclaim,
+            >(
+                object
+                    .remove(r#"credential_custody_nonclaim"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"credential_custody_nonclaim"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            safety_envelope_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"safety_envelope_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"safety_envelope_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredIntegrationRequirementsItemIntegrationSurface {
+    #[serde(rename = r#"chat_community"#)]
+    ChatCommunity,
+    #[serde(rename = r#"contact_delivery"#)]
+    ContactDelivery,
+    #[serde(rename = r#"game_platform"#)]
+    GamePlatform,
+    #[serde(rename = r#"browser_saas"#)]
+    BrowserSaas,
+    #[serde(rename = r#"developer_code"#)]
+    DeveloperCode,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"finance_trading"#)]
+    FinanceTrading,
+    #[serde(rename = r#"local_computer_use"#)]
+    LocalComputerUse,
+    #[serde(rename = r#"enterprise_vpc"#)]
+    EnterpriseVpc,
+    #[serde(rename = r#"webhook_api"#)]
+    WebhookApi,
+    #[serde(rename = r#"voice_sms_access"#)]
+    VoiceSmsAccess,
+    #[serde(rename = r#"robotics_physical"#)]
+    RoboticsPhysical,
+    #[serde(rename = r#"embodied_humanoid"#)]
+    EmbodiedHumanoid,
+    #[serde(rename = r#"vehicles_mobility"#)]
+    VehiclesMobility,
+    #[serde(rename = r#"field_service_inspection"#)]
+    FieldServiceInspection,
+    #[serde(rename = r#"education_tutoring"#)]
+    EducationTutoring,
+    #[serde(rename = r#"creative_media"#)]
+    CreativeMedia,
+    #[serde(rename = r#"support_operations"#)]
+    SupportOperations,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredIntegrationRequirementsItemCredentialCustodyNonclaim {
+    #[serde(rename = r#"pack_connectors_do_not_imply_credential_custody"#)]
+    PackConnectorsDoNotImplyCredentialCustody,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1DeclaredFieldRequirementsItem {
+    pub output_field_ref: String,
+    pub requirement: VerticalOntologyPackV1DeclaredFieldRequirementsItemRequirement,
+    pub source_term_ref: String,
+    pub evidence_requirement_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1DeclaredFieldRequirementsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","source_term_ref","evidence_requirement_ref"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"],"description":"A `required` field with no crosswalk term ESCALATES rather than abstaining: the difference between 'this worker cannot say' and 'this vertical cannot proceed' is a difference an accountable owner must see."},"source_term_ref":{"$ref":"#/$defs/ontologyTermRef"},"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            output_field_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_field_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_field_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredFieldRequirementsItemRequirement,
+            >(
+                object
+                    .remove(r#"requirement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_term_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_term_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_term_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_requirement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_requirement_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_requirement_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredFieldRequirementsItemRequirement {
+    #[serde(rename = r#"required"#)]
+    Required,
+    #[serde(rename = r#"conditional"#)]
+    Conditional,
+    #[serde(rename = r#"optional"#)]
+    Optional,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1DeclaredEvidenceRequirementsItem {
+    pub evidence_requirement_ref: String,
+    pub applies_to_risk_class:
+        VerticalOntologyPackV1DeclaredEvidenceRequirementsItemAppliesToRiskClass,
+    pub verifier_obligation_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1DeclaredEvidenceRequirementsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["evidence_requirement_ref","applies_to_risk_class","verifier_obligation_ref"],"properties":{"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320},"applies_to_risk_class":{"$ref":"#/$defs/riskClass"},"verifier_obligation_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            evidence_requirement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_requirement_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_requirement_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applies_to_risk_class: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredEvidenceRequirementsItemAppliesToRiskClass,
+            >(
+                object
+                    .remove(r#"applies_to_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applies_to_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_obligation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredEvidenceRequirementsItemAppliesToRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1DeclaredReviewModesItem {
+    pub risk_class: VerticalOntologyPackV1DeclaredReviewModesItemRiskClass,
+    pub review_mode: VerticalOntologyPackV1DeclaredReviewModesItemReviewMode,
+    pub review_owner_module: VerticalOntologyPackV1DeclaredReviewModesItemReviewOwnerModule,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1DeclaredReviewModesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["risk_class","review_mode","review_owner_module"],"properties":{"risk_class":{"$ref":"#/$defs/riskClass"},"review_mode":{"$ref":"#/$defs/reviewMode"},"review_owner_module":{"const":"M03.15","description":"PINNED TO THE OWNER, so the pack cannot read as though it performed the review. A pack states which mode a risk class needs; M03.15 owns exact-payload review and is the only place one happens."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            risk_class: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredReviewModesItemRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_mode: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredReviewModesItemReviewMode,
+            >(
+                object
+                    .remove(r#"review_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_owner_module: serde_json::from_value::<
+                VerticalOntologyPackV1DeclaredReviewModesItemReviewOwnerModule,
+            >(
+                object
+                    .remove(r#"review_owner_module"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_owner_module"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredReviewModesItemRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredReviewModesItemReviewMode {
+    #[serde(rename = r#"no_review_required"#)]
+    NoReviewRequired,
+    #[serde(rename = r#"sampled_review"#)]
+    SampledReview,
+    #[serde(rename = r#"exact_payload_review"#)]
+    ExactPayloadReview,
+    #[serde(rename = r#"dual_control_review"#)]
+    DualControlReview,
+    #[serde(rename = r#"supervisory_review"#)]
+    SupervisoryReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DeclaredReviewModesItemReviewOwnerModule {
+    #[serde(rename = r#"M03.15"#)]
+    M0315,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1Succession {
+    pub succession_reason: VerticalOntologyPackV1SuccessionSuccessionReason,
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub supersedes_predecessor: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor"],"properties":{"succession_reason":{"enum":["genesis","ontology_revision_change","action_or_risk_change","field_or_evidence_change","review_mode_change","integration_change","jurisdiction_change","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/packRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            succession_reason: serde_json::from_value::<
+                VerticalOntologyPackV1SuccessionSuccessionReason,
+            >(
+                object
+                    .remove(r#"succession_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_predecessor: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"supersedes_predecessor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_predecessor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1SuccessionSuccessionReason {
+    #[serde(rename = r#"genesis"#)]
+    Genesis,
+    #[serde(rename = r#"ontology_revision_change"#)]
+    OntologyRevisionChange,
+    #[serde(rename = r#"action_or_risk_change"#)]
+    ActionOrRiskChange,
+    #[serde(rename = r#"field_or_evidence_change"#)]
+    FieldOrEvidenceChange,
+    #[serde(rename = r#"review_mode_change"#)]
+    ReviewModeChange,
+    #[serde(rename = r#"integration_change"#)]
+    IntegrationChange,
+    #[serde(rename = r#"jurisdiction_change"#)]
+    JurisdictionChange,
+    #[serde(rename = r#"correction"#)]
+    Correction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1Migration {
+    pub compatibility: VerticalOntologyPackV1MigrationCompatibility,
+    pub downgrade_to_predecessor: VerticalOntologyPackV1MigrationDowngradeToPredecessor,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"enum":["initial","additive","breaking"]},"downgrade_to_predecessor":{"const":"refused"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            compatibility: serde_json::from_value::<VerticalOntologyPackV1MigrationCompatibility>(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                VerticalOntologyPackV1MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalOntologyPackV1Constants {
+    pub commitment_domain: VerticalOntologyPackV1ConstantsCommitmentDomain,
+    pub lifecycle_id: VerticalOntologyPackV1ConstantsLifecycleId,
+    pub review_owner_module: VerticalOntologyPackV1ConstantsReviewOwnerModule,
+    pub identity_is_the_revision_ref: VerticalOntologyPackV1ConstantsIdentityIsTheRevisionRef,
+    pub legality_token: VerticalOntologyPackV1ConstantsLegalityToken,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["commitment_domain","lifecycle_id","review_owner_module","identity_is_the_revision_ref","legality_token"],"properties":{"commitment_domain":{"const":"ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1"},"lifecycle_id":{"const":"vertical_ontology_pack_lifecycle.v1"},"review_owner_module":{"const":"M03.15"},"identity_is_the_revision_ref":{"const":true},"legality_token":{"const":"legality","description":"The token the registered nonclaim invariant compares `does_not_decide` against. Pinned here so the rule reads one committed constant against one committed list rather than embedding the literal in the rule, which is what lets a fixture drop the nonclaim and be refused offline."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            commitment_domain: serde_json::from_value::<
+                VerticalOntologyPackV1ConstantsCommitmentDomain,
+            >(
+                object
+                    .remove(r#"commitment_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commitment_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_id: serde_json::from_value::<VerticalOntologyPackV1ConstantsLifecycleId>(
+                object
+                    .remove(r#"lifecycle_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_owner_module: serde_json::from_value::<
+                VerticalOntologyPackV1ConstantsReviewOwnerModule,
+            >(
+                object
+                    .remove(r#"review_owner_module"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_owner_module"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_is_the_revision_ref: serde_json::from_value::<
+                VerticalOntologyPackV1ConstantsIdentityIsTheRevisionRef,
+            >(
+                object
+                    .remove(r#"identity_is_the_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"identity_is_the_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legality_token: serde_json::from_value::<VerticalOntologyPackV1ConstantsLegalityToken>(
+                object
+                    .remove(r#"legality_token"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legality_token"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1ConstantsCommitmentDomain {
+    #[serde(rename = r#"ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1"#)]
+    IoiVerticalOntologyPackContentCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1ConstantsLifecycleId {
+    #[serde(rename = r#"vertical_ontology_pack_lifecycle.v1"#)]
+    VerticalOntologyPackLifecycleV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1ConstantsReviewOwnerModule {
+    #[serde(rename = r#"M03.15"#)]
+    M0315,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalOntologyPackV1ConstantsIdentityIsTheRevisionRef {
+    True,
+}
+
+impl serde::Serialize for VerticalOntologyPackV1ConstantsIdentityIsTheRevisionRef {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalOntologyPackV1ConstantsIdentityIsTheRevisionRef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1ConstantsLegalityToken {
+    #[serde(rename = r#"legality"#)]
+    Legality,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1AuthorityNonclaim {
+    #[serde(rename = r#"vertical_ontology_pack_grants_no_authority"#)]
+    VerticalOntologyPackGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1TruthNonclaim {
+    #[serde(
+        rename = r#"vertical_ontology_pack_is_a_declared_domain_extension_not_domain_correctness"#
+    )]
+    VerticalOntologyPackIsADeclaredDomainExtensionNotDomainCorrectness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1LegalConformityClaim {
+    #[serde(rename = r#"not_determined"#)]
+    NotDetermined,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalOntologyPackV1DoesNotDecideItem {
+    #[serde(rename = r#"legality"#)]
+    Legality,
+    #[serde(rename = r#"reviewer_qualification"#)]
+    ReviewerQualification,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"marketplace_eligibility"#)]
+    MarketplaceEligibility,
+    #[serde(rename = r#"payment"#)]
+    Payment,
+    #[serde(rename = r#"correctness"#)]
+    Correctness,
+    #[serde(rename = r#"live_medical_suitability"#)]
+    LiveMedicalSuitability,
+    #[serde(rename = r#"provider_connection"#)]
+    ProviderConnection,
+    #[serde(rename = r#"credential_custody"#)]
+    CredentialCustody,
+    #[serde(rename = r#"model_routing"#)]
+    ModelRouting,
+    #[serde(rename = r#"agentgres_admission"#)]
+    AgentgresAdmission,
+    #[serde(rename = r#"daemon_execution_truth"#)]
+    DaemonExecutionTruth,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1 {
+    pub schema_version: VerticalPackWorkerBindingV1SchemaVersion,
+    pub vertical_pack_worker_binding_id: String,
+    pub revision_ref: String,
+    pub owner_ref: String,
+    pub tenant_ref: String,
+    pub principal_resolution: VerticalPackWorkerBindingV1PrincipalResolution,
+    pub resolved_principal_ref: String,
+    pub vertical_ontology_pack_revision_ref: String,
+    pub vertical_ontology_pack_content_hash: String,
+    pub base_ontology_revision_ref: String,
+    pub base_ontology_content_hash: String,
+    pub worker_composition_ref: String,
+    pub worker_composition_resolution: VerticalPackWorkerBindingV1WorkerCompositionResolution,
+    pub effective_boundary_binding: VerticalPackWorkerBindingV1EffectiveBoundaryBinding,
+    pub declared_output_fields: Vec<String>,
+    pub compiled_task_classes: Vec<VerticalPackWorkerBindingV1CompiledTaskClassesItem>,
+    pub compiled_action_risk_mappings:
+        Vec<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItem>,
+    pub pack_declared_risk_ladder: Vec<VerticalPackWorkerBindingV1PackDeclaredRiskLadderItem>,
+    pub compiled_integration_requirements:
+        Vec<VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItem>,
+    pub compiled_field_contracts: Vec<VerticalPackWorkerBindingV1CompiledFieldContractsItem>,
+    pub compiled_evidence_requirements:
+        Vec<VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItem>,
+    pub compiled_review_modes: Vec<VerticalPackWorkerBindingV1CompiledReviewModesItem>,
+    pub abstentions: Vec<VerticalPackWorkerBindingV1AbstentionsItem>,
+    pub escalations: Vec<VerticalPackWorkerBindingV1EscalationsItem>,
+    pub jurisdiction_refs: Vec<String>,
+    pub registry_status: VerticalPackWorkerBindingV1RegistryStatus,
+    pub admitted_at: String,
+    pub succession: VerticalPackWorkerBindingV1Succession,
+    pub migration: VerticalPackWorkerBindingV1Migration,
+    pub constants: VerticalPackWorkerBindingV1Constants,
+    pub authority_nonclaim: VerticalPackWorkerBindingV1AuthorityNonclaim,
+    pub truth_nonclaim: VerticalPackWorkerBindingV1TruthNonclaim,
+    pub legal_conformity_claim: VerticalPackWorkerBindingV1LegalConformityClaim,
+    pub does_not_assert: Vec<VerticalPackWorkerBindingV1DoesNotAssertItem>,
+    pub content_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1","title":"VerticalPackWorkerBindingV1","description":"ONE COMPILATION of one exact `VerticalOntologyPack` revision onto one worker composition. THIS IS A DERIVATION, NOT A SUBMISSION: every `compiled_*` array, the abstentions and the escalations are resolved server-side from the pack and its owners' seams, and a caller that authors one is refused by name. PER-FIELD PROVENANCE IS TOTAL AND SILENCE IS INADMISSIBLE — the pack's `declared_output_fields` must be covered EXACTLY ONCE by `compiled_field_contracts` union `abstentions` union `escalations`; a field in two buckets makes the covering long and refuses, a field in none makes it short and refuses, so there is no branch a later edit can forget. Stale codes/forms, unmapped required fields, ambiguous mappings, superseded reviewer decisions and policy-bound-view refusals produce a typed abstention or escalation, NEVER a guessed authoritative value (ACC-18 clause 8). It decides no legality and claims no domain correctness (clause 13).","x-ioi-schema-version":"ioi.vertical-pack-worker-binding.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bindingFamilyRef":{"type":"string","pattern":"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingRevisionRef":{"type":"string","pattern":"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"packRevisionRef":{"type":"string","pattern":"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyTermRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"actionContractRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"mappingDecisionRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"transformationRunRef":{"type":"string","pattern":"^transform://trun_[0-9a-f]{32}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$","description":"THE M05.8 v2 SPELLING AND NO OTHER. The predecessor's mutable, wall-clock-identified `policy-bound-data-view://` family is unrepresentable here by construction: a field-provenance citation resting on a record that carries no content commitment is unverifiable, which is the shape `7074564aa` spent a cut removing from three other v1 families."},"routeRightsRevisionRef":{"type":"string","pattern":"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"boundaryProfileRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"workerCompositionRef":{"type":"string","pattern":"^composition://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"outputFieldRef":{"type":"string","pattern":"^field://[a-z0-9][a-z0-9._/-]{0,190}$"},"taskClassRef":{"type":"string","pattern":"^task-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"riskClass":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"integrationSurfaceClass":{"enum":["chat_community","contact_delivery","game_platform","browser_saas","developer_code","commerce","finance_trading","local_computer_use","enterprise_vpc","webhook_api","voice_sms_access","robotics_physical","embodied_humanoid","vehicles_mobility","field_service_inspection","education_tutoring","creative_media","support_operations"]},"reviewMode":{"enum":["no_review_required","sampled_review","exact_payload_review","dual_control_review","supervisory_review"]},"abstentionCause":{"enum":["field_proposal_absent","stale_code_or_form","policy_bound_view_not_active","policy_bound_view_excludes_the_field","policy_bound_view_denies_the_use","effective_policy_moved"],"description":"THE WORKER CANNOT SAY. Each cause names a fact the compiler RESOLVED and found wanting; none of them is a caller's assertion. An abstention is a refusal to produce a value, not a low-confidence value."},"escalationCause":{"enum":["required_field_unmapped","mapping_ambiguous","reviewer_decision_superseded","required_field_proposal_absent"],"description":"AN ACCOUNTABLE OWNER MUST DECIDE. The difference from an abstention is who has to act: a required field with no admitted mapping is not the worker declining to answer, it is the vertical unable to proceed."},"governingDisposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated","refused_ambiguous","adjudicated_exact","adjudicated_broader","adjudicated_narrower","approved","approved_with_conditions","rejected","abstained","not_applicable"],"description":"M05.2'S OWN TOKENS, VERBATIM, plus `not_applicable` for the causes that do not come from a mapping decision at all. This module invents no parallel abstention vocabulary: a second spelling of `refused_ambiguous` would let two records describe one fact and disagree."}},"required":["schema_version","vertical_pack_worker_binding_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","vertical_ontology_pack_revision_ref","vertical_ontology_pack_content_hash","base_ontology_revision_ref","base_ontology_content_hash","worker_composition_ref","worker_composition_resolution","effective_boundary_binding","declared_output_fields","compiled_task_classes","compiled_action_risk_mappings","pack_declared_risk_ladder","compiled_integration_requirements","compiled_field_contracts","compiled_evidence_requirements","compiled_review_modes","abstentions","escalations","jurisdiction_refs","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","legal_conformity_claim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.vertical-pack-worker-binding.v1"},"vertical_pack_worker_binding_id":{"$ref":"#/$defs/bindingFamilyRef"},"revision_ref":{"$ref":"#/$defs/bindingRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"vertical_ontology_pack_revision_ref":{"$ref":"#/$defs/packRevisionRef"},"vertical_ontology_pack_content_hash":{"$ref":"#/$defs/sha256","description":"The bytes the pack served, not only its ref, so a silent re-admission underneath this binding is detectable offline by anyone holding both records."},"base_ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"base_ontology_content_hash":{"$ref":"#/$defs/sha256"},"worker_composition_ref":{"$ref":"#/$defs/workerCompositionRef"},"worker_composition_resolution":{"const":"declared_unresolved_owned_by_m14","description":"SAID PLAINLY RATHER THAN IMPLIED. `WorkerComposition` has no registered contract and no owner seam at this commit, so this build resolves NOTHING about the composition it names — it commits the declared ref and states that it is undecided. A field that looked resolved because it was well formed would be exactly the silence this estate refuses; M14 owns the family."},"effective_boundary_binding":{"type":"object","additionalProperties":false,"required":["boundary_profile_revision_ref","boundary_profile_content_hash","effective_learning_boundary_hash","boundary_status_at_binding"],"description":"THE EFFECTIVE POLICY THIS WHOLE COMPILATION RAN UNDER, resolved once through M10.3's seam. Every compiled field's `effective_policy_hash` is invariant-equal to `effective_learning_boundary_hash`, so a field cannot claim a policy the binding did not compile under.","properties":{"boundary_profile_revision_ref":{"$ref":"#/$defs/boundaryProfileRevisionRef"},"boundary_profile_content_hash":{"$ref":"#/$defs/sha256"},"effective_learning_boundary_hash":{"$ref":"#/$defs/sha256"},"boundary_status_at_binding":{"const":"active"}}},"declared_output_fields":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/outputFieldRef"},"description":"COPIED FROM THE RESOLVED PACK, NEVER FROM THE REQUEST. This is the set the coverage invariant closes over, so a caller able to author it could shorten the very obligation it is checked against."},"compiled_task_classes":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["task_class_ref","label","action_type_refs"],"properties":{"task_class_ref":{"$ref":"#/$defs/taskClassRef"},"label":{"type":"string","minLength":1,"maxLength":128},"action_type_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/ontologyTermRef"}}}}},"compiled_action_risk_mappings":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["action_type_ref","pack_declared_risk_class","action_contract_revision_ref","action_contract_content_hash","action_contract_risk_class","action_contract_required_gates","review_mode","required_integration_surface"],"properties":{"action_type_ref":{"$ref":"#/$defs/ontologyTermRef"},"pack_declared_risk_class":{"$ref":"#/$defs/riskClass"},"action_contract_revision_ref":{"$ref":"#/$defs/actionContractRevisionRef"},"action_contract_content_hash":{"$ref":"#/$defs/sha256"},"action_contract_risk_class":{"$ref":"#/$defs/riskClass","description":"WHAT M05.4 ACTUALLY SERVED, beside what the pack declared. A pack that filed a `funds` action as `read` would compile a risk mapping that disagrees with the contract the action passes through, and every downstream gate would read the wrong number. The ADMITTING RUNTIME compares the two row by row and refuses. The portable language has no per-row two-field comparison, so offline the agreement is carried as a multiset equality through `pack_declared_risk_ladder` — see that field, which states exactly what that can and cannot see."},"action_contract_required_gates":{"type":"array","minItems":6,"maxItems":6,"items":{"enum":["capability","policy","authority","daemon_admission","evidence","verification"]},"description":"The canonical six, carried verbatim from the resolved contract. Compiled semantics grant nothing; every one of these still runs somewhere that is not here (NN 9)."},"review_mode":{"$ref":"#/$defs/reviewMode"},"required_integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"}}}},"pack_declared_risk_ladder":{"type":"array","minItems":1,"maxItems":128,"items":{"$ref":"#/$defs/riskClass"},"description":"THE PACK'S DECLARED RISK CLASS PER ACTION ROW, ENUMERATED INDEPENDENTLY SO THE TWO COLUMNS CAN BE COMPARED OFFLINE. Two registered coverage rules pin this list to BOTH columns of `compiled_action_risk_mappings` — the pack's declaration and the risk class M05.4 actually served — so ladder = pack column and ladder = contract column together entail pack column = contract column. WHAT THIS CANNOT SEE, stated rather than implied: coverage compares MULTISETS, so a transposition that gives row A row B's risk class and vice versa leaves both multisets equal and passes. That case is refused by the admitting runtime, which compares row by row; the portable language has no operator that reads two fields of one array item, and a description claiming otherwise would be an assertion satisfied by a different element than it names. The list is server-derived, so a caller cannot choose a ladder that matches whichever column it prefers."},"compiled_integration_requirements":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["integration_surface","connector_mapping_revision_ref","connector_mapping_content_hash","credential_custody_nonclaim","safety_envelope_required"],"properties":{"integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"},"connector_mapping_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"connector_mapping_content_hash":{"$ref":"#/$defs/sha256"},"credential_custody_nonclaim":{"const":"pack_connectors_do_not_imply_credential_custody"},"safety_envelope_required":{"type":"boolean"}}}},"compiled_field_contracts":{"type":"array","maxItems":256,"description":"ACC-18 CLAUSE 8, FIELD BY FIELD. Every row binds its source and span, the exact recipe and transformation run that produced it, the ontology and crosswalk revisions that gave it meaning, the connector mapping that carried it, the composition and model/route version that proposed it, its uncertainty, the policy-bound view that permitted reading it, and the effective policy the whole compilation ran under. A row missing any of them is refused by the schema before the invariants are reached.","items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","source_ref","source_span","data_recipe_revision_ref","data_recipe_content_hash","transformation_run_ref","transformation_run_content_hash","ontology_revision_ref","ontology_content_hash","source_term_ref","crosswalk_revision_ref","crosswalk_content_hash","mapping_decision_revision_ref","mapping_decision_content_hash","connector_mapping_revision_ref","connector_mapping_content_hash","worker_composition_ref","model_or_rule_version_ref","model_or_rule_version_content_hash","uncertainty","policy_bound_data_view_revision_ref","policy_bound_data_view_content_hash","effective_policy_hash"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"source_ref":{"type":"string","minLength":1,"maxLength":320},"source_span":{"type":"object","additionalProperties":false,"required":["span_kind","locator"],"description":"WHERE IN THE SOURCE, because ACC-18 clause 8 asks for a span or frame and a whole-document citation is not one.","properties":{"span_kind":{"enum":["record_field","document_region","frame_interval","row_range","message_part"]},"locator":{"type":"string","minLength":1,"maxLength":320}}},"data_recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"data_recipe_content_hash":{"$ref":"#/$defs/sha256"},"transformation_run_ref":{"$ref":"#/$defs/transformationRunRef"},"transformation_run_content_hash":{"$ref":"#/$defs/sha256"},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_content_hash":{"$ref":"#/$defs/sha256"},"source_term_ref":{"$ref":"#/$defs/ontologyTermRef"},"crosswalk_revision_ref":{"$ref":"#/$defs/crosswalkRevisionRef"},"crosswalk_content_hash":{"$ref":"#/$defs/sha256"},"mapping_decision_revision_ref":{"$ref":"#/$defs/mappingDecisionRevisionRef"},"mapping_decision_content_hash":{"$ref":"#/$defs/sha256"},"connector_mapping_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"connector_mapping_content_hash":{"$ref":"#/$defs/sha256"},"worker_composition_ref":{"$ref":"#/$defs/workerCompositionRef"},"model_or_rule_version_ref":{"$ref":"#/$defs/routeRightsRevisionRef","description":"The exact M07.2 `ModelRouteRightsContract` revision naming the model route this field's proposal may use. It is a CEILING, never a grant: this binding invokes no model and routes nothing."},"model_or_rule_version_content_hash":{"$ref":"#/$defs/sha256"},"uncertainty":{"type":"object","additionalProperties":false,"required":["basis","crosswalk_relation","declared_loss","confidence","confidence_is_measured"],"description":"UNCERTAINTY IS CATEGORICAL IN v1 AND SAYS SO. `crosswalk_relation` and `declared_loss` are taken verbatim from the admitted crosswalk row M05.2 served — someone else's measured, receipted, challengeable statement of semantic loss. `confidence` is pinned null with `confidence_is_measured: false`, because a float this module invented and then checked against a neighbouring field it also invented would certify nothing. A measured confidence needs a measurer, and there is none in this cut.","properties":{"basis":{"const":"resolved_crosswalk_relation"},"crosswalk_relation":{"enum":["exact","broader","narrower","related"],"description":"`unmapped` is absent BY CONSTRUCTION: an unmapped term never reaches a compiled contract, it becomes an escalation."},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units"]},"confidence":{"type":"null"},"confidence_is_measured":{"const":false}}},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"policy_bound_data_view_content_hash":{"$ref":"#/$defs/sha256"},"effective_policy_hash":{"$ref":"#/$defs/sha256"}}}},"compiled_evidence_requirements":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["evidence_requirement_ref","applies_to_risk_class","verifier_obligation_ref"],"properties":{"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320},"applies_to_risk_class":{"$ref":"#/$defs/riskClass"},"verifier_obligation_ref":{"type":"string","minLength":1,"maxLength":320}}}},"compiled_review_modes":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["risk_class","review_mode","review_owner_module","this_binding_performed_no_review"],"properties":{"risk_class":{"$ref":"#/$defs/riskClass"},"review_mode":{"$ref":"#/$defs/reviewMode"},"review_owner_module":{"const":"M03.15"},"this_binding_performed_no_review":{"const":true}}}},"abstentions":{"type":"array","maxItems":256,"description":"ONE ROW PER FIELD THE WORKER MAY NOT PRODUCE A VALUE FOR, each naming the exact resolved ref that caused it. An abstention with no cause ref is unrepresentable, because a refusal nobody can trace back to an admitted record is indistinguishable from a shrug.","items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","cause","cause_ref","governing_disposition","no_value_was_produced"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"cause":{"$ref":"#/$defs/abstentionCause"},"cause_ref":{"type":"string","minLength":1,"maxLength":320,"description":"The exact admitted ref whose resolution produced this abstention — the superseding ontology revision, the view revision that refused, the boundary whose hash moved."},"governing_disposition":{"$ref":"#/$defs/governingDisposition"},"no_value_was_produced":{"const":true,"description":"Committed in the row's own bytes. A downstream reader does not have to infer from the absence of a contract row that no value exists; the record says so."}}}},"escalations":{"type":"array","maxItems":256,"description":"ONE ROW PER FIELD AN ACCOUNTABLE OWNER MUST DECIDE, carrying M05.2's own disposition token verbatim rather than a re-decision of it.","items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","cause","cause_ref","governing_disposition","no_value_was_produced","escalated_to_owner_ref"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"cause":{"$ref":"#/$defs/escalationCause"},"cause_ref":{"type":"string","minLength":1,"maxLength":320},"governing_disposition":{"$ref":"#/$defs/governingDisposition"},"no_value_was_produced":{"const":true},"escalated_to_owner_ref":{"$ref":"#/$defs/ownerRef"}}}},"jurisdiction_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"},"description":"FAIL-CLOSED, AND THE FLOOR IS HERE BECAUSE THE WHOLE BINDING FAILS RATHER THAN ONE FIELD. `jurisdiction_absent` is not a per-field abstention: a compilation with no jurisdiction has nothing to be a compilation under, so the admission refuses and no record exists. The pack carries no such floor precisely so that a jurisdictionless pack is admissible and this refusal stays reachable."},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor"],"properties":{"succession_reason":{"enum":["genesis","pack_revision_change","input_revision_change","policy_revision_change","recompilation","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/bindingRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor","refused_legacy_view_scheme"],"properties":{"compatibility":{"enum":["initial","additive","breaking"]},"downgrade_to_predecessor":{"const":"refused"},"refused_legacy_view_scheme":{"const":"policy-bound-data-view://","description":"NAMED AS THE REFUSED FORM. The predecessor v1 view family is mutable and carries no content commitment, so it appears in this contract exactly once — here, as the spelling that is not accepted."}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain","lifecycle_id","review_owner_module","compilation_is_deterministic","worker_composition_owner_module","authority_token","measured_confidence_token"],"properties":{"commitment_domain":{"const":"ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1"},"lifecycle_id":{"const":"vertical_pack_worker_binding_lifecycle.v1"},"review_owner_module":{"const":"M03.15"},"authority_token":{"const":"authority","description":"The token the registered NN-9 nonclaim invariant compares `does_not_assert` against — one committed constant read against one committed list, so a fixture that drops the nonclaim is refused offline rather than by a literal buried in the rule."},"measured_confidence_token":{"const":"measured_field_confidence"},"compilation_is_deterministic":{"const":true,"description":"The same resolved input set compiles to byte-identical `compiled_*` output and therefore to the same `content_hash`, across processes and across a restart with the read index destroyed."},"worker_composition_owner_module":{"const":"M14"}}},"authority_nonclaim":{"const":"vertical_pack_worker_binding_grants_no_authority"},"truth_nonclaim":{"const":"vertical_pack_worker_binding_is_a_compiled_reading_of_admitted_revisions_not_domain_correctness"},"legal_conformity_claim":{"const":"not_determined"},"does_not_assert":{"type":"array","minItems":10,"maxItems":14,"uniqueItems":true,"items":{"enum":["authority","capability_grant","lease","policy_decision","effect_admission","invocation","legality","reviewer_qualification","marketplace_eligibility","payment","domain_correctness","live_medical_suitability","measured_field_confidence","worker_composition_resolution"]},"description":"NN 9's six plus the six ACC-18/M05 boundary tokens, with a floor of ten so the set cannot be quietly shortened to the comfortable half. `measured_field_confidence` and `worker_composition_resolution` are here because this build genuinely resolves neither, and a record that stayed silent about what it did not do would be overstating itself by omission."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor and supersedes nothing","type":"object","if":{"type":"object","required":["succession"],"properties":{"succession":{"type":"object","required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"migration":{"type":"object","properties":{"compatibility":{"const":"initial"}}}}}},{"title":"every mandatory nonclaim is present","type":"object","properties":{"does_not_assert":{"type":"array","allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_grant"}},{"contains":{"const":"lease"}},{"contains":{"const":"policy_decision"}},{"contains":{"const":"effect_admission"}},{"contains":{"const":"invocation"}},{"contains":{"const":"legality"}},{"contains":{"const":"reviewer_qualification"}},{"contains":{"const":"marketplace_eligibility"}},{"contains":{"const":"domain_correctness"}}]}},"description":"TEN MANDATORY MEMBERS, EACH NAMED. A `minItems` floor alone would let ten comfortable tokens stand in for the six that carry NN 9 and the four that carry ACC-18's boundary."}]}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<VerticalPackWorkerBindingV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            vertical_pack_worker_binding_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"vertical_pack_worker_binding_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"vertical_pack_worker_binding_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tenant_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"tenant_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tenant_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_resolution: serde_json::from_value::<
+                VerticalPackWorkerBindingV1PrincipalResolution,
+            >(
+                object
+                    .remove(r#"principal_resolution"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_resolution"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolved_principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            vertical_ontology_pack_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"vertical_ontology_pack_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"vertical_ontology_pack_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            vertical_ontology_pack_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"vertical_ontology_pack_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"vertical_ontology_pack_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ontology_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_ontology_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"base_ontology_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            base_ontology_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"base_ontology_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"base_ontology_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_composition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"worker_composition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_composition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_composition_resolution: serde_json::from_value::<
+                VerticalPackWorkerBindingV1WorkerCompositionResolution,
+            >(
+                object
+                    .remove(r#"worker_composition_resolution"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"worker_composition_resolution"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_boundary_binding: serde_json::from_value::<
+                VerticalPackWorkerBindingV1EffectiveBoundaryBinding,
+            >(
+                object
+                    .remove(r#"effective_boundary_binding"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"effective_boundary_binding"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_output_fields: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"declared_output_fields"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_output_fields"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compiled_task_classes: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1CompiledTaskClassesItem>,
+            >(
+                object
+                    .remove(r#"compiled_task_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compiled_task_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compiled_action_risk_mappings: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItem>,
+            >(
+                object
+                    .remove(r#"compiled_action_risk_mappings"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compiled_action_risk_mappings"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pack_declared_risk_ladder: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1PackDeclaredRiskLadderItem>,
+            >(
+                object
+                    .remove(r#"pack_declared_risk_ladder"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"pack_declared_risk_ladder"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compiled_integration_requirements: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItem>,
+            >(
+                object
+                    .remove(r#"compiled_integration_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compiled_integration_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compiled_field_contracts: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1CompiledFieldContractsItem>,
+            >(
+                object
+                    .remove(r#"compiled_field_contracts"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compiled_field_contracts"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compiled_evidence_requirements: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItem>,
+            >(
+                object
+                    .remove(r#"compiled_evidence_requirements"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compiled_evidence_requirements"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compiled_review_modes: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1CompiledReviewModesItem>,
+            >(
+                object
+                    .remove(r#"compiled_review_modes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compiled_review_modes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            abstentions: serde_json::from_value::<Vec<VerticalPackWorkerBindingV1AbstentionsItem>>(
+                object
+                    .remove(r#"abstentions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"abstentions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            escalations: serde_json::from_value::<Vec<VerticalPackWorkerBindingV1EscalationsItem>>(
+                object
+                    .remove(r#"escalations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"escalations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            jurisdiction_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"jurisdiction_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"jurisdiction_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status: serde_json::from_value::<VerticalPackWorkerBindingV1RegistryStatus>(
+                object
+                    .remove(r#"registry_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admitted_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            succession: serde_json::from_value::<VerticalPackWorkerBindingV1Succession>(
+                object
+                    .remove(r#"succession"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            migration: serde_json::from_value::<VerticalPackWorkerBindingV1Migration>(
+                object
+                    .remove(r#"migration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"migration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            constants: serde_json::from_value::<VerticalPackWorkerBindingV1Constants>(
+                object
+                    .remove(r#"constants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"constants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_nonclaim: serde_json::from_value::<
+                VerticalPackWorkerBindingV1AuthorityNonclaim,
+            >(
+                object
+                    .remove(r#"authority_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            truth_nonclaim: serde_json::from_value::<VerticalPackWorkerBindingV1TruthNonclaim>(
+                object
+                    .remove(r#"truth_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"truth_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legal_conformity_claim: serde_json::from_value::<
+                VerticalPackWorkerBindingV1LegalConformityClaim,
+            >(
+                object
+                    .remove(r#"legal_conformity_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legal_conformity_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_assert: serde_json::from_value::<
+                Vec<VerticalPackWorkerBindingV1DoesNotAssertItem>,
+            >(
+                object
+                    .remove(r#"does_not_assert"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_assert"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1SchemaVersion {
+    #[serde(rename = r#"ioi.vertical-pack-worker-binding.v1"#)]
+    IoiVerticalPackWorkerBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1PrincipalResolution {
+    #[serde(rename = r#"server_resolved"#)]
+    ServerResolved,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1WorkerCompositionResolution {
+    #[serde(rename = r#"declared_unresolved_owned_by_m14"#)]
+    DeclaredUnresolvedOwnedByM14,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1EffectiveBoundaryBinding {
+    pub boundary_profile_revision_ref: String,
+    pub boundary_profile_content_hash: String,
+    pub effective_learning_boundary_hash: String,
+    pub boundary_status_at_binding:
+        VerticalPackWorkerBindingV1EffectiveBoundaryBindingBoundaryStatusAtBinding,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1EffectiveBoundaryBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["boundary_profile_revision_ref","boundary_profile_content_hash","effective_learning_boundary_hash","boundary_status_at_binding"],"description":"THE EFFECTIVE POLICY THIS WHOLE COMPILATION RAN UNDER, resolved once through M10.3's seam. Every compiled field's `effective_policy_hash` is invariant-equal to `effective_learning_boundary_hash`, so a field cannot claim a policy the binding did not compile under.","properties":{"boundary_profile_revision_ref":{"$ref":"#/$defs/boundaryProfileRevisionRef"},"boundary_profile_content_hash":{"$ref":"#/$defs/sha256"},"effective_learning_boundary_hash":{"$ref":"#/$defs/sha256"},"boundary_status_at_binding":{"const":"active"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            boundary_profile_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"boundary_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"boundary_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary_profile_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"boundary_profile_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"boundary_profile_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_learning_boundary_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_learning_boundary_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"effective_learning_boundary_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            boundary_status_at_binding: serde_json::from_value::<
+                VerticalPackWorkerBindingV1EffectiveBoundaryBindingBoundaryStatusAtBinding,
+            >(
+                object
+                    .remove(r#"boundary_status_at_binding"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"boundary_status_at_binding"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1EffectiveBoundaryBindingBoundaryStatusAtBinding {
+    #[serde(rename = r#"active"#)]
+    Active,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledTaskClassesItem {
+    pub task_class_ref: String,
+    pub label: String,
+    pub action_type_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1CompiledTaskClassesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["task_class_ref","label","action_type_refs"],"properties":{"task_class_ref":{"$ref":"#/$defs/taskClassRef"},"label":{"type":"string","minLength":1,"maxLength":128},"action_type_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/ontologyTermRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            task_class_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"task_class_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task_class_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            label: serde_json::from_value::<String>(
+                object
+                    .remove(r#"label"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"label"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_type_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"action_type_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_type_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledActionRiskMappingsItem {
+    pub action_type_ref: String,
+    pub pack_declared_risk_class:
+        VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemPackDeclaredRiskClass,
+    pub action_contract_revision_ref: String,
+    pub action_contract_content_hash: String,
+    pub action_contract_risk_class:
+        VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemActionContractRiskClass,
+    pub action_contract_required_gates: Vec<
+        VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemActionContractRequiredGatesItem,
+    >,
+    pub review_mode: VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemReviewMode,
+    pub required_integration_surface:
+        VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemRequiredIntegrationSurface,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1CompiledActionRiskMappingsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["action_type_ref","pack_declared_risk_class","action_contract_revision_ref","action_contract_content_hash","action_contract_risk_class","action_contract_required_gates","review_mode","required_integration_surface"],"properties":{"action_type_ref":{"$ref":"#/$defs/ontologyTermRef"},"pack_declared_risk_class":{"$ref":"#/$defs/riskClass"},"action_contract_revision_ref":{"$ref":"#/$defs/actionContractRevisionRef"},"action_contract_content_hash":{"$ref":"#/$defs/sha256"},"action_contract_risk_class":{"$ref":"#/$defs/riskClass","description":"WHAT M05.4 ACTUALLY SERVED, beside what the pack declared. A pack that filed a `funds` action as `read` would compile a risk mapping that disagrees with the contract the action passes through, and every downstream gate would read the wrong number. The ADMITTING RUNTIME compares the two row by row and refuses. The portable language has no per-row two-field comparison, so offline the agreement is carried as a multiset equality through `pack_declared_risk_ladder` — see that field, which states exactly what that can and cannot see."},"action_contract_required_gates":{"type":"array","minItems":6,"maxItems":6,"items":{"enum":["capability","policy","authority","daemon_admission","evidence","verification"]},"description":"The canonical six, carried verbatim from the resolved contract. Compiled semantics grant nothing; every one of these still runs somewhere that is not here (NN 9)."},"review_mode":{"$ref":"#/$defs/reviewMode"},"required_integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            action_type_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_type_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_type_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pack_declared_risk_class: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemPackDeclaredRiskClass>(
+                object
+                    .remove(r#"pack_declared_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pack_declared_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_contract_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_contract_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_contract_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"action_contract_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_contract_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_contract_risk_class: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemActionContractRiskClass>(
+                object
+                    .remove(r#"action_contract_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_contract_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            action_contract_required_gates: serde_json::from_value::<Vec<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemActionContractRequiredGatesItem>>(
+                object
+                    .remove(r#"action_contract_required_gates"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_contract_required_gates"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_mode: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemReviewMode>(
+                object
+                    .remove(r#"review_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_integration_surface: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemRequiredIntegrationSurface>(
+                object
+                    .remove(r#"required_integration_surface"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_integration_surface"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemPackDeclaredRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemActionContractRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemActionContractRequiredGatesItem {
+    #[serde(rename = r#"capability"#)]
+    Capability,
+    #[serde(rename = r#"policy"#)]
+    Policy,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"daemon_admission"#)]
+    DaemonAdmission,
+    #[serde(rename = r#"evidence"#)]
+    Evidence,
+    #[serde(rename = r#"verification"#)]
+    Verification,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemReviewMode {
+    #[serde(rename = r#"no_review_required"#)]
+    NoReviewRequired,
+    #[serde(rename = r#"sampled_review"#)]
+    SampledReview,
+    #[serde(rename = r#"exact_payload_review"#)]
+    ExactPayloadReview,
+    #[serde(rename = r#"dual_control_review"#)]
+    DualControlReview,
+    #[serde(rename = r#"supervisory_review"#)]
+    SupervisoryReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledActionRiskMappingsItemRequiredIntegrationSurface {
+    #[serde(rename = r#"chat_community"#)]
+    ChatCommunity,
+    #[serde(rename = r#"contact_delivery"#)]
+    ContactDelivery,
+    #[serde(rename = r#"game_platform"#)]
+    GamePlatform,
+    #[serde(rename = r#"browser_saas"#)]
+    BrowserSaas,
+    #[serde(rename = r#"developer_code"#)]
+    DeveloperCode,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"finance_trading"#)]
+    FinanceTrading,
+    #[serde(rename = r#"local_computer_use"#)]
+    LocalComputerUse,
+    #[serde(rename = r#"enterprise_vpc"#)]
+    EnterpriseVpc,
+    #[serde(rename = r#"webhook_api"#)]
+    WebhookApi,
+    #[serde(rename = r#"voice_sms_access"#)]
+    VoiceSmsAccess,
+    #[serde(rename = r#"robotics_physical"#)]
+    RoboticsPhysical,
+    #[serde(rename = r#"embodied_humanoid"#)]
+    EmbodiedHumanoid,
+    #[serde(rename = r#"vehicles_mobility"#)]
+    VehiclesMobility,
+    #[serde(rename = r#"field_service_inspection"#)]
+    FieldServiceInspection,
+    #[serde(rename = r#"education_tutoring"#)]
+    EducationTutoring,
+    #[serde(rename = r#"creative_media"#)]
+    CreativeMedia,
+    #[serde(rename = r#"support_operations"#)]
+    SupportOperations,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1PackDeclaredRiskLadderItem {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItem {
+    pub integration_surface:
+        VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItemIntegrationSurface,
+    pub connector_mapping_revision_ref: String,
+    pub connector_mapping_content_hash: String,
+    pub credential_custody_nonclaim:
+        VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItemCredentialCustodyNonclaim,
+    pub safety_envelope_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["integration_surface","connector_mapping_revision_ref","connector_mapping_content_hash","credential_custody_nonclaim","safety_envelope_required"],"properties":{"integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"},"connector_mapping_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"connector_mapping_content_hash":{"$ref":"#/$defs/sha256"},"credential_custody_nonclaim":{"const":"pack_connectors_do_not_imply_credential_custody"},"safety_envelope_required":{"type":"boolean"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            integration_surface: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItemIntegrationSurface>(
+                object
+                    .remove(r#"integration_surface"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"integration_surface"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mapping_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"connector_mapping_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            credential_custody_nonclaim: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItemCredentialCustodyNonclaim>(
+                object
+                    .remove(r#"credential_custody_nonclaim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"credential_custody_nonclaim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            safety_envelope_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"safety_envelope_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"safety_envelope_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItemIntegrationSurface {
+    #[serde(rename = r#"chat_community"#)]
+    ChatCommunity,
+    #[serde(rename = r#"contact_delivery"#)]
+    ContactDelivery,
+    #[serde(rename = r#"game_platform"#)]
+    GamePlatform,
+    #[serde(rename = r#"browser_saas"#)]
+    BrowserSaas,
+    #[serde(rename = r#"developer_code"#)]
+    DeveloperCode,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"finance_trading"#)]
+    FinanceTrading,
+    #[serde(rename = r#"local_computer_use"#)]
+    LocalComputerUse,
+    #[serde(rename = r#"enterprise_vpc"#)]
+    EnterpriseVpc,
+    #[serde(rename = r#"webhook_api"#)]
+    WebhookApi,
+    #[serde(rename = r#"voice_sms_access"#)]
+    VoiceSmsAccess,
+    #[serde(rename = r#"robotics_physical"#)]
+    RoboticsPhysical,
+    #[serde(rename = r#"embodied_humanoid"#)]
+    EmbodiedHumanoid,
+    #[serde(rename = r#"vehicles_mobility"#)]
+    VehiclesMobility,
+    #[serde(rename = r#"field_service_inspection"#)]
+    FieldServiceInspection,
+    #[serde(rename = r#"education_tutoring"#)]
+    EducationTutoring,
+    #[serde(rename = r#"creative_media"#)]
+    CreativeMedia,
+    #[serde(rename = r#"support_operations"#)]
+    SupportOperations,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledIntegrationRequirementsItemCredentialCustodyNonclaim {
+    #[serde(rename = r#"pack_connectors_do_not_imply_credential_custody"#)]
+    PackConnectorsDoNotImplyCredentialCustody,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledFieldContractsItem {
+    pub output_field_ref: String,
+    pub requirement: VerticalPackWorkerBindingV1CompiledFieldContractsItemRequirement,
+    pub source_ref: String,
+    pub source_span: VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpan,
+    pub data_recipe_revision_ref: String,
+    pub data_recipe_content_hash: String,
+    pub transformation_run_ref: String,
+    pub transformation_run_content_hash: String,
+    pub ontology_revision_ref: String,
+    pub ontology_content_hash: String,
+    pub source_term_ref: String,
+    pub crosswalk_revision_ref: String,
+    pub crosswalk_content_hash: String,
+    pub mapping_decision_revision_ref: String,
+    pub mapping_decision_content_hash: String,
+    pub connector_mapping_revision_ref: String,
+    pub connector_mapping_content_hash: String,
+    pub worker_composition_ref: String,
+    pub model_or_rule_version_ref: String,
+    pub model_or_rule_version_content_hash: String,
+    pub uncertainty: VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertainty,
+    pub policy_bound_data_view_revision_ref: String,
+    pub policy_bound_data_view_content_hash: String,
+    pub effective_policy_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1CompiledFieldContractsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","source_ref","source_span","data_recipe_revision_ref","data_recipe_content_hash","transformation_run_ref","transformation_run_content_hash","ontology_revision_ref","ontology_content_hash","source_term_ref","crosswalk_revision_ref","crosswalk_content_hash","mapping_decision_revision_ref","mapping_decision_content_hash","connector_mapping_revision_ref","connector_mapping_content_hash","worker_composition_ref","model_or_rule_version_ref","model_or_rule_version_content_hash","uncertainty","policy_bound_data_view_revision_ref","policy_bound_data_view_content_hash","effective_policy_hash"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"source_ref":{"type":"string","minLength":1,"maxLength":320},"source_span":{"type":"object","additionalProperties":false,"required":["span_kind","locator"],"description":"WHERE IN THE SOURCE, because ACC-18 clause 8 asks for a span or frame and a whole-document citation is not one.","properties":{"span_kind":{"enum":["record_field","document_region","frame_interval","row_range","message_part"]},"locator":{"type":"string","minLength":1,"maxLength":320}}},"data_recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"data_recipe_content_hash":{"$ref":"#/$defs/sha256"},"transformation_run_ref":{"$ref":"#/$defs/transformationRunRef"},"transformation_run_content_hash":{"$ref":"#/$defs/sha256"},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_content_hash":{"$ref":"#/$defs/sha256"},"source_term_ref":{"$ref":"#/$defs/ontologyTermRef"},"crosswalk_revision_ref":{"$ref":"#/$defs/crosswalkRevisionRef"},"crosswalk_content_hash":{"$ref":"#/$defs/sha256"},"mapping_decision_revision_ref":{"$ref":"#/$defs/mappingDecisionRevisionRef"},"mapping_decision_content_hash":{"$ref":"#/$defs/sha256"},"connector_mapping_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"connector_mapping_content_hash":{"$ref":"#/$defs/sha256"},"worker_composition_ref":{"$ref":"#/$defs/workerCompositionRef"},"model_or_rule_version_ref":{"$ref":"#/$defs/routeRightsRevisionRef","description":"The exact M07.2 `ModelRouteRightsContract` revision naming the model route this field's proposal may use. It is a CEILING, never a grant: this binding invokes no model and routes nothing."},"model_or_rule_version_content_hash":{"$ref":"#/$defs/sha256"},"uncertainty":{"type":"object","additionalProperties":false,"required":["basis","crosswalk_relation","declared_loss","confidence","confidence_is_measured"],"description":"UNCERTAINTY IS CATEGORICAL IN v1 AND SAYS SO. `crosswalk_relation` and `declared_loss` are taken verbatim from the admitted crosswalk row M05.2 served — someone else's measured, receipted, challengeable statement of semantic loss. `confidence` is pinned null with `confidence_is_measured: false`, because a float this module invented and then checked against a neighbouring field it also invented would certify nothing. A measured confidence needs a measurer, and there is none in this cut.","properties":{"basis":{"const":"resolved_crosswalk_relation"},"crosswalk_relation":{"enum":["exact","broader","narrower","related"],"description":"`unmapped` is absent BY CONSTRUCTION: an unmapped term never reaches a compiled contract, it becomes an escalation."},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units"]},"confidence":{"type":"null"},"confidence_is_measured":{"const":false}}},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"policy_bound_data_view_content_hash":{"$ref":"#/$defs/sha256"},"effective_policy_hash":{"$ref":"#/$defs/sha256"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            output_field_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_field_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_field_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledFieldContractsItemRequirement,
+            >(
+                object
+                    .remove(r#"requirement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_span: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpan,
+            >(
+                object
+                    .remove(r#"source_span"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_span"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_recipe_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_recipe_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_recipe_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"data_recipe_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"data_recipe_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transformation_run_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transformation_run_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"transformation_run_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transformation_run_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"transformation_run_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transformation_run_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ontology_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ontology_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ontology_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_term_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_term_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_term_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            crosswalk_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"crosswalk_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"crosswalk_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            crosswalk_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"crosswalk_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"crosswalk_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_decision_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mapping_decision_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mapping_decision_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mapping_decision_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mapping_decision_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mapping_decision_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_mapping_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            connector_mapping_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"connector_mapping_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"connector_mapping_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_composition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"worker_composition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"worker_composition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_or_rule_version_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_or_rule_version_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"model_or_rule_version_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_or_rule_version_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_or_rule_version_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"model_or_rule_version_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uncertainty: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertainty,
+            >(
+                object
+                    .remove(r#"uncertainty"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uncertainty"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_bound_data_view_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_bound_data_view_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_policy_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_policy_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_policy_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledFieldContractsItemRequirement {
+    #[serde(rename = r#"required"#)]
+    Required,
+    #[serde(rename = r#"conditional"#)]
+    Conditional,
+    #[serde(rename = r#"optional"#)]
+    Optional,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpan {
+    pub span_kind: VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpanSpanKind,
+    pub locator: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpan
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["span_kind","locator"],"description":"WHERE IN THE SOURCE, because ACC-18 clause 8 asks for a span or frame and a whole-document citation is not one.","properties":{"span_kind":{"enum":["record_field","document_region","frame_interval","row_range","message_part"]},"locator":{"type":"string","minLength":1,"maxLength":320}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            span_kind: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpanSpanKind,
+            >(
+                object
+                    .remove(r#"span_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"span_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            locator: serde_json::from_value::<String>(
+                object
+                    .remove(r#"locator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"locator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledFieldContractsItemSourceSpanSpanKind {
+    #[serde(rename = r#"record_field"#)]
+    RecordField,
+    #[serde(rename = r#"document_region"#)]
+    DocumentRegion,
+    #[serde(rename = r#"frame_interval"#)]
+    FrameInterval,
+    #[serde(rename = r#"row_range"#)]
+    RowRange,
+    #[serde(rename = r#"message_part"#)]
+    MessagePart,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertainty {
+    pub basis: VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyBasis,
+    pub crosswalk_relation:
+        VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyCrosswalkRelation,
+    pub declared_loss: VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyDeclaredLoss,
+    pub confidence: (),
+    pub confidence_is_measured:
+        VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyConfidenceIsMeasured,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertainty
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["basis","crosswalk_relation","declared_loss","confidence","confidence_is_measured"],"description":"UNCERTAINTY IS CATEGORICAL IN v1 AND SAYS SO. `crosswalk_relation` and `declared_loss` are taken verbatim from the admitted crosswalk row M05.2 served — someone else's measured, receipted, challengeable statement of semantic loss. `confidence` is pinned null with `confidence_is_measured: false`, because a float this module invented and then checked against a neighbouring field it also invented would certify nothing. A measured confidence needs a measurer, and there is none in this cut.","properties":{"basis":{"const":"resolved_crosswalk_relation"},"crosswalk_relation":{"enum":["exact","broader","narrower","related"],"description":"`unmapped` is absent BY CONSTRUCTION: an unmapped term never reaches a compiled contract, it becomes an escalation."},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units"]},"confidence":{"type":"null"},"confidence_is_measured":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            basis: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyBasis>(
+                object
+                    .remove(r#"basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            crosswalk_relation: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyCrosswalkRelation>(
+                object
+                    .remove(r#"crosswalk_relation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"crosswalk_relation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_loss: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyDeclaredLoss>(
+                object
+                    .remove(r#"declared_loss"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_loss"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confidence: serde_json::from_value::<()>(
+                object
+                    .remove(r#"confidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"confidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            confidence_is_measured: serde_json::from_value::<VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyConfidenceIsMeasured>(
+                object
+                    .remove(r#"confidence_is_measured"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"confidence_is_measured"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyBasis {
+    #[serde(rename = r#"resolved_crosswalk_relation"#)]
+    ResolvedCrosswalkRelation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyCrosswalkRelation {
+    #[serde(rename = r#"exact"#)]
+    Exact,
+    #[serde(rename = r#"broader"#)]
+    Broader,
+    #[serde(rename = r#"narrower"#)]
+    Narrower,
+    #[serde(rename = r#"related"#)]
+    Related,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyDeclaredLoss {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"lossy_precision"#)]
+    LossyPrecision,
+    #[serde(rename = r#"lossy_scope"#)]
+    LossyScope,
+    #[serde(rename = r#"lossy_units"#)]
+    LossyUnits,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyConfidenceIsMeasured {
+    False,
+}
+
+impl serde::Serialize
+    for VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyConfidenceIsMeasured
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerticalPackWorkerBindingV1CompiledFieldContractsItemUncertaintyConfidenceIsMeasured
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItem {
+    pub evidence_requirement_ref: String,
+    pub applies_to_risk_class:
+        VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItemAppliesToRiskClass,
+    pub verifier_obligation_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["evidence_requirement_ref","applies_to_risk_class","verifier_obligation_ref"],"properties":{"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320},"applies_to_risk_class":{"$ref":"#/$defs/riskClass"},"verifier_obligation_ref":{"type":"string","minLength":1,"maxLength":320}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            evidence_requirement_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_requirement_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_requirement_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applies_to_risk_class: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItemAppliesToRiskClass,
+            >(
+                object
+                    .remove(r#"applies_to_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applies_to_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_obligation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledEvidenceRequirementsItemAppliesToRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1CompiledReviewModesItem {
+    pub risk_class: VerticalPackWorkerBindingV1CompiledReviewModesItemRiskClass,
+    pub review_mode: VerticalPackWorkerBindingV1CompiledReviewModesItemReviewMode,
+    pub review_owner_module: VerticalPackWorkerBindingV1CompiledReviewModesItemReviewOwnerModule,
+    pub this_binding_performed_no_review:
+        VerticalPackWorkerBindingV1CompiledReviewModesItemThisBindingPerformedNoReview,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1CompiledReviewModesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["risk_class","review_mode","review_owner_module","this_binding_performed_no_review"],"properties":{"risk_class":{"$ref":"#/$defs/riskClass"},"review_mode":{"$ref":"#/$defs/reviewMode"},"review_owner_module":{"const":"M03.15"},"this_binding_performed_no_review":{"const":true}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            risk_class: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledReviewModesItemRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_mode: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledReviewModesItemReviewMode,
+            >(
+                object
+                    .remove(r#"review_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            review_owner_module: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledReviewModesItemReviewOwnerModule,
+            >(
+                object
+                    .remove(r#"review_owner_module"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_owner_module"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            this_binding_performed_no_review: serde_json::from_value::<
+                VerticalPackWorkerBindingV1CompiledReviewModesItemThisBindingPerformedNoReview,
+            >(
+                object
+                    .remove(r#"this_binding_performed_no_review"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"this_binding_performed_no_review"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledReviewModesItemRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledReviewModesItemReviewMode {
+    #[serde(rename = r#"no_review_required"#)]
+    NoReviewRequired,
+    #[serde(rename = r#"sampled_review"#)]
+    SampledReview,
+    #[serde(rename = r#"exact_payload_review"#)]
+    ExactPayloadReview,
+    #[serde(rename = r#"dual_control_review"#)]
+    DualControlReview,
+    #[serde(rename = r#"supervisory_review"#)]
+    SupervisoryReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1CompiledReviewModesItemReviewOwnerModule {
+    #[serde(rename = r#"M03.15"#)]
+    M0315,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalPackWorkerBindingV1CompiledReviewModesItemThisBindingPerformedNoReview {
+    True,
+}
+
+impl serde::Serialize
+    for VerticalPackWorkerBindingV1CompiledReviewModesItemThisBindingPerformedNoReview
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerticalPackWorkerBindingV1CompiledReviewModesItemThisBindingPerformedNoReview
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1AbstentionsItem {
+    pub output_field_ref: String,
+    pub requirement: VerticalPackWorkerBindingV1AbstentionsItemRequirement,
+    pub cause: VerticalPackWorkerBindingV1AbstentionsItemCause,
+    pub cause_ref: String,
+    pub governing_disposition: VerticalPackWorkerBindingV1AbstentionsItemGoverningDisposition,
+    pub no_value_was_produced: VerticalPackWorkerBindingV1AbstentionsItemNoValueWasProduced,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1AbstentionsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","cause","cause_ref","governing_disposition","no_value_was_produced"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"cause":{"$ref":"#/$defs/abstentionCause"},"cause_ref":{"type":"string","minLength":1,"maxLength":320,"description":"The exact admitted ref whose resolution produced this abstention — the superseding ontology revision, the view revision that refused, the boundary whose hash moved."},"governing_disposition":{"$ref":"#/$defs/governingDisposition"},"no_value_was_produced":{"const":true,"description":"Committed in the row's own bytes. A downstream reader does not have to infer from the absence of a contract row that no value exists; the record says so."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            output_field_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_field_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_field_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement: serde_json::from_value::<
+                VerticalPackWorkerBindingV1AbstentionsItemRequirement,
+            >(
+                object
+                    .remove(r#"requirement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cause: serde_json::from_value::<VerticalPackWorkerBindingV1AbstentionsItemCause>(
+                object
+                    .remove(r#"cause"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cause"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cause_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cause_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cause_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_disposition: serde_json::from_value::<
+                VerticalPackWorkerBindingV1AbstentionsItemGoverningDisposition,
+            >(
+                object
+                    .remove(r#"governing_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            no_value_was_produced: serde_json::from_value::<
+                VerticalPackWorkerBindingV1AbstentionsItemNoValueWasProduced,
+            >(
+                object
+                    .remove(r#"no_value_was_produced"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"no_value_was_produced"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1AbstentionsItemRequirement {
+    #[serde(rename = r#"required"#)]
+    Required,
+    #[serde(rename = r#"conditional"#)]
+    Conditional,
+    #[serde(rename = r#"optional"#)]
+    Optional,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1AbstentionsItemCause {
+    #[serde(rename = r#"field_proposal_absent"#)]
+    FieldProposalAbsent,
+    #[serde(rename = r#"stale_code_or_form"#)]
+    StaleCodeOrForm,
+    #[serde(rename = r#"policy_bound_view_not_active"#)]
+    PolicyBoundViewNotActive,
+    #[serde(rename = r#"policy_bound_view_excludes_the_field"#)]
+    PolicyBoundViewExcludesTheField,
+    #[serde(rename = r#"policy_bound_view_denies_the_use"#)]
+    PolicyBoundViewDeniesTheUse,
+    #[serde(rename = r#"effective_policy_moved"#)]
+    EffectivePolicyMoved,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1AbstentionsItemGoverningDisposition {
+    #[serde(rename = r#"carried_as_unmapped"#)]
+    CarriedAsUnmapped,
+    #[serde(rename = r#"excluded_from_application"#)]
+    ExcludedFromApplication,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"refused_ambiguous"#)]
+    RefusedAmbiguous,
+    #[serde(rename = r#"adjudicated_exact"#)]
+    AdjudicatedExact,
+    #[serde(rename = r#"adjudicated_broader"#)]
+    AdjudicatedBroader,
+    #[serde(rename = r#"adjudicated_narrower"#)]
+    AdjudicatedNarrower,
+    #[serde(rename = r#"approved"#)]
+    Approved,
+    #[serde(rename = r#"approved_with_conditions"#)]
+    ApprovedWithConditions,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"abstained"#)]
+    Abstained,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalPackWorkerBindingV1AbstentionsItemNoValueWasProduced {
+    True,
+}
+
+impl serde::Serialize for VerticalPackWorkerBindingV1AbstentionsItemNoValueWasProduced {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1AbstentionsItemNoValueWasProduced {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1EscalationsItem {
+    pub output_field_ref: String,
+    pub requirement: VerticalPackWorkerBindingV1EscalationsItemRequirement,
+    pub cause: VerticalPackWorkerBindingV1EscalationsItemCause,
+    pub cause_ref: String,
+    pub governing_disposition: VerticalPackWorkerBindingV1EscalationsItemGoverningDisposition,
+    pub no_value_was_produced: VerticalPackWorkerBindingV1EscalationsItemNoValueWasProduced,
+    pub escalated_to_owner_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1EscalationsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","cause","cause_ref","governing_disposition","no_value_was_produced","escalated_to_owner_ref"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"cause":{"$ref":"#/$defs/escalationCause"},"cause_ref":{"type":"string","minLength":1,"maxLength":320},"governing_disposition":{"$ref":"#/$defs/governingDisposition"},"no_value_was_produced":{"const":true},"escalated_to_owner_ref":{"$ref":"#/$defs/ownerRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            output_field_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"output_field_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"output_field_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement: serde_json::from_value::<
+                VerticalPackWorkerBindingV1EscalationsItemRequirement,
+            >(
+                object
+                    .remove(r#"requirement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cause: serde_json::from_value::<VerticalPackWorkerBindingV1EscalationsItemCause>(
+                object
+                    .remove(r#"cause"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cause"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cause_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cause_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cause_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governing_disposition: serde_json::from_value::<
+                VerticalPackWorkerBindingV1EscalationsItemGoverningDisposition,
+            >(
+                object
+                    .remove(r#"governing_disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"governing_disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            no_value_was_produced: serde_json::from_value::<
+                VerticalPackWorkerBindingV1EscalationsItemNoValueWasProduced,
+            >(
+                object
+                    .remove(r#"no_value_was_produced"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"no_value_was_produced"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            escalated_to_owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"escalated_to_owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"escalated_to_owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1EscalationsItemRequirement {
+    #[serde(rename = r#"required"#)]
+    Required,
+    #[serde(rename = r#"conditional"#)]
+    Conditional,
+    #[serde(rename = r#"optional"#)]
+    Optional,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1EscalationsItemCause {
+    #[serde(rename = r#"required_field_unmapped"#)]
+    RequiredFieldUnmapped,
+    #[serde(rename = r#"mapping_ambiguous"#)]
+    MappingAmbiguous,
+    #[serde(rename = r#"reviewer_decision_superseded"#)]
+    ReviewerDecisionSuperseded,
+    #[serde(rename = r#"required_field_proposal_absent"#)]
+    RequiredFieldProposalAbsent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1EscalationsItemGoverningDisposition {
+    #[serde(rename = r#"carried_as_unmapped"#)]
+    CarriedAsUnmapped,
+    #[serde(rename = r#"excluded_from_application"#)]
+    ExcludedFromApplication,
+    #[serde(rename = r#"escalated"#)]
+    Escalated,
+    #[serde(rename = r#"refused_ambiguous"#)]
+    RefusedAmbiguous,
+    #[serde(rename = r#"adjudicated_exact"#)]
+    AdjudicatedExact,
+    #[serde(rename = r#"adjudicated_broader"#)]
+    AdjudicatedBroader,
+    #[serde(rename = r#"adjudicated_narrower"#)]
+    AdjudicatedNarrower,
+    #[serde(rename = r#"approved"#)]
+    Approved,
+    #[serde(rename = r#"approved_with_conditions"#)]
+    ApprovedWithConditions,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+    #[serde(rename = r#"abstained"#)]
+    Abstained,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalPackWorkerBindingV1EscalationsItemNoValueWasProduced {
+    True,
+}
+
+impl serde::Serialize for VerticalPackWorkerBindingV1EscalationsItemNoValueWasProduced {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1EscalationsItemNoValueWasProduced {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1Succession {
+    pub succession_reason: VerticalPackWorkerBindingV1SuccessionSuccessionReason,
+    pub predecessor_revision_ref: Option<String>,
+    pub predecessor_content_hash: Option<String>,
+    pub supersedes_predecessor: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1Succession {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor"],"properties":{"succession_reason":{"enum":["genesis","pack_revision_change","input_revision_change","policy_revision_change","recompilation","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/bindingRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            succession_reason: serde_json::from_value::<
+                VerticalPackWorkerBindingV1SuccessionSuccessionReason,
+            >(
+                object
+                    .remove(r#"succession_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"succession_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_predecessor: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"supersedes_predecessor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_predecessor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1SuccessionSuccessionReason {
+    #[serde(rename = r#"genesis"#)]
+    Genesis,
+    #[serde(rename = r#"pack_revision_change"#)]
+    PackRevisionChange,
+    #[serde(rename = r#"input_revision_change"#)]
+    InputRevisionChange,
+    #[serde(rename = r#"policy_revision_change"#)]
+    PolicyRevisionChange,
+    #[serde(rename = r#"recompilation"#)]
+    Recompilation,
+    #[serde(rename = r#"correction"#)]
+    Correction,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1Migration {
+    pub compatibility: VerticalPackWorkerBindingV1MigrationCompatibility,
+    pub downgrade_to_predecessor: VerticalPackWorkerBindingV1MigrationDowngradeToPredecessor,
+    pub refused_legacy_view_scheme: VerticalPackWorkerBindingV1MigrationRefusedLegacyViewScheme,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1Migration {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor","refused_legacy_view_scheme"],"properties":{"compatibility":{"enum":["initial","additive","breaking"]},"downgrade_to_predecessor":{"const":"refused"},"refused_legacy_view_scheme":{"const":"policy-bound-data-view://","description":"NAMED AS THE REFUSED FORM. The predecessor v1 view family is mutable and carries no content commitment, so it appears in this contract exactly once — here, as the spelling that is not accepted."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            compatibility: serde_json::from_value::<
+                VerticalPackWorkerBindingV1MigrationCompatibility,
+            >(
+                object
+                    .remove(r#"compatibility"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compatibility"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            downgrade_to_predecessor: serde_json::from_value::<
+                VerticalPackWorkerBindingV1MigrationDowngradeToPredecessor,
+            >(
+                object
+                    .remove(r#"downgrade_to_predecessor"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"downgrade_to_predecessor"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refused_legacy_view_scheme: serde_json::from_value::<
+                VerticalPackWorkerBindingV1MigrationRefusedLegacyViewScheme,
+            >(
+                object
+                    .remove(r#"refused_legacy_view_scheme"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"refused_legacy_view_scheme"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1MigrationCompatibility {
+    #[serde(rename = r#"initial"#)]
+    Initial,
+    #[serde(rename = r#"additive"#)]
+    Additive,
+    #[serde(rename = r#"breaking"#)]
+    Breaking,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1MigrationDowngradeToPredecessor {
+    #[serde(rename = r#"refused"#)]
+    Refused,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1MigrationRefusedLegacyViewScheme {
+    #[serde(rename = r#"policy-bound-data-view://"#)]
+    PolicyBoundDataView,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct VerticalPackWorkerBindingV1Constants {
+    pub commitment_domain: VerticalPackWorkerBindingV1ConstantsCommitmentDomain,
+    pub lifecycle_id: VerticalPackWorkerBindingV1ConstantsLifecycleId,
+    pub review_owner_module: VerticalPackWorkerBindingV1ConstantsReviewOwnerModule,
+    pub authority_token: VerticalPackWorkerBindingV1ConstantsAuthorityToken,
+    pub measured_confidence_token: VerticalPackWorkerBindingV1ConstantsMeasuredConfidenceToken,
+    pub compilation_is_deterministic:
+        VerticalPackWorkerBindingV1ConstantsCompilationIsDeterministic,
+    pub worker_composition_owner_module:
+        VerticalPackWorkerBindingV1ConstantsWorkerCompositionOwnerModule,
+}
+
+impl<'de> serde::Deserialize<'de> for VerticalPackWorkerBindingV1Constants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["commitment_domain","lifecycle_id","review_owner_module","compilation_is_deterministic","worker_composition_owner_module","authority_token","measured_confidence_token"],"properties":{"commitment_domain":{"const":"ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1"},"lifecycle_id":{"const":"vertical_pack_worker_binding_lifecycle.v1"},"review_owner_module":{"const":"M03.15"},"authority_token":{"const":"authority","description":"The token the registered NN-9 nonclaim invariant compares `does_not_assert` against — one committed constant read against one committed list, so a fixture that drops the nonclaim is refused offline rather than by a literal buried in the rule."},"measured_confidence_token":{"const":"measured_field_confidence"},"compilation_is_deterministic":{"const":true,"description":"The same resolved input set compiles to byte-identical `compiled_*` output and therefore to the same `content_hash`, across processes and across a restart with the read index destroyed."},"worker_composition_owner_module":{"const":"M14"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            commitment_domain: serde_json::from_value::<
+                VerticalPackWorkerBindingV1ConstantsCommitmentDomain,
+            >(
+                object
+                    .remove(r#"commitment_domain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"commitment_domain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lifecycle_id:
+                serde_json::from_value::<VerticalPackWorkerBindingV1ConstantsLifecycleId>(
+                    object
+                        .remove(r#"lifecycle_id"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"lifecycle_id"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            review_owner_module: serde_json::from_value::<
+                VerticalPackWorkerBindingV1ConstantsReviewOwnerModule,
+            >(
+                object
+                    .remove(r#"review_owner_module"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"review_owner_module"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_token: serde_json::from_value::<
+                VerticalPackWorkerBindingV1ConstantsAuthorityToken,
+            >(
+                object
+                    .remove(r#"authority_token"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_token"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            measured_confidence_token: serde_json::from_value::<
+                VerticalPackWorkerBindingV1ConstantsMeasuredConfidenceToken,
+            >(
+                object
+                    .remove(r#"measured_confidence_token"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"measured_confidence_token"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            compilation_is_deterministic: serde_json::from_value::<
+                VerticalPackWorkerBindingV1ConstantsCompilationIsDeterministic,
+            >(
+                object
+                    .remove(r#"compilation_is_deterministic"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"compilation_is_deterministic"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            worker_composition_owner_module: serde_json::from_value::<
+                VerticalPackWorkerBindingV1ConstantsWorkerCompositionOwnerModule,
+            >(
+                object
+                    .remove(r#"worker_composition_owner_module"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"worker_composition_owner_module"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1ConstantsCommitmentDomain {
+    #[serde(rename = r#"ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1"#)]
+    IoiVerticalPackWorkerBindingContentCommitmentJcsSha256V1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1ConstantsLifecycleId {
+    #[serde(rename = r#"vertical_pack_worker_binding_lifecycle.v1"#)]
+    VerticalPackWorkerBindingLifecycleV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1ConstantsReviewOwnerModule {
+    #[serde(rename = r#"M03.15"#)]
+    M0315,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1ConstantsAuthorityToken {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1ConstantsMeasuredConfidenceToken {
+    #[serde(rename = r#"measured_field_confidence"#)]
+    MeasuredFieldConfidence,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalPackWorkerBindingV1ConstantsCompilationIsDeterministic {
+    True,
+}
+
+impl serde::Serialize for VerticalPackWorkerBindingV1ConstantsCompilationIsDeterministic {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for VerticalPackWorkerBindingV1ConstantsCompilationIsDeterministic
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1ConstantsWorkerCompositionOwnerModule {
+    #[serde(rename = r#"M14"#)]
+    M14,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1AuthorityNonclaim {
+    #[serde(rename = r#"vertical_pack_worker_binding_grants_no_authority"#)]
+    VerticalPackWorkerBindingGrantsNoAuthority,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1TruthNonclaim {
+    #[serde(
+        rename = r#"vertical_pack_worker_binding_is_a_compiled_reading_of_admitted_revisions_not_domain_correctness"#
+    )]
+    VerticalPackWorkerBindingIsACompiledReadingOfAdmittedRevisionsNotDomainCorrectness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1LegalConformityClaim {
+    #[serde(rename = r#"not_determined"#)]
+    NotDetermined,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum VerticalPackWorkerBindingV1DoesNotAssertItem {
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"capability_grant"#)]
+    CapabilityGrant,
+    #[serde(rename = r#"lease"#)]
+    Lease,
+    #[serde(rename = r#"policy_decision"#)]
+    PolicyDecision,
+    #[serde(rename = r#"effect_admission"#)]
+    EffectAdmission,
+    #[serde(rename = r#"invocation"#)]
+    Invocation,
+    #[serde(rename = r#"legality"#)]
+    Legality,
+    #[serde(rename = r#"reviewer_qualification"#)]
+    ReviewerQualification,
+    #[serde(rename = r#"marketplace_eligibility"#)]
+    MarketplaceEligibility,
+    #[serde(rename = r#"payment"#)]
+    Payment,
+    #[serde(rename = r#"domain_correctness"#)]
+    DomainCorrectness,
+    #[serde(rename = r#"live_medical_suitability"#)]
+    LiveMedicalSuitability,
+    #[serde(rename = r#"measured_field_confidence"#)]
+    MeasuredFieldConfidence,
+    #[serde(rename = r#"worker_composition_resolution"#)]
+    WorkerCompositionResolution,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -138720,6 +142083,158 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
         expected_rule_id: Some("media_corpus_qualification_census.content_hash.commits_the_whole_census"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/positive-synthetic-sensitive-records.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legal-conformity-is-claimed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-pack-binds-an-ontology-family-head.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-physical-surface-without-a-safety-envelope.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.content_hash.commits_the_whole_revision"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-revision-ref-under-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.revision_ref.extends_its_own_family"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-declared-field-without-a-requirement.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.field_requirements.cover_the_declared_output_fields_exactly"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-field-requirement-declared-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.field_requirements.cover_the_declared_output_fields_exactly"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.action_bindings.every_action_is_declared_by_a_task_class"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.integration_requirements.each_surface_appears_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-review-modes-for-one-risk-class.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.review_modes.each_risk_class_appears_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legality-nonclaim-dropped.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_ontology_pack.nonclaims.the_pack_decides_no_legality_and_no_reviewer_qualification"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-stale-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_pack_worker_binding.content_hash.commits_the_whole_compilation"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-covered-by-nothing.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_pack_worker_binding.coverage.every_declared_field_is_covered_exactly_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-in-two-buckets.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_pack_worker_binding.coverage.every_declared_field_is_covered_exactly_once"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_pack_worker_binding.field_contracts.every_field_compiles_under_the_bindings_own_effective_policy"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_pack_worker_binding.field_contracts.every_field_names_the_composition_the_binding_compiled_for"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("vertical_pack_worker_binding.risk.the_resolved_contract_column_agrees_with_the_ladder"),
     },
 ];
 
@@ -154104,6 +157619,215 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/positive-synthetic-sensitive-records.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/positive-synthetic-sensitive-records.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legal-conformity-is-claimed.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legal-conformity-is-claimed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-pack-binds-an-ontology-family-head.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-pack-binds-an-ontology-family-head.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-physical-surface-without-a-safety-envelope.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-physical-surface-without-a-safety-envelope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-revision-ref-under-another-family.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-revision-ref-under-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-declared-field-without-a-requirement.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-declared-field-without-a-requirement.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-field-requirement-declared-twice.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-field-requirement-declared-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-review-modes-for-one-risk-class.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-review-modes-for-one-risk-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legality-nonclaim-dropped.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-ontology-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legality-nonclaim-dropped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-stale-content-hash.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-stale-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-covered-by-nothing.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-covered-by-nothing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-in-two-buckets.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-in-two-buckets.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json"#,
+        contract_id: r#"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -155774,6 +159498,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/observation-action-episode/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/observation-action-episode/v1","title":"ObservationActionEpisodeV1","description":"ONE INDEPENDENTLY BOUNDED episode or task, drawn from exactly one PolicyBoundMediaSnapshot revision. THE LOAD-BEARING RULE OF THIS CONTRACT: a video-inferred or model-inferred action label remains an UNCERTAIN ATTRIBUTED LABEL and never silently becomes controller ground truth. That rule is expressed three ways so no single edit defeats it — a schema conditional here, a registered coverage invariant beside it, and a runtime refusal in the admitting module. Recorded-video accuracy cannot substitute for closed-loop control evidence (ACC-16 clause 10, ACC-19 clause 5).","x-ioi-schema-version":"ioi.observation-action-episode.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"episodeFamilyRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}$"},"episodeRevisionRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"snapshotRevisionRef":{"type":"string","pattern":"^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000},"labelClassRef":{"type":"string","pattern":"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"}},"required":["schema_version","episode_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","media_snapshot_revision_ref","media_snapshot_content_hash","session_ref","bounds","streams","synchronization","labels","ground_truth_eligible_label_refs","controller_recorded_label_refs","exception_labels","determinism","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","inferred_label_is_never_ground_truth","episode_is_not_a_skill_or_workflow","content_hash"],"properties":{"schema_version":{"const":"ioi.observation-action-episode.v1"},"episode_id":{"$ref":"#/$defs/episodeFamilyRef"},"revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"media_snapshot_revision_ref":{"$ref":"#/$defs/snapshotRevisionRef","description":"The EXACT snapshot revision this episode was cut from — never a family head."},"media_snapshot_content_hash":{"$ref":"#/$defs/sha256","description":"THE BYTES, NOT JUST THE REF. A ref names a location that may since have been re-admitted; the hash names what was actually bound, so a silent re-admission underneath this episode is detectable offline."},"session_ref":{"type":"string","pattern":"^session://[a-z0-9][a-z0-9._:-]{0,190}$","description":"Invariant-equal to the snapshot's. Session is Hypervisor-substrate-owned; M05.9 binds it by ref and owns no session object."},"bounds":{"type":"object","additionalProperties":false,"required":["timebase_id","start_tick","end_tick","boundary_evidence_ref"],"description":"INDEPENDENTLY BOUNDED. `timebase_id` is invariant-equal to the snapshot's: an episode that inherited a different timebase would be measuring its own bounds on a clock nobody declared.","properties":{"timebase_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},"start_tick":{"$ref":"#/$defs/tickCount"},"end_tick":{"$ref":"#/$defs/tickCount"},"boundary_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}},"streams":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["stream_role","schema_ref","channel","sample_count","sync_evidence_ref"],"properties":{"stream_role":{"enum":["observation","action","reward","label"]},"schema_ref":{"type":"string","minLength":1,"maxLength":320},"channel":{"type":"string","minLength":1,"maxLength":128},"sample_count":{"type":"integer","minimum":0,"maximum":1000000000000},"sync_evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"synchronization":{"type":"object","additionalProperties":false,"required":["method","frame_action_offset_ticks","max_observed_skew_ticks","declared_skew_envelope_ticks"],"description":"FRAME/ACTION SYNCHRONIZATION. Observed skew beyond the declared envelope is a refusal, not a rounding: an action attributed to the wrong frame is a mislabel that reads as data.","properties":{"method":{"enum":["shared_timebase","clapper_marker","control_stream_correlation","declared_offset"]},"frame_action_offset_ticks":{"type":"integer","minimum":-1000000000,"maximum":1000000000},"max_observed_skew_ticks":{"$ref":"#/$defs/tickCount"},"declared_skew_envelope_ticks":{"$ref":"#/$defs/tickCount"}}},"labels":{"type":"array","minItems":1,"maxItems":100000,"description":"Every label carries its own provenance and epistemic status. `attributed_to_ref` is who or what asserted it; `corrected_by_ref` is the governed correction that superseded it, retained rather than overwritten (ACC-16 clause 12).","items":{"type":"object","additionalProperties":false,"required":["label_ref","label_class","value_ref","label_provenance_class","epistemic_status","is_controller_ground_truth","confidence","uncertainty_kind","attributed_to_ref","corrected_by_ref"],"properties":{"label_ref":{"type":"string","minLength":1,"maxLength":320},"label_class":{"$ref":"#/$defs/labelClassRef"},"value_ref":{"type":"string","minLength":1,"maxLength":320},"label_provenance_class":{"enum":["controller_recorded","operator_annotated","video_inferred","model_inferred","derived"],"description":"WHERE THE LABEL CAME FROM. `controller_recorded` is the only class an admitted controller stream can support; the rest are attributions."},"epistemic_status":{"enum":["controller_ground_truth","uncertain_attributed_label"]},"is_controller_ground_truth":{"type":"boolean"},"confidence":{"oneOf":[{"type":"number","minimum":0,"maximum":1},{"type":"null"}]},"uncertainty_kind":{"enum":["none","measurement","model","annotation","ambiguous_reference","incomplete_evidence"]},"attributed_to_ref":{"type":"string","minLength":1,"maxLength":320},"corrected_by_ref":{"oneOf":[{"type":"string","minLength":1,"maxLength":320},{"type":"null"}]}},"allOf":[{"title":"an inferred label is an uncertain attributed label and is never controller ground truth","type":"object","if":{"type":"object","required":["label_provenance_class"],"properties":{"label_provenance_class":{"enum":["video_inferred","model_inferred"]}}},"then":{"type":"object","properties":{"epistemic_status":{"const":"uncertain_attributed_label"},"is_controller_ground_truth":{"const":false}}}},{"title":"only a controller-recorded label may claim controller ground truth","type":"object","if":{"type":"object","required":["is_controller_ground_truth"],"properties":{"is_controller_ground_truth":{"const":true}}},"then":{"type":"object","properties":{"label_provenance_class":{"const":"controller_recorded"},"epistemic_status":{"const":"controller_ground_truth"}}}}]}},"ground_truth_eligible_label_refs":{"type":"array","maxItems":100000,"items":{"type":"string","minLength":1,"maxLength":320},"description":"The label set this episode offers as controller ground truth. A registered coverage invariant requires it to be covered EXACTLY by the `controller_recorded` subset — a video-inferred label smuggled in leaves the covering long and refuses, and a controller label omitted leaves it short and refuses."},"controller_recorded_label_refs":{"type":"array","maxItems":100000,"items":{"type":"string","minLength":1,"maxLength":320},"description":"The `controller_recorded` subset, enumerated independently so the coverage above compares two statements rather than one statement with itself."},"exception_labels":{"type":"array","maxItems":10000,"description":"The closed exception vocabulary. An exception class outside it is refused rather than filed under `other`.","items":{"type":"object","additionalProperties":false,"required":["exception_class","at_tick","evidence_ref"],"properties":{"exception_class":{"enum":["operator_abort","controller_disconnect","environment_fault","policy_refusal","timeout","out_of_scope_action","ambiguous_intent"]},"at_tick":{"$ref":"#/$defs/tickCount"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"determinism":{"type":"object","additionalProperties":false,"required":["determinism_class","preprocessor_code_root","preprocessor_config_root","declared_randomness_seed"],"description":"ACC-16 CLAUSE 7. Identical admitted inputs replay under the declared determinism class; a changed preprocessor produces a SUCCESSOR rather than a run that resolves differently and reports success.","properties":{"determinism_class":{"enum":["bitwise_deterministic","seeded_deterministic","nondeterministic_declared"]},"preprocessor_code_root":{"$ref":"#/$defs/sha256"},"preprocessor_config_root":{"$ref":"#/$defs/sha256"},"declared_randomness_seed":{"oneOf":[{"type":"string","minLength":1,"maxLength":128},{"type":"null"}]}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/episodeRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"observation_action_episode_grants_no_authority"},"inferred_label_is_never_ground_truth":{"const":true},"episode_is_not_a_skill_or_workflow":{"const":true},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}}]}"##),
     ("schema://ioi/foundations/objects/dataset-split-manifest/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/dataset-split-manifest/v1","title":"DatasetSplitManifestV1","description":"FROZEN, LEAKAGE-RESISTANT MEMBERSHIP over ObservationActionEpisode revisions. Membership is carried as a FLAT row set — one row per episode, naming its split — rather than a member array per split, because exact-partition closure is then directly checkable: an episode in two splits makes the covering long and refuses, an episode in none makes it short and refuses. Distinct from the Foundry-owned `dataset-snapshot://foundry/...`, which is a flat train/validation/test shape this one does not reuse.","x-ioi-schema-version":"ioi.dataset-split-manifest.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"manifestFamilyRef":{"type":"string","pattern":"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"},"manifestRevisionRef":{"type":"string","pattern":"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"episodeRevisionRef":{"type":"string","pattern":"^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"splitClass":{"enum":["train","validation","temporal_holdout","actor_holdout","world_holdout","adversarial"]},"tickCount":{"type":"integer","minimum":0,"maximum":1000000000000}},"required":["schema_version","split_manifest_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","members","splits","all_member_episode_revision_refs","member_count","membership_is_immutable","leakage_controls","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","manifest_selects_no_evaluation_evidence_for_its_own_producer","content_hash"],"properties":{"schema_version":{"const":"ioi.dataset-split-manifest.v1"},"split_manifest_id":{"$ref":"#/$defs/manifestFamilyRef"},"revision_ref":{"$ref":"#/$defs/manifestRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"members":{"type":"array","minItems":1,"maxItems":100000,"description":"ONE ROW PER EPISODE. `array_unique_by_fields` over `episode_revision_ref` refuses double membership outright, and the coverage rule below refuses omission — two independent statements about one set, which is the cheapest tell that a member was moved after the fact.","items":{"type":"object","additionalProperties":false,"required":["episode_revision_ref","episode_content_hash","split_class","actor_partition_key","world_partition_key","max_tick"],"properties":{"episode_revision_ref":{"$ref":"#/$defs/episodeRevisionRef"},"episode_content_hash":{"$ref":"#/$defs/sha256"},"split_class":{"$ref":"#/$defs/splitClass"},"actor_partition_key":{"type":"string","minLength":1,"maxLength":128},"world_partition_key":{"type":"string","minLength":1,"maxLength":128},"max_tick":{"$ref":"#/$defs/tickCount"}}}},"splits":{"type":"array","minItems":1,"maxItems":6,"description":"The declared per-class counts. A class declared twice is refused by uniqueness; a count disagreeing with the rows is refused by the registered invariant.","items":{"type":"object","additionalProperties":false,"required":["split_class","member_count"],"properties":{"split_class":{"$ref":"#/$defs/splitClass"},"member_count":{"type":"integer","minimum":0,"maximum":100000}}}},"all_member_episode_revision_refs":{"type":"array","minItems":1,"maxItems":100000,"items":{"$ref":"#/$defs/episodeRevisionRef"},"description":"The enumerated membership, covered EXACTLY by the rows above. Coverage compares members and count, so both double-membership and omission refuse."},"member_count":{"type":"integer","minimum":1,"maximum":100000},"membership_is_immutable":{"const":true,"description":"PINNED. A split manifest whose membership can move is not a holdout; it is a suggestion."},"leakage_controls":{"type":"object","additionalProperties":false,"required":["near_duplicate_exclusion_method","near_duplicate_excluded_count","temporal_cut_tick","max_train_tick","min_temporal_holdout_tick"],"description":"ACC-16 CLAUSE 8. Near-duplicate and future-frame leakage are refused by comparison rather than declared absent: `max_train_tick < temporal_cut_tick <= min_temporal_holdout_tick`, and the actor/world partition keys must not straddle a holdout boundary.","properties":{"near_duplicate_exclusion_method":{"type":"string","minLength":1,"maxLength":128},"near_duplicate_excluded_count":{"type":"integer","minimum":0,"maximum":100000000},"temporal_cut_tick":{"$ref":"#/$defs/tickCount"},"max_train_tick":{"$ref":"#/$defs/tickCount"},"min_temporal_holdout_tick":{"$ref":"#/$defs/tickCount"}}},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["predecessor_revision_ref","predecessor_content_hash"],"properties":{"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/manifestRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"const":"initial"},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"dataset_split_manifest_grants_no_authority"},"manifest_selects_no_evaluation_evidence_for_its_own_producer":{"const":true,"description":"ACC-16's negative clause: the training process cannot select its own evaluation evidence. Independent evaluation binds this manifest by exact ref; the manifest never promotes itself."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor","type":"object","if":{"type":"object","required":["migration"],"properties":{"migration":{"type":"object","required":["compatibility"],"properties":{"compatibility":{"const":"initial"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"}}}}}}]}"##),
     ("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","title":"MediaCorpusQualificationCensusV1","description":"THE CERTIFICATE BOTH LANES EMIT, CARRYING ITS OWN HONESTY ABOUT WHICH LANE PRODUCED IT. The deterministic lane emits `compact_deterministic_fixture` and pins `does_not_claim_hours_scale_qualification` — an empty claim nobody can fill is a stronger statement than an absent field, which is what lets ACC-19 clause 5 say the deterministic lane 'claims no hours-scale qualification' and have it be checkable. The scheduled lane emits `hours_scale_qualification` and must satisfy every floor by invariant. The floors are FUNCTIONAL (duration, diversity, census closure) and cannot shrink. NUMERIC THROUGHPUT AND LATENCY LIMITS ARE DELIBERATELY ABSENT: per ADR 0039's own acceptance record they wait for repeated matched release-host baselines and a planted slowdown mutation.","x-ioi-schema-version":"ioi.media-corpus-qualification-census.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"censusRef":{"type":"string","pattern":"^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"seconds":{"type":"integer","minimum":0,"maximum":100000000},"count":{"type":"integer","minimum":0,"maximum":1000000000000},"byteCount":{"type":"integer","minimum":0,"maximum":2199023255552},"labelClassRef":{"type":"string","pattern":"^label-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"reasonClass":{"enum":["corrupt","truncated","variable_rate","padded","repeated","out_of_rights","quarantined","near_duplicate","exact_duplicate","below_quality_floor"]},"sourceFileRef":{"type":"string","pattern":"^media-file://[a-z0-9][a-z0-9._/-]{0,190}$","description":"THE RAW SOURCE INSTANCE, WHICH IS NOT ITS PAYLOAD. A corpus has two different notions of sameness and the first version of this contract collapsed them: it keyed distinctness on `content_sha256` alone, which made every row's payload unique BY CONSTRUCTION and therefore made a real exact duplicate — two distinct source files carrying identical bytes — impossible to express. Identity lives here; content lives in `content_sha256`. Two rows may share a payload digest and MUST NOT share a source ref."},"clusterId":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,63}$"},"similarityFingerprint":{"type":"string","pattern":"^[0-9a-f]{16}$","description":"A 64-BIT SIMILARITY-PRESERVING DIGEST, not a cryptographic one. Under `perceptual-block-mean-hamming-64` the payload is cut into 64 equal blocks and bit i is set when block i's byte sum exceeds the mean block sum, so a bounded edit flips a bounded number of bits and the Hamming distance between two fingerprints IS the similarity measure. A sha256 would be useless here: any edit moves half the bits, so every pair would sit at the same distance and 'near' would carry no information. THIS FIELD IS DERIVED, NEVER ACCEPTED: the runtime regenerates the payload from its recipe and recomputes the fingerprint, so a value that disagrees with the bytes is refused rather than recorded."},"payloadRecipe":{"type":"object","additionalProperties":false,"required":["recipe_method","seed_tag","block_count","block_width_bytes","low_level","high_level","flipped_blocks"],"description":"THE BYTES, STATED AS A FUNCTION THE RUNTIME CAN RE-RUN. Without this the census would be self-referential: `content_sha256`, `byte_count` and `similarity_fingerprint` would all be caller-supplied, and checking one against another would be label-to-label validation — a caller could file a wholly fabricated but internally consistent corpus and nothing in the record could tell. The recipe closes that: the runtime REGENERATES the payload, digests it, measures it and fingerprints it, and refuses any of the three that disagrees. THIS IS WHY THE LANE IS SYNTHETIC. A real recording has no recipe, so v1 admits only recipe-borne custody and makes no claim to verify bytes it never held; custody of imported media is a later seam, and an ArtifactRef is not it — an ArtifactRef names bytes and resolves nothing.","properties":{"recipe_method":{"enum":["ioi.m059.two-level-block-payload.v1"],"description":"The payload is `block_count` equal blocks; block i is filled with `high_level` when bit i of sha256(\"ioi.m059.corpus.payload:\" + seed_tag) is set, with `low_level` otherwise, and membership in `flipped_blocks` inverts that choice. Two levels rather than pseudo-random content is deliberate: it holds every block sum far from the mean, so a bounded edit flips a bounded number of fingerprint bits instead of cascading."},"seed_tag":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"},"block_count":{"type":"integer","enum":[64]},"block_width_bytes":{"type":"integer","minimum":64,"maximum":65536},"low_level":{"type":"integer","minimum":0,"maximum":255},"high_level":{"type":"integer","minimum":0,"maximum":255},"flipped_blocks":{"type":"array","maxItems":64,"items":{"type":"integer","minimum":0,"maximum":63}}}}},"required":["schema_version","corpus_census_id","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","claimed_scale","profile","corpus_content_root","raw","accepted","rejected","deduplicated","deduplication_policy","payload_custody","does_not_claim_custody_of_imported_media_bytes","file_dispositions","distinct_payloads","near_duplicate_exclusions","profile_required_label_classes","observed_label_classes","floors","ceilings","runtime_evidence","degeneracy_findings","distinct_content_hash_count","does_not_claim_hours_scale_qualification","does_not_claim_throughput_or_latency","admitted_at","constants","authority_nonclaim","content_hash"],"properties":{"schema_version":{"const":"ioi.media-corpus-qualification-census.v1"},"corpus_census_id":{"$ref":"#/$defs/censusRef","description":"CONTENT-ADDRESSED rather than numbered: the census IS its corpus's digest, so two runs over the same corpus collide by construction and a shortened corpus cannot hide behind a fresh identity."},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"claimed_scale":{"enum":["compact_deterministic_fixture","hours_scale_qualification"],"description":"WHICH LANE PRODUCED THIS. Neither lane may claim the other's coverage (ACC-16 Evidence, ACC-19 Evidence)."},"profile":{"enum":["composed-model-harness","interactive-learned","synthetic-learned-sensitive"],"description":"The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."},"corpus_content_root":{"$ref":"#/$defs/sha256","description":"THE ROOT COMMITS THE ROWS, NOT A SUMMARY OF THEM. A registered invariant recomputes this digest over the complete canonical disposition rows, the distinct-payload rows, the near-duplicate exclusions and all four count blocks, so the census IS its corpus rather than a claim about one. The first version of this field was an unbacked string: any 64-hex value satisfied it, so two different corpora could file identical roots and one corpus could file two."},"raw":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"}}},"accepted":{"type":"object","additionalProperties":false,"required":["seconds_before_deduplication","seconds_after_deduplication","file_count","byte_count","frame_or_sample_count","chunk_count","bounded_episode_count","task_count","source_session_count","label_count"],"description":"The accepted half of the census. `seconds_after_deduplication` is the floor-bearing number: two hours of accepted source time AFTER exact and near-duplicate exclusion, never before it.","properties":{"seconds_before_deduplication":{"$ref":"#/$defs/seconds"},"seconds_after_deduplication":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"bounded_episode_count":{"$ref":"#/$defs/count"},"task_count":{"$ref":"#/$defs/count"},"source_session_count":{"$ref":"#/$defs/count"},"label_count":{"$ref":"#/$defs/count"}}},"rejected":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32}}},"deduplicated":{"type":"object","additionalProperties":false,"required":["source_seconds","file_count","byte_count","frame_or_sample_count","chunk_count","reason_classes","exact_duplicate_file_count","near_duplicate_file_count"],"properties":{"source_seconds":{"$ref":"#/$defs/seconds"},"file_count":{"$ref":"#/$defs/count"},"byte_count":{"$ref":"#/$defs/byteCount"},"frame_or_sample_count":{"$ref":"#/$defs/count"},"chunk_count":{"$ref":"#/$defs/count"},"reason_classes":{"type":"array","items":{"$ref":"#/$defs/reasonClass"},"maxItems":32},"exact_duplicate_file_count":{"$ref":"#/$defs/count"},"near_duplicate_file_count":{"$ref":"#/$defs/count"}}},"deduplication_policy":{"type":"object","additionalProperties":false,"required":["exact_key_algorithm","near_duplicate_method","near_duplicate_threshold"],"description":"THE EXCLUSION RULE IS DECLARED BEFORE IT IS APPLIED. Exact exclusion is a digest comparison and needs only the algorithm; NEAR exclusion is a judgement, and a judgement with no declared method, fingerprint or threshold is unfalsifiable — a corpus could call anything a near-duplicate and no relying party could disagree. The method is a CLOSED VOCABULARY rather than free text, because a free-text method name is not a function anyone can re-run: every row excluded as `near_duplicate` names this method, carries both compared fingerprints, and has its distance recomputed under it.","properties":{"exact_key_algorithm":{"enum":["sha256"]},"near_duplicate_method":{"enum":["perceptual-block-mean-hamming-64"]},"near_duplicate_threshold":{"type":"integer","minimum":1,"maximum":64}}},"payload_custody":{"enum":["deterministic_recipe"],"description":"HOW THIS CENSUS COMES TO KNOW ITS OWN BYTES. `deterministic_recipe` is the only admissible v1 mode and it means what it says: every payload carries a recipe, and the runtime regenerates, digests, measures and fingerprints the bytes itself rather than believing the record about them. There is deliberately no `imported_bytes` member — admitting one would be a claim to custody this version does not implement, and a census that could name a custody mode nobody verifies is exactly the silence this contract exists to refuse."},"does_not_claim_custody_of_imported_media_bytes":{"const":true,"description":"THE NONCLAIM THAT KEEPS THE LANE HONEST. Recomputing a recipe's bytes proves the census's arithmetic about SYNTHETIC material; it proves nothing about an imported recording, whose bytes this contract never holds. Pinning the nonclaim in the record rather than in a comment is what stops a reader treating a recipe-verified census as evidence of verified media custody."},"file_dispositions":{"type":"array","minItems":1,"maxItems":1000000,"description":"ONE ROW PER RAW SOURCE FILE — AND A SOURCE FILE IS NOT ITS PAYLOAD. `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over `source_file_ref` refuses a corpus that counted one source instance twice. DISTINCTNESS IS KEYED ON IDENTITY, NOT CONTENT, and that is a correction: keying it on `content_sha256` forced every row's payload to be unique, which made an exact duplicate — two distinct source files whose bytes are byte-identical — impossible to state, so `exact_duplicate` was a label no corpus could ever have earned. Payload repetition now lives where it belongs, in `distinct_payloads`, and `byte_count` is the ACTUAL length of the digested payload rather than an unbacked claim about it.","items":{"type":"object","additionalProperties":false,"required":["source_file_ref","content_sha256","byte_count","disposition","reason_class","source_seconds"],"properties":{"source_file_ref":{"$ref":"#/$defs/sourceFileRef"},"content_sha256":{"$ref":"#/$defs/sha256"},"byte_count":{"$ref":"#/$defs/byteCount"},"disposition":{"enum":["accepted","rejected","deduplicated"]},"reason_class":{"oneOf":[{"$ref":"#/$defs/reasonClass"},{"type":"null"}]},"source_seconds":{"$ref":"#/$defs/seconds"}}}},"distinct_payloads":{"type":"array","minItems":1,"maxItems":1000000,"description":"ONE ROW PER DISTINCT PAYLOAD DIGEST, and the place an exact duplicate becomes STATEABLE. Each payload names the single source instance retained as canonical and the count of source instances that carried those bytes; `instance_count` above 1 IS an exact duplication, and the runtime requires exactly one of those instances to be accepted and every other to be excluded as `exact_duplicate`. A corpus that pads itself by re-ingesting the same bytes therefore inflates `raw` and cannot inflate `accepted`. THE SIMILARITY FINGERPRINT LIVES HERE, ON THE PAYLOAD, and not on the exclusion row that cites it: a fingerprint carried by the row asserting the exclusion is a number that row could choose, whereas a fingerprint carried by the payload is one every citing row must AGREE with. That is what makes source-fingerprint, retained-fingerprint and sibling substitution three separately detectable edits instead of one unfalsifiable claim.","items":{"type":"object","additionalProperties":false,"required":["content_sha256","canonical_source_file_ref","instance_count","byte_count","similarity_fingerprint","payload_recipe"],"properties":{"content_sha256":{"$ref":"#/$defs/sha256"},"canonical_source_file_ref":{"$ref":"#/$defs/sourceFileRef"},"instance_count":{"type":"integer","minimum":1,"maximum":1000000},"byte_count":{"$ref":"#/$defs/byteCount"},"similarity_fingerprint":{"$ref":"#/$defs/similarityFingerprint"},"payload_recipe":{"$ref":"#/$defs/payloadRecipe"}}}},"near_duplicate_exclusions":{"type":"array","minItems":0,"maxItems":1000000,"description":"ONE ROW PER NEAR-DUPLICATE EXCLUSION, CARRYING BOTH SIDES OF THE COMPARISON SO IT CAN BE RE-DECIDED OFFLINE. Exact duplication is decidable from the digest alone; near duplication is a judgement, and a row naming only the EXCLUDED file's fingerprint could not be rechecked against anything — the distance would be an unfalsifiable number beside two refs. Carrying the retained sibling's fingerprint as well makes `distance` RECOMPUTABLE: it is the Hamming distance between these two fingerprints under the named method, and the runtime recomputes it rather than believing it. A distance of zero is refused, because two payloads whose similarity digests agree exactly are an EXACT duplicate and must be filed as one.","items":{"type":"object","additionalProperties":false,"required":["source_file_ref","retained_source_file_ref","cluster_id","similarity_method","similarity_fingerprint","retained_similarity_fingerprint","distance","threshold"],"properties":{"source_file_ref":{"$ref":"#/$defs/sourceFileRef"},"retained_source_file_ref":{"$ref":"#/$defs/sourceFileRef"},"cluster_id":{"$ref":"#/$defs/clusterId"},"similarity_method":{"type":"string","minLength":1,"maxLength":128},"similarity_fingerprint":{"$ref":"#/$defs/similarityFingerprint"},"retained_similarity_fingerprint":{"$ref":"#/$defs/similarityFingerprint"},"distance":{"type":"integer","minimum":1,"maximum":64},"threshold":{"type":"integer","minimum":1,"maximum":64}}}},"profile_required_label_classes":{"type":"array","minItems":1,"maxItems":512,"items":{"$ref":"#/$defs/labelClassRef"},"description":"Every profile-required ACTION, FIELD and EXCEPTION label class. Covered exactly by the observed set below, so a corpus missing a required class refuses rather than reporting a high count over a narrow vocabulary."},"observed_label_classes":{"type":"array","minItems":1,"maxItems":512,"items":{"$ref":"#/$defs/labelClassRef"}},"floors":{"type":"object","additionalProperties":false,"required":["accepted_seconds_after_deduplication","bounded_episode_count","source_session_count"],"description":"PINNED IN THE SCHEMA AS SINGLE-MEMBER NUMERIC ENUMS, which is this repo's numeric pin (a numeric `const` is banned by the ajv-strict authoring convention). Pinning them in the record rather than only in the verifier is what makes 'the floors cannot shrink' checkable offline by a relying party holding only these bytes.","properties":{"accepted_seconds_after_deduplication":{"type":"integer","enum":[7200],"description":"At least two hours of accepted source time after exact AND near-duplicate exclusion (ACC-19 clause 5)."},"bounded_episode_count":{"type":"integer","enum":[8],"description":"At least eight independently bounded episodes or tasks."},"source_session_count":{"type":"integer","enum":[2],"description":"From at least two source Sessions."}}},"ceilings":{"type":"object","additionalProperties":false,"required":["corpus_byte_count"],"properties":{"corpus_byte_count":{"type":"integer","enum":[2147483648],"description":"2 GiB. Duration and diversity are the floors; fidelity is not, which is part of why the scheduled lane needs no GPU runner, object storage or metered service."}}},"runtime_evidence":{"type":"object","additionalProperties":false,"required":["peak_resident_bytes","projection_subscription_lease_ref","max_undelivered_events_declared","queue_high_water","backpressure_lag_outcomes","durability_class_achieved","interruption_count","resume_count","restart_equivalence","corrupt_inputs_refused","truncated_inputs_refused","variable_rate_inputs_handled"],"description":"What the run ACTUALLY did. The backpressure half reuses the registered ProjectionSubscriptionLease v1 vocabulary, so 'exceeding the bound produces a typed outcome; it never silently drops an accepted event' is inherited rather than restated.","properties":{"peak_resident_bytes":{"$ref":"#/$defs/byteCount"},"projection_subscription_lease_ref":{"type":"string","minLength":1,"maxLength":320},"max_undelivered_events_declared":{"type":"integer","minimum":1,"maximum":1048576},"queue_high_water":{"$ref":"#/$defs/count"},"backpressure_lag_outcomes":{"type":"array","maxItems":4096,"items":{"enum":["typed_gap","typed_rebase","lease_revoked"]}},"durability_class_achieved":{"enum":["local_only","replicated_same_host","quorum_replicated"],"description":"THE CLASS THE WRITER REACHED, never the one requested. The mux caps same-host links at `replicated_same_host` and refuses to fake a replicated class."},"interruption_count":{"$ref":"#/$defs/count"},"resume_count":{"$ref":"#/$defs/count"},"restart_equivalence":{"type":"object","additionalProperties":false,"required":["pre_restart_root","post_restart_root","roots_equal"],"properties":{"pre_restart_root":{"$ref":"#/$defs/sha256"},"post_restart_root":{"$ref":"#/$defs/sha256"},"roots_equal":{"const":true}}},"corrupt_inputs_refused":{"$ref":"#/$defs/count"},"truncated_inputs_refused":{"$ref":"#/$defs/count"},"variable_rate_inputs_handled":{"$ref":"#/$defs/count"}}},"degeneracy_findings":{"type":"array","maxItems":4096,"items":{"type":"object","additionalProperties":false,"required":["finding_class","affected_file_count","evidence_ref"],"properties":{"finding_class":{"enum":["padded_span","repeated_file","single_actor_corpus","single_session_corpus","degenerate_label_vocabulary","constant_frame_content"]},"affected_file_count":{"$ref":"#/$defs/count"},"evidence_ref":{"type":"string","minLength":1,"maxLength":320}}}},"distinct_content_hash_count":{"$ref":"#/$defs/count","description":"DISTINCT PAYLOADS, NOT ROWS. Pinned by invariant to the length of `distinct_payloads`, so it falls BELOW `raw.file_count` exactly when the corpus contained exact duplicates. Pinning it to the row count instead — as the first version did — made the two numbers equal by construction and turned the degeneracy check into a tautology."},"does_not_claim_hours_scale_qualification":{"type":"boolean"},"does_not_claim_throughput_or_latency":{"const":true,"description":"PINNED ON BOTH LANES. No throughput, latency or time-to-quality number is claimed by this contract in this cut."},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain"],"properties":{"commitment_domain":{"const":"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"}}},"authority_nonclaim":{"const":"media_corpus_qualification_census_grants_no_authority"},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"the compact deterministic lane claims no hours-scale qualification","type":"object","if":{"type":"object","required":["claimed_scale"],"properties":{"claimed_scale":{"const":"compact_deterministic_fixture"}}},"then":{"type":"object","properties":{"does_not_claim_hours_scale_qualification":{"const":true}}}},{"title":"the hours-scale lane makes that claim and therefore owes every floor","description":"THE FLOORS BIND TO THE LANE THAT CLAIMS THEM. They are expressed here as a schema conditional because the portable invariant language has no conditional numeric operator, and an unconditional floor rule would refuse the compact deterministic fixture that ACC-19 clause 5 explicitly permits. The compact lane is bounded instead by its own pinned nonclaim above, so neither lane can borrow the other's coverage.","type":"object","if":{"type":"object","required":["claimed_scale"],"properties":{"claimed_scale":{"const":"hours_scale_qualification"}}},"then":{"type":"object","properties":{"does_not_claim_hours_scale_qualification":{"const":false},"accepted":{"type":"object","properties":{"seconds_after_deduplication":{"type":"integer","minimum":7200,"maximum":100000000},"bounded_episode_count":{"type":"integer","minimum":8,"maximum":1000000000000},"task_count":{"type":"integer","minimum":8,"maximum":1000000000000},"source_session_count":{"type":"integer","minimum":2,"maximum":1000000000000}}}}}}]}"##),
+    ("schema://ioi/domains/aiagent/vertical-ontology-pack/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/domains/aiagent/vertical-ontology-pack/v1","title":"VerticalOntologyPackV1","description":"ONE IMMUTABLE REVISION of an installable domain extension over the shared worker ontology. A pack DECLARES a vertical's task classes, action/risk mappings, integration-surface requirements, proposed output fields, evidence requirements and review modes, and it declares them against an EXACT admitted ontology revision it names by ref AND by content hash. IT DECIDES NOTHING. A pack does not decide legality, reviewer qualification, authority, marketplace eligibility, payment, correctness or live medical suitability; those are its own committed nonclaims, and `VerticalPackWorkerBinding` is where the declaration meets the resolved world and either compiles or abstains. Nothing here forks the daemon, wallet.network, Agentgres or the marketplace (`domains/aiagent/vertical-ontology-packs.md`).","x-ioi-schema-version":"ioi.vertical-ontology-pack.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"packFamilyRef":{"type":"string","pattern":"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}$"},"packRevisionRef":{"type":"string","pattern":"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyTermRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"actionContractRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"outputFieldRef":{"type":"string","pattern":"^field://[a-z0-9][a-z0-9._/-]{0,190}$"},"taskClassRef":{"type":"string","pattern":"^task-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"riskClass":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"],"description":"Frozen by `foundations/canonical-enums.md`. A pack SELECTS from the ladder; it does not extend it, and a vertical that needed a thirteenth class would be a finding against the enum owner rather than a local addition here."},"integrationSurfaceClass":{"enum":["chat_community","contact_delivery","game_platform","browser_saas","developer_code","commerce","finance_trading","local_computer_use","enterprise_vpc","webhook_api","voice_sms_access","robotics_physical","embodied_humanoid","vehicles_mobility","field_service_inspection","education_tutoring","creative_media","support_operations"],"description":"Frozen by `domains/aiagent/integration-surface-taxonomy.md`. A surface is a policy and evidence profile, never an authority grant."},"reviewMode":{"enum":["no_review_required","sampled_review","exact_payload_review","dual_control_review","supervisory_review"],"description":"WHAT REVIEW THE PACK DECLARES A CLASS NEEDS — never who is qualified to give it. Reviewer qualification is an accountable owner's decision and is one of this contract's committed nonclaims. `exact_payload_review` is the mode ACC-18 clause 10 names; M03.15 owns the review itself."}},"required":["schema_version","vertical_ontology_pack_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","legacy_pack_id","legacy_pack_id_is_display_only","display_name","base_ontology_revision_ref","base_ontology_content_hash","declared_object_type_refs","declared_task_classes","declared_action_bindings","declared_integration_requirements","declared_output_fields","declared_field_requirements","declared_evidence_requirements","declared_review_modes","forbidden_action_refs","jurisdiction_refs","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","legal_conformity_claim","does_not_decide","content_hash"],"properties":{"schema_version":{"const":"ioi.vertical-ontology-pack.v1"},"vertical_ontology_pack_id":{"$ref":"#/$defs/packFamilyRef"},"revision_ref":{"$ref":"#/$defs/packRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"legacy_pack_id":{"type":"string","pattern":"^vertical_pack:[a-z0-9][a-z0-9._-]{0,190}$","description":"CANON'S OWN SPELLING, CARRIED VERBATIM AND NOT BENT TO SUIT THE REVISION CONVENTION. `vertical-ontology-packs.md` writes `pack_id: vertical_pack:community.discord_moderation.v1`, and `runtime_worker_package_install_admission.rs` already requires that exact prefix. It is retained here as a DISPLAY id so the canonical name stays unbent, and it is explicitly NOT resolvable: identity is `revision_ref`. Tightening the worker-package kernel to demand a resolvable revision is M14.9's cut, not this one."},"legacy_pack_id_is_display_only":{"const":true,"description":"Stated in the record's own bytes rather than only in prose, so a consumer that tried to resolve `legacy_pack_id` is contradicting a committed field rather than making an understandable mistake."},"display_name":{"type":"string","minLength":1,"maxLength":128},"base_ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef","description":"The EXACT admitted ontology revision this pack extends — resolved through M05.1's owner seam at admission, never a family head and never `latest`."},"base_ontology_content_hash":{"$ref":"#/$defs/sha256","description":"THE BYTES, NOT ONLY THE REF, taken verbatim from what M05.1 served. A ref alone would let the meaning a pack extends move underneath it undetectably."},"declared_object_type_refs":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/ontologyTermRef"},"description":"Terms of the bound base ontology, each resolved through M05.1's term seam at admission. A well-formed term the revision never declared is refused there rather than accepted as a well-formed string."},"declared_task_classes":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["task_class_ref","label","action_type_refs"],"properties":{"task_class_ref":{"$ref":"#/$defs/taskClassRef"},"label":{"type":"string","minLength":1,"maxLength":128},"action_type_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/ontologyTermRef"}}}},"description":"The routing/index vocabulary a worker claiming this vertical is described by. `TaskClass` is index vocabulary per `digital-worker-ontology.md`; it selects nothing and authorizes nothing."},"declared_action_bindings":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["action_type_ref","risk_class","action_contract_revision_ref","review_mode","required_integration_surface"],"properties":{"action_type_ref":{"$ref":"#/$defs/ontologyTermRef"},"risk_class":{"$ref":"#/$defs/riskClass"},"action_contract_revision_ref":{"$ref":"#/$defs/actionContractRevisionRef","description":"The EXACT `OntologyActionContract` revision this action compiles through, resolved at admission via M05.4's owner seam. Canon's conformance check `pack actions map to declared risk classes and authority scopes` is met by resolving the contract, not by naming it."},"review_mode":{"$ref":"#/$defs/reviewMode"},"required_integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"}}},"description":"ACTION -> RISK -> CONTRACT -> REVIEW -> SURFACE, as one row per action, so no half of the mapping can drift from the other. A pack that named a risk class without the contract that carries it would be asserting a risk nobody compiled."},"declared_integration_requirements":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["integration_surface","connector_mapping_revision_ref","credential_custody_nonclaim","safety_envelope_required"],"properties":{"integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"},"connector_mapping_revision_ref":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$","description":"The EXACT M05.7 `ConnectorMapping` revision this surface binds, resolved through its owner seam."},"credential_custody_nonclaim":{"const":"pack_connectors_do_not_imply_credential_custody","description":"Canon's conformance check, expressed in the record's own bytes. A connector mapping is a field map; possession of one implies no credential and no authority."},"safety_envelope_required":{"type":"boolean"}}}},"declared_output_fields":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/outputFieldRef"},"description":"THE FIELDS THIS PACK PROPOSES A WORKER MAY PRODUCE. This list is what a binding must cover EXACTLY ONCE, by a compiled contract, an abstention or an escalation. It is the reason a binding cannot be silent about a field: silence would leave the covering short."},"declared_field_requirements":{"type":"array","minItems":1,"maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","source_term_ref","evidence_requirement_ref"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"],"description":"A `required` field with no crosswalk term ESCALATES rather than abstaining: the difference between 'this worker cannot say' and 'this vertical cannot proceed' is a difference an accountable owner must see."},"source_term_ref":{"$ref":"#/$defs/ontologyTermRef"},"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320}}}},"declared_evidence_requirements":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["evidence_requirement_ref","applies_to_risk_class","verifier_obligation_ref"],"properties":{"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320},"applies_to_risk_class":{"$ref":"#/$defs/riskClass"},"verifier_obligation_ref":{"type":"string","minLength":1,"maxLength":320}}}},"declared_review_modes":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["risk_class","review_mode","review_owner_module"],"properties":{"risk_class":{"$ref":"#/$defs/riskClass"},"review_mode":{"$ref":"#/$defs/reviewMode"},"review_owner_module":{"const":"M03.15","description":"PINNED TO THE OWNER, so the pack cannot read as though it performed the review. A pack states which mode a risk class needs; M03.15 owns exact-payload review and is the only place one happens."}}}},"forbidden_action_refs":{"type":"array","maxItems":128,"items":{"type":"string","minLength":1,"maxLength":320}},"jurisdiction_refs":{"type":"array","maxItems":32,"items":{"type":"string","pattern":"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"},"description":"DELIBERATELY WITHOUT A `minItems` FLOOR. An empty list is admissible and is exactly what makes the binding's whole-binding `jurisdiction_absent` fail-closed refusal reachable and therefore testable. A floor here would move the refusal into the schema and leave the runtime rule unfalsifiable."},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor"],"properties":{"succession_reason":{"enum":["genesis","ontology_revision_change","action_or_risk_change","field_or_evidence_change","review_mode_change","integration_change","jurisdiction_change","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/packRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor"],"properties":{"compatibility":{"enum":["initial","additive","breaking"]},"downgrade_to_predecessor":{"const":"refused"}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain","lifecycle_id","review_owner_module","identity_is_the_revision_ref","legality_token"],"properties":{"commitment_domain":{"const":"ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1"},"lifecycle_id":{"const":"vertical_ontology_pack_lifecycle.v1"},"review_owner_module":{"const":"M03.15"},"identity_is_the_revision_ref":{"const":true},"legality_token":{"const":"legality","description":"The token the registered nonclaim invariant compares `does_not_decide` against. Pinned here so the rule reads one committed constant against one committed list rather than embedding the literal in the rule, which is what lets a fixture drop the nonclaim and be refused offline."}}},"authority_nonclaim":{"const":"vertical_ontology_pack_grants_no_authority"},"truth_nonclaim":{"const":"vertical_ontology_pack_is_a_declared_domain_extension_not_domain_correctness"},"legal_conformity_claim":{"const":"not_determined","description":"ACC-18 clause 13, in the record's own bytes. No HIPAA, payer, medical, coding or jurisdictional correctness is asserted by a pack, ever."},"does_not_decide":{"type":"array","minItems":8,"maxItems":12,"uniqueItems":true,"items":{"enum":["legality","reviewer_qualification","authority","marketplace_eligibility","payment","correctness","live_medical_suitability","provider_connection","credential_custody","model_routing","agentgres_admission","daemon_execution_truth"]},"description":"THE M05 BOUNDARY AND CANON'S 'DOES NOT OWN' LIST, AS A CLOSED SET WITH A FLOOR OF EIGHT. The seven ACC-18/M05 boundary tokens plus at least one of canon's own; dropping any of the mandatory members is refused by the runtime as well, so the nonclaim cannot be quietly shortened."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor and supersedes nothing","type":"object","if":{"type":"object","required":["succession"],"properties":{"succession":{"type":"object","required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"migration":{"type":"object","properties":{"compatibility":{"const":"initial"}}}}}},{"title":"a physical-action or embodied surface requires a safety envelope","type":"object","if":{"type":"object","required":["declared_integration_requirements"],"properties":{"declared_integration_requirements":{"type":"array","contains":{"type":"object","required":["integration_surface"],"properties":{"integration_surface":{"enum":["robotics_physical","embodied_humanoid","vehicles_mobility"]}}}}}},"then":{"type":"object","properties":{"declared_integration_requirements":{"type":"array","items":{"type":"object","properties":{"safety_envelope_required":{"const":true}}}}}},"description":"Canon: `physical packs reference PhysicalActionPolicy and SafetyEnvelope`. A pack that reached an actuator surface without declaring the envelope would be the exact anti-pattern `vertical-ontology-packs.md` names."}]}"##),
+    ("schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1","title":"VerticalPackWorkerBindingV1","description":"ONE COMPILATION of one exact `VerticalOntologyPack` revision onto one worker composition. THIS IS A DERIVATION, NOT A SUBMISSION: every `compiled_*` array, the abstentions and the escalations are resolved server-side from the pack and its owners' seams, and a caller that authors one is refused by name. PER-FIELD PROVENANCE IS TOTAL AND SILENCE IS INADMISSIBLE — the pack's `declared_output_fields` must be covered EXACTLY ONCE by `compiled_field_contracts` union `abstentions` union `escalations`; a field in two buckets makes the covering long and refuses, a field in none makes it short and refuses, so there is no branch a later edit can forget. Stale codes/forms, unmapped required fields, ambiguous mappings, superseded reviewer decisions and policy-bound-view refusals produce a typed abstention or escalation, NEVER a guessed authoritative value (ACC-18 clause 8). It decides no legality and claims no domain correctness (clause 13).","x-ioi-schema-version":"ioi.vertical-pack-worker-binding.v1","type":"object","additionalProperties":false,"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bindingFamilyRef":{"type":"string","pattern":"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}$"},"bindingRevisionRef":{"type":"string","pattern":"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"packRevisionRef":{"type":"string","pattern":"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"ownerRef":{"type":"string","pattern":"^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"tenantRef":{"type":"string","pattern":"^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},"principalRef":{"type":"string","pattern":"^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"canonicalTimestamp":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"ontologyRevisionRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"ontologyTermRef":{"type":"string","pattern":"^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$"},"actionContractRevisionRef":{"type":"string","pattern":"^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$"},"crosswalkRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/crosswalk/revision/[1-9][0-9]{0,8}$"},"mappingDecisionRevisionRef":{"type":"string","pattern":"^ontology-mapping://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/decision/revision/[1-9][0-9]{0,8}$"},"connectorMappingRevisionRef":{"type":"string","pattern":"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"dataRecipeRevisionRef":{"type":"string","pattern":"^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"transformationRunRef":{"type":"string","pattern":"^transform://trun_[0-9a-f]{32}$"},"viewRevisionRef":{"type":"string","pattern":"^view://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$","description":"THE M05.8 v2 SPELLING AND NO OTHER. The predecessor's mutable, wall-clock-identified `policy-bound-data-view://` family is unrepresentable here by construction: a field-provenance citation resting on a record that carries no content commitment is unverifiable, which is the shape `7074564aa` spent a cut removing from three other v1 families."},"routeRightsRevisionRef":{"type":"string","pattern":"^model-route-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"boundaryProfileRevisionRef":{"type":"string","pattern":"^learning-boundary://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"},"workerCompositionRef":{"type":"string","pattern":"^composition://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"},"outputFieldRef":{"type":"string","pattern":"^field://[a-z0-9][a-z0-9._/-]{0,190}$"},"taskClassRef":{"type":"string","pattern":"^task-class://[a-z0-9][a-z0-9._/-]{0,190}$"},"riskClass":{"enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"integrationSurfaceClass":{"enum":["chat_community","contact_delivery","game_platform","browser_saas","developer_code","commerce","finance_trading","local_computer_use","enterprise_vpc","webhook_api","voice_sms_access","robotics_physical","embodied_humanoid","vehicles_mobility","field_service_inspection","education_tutoring","creative_media","support_operations"]},"reviewMode":{"enum":["no_review_required","sampled_review","exact_payload_review","dual_control_review","supervisory_review"]},"abstentionCause":{"enum":["field_proposal_absent","stale_code_or_form","policy_bound_view_not_active","policy_bound_view_excludes_the_field","policy_bound_view_denies_the_use","effective_policy_moved"],"description":"THE WORKER CANNOT SAY. Each cause names a fact the compiler RESOLVED and found wanting; none of them is a caller's assertion. An abstention is a refusal to produce a value, not a low-confidence value."},"escalationCause":{"enum":["required_field_unmapped","mapping_ambiguous","reviewer_decision_superseded","required_field_proposal_absent"],"description":"AN ACCOUNTABLE OWNER MUST DECIDE. The difference from an abstention is who has to act: a required field with no admitted mapping is not the worker declining to answer, it is the vertical unable to proceed."},"governingDisposition":{"enum":["carried_as_unmapped","excluded_from_application","escalated","refused_ambiguous","adjudicated_exact","adjudicated_broader","adjudicated_narrower","approved","approved_with_conditions","rejected","abstained","not_applicable"],"description":"M05.2'S OWN TOKENS, VERBATIM, plus `not_applicable` for the causes that do not come from a mapping decision at all. This module invents no parallel abstention vocabulary: a second spelling of `refused_ambiguous` would let two records describe one fact and disagree."}},"required":["schema_version","vertical_pack_worker_binding_id","revision_ref","owner_ref","tenant_ref","principal_resolution","resolved_principal_ref","vertical_ontology_pack_revision_ref","vertical_ontology_pack_content_hash","base_ontology_revision_ref","base_ontology_content_hash","worker_composition_ref","worker_composition_resolution","effective_boundary_binding","declared_output_fields","compiled_task_classes","compiled_action_risk_mappings","pack_declared_risk_ladder","compiled_integration_requirements","compiled_field_contracts","compiled_evidence_requirements","compiled_review_modes","abstentions","escalations","jurisdiction_refs","registry_status","admitted_at","succession","migration","constants","authority_nonclaim","truth_nonclaim","legal_conformity_claim","does_not_assert","content_hash"],"properties":{"schema_version":{"const":"ioi.vertical-pack-worker-binding.v1"},"vertical_pack_worker_binding_id":{"$ref":"#/$defs/bindingFamilyRef"},"revision_ref":{"$ref":"#/$defs/bindingRevisionRef"},"owner_ref":{"$ref":"#/$defs/ownerRef"},"tenant_ref":{"$ref":"#/$defs/tenantRef"},"principal_resolution":{"const":"server_resolved"},"resolved_principal_ref":{"$ref":"#/$defs/principalRef"},"vertical_ontology_pack_revision_ref":{"$ref":"#/$defs/packRevisionRef"},"vertical_ontology_pack_content_hash":{"$ref":"#/$defs/sha256","description":"The bytes the pack served, not only its ref, so a silent re-admission underneath this binding is detectable offline by anyone holding both records."},"base_ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"base_ontology_content_hash":{"$ref":"#/$defs/sha256"},"worker_composition_ref":{"$ref":"#/$defs/workerCompositionRef"},"worker_composition_resolution":{"const":"declared_unresolved_owned_by_m14","description":"SAID PLAINLY RATHER THAN IMPLIED. `WorkerComposition` has no registered contract and no owner seam at this commit, so this build resolves NOTHING about the composition it names — it commits the declared ref and states that it is undecided. A field that looked resolved because it was well formed would be exactly the silence this estate refuses; M14 owns the family."},"effective_boundary_binding":{"type":"object","additionalProperties":false,"required":["boundary_profile_revision_ref","boundary_profile_content_hash","effective_learning_boundary_hash","boundary_status_at_binding"],"description":"THE EFFECTIVE POLICY THIS WHOLE COMPILATION RAN UNDER, resolved once through M10.3's seam. Every compiled field's `effective_policy_hash` is invariant-equal to `effective_learning_boundary_hash`, so a field cannot claim a policy the binding did not compile under.","properties":{"boundary_profile_revision_ref":{"$ref":"#/$defs/boundaryProfileRevisionRef"},"boundary_profile_content_hash":{"$ref":"#/$defs/sha256"},"effective_learning_boundary_hash":{"$ref":"#/$defs/sha256"},"boundary_status_at_binding":{"const":"active"}}},"declared_output_fields":{"type":"array","minItems":1,"maxItems":256,"items":{"$ref":"#/$defs/outputFieldRef"},"description":"COPIED FROM THE RESOLVED PACK, NEVER FROM THE REQUEST. This is the set the coverage invariant closes over, so a caller able to author it could shorten the very obligation it is checked against."},"compiled_task_classes":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["task_class_ref","label","action_type_refs"],"properties":{"task_class_ref":{"$ref":"#/$defs/taskClassRef"},"label":{"type":"string","minLength":1,"maxLength":128},"action_type_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/ontologyTermRef"}}}}},"compiled_action_risk_mappings":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["action_type_ref","pack_declared_risk_class","action_contract_revision_ref","action_contract_content_hash","action_contract_risk_class","action_contract_required_gates","review_mode","required_integration_surface"],"properties":{"action_type_ref":{"$ref":"#/$defs/ontologyTermRef"},"pack_declared_risk_class":{"$ref":"#/$defs/riskClass"},"action_contract_revision_ref":{"$ref":"#/$defs/actionContractRevisionRef"},"action_contract_content_hash":{"$ref":"#/$defs/sha256"},"action_contract_risk_class":{"$ref":"#/$defs/riskClass","description":"WHAT M05.4 ACTUALLY SERVED, beside what the pack declared. A pack that filed a `funds` action as `read` would compile a risk mapping that disagrees with the contract the action passes through, and every downstream gate would read the wrong number. The ADMITTING RUNTIME compares the two row by row and refuses. The portable language has no per-row two-field comparison, so offline the agreement is carried as a multiset equality through `pack_declared_risk_ladder` — see that field, which states exactly what that can and cannot see."},"action_contract_required_gates":{"type":"array","minItems":6,"maxItems":6,"items":{"enum":["capability","policy","authority","daemon_admission","evidence","verification"]},"description":"The canonical six, carried verbatim from the resolved contract. Compiled semantics grant nothing; every one of these still runs somewhere that is not here (NN 9)."},"review_mode":{"$ref":"#/$defs/reviewMode"},"required_integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"}}}},"pack_declared_risk_ladder":{"type":"array","minItems":1,"maxItems":128,"items":{"$ref":"#/$defs/riskClass"},"description":"THE PACK'S DECLARED RISK CLASS PER ACTION ROW, ENUMERATED INDEPENDENTLY SO THE TWO COLUMNS CAN BE COMPARED OFFLINE. Two registered coverage rules pin this list to BOTH columns of `compiled_action_risk_mappings` — the pack's declaration and the risk class M05.4 actually served — so ladder = pack column and ladder = contract column together entail pack column = contract column. WHAT THIS CANNOT SEE, stated rather than implied: coverage compares MULTISETS, so a transposition that gives row A row B's risk class and vice versa leaves both multisets equal and passes. That case is refused by the admitting runtime, which compares row by row; the portable language has no operator that reads two fields of one array item, and a description claiming otherwise would be an assertion satisfied by a different element than it names. The list is server-derived, so a caller cannot choose a ladder that matches whichever column it prefers."},"compiled_integration_requirements":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["integration_surface","connector_mapping_revision_ref","connector_mapping_content_hash","credential_custody_nonclaim","safety_envelope_required"],"properties":{"integration_surface":{"$ref":"#/$defs/integrationSurfaceClass"},"connector_mapping_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"connector_mapping_content_hash":{"$ref":"#/$defs/sha256"},"credential_custody_nonclaim":{"const":"pack_connectors_do_not_imply_credential_custody"},"safety_envelope_required":{"type":"boolean"}}}},"compiled_field_contracts":{"type":"array","maxItems":256,"description":"ACC-18 CLAUSE 8, FIELD BY FIELD. Every row binds its source and span, the exact recipe and transformation run that produced it, the ontology and crosswalk revisions that gave it meaning, the connector mapping that carried it, the composition and model/route version that proposed it, its uncertainty, the policy-bound view that permitted reading it, and the effective policy the whole compilation ran under. A row missing any of them is refused by the schema before the invariants are reached.","items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","source_ref","source_span","data_recipe_revision_ref","data_recipe_content_hash","transformation_run_ref","transformation_run_content_hash","ontology_revision_ref","ontology_content_hash","source_term_ref","crosswalk_revision_ref","crosswalk_content_hash","mapping_decision_revision_ref","mapping_decision_content_hash","connector_mapping_revision_ref","connector_mapping_content_hash","worker_composition_ref","model_or_rule_version_ref","model_or_rule_version_content_hash","uncertainty","policy_bound_data_view_revision_ref","policy_bound_data_view_content_hash","effective_policy_hash"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"source_ref":{"type":"string","minLength":1,"maxLength":320},"source_span":{"type":"object","additionalProperties":false,"required":["span_kind","locator"],"description":"WHERE IN THE SOURCE, because ACC-18 clause 8 asks for a span or frame and a whole-document citation is not one.","properties":{"span_kind":{"enum":["record_field","document_region","frame_interval","row_range","message_part"]},"locator":{"type":"string","minLength":1,"maxLength":320}}},"data_recipe_revision_ref":{"$ref":"#/$defs/dataRecipeRevisionRef"},"data_recipe_content_hash":{"$ref":"#/$defs/sha256"},"transformation_run_ref":{"$ref":"#/$defs/transformationRunRef"},"transformation_run_content_hash":{"$ref":"#/$defs/sha256"},"ontology_revision_ref":{"$ref":"#/$defs/ontologyRevisionRef"},"ontology_content_hash":{"$ref":"#/$defs/sha256"},"source_term_ref":{"$ref":"#/$defs/ontologyTermRef"},"crosswalk_revision_ref":{"$ref":"#/$defs/crosswalkRevisionRef"},"crosswalk_content_hash":{"$ref":"#/$defs/sha256"},"mapping_decision_revision_ref":{"$ref":"#/$defs/mappingDecisionRevisionRef"},"mapping_decision_content_hash":{"$ref":"#/$defs/sha256"},"connector_mapping_revision_ref":{"$ref":"#/$defs/connectorMappingRevisionRef"},"connector_mapping_content_hash":{"$ref":"#/$defs/sha256"},"worker_composition_ref":{"$ref":"#/$defs/workerCompositionRef"},"model_or_rule_version_ref":{"$ref":"#/$defs/routeRightsRevisionRef","description":"The exact M07.2 `ModelRouteRightsContract` revision naming the model route this field's proposal may use. It is a CEILING, never a grant: this binding invokes no model and routes nothing."},"model_or_rule_version_content_hash":{"$ref":"#/$defs/sha256"},"uncertainty":{"type":"object","additionalProperties":false,"required":["basis","crosswalk_relation","declared_loss","confidence","confidence_is_measured"],"description":"UNCERTAINTY IS CATEGORICAL IN v1 AND SAYS SO. `crosswalk_relation` and `declared_loss` are taken verbatim from the admitted crosswalk row M05.2 served — someone else's measured, receipted, challengeable statement of semantic loss. `confidence` is pinned null with `confidence_is_measured: false`, because a float this module invented and then checked against a neighbouring field it also invented would certify nothing. A measured confidence needs a measurer, and there is none in this cut.","properties":{"basis":{"const":"resolved_crosswalk_relation"},"crosswalk_relation":{"enum":["exact","broader","narrower","related"],"description":"`unmapped` is absent BY CONSTRUCTION: an unmapped term never reaches a compiled contract, it becomes an escalation."},"declared_loss":{"enum":["none","lossy_precision","lossy_scope","lossy_units"]},"confidence":{"type":"null"},"confidence_is_measured":{"const":false}}},"policy_bound_data_view_revision_ref":{"$ref":"#/$defs/viewRevisionRef"},"policy_bound_data_view_content_hash":{"$ref":"#/$defs/sha256"},"effective_policy_hash":{"$ref":"#/$defs/sha256"}}}},"compiled_evidence_requirements":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["evidence_requirement_ref","applies_to_risk_class","verifier_obligation_ref"],"properties":{"evidence_requirement_ref":{"type":"string","minLength":1,"maxLength":320},"applies_to_risk_class":{"$ref":"#/$defs/riskClass"},"verifier_obligation_ref":{"type":"string","minLength":1,"maxLength":320}}}},"compiled_review_modes":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"object","additionalProperties":false,"required":["risk_class","review_mode","review_owner_module","this_binding_performed_no_review"],"properties":{"risk_class":{"$ref":"#/$defs/riskClass"},"review_mode":{"$ref":"#/$defs/reviewMode"},"review_owner_module":{"const":"M03.15"},"this_binding_performed_no_review":{"const":true}}}},"abstentions":{"type":"array","maxItems":256,"description":"ONE ROW PER FIELD THE WORKER MAY NOT PRODUCE A VALUE FOR, each naming the exact resolved ref that caused it. An abstention with no cause ref is unrepresentable, because a refusal nobody can trace back to an admitted record is indistinguishable from a shrug.","items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","cause","cause_ref","governing_disposition","no_value_was_produced"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"cause":{"$ref":"#/$defs/abstentionCause"},"cause_ref":{"type":"string","minLength":1,"maxLength":320,"description":"The exact admitted ref whose resolution produced this abstention — the superseding ontology revision, the view revision that refused, the boundary whose hash moved."},"governing_disposition":{"$ref":"#/$defs/governingDisposition"},"no_value_was_produced":{"const":true,"description":"Committed in the row's own bytes. A downstream reader does not have to infer from the absence of a contract row that no value exists; the record says so."}}}},"escalations":{"type":"array","maxItems":256,"description":"ONE ROW PER FIELD AN ACCOUNTABLE OWNER MUST DECIDE, carrying M05.2's own disposition token verbatim rather than a re-decision of it.","items":{"type":"object","additionalProperties":false,"required":["output_field_ref","requirement","cause","cause_ref","governing_disposition","no_value_was_produced","escalated_to_owner_ref"],"properties":{"output_field_ref":{"$ref":"#/$defs/outputFieldRef"},"requirement":{"enum":["required","conditional","optional"]},"cause":{"$ref":"#/$defs/escalationCause"},"cause_ref":{"type":"string","minLength":1,"maxLength":320},"governing_disposition":{"$ref":"#/$defs/governingDisposition"},"no_value_was_produced":{"const":true},"escalated_to_owner_ref":{"$ref":"#/$defs/ownerRef"}}}},"jurisdiction_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"},"description":"FAIL-CLOSED, AND THE FLOOR IS HERE BECAUSE THE WHOLE BINDING FAILS RATHER THAN ONE FIELD. `jurisdiction_absent` is not a per-field abstention: a compilation with no jurisdiction has nothing to be a compilation under, so the admission refuses and no record exists. The pack carries no such floor precisely so that a jurisdictionless pack is admissible and this refusal stays reachable."},"registry_status":{"enum":["draft","active","suspended","expired","superseded","revoked"]},"admitted_at":{"$ref":"#/$defs/canonicalTimestamp"},"succession":{"type":"object","additionalProperties":false,"required":["succession_reason","predecessor_revision_ref","predecessor_content_hash","supersedes_predecessor"],"properties":{"succession_reason":{"enum":["genesis","pack_revision_change","input_revision_change","policy_revision_change","recompilation","correction"]},"predecessor_revision_ref":{"oneOf":[{"$ref":"#/$defs/bindingRevisionRef"},{"type":"null"}]},"predecessor_content_hash":{"oneOf":[{"$ref":"#/$defs/sha256"},{"type":"null"}]},"supersedes_predecessor":{"type":"boolean"}}},"migration":{"type":"object","additionalProperties":false,"required":["compatibility","downgrade_to_predecessor","refused_legacy_view_scheme"],"properties":{"compatibility":{"enum":["initial","additive","breaking"]},"downgrade_to_predecessor":{"const":"refused"},"refused_legacy_view_scheme":{"const":"policy-bound-data-view://","description":"NAMED AS THE REFUSED FORM. The predecessor v1 view family is mutable and carries no content commitment, so it appears in this contract exactly once — here, as the spelling that is not accepted."}}},"constants":{"type":"object","additionalProperties":false,"required":["commitment_domain","lifecycle_id","review_owner_module","compilation_is_deterministic","worker_composition_owner_module","authority_token","measured_confidence_token"],"properties":{"commitment_domain":{"const":"ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1"},"lifecycle_id":{"const":"vertical_pack_worker_binding_lifecycle.v1"},"review_owner_module":{"const":"M03.15"},"authority_token":{"const":"authority","description":"The token the registered NN-9 nonclaim invariant compares `does_not_assert` against — one committed constant read against one committed list, so a fixture that drops the nonclaim is refused offline rather than by a literal buried in the rule."},"measured_confidence_token":{"const":"measured_field_confidence"},"compilation_is_deterministic":{"const":true,"description":"The same resolved input set compiles to byte-identical `compiled_*` output and therefore to the same `content_hash`, across processes and across a restart with the read index destroyed."},"worker_composition_owner_module":{"const":"M14"}}},"authority_nonclaim":{"const":"vertical_pack_worker_binding_grants_no_authority"},"truth_nonclaim":{"const":"vertical_pack_worker_binding_is_a_compiled_reading_of_admitted_revisions_not_domain_correctness"},"legal_conformity_claim":{"const":"not_determined"},"does_not_assert":{"type":"array","minItems":10,"maxItems":14,"uniqueItems":true,"items":{"enum":["authority","capability_grant","lease","policy_decision","effect_admission","invocation","legality","reviewer_qualification","marketplace_eligibility","payment","domain_correctness","live_medical_suitability","measured_field_confidence","worker_composition_resolution"]},"description":"NN 9's six plus the six ACC-18/M05 boundary tokens, with a floor of ten so the set cannot be quietly shortened to the comfortable half. `measured_field_confidence` and `worker_composition_resolution` are here because this build genuinely resolves neither, and a record that stayed silent about what it did not do would be overstating itself by omission."},"content_hash":{"$ref":"#/$defs/sha256"}},"allOf":[{"title":"a genesis revision carries no predecessor and supersedes nothing","type":"object","if":{"type":"object","required":["succession"],"properties":{"succession":{"type":"object","required":["succession_reason"],"properties":{"succession_reason":{"const":"genesis"}}}}},"then":{"type":"object","properties":{"succession":{"type":"object","properties":{"predecessor_revision_ref":{"type":"null"},"predecessor_content_hash":{"type":"null"},"supersedes_predecessor":{"const":false}}},"migration":{"type":"object","properties":{"compatibility":{"const":"initial"}}}}}},{"title":"every mandatory nonclaim is present","type":"object","properties":{"does_not_assert":{"type":"array","allOf":[{"contains":{"const":"authority"}},{"contains":{"const":"capability_grant"}},{"contains":{"const":"lease"}},{"contains":{"const":"policy_decision"}},{"contains":{"const":"effect_admission"}},{"contains":{"const":"invocation"}},{"contains":{"const":"legality"}},{"contains":{"const":"reviewer_qualification"}},{"contains":{"const":"marketplace_eligibility"}},{"contains":{"const":"domain_correctness"}}]}},"description":"TEN MANDATORY MEMBERS, EACH NAMED. A `minItems` floor alone would let ten comfortable tokens stand in for the six that carry NN 9 and the four that carry ACC-18's boundary."}]}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -156035,6 +159761,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/objects/observation-action-episode/v1", r#"[{"rule_id":"observation_action_episode.content_hash.commits_the_whole_revision","description":"Every field except the hash itself, committed under a domain separator — the snapshot binding and its exact content hash, the bounds, the streams, the synchronization envelope, every label with its provenance and epistemic status, the exception labels and the determinism declaration. A relying party holding only the record recomputes it.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.observation-action-episode-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"episode_id":{"path":"$.episode_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"media_snapshot_revision_ref":{"path":"$.media_snapshot_revision_ref"},"media_snapshot_content_hash":{"path":"$.media_snapshot_content_hash"},"session_ref":{"path":"$.session_ref"},"bounds":{"path":"$.bounds"},"streams":{"path":"$.streams"},"synchronization":{"path":"$.synchronization"},"labels":{"path":"$.labels"},"ground_truth_eligible_label_refs":{"path":"$.ground_truth_eligible_label_refs"},"controller_recorded_label_refs":{"path":"$.controller_recorded_label_refs"},"exception_labels":{"path":"$.exception_labels"},"determinism":{"path":"$.determinism"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"inferred_label_is_never_ground_truth":{"path":"$.inferred_label_is_never_ground_truth"},"episode_is_not_a_skill_or_workflow":{"path":"$.episode_is_not_a_skill_or_workflow"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"observation_action_episode.labels.inferred_labels_are_never_controller_ground_truth","description":"THE LOAD-BEARING RULE, AND THE SECOND OF ITS THREE EXPRESSIONS. The ground-truth-eligible label set must be covered EXACTLY by the independently enumerated `controller_recorded` subset — same members, same count. A video-inferred or model-inferred label smuggled into the eligible set leaves the covering long and refuses; a controller-recorded label dropped from the subset leaves it short and refuses. Coverage compares lengths as well as members, so an equal-count substitution cannot pass. The schema conditional refuses the per-label claim and the admitting module refuses it again at runtime; no single edit defeats all three. ACC-16 clause 10 and ACC-19 clause 5.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.ground_truth_eligible_label_refs","required_paths":[],"required_array_paths":["$.controller_recorded_label_refs"]}},{"rule_id":"observation_action_episode.revision_ref.extends_its_own_family","description":"A revision must extend the family it names.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.episode_id","prefix":"episode://","strip_prefix":"episode://","suffix":"/revision/"}},{"rule_id":"observation_action_episode.bounds.the_episode_is_bounded_forward","description":"AN EPISODE IS AN INTERVAL, NOT A POINT OR A REVERSAL. A start tick at or after the end tick is a bound nobody can measure against, and it is the shape a reordered timebase produces when a run sorts a clock regression into order instead of retaining it.","expression":{"operator":"numbers_lt","paths":["$.bounds.start_tick","$.bounds.end_tick"]}},{"rule_id":"observation_action_episode.synchronization.observed_skew_stays_inside_the_declared_envelope","description":"TIMEBASE DRIFT REFUSES RATHER THAN ROUNDS. An observed frame/action skew beyond the declared envelope means actions are attributed to the wrong frames; absorbing it would produce a mislabel that reads as data.","expression":{"operator":"numbers_lte","paths":["$.synchronization.max_observed_skew_ticks","$.synchronization.declared_skew_envelope_ticks"]}},{"rule_id":"observation_action_episode.labels.every_label_is_distinct","description":"A repeated label ref would let one annotation be counted twice toward a required class, inflating a census over a narrower vocabulary than it claims.","expression":{"operator":"array_unique_by_fields","array_path":"$.labels","fields":["label_ref"]}},{"rule_id":"observation_action_episode.snapshot.binds_the_bytes_not_only_the_ref","description":"The bound snapshot's content hash must be present. A ref names a location that may since have been re-admitted; without the hash a silent re-admission underneath this episode is undetectable.","expression":{"operator":"non_empty","path":"$.media_snapshot_content_hash"}}]"#),
     ("schema://ioi/foundations/objects/dataset-split-manifest/v1", r#"[{"rule_id":"dataset_split_manifest.content_hash.commits_the_whole_revision","description":"Every field except the hash itself, committed under a domain separator — the member rows with their episode hashes and partition keys, the declared per-class counts, the enumerated membership and the leakage controls. Freezing membership means nothing if the freeze is not itself committed.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.dataset-split-manifest-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"split_manifest_id":{"path":"$.split_manifest_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"members":{"path":"$.members"},"splits":{"path":"$.splits"},"all_member_episode_revision_refs":{"path":"$.all_member_episode_revision_refs"},"member_count":{"path":"$.member_count"},"membership_is_immutable":{"path":"$.membership_is_immutable"},"leakage_controls":{"path":"$.leakage_controls"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"manifest_selects_no_evaluation_evidence_for_its_own_producer":{"path":"$.manifest_selects_no_evaluation_evidence_for_its_own_producer"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"dataset_split_manifest.splits.membership_is_an_exact_partition","description":"THE EXCLUSIVITY RULE. The enumerated membership must be covered EXACTLY by the per-episode rows — same members, same count. Because coverage compares lengths as well as members, an episode assigned to two splits makes the covering long and refuses, and an episode assigned to none makes it short and refuses. Silence is inadmissible here for the same reason it is in the view's use algebra: an omitted member is a leak that reads as a smaller dataset.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.all_member_episode_revision_refs","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.members","field":"episode_revision_ref"}]}},{"rule_id":"dataset_split_manifest.members.no_episode_is_a_member_twice","description":"The second, independent statement of exclusivity. Double membership is the leakage ACC-16 clause 8 names, and it is refused directly rather than inferred from a count.","expression":{"operator":"array_unique_by_fields","array_path":"$.members","fields":["episode_revision_ref"]}},{"rule_id":"dataset_split_manifest.splits.each_class_is_declared_once","description":"A split class declared twice would let two different member counts both look authoritative.","expression":{"operator":"array_unique_by_fields","array_path":"$.splits","fields":["split_class"]}},{"rule_id":"dataset_split_manifest.members.count_matches_the_enumerated_set","description":"Two independent statements about one set, so a member removed from the readable list after the fact leaves the count disagreeing.","expression":{"operator":"array_length_equals","array_path":"$.all_member_episode_revision_refs","count_path":"$.member_count"}},{"rule_id":"dataset_split_manifest.leakage.training_ends_before_the_temporal_cut","description":"FUTURE-FRAME LEAKAGE REFUSES. The latest training tick must fall strictly before the temporal cut; an inverted or equal comparison is exactly the mutation ACC-16 clause 8 requires to fail.","expression":{"operator":"numbers_lt","paths":["$.leakage_controls.max_train_tick","$.leakage_controls.temporal_cut_tick"]}},{"rule_id":"dataset_split_manifest.leakage.the_temporal_holdout_begins_at_or_after_the_cut","description":"The other half of the temporal fence: a holdout that began before the cut would be scoring the model on material it could have trained on.","expression":{"operator":"numbers_lte","paths":["$.leakage_controls.temporal_cut_tick","$.leakage_controls.min_temporal_holdout_tick"]}},{"rule_id":"dataset_split_manifest.revision_ref.extends_its_own_family","description":"A revision must extend the family it names.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.split_manifest_id","prefix":"split-manifest://","strip_prefix":"split-manifest://","suffix":"/revision/"}}]"#),
     ("schema://ioi/foundations/objects/media-corpus-qualification-census/v1", r#"[{"rule_id":"media_corpus_qualification_census.content_hash.commits_the_whole_census","description":"Every field except the hash itself, committed under a domain separator — the claimed scale and profile, the raw/accepted/rejected/deduplicated counts, every per-file disposition, the required and observed label vocabularies, the pinned floors and ceilings, and the runtime evidence. A census whose numbers can move without moving its hash is a report, not a certificate.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"corpus_census_id":{"path":"$.corpus_census_id"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"claimed_scale":{"path":"$.claimed_scale"},"profile":{"path":"$.profile"},"corpus_content_root":{"path":"$.corpus_content_root"},"raw":{"path":"$.raw"},"accepted":{"path":"$.accepted"},"rejected":{"path":"$.rejected"},"deduplicated":{"path":"$.deduplicated"},"deduplication_policy":{"path":"$.deduplication_policy"},"payload_custody":{"path":"$.payload_custody"},"does_not_claim_custody_of_imported_media_bytes":{"path":"$.does_not_claim_custody_of_imported_media_bytes"},"file_dispositions":{"path":"$.file_dispositions"},"distinct_payloads":{"path":"$.distinct_payloads"},"near_duplicate_exclusions":{"path":"$.near_duplicate_exclusions"},"profile_required_label_classes":{"path":"$.profile_required_label_classes"},"observed_label_classes":{"path":"$.observed_label_classes"},"floors":{"path":"$.floors"},"ceilings":{"path":"$.ceilings"},"runtime_evidence":{"path":"$.runtime_evidence"},"degeneracy_findings":{"path":"$.degeneracy_findings"},"distinct_content_hash_count":{"path":"$.distinct_content_hash_count"},"does_not_claim_hours_scale_qualification":{"path":"$.does_not_claim_hours_scale_qualification"},"does_not_claim_throughput_or_latency":{"path":"$.does_not_claim_throughput_or_latency"},"admitted_at":{"path":"$.admitted_at"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"media_corpus_qualification_census.census.every_raw_file_has_exactly_one_disposition","description":"THE PARTITION CLOSURE. One disposition row per raw file, pinned against the raw file count. A file with no disposition makes the row set short and refuses; a file counted twice makes it long and refuses. This is how the census closes arithmetically without an arithmetic operator the portable invariant language does not have.","expression":{"operator":"array_length_equals","array_path":"$.file_dispositions","count_path":"$.raw.file_count"}},{"rule_id":"media_corpus_qualification_census.degeneracy.every_raw_source_identity_is_distinct","description":"PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5) — BUT THE KEY IS IDENTITY, NOT CONTENT. A repeated `source_file_ref` is one source instance counted twice, and that is the padding this rule exists to refuse. Keying it on `content_sha256`, as the first version did, refused something else entirely: two DISTINCT source files whose bytes are byte-identical. That is not padding, it is the exact duplication the corpus is supposed to DETECT and exclude — so the old rule made `exact_duplicate` unreachable and left content-addressed deduplication unproven while appearing to police it.","expression":{"operator":"array_unique_by_fields","array_path":"$.file_dispositions","fields":["source_file_ref"]}},{"rule_id":"media_corpus_qualification_census.degeneracy.every_distinct_payload_is_listed_once","description":"The payload table is a SET. A digest listed twice would let one payload claim two canonical instances, which is how a corpus would smuggle a second accepted copy of the same bytes past the exact-duplicate rule.","expression":{"operator":"array_unique_by_fields","array_path":"$.distinct_payloads","fields":["content_sha256"]}},{"rule_id":"media_corpus_qualification_census.content_addressing.the_root_commits_the_disposition_rows","description":"THE CORPUS ROOT IS RECOMPUTED, NOT ACCEPTED. `corpus_content_root` is committed over the complete canonical disposition rows, the distinct-payload table, the near-duplicate exclusions and all four count blocks under its own domain separator, so the census IS its corpus rather than a claim about one. Before this rule the root was an unbacked 64-hex string: any value satisfied the pattern, two different corpora could file the same root, and one corpus could file two different ones without either being detectable offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.corpus_content_root","expected_encoding":"sha256_string","material_fields":{"domain":{"value":"ioi.media-corpus-content-root-jcs-sha256.v1"},"file_dispositions":{"path":"$.file_dispositions"},"distinct_payloads":{"path":"$.distinct_payloads"},"near_duplicate_exclusions":{"path":"$.near_duplicate_exclusions"},"deduplication_policy":{"path":"$.deduplication_policy"},"raw":{"path":"$.raw"},"accepted":{"path":"$.accepted"},"rejected":{"path":"$.rejected"},"deduplicated":{"path":"$.deduplicated"}}}},{"rule_id":"media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_method","description":"Every near-duplicate exclusion names the method the census declared up front. An exclusion free to name its own method could justify any judgement after the fact, which is the difference between evidence and assertion.","expression":{"operator":"array_field_equals","array_path":"$.near_duplicate_exclusions","field":"similarity_method","expected_path":"$.deduplication_policy.near_duplicate_method"}},{"rule_id":"media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_threshold","description":"Every exclusion is judged against the threshold the census declared, not one chosen per row. A per-row threshold is threshold shopping: any distance becomes admissible by raising the bar beside it.","expression":{"operator":"array_field_equals","array_path":"$.near_duplicate_exclusions","field":"threshold","expected_path":"$.deduplication_policy.near_duplicate_threshold"}},{"rule_id":"media_corpus_qualification_census.deduplication.every_near_duplicate_exclusion_is_distinct","description":"One excluded source instance, one exclusion row. Listing an instance twice would inflate the excluded count without excluding anything.","expression":{"operator":"array_unique_by_fields","array_path":"$.near_duplicate_exclusions","fields":["source_file_ref"]}},{"rule_id":"media_corpus_qualification_census.deduplication.the_near_duplicate_exclusion_count_closes","description":"The enumerated exclusions are checked against the declared near-duplicate count, so a census cannot report more near-duplicate exclusion than it can show rows for.","expression":{"operator":"array_length_equals","array_path":"$.near_duplicate_exclusions","count_path":"$.deduplicated.near_duplicate_file_count"}},{"rule_id":"media_corpus_qualification_census.labels.every_profile_required_class_is_observed","description":"EVERY PROFILE-REQUIRED ACTION, FIELD AND EXCEPTION LABEL CLASS. The required vocabulary must be covered exactly by the observed one: a corpus missing a required class leaves the covering short and refuses, so a high label count over a narrow vocabulary cannot stand in for coverage.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.profile_required_label_classes","required_paths":[],"required_array_paths":["$.observed_label_classes"]}},{"rule_id":"media_corpus_qualification_census.duration.deduplication_never_increases_accepted_time","description":"Accepted time after exact and near-duplicate exclusion cannot exceed the time before it. An 'after' larger than its 'before' is the arithmetic a padded corpus produces when exclusion is declared but not performed.","expression":{"operator":"numbers_lte","paths":["$.accepted.seconds_after_deduplication","$.accepted.seconds_before_deduplication"]}},{"rule_id":"media_corpus_qualification_census.duration.accepted_time_never_exceeds_raw_time","description":"The outer closure: no lane may accept more source time than it ingested.","expression":{"operator":"numbers_lte","paths":["$.accepted.seconds_before_deduplication","$.raw.source_seconds"]}},{"rule_id":"media_corpus_qualification_census.bytes.stay_under_the_corpus_ceiling","description":"The 2 GiB ceiling, checked against the pinned value rather than a verifier constant, so a relying party holding only these bytes can check it. The ceiling is part of why the scheduled lane needs no GPU runner, object storage or metered service.","expression":{"operator":"numbers_lte","paths":["$.accepted.byte_count","$.ceilings.corpus_byte_count"]}},{"rule_id":"media_corpus_qualification_census.degeneracy.distinct_payload_count_matches_the_payload_rows","description":"The declared distinct-digest count is checked against the enumerated DISTINCT PAYLOADS. Checking it against `file_dispositions`, as the first version did, made the two numbers equal BY CONSTRUCTION — the row-uniqueness rule already forced one digest per row — so the count could never disagree and the check proved nothing it did not assume. Against `distinct_payloads` it is a real second statement about the set: it falls below `raw.file_count` exactly when the corpus carried exact duplicates.","expression":{"operator":"array_length_equals","array_path":"$.distinct_payloads","count_path":"$.distinct_content_hash_count"}},{"rule_id":"media_corpus_qualification_census.restart.the_replayed_root_equals_the_pre_restart_root","description":"INTERRUPTION/RESTART EQUIVALENCE IS RECORDED AS A COMPARISON, NOT A CLAIM. The two roots must be equal; a census that carried only a boolean would let a run that compared nothing report success.","expression":{"operator":"fields_equal","paths":["$.runtime_evidence.restart_equivalence.pre_restart_root","$.runtime_evidence.restart_equivalence.post_restart_root"]}}]"#),
+    ("schema://ioi/domains/aiagent/vertical-ontology-pack/v1", r#"[{"rule_id":"vertical_ontology_pack.content_hash.commits_the_whole_revision","description":"Every field except the hash itself, committed under a domain separator — the bound ontology revision AND its content hash, the declared task classes, action/risk/contract/review/surface rows, integration requirements, the output-field set a binding must cover, the field and evidence requirements, review modes, forbidden actions, jurisdictions, succession and every nonclaim. A relying party holding only the record recomputes it offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"vertical_ontology_pack_id":{"path":"$.vertical_ontology_pack_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"legacy_pack_id":{"path":"$.legacy_pack_id"},"legacy_pack_id_is_display_only":{"path":"$.legacy_pack_id_is_display_only"},"display_name":{"path":"$.display_name"},"base_ontology_revision_ref":{"path":"$.base_ontology_revision_ref"},"base_ontology_content_hash":{"path":"$.base_ontology_content_hash"},"declared_object_type_refs":{"path":"$.declared_object_type_refs"},"declared_task_classes":{"path":"$.declared_task_classes"},"declared_action_bindings":{"path":"$.declared_action_bindings"},"declared_integration_requirements":{"path":"$.declared_integration_requirements"},"declared_output_fields":{"path":"$.declared_output_fields"},"declared_field_requirements":{"path":"$.declared_field_requirements"},"declared_evidence_requirements":{"path":"$.declared_evidence_requirements"},"declared_review_modes":{"path":"$.declared_review_modes"},"forbidden_action_refs":{"path":"$.forbidden_action_refs"},"jurisdiction_refs":{"path":"$.jurisdiction_refs"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"does_not_decide":{"path":"$.does_not_decide"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"vertical_ontology_pack.revision_ref.extends_its_own_family","description":"A revision must extend the family it names. A revision ref filed under another family would let one pack's lineage carry another pack's revision, and every later exact-revision citation would resolve against the wrong stream.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.vertical_ontology_pack_id","prefix":"vertical-pack://","strip_prefix":"vertical-pack://","suffix":"/revision/"}},{"rule_id":"vertical_ontology_pack.field_requirements.cover_the_declared_output_fields_exactly","description":"EVERY DECLARED OUTPUT FIELD CARRIES EXACTLY ONE REQUIREMENT ROW, AND NO ROW NAMES A FIELD THE PACK DID NOT DECLARE. Coverage compares length as well as members, so a field declared twice in the requirement table makes the covering long and a field declared with no requirement makes it short. This is what lets the BINDING iterate `declared_output_fields` and know that each one has a `required`/`conditional`/`optional` disposition to escalate or abstain against — without it, a field's requirement would be a lookup that could silently miss.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.declared_output_fields","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.declared_field_requirements","field":"output_field_ref"}]}},{"rule_id":"vertical_ontology_pack.action_bindings.every_action_is_declared_by_a_task_class","description":"Each declared action binding must be reachable from the task-class vocabulary — a pack that mapped a risk class onto an action no task class names has declared a risk about work it does not describe.","expression":{"operator":"array_unique_by_fields","array_path":"$.declared_action_bindings","fields":["action_type_ref"]}},{"rule_id":"vertical_ontology_pack.base_ontology.binds_the_bytes_not_only_the_ref","description":"The bound base ontology's content hash must be present. A ref names a revision that may since have been re-admitted under a rebuilt index; without the hash a silent substitution underneath this pack is undetectable offline.","expression":{"operator":"non_empty","path":"$.base_ontology_content_hash"}},{"rule_id":"vertical_ontology_pack.integration_requirements.each_surface_appears_once","description":"One surface, one connector-mapping binding. Two rows for one surface would let a pack bind two provider maps to the same integration and leave which one governs undecided.","expression":{"operator":"array_unique_by_fields","array_path":"$.declared_integration_requirements","fields":["integration_surface"]}},{"rule_id":"vertical_ontology_pack.review_modes.each_risk_class_appears_once","description":"A risk class with two declared review modes is a pack that has not decided which review its own risk needs, and a consumer reading the first row would silently take the weaker one.","expression":{"operator":"array_unique_by_fields","array_path":"$.declared_review_modes","fields":["risk_class"]}},{"rule_id":"vertical_ontology_pack.nonclaims.the_pack_decides_no_legality_and_no_reviewer_qualification","description":"M05 BOUNDARY, AS A CHECKABLE MEMBERSHIP RATHER THAN PROSE. `legality` must be in `does_not_decide`. The module boundary says a vertical pack may not decide legality, reviewer qualification, authority, marketplace eligibility or correctness; dropping the token is how that boundary would quietly stop being stated.","expression":{"operator":"array_contains_value","array_path":"$.does_not_decide","expected_path":"$.constants.legality_token"}}]"#),
+    ("schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1", r#"[{"rule_id":"vertical_pack_worker_binding.content_hash.commits_the_whole_compilation","description":"Every field except the hash itself, committed under a domain separator — the exact pack revision AND its bytes, the base ontology and its bytes, the composition and its stated non-resolution, the effective boundary binding, the declared field set, all six compiled arrays, the abstentions, the escalations, the three counts, jurisdictions, succession, migration and every nonclaim. Compiling the same resolved inputs twice therefore yields the same number, and a relying party holding only the record recomputes it offline.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"vertical_pack_worker_binding_id":{"path":"$.vertical_pack_worker_binding_id"},"revision_ref":{"path":"$.revision_ref"},"owner_ref":{"path":"$.owner_ref"},"tenant_ref":{"path":"$.tenant_ref"},"principal_resolution":{"path":"$.principal_resolution"},"resolved_principal_ref":{"path":"$.resolved_principal_ref"},"vertical_ontology_pack_revision_ref":{"path":"$.vertical_ontology_pack_revision_ref"},"vertical_ontology_pack_content_hash":{"path":"$.vertical_ontology_pack_content_hash"},"base_ontology_revision_ref":{"path":"$.base_ontology_revision_ref"},"base_ontology_content_hash":{"path":"$.base_ontology_content_hash"},"worker_composition_ref":{"path":"$.worker_composition_ref"},"worker_composition_resolution":{"path":"$.worker_composition_resolution"},"effective_boundary_binding":{"path":"$.effective_boundary_binding"},"declared_output_fields":{"path":"$.declared_output_fields"},"compiled_task_classes":{"path":"$.compiled_task_classes"},"compiled_action_risk_mappings":{"path":"$.compiled_action_risk_mappings"},"pack_declared_risk_ladder":{"path":"$.pack_declared_risk_ladder"},"compiled_integration_requirements":{"path":"$.compiled_integration_requirements"},"compiled_field_contracts":{"path":"$.compiled_field_contracts"},"compiled_evidence_requirements":{"path":"$.compiled_evidence_requirements"},"compiled_review_modes":{"path":"$.compiled_review_modes"},"abstentions":{"path":"$.abstentions"},"escalations":{"path":"$.escalations"},"jurisdiction_refs":{"path":"$.jurisdiction_refs"},"registry_status":{"path":"$.registry_status"},"admitted_at":{"path":"$.admitted_at"},"succession":{"path":"$.succession"},"migration":{"path":"$.migration"},"constants":{"path":"$.constants"},"authority_nonclaim":{"path":"$.authority_nonclaim"},"truth_nonclaim":{"path":"$.truth_nonclaim"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"does_not_assert":{"path":"$.does_not_assert"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"vertical_pack_worker_binding.coverage.every_declared_field_is_covered_exactly_once","description":"THE LOAD-BEARING RULE OF THIS CONTRACT, AND THE REASON SILENCE IS INADMISSIBLE. The pack's declared output fields must be covered EXACTLY by the union of compiled contracts, abstentions and escalations — same members, same count. A field appearing in two buckets makes the covering long and refuses; a field appearing in none makes it short and refuses; an equal-count substitution changes the members and refuses. There is therefore no branch a later edit can forget to take and no field the compiler can pass over quietly, which is precisely what ACC-18 clause 8 asks of per-field provenance. The runtime derives all three buckets by iterating this very list, so the rule and the producer close over the same set from two directions.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.declared_output_fields","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.compiled_field_contracts","field":"output_field_ref"},{"path":"$.abstentions","field":"output_field_ref"},{"path":"$.escalations","field":"output_field_ref"}]}},{"rule_id":"vertical_pack_worker_binding.risk.the_ladder_is_the_packs_own_declared_column","description":"HALF ONE OF THE TWO-COLUMN AGREEMENT. The independently enumerated risk ladder must be covered exactly by the `pack_declared_risk_class` column. Without this pin the ladder would be free to be whatever made the other rule pass, and the pair would certify nothing.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.pack_declared_risk_ladder","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.compiled_action_risk_mappings","field":"pack_declared_risk_class"}]}},{"rule_id":"vertical_pack_worker_binding.risk.the_resolved_contract_column_agrees_with_the_ladder","description":"HALF TWO, AND THE ONE THAT BITES. The same ladder must also be covered exactly by the `action_contract_risk_class` column — what M05.4 actually served. Together with half one this entails that the pack's declared risk classes and the resolved contracts' risk classes are the same multiset: a pack that filed a `funds` action as `read` changes one column and refuses offline. WHAT IT CANNOT SEE: a transposition between two rows leaves both multisets equal. That case is refused by the admitting runtime's row-by-row comparison, and it is named here rather than papered over, because the portable language has no operator that reads two fields of one array item.","expression":{"operator":"array_exact_ref_coverage","array_path":"$.pack_declared_risk_ladder","required_paths":[],"required_array_paths":[],"required_item_field_paths":[{"path":"$.compiled_action_risk_mappings","field":"action_contract_risk_class"}]}},{"rule_id":"vertical_pack_worker_binding.revision_ref.extends_its_own_family","description":"A revision must extend the family it names; a revision filed under another family would let one compilation's lineage carry another's bytes.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","expected_path":"$.vertical_pack_worker_binding_id","prefix":"vertical-binding://","strip_prefix":"vertical-binding://","suffix":"/revision/"}},{"rule_id":"vertical_pack_worker_binding.field_contracts.every_field_compiles_under_the_bindings_own_effective_policy","description":"EVERY compiled field's `effective_policy_hash` equals the binding's own `effective_learning_boundary_hash`. Without this a row could cite a policy the compilation did not run under — the exact stale-policy shape M05.8 refuses at the view and M10.3 refuses at the boundary, arriving here one layer up. It is checked per row, so a single substituted field is enough to refuse the record.","expression":{"operator":"array_field_equals","array_path":"$.compiled_field_contracts","field":"effective_policy_hash","expected_path":"$.effective_boundary_binding.effective_learning_boundary_hash"}},{"rule_id":"vertical_pack_worker_binding.field_contracts.every_field_names_the_composition_the_binding_compiled_for","description":"A compiled field may not cite a worker composition other than the one this binding is a compilation onto. Two compositions inside one binding would make 'which worker may produce this field' unanswerable from the record.","expression":{"operator":"array_field_equals","array_path":"$.compiled_field_contracts","field":"worker_composition_ref","expected_path":"$.worker_composition_ref"}},{"rule_id":"vertical_pack_worker_binding.field_contracts.each_output_field_is_contracted_once","description":"One field, one contract row. Two rows for one field would let a reader take whichever provenance chain it saw first, and the coverage rule alone cannot see it: a duplicate inside one bucket also makes the covering long, but naming it here reports WHICH field collided rather than an arithmetic failure.","expression":{"operator":"array_unique_by_fields","array_path":"$.compiled_field_contracts","fields":["output_field_ref"]}},{"rule_id":"vertical_pack_worker_binding.pack.binds_the_bytes_not_only_the_ref","description":"The compiled pack's content hash must be present, so a silent re-admission underneath this binding is detectable by anyone holding both records.","expression":{"operator":"non_empty","path":"$.vertical_ontology_pack_content_hash"}},{"rule_id":"vertical_pack_worker_binding.nonclaims.the_binding_grants_no_authority","description":"NN 9 AS A CHECKABLE MEMBERSHIP. `authority` must be in `does_not_assert`. Compiled semantics grant no capability, scope, lease or permission, and the record says so in bytes a relying party can check without this daemon.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.authority_token"}},{"rule_id":"vertical_pack_worker_binding.nonclaims.the_binding_asserts_no_measured_field_confidence","description":"THE HONEST-UNCERTAINTY RULE. `measured_field_confidence` must be in `does_not_assert`, because every compiled row pins `confidence: null` and `confidence_is_measured: false`. Dropping the token would leave a record whose per-field uncertainty is categorical while its nonclaim set implies a number was measured — an overstatement by omission, and exactly the drift this rule exists to catch.","expression":{"operator":"array_contains_value","array_path":"$.does_not_assert","expected_path":"$.constants.measured_confidence_token"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -157720,6 +161448,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^compatibility://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^composition://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+        r#"^composition://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^composition://[^\s]{1,500}$"#,
         r#"^composition://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -158022,6 +161754,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^fee-basis://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^field://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+        r#"^field://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^finality-certificate://[^\s]{1,248}$"#,
         r#"^finality-certificate://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
@@ -158217,6 +161953,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^ioi://publisher/[^\s]{1,224}$"#,
         r#"^ioi://publisher/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
+    ),
+    (
+        r#"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+        r#"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"#,
     ),
     (
         r#"^key://[^\s]+$"#,
@@ -159252,6 +162992,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^target-binding:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^task-class://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+        r#"^task-class://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+    ),
+    (
         r#"^task://[^\s]+$"#,
         r#"^task://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -159356,6 +163100,26 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^verifier://[^\s]{1,248}$"#,
         r#"^verifier://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^vertical-binding://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}$"#,
+        r#"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}$"#,
+    ),
+    (
+        r#"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+        r#"^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^vertical_pack:[a-z0-9][a-z0-9._-]{0,190}$"#,
+        r#"^vertical_pack:[a-z0-9][a-z0-9._-]{0,190}$"#,
     ),
     (
         r#"^view://[^\s]{1,240}$"#,
@@ -161847,6 +165611,25 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-exceeds-the-byte-ceiling.json"))),
     ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-roots-differ.json"))),
     ("docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/positive-synthetic-sensitive-records.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/positive-synthetic-sensitive-records.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legal-conformity-is-claimed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legal-conformity-is-claimed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-pack-binds-an-ontology-family-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-pack-binds-an-ontology-family-head.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-physical-surface-without-a-safety-envelope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-physical-surface-without-a-safety-envelope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-revision-ref-under-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-revision-ref-under-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-declared-field-without-a-requirement.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-declared-field-without-a-requirement.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-field-requirement-declared-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-field-requirement-declared-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-action-declared-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-mappings-for-one-surface.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-review-modes-for-one-risk-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-two-review-modes-for-one-risk-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legality-nonclaim-dropped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-ontology-pack-v1/negative-legality-nonclaim-dropped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/positive-compiled-with-abstentions-and-an-escalation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-stale-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-stale-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-covered-by-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-covered-by-nothing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-in-two-buckets.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-declared-field-in-two-buckets.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-a-policy-the-binding-did-not-compile-under.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-field-cites-another-worker-composition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/vertical-pack-worker-binding-v1/negative-resolved-contract-risk-disagrees-with-the-pack.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -163140,6 +166923,16 @@ mod tests {
         },
         "schema://ioi/foundations/objects/media-corpus-qualification-census/v1" => {
             serde_json::from_value::<MediaCorpusQualificationCensusV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/domains/aiagent/vertical-ontology-pack/v1" => {
+            serde_json::from_value::<VerticalOntologyPackV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1" => {
+            serde_json::from_value::<VerticalPackWorkerBindingV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -164439,6 +168232,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/domains/aiagent/vertical-ontology-pack/v1" => {
+            let projection = serde_json::from_value::<VerticalOntologyPackV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1" => {
+            let projection = serde_json::from_value::<VerticalPackWorkerBindingV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -164575,8 +168378,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1251,
-            "the registered golden corpus must remain the explicit 1251-fixture bar",
+            1270,
+            "the registered golden corpus must remain the explicit 1270-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -164818,7 +168621,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 892,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 901,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

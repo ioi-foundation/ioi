@@ -1,0 +1,162 @@
+{
+  "$id": "invariant://ioi/domains/aiagent/vertical-pack-worker-binding/total-per-field-provenance/v1",
+  "language": "ioi.portable-invariant.v1",
+  "contract_id": "schema://ioi/domains/aiagent/vertical-pack-worker-binding/v1",
+  "rules": [
+    {
+      "rule_id": "vertical_pack_worker_binding.content_hash.commits_the_whole_compilation",
+      "description": "Every field except the hash itself, committed under a domain separator — the exact pack revision AND its bytes, the base ontology and its bytes, the composition and its stated non-resolution, the effective boundary binding, the declared field set, all six compiled arrays, the abstentions, the escalations, the three counts, jurisdictions, succession, migration and every nonclaim. Compiling the same resolved inputs twice therefore yields the same number, and a relying party holding only the record recomputes it offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": { "value": "ioi.vertical-pack-worker-binding-content-commitment-jcs-sha256.v1" },
+          "schema_version": { "path": "$.schema_version" },
+          "vertical_pack_worker_binding_id": { "path": "$.vertical_pack_worker_binding_id" },
+          "revision_ref": { "path": "$.revision_ref" },
+          "owner_ref": { "path": "$.owner_ref" },
+          "tenant_ref": { "path": "$.tenant_ref" },
+          "principal_resolution": { "path": "$.principal_resolution" },
+          "resolved_principal_ref": { "path": "$.resolved_principal_ref" },
+          "vertical_ontology_pack_revision_ref": { "path": "$.vertical_ontology_pack_revision_ref" },
+          "vertical_ontology_pack_content_hash": { "path": "$.vertical_ontology_pack_content_hash" },
+          "base_ontology_revision_ref": { "path": "$.base_ontology_revision_ref" },
+          "base_ontology_content_hash": { "path": "$.base_ontology_content_hash" },
+          "worker_composition_ref": { "path": "$.worker_composition_ref" },
+          "worker_composition_resolution": { "path": "$.worker_composition_resolution" },
+          "effective_boundary_binding": { "path": "$.effective_boundary_binding" },
+          "declared_output_fields": { "path": "$.declared_output_fields" },
+          "compiled_task_classes": { "path": "$.compiled_task_classes" },
+          "compiled_action_risk_mappings": { "path": "$.compiled_action_risk_mappings" },
+          "pack_declared_risk_ladder": { "path": "$.pack_declared_risk_ladder" },
+          "compiled_integration_requirements": { "path": "$.compiled_integration_requirements" },
+          "compiled_field_contracts": { "path": "$.compiled_field_contracts" },
+          "compiled_evidence_requirements": { "path": "$.compiled_evidence_requirements" },
+          "compiled_review_modes": { "path": "$.compiled_review_modes" },
+          "abstentions": { "path": "$.abstentions" },
+          "escalations": { "path": "$.escalations" },
+          "jurisdiction_refs": { "path": "$.jurisdiction_refs" },
+          "registry_status": { "path": "$.registry_status" },
+          "admitted_at": { "path": "$.admitted_at" },
+          "succession": { "path": "$.succession" },
+          "migration": { "path": "$.migration" },
+          "constants": { "path": "$.constants" },
+          "authority_nonclaim": { "path": "$.authority_nonclaim" },
+          "truth_nonclaim": { "path": "$.truth_nonclaim" },
+          "legal_conformity_claim": { "path": "$.legal_conformity_claim" },
+          "does_not_assert": { "path": "$.does_not_assert" }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.coverage.every_declared_field_is_covered_exactly_once",
+      "description": "THE LOAD-BEARING RULE OF THIS CONTRACT, AND THE REASON SILENCE IS INADMISSIBLE. The pack's declared output fields must be covered EXACTLY by the union of compiled contracts, abstentions and escalations — same members, same count. A field appearing in two buckets makes the covering long and refuses; a field appearing in none makes it short and refuses; an equal-count substitution changes the members and refuses. There is therefore no branch a later edit can forget to take and no field the compiler can pass over quietly, which is precisely what ACC-18 clause 8 asks of per-field provenance. The runtime derives all three buckets by iterating this very list, so the rule and the producer close over the same set from two directions.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.declared_output_fields",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          { "path": "$.compiled_field_contracts", "field": "output_field_ref" },
+          { "path": "$.abstentions", "field": "output_field_ref" },
+          { "path": "$.escalations", "field": "output_field_ref" }
+        ]
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.risk.the_ladder_is_the_packs_own_declared_column",
+      "description": "HALF ONE OF THE TWO-COLUMN AGREEMENT. The independently enumerated risk ladder must be covered exactly by the `pack_declared_risk_class` column. Without this pin the ladder would be free to be whatever made the other rule pass, and the pair would certify nothing.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.pack_declared_risk_ladder",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          { "path": "$.compiled_action_risk_mappings", "field": "pack_declared_risk_class" }
+        ]
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.risk.the_resolved_contract_column_agrees_with_the_ladder",
+      "description": "HALF TWO, AND THE ONE THAT BITES. The same ladder must also be covered exactly by the `action_contract_risk_class` column — what M05.4 actually served. Together with half one this entails that the pack's declared risk classes and the resolved contracts' risk classes are the same multiset: a pack that filed a `funds` action as `read` changes one column and refuses offline. WHAT IT CANNOT SEE: a transposition between two rows leaves both multisets equal. That case is refused by the admitting runtime's row-by-row comparison, and it is named here rather than papered over, because the portable language has no operator that reads two fields of one array item.",
+      "expression": {
+        "operator": "array_exact_ref_coverage",
+        "array_path": "$.pack_declared_risk_ladder",
+        "required_paths": [],
+        "required_array_paths": [],
+        "required_item_field_paths": [
+          { "path": "$.compiled_action_risk_mappings", "field": "action_contract_risk_class" }
+        ]
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.revision_ref.extends_its_own_family",
+      "description": "A revision must extend the family it names; a revision filed under another family would let one compilation's lineage carry another's bytes.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "expected_path": "$.vertical_pack_worker_binding_id",
+        "prefix": "vertical-binding://",
+        "strip_prefix": "vertical-binding://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.field_contracts.every_field_compiles_under_the_bindings_own_effective_policy",
+      "description": "EVERY compiled field's `effective_policy_hash` equals the binding's own `effective_learning_boundary_hash`. Without this a row could cite a policy the compilation did not run under — the exact stale-policy shape M05.8 refuses at the view and M10.3 refuses at the boundary, arriving here one layer up. It is checked per row, so a single substituted field is enough to refuse the record.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.compiled_field_contracts",
+        "field": "effective_policy_hash",
+        "expected_path": "$.effective_boundary_binding.effective_learning_boundary_hash"
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.field_contracts.every_field_names_the_composition_the_binding_compiled_for",
+      "description": "A compiled field may not cite a worker composition other than the one this binding is a compilation onto. Two compositions inside one binding would make 'which worker may produce this field' unanswerable from the record.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.compiled_field_contracts",
+        "field": "worker_composition_ref",
+        "expected_path": "$.worker_composition_ref"
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.field_contracts.each_output_field_is_contracted_once",
+      "description": "One field, one contract row. Two rows for one field would let a reader take whichever provenance chain it saw first, and the coverage rule alone cannot see it: a duplicate inside one bucket also makes the covering long, but naming it here reports WHICH field collided rather than an arithmetic failure.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.compiled_field_contracts",
+        "fields": ["output_field_ref"]
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.pack.binds_the_bytes_not_only_the_ref",
+      "description": "The compiled pack's content hash must be present, so a silent re-admission underneath this binding is detectable by anyone holding both records.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.vertical_ontology_pack_content_hash"
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.nonclaims.the_binding_grants_no_authority",
+      "description": "NN 9 AS A CHECKABLE MEMBERSHIP. `authority` must be in `does_not_assert`. Compiled semantics grant no capability, scope, lease or permission, and the record says so in bytes a relying party can check without this daemon.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.authority_token"
+      }
+    },
+    {
+      "rule_id": "vertical_pack_worker_binding.nonclaims.the_binding_asserts_no_measured_field_confidence",
+      "description": "THE HONEST-UNCERTAINTY RULE. `measured_field_confidence` must be in `does_not_assert`, because every compiled row pins `confidence: null` and `confidence_is_measured: false`. Dropping the token would leave a record whose per-field uncertainty is categorical while its nonclaim set implies a number was measured — an overstatement by omission, and exactly the drift this rule exists to catch.",
+      "expression": {
+        "operator": "array_contains_value",
+        "array_path": "$.does_not_assert",
+        "expected_path": "$.constants.measured_confidence_token"
+      }
+    }
+  ]
+}

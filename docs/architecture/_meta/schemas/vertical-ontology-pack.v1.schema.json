@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/domains/aiagent/vertical-ontology-pack/v1",
+  "title": "VerticalOntologyPackV1",
+  "description": "ONE IMMUTABLE REVISION of an installable domain extension over the shared worker ontology. A pack DECLARES a vertical's task classes, action/risk mappings, integration-surface requirements, proposed output fields, evidence requirements and review modes, and it declares them against an EXACT admitted ontology revision it names by ref AND by content hash. IT DECIDES NOTHING. A pack does not decide legality, reviewer qualification, authority, marketplace eligibility, payment, correctness or live medical suitability; those are its own committed nonclaims, and `VerticalPackWorkerBinding` is where the declaration meets the resolved world and either compiles or abstains. Nothing here forks the daemon, wallet.network, Agentgres or the marketplace (`domains/aiagent/vertical-ontology-packs.md`).",
+  "x-ioi-schema-version": "ioi.vertical-ontology-pack.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "packFamilyRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}$" },
+    "packRevisionRef": { "type": "string", "pattern": "^vertical-pack://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
+    "ownerRef": { "type": "string", "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "principalRef": { "type": "string", "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
+    "ontologyRevisionRef": { "type": "string", "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
+    "ontologyTermRef": { "type": "string", "pattern": "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$" },
+    "actionContractRevisionRef": { "type": "string", "pattern": "^ontology-action://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$" },
+    "outputFieldRef": { "type": "string", "pattern": "^field://[a-z0-9][a-z0-9._/-]{0,190}$" },
+    "taskClassRef": { "type": "string", "pattern": "^task-class://[a-z0-9][a-z0-9._/-]{0,190}$" },
+    "riskClass": {
+      "enum": [
+        "read",
+        "draft",
+        "local_write",
+        "write_reversible",
+        "external_message",
+        "commerce",
+        "funds",
+        "credential_access",
+        "policy_widening",
+        "secret_export",
+        "identity_change",
+        "system_destructive",
+        "physical_action"
+      ],
+      "description": "Frozen by `foundations/canonical-enums.md`. A pack SELECTS from the ladder; it does not extend it, and a vertical that needed a thirteenth class would be a finding against the enum owner rather than a local addition here."
+    },
+    "integrationSurfaceClass": {
+      "enum": [
+        "chat_community",
+        "contact_delivery",
+        "game_platform",
+        "browser_saas",
+        "developer_code",
+        "commerce",
+        "finance_trading",
+        "local_computer_use",
+        "enterprise_vpc",
+        "webhook_api",
+        "voice_sms_access",
+        "robotics_physical",
+        "embodied_humanoid",
+        "vehicles_mobility",
+        "field_service_inspection",
+        "education_tutoring",
+        "creative_media",
+        "support_operations"
+      ],
+      "description": "Frozen by `domains/aiagent/integration-surface-taxonomy.md`. A surface is a policy and evidence profile, never an authority grant."
+    },
+    "reviewMode": {
+      "enum": [
+        "no_review_required",
+        "sampled_review",
+        "exact_payload_review",
+        "dual_control_review",
+        "supervisory_review"
+      ],
+      "description": "WHAT REVIEW THE PACK DECLARES A CLASS NEEDS — never who is qualified to give it. Reviewer qualification is an accountable owner's decision and is one of this contract's committed nonclaims. `exact_payload_review` is the mode ACC-18 clause 10 names; M03.15 owns the review itself."
+    }
+  },
+  "required": [
+    "schema_version",
+    "vertical_ontology_pack_id",
+    "revision_ref",
+    "owner_ref",
+    "tenant_ref",
+    "principal_resolution",
+    "resolved_principal_ref",
+    "legacy_pack_id",
+    "legacy_pack_id_is_display_only",
+    "display_name",
+    "base_ontology_revision_ref",
+    "base_ontology_content_hash",
+    "declared_object_type_refs",
+    "declared_task_classes",
+    "declared_action_bindings",
+    "declared_integration_requirements",
+    "declared_output_fields",
+    "declared_field_requirements",
+    "declared_evidence_requirements",
+    "declared_review_modes",
+    "forbidden_action_refs",
+    "jurisdiction_refs",
+    "registry_status",
+    "admitted_at",
+    "succession",
+    "migration",
+    "constants",
+    "authority_nonclaim",
+    "truth_nonclaim",
+    "legal_conformity_claim",
+    "does_not_decide",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "ioi.vertical-ontology-pack.v1" },
+    "vertical_ontology_pack_id": { "$ref": "#/$defs/packFamilyRef" },
+    "revision_ref": { "$ref": "#/$defs/packRevisionRef" },
+    "owner_ref": { "$ref": "#/$defs/ownerRef" },
+    "tenant_ref": { "$ref": "#/$defs/tenantRef" },
+    "principal_resolution": { "const": "server_resolved" },
+    "resolved_principal_ref": { "$ref": "#/$defs/principalRef" },
+    "legacy_pack_id": {
+      "type": "string",
+      "pattern": "^vertical_pack:[a-z0-9][a-z0-9._-]{0,190}$",
+      "description": "CANON'S OWN SPELLING, CARRIED VERBATIM AND NOT BENT TO SUIT THE REVISION CONVENTION. `vertical-ontology-packs.md` writes `pack_id: vertical_pack:community.discord_moderation.v1`, and `runtime_worker_package_install_admission.rs` already requires that exact prefix. It is retained here as a DISPLAY id so the canonical name stays unbent, and it is explicitly NOT resolvable: identity is `revision_ref`. Tightening the worker-package kernel to demand a resolvable revision is M14.9's cut, not this one."
+    },
+    "legacy_pack_id_is_display_only": {
+      "const": true,
+      "description": "Stated in the record's own bytes rather than only in prose, so a consumer that tried to resolve `legacy_pack_id` is contradicting a committed field rather than making an understandable mistake."
+    },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "base_ontology_revision_ref": {
+      "$ref": "#/$defs/ontologyRevisionRef",
+      "description": "The EXACT admitted ontology revision this pack extends — resolved through M05.1's owner seam at admission, never a family head and never `latest`."
+    },
+    "base_ontology_content_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "THE BYTES, NOT ONLY THE REF, taken verbatim from what M05.1 served. A ref alone would let the meaning a pack extends move underneath it undetectably."
+    },
+    "declared_object_type_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/ontologyTermRef" },
+      "description": "Terms of the bound base ontology, each resolved through M05.1's term seam at admission. A well-formed term the revision never declared is refused there rather than accepted as a well-formed string."
+    },
+    "declared_task_classes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_class_ref", "label", "action_type_refs"],
+        "properties": {
+          "task_class_ref": { "$ref": "#/$defs/taskClassRef" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "action_type_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": { "$ref": "#/$defs/ontologyTermRef" }
+          }
+        }
+      },
+      "description": "The routing/index vocabulary a worker claiming this vertical is described by. `TaskClass` is index vocabulary per `digital-worker-ontology.md`; it selects nothing and authorizes nothing."
+    },
+    "declared_action_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action_type_ref",
+          "risk_class",
+          "action_contract_revision_ref",
+          "review_mode",
+          "required_integration_surface"
+        ],
+        "properties": {
+          "action_type_ref": { "$ref": "#/$defs/ontologyTermRef" },
+          "risk_class": { "$ref": "#/$defs/riskClass" },
+          "action_contract_revision_ref": {
+            "$ref": "#/$defs/actionContractRevisionRef",
+            "description": "The EXACT `OntologyActionContract` revision this action compiles through, resolved at admission via M05.4's owner seam. Canon's conformance check `pack actions map to declared risk classes and authority scopes` is met by resolving the contract, not by naming it."
+          },
+          "review_mode": { "$ref": "#/$defs/reviewMode" },
+          "required_integration_surface": { "$ref": "#/$defs/integrationSurfaceClass" }
+        }
+      },
+      "description": "ACTION -> RISK -> CONTRACT -> REVIEW -> SURFACE, as one row per action, so no half of the mapping can drift from the other. A pack that named a risk class without the contract that carries it would be asserting a risk nobody compiled."
+    },
+    "declared_integration_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "integration_surface",
+          "connector_mapping_revision_ref",
+          "credential_custody_nonclaim",
+          "safety_envelope_required"
+        ],
+        "properties": {
+          "integration_surface": { "$ref": "#/$defs/integrationSurfaceClass" },
+          "connector_mapping_revision_ref": {
+            "type": "string",
+            "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+            "description": "The EXACT M05.7 `ConnectorMapping` revision this surface binds, resolved through its owner seam."
+          },
+          "credential_custody_nonclaim": {
+            "const": "pack_connectors_do_not_imply_credential_custody",
+            "description": "Canon's conformance check, expressed in the record's own bytes. A connector mapping is a field map; possession of one implies no credential and no authority."
+          },
+          "safety_envelope_required": { "type": "boolean" }
+        }
+      }
+    },
+    "declared_output_fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/outputFieldRef" },
+      "description": "THE FIELDS THIS PACK PROPOSES A WORKER MAY PRODUCE. This list is what a binding must cover EXACTLY ONCE, by a compiled contract, an abstention or an escalation. It is the reason a binding cannot be silent about a field: silence would leave the covering short."
+    },
+    "declared_field_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["output_field_ref", "requirement", "source_term_ref", "evidence_requirement_ref"],
+        "properties": {
+          "output_field_ref": { "$ref": "#/$defs/outputFieldRef" },
+          "requirement": {
+            "enum": ["required", "conditional", "optional"],
+            "description": "A `required` field with no crosswalk term ESCALATES rather than abstaining: the difference between 'this worker cannot say' and 'this vertical cannot proceed' is a difference an accountable owner must see."
+          },
+          "source_term_ref": { "$ref": "#/$defs/ontologyTermRef" },
+          "evidence_requirement_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "declared_evidence_requirements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["evidence_requirement_ref", "applies_to_risk_class", "verifier_obligation_ref"],
+        "properties": {
+          "evidence_requirement_ref": { "type": "string", "minLength": 1, "maxLength": 320 },
+          "applies_to_risk_class": { "$ref": "#/$defs/riskClass" },
+          "verifier_obligation_ref": { "type": "string", "minLength": 1, "maxLength": 320 }
+        }
+      }
+    },
+    "declared_review_modes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["risk_class", "review_mode", "review_owner_module"],
+        "properties": {
+          "risk_class": { "$ref": "#/$defs/riskClass" },
+          "review_mode": { "$ref": "#/$defs/reviewMode" },
+          "review_owner_module": {
+            "const": "M03.15",
+            "description": "PINNED TO THE OWNER, so the pack cannot read as though it performed the review. A pack states which mode a risk class needs; M03.15 owns exact-payload review and is the only place one happens."
+          }
+        }
+      }
+    },
+    "forbidden_action_refs": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "type": "string", "minLength": 1, "maxLength": 320 }
+    },
+    "jurisdiction_refs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$" },
+      "description": "DELIBERATELY WITHOUT A `minItems` FLOOR. An empty list is admissible and is exactly what makes the binding's whole-binding `jurisdiction_absent` fail-closed refusal reachable and therefore testable. A floor here would move the refusal into the schema and leave the runtime rule unfalsifiable."
+    },
+    "registry_status": { "enum": ["draft", "active", "suspended", "expired", "superseded", "revoked"] },
+    "admitted_at": { "$ref": "#/$defs/canonicalTimestamp" },
+    "succession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["succession_reason", "predecessor_revision_ref", "predecessor_content_hash", "supersedes_predecessor"],
+      "properties": {
+        "succession_reason": {
+          "enum": ["genesis", "ontology_revision_change", "action_or_risk_change", "field_or_evidence_change", "review_mode_change", "integration_change", "jurisdiction_change", "correction"]
+        },
+        "predecessor_revision_ref": { "oneOf": [{ "$ref": "#/$defs/packRevisionRef" }, { "type": "null" }] },
+        "predecessor_content_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "supersedes_predecessor": { "type": "boolean" }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility", "downgrade_to_predecessor"],
+      "properties": {
+        "compatibility": { "enum": ["initial", "additive", "breaking"] },
+        "downgrade_to_predecessor": { "const": "refused" }
+      }
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitment_domain", "lifecycle_id", "review_owner_module", "identity_is_the_revision_ref", "legality_token"],
+      "properties": {
+        "commitment_domain": { "const": "ioi.vertical-ontology-pack-content-commitment-jcs-sha256.v1" },
+        "lifecycle_id": { "const": "vertical_ontology_pack_lifecycle.v1" },
+        "review_owner_module": { "const": "M03.15" },
+        "identity_is_the_revision_ref": { "const": true },
+        "legality_token": {
+          "const": "legality",
+          "description": "The token the registered nonclaim invariant compares `does_not_decide` against. Pinned here so the rule reads one committed constant against one committed list rather than embedding the literal in the rule, which is what lets a fixture drop the nonclaim and be refused offline."
+        }
+      }
+    },
+    "authority_nonclaim": { "const": "vertical_ontology_pack_grants_no_authority" },
+    "truth_nonclaim": { "const": "vertical_ontology_pack_is_a_declared_domain_extension_not_domain_correctness" },
+    "legal_conformity_claim": {
+      "const": "not_determined",
+      "description": "ACC-18 clause 13, in the record's own bytes. No HIPAA, payer, medical, coding or jurisdictional correctness is asserted by a pack, ever."
+    },
+    "does_not_decide": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "legality",
+          "reviewer_qualification",
+          "authority",
+          "marketplace_eligibility",
+          "payment",
+          "correctness",
+          "live_medical_suitability",
+          "provider_connection",
+          "credential_custody",
+          "model_routing",
+          "agentgres_admission",
+          "daemon_execution_truth"
+        ]
+      },
+      "description": "THE M05 BOUNDARY AND CANON'S 'DOES NOT OWN' LIST, AS A CLOSED SET WITH A FLOOR OF EIGHT. The seven ACC-18/M05 boundary tokens plus at least one of canon's own; dropping any of the mandatory members is refused by the runtime as well, so the nonclaim cannot be quietly shortened."
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" }
+  },
+  "allOf": [
+    {
+      "title": "a genesis revision carries no predecessor and supersedes nothing",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["succession"],
+        "properties": {
+          "succession": {
+            "type": "object",
+            "required": ["succession_reason"],
+            "properties": { "succession_reason": { "const": "genesis" } }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "succession": {
+            "type": "object",
+            "properties": {
+              "predecessor_revision_ref": { "type": "null" },
+              "predecessor_content_hash": { "type": "null" },
+              "supersedes_predecessor": { "const": false }
+            }
+          },
+          "migration": {
+            "type": "object",
+            "properties": { "compatibility": { "const": "initial" } }
+          }
+        }
+      }
+    },
+    {
+      "title": "a physical-action or embodied surface requires a safety envelope",
+      "type": "object",
+      "if": {
+        "type": "object",
+        "required": ["declared_integration_requirements"],
+        "properties": {
+          "declared_integration_requirements": {
+            "type": "array",
+            "contains": {
+              "type": "object",
+              "required": ["integration_surface"],
+              "properties": {
+                "integration_surface": { "enum": ["robotics_physical", "embodied_humanoid", "vehicles_mobility"] }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "declared_integration_requirements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": { "safety_envelope_required": { "const": true } }
+            }
+          }
+        }
+      },
+      "description": "Canon: `physical packs reference PhysicalActionPolicy and SafetyEnvelope`. A pack that reached an actuator surface without declaring the envelope would be the exact anti-pattern `vertical-ontology-packs.md` names."
+    }
+  ]
+}

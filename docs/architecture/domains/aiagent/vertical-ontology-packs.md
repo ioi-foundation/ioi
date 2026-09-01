@@ -6,8 +6,12 @@ Supersedes: plan prose that models verticals as hardcoded categories or separate
 Superseded by: none.
 Last alignment pass: 2026-06-17.
 Doctrine status: canonical
-Implementation status: planned
-Last implementation audit: 2026-07-05
+Implementation status: partial (registration only — the `VerticalOntologyPack` v1 and `VerticalPackWorkerBinding` v1 wire contracts are registered with invariant profiles, a fixture corpus and both generated projections; NO daemon route, store, resolver, compiler or verifier produces or enforces either family, and `runtime_worker_package_install_admission.rs` still accepts an unresolved `vertical_pack:` string)
+Implementation refs:
+  - `docs/architecture/_meta/schemas/vertical-ontology-pack.v1.schema.json`
+  - `docs/architecture/_meta/schemas/vertical-pack-worker-binding.v1.schema.json`
+  - `crates/services/src/agentic/runtime/kernel/runtime_worker_package_install_admission.rs`
+Last implementation audit: 2026-09-01
 
 ## Canonical Definition
 
