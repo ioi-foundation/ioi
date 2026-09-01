@@ -14701,7 +14701,42 @@
         {
           "path": "fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json",
           "expected_failure": "invariant",
-          "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct"
+          "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_raw_source_identity_is_distinct"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-payload-listed-twice-in-the-distinct-set.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_distinct_payload_is_listed_once"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-distinct-payload-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.degeneracy.distinct_payload_count_matches_the_payload_rows"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-corpus-root-does-not-commit-the-rows.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.content_addressing.the_root_commits_the_disposition_rows"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-uses-an-undeclared-method.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_method"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-raises-its-own-threshold.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_threshold"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-listed-twice.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.deduplication.every_near_duplicate_exclusion_is_distinct"
+        },
+        {
+          "path": "fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-count-drift.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "media_corpus_qualification_census.deduplication.the_near_duplicate_exclusion_count_closes"
         },
         {
           "path": "fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json",

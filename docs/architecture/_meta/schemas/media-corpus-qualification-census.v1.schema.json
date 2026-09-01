@@ -9,15 +9,33 @@
   "$defs": {
     "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "censusRef": { "type": "string", "pattern": "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$" },
-    "ownerRef": { "type": "string", "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$" },
-    "tenantRef": { "type": "string", "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$" },
-    "principalRef": { "type": "string", "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "ownerRef": { "type": "string", "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "principalRef": { "type": "string", "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
     "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
     "seconds": { "type": "integer", "minimum": 0, "maximum": 100000000 },
     "count": { "type": "integer", "minimum": 0, "maximum": 1000000000000 },
     "byteCount": { "type": "integer", "minimum": 0, "maximum": 2199023255552 },
     "labelClassRef": { "type": "string", "pattern": "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$" },
-    "reasonClass": { "enum": ["corrupt", "truncated", "variable_rate", "padded", "repeated", "out_of_rights", "quarantined", "near_duplicate", "exact_duplicate", "below_quality_floor"] }
+    "reasonClass": { "enum": ["corrupt", "truncated", "variable_rate", "padded", "repeated", "out_of_rights", "quarantined", "near_duplicate", "exact_duplicate", "below_quality_floor"] },
+    "sourceFileRef": { "type": "string", "pattern": "^media-file://[a-z0-9][a-z0-9._/-]{0,190}$", "description": "THE RAW SOURCE INSTANCE, WHICH IS NOT ITS PAYLOAD. A corpus has two different notions of sameness and the first version of this contract collapsed them: it keyed distinctness on `content_sha256` alone, which made every row's payload unique BY CONSTRUCTION and therefore made a real exact duplicate — two distinct source files carrying identical bytes — impossible to express. Identity lives here; content lives in `content_sha256`. Two rows may share a payload digest and MUST NOT share a source ref." },
+    "clusterId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$" },
+    "similarityFingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$", "description": "A 64-BIT SIMILARITY-PRESERVING DIGEST, not a cryptographic one. Under `perceptual-block-mean-hamming-64` the payload is cut into 64 equal blocks and bit i is set when block i's byte sum exceeds the mean block sum, so a bounded edit flips a bounded number of bits and the Hamming distance between two fingerprints IS the similarity measure. A sha256 would be useless here: any edit moves half the bits, so every pair would sit at the same distance and 'near' would carry no information. THIS FIELD IS DERIVED, NEVER ACCEPTED: the runtime regenerates the payload from its recipe and recomputes the fingerprint, so a value that disagrees with the bytes is refused rather than recorded." },
+    "payloadRecipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipe_method", "seed_tag", "block_count", "block_width_bytes", "low_level", "high_level", "flipped_blocks"],
+      "description": "THE BYTES, STATED AS A FUNCTION THE RUNTIME CAN RE-RUN. Without this the census would be self-referential: `content_sha256`, `byte_count` and `similarity_fingerprint` would all be caller-supplied, and checking one against another would be label-to-label validation — a caller could file a wholly fabricated but internally consistent corpus and nothing in the record could tell. The recipe closes that: the runtime REGENERATES the payload, digests it, measures it and fingerprints it, and refuses any of the three that disagrees. THIS IS WHY THE LANE IS SYNTHETIC. A real recording has no recipe, so v1 admits only recipe-borne custody and makes no claim to verify bytes it never held; custody of imported media is a later seam, and an ArtifactRef is not it — an ArtifactRef names bytes and resolves nothing.",
+      "properties": {
+        "recipe_method": { "enum": ["ioi.m059.two-level-block-payload.v1"], "description": "The payload is `block_count` equal blocks; block i is filled with `high_level` when bit i of sha256(\"ioi.m059.corpus.payload:\" + seed_tag) is set, with `low_level` otherwise, and membership in `flipped_blocks` inverts that choice. Two levels rather than pseudo-random content is deliberate: it holds every block sum far from the mean, so a bounded edit flips a bounded number of fingerprint bits instead of cascading." },
+        "seed_tag": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$" },
+        "block_count": { "type": "integer", "enum": [64] },
+        "block_width_bytes": { "type": "integer", "minimum": 64, "maximum": 65536 },
+        "low_level": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "high_level": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "flipped_blocks": { "type": "array", "maxItems": 64, "items": { "type": "integer", "minimum": 0, "maximum": 63 } }
+      }
+    }
   },
   "required": [
     "schema_version",
@@ -33,7 +51,12 @@
     "accepted",
     "rejected",
     "deduplicated",
+    "deduplication_policy",
+    "payload_custody",
+    "does_not_claim_custody_of_imported_media_bytes",
     "file_dispositions",
+    "distinct_payloads",
+    "near_duplicate_exclusions",
     "profile_required_label_classes",
     "observed_label_classes",
     "floors",
@@ -66,7 +89,7 @@
       "enum": ["composed-model-harness", "interactive-learned", "synthetic-learned-sensitive"],
       "description": "The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."
     },
-    "corpus_content_root": { "$ref": "#/$defs/sha256" },
+    "corpus_content_root": { "$ref": "#/$defs/sha256", "description": "THE ROOT COMMITS THE ROWS, NOT A SUMMARY OF THEM. A registered invariant recomputes this digest over the complete canonical disposition rows, the distinct-payload rows, the near-duplicate exclusions and all four count blocks, so the census IS its corpus rather than a claim about one. The first version of this field was an unbacked string: any 64-hex value satisfied it, so two different corpora could file identical roots and one corpus could file two." },
     "raw": {
       "type": "object",
       "additionalProperties": false,
@@ -113,30 +136,93 @@
     "deduplicated": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count", "reason_classes"],
+      "required": ["source_seconds", "file_count", "byte_count", "frame_or_sample_count", "chunk_count", "reason_classes", "exact_duplicate_file_count", "near_duplicate_file_count"],
       "properties": {
         "source_seconds": { "$ref": "#/$defs/seconds" },
         "file_count": { "$ref": "#/$defs/count" },
         "byte_count": { "$ref": "#/$defs/byteCount" },
         "frame_or_sample_count": { "$ref": "#/$defs/count" },
         "chunk_count": { "$ref": "#/$defs/count" },
-        "reason_classes": { "type": "array", "items": { "$ref": "#/$defs/reasonClass" }, "maxItems": 32 }
+        "reason_classes": { "type": "array", "items": { "$ref": "#/$defs/reasonClass" }, "maxItems": 32 },
+        "exact_duplicate_file_count": { "$ref": "#/$defs/count" },
+        "near_duplicate_file_count": { "$ref": "#/$defs/count" }
       }
+    },
+    "deduplication_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_key_algorithm", "near_duplicate_method", "near_duplicate_threshold"],
+      "description": "THE EXCLUSION RULE IS DECLARED BEFORE IT IS APPLIED. Exact exclusion is a digest comparison and needs only the algorithm; NEAR exclusion is a judgement, and a judgement with no declared method, fingerprint or threshold is unfalsifiable — a corpus could call anything a near-duplicate and no relying party could disagree. The method is a CLOSED VOCABULARY rather than free text, because a free-text method name is not a function anyone can re-run: every row excluded as `near_duplicate` names this method, carries both compared fingerprints, and has its distance recomputed under it.",
+      "properties": {
+        "exact_key_algorithm": { "enum": ["sha256"] },
+        "near_duplicate_method": { "enum": ["perceptual-block-mean-hamming-64"] },
+        "near_duplicate_threshold": { "type": "integer", "minimum": 1, "maximum": 64 }
+      }
+    },
+    "payload_custody": {
+      "enum": ["deterministic_recipe"],
+      "description": "HOW THIS CENSUS COMES TO KNOW ITS OWN BYTES. `deterministic_recipe` is the only admissible v1 mode and it means what it says: every payload carries a recipe, and the runtime regenerates, digests, measures and fingerprints the bytes itself rather than believing the record about them. There is deliberately no `imported_bytes` member — admitting one would be a claim to custody this version does not implement, and a census that could name a custody mode nobody verifies is exactly the silence this contract exists to refuse."
+    },
+    "does_not_claim_custody_of_imported_media_bytes": {
+      "const": true,
+      "description": "THE NONCLAIM THAT KEEPS THE LANE HONEST. Recomputing a recipe's bytes proves the census's arithmetic about SYNTHETIC material; it proves nothing about an imported recording, whose bytes this contract never holds. Pinning the nonclaim in the record rather than in a comment is what stops a reader treating a recipe-verified census as evidence of verified media custody."
     },
     "file_dispositions": {
       "type": "array",
       "minItems": 1,
       "maxItems": 1000000,
-      "description": "ONE ROW PER RAW FILE. This is how the census closes arithmetically without an arithmetic operator the invariant DSL does not have: `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over the content hash refuses a padded or repeated corpus. Every raw file therefore has exactly one disposition, and a file with none is missing from the count rather than silently absorbed.",
+      "description": "ONE ROW PER RAW SOURCE FILE — AND A SOURCE FILE IS NOT ITS PAYLOAD. `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over `source_file_ref` refuses a corpus that counted one source instance twice. DISTINCTNESS IS KEYED ON IDENTITY, NOT CONTENT, and that is a correction: keying it on `content_sha256` forced every row's payload to be unique, which made an exact duplicate — two distinct source files whose bytes are byte-identical — impossible to state, so `exact_duplicate` was a label no corpus could ever have earned. Payload repetition now lives where it belongs, in `distinct_payloads`, and `byte_count` is the ACTUAL length of the digested payload rather than an unbacked claim about it.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["content_sha256", "disposition", "reason_class", "source_seconds"],
+        "required": ["source_file_ref", "content_sha256", "byte_count", "disposition", "reason_class", "source_seconds"],
         "properties": {
+          "source_file_ref": { "$ref": "#/$defs/sourceFileRef" },
           "content_sha256": { "$ref": "#/$defs/sha256" },
+          "byte_count": { "$ref": "#/$defs/byteCount" },
           "disposition": { "enum": ["accepted", "rejected", "deduplicated"] },
           "reason_class": { "oneOf": [{ "$ref": "#/$defs/reasonClass" }, { "type": "null" }] },
           "source_seconds": { "$ref": "#/$defs/seconds" }
+        }
+      }
+    },
+    "distinct_payloads": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "description": "ONE ROW PER DISTINCT PAYLOAD DIGEST, and the place an exact duplicate becomes STATEABLE. Each payload names the single source instance retained as canonical and the count of source instances that carried those bytes; `instance_count` above 1 IS an exact duplication, and the runtime requires exactly one of those instances to be accepted and every other to be excluded as `exact_duplicate`. A corpus that pads itself by re-ingesting the same bytes therefore inflates `raw` and cannot inflate `accepted`. THE SIMILARITY FINGERPRINT LIVES HERE, ON THE PAYLOAD, and not on the exclusion row that cites it: a fingerprint carried by the row asserting the exclusion is a number that row could choose, whereas a fingerprint carried by the payload is one every citing row must AGREE with. That is what makes source-fingerprint, retained-fingerprint and sibling substitution three separately detectable edits instead of one unfalsifiable claim.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["content_sha256", "canonical_source_file_ref", "instance_count", "byte_count", "similarity_fingerprint", "payload_recipe"],
+        "properties": {
+          "content_sha256": { "$ref": "#/$defs/sha256" },
+          "canonical_source_file_ref": { "$ref": "#/$defs/sourceFileRef" },
+          "instance_count": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+          "byte_count": { "$ref": "#/$defs/byteCount" },
+          "similarity_fingerprint": { "$ref": "#/$defs/similarityFingerprint" },
+          "payload_recipe": { "$ref": "#/$defs/payloadRecipe" }
+        }
+      }
+    },
+    "near_duplicate_exclusions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1000000,
+      "description": "ONE ROW PER NEAR-DUPLICATE EXCLUSION, CARRYING BOTH SIDES OF THE COMPARISON SO IT CAN BE RE-DECIDED OFFLINE. Exact duplication is decidable from the digest alone; near duplication is a judgement, and a row naming only the EXCLUDED file's fingerprint could not be rechecked against anything — the distance would be an unfalsifiable number beside two refs. Carrying the retained sibling's fingerprint as well makes `distance` RECOMPUTABLE: it is the Hamming distance between these two fingerprints under the named method, and the runtime recomputes it rather than believing it. A distance of zero is refused, because two payloads whose similarity digests agree exactly are an EXACT duplicate and must be filed as one.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_file_ref", "retained_source_file_ref", "cluster_id", "similarity_method", "similarity_fingerprint", "retained_similarity_fingerprint", "distance", "threshold"],
+        "properties": {
+          "source_file_ref": { "$ref": "#/$defs/sourceFileRef" },
+          "retained_source_file_ref": { "$ref": "#/$defs/sourceFileRef" },
+          "cluster_id": { "$ref": "#/$defs/clusterId" },
+          "similarity_method": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "similarity_fingerprint": { "$ref": "#/$defs/similarityFingerprint" },
+          "retained_similarity_fingerprint": { "$ref": "#/$defs/similarityFingerprint" },
+          "distance": { "type": "integer", "minimum": 1, "maximum": 64 },
+          "threshold": { "type": "integer", "minimum": 1, "maximum": 64 }
         }
       }
     },
@@ -238,7 +324,7 @@
         }
       }
     },
-    "distinct_content_hash_count": { "$ref": "#/$defs/count" },
+    "distinct_content_hash_count": { "$ref": "#/$defs/count", "description": "DISTINCT PAYLOADS, NOT ROWS. Pinned by invariant to the length of `distinct_payloads`, so it falls BELOW `raw.file_count` exactly when the corpus contained exact duplicates. Pinning it to the row count instead — as the first version did — made the two numbers equal by construction and turned the degeneracy check into a tautology." },
     "does_not_claim_hours_scale_qualification": { "type": "boolean" },
     "does_not_claim_throughput_or_latency": {
       "const": true,

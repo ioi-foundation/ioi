@@ -1,13 +1,13 @@
 {
   "schema_version": "ioi.media-corpus-qualification-census.v1",
-  "corpus_census_id": "corpus-census://acme.desk/d71d5929c4c95a96491331262a61b68b0a923614c21f57f67a3a54a3863c9ffd",
+  "corpus_census_id": "corpus-census://acme.desk/feaede9fc60d14706006a8be0129cb5333d6336510d084d648899b3bd2aa1523",
   "owner_ref": "org://acme",
   "tenant_ref": "tenant://acme",
   "principal_resolution": "server_resolved",
   "resolved_principal_ref": "worker://acme.capture-operator",
   "claimed_scale": "compact_deterministic_fixture",
   "profile": "interactive-learned",
-  "corpus_content_root": "sha256:d71d5929c4c95a96491331262a61b68b0a923614c21f57f67a3a54a3863c9ffd",
+  "corpus_content_root": "sha256:feaede9fc60d14706006a8be0129cb5333d6336510d084d648899b3bd2aa1523",
   "raw": {
     "source_seconds": 1440,
     "file_count": 12,
@@ -48,7 +48,7 @@
       "near_duplicate"
     ],
     "exact_duplicate_file_count": 1,
-    "near_duplicate_file_count": 2
+    "near_duplicate_file_count": 3
   },
   "file_dispositions": [
     {
@@ -197,7 +197,7 @@
     "commitment_domain": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"
   },
   "authority_nonclaim": "media_corpus_qualification_census_grants_no_authority",
-  "content_hash": "sha256:b3a8ed159a024c7aadf3cccdcedd53836e7a70d6fdaae7252df94871e97e2b5a",
+  "content_hash": "sha256:a080936989840ce0d729b651021eaed28c0647f0e9b8b8d17701adadf4348ddf",
   "deduplication_policy": {
     "exact_key_algorithm": "sha256",
     "near_duplicate_method": "perceptual-block-mean-hamming-64",
@@ -407,6 +407,16 @@
       "similarity_fingerprint": "351c1fa4b2948d61",
       "retained_similarity_fingerprint": "351e1fe4ba948d61",
       "distance": 3,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0000",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0000",
+      "cluster_id": "cluster-00",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "293cb931e2fbaeb2",
+      "retained_similarity_fingerprint": "283c9931e2fbaeb2",
+      "distance": 2,
       "threshold": 8
     }
   ],

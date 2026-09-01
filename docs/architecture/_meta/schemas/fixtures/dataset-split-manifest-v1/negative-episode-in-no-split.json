@@ -2,10 +2,10 @@
   "schema_version": "ioi.dataset-split-manifest.v1",
   "split_manifest_id": "split-manifest://acme.desk-v1",
   "revision_ref": "split-manifest://acme.desk-v1/revision/1",
-  "owner_ref": "owner://acme",
+  "owner_ref": "org://acme",
   "tenant_ref": "tenant://acme",
   "principal_resolution": "server_resolved",
-  "resolved_principal_ref": "principal://acme.capture-operator",
+  "resolved_principal_ref": "worker://acme.capture-operator",
   "members": [
     {
       "episode_revision_ref": "episode://acme.desk-tasks/revision/1",
@@ -114,5 +114,5 @@
   },
   "authority_nonclaim": "dataset_split_manifest_grants_no_authority",
   "manifest_selects_no_evaluation_evidence_for_its_own_producer": true,
-  "content_hash": "sha256:b4bb3fb8aa415046290c16b242387135056805024916b82c0bdfe9ad6efb2dc1"
+  "content_hash": "sha256:081f2a0d33778ffa99f17976e580f5954fccfe485cb95b14dbee1ccde1dc11e7"
 }

@@ -2,10 +2,10 @@
   "schema_version": "ioi.policy-bound-media-snapshot.v1",
   "media_snapshot_id": "media-snapshot://acme.support-desk",
   "revision_ref": "media-snapshot://acme.support-desk/revision/1",
-  "owner_ref": "owner://acme",
+  "owner_ref": "org://acme",
   "tenant_ref": "tenant://acme",
   "principal_resolution": "server_resolved",
-  "resolved_principal_ref": "principal://acme.capture-operator",
+  "resolved_principal_ref": "worker://acme.capture-operator",
   "acquisition_class": "imported_recording",
   "capture_binding": {
     "actor_ref": "actor://acme.operator-01",
@@ -121,8 +121,8 @@
     "connector_mapping_revision_refs": [
       "mapping://acme.desk-ingest/revision/1"
     ],
-    "transformation_run_revision_refs": [
-      "transformation-run://acme.desk-normalize/revision/7"
+    "transformation_run_refs": [
+      "transform://trun_4e65d3fbe8ad6535681b021b30785b12"
     ]
   },
   "raw_census": {
@@ -157,5 +157,5 @@
   "capture_authority_does_not_travel_into_replay": true,
   "demonstration_is_not_consent": true,
   "snapshot_is_not_a_skill_or_workflow": true,
-  "content_hash": "sha256:572d194207be1ae12921d0674e9d1922496fdc8d32779681c349c6a108b9d1fb"
+  "content_hash": "sha256:7acfad53012998e425a1d9ffec2ec799772c5780992aadca40d52378fbadec20"
 }

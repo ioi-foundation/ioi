@@ -1,25 +1,25 @@
 {
   "schema_version": "ioi.media-corpus-qualification-census.v1",
-  "corpus_census_id": "corpus-census://acme.desk/76d47536bd6bb58819282acf51dfe04f363f189c01eb626f8ee8f48f22c87835",
-  "owner_ref": "owner://acme",
+  "corpus_census_id": "corpus-census://acme.desk/6f2bc8b4658a455a1afe69ed8393d2fc8f1c3bd394907f5b79d510644cabdbf8",
+  "owner_ref": "org://acme",
   "tenant_ref": "tenant://acme",
   "principal_resolution": "server_resolved",
-  "resolved_principal_ref": "principal://acme.capture-operator",
+  "resolved_principal_ref": "worker://acme.capture-operator",
   "claimed_scale": "hours_scale_qualification",
   "profile": "interactive-learned",
-  "corpus_content_root": "sha256:6fb754276ddda76d96b7ddd10005f0988530f9c248dcca3c243641a69db656bb",
+  "corpus_content_root": "sha256:6f2bc8b4658a455a1afe69ed8393d2fc8f1c3bd394907f5b79d510644cabdbf8",
   "raw": {
     "source_seconds": 11520,
     "file_count": 96,
-    "byte_count": 1600000000,
+    "byte_count": 6291456,
     "frame_or_sample_count": 345600,
     "chunk_count": 1152
   },
   "accepted": {
-    "seconds_before_deduplication": 8400,
+    "seconds_before_deduplication": 9960,
     "seconds_after_deduplication": 7440,
     "file_count": 62,
-    "byte_count": 1200000000,
+    "byte_count": 4063232,
     "frame_or_sample_count": 223200,
     "chunk_count": 744,
     "bounded_episode_count": 9,
@@ -28,11 +28,11 @@
     "label_count": 5820
   },
   "rejected": {
-    "source_seconds": 1680,
+    "source_seconds": 1560,
     "file_count": 13,
-    "byte_count": 200000000,
-    "frame_or_sample_count": 50400,
-    "chunk_count": 168,
+    "byte_count": 851968,
+    "frame_or_sample_count": 46800,
+    "chunk_count": 156,
     "reason_classes": [
       "corrupt",
       "truncated",
@@ -40,591 +40,785 @@
     ]
   },
   "deduplicated": {
-    "source_seconds": 2400,
+    "source_seconds": 2520,
     "file_count": 21,
-    "byte_count": 200000000,
-    "frame_or_sample_count": 72000,
-    "chunk_count": 240,
+    "byte_count": 1376256,
+    "frame_or_sample_count": 75600,
+    "chunk_count": 252,
     "reason_classes": [
-      "near_duplicate",
-      "exact_duplicate"
-    ]
+      "exact_duplicate",
+      "near_duplicate"
+    ],
+    "exact_duplicate_file_count": 6,
+    "near_duplicate_file_count": 15
   },
   "file_dispositions": [
     {
-      "content_sha256": "sha256:af1e90719ed1e347f01f5eded9e3fb00d66b7a79e479d5312c81ed55cc5a7af0",
+      "source_file_ref": "media-file://acme.desk/accepted/0000",
+      "content_sha256": "sha256:636d6e6cbf54300ae96811c7104cfeed8d6260e0eb67e8bbbb225573821e20ca",
+      "byte_count": 65536,
       "disposition": "accepted",
       "reason_class": null,
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:722f542337120bcac5f8cc611f6e47eab2f8685e59c965929673a924eac54fda",
+      "source_file_ref": "media-file://acme.desk/accepted/0001",
+      "content_sha256": "sha256:a83736c19e25fccd196ddafc9f38eabf9b5a12de6fc28b8c35ffaa736158c5fd",
+      "byte_count": 65536,
       "disposition": "accepted",
       "reason_class": null,
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:b7b24d0ce6d1f5c3ab52a60b557fbb5f35373f05aa0abd856b21c0f45b7f4315",
+      "source_file_ref": "media-file://acme.desk/accepted/0002",
+      "content_sha256": "sha256:435d61dd04ef62715a11d66dcb0b8211f9f7a697d17f13999f6379a63c4a45df",
+      "byte_count": 65536,
       "disposition": "accepted",
       "reason_class": null,
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:a8c93ae23dc62046b2c3ac1f3237f1abd68d6509deeef269951a9f2a9e832ee6",
+      "source_file_ref": "media-file://acme.desk/accepted/0003",
+      "content_sha256": "sha256:fade55bfa139f6e0daa355e2fadaa54ca98f8f4fe6558537d1114f1d406b4fc9",
+      "byte_count": 65536,
       "disposition": "accepted",
       "reason_class": null,
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:7f581cacbbcc9d7f83ea7ebdf6aca9cf227e2725ae634e338fe1985a1f4fbbd0",
+      "source_file_ref": "media-file://acme.desk/accepted/0004",
+      "content_sha256": "sha256:182722ecd130905f59f78e3d2ae4283ed3ade99a5c93904491d66fdfa54e1044",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0005",
+      "content_sha256": "sha256:948de5f98050f436dba9efb148e4aa63d0139c5affdda9a429d515c00df71a8c",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0006",
+      "content_sha256": "sha256:2c21621def9093d716d3cea01e2f998fc94d07490ed7ee2e47647209140c6cc9",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0007",
+      "content_sha256": "sha256:2a41b15c652ae428586a02bac08a890f9f7d6bc4da1711a95f77a1d508be069f",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0008",
+      "content_sha256": "sha256:dd6b12538c52a07f67dcab5c44a43f19fcee631d327d3bce5b018406620a72e4",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0009",
+      "content_sha256": "sha256:e6e08b146782160d425538effa1d36df5c8685f6f031525d6fe83f398ad6e7e0",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0010",
+      "content_sha256": "sha256:55cec514b96a3032a235d9fffa10153f5f2e03355b5616139467741e50e22ce9",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0011",
+      "content_sha256": "sha256:ddda40c199e8aa1a62e3ba1be4d74e022be50a323c0f30f1c4da441d4bf9e540",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0012",
+      "content_sha256": "sha256:c343f82ab6548827deb584f860edcb7ec052a8512e7cd6586e4e9e8c96041abd",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0013",
+      "content_sha256": "sha256:07ac4534ff0edb744207683a16e323b95e6b2bc8d8cab8af3c5d029e604af094",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0014",
+      "content_sha256": "sha256:1c827e34ec412aaa028e328a4b49558d0ea3a55ca350eddb69c1ce5ce1439dfd",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0015",
+      "content_sha256": "sha256:7aeb67dc1cb54aa60e0ba7d6f461a3bcfefaeaf39c8cf2654541c52635726f8e",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0016",
+      "content_sha256": "sha256:7ee1cfebaa045a3b83c634750efb4796c0ebafe767d58dd1fa3f73e42f424454",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0017",
+      "content_sha256": "sha256:f10ac5dd04cbfdfbb0e3fdbc508a6b9171e69a0a8faed7e4ed6de1275bade04a",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0018",
+      "content_sha256": "sha256:c529e2b927bf1b16145821cd26a135e5205be0a721f39ceb94315de8015be7b5",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0019",
+      "content_sha256": "sha256:e85e825b83ca8a541cd838c6b9fc40435c76f44c85d2a145ba252984a946a0b9",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0020",
+      "content_sha256": "sha256:a2508b5ebe3ba61b09d55b5951e43663fac5383bccb1e7ee1ba18480e1969d09",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0021",
+      "content_sha256": "sha256:9e36e8100cc93e02ba0303b703732a3441b60cacc922f51d99c9a36bcdd0f39e",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0022",
+      "content_sha256": "sha256:4d4e3e5bfa2c3526d40369ea9617b4729a2de678e069b0f9992718e2142be73c",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0023",
+      "content_sha256": "sha256:986c1bae36509028380e32210272ca9caaff58ef0c610e1f70272902ffbf8d9b",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0024",
+      "content_sha256": "sha256:081ea73033bce4441f28be4fc0acca451c0c41e32661ca1939598ce4934d84f4",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0025",
+      "content_sha256": "sha256:30a0b6b112878930a8fe80f84f35083bd8765c9b1642387446e815cffb483be1",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0026",
+      "content_sha256": "sha256:a3d35c06cde4f6e584f44f6dce5e2cb909062c703e6a3ab95f5fd77ecde0d216",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0027",
+      "content_sha256": "sha256:c06a1671cf360b2a92590dcc8243f9c78047cdcaed45653f2f1ddaa5ff82b84f",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0028",
+      "content_sha256": "sha256:99c116abf30f068505afb308e8153f9c1c4da504e7dce58ec65212c517140172",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0029",
+      "content_sha256": "sha256:d39a05bb167c5e853b38772440ed05f85f21d696de18bf9be8f70dd354feea7f",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0030",
+      "content_sha256": "sha256:ca38256eae291ad043039c1052cb689cf1e9c82bdb1aece5a1b6a746a6694942",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0031",
+      "content_sha256": "sha256:6d2e9d13220570f1a877ec88d44c21274033cc51a16ea1161346c70b515b54f7",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0032",
+      "content_sha256": "sha256:97560ee2f61e9cd3c181db9ce853ab06db186f8ce89c777b51ec29ea2f15378b",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0033",
+      "content_sha256": "sha256:983e31910d2a3e4b89b41a126cbaea5614f4bbe5f7263d0b80d99b17f5b3c446",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0034",
+      "content_sha256": "sha256:f7e864b357c13819f7021eca170c19d6c072296ce28f3aad57cee4071a1df0ca",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0035",
+      "content_sha256": "sha256:6619eb590c4089ba5e48aee8d4b2db77baa6bde921827fbe5ad2147184f87e75",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0036",
+      "content_sha256": "sha256:2dfe0c016fa475f81f21a0be2055e6c514681142d8af6724ea999b408a6a5c87",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0037",
+      "content_sha256": "sha256:a27f54a998a2d501e5035377200e53bfa0b040386cbbd052072274889db84a6b",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0038",
+      "content_sha256": "sha256:e23ce0925d51be14024e9d9fdbe1f5d14003a12d5efd177cea7ef64c9af6d53f",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0039",
+      "content_sha256": "sha256:8e31a4574b98d72b9c3066d8005ef12d7265489f79f5cb9d64bdbea38a76d9fa",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0040",
+      "content_sha256": "sha256:b2674008fa388629c426386bff488bd6d066d8749a778839550e8b9e1bd45e73",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0041",
+      "content_sha256": "sha256:467f0c2d9e4e99dd62eef36285cb69415e95e9a0a94182c451f120703c759b1f",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0042",
+      "content_sha256": "sha256:b9a1a7ef76c54048076b70383121185828ef451271d3263cae5d2f8ff9094dca",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0043",
+      "content_sha256": "sha256:8971a5bb80936225abf59ebf43fcea1fa39118505868720864a1d87052468782",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0044",
+      "content_sha256": "sha256:a53e65991940184280134ff3556fbc53a936a44bc137f17be905202fee71d531",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0045",
+      "content_sha256": "sha256:da6aea1a05b14f5230cc359d509e4fef822a00ed31213fe9dc652795cc801e51",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0046",
+      "content_sha256": "sha256:c6398dca1cbbb7554ed2234181385dc6442861cac3fa2a87083e1d315e276bb4",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0047",
+      "content_sha256": "sha256:0de047661ba3c593bfd8863e74a64e84bbb28bee30c145a6879b23ade87e471e",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0048",
+      "content_sha256": "sha256:e054d24f446de273f41ece46c9f5f86cc802e0dc1de76ae5b917b90c66e73713",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0049",
+      "content_sha256": "sha256:3448768bcc201d096db14a37120c8169ea2b86804292b882e1b94a898008c8c2",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0050",
+      "content_sha256": "sha256:545ae73006421c44dc08c6916cfd2d02109a0943d81061c60b20601e963af4c6",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0051",
+      "content_sha256": "sha256:114e9513d0e6d5d850ae01ec944f15e83e15e948aa78117454c801c28adf9c7d",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0052",
+      "content_sha256": "sha256:d83dd3ff4b4d335e4d48c234d69240c532119ed1a78f694e6525d0bf382981f2",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0053",
+      "content_sha256": "sha256:37c068c82e661313bd0774238890fbaff37acf60b69c2344b28e82e28877c5c4",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0054",
+      "content_sha256": "sha256:3dbedee9044fd5407051694e395a679138557ee0b5d77ab852c76579817e45db",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0055",
+      "content_sha256": "sha256:e273c81f0d7024a4479e04664fd54c896ca173fea4094623faa3bc19a36a723e",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0056",
+      "content_sha256": "sha256:d2a5b51e63d084732822b86d57dd06f4f18ca592e76cb2aef9b82110d38f2607",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0057",
+      "content_sha256": "sha256:e1fc2e679d732f9789536ee02149ab27225d19a0176fa722099cfc1826ffec88",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0058",
+      "content_sha256": "sha256:89a731b507697f4c5eeb36ac20448dfcb263f5243aef1c02c8df9d0a96d11fcc",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0059",
+      "content_sha256": "sha256:1419d56c8ce25add328c9d53d776aa618aaf0f05bb12007eeb22574c3c16fb45",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0060",
+      "content_sha256": "sha256:e083316477aef3ab84097c7c696801b9e2698d47c68ec2cd07a76f4cd5445fd5",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/accepted/0061",
+      "content_sha256": "sha256:7e706f2ab7f85bc338cf34819f094359de4c540535dd4e52da58884093eb9525",
+      "byte_count": 65536,
+      "disposition": "accepted",
+      "reason_class": null,
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/reingest/0000",
+      "content_sha256": "sha256:636d6e6cbf54300ae96811c7104cfeed8d6260e0eb67e8bbbb225573821e20ca",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "exact_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/reingest/0001",
+      "content_sha256": "sha256:a83736c19e25fccd196ddafc9f38eabf9b5a12de6fc28b8c35ffaa736158c5fd",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "exact_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/reingest/0002",
+      "content_sha256": "sha256:435d61dd04ef62715a11d66dcb0b8211f9f7a697d17f13999f6379a63c4a45df",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "exact_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/reingest/0003",
+      "content_sha256": "sha256:fade55bfa139f6e0daa355e2fadaa54ca98f8f4fe6558537d1114f1d406b4fc9",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "exact_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/reingest/0004",
+      "content_sha256": "sha256:182722ecd130905f59f78e3d2ae4283ed3ade99a5c93904491d66fdfa54e1044",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "exact_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/reingest/0005",
+      "content_sha256": "sha256:948de5f98050f436dba9efb148e4aa63d0139c5affdda9a429d515c00df71a8c",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "exact_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0000",
+      "content_sha256": "sha256:eae684227d6f22cac2261a9fb8df2ff26baa66f37516bddd3112a589fab349d1",
+      "byte_count": 65536,
       "disposition": "deduplicated",
       "reason_class": "near_duplicate",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:08f76b25afbf4deb32d62ffc3dddfa05b166bff424d784fa653fcd37135bfe30",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/near/0001",
+      "content_sha256": "sha256:3bac5f163df962d2816402bd4fc59c2b4700c34929877007005d238baf0be814",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:2ac77365d30fe9b7348e19a7d6b461629e75940126822a2c51c6b2d4e8925a1e",
+      "source_file_ref": "media-file://acme.desk/near/0002",
+      "content_sha256": "sha256:2243a816b6042ae0a8ca53d9819a7360bf04d72e42a2460034a29f5d4e0c0310",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0003",
+      "content_sha256": "sha256:3d1a01cfcd649e4e66ee353e600b0d52ff09154ac07c3dae17b2f5f7ba323946",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0004",
+      "content_sha256": "sha256:842438437e96371348e4a59b56d7af4cf7c8c9b642d8157d57f84c595bdb54d6",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0005",
+      "content_sha256": "sha256:36ff5387d32c6b635597cfe833d2b5a2242c9fb980869c133e1a6bafb5207b7d",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0006",
+      "content_sha256": "sha256:81aa2fad9d0a0230b343b5b74977e08884674b0327cb79ac932df8808472fb70",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0007",
+      "content_sha256": "sha256:46fb7ca677f2a550c38a44bd6e62b54d67efe32cc0122be54c4196a79ac9f065",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0008",
+      "content_sha256": "sha256:903a43489d15e93acbb270df5d6aae61374091c59716ff3ea28f80496f60fdd7",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0009",
+      "content_sha256": "sha256:cbe82a53edc758201ad4ad50b0cf789f1e139fed99ed75366dde4bdd8dfe2e9d",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0010",
+      "content_sha256": "sha256:11cc144b7262bbb669a2fc94902a8eecb5654ec4b8f2d0e62b5a194e92dc1f0c",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0011",
+      "content_sha256": "sha256:22ffac02aedef7889fdc71d4aa0d651f41d0b29423412d1c57b9be67dc3f6e37",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0012",
+      "content_sha256": "sha256:09c7b2f00db71fed1d285c82dee9fd403ffb05334f107312161cfd21e6a9df3c",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0013",
+      "content_sha256": "sha256:1262d0a8bc30ee2af7e3e9c4761ab688aa94d127a3ee9d9a80d8918b9558c9be",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0014",
+      "content_sha256": "sha256:c7bc542a52934cce61722ed0864ef02d3ca48d4b92e9bf8f14b3f7e41e4a0241",
+      "byte_count": 65536,
+      "disposition": "deduplicated",
+      "reason_class": "near_duplicate",
+      "source_seconds": 120
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/rejected/0000",
+      "content_sha256": "sha256:35a4ef466adb431372d5a313e189e1617422b42aeba9a1b906ac63998197e08a",
+      "byte_count": 65536,
       "disposition": "rejected",
       "reason_class": "corrupt",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:f2da6c5ebe9c830e15dedbd878dc00e8af3fce53b636783caf719ba26c98189e",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/rejected/0001",
+      "content_sha256": "sha256:a3eaa9da3397626138418554b7ba8ac36d876683a31dc522ec302739e9c01fcf",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "truncated",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:9cbd79023c2420124a89adf896903e21935a7e766088ed10db364f8db5912e54",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/rejected/0002",
+      "content_sha256": "sha256:1296794867552482834f8c580918f38af1ffb3f4000bd9c32b1c42c3ae61ea04",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "variable_rate",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:9b874e592130d53dc38701f8acbcb6858d3d82a00c09be9c07fb126b7d7ad2aa",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:d5ccff5e2586938df5d8e7797c43aa06c77abf52a52c755ea71f516217dbe06b",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:19055394b4dfb01a451d4efaa7da2110ed69808348cf7e247aef7101b0cc7dd6",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:f659e35ab3ed550f735ed67ba900fa02ec1fe5bf68491edb874d7028b7a25f91",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:95d515e8953e5eb4294ae5c80de72194726912d23f20a660b2bde88392cfd4dd",
+      "source_file_ref": "media-file://acme.desk/rejected/0003",
+      "content_sha256": "sha256:d1fc47811ee968330499bd189ed922aa5aa50a7cba58dcffd450e3cdbac5e577",
+      "byte_count": 65536,
       "disposition": "rejected",
       "reason_class": "corrupt",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:b5fe895dcd70a08dd39bbc7cba6285ca5510bb7c658bb98314c8bbadd4cfec91",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
+      "source_file_ref": "media-file://acme.desk/rejected/0004",
+      "content_sha256": "sha256:6e194120706a7251329e5d2cfc07cc36a72466dbd9ecb23c2e075bc2c25881b8",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "truncated",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:b6beb1c8dfff22ab5d86dfa335b9f412411de54c3484a2fb9e63e6acd92808e1",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/rejected/0005",
+      "content_sha256": "sha256:5fd2ae6773110dc5baed742c386894a126253adabee73db20d04f1a55168f0a4",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "variable_rate",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:fd47d50224eb0a3ccbc373e2f79da6e9828a1540694eea952c17b272400083e6",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:6668b7311a186db3eb6d9e347c4033853ef8087cf4b8abdc18a00c8dfb9fdebb",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:569c715d2b1d08fd526335469bcb0c6a5e486f322e797b67a22110bd726f0546",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:fcd2710d629bf927fd5cdacbc8f4ff7e31b2dbfb0f74377c0c1dc28546e26a83",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:be2f8225941d584ea7c05a27881d448bac5944a9bbcc665a86a3d8a257144f89",
+      "source_file_ref": "media-file://acme.desk/rejected/0006",
+      "content_sha256": "sha256:6869a5aa33253806e53291619cb017ed9a4ef7234d477caa06b28a7745157cd1",
+      "byte_count": 65536,
       "disposition": "rejected",
       "reason_class": "corrupt",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:6c0bf911cbd7cca735e3183ffe159fa73cbf5039b0d5b0f00cf064ccf7387360",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/rejected/0007",
+      "content_sha256": "sha256:3b920a3c6f853d9f663342ccd4e0a175f39576a1f89f79b54bf05435c9740412",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "truncated",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:d4437747a119e2a46985eb88b93e1edb7885833559475ccb3fa566f17a0fcc38",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/rejected/0008",
+      "content_sha256": "sha256:13551f48fa7447cc2922b0e96583f07d31f4807529eb9de15c231f99c91285cd",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "variable_rate",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:2f057e954adac57c30afe3ec765f7f90aa1aa4f280745561326d61ce1215f03c",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:cc4be56a8a2320918a8a6c793eff58c653d469df0e181d040caeeae2b658ce77",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:7325c55f9a2a9428131fd802aa1c3b5374d7e3fa492b4c039aacff0db31bf9b8",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:45dec6b90a0ee76691d62a091ebefbdcf3ce374564ea2537808056426faa6dde",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:80ab7497d6856d066cce4fbe828107a7dfef460fea3a39ec43e41b2c94f92b9c",
+      "source_file_ref": "media-file://acme.desk/rejected/0009",
+      "content_sha256": "sha256:6bff67a5083a8be09391848b1741ad68fd78a569904502775f0aa15948d00cd2",
+      "byte_count": 65536,
       "disposition": "rejected",
       "reason_class": "corrupt",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:04ac0acf63a12b4bc03f740ef09b19cd6b0e751b209f3bc46501ee63e397984a",
-      "disposition": "accepted",
-      "reason_class": null,
+      "source_file_ref": "media-file://acme.desk/rejected/0010",
+      "content_sha256": "sha256:a165b6dd80d55054dcbce7c46678b8506a3400e37d2eac1637fc0592130b23c7",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "truncated",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:221bd87b316a2db3728b0c297efb23d590b024fd82daaf42a6a8e52922822871",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
+      "source_file_ref": "media-file://acme.desk/rejected/0011",
+      "content_sha256": "sha256:1a1b019fc060036627c0db3df776c00bc00b717c7787d3bcb94ac3ae0bfd0aa4",
+      "byte_count": 65536,
+      "disposition": "rejected",
+      "reason_class": "variable_rate",
       "source_seconds": 120
     },
     {
-      "content_sha256": "sha256:4ffebcea691739d63257f248e2f3609bb3da66706a5ac95a1392db1b898fa61c",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:c3d100217b2fc262a4749efba0331825bdab856edaf66b23beffdd9573ad5e13",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:076ca5f5404265d5e92bc6b6a7e1e22f2163ff9205598a4719c4caba91d35df1",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:4d9fa52235912180c1a8c641c4fc7d6b31625c5b4c86ef50083fd4c661357d19",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:669a731feb306250d8288cb5347347373c83583cde6dfdac8c4b346d6fba60f1",
+      "source_file_ref": "media-file://acme.desk/rejected/0012",
+      "content_sha256": "sha256:e37067e884288dcd643246a5e3cd554643e1e2fcb4fec462f06c58d18a156375",
+      "byte_count": 65536,
       "disposition": "rejected",
       "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:bbf824072897112a160abc8d35c55e148077c1730fc66683ceb3fae5ea5d94aa",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:89d4d9a396cdb0dc1d85fe67656a1f75620bcebac71634fdaf0d3624802036ec",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:9e0d0b7437d15efc2227aee1926f8c08f060be7107fa89c798e514eb3358be92",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:b075f916d2c47ed5232c8666401f803bb1217e7dc41a70adaa2c9fe4f471372f",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:b4aa7a2f6ff9aa8739ff0be2c4e4fbcbda42585c84af02af381adcdad9ed9ee9",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:6da5a5e7be41de5360428d71e9604915c4a5a01fb9de93b2ff8c690a5f33aba5",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:f8bdedf26c8d5582403e089082fa7a8c045ee8935752d9a5cca2801fd30240fa",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:d00970ff612619cdb62d27c0b9d27156d5e4ec78e11e803d924266eee35d05ed",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:efcb61ecd5971665cb16a27b3de04b33bd76bb32273495dc3d3f8a6a73c5a4c2",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:751c462340fe06663cdd0bc187b083b8bdc3b24fc721879c77f6f9da88cdd21a",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:4032af28a4a75509ab1c80f59e765014cb02545570e6446bc766974685204401",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:ad64f1ed0d6315e91c0a5a490566bc25a40a9b5658ec1f9249d4d887d1c0c4e3",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:dc9f68c906c41a38f90a5fffeffe88d0647347c8aaaa633f3d8bb848b46da17d",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:47e1e77a0672026231e7dc54b6b49797f79b64b02c5963b3bc3d097b114228dc",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:c5fd587b23e3612f20e3551d562df9a4e2e8d417bf21dc35ee7938c6ff78b4de",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:39022af19f14de3cfe5b55dead1889bef520968d35b0fea5a83c96c625f0af27",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:635b85844b7f2ef0833ac10fdd251a2f0965a03bd31c5002b02b58e32c8dfefc",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:30f5ae06a7a712a93e2339eda258f6cb068f7194996fcf0cb929932492c91c23",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:8b7cb3d6ac41d58ad19a82915257c87932b542e07dbfb074e5d573aeee03ebfa",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:feb188191225209af3e0cedecc919c560eb47f6eeb0c2f82537c798c40a9e642",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:38e4008debcc218cb25c72fd9a9ab39b518d8cdf613f8f1017fbd4af5a088e6f",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:68dc0cd68af099306065a7ad53d458bd7636289f8f102edebc4c9072bdf10121",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:3c1895b25948bfd8c12f9db9e33934715fdc56115373252348665e7c07bd916c",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:fd4600ead3172e872d30e3c7bbc89969109aad098dc91244931ee01c252646ba",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:4328a87493f190b416c0fea69785e6e64a8d1ad5dbb0fd8161add6cea4cd22c9",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:01e03a07a23a91c213cdb91835251705c3bfbc62a82351061b5f5a88687acf6c",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:1ee63224ce64d7d3919e0bb0cb44f0edde04a70fc9201d76707a740cf11d5dde",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:3a26c07a0ec0516728f22f209baf513fc8182d2876044f28c0fce635dc7adb49",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:4599696e9b5f75a35dc89b8f593cabf99a297b3c6682f8f2fe7154e88eb1643c",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:c7dcaa241de8f8ab8fb27cb8ca9362c71b1ce6998502bca465af266b2a95af22",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:c11b2726e9f0a54bdf6acc63d10f7fa2f94d6ab5ebf1bf3210b1a16c258a229c",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:eff82c9dcf9968013db08377a847ec47278351c6de4722972962d137ac863f8d",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:ca8c3dabc8187ed5cd159ec071324fa24c3454f2f0ef3b6b0d7c87cd3ae51f9e",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:1333ec2034de175c002e097d29a7e8a9879855735ef4b4884c667f31997c6067",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:8dfcfb2c5d9a5fbe6355d0b1c53164c9460d1af340328575b1e49ea50fe31259",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:2fc15be451d3bf096a07abe1736951260ab58914d561a1e16a630468a2bfcf91",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:a894f784420a8202352f4309e5fe9d0621cd14f03b8d0956bc80e8484aa405a4",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:05feb8a149590ce179b23a4847ae5ee69c9ec2aa78e82d2079c2f2e316f246c8",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:c639c711e46b43dbbc4b5ae574a97d0f71eafb8409716a5c047705dc432f1801",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:0a4310f756454c34922b776d07a6fa06ff5177b2f21654b064f9b0a89da1d60c",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:5b9b627b60a01e363a098f0b27883a7bd9c64ac9d1ca6901e114c4e350b2dcb2",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:7f8a14b401e46b98df6f7a2caf05038e2610f6b0bb5fb03418cc48dfa39ab56c",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:b8f05a16f27560310ba5a8de61e0fdd7f03865667f49ee4305b041e27c69a618",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:13f32e26c800b257b0d161bf8e037b7a7f138da387e7540f651cadaad6abe1ab",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:38b89d31a1bde7eaab205def41c71707e040cbbc43066cbfc81ac5ee357df9da",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:e573a343fcc6e4c45ed30e29b12ae8cac8b421125fe7e27e192b6231e4114126",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:849fbcd1d5c020225ece5064c4b424995c0f52c797e2966992464c03d86f0e80",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:043616564235bb971a2367facf1d5e7fb01dbeb26146b22624ac4cd3d2a05378",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:aca8d7beceff6e2b54443053a5a17b67778bc87711c057f421a5382f78e21e59",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:c3df3074cc2efef47ae648e0a8a519eaf99c07dd40633d1b6699aacb92533cf7",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:bd999319aaba91cfea7fcbf5aa85f8ece605b6ce71822a0400ae4f5dee789610",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:0eceb397db6f49170428c3845fc4aa15054625bf9e8a92c95d500ca11bd07b3a",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:5aaec6402e9b1749523371ec39b0eb145260c0e9c8a3f5a8087317a97a0ed458",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:4e6f4c39cafb9f64970109d4890bb3e3efd4559f6e9c9688b0894255d9303558",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:d113b365a353720114adbad5eefe437f8b9bc9462e117dc711d327844ff67533",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:08a919d8270944cae8392ca3261ce65e56c1fbf75c874e86ca6c6f435ae88da9",
-      "disposition": "rejected",
-      "reason_class": "corrupt",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:d39a07517f1fba60c2f0f49951fdcce3b9dd92d7a882b1216c2fa5bef948bd55",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:03574aa75370d60295b758f790368388ddb9270d7c28014ee225f16124530af5",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:906f0d26425ac889bf548b0b832bf32420ff904d83e22d54b3be82c6d4c9bd49",
-      "disposition": "accepted",
-      "reason_class": null,
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:9bd4a43fc58cc0d228fb64bfc5f5643b0129b14d3e6d50e2aea8b4d7b78645c8",
-      "disposition": "deduplicated",
-      "reason_class": "near_duplicate",
-      "source_seconds": 120
-    },
-    {
-      "content_sha256": "sha256:e00b7da957d124b6ab83cf8e5662b914971b1cf3311ae13d65343eb4948d7195",
-      "disposition": "accepted",
-      "reason_class": null,
       "source_seconds": 120
     }
   ],
@@ -669,7 +863,7 @@
     "variable_rate_inputs_handled": 1
   },
   "degeneracy_findings": [],
-  "distinct_content_hash_count": 96,
+  "distinct_content_hash_count": 90,
   "does_not_claim_hours_scale_qualification": false,
   "does_not_claim_throughput_or_latency": true,
   "admitted_at": "2026-08-31T12:20:00Z",
@@ -677,5 +871,1692 @@
     "commitment_domain": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"
   },
   "authority_nonclaim": "media_corpus_qualification_census_grants_no_authority",
-  "content_hash": "sha256:72c5ce03afeae7a9a35fc23484b20f37c8c4a06b1d3d164fa730b9a86bde6d38"
+  "content_hash": "sha256:bb6e1ff7d7ac9630200ae4eb9388cb02334fd683e69b3e7262dfe08845c668d0",
+  "deduplication_policy": {
+    "exact_key_algorithm": "sha256",
+    "near_duplicate_method": "perceptual-block-mean-hamming-64",
+    "near_duplicate_threshold": 8
+  },
+  "distinct_payloads": [
+    {
+      "content_sha256": "sha256:636d6e6cbf54300ae96811c7104cfeed8d6260e0eb67e8bbbb225573821e20ca",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0000",
+      "instance_count": 2,
+      "byte_count": 65536,
+      "similarity_fingerprint": "283c9931e2fbaeb2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a0",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a83736c19e25fccd196ddafc9f38eabf9b5a12de6fc28b8c35ffaa736158c5fd",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0001",
+      "instance_count": 2,
+      "byte_count": 65536,
+      "similarity_fingerprint": "351e1fe4ba948d61",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a1",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:435d61dd04ef62715a11d66dcb0b8211f9f7a697d17f13999f6379a63c4a45df",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0002",
+      "instance_count": 2,
+      "byte_count": 65536,
+      "similarity_fingerprint": "9836fd304129769c",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a2",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:fade55bfa139f6e0daa355e2fadaa54ca98f8f4fe6558537d1114f1d406b4fc9",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0003",
+      "instance_count": 2,
+      "byte_count": 65536,
+      "similarity_fingerprint": "c702effc65a14755",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a3",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:182722ecd130905f59f78e3d2ae4283ed3ade99a5c93904491d66fdfa54e1044",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0004",
+      "instance_count": 2,
+      "byte_count": 65536,
+      "similarity_fingerprint": "5d4bce717de3a5aa",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a4",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:948de5f98050f436dba9efb148e4aa63d0139c5affdda9a429d515c00df71a8c",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0005",
+      "instance_count": 2,
+      "byte_count": 65536,
+      "similarity_fingerprint": "622673420b7df93e",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a5",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:2c21621def9093d716d3cea01e2f998fc94d07490ed7ee2e47647209140c6cc9",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0006",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "7d10daf16a180f10",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a6",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:2a41b15c652ae428586a02bac08a890f9f7d6bc4da1711a95f77a1d508be069f",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0007",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "6eca284dfd6fb72f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a7",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:dd6b12538c52a07f67dcab5c44a43f19fcee631d327d3bce5b018406620a72e4",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0008",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "30be9f16f578d3b5",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a8",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e6e08b146782160d425538effa1d36df5c8685f6f031525d6fe83f398ad6e7e0",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0009",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "eaed04a07239a9a6",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a9",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:55cec514b96a3032a235d9fffa10153f5f2e03355b5616139467741e50e22ce9",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0010",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "f3e6100ce095d353",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a10",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:ddda40c199e8aa1a62e3ba1be4d74e022be50a323c0f30f1c4da441d4bf9e540",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0011",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "d2b3210a1343943f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a11",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:c343f82ab6548827deb584f860edcb7ec052a8512e7cd6586e4e9e8c96041abd",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0012",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "f301e101c256603f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a12",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:07ac4534ff0edb744207683a16e323b95e6b2bc8d8cab8af3c5d029e604af094",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0013",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "04fdda171aca755b",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a13",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:1c827e34ec412aaa028e328a4b49558d0ea3a55ca350eddb69c1ce5ce1439dfd",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0014",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "4f2158cd65e16b62",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a14",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:7aeb67dc1cb54aa60e0ba7d6f461a3bcfefaeaf39c8cf2654541c52635726f8e",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0015",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "9fbcd8fdd54a429a",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a15",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:7ee1cfebaa045a3b83c634750efb4796c0ebafe767d58dd1fa3f73e42f424454",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0016",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "ff26011d74813737",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a16",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:f10ac5dd04cbfdfbb0e3fdbc508a6b9171e69a0a8faed7e4ed6de1275bade04a",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0017",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "988c242295873a90",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a17",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:c529e2b927bf1b16145821cd26a135e5205be0a721f39ceb94315de8015be7b5",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0018",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "4c29251756a22212",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a18",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e85e825b83ca8a541cd838c6b9fc40435c76f44c85d2a145ba252984a946a0b9",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0019",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "16da8649fb6dd6e2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a19",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a2508b5ebe3ba61b09d55b5951e43663fac5383bccb1e7ee1ba18480e1969d09",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0020",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "11074bb15518bb57",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a20",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:9e36e8100cc93e02ba0303b703732a3441b60cacc922f51d99c9a36bcdd0f39e",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0021",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "ea2db109f2c98b38",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a21",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:4d4e3e5bfa2c3526d40369ea9617b4729a2de678e069b0f9992718e2142be73c",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0022",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "481f21c714427bbb",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a22",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:986c1bae36509028380e32210272ca9caaff58ef0c610e1f70272902ffbf8d9b",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0023",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "0006c2954ca81199",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a23",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:081ea73033bce4441f28be4fc0acca451c0c41e32661ca1939598ce4934d84f4",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0024",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "eebe50ace200737f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a24",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:30a0b6b112878930a8fe80f84f35083bd8765c9b1642387446e815cffb483be1",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0025",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "d3f1787e9ce076be",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a25",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a3d35c06cde4f6e584f44f6dce5e2cb909062c703e6a3ab95f5fd77ecde0d216",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0026",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "1c971b77f0e4a9b1",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a26",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:c06a1671cf360b2a92590dcc8243f9c78047cdcaed45653f2f1ddaa5ff82b84f",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0027",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "1c3f9c377165531f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a27",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:99c116abf30f068505afb308e8153f9c1c4da504e7dce58ec65212c517140172",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0028",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "c6bcdba990598ae9",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a28",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:d39a05bb167c5e853b38772440ed05f85f21d696de18bf9be8f70dd354feea7f",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0029",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "6d9bbe6db73dc58e",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a29",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:ca38256eae291ad043039c1052cb689cf1e9c82bdb1aece5a1b6a746a6694942",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0030",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "928df5bbb2f4d1ba",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a30",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:6d2e9d13220570f1a877ec88d44c21274033cc51a16ea1161346c70b515b54f7",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0031",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "b7794685f3d1bcbd",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a31",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:97560ee2f61e9cd3c181db9ce853ab06db186f8ce89c777b51ec29ea2f15378b",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0032",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "7165e863b92df7f2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a32",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:983e31910d2a3e4b89b41a126cbaea5614f4bbe5f7263d0b80d99b17f5b3c446",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0033",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "311044d69cf7ddc5",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a33",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:f7e864b357c13819f7021eca170c19d6c072296ce28f3aad57cee4071a1df0ca",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0034",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "47edf89be154a11e",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a34",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:6619eb590c4089ba5e48aee8d4b2db77baa6bde921827fbe5ad2147184f87e75",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0035",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "01275e0092bfa6c0",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a35",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:2dfe0c016fa475f81f21a0be2055e6c514681142d8af6724ea999b408a6a5c87",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0036",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "f09a642fac4557e3",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a36",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a27f54a998a2d501e5035377200e53bfa0b040386cbbd052072274889db84a6b",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0037",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "16d7fcc18a72f5fe",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a37",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e23ce0925d51be14024e9d9fdbe1f5d14003a12d5efd177cea7ef64c9af6d53f",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0038",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "60a937e7e2f42968",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a38",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:8e31a4574b98d72b9c3066d8005ef12d7265489f79f5cb9d64bdbea38a76d9fa",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0039",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "2ca58c184a83c1c2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a39",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:b2674008fa388629c426386bff488bd6d066d8749a778839550e8b9e1bd45e73",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0040",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "250a018a4af630f2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a40",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:467f0c2d9e4e99dd62eef36285cb69415e95e9a0a94182c451f120703c759b1f",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0041",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "d99aa87cbcd9e3c8",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a41",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:b9a1a7ef76c54048076b70383121185828ef451271d3263cae5d2f8ff9094dca",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0042",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "8e723568e3b9b67a",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a42",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:8971a5bb80936225abf59ebf43fcea1fa39118505868720864a1d87052468782",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0043",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "b18d1aeda943d4cb",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a43",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a53e65991940184280134ff3556fbc53a936a44bc137f17be905202fee71d531",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0044",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "0b67fa56d2f47f46",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a44",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:da6aea1a05b14f5230cc359d509e4fef822a00ed31213fe9dc652795cc801e51",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0045",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "a5393ffbcef9769f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a45",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:c6398dca1cbbb7554ed2234181385dc6442861cac3fa2a87083e1d315e276bb4",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0046",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "127aea251c0ff29c",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a46",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:0de047661ba3c593bfd8863e74a64e84bbb28bee30c145a6879b23ade87e471e",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0047",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "dcdb36f72f6378d6",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a47",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e054d24f446de273f41ece46c9f5f86cc802e0dc1de76ae5b917b90c66e73713",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0048",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "09c58c8ee8a84395",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a48",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:3448768bcc201d096db14a37120c8169ea2b86804292b882e1b94a898008c8c2",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0049",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "c3f79d6ac2c4c4a5",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a49",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:545ae73006421c44dc08c6916cfd2d02109a0943d81061c60b20601e963af4c6",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0050",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "e9e6a610b3418f7c",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a50",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:114e9513d0e6d5d850ae01ec944f15e83e15e948aa78117454c801c28adf9c7d",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0051",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "2af44d54a9bb7bd1",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a51",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:d83dd3ff4b4d335e4d48c234d69240c532119ed1a78f694e6525d0bf382981f2",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0052",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "26dd30c4d3d0bf6d",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a52",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:37c068c82e661313bd0774238890fbaff37acf60b69c2344b28e82e28877c5c4",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0053",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "f6cb3df58715d0bc",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a53",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:3dbedee9044fd5407051694e395a679138557ee0b5d77ab852c76579817e45db",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0054",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "aaf5bd81de336d2f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a54",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e273c81f0d7024a4479e04664fd54c896ca173fea4094623faa3bc19a36a723e",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0055",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "5466e76adda1543b",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a55",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:d2a5b51e63d084732822b86d57dd06f4f18ca592e76cb2aef9b82110d38f2607",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0056",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "ec329be469c4dcdd",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a56",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e1fc2e679d732f9789536ee02149ab27225d19a0176fa722099cfc1826ffec88",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0057",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "0700826c8d192fe3",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a57",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:89a731b507697f4c5eeb36ac20448dfcb263f5243aef1c02c8df9d0a96d11fcc",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0058",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "c3759104b238fb50",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a58",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:1419d56c8ce25add328c9d53d776aa618aaf0f05bb12007eeb22574c3c16fb45",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0059",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "581c4340119ea116",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a59",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e083316477aef3ab84097c7c696801b9e2698d47c68ec2cd07a76f4cd5445fd5",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0060",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "604b74d82806b4ae",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a60",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:7e706f2ab7f85bc338cf34819f094359de4c540535dd4e52da58884093eb9525",
+      "canonical_source_file_ref": "media-file://acme.desk/accepted/0061",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "aedc7371fde25c08",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a61",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:eae684227d6f22cac2261a9fb8df2ff26baa66f37516bddd3112a589fab349d1",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0000",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "293cb931e2fbaeb2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a0",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          7,
+          18
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:3bac5f163df962d2816402bd4fc59c2b4700c34929877007005d238baf0be814",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0001",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "351c1fa4b2948d61",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a1",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          14,
+          25,
+          36
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:2243a816b6042ae0a8ca53d9819a7360bf04d72e42a2460034a29f5d4e0c0310",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0002",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "9836f930c139749c",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a2",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          21,
+          32,
+          43,
+          54
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:3d1a01cfcd649e4e66ee353e600b0d52ff09154ac07c3dae17b2f5f7ba323946",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0003",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "c782eff464a16751",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a3",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          8,
+          28,
+          39,
+          50,
+          61
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:842438437e96371348e4a59b56d7af4cf7c8c9b642d8157d57f84c595bdb54d6",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0004",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "554ace516de1a5ea",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a4",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          4,
+          15,
+          26,
+          35,
+          46,
+          57
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:36ff5387d32c6b635597cfe833d2b5a2242c9fb980869c133e1a6bafb5207b7d",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0005",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "e23671424b55fd3e",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a5",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          0,
+          11,
+          22,
+          33,
+          42,
+          44,
+          53
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:81aa2fad9d0a0230b343b5b74977e08884674b0327cb79ac932df8808472fb70",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0006",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "7c10faf56a985f1a",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a6",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          7,
+          18,
+          29,
+          40,
+          49,
+          51,
+          60,
+          62
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:46fb7ca677f2a550c38a44bd6e62b54d67efe32cc0122be54c4196a79ac9f065",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0007",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "6eca284dfd6fb7af",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a7",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          56
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:903a43489d15e93acbb270df5d6aae61374091c59716ff3ea28f80496f60fdd7",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0008",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "309e9f16f578d3b4",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a8",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          10,
+          63
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:cbe82a53edc758201ad4ad50b0cf789f1e139fed99ed75366dde4bdd8dfe2e9d",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0009",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "e8ed44a87239a9a6",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a9",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          6,
+          17,
+          28
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:11cc144b7262bbb669a2fc94902a8eecb5654ec4b8f2d0e62b5a194e92dc1f0c",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0010",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "f3e2108cf097d353",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a10",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          13,
+          24,
+          35,
+          46
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:22ffac02aedef7889fdc71d4aa0d651f41d0b29423412d1c57b9be67dc3f6e37",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0011",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "52b3290b1363903f",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a11",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          0,
+          20,
+          31,
+          42,
+          53
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:09c7b2f00db71fed1d285c82dee9fd403ffb05334f107312161cfd21e6a9df3c",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0012",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "f201c111c0562037",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a12",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          7,
+          18,
+          27,
+          38,
+          49,
+          60
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:1262d0a8bc30ee2af7e3e9c4761ab688aa94d127a3ee9d9a80d8918b9558c9be",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0013",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "14ffda5732ce75db",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a13",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          3,
+          14,
+          25,
+          34,
+          36,
+          45,
+          56
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:c7bc542a52934cce61722ed0864ef02d3ca48d4b92e9bf8f14b3f7e41e4a0241",
+      "canonical_source_file_ref": "media-file://acme.desk/near/0014",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "4f015ccde5b16163",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:a14",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": [
+          10,
+          21,
+          32,
+          41,
+          43,
+          52,
+          54,
+          63
+        ]
+      }
+    },
+    {
+      "content_sha256": "sha256:35a4ef466adb431372d5a313e189e1617422b42aeba9a1b906ac63998197e08a",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0000",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "8ae75b0c3558bbe2",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r0",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a3eaa9da3397626138418554b7ba8ac36d876683a31dc522ec302739e9c01fcf",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0001",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "0905b707d56f2a00",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r1",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:1296794867552482834f8c580918f38af1ffb3f4000bd9c32b1c42c3ae61ea04",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0002",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "abf4f70541999c73",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r2",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:d1fc47811ee968330499bd189ed922aa5aa50a7cba58dcffd450e3cdbac5e577",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0003",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "fc430c42e92bb397",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r3",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:6e194120706a7251329e5d2cfc07cc36a72466dbd9ecb23c2e075bc2c25881b8",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0004",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "6d4310d60b3edacb",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r4",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:5fd2ae6773110dc5baed742c386894a126253adabee73db20d04f1a55168f0a4",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0005",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "1887348c50066008",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r5",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:6869a5aa33253806e53291619cb017ed9a4ef7234d477caa06b28a7745157cd1",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0006",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "0123f1e8e99299a5",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r6",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:3b920a3c6f853d9f663342ccd4e0a175f39576a1f89f79b54bf05435c9740412",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0007",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "8cd1db57e5fd4cea",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r7",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:13551f48fa7447cc2922b0e96583f07d31f4807529eb9de15c231f99c91285cd",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0008",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "75e6ef594f7dbd24",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r8",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:6bff67a5083a8be09391848b1741ad68fd78a569904502775f0aa15948d00cd2",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0009",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "c53789f897722ef8",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r9",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:a165b6dd80d55054dcbce7c46678b8506a3400e37d2eac1637fc0592130b23c7",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0010",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "20e6e161df5c045e",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r10",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:1a1b019fc060036627c0db3df776c00bc00b717c7787d3bcb94ac3ae0bfd0aa4",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0011",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "97564575e5c3ccbd",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r11",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    },
+    {
+      "content_sha256": "sha256:e37067e884288dcd643246a5e3cd554643e1e2fcb4fec462f06c58d18a156375",
+      "canonical_source_file_ref": "media-file://acme.desk/rejected/0012",
+      "instance_count": 1,
+      "byte_count": 65536,
+      "similarity_fingerprint": "1f66c7d70e2f2dfb",
+      "payload_recipe": {
+        "recipe_method": "ioi.m059.two-level-block-payload.v1",
+        "seed_tag": "acme.desk:r12",
+        "block_count": 64,
+        "block_width_bytes": 1024,
+        "low_level": 40,
+        "high_level": 210,
+        "flipped_blocks": []
+      }
+    }
+  ],
+  "near_duplicate_exclusions": [
+    {
+      "source_file_ref": "media-file://acme.desk/near/0000",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0000",
+      "cluster_id": "cluster-00",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "293cb931e2fbaeb2",
+      "retained_similarity_fingerprint": "283c9931e2fbaeb2",
+      "distance": 2,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0001",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0001",
+      "cluster_id": "cluster-01",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "351c1fa4b2948d61",
+      "retained_similarity_fingerprint": "351e1fe4ba948d61",
+      "distance": 3,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0002",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0002",
+      "cluster_id": "cluster-02",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "9836f930c139749c",
+      "retained_similarity_fingerprint": "9836fd304129769c",
+      "distance": 4,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0003",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0003",
+      "cluster_id": "cluster-03",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "c782eff464a16751",
+      "retained_similarity_fingerprint": "c702effc65a14755",
+      "distance": 5,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0004",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0004",
+      "cluster_id": "cluster-04",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "554ace516de1a5ea",
+      "retained_similarity_fingerprint": "5d4bce717de3a5aa",
+      "distance": 6,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0005",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0005",
+      "cluster_id": "cluster-00",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "e23671424b55fd3e",
+      "retained_similarity_fingerprint": "622673420b7df93e",
+      "distance": 7,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0006",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0006",
+      "cluster_id": "cluster-01",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "7c10faf56a985f1a",
+      "retained_similarity_fingerprint": "7d10daf16a180f10",
+      "distance": 8,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0007",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0007",
+      "cluster_id": "cluster-02",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "6eca284dfd6fb7af",
+      "retained_similarity_fingerprint": "6eca284dfd6fb72f",
+      "distance": 1,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0008",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0008",
+      "cluster_id": "cluster-03",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "309e9f16f578d3b4",
+      "retained_similarity_fingerprint": "30be9f16f578d3b5",
+      "distance": 2,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0009",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0009",
+      "cluster_id": "cluster-04",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "e8ed44a87239a9a6",
+      "retained_similarity_fingerprint": "eaed04a07239a9a6",
+      "distance": 3,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0010",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0010",
+      "cluster_id": "cluster-00",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "f3e2108cf097d353",
+      "retained_similarity_fingerprint": "f3e6100ce095d353",
+      "distance": 4,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0011",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0011",
+      "cluster_id": "cluster-01",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "52b3290b1363903f",
+      "retained_similarity_fingerprint": "d2b3210a1343943f",
+      "distance": 5,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0012",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0012",
+      "cluster_id": "cluster-02",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "f201c111c0562037",
+      "retained_similarity_fingerprint": "f301e101c256603f",
+      "distance": 6,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0013",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0013",
+      "cluster_id": "cluster-03",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "14ffda5732ce75db",
+      "retained_similarity_fingerprint": "04fdda171aca755b",
+      "distance": 7,
+      "threshold": 8
+    },
+    {
+      "source_file_ref": "media-file://acme.desk/near/0014",
+      "retained_source_file_ref": "media-file://acme.desk/accepted/0014",
+      "cluster_id": "cluster-04",
+      "similarity_method": "perceptual-block-mean-hamming-64",
+      "similarity_fingerprint": "4f015ccde5b16163",
+      "retained_similarity_fingerprint": "4f2158cd65e16b62",
+      "distance": 8,
+      "threshold": 8
+    }
+  ],
+  "payload_custody": "deterministic_recipe",
+  "does_not_claim_custody_of_imported_media_bytes": true
 }

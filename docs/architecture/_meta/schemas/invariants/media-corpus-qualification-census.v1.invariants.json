@@ -24,7 +24,12 @@
           "accepted": { "path": "$.accepted" },
           "rejected": { "path": "$.rejected" },
           "deduplicated": { "path": "$.deduplicated" },
+          "deduplication_policy": { "path": "$.deduplication_policy" },
+          "payload_custody": { "path": "$.payload_custody" },
+          "does_not_claim_custody_of_imported_media_bytes": { "path": "$.does_not_claim_custody_of_imported_media_bytes" },
           "file_dispositions": { "path": "$.file_dispositions" },
+          "distinct_payloads": { "path": "$.distinct_payloads" },
+          "near_duplicate_exclusions": { "path": "$.near_duplicate_exclusions" },
           "profile_required_label_classes": { "path": "$.profile_required_label_classes" },
           "observed_label_classes": { "path": "$.observed_label_classes" },
           "floors": { "path": "$.floors" },
@@ -52,12 +57,80 @@
       }
     },
     {
-      "rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct",
-      "description": "PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5). A repeated content digest in the disposition rows is a corpus inflating its own census by restating the same bytes.",
+      "rule_id": "media_corpus_qualification_census.degeneracy.every_raw_source_identity_is_distinct",
+      "description": "PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5) — BUT THE KEY IS IDENTITY, NOT CONTENT. A repeated `source_file_ref` is one source instance counted twice, and that is the padding this rule exists to refuse. Keying it on `content_sha256`, as the first version did, refused something else entirely: two DISTINCT source files whose bytes are byte-identical. That is not padding, it is the exact duplication the corpus is supposed to DETECT and exclude — so the old rule made `exact_duplicate` unreachable and left content-addressed deduplication unproven while appearing to police it.",
       "expression": {
         "operator": "array_unique_by_fields",
         "array_path": "$.file_dispositions",
+        "fields": ["source_file_ref"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.degeneracy.every_distinct_payload_is_listed_once",
+      "description": "The payload table is a SET. A digest listed twice would let one payload claim two canonical instances, which is how a corpus would smuggle a second accepted copy of the same bytes past the exact-duplicate rule.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.distinct_payloads",
         "fields": ["content_sha256"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.content_addressing.the_root_commits_the_disposition_rows",
+      "description": "THE CORPUS ROOT IS RECOMPUTED, NOT ACCEPTED. `corpus_content_root` is committed over the complete canonical disposition rows, the distinct-payload table, the near-duplicate exclusions and all four count blocks under its own domain separator, so the census IS its corpus rather than a claim about one. Before this rule the root was an unbacked 64-hex string: any value satisfied the pattern, two different corpora could file the same root, and one corpus could file two different ones without either being detectable offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.corpus_content_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": { "value": "ioi.media-corpus-content-root-jcs-sha256.v1" },
+          "file_dispositions": { "path": "$.file_dispositions" },
+          "distinct_payloads": { "path": "$.distinct_payloads" },
+          "near_duplicate_exclusions": { "path": "$.near_duplicate_exclusions" },
+          "deduplication_policy": { "path": "$.deduplication_policy" },
+          "raw": { "path": "$.raw" },
+          "accepted": { "path": "$.accepted" },
+          "rejected": { "path": "$.rejected" },
+          "deduplicated": { "path": "$.deduplicated" }
+        }
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_method",
+      "description": "Every near-duplicate exclusion names the method the census declared up front. An exclusion free to name its own method could justify any judgement after the fact, which is the difference between evidence and assertion.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.near_duplicate_exclusions",
+        "field": "similarity_method",
+        "expected_path": "$.deduplication_policy.near_duplicate_method"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_threshold",
+      "description": "Every exclusion is judged against the threshold the census declared, not one chosen per row. A per-row threshold is threshold shopping: any distance becomes admissible by raising the bar beside it.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.near_duplicate_exclusions",
+        "field": "threshold",
+        "expected_path": "$.deduplication_policy.near_duplicate_threshold"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.every_near_duplicate_exclusion_is_distinct",
+      "description": "One excluded source instance, one exclusion row. Listing an instance twice would inflate the excluded count without excluding anything.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.near_duplicate_exclusions",
+        "fields": ["source_file_ref"]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.the_near_duplicate_exclusion_count_closes",
+      "description": "The enumerated exclusions are checked against the declared near-duplicate count, so a census cannot report more near-duplicate exclusion than it can show rows for.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.near_duplicate_exclusions",
+        "count_path": "$.deduplicated.near_duplicate_file_count"
       }
     },
     {
@@ -95,11 +168,11 @@
       }
     },
     {
-      "rule_id": "media_corpus_qualification_census.degeneracy.distinct_content_matches_the_disposition_rows",
-      "description": "The declared distinct-digest count is checked against the enumerated rows. Two independent statements about one set is what stops a repeated file being absorbed into a count nobody cross-checks.",
+      "rule_id": "media_corpus_qualification_census.degeneracy.distinct_payload_count_matches_the_payload_rows",
+      "description": "The declared distinct-digest count is checked against the enumerated DISTINCT PAYLOADS. Checking it against `file_dispositions`, as the first version did, made the two numbers equal BY CONSTRUCTION — the row-uniqueness rule already forced one digest per row — so the count could never disagree and the check proved nothing it did not assume. Against `distinct_payloads` it is a real second statement about the set: it falls below `raw.file_count` exactly when the corpus carried exact duplicates.",
       "expression": {
         "operator": "array_length_equals",
-        "array_path": "$.file_dispositions",
+        "array_path": "$.distinct_payloads",
         "count_path": "$.distinct_content_hash_count"
       }
     },

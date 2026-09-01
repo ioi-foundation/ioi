@@ -601,7 +601,7 @@ fn lease_stream_tail(lease_tail: &str) -> String {
 }
 
 /// Read a lease's current admitted state: the payload of its head transition.
-fn admitted_lease(
+pub(crate) fn admitted_lease(
     st: &DaemonState,
     owner_namespace: &str,
     lease_tail: &str,

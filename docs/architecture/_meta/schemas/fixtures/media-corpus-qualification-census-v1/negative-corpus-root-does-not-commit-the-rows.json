@@ -1,6 +1,6 @@
 {
   "schema_version": "ioi.media-corpus-qualification-census.v1",
-  "corpus_census_id": "corpus-census://acme.desk/d71d5929c4c95a96491331262a61b68b0a923614c21f57f67a3a54a3863c9ffd",
+  "corpus_census_id": "corpus-census://acme.desk/cc697a6583013185bce6be6c1cd39ed42cb0285ea78ae087a59ba4a568ce5d10",
   "owner_ref": "org://acme",
   "tenant_ref": "tenant://acme",
   "principal_resolution": "server_resolved",
@@ -94,7 +94,7 @@
     {
       "source_file_ref": "media-file://acme.desk/accepted/0005",
       "content_sha256": "sha256:948de5f98050f436dba9efb148e4aa63d0139c5affdda9a429d515c00df71a8c",
-      "byte_count": 65536,
+      "byte_count": 65537,
       "disposition": "accepted",
       "reason_class": null,
       "source_seconds": 120
@@ -197,7 +197,7 @@
     "commitment_domain": "ioi.media-corpus-qualification-census-content-commitment-jcs-sha256.v1"
   },
   "authority_nonclaim": "media_corpus_qualification_census_grants_no_authority",
-  "content_hash": "sha256:b3a8ed159a024c7aadf3cccdcedd53836e7a70d6fdaae7252df94871e97e2b5a",
+  "content_hash": "sha256:854f9c5bbfba95d31b950b5d8ed427343cfc87268be014f263707ceb4e09e0eb",
   "deduplication_policy": {
     "exact_key_algorithm": "sha256",
     "near_duplicate_method": "perceptual-block-mean-hamming-64",

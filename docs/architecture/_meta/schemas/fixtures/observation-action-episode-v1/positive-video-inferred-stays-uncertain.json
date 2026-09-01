@@ -2,10 +2,10 @@
   "schema_version": "ioi.observation-action-episode.v1",
   "episode_id": "episode://acme.desk-inferred",
   "revision_ref": "episode://acme.desk-inferred/revision/1",
-  "owner_ref": "owner://acme",
+  "owner_ref": "org://acme",
   "tenant_ref": "tenant://acme",
   "principal_resolution": "server_resolved",
-  "resolved_principal_ref": "principal://acme.capture-operator",
+  "resolved_principal_ref": "worker://acme.capture-operator",
   "media_snapshot_revision_ref": "media-snapshot://acme.support-desk/revision/1",
   "media_snapshot_content_hash": "sha256:d838c093cc8bfd59c51741b3007e0af3ac00abe02fe1efeac0a5dab557e48909",
   "session_ref": "session://acme.desk-2026-08-31-a",
@@ -82,5 +82,5 @@
   "authority_nonclaim": "observation_action_episode_grants_no_authority",
   "inferred_label_is_never_ground_truth": true,
   "episode_is_not_a_skill_or_workflow": true,
-  "content_hash": "sha256:f005e1e6aa4e628c70132cbccef6c3376404248b72c28f3fcccc7e05abdc4dac"
+  "content_hash": "sha256:e6aac77c9e33beb2669b91ad3278f0cc069389816e938c0a9265f74064c9830c"
 }

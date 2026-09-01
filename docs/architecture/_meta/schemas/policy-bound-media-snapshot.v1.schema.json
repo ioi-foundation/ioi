@@ -14,10 +14,10 @@
     "claimRevisionRef": { "type": "string", "pattern": "^learning-source-rights://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
     "dataRecipeRevisionRef": { "type": "string", "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
     "mappingRevisionRef": { "type": "string", "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
-    "runRevisionRef": { "type": "string", "pattern": "^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$" },
-    "ownerRef": { "type": "string", "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$" },
-    "tenantRef": { "type": "string", "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$" },
-    "principalRef": { "type": "string", "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$" },
+    "transformationRunRef": { "type": "string", "pattern": "^transform://trun_[0-9a-f]{32}$", "description": "M05.7's registered TransformationRun identity, verbatim. A run has ONE content-derived identity and NO revision family: `trun_<32hex>` is the digest of the run's own basis, so there is no `/revision/<n>` segment to bind and no later ordinal that could silently succeed this one. The name deliberately carries no `Revision` component, because a name that implied one would promise a family M05.7 never registered and would invite a reader to look for a head that does not exist." },
+    "ownerRef": { "type": "string", "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
+    "tenantRef": { "type": "string", "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "principalRef": { "type": "string", "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$" },
     "canonicalTimestamp": { "type": "string", "format": "date-time", "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$" },
     "refList": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 320 }, "maxItems": 256 },
     "tickCount": { "type": "integer", "minimum": 0, "maximum": 1000000000000 }
@@ -261,12 +261,12 @@
     "source_impact_lineage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["data_recipe_revision_refs", "connector_mapping_revision_refs", "transformation_run_revision_refs"],
-      "description": "Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.",
+      "required": ["data_recipe_revision_refs", "connector_mapping_revision_refs", "transformation_run_refs"],
+      "description": "Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched. Recipes and mappings ARE revisioned, so those two carry `/revision/<n>` refs and are named for it; a TransformationRun is not, so it is named `transformation_run_refs` — the asymmetry in the names is the asymmetry in the identities, not an oversight.",
       "properties": {
         "data_recipe_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/dataRecipeRevisionRef" }, "maxItems": 128 },
         "connector_mapping_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/mappingRevisionRef" }, "maxItems": 128 },
-        "transformation_run_revision_refs": { "type": "array", "items": { "$ref": "#/$defs/runRevisionRef" }, "maxItems": 128 }
+        "transformation_run_refs": { "type": "array", "items": { "$ref": "#/$defs/transformationRunRef" }, "maxItems": 128 }
       }
     },
     "raw_census": {

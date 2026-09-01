@@ -46,7 +46,16 @@ use super::{persist_record, DaemonState};
 const RETENTION_NAMESPACE: &str = "hypervisor-retention";
 const KIND_DISPOSITION: &str = "retention-dispositions";
 const SCHEMA_VERSION: &str = "ioi.foundations.data_retention_disposition.v1";
-const SUBJECT_KINDS: &[&str] = &["managed_backup_export", "environment_workspace_capture"];
+/// M05.9 adds `policy_bound_media_snapshot` as a THIRD subject kind rather than a second retention
+/// plane: a media corpus is retained and erased through the retention disposition family that
+/// already exists, and the erasure's consequences are read through the snapshot family's own
+/// impact seam. A bespoke media-retention object would be a second vocabulary for an obligation
+/// this contract already types.
+const SUBJECT_KINDS: &[&str] = &[
+    "managed_backup_export",
+    "environment_workspace_capture",
+    "policy_bound_media_snapshot",
+];
 const SUBJECT_KIND_MANAGED_BACKUP: &str = "managed_backup_export";
 const SUBJECT_KIND_ENVIRONMENT_CAPTURE: &str = "environment_workspace_capture";
 

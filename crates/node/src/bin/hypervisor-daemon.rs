@@ -148,6 +148,8 @@ mod ontology_projection_routes;
 mod ontology_version_routes;
 #[path = "hypervisor_daemon_routes/ontology_workbench_routes.rs"]
 mod ontology_workbench_routes;
+#[path = "hypervisor_daemon_routes/media_trajectory_dataset_routes.rs"]
+mod media_trajectory_dataset_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
 #[path = "hypervisor_daemon_routes/operations_support_routes.rs"]
@@ -1755,6 +1757,33 @@ async fn async_main() -> anyhow::Result<()> {
                 policy_bound_data_view_revision_routes::handle_policy_bound_data_view_materialization_query,
             )
             .post(policy_bound_data_view_revision_routes::handle_policy_bound_data_view_materialize),
+        )
+        // M05.9: the four Data-owned media/demonstration/trajectory families. Each rides the same
+        // owner-namespaced Agentgres chain; none of them mints authority, owns a Session, or writes
+        // work-lifecycle state.
+        .route(
+            "/v1/hypervisor/media-snapshot-revisions",
+            get(media_trajectory_dataset_routes::handle_media_snapshot_query)
+                .post(media_trajectory_dataset_routes::handle_media_snapshot_admit),
+        )
+        .route(
+            "/v1/hypervisor/media-snapshot-revisions/erasure-impact",
+            get(media_trajectory_dataset_routes::handle_media_snapshot_erasure_impact),
+        )
+        .route(
+            "/v1/hypervisor/observation-action-episode-revisions",
+            get(media_trajectory_dataset_routes::handle_episode_query)
+                .post(media_trajectory_dataset_routes::handle_episode_admit),
+        )
+        .route(
+            "/v1/hypervisor/dataset-split-manifest-revisions",
+            get(media_trajectory_dataset_routes::handle_split_manifest_query)
+                .post(media_trajectory_dataset_routes::handle_split_manifest_admit),
+        )
+        .route(
+            "/v1/hypervisor/media-corpus-censuses",
+            get(media_trajectory_dataset_routes::handle_corpus_census_query)
+                .post(media_trajectory_dataset_routes::handle_corpus_census_admit),
         )
         // WS-D: harness session binding admission.
         .route(

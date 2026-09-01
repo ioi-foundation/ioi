@@ -11180,7 +11180,7 @@ export type PolicyBoundMediaSnapshotV1 = {
   source_impact_lineage: {
       data_recipe_revision_refs: Array<string>;
       connector_mapping_revision_refs: Array<string>;
-      transformation_run_revision_refs: Array<string>;
+      transformation_run_refs: Array<string>;
     };
   raw_census: {
       source_seconds: number;
@@ -11383,12 +11383,49 @@ export type MediaCorpusQualificationCensusV1 = {
       frame_or_sample_count: number;
       chunk_count: number;
       reason_classes: Array<"corrupt" | "truncated" | "variable_rate" | "padded" | "repeated" | "out_of_rights" | "quarantined" | "near_duplicate" | "exact_duplicate" | "below_quality_floor">;
+      exact_duplicate_file_count: number;
+      near_duplicate_file_count: number;
     };
+  deduplication_policy: {
+      exact_key_algorithm: "sha256";
+      near_duplicate_method: "perceptual-block-mean-hamming-64";
+      near_duplicate_threshold: number;
+    };
+  payload_custody: "deterministic_recipe";
+  does_not_claim_custody_of_imported_media_bytes: true;
   file_dispositions: Array<{
+        source_file_ref: string;
         content_sha256: string;
+        byte_count: number;
         disposition: "accepted" | "rejected" | "deduplicated";
         reason_class: "corrupt" | "truncated" | "variable_rate" | "padded" | "repeated" | "out_of_rights" | "quarantined" | "near_duplicate" | "exact_duplicate" | "below_quality_floor" | null;
         source_seconds: number;
+      }>;
+  distinct_payloads: Array<{
+        content_sha256: string;
+        canonical_source_file_ref: string;
+        instance_count: number;
+        byte_count: number;
+        similarity_fingerprint: string;
+        payload_recipe: {
+                recipe_method: "ioi.m059.two-level-block-payload.v1";
+                seed_tag: string;
+                block_count: 64;
+                block_width_bytes: number;
+                low_level: number;
+                high_level: number;
+                flipped_blocks: Array<number>;
+              };
+      }>;
+  near_duplicate_exclusions: Array<{
+        source_file_ref: string;
+        retained_source_file_ref: string;
+        cluster_id: string;
+        similarity_method: string;
+        similarity_fingerprint: string;
+        retained_similarity_fingerprint: string;
+        distance: number;
+        threshold: number;
       }>;
   profile_required_label_classes: Array<string>;
   observed_label_classes: Array<string>;
@@ -21346,7 +21383,63 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected": "reject",
     "expected_schema_accept": true,
     "expected_failure": "invariant",
-    "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct"
+    "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_raw_source_identity_is_distinct"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-payload-listed-twice-in-the-distinct-set.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.degeneracy.every_distinct_payload_is_listed_once"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-distinct-payload-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.degeneracy.distinct_payload_count_matches_the_payload_rows"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-root-does-not-commit-the-rows.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.content_addressing.the_root_commits_the_disposition_rows"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-uses-an-undeclared-method.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_method"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-raises-its-own-threshold.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_threshold"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-listed-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.deduplication.every_near_duplicate_exclusion_is_distinct"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-count-drift.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "media_corpus_qualification_census.deduplication.the_near_duplicate_exclusion_count_closes"
   },
   {
     "contract_id": "schema://ioi/foundations/objects/media-corpus-qualification-census/v1",
@@ -25286,6 +25379,13 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-restart-equivalence-not-asserted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-raw-file-without-a-disposition.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-repeated-file-passes-as-distinct.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-payload-listed-twice-in-the-distinct-set.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-payload-listed-twice-in-the-distinct-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-distinct-payload-count-drift.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-distinct-payload-count-drift.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-root-does-not-commit-the-rows.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-corpus-root-does-not-commit-the-rows.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-uses-an-undeclared-method.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-uses-an-undeclared-method.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-raises-its-own-threshold.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-raises-its-own-threshold.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-listed-twice.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-listed-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-count-drift.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-near-duplicate-exclusion-count-drift.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-required-label-class-not-observed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-deduplication-increases-accepted-time.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json","contract_id":"schema://ioi/foundations/objects/media-corpus-qualification-census/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/media-corpus-qualification-census-v1/negative-accepted-time-exceeds-raw-time.json","mutation_id":null,"value_json":null}),
@@ -25747,6 +25847,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
+  "^[0-9a-f]{16}$",
   "^[0-9a-f]{40}$",
   "^[0-9a-f]{64}$",
   "^[A-Z]{3}$",
@@ -25755,6 +25856,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}[.]json$",
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$",
+  "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$",
   "^[A-Za-z0-9_-]+$",
   "^[A-Za-z0-9_-]{43,256}$",
   "^[A-Za-z0-9_-]{43}$",
@@ -25767,6 +25869,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z0-9][a-z0-9-]{0,62}$",
   "^[a-z0-9][a-z0-9._-]*$",
   "^[a-z0-9][a-z0-9._-]{0,127}$",
+  "^[a-z0-9][a-z0-9._-]{0,63}$",
   "^[a-z0-9][a-z0-9._-]{0,95}$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
@@ -26047,6 +26150,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^mcp-profile://[^\\s]{1,240}$",
   "^measurement-policy://[^\\s]{1,248}$",
+  "^media-file://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}$",
   "^media-snapshot://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^membership-transition://[^\\s]{1,248}$",
@@ -26104,7 +26208,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^org://\\S+$",
   "^outcome-delta://[^\\s]{1,500}$",
   "^outcome-room://[^\\s]{1,500}$",
-  "^owner://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^pacc_[0-9a-f]{16}$",
   "^package-binding://\\S*$",
   "^package://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
@@ -26137,7 +26240,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^prim:[a-z0-9._-]+$",
   "^prim:[a-z][a-z0-9._-]*$",
   "^prim:[a-z][a-z0-9._-]{0,127}$",
-  "^principal://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^privacy:[^\\s]{1,200}$",
   "^profile://[^\\s]{1,240}$",
   "^profile://[^\\s]{1,248}$",
@@ -26295,7 +26397,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^temporal-evaluation://[^\\s]{1,248}$",
   "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$",
   "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
-  "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$",
   "^terms://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,500}$",
   "^tool://[A-Za-z0-9._~/-]{1,200}$",
@@ -26305,7 +26406,6 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^trainpipe://[^\\s]{1,500}$",
   "^transform://trun_[0-9a-f]{32}$",
-  "^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^transformation-run://trun_[0-9a-f]{12,32}$",
   "^transition://[^\\s]{1,248}$",
   "^transition://state-transition/sha256:[0-9a-f]{64}$",
@@ -26605,10 +26705,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/model-route-rights-contract/v1": "sha256:c3be645b42c6bfa6751613faa1fe5c5fa697db63c147d8d5ce7c043f4180b91a",
   "schema://ioi/foundations/objects/policy-bound-data-view/v1": "sha256:f1db8ff95f3c0cc10c7c6da1154bf9224c906161ed1eced95ba810ad91c0d640",
   "schema://ioi/foundations/objects/policy-bound-data-view/v2": "sha256:ae0c53473b1a4d1d6b79d71bf9e3202f1f768577463c47538e7177f26c9d73af",
-  "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1": "sha256:8f48224adf5c8c43731ef9336c6eb7f546ecd3da33bbc2870917bda0de7e7a97",
-  "schema://ioi/foundations/objects/observation-action-episode/v1": "sha256:6dd128b648e3c4728244e5609813b972f987adf7591373b5a0af63b85df52737",
-  "schema://ioi/foundations/objects/dataset-split-manifest/v1": "sha256:d3e159c13c73b9245806150204232357e0cfd50c210c42d95fe1bc90738fdf2a",
-  "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": "sha256:22777f1796a8434850fc844071aef54588331eb8c09e6b8497118b1e63ad8eb1"
+  "schema://ioi/foundations/objects/policy-bound-media-snapshot/v1": "sha256:0cc11075e344e562fd240a7405dcc95db4eaf52f225ee1a2daa4dd1c5dc3987e",
+  "schema://ioi/foundations/objects/observation-action-episode/v1": "sha256:7df64e2ede4bbbbe15654b8eb03ac8c464fba8491149a017b5ee3ae4dde8133b",
+  "schema://ioi/foundations/objects/dataset-split-manifest/v1": "sha256:18172276af0aa49fe45389817839b6e238e84081e84cfbb419ef53bc4256397b",
+  "schema://ioi/foundations/objects/media-corpus-qualification-census/v1": "sha256:175805eb63f09cbde5e976c4c35e4f44430ba8e7dae9ecc146b38522c6dafa64"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -112768,21 +112868,22 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "pattern": "^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
       },
-      "runRevisionRef": {
+      "transformationRunRef": {
         "type": "string",
-        "pattern": "^transformation-run://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"
+        "pattern": "^transform://trun_[0-9a-f]{32}$",
+        "description": "M05.7's registered TransformationRun identity, verbatim. A run has ONE content-derived identity and NO revision family: `trun_<32hex>` is the digest of the run's own basis, so there is no `/revision/<n>` segment to bind and no later ordinal that could silently succeed this one. The name deliberately carries no `Revision` component, because a name that implied one would promise a family M05.7 never registered and would invite a reader to look for a head that does not exist."
       },
       "ownerRef": {
         "type": "string",
-        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "tenantRef": {
         "type": "string",
-        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
       },
       "principalRef": {
         "type": "string",
-        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "canonicalTimestamp": {
         "type": "string",
@@ -113345,9 +113446,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "required": [
           "data_recipe_revision_refs",
           "connector_mapping_revision_refs",
-          "transformation_run_revision_refs"
+          "transformation_run_refs"
         ],
-        "description": "Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched.",
+        "description": "Exact M05.7 identities, owner-resolved. A transformation that kept only a family head cannot answer which bytes an erasure or a correction actually touched. Recipes and mappings ARE revisioned, so those two carry `/revision/<n>` refs and are named for it; a TransformationRun is not, so it is named `transformation_run_refs` — the asymmetry in the names is the asymmetry in the identities, not an oversight.",
         "properties": {
           "data_recipe_revision_refs": {
             "type": "array",
@@ -113363,10 +113464,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             },
             "maxItems": 128
           },
-          "transformation_run_revision_refs": {
+          "transformation_run_refs": {
             "type": "array",
             "items": {
-              "$ref": "#/$defs/runRevisionRef"
+              "$ref": "#/$defs/transformationRunRef"
             },
             "maxItems": 128
           }
@@ -113685,15 +113786,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "ownerRef": {
         "type": "string",
-        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "tenantRef": {
         "type": "string",
-        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
       },
       "principalRef": {
         "type": "string",
-        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "canonicalTimestamp": {
         "type": "string",
@@ -114278,15 +114379,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "ownerRef": {
         "type": "string",
-        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "tenantRef": {
         "type": "string",
-        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
       },
       "principalRef": {
         "type": "string",
-        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "canonicalTimestamp": {
         "type": "string",
@@ -114614,15 +114715,15 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "ownerRef": {
         "type": "string",
-        "pattern": "^owner://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:org|user|system|project|domain)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "tenantRef": {
         "type": "string",
-        "pattern": "^tenant://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
       },
       "principalRef": {
         "type": "string",
-        "pattern": "^principal://[a-z0-9][a-z0-9._:-]{0,190}$"
+        "pattern": "^(?:user|org|system|project|worker|service)://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"
       },
       "canonicalTimestamp": {
         "type": "string",
@@ -114661,6 +114762,78 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "exact_duplicate",
           "below_quality_floor"
         ]
+      },
+      "sourceFileRef": {
+        "type": "string",
+        "pattern": "^media-file://[a-z0-9][a-z0-9._/-]{0,190}$",
+        "description": "THE RAW SOURCE INSTANCE, WHICH IS NOT ITS PAYLOAD. A corpus has two different notions of sameness and the first version of this contract collapsed them: it keyed distinctness on `content_sha256` alone, which made every row's payload unique BY CONSTRUCTION and therefore made a real exact duplicate — two distinct source files carrying identical bytes — impossible to express. Identity lives here; content lives in `content_sha256`. Two rows may share a payload digest and MUST NOT share a source ref."
+      },
+      "clusterId": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+      },
+      "similarityFingerprint": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{16}$",
+        "description": "A 64-BIT SIMILARITY-PRESERVING DIGEST, not a cryptographic one. Under `perceptual-block-mean-hamming-64` the payload is cut into 64 equal blocks and bit i is set when block i's byte sum exceeds the mean block sum, so a bounded edit flips a bounded number of bits and the Hamming distance between two fingerprints IS the similarity measure. A sha256 would be useless here: any edit moves half the bits, so every pair would sit at the same distance and 'near' would carry no information. THIS FIELD IS DERIVED, NEVER ACCEPTED: the runtime regenerates the payload from its recipe and recomputes the fingerprint, so a value that disagrees with the bytes is refused rather than recorded."
+      },
+      "payloadRecipe": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recipe_method",
+          "seed_tag",
+          "block_count",
+          "block_width_bytes",
+          "low_level",
+          "high_level",
+          "flipped_blocks"
+        ],
+        "description": "THE BYTES, STATED AS A FUNCTION THE RUNTIME CAN RE-RUN. Without this the census would be self-referential: `content_sha256`, `byte_count` and `similarity_fingerprint` would all be caller-supplied, and checking one against another would be label-to-label validation — a caller could file a wholly fabricated but internally consistent corpus and nothing in the record could tell. The recipe closes that: the runtime REGENERATES the payload, digests it, measures it and fingerprints it, and refuses any of the three that disagrees. THIS IS WHY THE LANE IS SYNTHETIC. A real recording has no recipe, so v1 admits only recipe-borne custody and makes no claim to verify bytes it never held; custody of imported media is a later seam, and an ArtifactRef is not it — an ArtifactRef names bytes and resolves nothing.",
+        "properties": {
+          "recipe_method": {
+            "enum": [
+              "ioi.m059.two-level-block-payload.v1"
+            ],
+            "description": "The payload is `block_count` equal blocks; block i is filled with `high_level` when bit i of sha256(\"ioi.m059.corpus.payload:\" + seed_tag) is set, with `low_level` otherwise, and membership in `flipped_blocks` inverts that choice. Two levels rather than pseudo-random content is deliberate: it holds every block sum far from the mean, so a bounded edit flips a bounded number of fingerprint bits instead of cascading."
+          },
+          "seed_tag": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"
+          },
+          "block_count": {
+            "type": "integer",
+            "enum": [
+              64
+            ]
+          },
+          "block_width_bytes": {
+            "type": "integer",
+            "minimum": 64,
+            "maximum": 65536
+          },
+          "low_level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "high_level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "flipped_blocks": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 63
+            }
+          }
+        }
       }
     },
     "required": [
@@ -114677,7 +114850,12 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "accepted",
       "rejected",
       "deduplicated",
+      "deduplication_policy",
+      "payload_custody",
+      "does_not_claim_custody_of_imported_media_bytes",
       "file_dispositions",
+      "distinct_payloads",
+      "near_duplicate_exclusions",
       "profile_required_label_classes",
       "observed_label_classes",
       "floors",
@@ -114728,7 +114906,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "description": "The three ACC-19 reference profiles, spelled exactly as their `--profile` values. A run that silently picked a profile would let one profile's evidence be filed under another's name."
       },
       "corpus_content_root": {
-        "$ref": "#/$defs/sha256"
+        "$ref": "#/$defs/sha256",
+        "description": "THE ROOT COMMITS THE ROWS, NOT A SUMMARY OF THEM. A registered invariant recomputes this digest over the complete canonical disposition rows, the distinct-payload rows, the near-duplicate exclusions and all four count blocks, so the census IS its corpus rather than a claim about one. The first version of this field was an unbacked string: any 64-hex value satisfied it, so two different corpora could file identical roots and one corpus could file two."
       },
       "raw": {
         "type": "object",
@@ -114852,7 +115031,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "byte_count",
           "frame_or_sample_count",
           "chunk_count",
-          "reason_classes"
+          "reason_classes",
+          "exact_duplicate_file_count",
+          "near_duplicate_file_count"
         ],
         "properties": {
           "source_seconds": {
@@ -114876,26 +115057,77 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
               "$ref": "#/$defs/reasonClass"
             },
             "maxItems": 32
+          },
+          "exact_duplicate_file_count": {
+            "$ref": "#/$defs/count"
+          },
+          "near_duplicate_file_count": {
+            "$ref": "#/$defs/count"
           }
         }
+      },
+      "deduplication_policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "exact_key_algorithm",
+          "near_duplicate_method",
+          "near_duplicate_threshold"
+        ],
+        "description": "THE EXCLUSION RULE IS DECLARED BEFORE IT IS APPLIED. Exact exclusion is a digest comparison and needs only the algorithm; NEAR exclusion is a judgement, and a judgement with no declared method, fingerprint or threshold is unfalsifiable — a corpus could call anything a near-duplicate and no relying party could disagree. The method is a CLOSED VOCABULARY rather than free text, because a free-text method name is not a function anyone can re-run: every row excluded as `near_duplicate` names this method, carries both compared fingerprints, and has its distance recomputed under it.",
+        "properties": {
+          "exact_key_algorithm": {
+            "enum": [
+              "sha256"
+            ]
+          },
+          "near_duplicate_method": {
+            "enum": [
+              "perceptual-block-mean-hamming-64"
+            ]
+          },
+          "near_duplicate_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          }
+        }
+      },
+      "payload_custody": {
+        "enum": [
+          "deterministic_recipe"
+        ],
+        "description": "HOW THIS CENSUS COMES TO KNOW ITS OWN BYTES. `deterministic_recipe` is the only admissible v1 mode and it means what it says: every payload carries a recipe, and the runtime regenerates, digests, measures and fingerprints the bytes itself rather than believing the record about them. There is deliberately no `imported_bytes` member — admitting one would be a claim to custody this version does not implement, and a census that could name a custody mode nobody verifies is exactly the silence this contract exists to refuse."
+      },
+      "does_not_claim_custody_of_imported_media_bytes": {
+        "const": true,
+        "description": "THE NONCLAIM THAT KEEPS THE LANE HONEST. Recomputing a recipe's bytes proves the census's arithmetic about SYNTHETIC material; it proves nothing about an imported recording, whose bytes this contract never holds. Pinning the nonclaim in the record rather than in a comment is what stops a reader treating a recipe-verified census as evidence of verified media custody."
       },
       "file_dispositions": {
         "type": "array",
         "minItems": 1,
         "maxItems": 1000000,
-        "description": "ONE ROW PER RAW FILE. This is how the census closes arithmetically without an arithmetic operator the invariant DSL does not have: `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over the content hash refuses a padded or repeated corpus. Every raw file therefore has exactly one disposition, and a file with none is missing from the count rather than silently absorbed.",
+        "description": "ONE ROW PER RAW SOURCE FILE — AND A SOURCE FILE IS NOT ITS PAYLOAD. `array_length_equals` pins the row count to `raw.file_count`, and `array_unique_by_fields` over `source_file_ref` refuses a corpus that counted one source instance twice. DISTINCTNESS IS KEYED ON IDENTITY, NOT CONTENT, and that is a correction: keying it on `content_sha256` forced every row's payload to be unique, which made an exact duplicate — two distinct source files whose bytes are byte-identical — impossible to state, so `exact_duplicate` was a label no corpus could ever have earned. Payload repetition now lives where it belongs, in `distinct_payloads`, and `byte_count` is the ACTUAL length of the digested payload rather than an unbacked claim about it.",
         "items": {
           "type": "object",
           "additionalProperties": false,
           "required": [
+            "source_file_ref",
             "content_sha256",
+            "byte_count",
             "disposition",
             "reason_class",
             "source_seconds"
           ],
           "properties": {
+            "source_file_ref": {
+              "$ref": "#/$defs/sourceFileRef"
+            },
             "content_sha256": {
               "$ref": "#/$defs/sha256"
+            },
+            "byte_count": {
+              "$ref": "#/$defs/byteCount"
             },
             "disposition": {
               "enum": [
@@ -114916,6 +115148,98 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             },
             "source_seconds": {
               "$ref": "#/$defs/seconds"
+            }
+          }
+        }
+      },
+      "distinct_payloads": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 1000000,
+        "description": "ONE ROW PER DISTINCT PAYLOAD DIGEST, and the place an exact duplicate becomes STATEABLE. Each payload names the single source instance retained as canonical and the count of source instances that carried those bytes; `instance_count` above 1 IS an exact duplication, and the runtime requires exactly one of those instances to be accepted and every other to be excluded as `exact_duplicate`. A corpus that pads itself by re-ingesting the same bytes therefore inflates `raw` and cannot inflate `accepted`. THE SIMILARITY FINGERPRINT LIVES HERE, ON THE PAYLOAD, and not on the exclusion row that cites it: a fingerprint carried by the row asserting the exclusion is a number that row could choose, whereas a fingerprint carried by the payload is one every citing row must AGREE with. That is what makes source-fingerprint, retained-fingerprint and sibling substitution three separately detectable edits instead of one unfalsifiable claim.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "content_sha256",
+            "canonical_source_file_ref",
+            "instance_count",
+            "byte_count",
+            "similarity_fingerprint",
+            "payload_recipe"
+          ],
+          "properties": {
+            "content_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "canonical_source_file_ref": {
+              "$ref": "#/$defs/sourceFileRef"
+            },
+            "instance_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "byte_count": {
+              "$ref": "#/$defs/byteCount"
+            },
+            "similarity_fingerprint": {
+              "$ref": "#/$defs/similarityFingerprint"
+            },
+            "payload_recipe": {
+              "$ref": "#/$defs/payloadRecipe"
+            }
+          }
+        }
+      },
+      "near_duplicate_exclusions": {
+        "type": "array",
+        "minItems": 0,
+        "maxItems": 1000000,
+        "description": "ONE ROW PER NEAR-DUPLICATE EXCLUSION, CARRYING BOTH SIDES OF THE COMPARISON SO IT CAN BE RE-DECIDED OFFLINE. Exact duplication is decidable from the digest alone; near duplication is a judgement, and a row naming only the EXCLUDED file's fingerprint could not be rechecked against anything — the distance would be an unfalsifiable number beside two refs. Carrying the retained sibling's fingerprint as well makes `distance` RECOMPUTABLE: it is the Hamming distance between these two fingerprints under the named method, and the runtime recomputes it rather than believing it. A distance of zero is refused, because two payloads whose similarity digests agree exactly are an EXACT duplicate and must be filed as one.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_file_ref",
+            "retained_source_file_ref",
+            "cluster_id",
+            "similarity_method",
+            "similarity_fingerprint",
+            "retained_similarity_fingerprint",
+            "distance",
+            "threshold"
+          ],
+          "properties": {
+            "source_file_ref": {
+              "$ref": "#/$defs/sourceFileRef"
+            },
+            "retained_source_file_ref": {
+              "$ref": "#/$defs/sourceFileRef"
+            },
+            "cluster_id": {
+              "$ref": "#/$defs/clusterId"
+            },
+            "similarity_method": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "similarity_fingerprint": {
+              "$ref": "#/$defs/similarityFingerprint"
+            },
+            "retained_similarity_fingerprint": {
+              "$ref": "#/$defs/similarityFingerprint"
+            },
+            "distance": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
             }
           }
         }
@@ -115111,7 +115435,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       },
       "distinct_content_hash_count": {
-        "$ref": "#/$defs/count"
+        "$ref": "#/$defs/count",
+        "description": "DISTINCT PAYLOADS, NOT ROWS. Pinned by invariant to the length of `distinct_payloads`, so it falls BELOW `raw.file_count` exactly when the corpus contained exact duplicates. Pinning it to the row count instead — as the first version did — made the two numbers equal by construction and turned the degeneracy check into a tautology."
       },
       "does_not_claim_hours_scale_qualification": {
         "type": "boolean"
@@ -130659,8 +130984,23 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
           "deduplicated": {
             "path": "$.deduplicated"
           },
+          "deduplication_policy": {
+            "path": "$.deduplication_policy"
+          },
+          "payload_custody": {
+            "path": "$.payload_custody"
+          },
+          "does_not_claim_custody_of_imported_media_bytes": {
+            "path": "$.does_not_claim_custody_of_imported_media_bytes"
+          },
           "file_dispositions": {
             "path": "$.file_dispositions"
+          },
+          "distinct_payloads": {
+            "path": "$.distinct_payloads"
+          },
+          "near_duplicate_exclusions": {
+            "path": "$.near_duplicate_exclusions"
           },
           "profile_required_label_classes": {
             "path": "$.profile_required_label_classes"
@@ -130713,14 +131053,104 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     },
     {
-      "rule_id": "media_corpus_qualification_census.degeneracy.every_raw_file_is_distinct",
-      "description": "PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5). A repeated content digest in the disposition rows is a corpus inflating its own census by restating the same bytes.",
+      "rule_id": "media_corpus_qualification_census.degeneracy.every_raw_source_identity_is_distinct",
+      "description": "PADDED, REPEATED OR OTHERWISE DEGENERATE CORPORA REFUSE (ACC-19 clause 5) — BUT THE KEY IS IDENTITY, NOT CONTENT. A repeated `source_file_ref` is one source instance counted twice, and that is the padding this rule exists to refuse. Keying it on `content_sha256`, as the first version did, refused something else entirely: two DISTINCT source files whose bytes are byte-identical. That is not padding, it is the exact duplication the corpus is supposed to DETECT and exclude — so the old rule made `exact_duplicate` unreachable and left content-addressed deduplication unproven while appearing to police it.",
       "expression": {
         "operator": "array_unique_by_fields",
         "array_path": "$.file_dispositions",
         "fields": [
+          "source_file_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.degeneracy.every_distinct_payload_is_listed_once",
+      "description": "The payload table is a SET. A digest listed twice would let one payload claim two canonical instances, which is how a corpus would smuggle a second accepted copy of the same bytes past the exact-duplicate rule.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.distinct_payloads",
+        "fields": [
           "content_sha256"
         ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.content_addressing.the_root_commits_the_disposition_rows",
+      "description": "THE CORPUS ROOT IS RECOMPUTED, NOT ACCEPTED. `corpus_content_root` is committed over the complete canonical disposition rows, the distinct-payload table, the near-duplicate exclusions and all four count blocks under its own domain separator, so the census IS its corpus rather than a claim about one. Before this rule the root was an unbacked 64-hex string: any value satisfied the pattern, two different corpora could file the same root, and one corpus could file two different ones without either being detectable offline.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.corpus_content_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.media-corpus-content-root-jcs-sha256.v1"
+          },
+          "file_dispositions": {
+            "path": "$.file_dispositions"
+          },
+          "distinct_payloads": {
+            "path": "$.distinct_payloads"
+          },
+          "near_duplicate_exclusions": {
+            "path": "$.near_duplicate_exclusions"
+          },
+          "deduplication_policy": {
+            "path": "$.deduplication_policy"
+          },
+          "raw": {
+            "path": "$.raw"
+          },
+          "accepted": {
+            "path": "$.accepted"
+          },
+          "rejected": {
+            "path": "$.rejected"
+          },
+          "deduplicated": {
+            "path": "$.deduplicated"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_method",
+      "description": "Every near-duplicate exclusion names the method the census declared up front. An exclusion free to name its own method could justify any judgement after the fact, which is the difference between evidence and assertion.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.near_duplicate_exclusions",
+        "field": "similarity_method",
+        "expected_path": "$.deduplication_policy.near_duplicate_method"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.near_duplicate_exclusions_use_the_declared_threshold",
+      "description": "Every exclusion is judged against the threshold the census declared, not one chosen per row. A per-row threshold is threshold shopping: any distance becomes admissible by raising the bar beside it.",
+      "expression": {
+        "operator": "array_field_equals",
+        "array_path": "$.near_duplicate_exclusions",
+        "field": "threshold",
+        "expected_path": "$.deduplication_policy.near_duplicate_threshold"
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.every_near_duplicate_exclusion_is_distinct",
+      "description": "One excluded source instance, one exclusion row. Listing an instance twice would inflate the excluded count without excluding anything.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.near_duplicate_exclusions",
+        "fields": [
+          "source_file_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "media_corpus_qualification_census.deduplication.the_near_duplicate_exclusion_count_closes",
+      "description": "The enumerated exclusions are checked against the declared near-duplicate count, so a census cannot report more near-duplicate exclusion than it can show rows for.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.near_duplicate_exclusions",
+        "count_path": "$.deduplicated.near_duplicate_file_count"
       }
     },
     {
@@ -130769,11 +131199,11 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     },
     {
-      "rule_id": "media_corpus_qualification_census.degeneracy.distinct_content_matches_the_disposition_rows",
-      "description": "The declared distinct-digest count is checked against the enumerated rows. Two independent statements about one set is what stops a repeated file being absorbed into a count nobody cross-checks.",
+      "rule_id": "media_corpus_qualification_census.degeneracy.distinct_payload_count_matches_the_payload_rows",
+      "description": "The declared distinct-digest count is checked against the enumerated DISTINCT PAYLOADS. Checking it against `file_dispositions`, as the first version did, made the two numbers equal BY CONSTRUCTION — the row-uniqueness rule already forced one digest per row — so the count could never disagree and the check proved nothing it did not assume. Against `distinct_payloads` it is a real second statement about the set: it falls below `raw.file_count` exactly when the corpus carried exact duplicates.",
       "expression": {
         "operator": "array_length_equals",
-        "array_path": "$.file_dispositions",
+        "array_path": "$.distinct_payloads",
         "count_path": "$.distinct_content_hash_count"
       }
     },
