@@ -1423,8 +1423,8 @@ const MUTANTS = [
     // The exact historical defect: recover the creation stamp FROM the row instead of deriving it
     // from the genesis admission. A repair then carries forward whatever the damage said, and a
     // destroyed row rebuilds with nothing at all — which is what "deterministic" has to exclude.
-    from: "    let projected_created_at = history\n        .first()\n        .map(|entry| admitted_stamp_ms(entry.operation.recorded_at_ms))\n        .unwrap_or_default();",
-    to: '    let projected_created_at = load(data_dir, KIND_SD, id)\n        .and_then(|row| row.get("created_at").and_then(Value::as_str).map(str::to_string))\n        .unwrap_or_default();',
+    from: "    let projected_created_at = history\n        .first()\n        .map(|entry| admitted_stamp_ms(entry.operation.recorded_at_ms))\n        .unwrap_or_default();\n    let projected_updated_at = admitted_stamp_ms(latest.operation.recorded_at_ms);\n\n    // THE ROW IS COMPARED, NEVER CONSULTED.",
+    to: '    let projected_created_at = load(data_dir, KIND_SD, id)\n        .and_then(|row| row.get("created_at").and_then(Value::as_str).map(str::to_string))\n        .unwrap_or_default();\n    let projected_updated_at = admitted_stamp_ms(latest.operation.recorded_at_ms);\n\n    // THE ROW IS COMPARED, NEVER CONSULTED.',
   },
   {
     id: "index-agreement-ignores-projection-metadata",
@@ -1433,8 +1433,8 @@ const MUTANTS = [
     source: ROUTE_SOURCE,
     // Compare only the canonical record inside the row, which is what this did before: a row whose
     // metadata was damaged then reported agreement and the damage was never repaired.
-    from: '        Some(row) if *row == expected => "agreed_with_agentgres",',
-    to: '        Some(row)\n            if row.get("descriptor").unwrap_or(row) == expected.get("descriptor").unwrap_or(&expected) =>\n        {\n            "agreed_with_agentgres"\n        }',
+    from: '    let expected = descriptor_row(&record, &projected_created_at, &projected_updated_at)?;\n    let row = load(data_dir, KIND_SD, id);\n    let index_state = match row.as_ref() {\n        None => "absent_rebuilt_from_agentgres",\n        Some(row) if *row == expected => "agreed_with_agentgres",',
+    to: '    let expected = descriptor_row(&record, &projected_created_at, &projected_updated_at)?;\n    let row = load(data_dir, KIND_SD, id);\n    let index_state = match row.as_ref() {\n        None => "absent_rebuilt_from_agentgres",\n        Some(row)\n            if row.get("descriptor").unwrap_or(row) == expected.get("descriptor").unwrap_or(&expected) =>\n        {\n            "agreed_with_agentgres"\n        }',
   },
   {
     id: "v1-row-stored-under-the-v2-contract-id",
@@ -1532,8 +1532,8 @@ const MUTANTS = [
     reddens:
       "THE DOMAIN APP PRESERVES THE CANONICAL LINEAGE. Reading v1's names only, a DomainApp over a v2 descriptor derived an EMPTY provenance snapshot and recorded it — nothing failed, and the app said this surface binds no ontology and no data recipe",
     source: DOMAIN_APP_SOURCE,
-    from: '    for r in arr_strs(descriptor, "ontology_refs") {\n        push_unique(&mut ontology_refs, &r);\n    }',
-    to: '    for r in arr_strs(descriptor, "ontology_refs").into_iter().take(0) {\n        push_unique(&mut ontology_refs, &r);\n    }',
+    from: '    merge(&mut ontology_refs, arr_strs(descriptor, "ontology_refs"));',
+    to: '    merge(&mut ontology_refs, arr_strs(descriptor, "ontology_ref"));',
   },
   {
     id: "package-mints-a-second-commitment",
