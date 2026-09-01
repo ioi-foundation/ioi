@@ -286,6 +286,14 @@
       "runtime_assertions": 33,
       "assertion_names_sha256": "81a366ec57539e244108b450404aad5aa9a8dd2fc10a4b49cd48a59919a2b254",
       "note": "Measured after the STU-3 canonical landing transfer: the runtime count remains 33, while landing/ownership assertion names now describe the shipped family landing rather than the predecessor wording."
+    },
+    {
+      "id": "vertical-ontology-pack-compiler",
+      "npm_script": "check:vertical-ontology-pack-compiler",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-vertical-ontology-pack-compiler.mjs",
+      "runtime_assertions": 25,
+      "assertion_names_sha256": "d1fe71891ad9aa05a6f3e7a29c4199d8d38689e86a64943e1a663b6b26afa21a",
+      "note": "M05.10 closure: 25 isolated-daemon assertions pin exact owner-head resolution, immutable pack and compilation revisions, synthetic-only qualification, required-field escalation, restart replay, rebuildable Agentgres projections, and explicit authority, legality, correctness, provider, deployment, and M14 WorkerComposition nonclaims."
     }
   ],
   "excluded": [
