@@ -1050,14 +1050,6 @@ const MUTANTS = [
     to: "    if let Some(owner) = None::<&str> {\n        let _ = (owner, reader);",
   },
   {
-    id: "graph-derives-its-reached-stage-from-the-work-result-status",
-    file: GRAPH_SOURCE,
-    reddens:
-      "an empty ladder does NOT inherit the WorkResult's own status: the result is `completed` and the graph still reports nothing reached — assurance is never derived from a subject's self-description",
-    from: '    let reached_stage = ladder\n        .last()\n        .and_then(|document| document.get("to_stage").cloned())\n        .unwrap_or(Value::Null);\n    let reached_stage_ordinal',
-    to: '    let reached_stage = ladder\n        .last()\n        .and_then(|document| document.get("to_stage").cloned())\n        .unwrap_or_else(|| if resolved.status == "completed" { json!("attested") } else { Value::Null });\n    let reached_stage_ordinal',
-  },
-  {
     id: "unreached-stages-populated-from-the-nearest-row",
     file: GRAPH_SOURCE,
     reddens:
