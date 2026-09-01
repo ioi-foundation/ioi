@@ -231,6 +231,14 @@
   ],
   "delegation_ledger": [
     {
+      "session_id": "5eddbf62-41eb-4c4a-871e-9e9fb6dbc2d4",
+      "actual_model_metadata": "claude-opus-5",
+      "entitlement": "local Claude Max fixed-cost UI",
+      "role": "isolated M05.8 runtime and cross-path writer",
+      "accepted": true,
+      "integration_disposition": "Codex reconciled the task worktree and integrated the accepted runtime intent through 87ada373d69e9bafd1bb2343cc69f179878c9683 and its follow-up qualification commits"
+    },
+    {
       "session_id": "d7391e55-5baf-46ec-a356-36adfec6e595",
       "actual_model_metadata": "claude-opus-5",
       "entitlement": "local Claude Max fixed-cost UI",
@@ -245,6 +253,23 @@
       "role": "bounded M05.10 verifier follow-up",
       "accepted": false,
       "reason": "no durable deliverable; session stalled and was terminated"
+    }
+  ],
+  "rejected_model_session_ledger": [
+    {
+      "session_id": "e9e5b5a9-1eb1-451f-a219-f7b1fea44c31",
+      "actual_model_metadata": "claude-opus-4-8",
+      "disposition": "rejected; exact Opus 5 requirement not met"
+    },
+    {
+      "session_id": "b19565a3-0fe3-4b37-905c-821bd650f206",
+      "actual_model_metadata": ["claude-opus-4-8", "claude-opus-5"],
+      "disposition": "rejected as a session deliverable; mixed model resolution does not prove exact Opus 5 throughout"
+    },
+    {
+      "session_id": "d2fb1e70-f114-4c42-b46d-1aa14785915e",
+      "actual_model_metadata": ["claude-opus-4-8", "claude-opus-5"],
+      "disposition": "rejected as a session deliverable; mixed model resolution does not prove exact Opus 5 throughout"
     }
   ],
   "preexisting_failure_adjudication": {
