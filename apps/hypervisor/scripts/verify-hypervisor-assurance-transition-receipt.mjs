@@ -30,8 +30,8 @@
 //     reported as a MISS, not quietly counted.
 //
 // NONCLAIMS. This gate proves the transition seam only. It makes NO claim that the M06.1 WorkResult
-// ladder exists, that the M05.3 assertion graph or M05.2 mappings exist, that any dispute is
-// adjudicated, or that anything settles. It asserts that the receipt carries its authority and
+// ladder exists, that a semantic assertion or mapping is correct, that any dispute is adjudicated,
+// or that anything settles. It asserts that the receipt carries its authority and
 // verdict nonclaims and that no capability, lease or policy decision is consulted — which is not the
 // same as proving the authority planes elsewhere.
 
@@ -54,16 +54,21 @@ const ROUTE_SOURCE = path.join(
 const SCHEMAS = path.join(ROOT, "docs/architecture/_meta/schemas");
 const INVARIANT_PROFILE = path.join(
   SCHEMAS,
-  "invariants/assurance-transition-receipt.v1.invariants.json",
+  "invariants/assurance-transition-receipt.v2.invariants.json",
 );
 const REGISTRY = path.join(SCHEMAS, "architecture-contract-registry.v1.json");
-const CONTRACT_ID = "schema://ioi/foundations/assurance-transition-receipt/v1";
-const CHALLENGE_V1 = "schema://ioi/foundations/objects/verifier-challenge-envelope/v1";
-const CHALLENGE_V2 = "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
+const CONTRACT_ID = "schema://ioi/foundations/assurance-transition-receipt/v2";
+const PREDECESSOR_CONTRACT_ID =
+  "schema://ioi/foundations/assurance-transition-receipt/v1";
+const CHALLENGE_V1 =
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v1";
+const CHALLENGE_V2 =
+  "schema://ioi/foundations/objects/verifier-challenge-envelope/v2";
 const MUTATE = process.argv.includes("--mutate");
 
 const results = [];
-const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
+const ok = (name, cond, detail) =>
+  results.push({ name, pass: !!cond, detail: detail || "" });
 const code = (j) => j?.error?.code ?? j?.code ?? "";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -78,9 +83,14 @@ const freePort = () =>
   });
 
 function daemonBinary() {
-  if (process.env.IOI_HYPERVISOR_DAEMON_BINARY) return process.env.IOI_HYPERVISOR_DAEMON_BINARY;
+  if (process.env.IOI_HYPERVISOR_DAEMON_BINARY)
+    return process.env.IOI_HYPERVISOR_DAEMON_BINARY;
   if (process.env.CARGO_TARGET_DIR) {
-    return path.join(process.env.CARGO_TARGET_DIR, "debug", "hypervisor-daemon");
+    return path.join(
+      process.env.CARGO_TARGET_DIR,
+      "debug",
+      "hypervisor-daemon",
+    );
   }
   return path.join(ROOT, "target", "debug", "hypervisor-daemon");
 }
@@ -106,11 +116,16 @@ function registeredContentCommitment(document) {
   const rule = profile.rules.find(
     (candidate) =>
       candidate.rule_id ===
-      "assurance_transition.content_hash.commits_subject_stage_outcome_and_valid_time",
+      "assurance_transition.content_hash.commits_subject_stage_outcome_challenge_and_valid_time",
   );
-  if (!rule) throw new Error("the registered invariant profile declares no content commitment rule");
+  if (!rule)
+    throw new Error(
+      "the registered invariant profile declares no content commitment rule",
+    );
   const material = {};
-  for (const [field, descriptor] of Object.entries(rule.expression.material_fields)) {
+  for (const [field, descriptor] of Object.entries(
+    rule.expression.material_fields,
+  )) {
     if (Object.hasOwn(descriptor, "value")) {
       material[field] = descriptor.value;
       continue;
@@ -128,7 +143,9 @@ function registeredContentCommitment(document) {
 
 // ------------------------------------------------------------------------------------- daemon plane
 
-const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-assurance-transition-"));
+const scratch = fs.mkdtempSync(
+  path.join(os.tmpdir(), "ioi-assurance-transition-"),
+);
 const dataDir = path.join(scratch, "data");
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -216,14 +233,16 @@ const SESSIONS = { A: "", B: "" };
 
 async function req(method, route, body, { as = "A" } = {}) {
   const headers = {};
-  if (body !== undefined && body !== null) headers["content-type"] = "application/json";
+  if (body !== undefined && body !== null)
+    headers["content-type"] = "application/json";
   const session = as ? SESSIONS[as] : "";
   if (session) headers.cookie = `ioi_session=${session}`;
   try {
     const response = await fetch(`${DAEMON}${route}`, {
       method,
       headers: Object.keys(headers).length ? headers : undefined,
-      body: body === undefined || body === null ? undefined : JSON.stringify(body),
+      body:
+        body === undefined || body === null ? undefined : JSON.stringify(body),
     });
     const text = await response.text();
     let json = null;
@@ -234,7 +253,11 @@ async function req(method, route, body, { as = "A" } = {}) {
     }
     return { status: response.status, j: json, text };
   } catch (error) {
-    return { status: 0, j: { transport_error: String(error) }, text: String(error) };
+    return {
+      status: 0,
+      j: { transport_error: String(error) },
+      text: String(error),
+    };
   }
 }
 
@@ -267,7 +290,9 @@ function transition({
 }
 
 const ladderOf = async (subject, query = "", as = "A") =>
-  req("GET", `${AT}?subject_ref=${encodeURIComponent(subject)}${query}`, null, { as });
+  req("GET", `${AT}?subject_ref=${encodeURIComponent(subject)}${query}`, null, {
+    as,
+  });
 
 /** The exact (head, count) pair, so a refusal can be counted BY EFFECT rather than by status code. */
 async function ladderState(subject, as = "A") {
@@ -290,7 +315,8 @@ async function run() {
   await startDaemon();
 
   // ---------------------------------------------------------------------------------- principals
-  const bootToken = daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
+  const bootToken =
+    daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
   const boot = await req(
     "POST",
     "/v1/hypervisor/auth/bootstrap",
@@ -298,7 +324,8 @@ async function run() {
     { as: null },
   );
   SESSIONS.A = boot.j?.session_token ?? "";
-  const whoA = (await req("GET", "/v1/hypervisor/auth/whoami", null, { as: "A" })).j || {};
+  const whoA =
+    (await req("GET", "/v1/hypervisor/auth/whoami", null, { as: "A" })).j || {};
   const created = await req(
     "POST",
     "/v1/hypervisor/principals",
@@ -318,18 +345,23 @@ async function run() {
       tenant_ref: "org://local",
       expected_revision: 0,
       idempotency_key: "assurance-transition-grant-b",
-      reason: "verifier fixture: an ordinary member of the deployment's only organization",
+      reason:
+        "verifier fixture: an ordinary member of the deployment's only organization",
     },
     { as: "A" },
   );
   const login = await req(
     "POST",
     "/v1/hypervisor/auth/login",
-    { email: "assurance-transition-b@ioi.local", password: "assurance-transition-b-v1" },
+    {
+      email: "assurance-transition-b@ioi.local",
+      password: "assurance-transition-b-v1",
+    },
     { as: null },
   );
   SESSIONS.B = login.j?.session_token ?? "";
-  const whoB = (await req("GET", "/v1/hypervisor/auth/whoami", null, { as: "B" })).j || {};
+  const whoB =
+    (await req("GET", "/v1/hypervisor/auth/whoami", null, { as: "B" })).j || {};
   ok(
     "PRECONDITION: two REAL authenticated principals share the deployment's single org tenant, so a tenant check alone would isolate nothing",
     whoA.authenticated === true &&
@@ -352,7 +384,10 @@ async function run() {
       governing_scope_ref: "domain://acme-clinic/intake",
       policy_hash: `sha256:${"1a".repeat(32)}`,
       entity_types: [
-        { term_id: "ontology://acme-clinic/patient-intake/term/patient", label: "patient" },
+        {
+          term_id: "ontology://acme-clinic/patient-intake/term/patient",
+          label: "patient",
+        },
       ],
       valid_time: { starts_at: "2026-01-01T00:00:00Z", ends_at: null },
     },
@@ -370,9 +405,14 @@ async function run() {
   const SUBJECT_HASH = subjectVersion.content_hash;
 
   // ------------------------------------------------------------------------- identity comes first
-  const anonymous = await req("POST", AT, transition({ subject: SUBJECT, key: "anon" }), {
-    as: null,
-  });
+  const anonymous = await req(
+    "POST",
+    AT,
+    transition({ subject: SUBJECT, key: "anon" }),
+    {
+      as: null,
+    },
+  );
   ok(
     "an unauthenticated admission is refused on IDENTITY before any content is judged — a 422 here would tell an anonymous caller which fields this route wants",
     anonymous.status === 401,
@@ -383,41 +423,82 @@ async function run() {
   const invented = await req(
     "POST",
     AT,
-    transition({ subject: "ontology://acme-clinic/patient-intake/revision/97", key: "invented" }),
+    transition({
+      subject: "ontology://acme-clinic/patient-intake/revision/97",
+      key: "invented",
+    }),
     { as: "A" },
   );
   ok(
     "A URI PREFIX IS NOT PROOF THE SUBJECT EXISTS. A well-formed ontology revision ref that names no admitted revision is refused by the OWNER's resolver, so an unresolvable subject can never acquire a ladder on the strength of its spelling",
-    invented.status === 404 && code(invented.j) === "ontology_version_revision_absent",
+    invented.status === 404 &&
+      code(invented.j) === "ontology_version_revision_absent",
     `status ${invented.status} code ${code(invented.j)}`,
   );
   const wrongShape = await req(
     "POST",
     AT,
-    transition({ subject: "ontology://acme-clinic/patient-intake/revision/01", key: "padded" }),
+    transition({
+      subject: "ontology://acme-clinic/patient-intake/revision/01",
+      key: "padded",
+    }),
     { as: "A" },
   );
   ok(
     "a non-canonical subject spelling is refused rather than normalised — two spellings resolving to one revision would let a transition claim it moved something other than what it moved",
-    wrongShape.status === 422 && code(wrongShape.j) === "ontology_version_identity_not_canonical",
+    wrongShape.status === 422 &&
+      code(wrongShape.j) === "ontology_version_identity_not_canonical",
     `status ${wrongShape.status} code ${code(wrongShape.j)}`,
   );
-  for (const [family, subject] of [
-    ["ontology_assertion", "ontology-assertion://acme-clinic/patient-intake/assertion/1"],
-    ["ontology_mapping_revision", "ontology-mapping://acme-clinic/billing/crosswalk/1"],
-    ["work_result", "work-result://room/one"],
-    ["finding", "finding://room/one/finding/1"],
-    ["attempt", "attempt://room/one/attempt/1"],
+  for (const [family, subject, expectedStatus, expectedCode, resolverState] of [
+    [
+      "ontology_assertion",
+      "ontology-assertion://acme-clinic/patient-intake/revision/1",
+      403,
+      "request_resource_scope_required",
+      "landed owner resolver, scope-first non-oracle refusal",
+    ],
+    [
+      "ontology_mapping_revision",
+      "ontology-mapping://acme-clinic/billing/crosswalk/revision/1",
+      403,
+      "request_resource_scope_required",
+      "landed owner resolver, scope-first non-oracle refusal",
+    ],
+    [
+      "work_result",
+      "work-result://room/one",
+      501,
+      "assurance_transition_subject_family_unresolvable",
+      "no landed resolver",
+    ],
+    [
+      "finding",
+      "finding://room/one/finding/1",
+      501,
+      "assurance_transition_subject_family_unresolvable",
+      "no landed resolver",
+    ],
+    [
+      "attempt",
+      "attempt://room/one/attempt/1",
+      501,
+      "assurance_transition_subject_family_unresolvable",
+      "no landed resolver",
+    ],
   ]) {
-    const response = await req("POST", AT, transition({ subject, key: `family-${family}` }), {
-      as: "A",
-    });
+    const response = await req(
+      "POST",
+      AT,
+      transition({ subject, key: `family-${family}` }),
+      {
+        as: "A",
+      },
+    );
     ok(
-      `the '${family}' subject family is NAMEABLE on the v1 wire but FAILS CLOSED with no landed resolver — subject-generality from birth is what lets a later unit add its resolver without a wire change, and refusing by name is what stops the ladder accumulating subjects nobody can resolve`,
-      response.status === 501 &&
-        code(response.j) === "assurance_transition_subject_family_unresolvable" &&
-        (response.j?.error?.message ?? "").includes(family),
-      `status ${response.status} code ${code(response.j)}`,
+      `the '${family}' subject family is nameable but fails closed through its declared resolver posture — a landed owner resolver is scope-first and reveals no unbound subject existence, while an owner family with no resolver remains explicitly unresolvable`,
+      response.status === expectedStatus && code(response.j) === expectedCode,
+      `${resolverState}: status ${response.status} code ${code(response.j)}`,
     );
   }
   const unknownScheme = await req(
@@ -457,7 +538,8 @@ async function run() {
     t1.subject_ref === SUBJECT &&
       t1.subject_content_hash === SUBJECT_HASH &&
       t1.subject_family === "ontology_revision" &&
-      t1.subject_resolved_by === "ontology_version_routes::resolve_admitted_revision",
+      t1.subject_resolved_by ===
+        "ontology_version_routes::resolve_admitted_revision",
     `subject ${t1.subject_ref} hash ${t1.subject_content_hash} by ${t1.subject_resolved_by}`,
   );
   ok(
@@ -472,7 +554,7 @@ async function run() {
     t1.authority_nonclaim === "assurance_transition_grants_no_authority" &&
       t1.verdict_nonclaim === "assurance_transition_is_not_a_verdict" &&
       t1.receipt_type === "assurance_transition" &&
-      t1.schema_version === "ioi.assurance-transition-receipt.v1",
+      t1.schema_version === "ioi.assurance-transition-receipt.v2",
     `authority ${t1.authority_nonclaim} verdict ${t1.verdict_nonclaim}`,
   );
   const registeredT1 = registeredContentCommitment(t1);
@@ -493,14 +575,20 @@ async function run() {
   const head1 = t1.admission.admission_head;
 
   // ------------------------------------------------------------------ idempotent replay, not a fork
-  const replay = await req("POST", AT, transition({ subject: SUBJECT, key: "t1-attested" }), {
-    as: "A",
-  });
+  const replay = await req(
+    "POST",
+    AT,
+    transition({ subject: SUBJECT, key: "t1-attested" }),
+    {
+      as: "A",
+    },
+  );
   ok(
     "the SAME key with the same bytes replays the ORIGINAL admitted transition rather than minting a second one",
     replay.status === 200 &&
       replay.j?.replayed === true &&
-      replay.j?.assurance_transition?.admission?.admission_seq === t1.admission.admission_seq &&
+      replay.j?.assurance_transition?.admission?.admission_seq ===
+        t1.admission.admission_seq &&
       replay.j?.assurance_transition?.admission?.admission_head === head1,
     `status ${replay.status} replayed ${replay.j?.replayed}`,
   );
@@ -514,9 +602,15 @@ async function run() {
   // recorded" with a stored POSITIVE one.
   for (const [field, changed] of [
     ["outcome_class", { outcome: "negative" }],
-    ["evidence_refs", { extra: { evidence_refs: ["evidence://assurance/substituted"] } }],
+    [
+      "evidence_refs",
+      { extra: { evidence_refs: ["evidence://assurance/substituted"] } },
+    ],
     ["valid_time", { startsAt: "2026-03-03T00:00:00Z" }],
-    ["does_not_assert", { nonclaims: ["correctness", "acceptance", "settlement", "authority"] }],
+    [
+      "does_not_assert",
+      { nonclaims: ["correctness", "acceptance", "settlement", "authority"] },
+    ],
     ["to_stage", { extra: { to_stage: "verified" } }],
   ]) {
     const response = await req(
@@ -552,8 +646,16 @@ async function run() {
     expected_content_hash: t1.content_hash,
   };
   for (const [field, value, expectedCode] of [
-    ["subject_content_hash", `sha256:${"4".repeat(64)}`, "assurance_transition_subject_hash_substituted"],
-    ["subject_family", "work_result", "assurance_transition_subject_family_substituted"],
+    [
+      "subject_content_hash",
+      `sha256:${"4".repeat(64)}`,
+      "assurance_transition_subject_hash_substituted",
+    ],
+    [
+      "subject_family",
+      "work_result",
+      "assurance_transition_subject_family_substituted",
+    ],
     [
       "expected_predecessor_transition_ref",
       "assurance-transition://ontology_revision/forged/transition/1",
@@ -565,12 +667,20 @@ async function run() {
       "assurance_transition_predecessor_hash_substituted",
     ],
     ["expected_transition_ordinal", 2, "assurance_transition_ordinal_gap"],
-    ["expected_content_hash", `sha256:${"3".repeat(64)}`, "assurance_transition_content_hash_substituted"],
+    [
+      "expected_content_hash",
+      `sha256:${"3".repeat(64)}`,
+      "assurance_transition_content_hash_substituted",
+    ],
   ]) {
     const response = await req(
       "POST",
       AT,
-      transition({ subject: SUBJECT, key: "t1-attested", extra: { [field]: value } }),
+      transition({
+        subject: SUBJECT,
+        key: "t1-attested",
+        extra: { [field]: value },
+      }),
       { as: "A" },
     );
     const after = await ladderState(SUBJECT);
@@ -587,14 +697,19 @@ async function run() {
   const replayAllTrue = await req(
     "POST",
     AT,
-    transition({ subject: SUBJECT, key: "t1-attested", extra: { ...TRUE_ASSERTIONS } }),
+    transition({
+      subject: SUBJECT,
+      key: "t1-attested",
+      extra: { ...TRUE_ASSERTIONS },
+    }),
     { as: "A" },
   );
   ok(
     "a retry that asserts ALL SIX server-derived facts at their true stored values still replays — the check refuses false claims without turning a correct, fully-asserted retry into a conflict",
     replayAllTrue.status === 200 &&
       replayAllTrue.j?.replayed === true &&
-      replayAllTrue.j?.assurance_transition?.admission?.admission_head === head1,
+      replayAllTrue.j?.assurance_transition?.admission?.admission_head ===
+        head1,
     `status ${replayAllTrue.status} replayed ${replayAllTrue.j?.replayed}`,
   );
 
@@ -657,18 +772,28 @@ async function run() {
   );
 
   // ----------------------------------------------------------------------- exact-head advancement
-  const headless = await req("POST", AT, transition({ subject: SUBJECT, key: "t2-headless" }), {
-    as: "A",
-  });
+  const headless = await req(
+    "POST",
+    AT,
+    transition({ subject: SUBJECT, key: "t2-headless" }),
+    {
+      as: "A",
+    },
+  );
   ok(
     "a successor offered with NO expected head is refused: an existing ladder is never appended to unconditionally",
-    headless.status === 409 && code(headless.j) === "assurance_transition_expected_head_conflict",
+    headless.status === 409 &&
+      code(headless.j) === "assurance_transition_expected_head_conflict",
     `status ${headless.status} code ${code(headless.j)}`,
   );
   const staleHead = await req(
     "POST",
     AT,
-    transition({ subject: SUBJECT, key: "t2-stale", expectedHead: `sha256:${"0".repeat(64)}` }),
+    transition({
+      subject: SUBJECT,
+      key: "t2-stale",
+      expectedHead: `sha256:${"0".repeat(64)}`,
+    }),
     { as: "A" },
   );
   const afterStale = await ladderState(SUBJECT);
@@ -707,7 +832,12 @@ async function run() {
   const emptyNonclaims = await req(
     "POST",
     AT,
-    transition({ subject: SUBJECT, key: "t2-noclaims", expectedHead: head1, nonclaims: [] }),
+    transition({
+      subject: SUBJECT,
+      key: "t2-noclaims",
+      expectedHead: head1,
+      nonclaims: [],
+    }),
     { as: "A" },
   );
   ok(
@@ -789,10 +919,15 @@ async function run() {
       expectedHead: t2.admission.admission_head,
       extra: {
         actor_ref: "system://someone-else",
-        transaction_time: { recorded_at: "1999-01-01T00:00:00Z", superseded_at: null },
+        transaction_time: {
+          recorded_at: "1999-01-01T00:00:00Z",
+          superseded_at: null,
+        },
         content_hash: `sha256:${"9".repeat(64)}`,
         resulting_stage_head_hash: `sha256:${"9".repeat(64)}`,
-        admission: { transition_id: "assurance-transition://forged/x/transition/3" },
+        admission: {
+          transition_id: "assurance-transition://forged/x/transition/3",
+        },
       },
     }),
     { as: "A" },
@@ -853,7 +988,8 @@ async function run() {
   ok(
     "an ASSERTED subject hash that disagrees with the owner's current commitment is refused BY ITS OWN CAUSE and appends nothing — the binding is the subject owner's, never the caller's",
     wrongSubjectHash.status === 422 &&
-      code(wrongSubjectHash.j) === "assurance_transition_subject_hash_substituted" &&
+      code(wrongSubjectHash.j) ===
+        "assurance_transition_subject_hash_substituted" &&
       afterWrongHash.count === 3,
     `status ${wrongSubjectHash.status} code ${code(wrongSubjectHash.j)} count ${afterWrongHash.count}`,
   );
@@ -881,14 +1017,17 @@ async function run() {
       subject: SUBJECT,
       key: "t4-wrongpred",
       expectedHead: t3.admission.admission_head,
-      extra: { expected_predecessor_transition_hash: `sha256:${"6".repeat(64)}` },
+      extra: {
+        expected_predecessor_transition_hash: `sha256:${"6".repeat(64)}`,
+      },
     }),
     { as: "A" },
   );
   ok(
     "an ASSERTED predecessor hash that does not match the ladder's exact current transition is refused by its own cause, distinctly from a stale HEAD — the two have different remedies",
     wrongPredecessor.status === 422 &&
-      code(wrongPredecessor.j) === "assurance_transition_predecessor_hash_substituted",
+      code(wrongPredecessor.j) ===
+        "assurance_transition_predecessor_hash_substituted",
     `status ${wrongPredecessor.status} code ${code(wrongPredecessor.j)}`,
   );
 
@@ -900,7 +1039,7 @@ async function run() {
       subject: SUBJECT,
       key: "t4-downgrade",
       expectedHead: t3.admission.admission_head,
-      extra: { schema_version: "ioi.assurance-transition-receipt.v2" },
+      extra: { schema_version: "ioi.assurance-transition-receipt.v1" },
     }),
     { as: "A" },
   );
@@ -926,7 +1065,11 @@ async function run() {
     }),
     { as: "B" },
   );
-  const absentRead = await ladderOf("ontology://other-tenant/never-existed/revision/1", "", "B");
+  const absentRead = await ladderOf(
+    "ontology://other-tenant/never-existed/revision/1",
+    "",
+    "B",
+  );
   ok(
     "a co-tenant principal who owns none of this subject's ladder can neither read nor append to it, and a subject that NEVER EXISTED answers B identically — so this route cannot become an existence oracle for another principal's ladder",
     foreignRead.status === absentRead.status &&
@@ -941,7 +1084,11 @@ async function run() {
   await req(
     "POST",
     AT,
-    transition({ subject: SUBJECT, key: "b-probe", expectedHead: t3.admission.admission_head }),
+    transition({
+      subject: SUBJECT,
+      key: "b-probe",
+      expectedHead: t3.admission.admission_head,
+    }),
     { as: "B" },
   );
   const afterForeign = await ladderState(SUBJECT, "A");
@@ -966,7 +1113,8 @@ async function run() {
   );
   ok(
     "a stage/outcome narrowing selects ROWS and never changes how far the subject actually got — reached_stage is read off the unfiltered ladder",
-    exploitOnly.j?.reached_stage === "verified" && settledOnly.j?.reached_stage === "verified",
+    exploitOnly.j?.reached_stage === "verified" &&
+      settledOnly.j?.reached_stage === "verified",
     `exploit-view ${exploitOnly.j?.reached_stage} settled-view ${settledOnly.j?.reached_stage}`,
   );
 
@@ -976,7 +1124,10 @@ async function run() {
   // response carries — count, reached stage, and each row's supersession stamp — has to describe the
   // ladder as it stood at the requested instant. A response that filters rows but reports today's
   // totals is a statement about now wearing a question about then.
-  const beforeAll = await ladderOf(SUBJECT, "&as_of_transaction_time=2020-01-01T00:00:00Z");
+  const beforeAll = await ladderOf(
+    SUBJECT,
+    "&as_of_transaction_time=2020-01-01T00:00:00Z",
+  );
   ok(
     "TRANSACTION-TIME travel answers 'as the ladder stood then' — BEFORE any of these transitions, the subject had no ladder at all: zero rows, zero count, and no reached stage rather than today's",
     beforeAll.status === 200 &&
@@ -1007,8 +1158,8 @@ async function run() {
   const nowView = await ladderOf(SUBJECT);
   ok(
     "while the CURRENT view of that same first transition does carry its supersession — so the null above is a property of the slice, not a field this route never populates, which is what stops the previous assertion passing for the wrong reason",
-    (nowView.j?.transitions ?? [])[0]?.transaction_time?.superseded_at !== null &&
-      (nowView.j?.transitions ?? [])[0]?.transition_ordinal === 1,
+    (nowView.j?.transitions ?? [])[0]?.transaction_time?.superseded_at !==
+      null && (nowView.j?.transitions ?? [])[0]?.transition_ordinal === 1,
     `current superseded_at ${JSON.stringify((nowView.j?.transitions ?? [])[0]?.transaction_time?.superseded_at)}`,
   );
   ok(
@@ -1022,7 +1173,9 @@ async function run() {
   const before = new Set(fs.readdirSync(dataDir));
   ok(
     "the transition family writes NO durable artifact of its own — every byte it admits lives on the shared Agentgres substrate, so there is no second store to drift even in principle",
-    !Array.from(before).some((entry) => entry.toLowerCase().includes("assurance")),
+    !Array.from(before).some((entry) =>
+      entry.toLowerCase().includes("assurance"),
+    ),
     `data dir entries: ${Array.from(before).sort().join(", ")}`,
   );
 
@@ -1030,7 +1183,8 @@ async function run() {
   const beforeRestart = await ladderState(SUBJECT);
   await stopDaemon();
   await startDaemon();
-  const bootToken2 = daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
+  const bootToken2 =
+    daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
   if (bootToken2) {
     const reboot = await req(
       "POST",
@@ -1043,7 +1197,10 @@ async function run() {
   const relogin = await req(
     "POST",
     "/v1/hypervisor/auth/login",
-    { email: "assurance-transition-a@ioi.local", password: "assurance-transition-a-v1" },
+    {
+      email: "assurance-transition-a@ioi.local",
+      password: "assurance-transition-a-v1",
+    },
     { as: null },
   );
   if (relogin.j?.session_token) SESSIONS.A = relogin.j.session_token;
@@ -1108,6 +1265,9 @@ async function run() {
 function offlineAssertions() {
   const registry = JSON.parse(fs.readFileSync(REGISTRY, "utf8"));
   const entry = registry.contracts.find((c) => c.contract_id === CONTRACT_ID);
+  const predecessorEntry = registry.contracts.find(
+    (c) => c.contract_id === PREDECESSOR_CONTRACT_ID,
+  );
   ok(
     "the transition contract is REGISTERED with generated Rust and TypeScript projections and a portable invariant profile — an unregistered shape is a local constant, not a contract",
     !!entry &&
@@ -1119,7 +1279,9 @@ function offlineAssertions() {
 
   const profile = JSON.parse(fs.readFileSync(INVARIANT_PROFILE, "utf8"));
   const ladderRule = profile.rules.find(
-    (r) => r.rule_id === "assurance_transition.ladder.position_matches_chain_position",
+    (r) =>
+      r.rule_id ===
+      "assurance_transition.ladder.position_matches_chain_position",
   );
   ok(
     "THE NO-SKIP RULE IS PORTABLE, not merely a runtime habit: a registered invariant pins the ladder position to the chain position, so a skipped stage fails for a relying party who has only the bytes and no daemon",
@@ -1132,7 +1294,10 @@ function offlineAssertions() {
 
   const dir = path.join(SCHEMAS, "fixtures/assurance-transition-receipt-v1");
   const skipFixture = JSON.parse(
-    fs.readFileSync(path.join(dir, "negative-ladder-position-ahead-of-chain.json"), "utf8"),
+    fs.readFileSync(
+      path.join(dir, "negative-ladder-position-ahead-of-chain.json"),
+      "utf8",
+    ),
   );
   ok(
     "the registered NEGATIVE corpus contains a transition whose ladder position runs ahead of its chain position — the offline expression of 'attested straight to verified', carried as bytes rather than as a code path",
@@ -1140,11 +1305,12 @@ function offlineAssertions() {
       skipFixture.to_stage === "verified",
     `to_stage_ordinal ${skipFixture.to_stage_ordinal} transition_ordinal ${skipFixture.transition_ordinal}`,
   );
-  const declaredNegatives = (entry?.negative_fixture_refs ?? []).length;
+  const declaredNegatives = (predecessorEntry?.negative_fixture_refs ?? [])
+    .length;
   ok(
-    "every registered negative fixture is a real file on disk and the corpus covers stage skip, hash/subject substitution, empty nonclaims, unknown outcome class and borrowed admission",
+    "every registered negative fixture is a real file on disk and the corpus covers stage skip, hash/subject substitution, empty nonclaims, unknown outcome class and cross-record admission substitution",
     declaredNegatives >= 14 &&
-      (entry?.negative_fixture_refs ?? []).every((ref) =>
+      (predecessorEntry?.negative_fixture_refs ?? []).every((ref) =>
         fs.existsSync(path.join(SCHEMAS, ref.path)),
       ),
     `${declaredNegatives} negative fixtures declared`,
@@ -1152,10 +1318,16 @@ function offlineAssertions() {
 
   // The v1/v2 challenge widening, proven load-bearing rather than cosmetic.
   const v1Schema = JSON.parse(
-    fs.readFileSync(path.join(SCHEMAS, "verifier-challenge-envelope.v1.schema.json"), "utf8"),
+    fs.readFileSync(
+      path.join(SCHEMAS, "verifier-challenge-envelope.v1.schema.json"),
+      "utf8",
+    ),
   );
   const v2Schema = JSON.parse(
-    fs.readFileSync(path.join(SCHEMAS, "verifier-challenge-envelope.v2.schema.json"), "utf8"),
+    fs.readFileSync(
+      path.join(SCHEMAS, "verifier-challenge-envelope.v2.schema.json"),
+      "utf8",
+    ),
   );
   const v1Pattern = v1Schema.properties.challenged_ref.pattern;
   const v2Pattern = v2Schema.properties.challenged_ref.pattern;
@@ -1174,11 +1346,16 @@ function offlineAssertions() {
     v1Keys === v2Keys &&
       JSON.stringify(v1Schema.properties.challenge_kind) ===
         JSON.stringify(v2Schema.properties.challenge_kind) &&
-      JSON.stringify(v1Schema.properties.status) === JSON.stringify(v2Schema.properties.status),
+      JSON.stringify(v1Schema.properties.status) ===
+        JSON.stringify(v2Schema.properties.status),
     `${Object.keys(v2Schema.properties).length} properties, enums identical`,
   );
-  const registryV1 = registry.contracts.find((c) => c.contract_id === CHALLENGE_V1);
-  const registryV2 = registry.contracts.find((c) => c.contract_id === CHALLENGE_V2);
+  const registryV1 = registry.contracts.find(
+    (c) => c.contract_id === CHALLENGE_V1,
+  );
+  const registryV2 = registry.contracts.find(
+    (c) => c.contract_id === CHALLENGE_V2,
+  );
   ok(
     "the registry records the succession in BOTH directions and keeps v1 valid — a widened pattern is a new version, never an edit of the registered one",
     registryV1?.evolution?.successor_contract_id === CHALLENGE_V2 &&
@@ -1206,7 +1383,10 @@ function offlineAssertions() {
  * an assurance transition and requires the number to be one.
  */
 function sourceCensus() {
-  const routesDir = path.join(ROOT, "crates/node/src/bin/hypervisor_daemon_routes");
+  const routesDir = path.join(
+    ROOT,
+    "crates/node/src/bin/hypervisor_daemon_routes",
+  );
   const files = fs.readdirSync(routesDir).filter((f) => f.endsWith(".rs"));
   const admitters = files.filter((file) => {
     const text = fs.readFileSync(path.join(routesDir, file), "utf8");
@@ -1218,17 +1398,29 @@ function sourceCensus() {
     `admitters: ${admitters.join(", ") || "none"}`,
   );
   const source = fs.readFileSync(ROUTE_SOURCE, "utf8");
-  const resolverCalls = (source.match(/resolve_admitted_revision\(/gu) ?? []).length;
+  const ontologyResolverCalls = (
+    source.match(/resolve_admitted_revision\(/gu) ?? []
+  ).length;
+  const mappingResolverCalls = (
+    source.match(/resolve_admitted_mapping_revision\(/gu) ?? []
+  ).length;
+  const assertionResolverCalls = (
+    source.match(/resolve_admitted_assertion\(/gu) ?? []
+  ).length;
   ok(
-    "the ontology subject is resolved through the OWNER's published reader and this module adds no reader of its own — no direct chain read, no index, and no second interpretation of another family's truth",
-    resolverCalls >= 1 &&
+    "each landed semantic subject is resolved through its OWNER's published reader and this module adds no reader of its own — no direct chain read, no index, and no second interpretation of another family's truth",
+    ontologyResolverCalls >= 1 &&
+      mappingResolverCalls >= 1 &&
+      assertionResolverCalls >= 1 &&
       !/read_owner_scoped_history\([^)]*ontology/su.test(source) &&
       !source.includes("hypervisor-ontology-versions"),
-    `${resolverCalls} calls to the owner resolver`,
+    `ontology ${ontologyResolverCalls}, mapping ${mappingResolverCalls}, assertion ${assertionResolverCalls} owner-resolver call(s)`,
   );
   ok(
     "the module writes NO file of its own: it makes no raw filesystem call at all, which is what makes 'no second store' structural rather than asserted",
-    !/\bstd::fs::(write|create_dir_all|remove_file|rename|copy|read)\s*\(/u.test(source),
+    !/\bstd::fs::(write|create_dir_all|remove_file|rename|copy|read)\s*\(/u.test(
+      source,
+    ),
     "no raw filesystem calls in the production module",
   );
   ok(
@@ -1243,13 +1435,17 @@ function sourceCensus() {
     /fn projection_cache_key\(\s*scope: &RequestResourceScope,\s*subject_ref: &str,?\s*\)/u.test(
       source,
     ) &&
-      /scope\.principal_ref,\s*scope\.tenant_ref,\s*scope\.owner_ref,\s*subject_ref/u.test(source) &&
+      /scope\.principal_ref,\s*scope\.tenant_ref,\s*scope\.owner_ref,\s*subject_ref/u.test(
+        source,
+      ) &&
       !/projection_cache_state\(subject_ref,/u.test(source),
     "cache key binds principal + tenant + owner + subject",
   );
   ok(
     "the transaction-time slice is TRUNCATED BEFORE PROJECTION, entailed from the source: the history is filtered by admission timestamp and only then projected, so no row can be stamped with a supersession drawn from a transition outside the slice",
-    /\.filter\(\|entry\| entry\.operation\.recorded_at_ms <= as_of\)/u.test(source) &&
+    /\.filter\(\|entry\| entry\.operation\.recorded_at_ms <= as_of\)/u.test(
+      source,
+    ) &&
       /project_ladder\(&sliced, subject_ref\)/u.test(source) &&
       !/visible\.retain\([\s\S]{0,200}recorded_at/u.test(source),
     "history truncated by recorded_at_ms before project_ladder",
@@ -1257,7 +1453,9 @@ function sourceCensus() {
   ok(
     "the replay path compares CURRENT REQUEST INTENT against the admitted record before returning it, over a pinned field set that covers subject, subject hash, outcome, evidence, nonclaims and validity",
     /fn replay_intent_divergence\(/u.test(source) &&
-      /replay_intent_divergence\(&document, &proposal, &subject, &body\)/u.test(source) &&
+      /replay_intent_divergence\(&document, &proposal, &subject, &body\)/u.test(
+        source,
+      ) &&
       [
         "subject_ref",
         "subject_content_hash",
@@ -1266,7 +1464,9 @@ function sourceCensus() {
         "does_not_assert",
         "valid_time",
       ].every((field) =>
-        new RegExp(`REPLAY_INTENT_FIELDS[\\s\\S]{0,400}"${field}"`, "u").test(source),
+        new RegExp(`REPLAY_INTENT_FIELDS[\\s\\S]{0,400}"${field}"`, "u").test(
+          source,
+        ),
       ),
     "intent comparison precedes the replay answer over all six pinned fields",
   );
@@ -1304,12 +1504,19 @@ function sourceCensus() {
     `${testNames.length}/${PINNED_TESTS.length} pinned: ${testNames.join(", ")}`,
   );
 
-  const stages = source.match(/const STAGES: &\[&str\] = &\[([\s\S]*?)\];/u)?.[1] ?? "";
+  const stages =
+    source.match(/const STAGES: &\[&str\] = &\[([\s\S]*?)\];/u)?.[1] ?? "";
   ok(
     "the ladder members in code are the canonical six in canonical order — this module registers and DRIVES the enum, it does not get to choose its members",
-    ["attested", "evidenced", "verified", "accepted", "adjudicated", "settled"].every((stage) =>
-      stages.includes(`"${stage}"`),
-    ) && (stages.match(/"/gu) ?? []).length === 12,
+    [
+      "attested",
+      "evidenced",
+      "verified",
+      "accepted",
+      "adjudicated",
+      "settled",
+    ].every((stage) => stages.includes(`"${stage}"`)) &&
+      (stages.match(/"/gu) ?? []).length === 12,
     `stages block declares ${(stages.match(/"/gu) ?? []).length / 2} members`,
   );
 }
@@ -1329,12 +1536,12 @@ const MUTANTS = [
     reddens:
       "A URI PREFIX IS NOT PROOF THE SUBJECT EXISTS. A well-formed ontology revision ref that names no admitted revision is refused by the OWNER's resolver, so an unresolvable subject can never acquire a ladder on the strength of its spelling",
     from: "            let revision = resolve_admitted_revision(data_dir, identity, subject_ref)?;",
-    to: "            let revision = resolve_admitted_revision(data_dir, identity, subject_ref).unwrap_or(super::ontology_version_routes::ResolvedOntologyRevision { ontology_id: subject_ref.to_string(), ontology_family_ref: String::new(), namespace: String::new(), name: String::new(), revision_ordinal: 1, content_hash: format!(\"sha256:{}\", \"0\".repeat(64)), status: \"active\".to_string() });",
+    to: '            let revision = resolve_admitted_revision(data_dir, identity, subject_ref).unwrap_or(super::ontology_version_routes::ResolvedOntologyRevision { ontology_id: subject_ref.to_string(), ontology_family_ref: String::new(), namespace: String::new(), name: String::new(), revision_ordinal: 1, content_hash: format!("sha256:{}", "0".repeat(64)), status: "active".to_string() });',
   },
   {
     id: "unsupported-family-admitted-on-its-prefix",
     reddens:
-      "the 'ontology_assertion' subject family is NAMEABLE on the v1 wire but FAILS CLOSED with no landed resolver — subject-generality from birth is what lets a later unit add its resolver without a wire change, and refusing by name is what stops the ladder accumulating subjects nobody can resolve",
+      "the 'work_result' subject family is nameable but fails closed through its declared resolver posture — a landed owner resolver is scope-first and reveals no unbound subject existence, while an owner family with no resolver remains explicitly unresolvable",
     // The whole arm is replaced rather than guarded, because guarding it (`other if false`) makes the
     // match non-exhaustive and the mutant would not compile — a build failure reads as a red gate
     // while proving nothing about the assertion it aimed at.
@@ -1369,7 +1576,7 @@ const MUTANTS = [
   {
     id: "replay-ignores-changed-intent",
     reddens:
-      'replaying an admitted idempotency key with a CHANGED \'outcome_class\' is refused as a changed-intent replay and appends nothing — a key answers "did this exact command land?", so returning the stored transition in answer to a different one would substitute one claim for another',
+      "replaying an admitted idempotency key with a CHANGED 'outcome_class' is refused as a changed-intent replay and appends nothing — a key answers \"did this exact command land?\", so returning the stored transition in answer to a different one would substitute one claim for another",
     from: "    if let Some(field) = REPLAY_INTENT_FIELDS\n        .iter()\n        .find(|field| prior.get(*field) != now.get(*field))\n    {\n        return Some(field);\n    }",
     to: '    if false {\n        return Some("unreachable");\n    }',
   },
@@ -1446,8 +1653,8 @@ const MUTANTS = [
     id: "subject-hash-substitution-accepted",
     reddens:
       "an ASSERTED subject hash that disagrees with the owner's current commitment is refused BY ITS OWN CAUSE and appends nothing — the binding is the subject owner's, never the caller's",
-    from: "        if asserted != subject.content_hash {",
-    to: "        if false && asserted != subject.content_hash {",
+    from: '    if let Some(asserted) = body.get("subject_content_hash").and_then(Value::as_str) {\n        if asserted != subject.content_hash {',
+    to: '    if let Some(asserted) = body.get("subject_content_hash").and_then(Value::as_str) {\n        if false && asserted != subject.content_hash {',
   },
   {
     id: "pre-acceptance-nonclaim-not-required",
@@ -1465,13 +1672,18 @@ function rebuildDaemon() {
     { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
   if (build.status !== 0) {
-    throw new Error(`mutant daemon did not build:\n${build.stderr?.slice(-4000)}`);
+    throw new Error(
+      `mutant daemon did not build:\n${build.stderr?.slice(-4000)}`,
+    );
   }
 }
 
 async function runMutationBattery() {
   const original = fs.readFileSync(ROUTE_SOURCE, "utf8");
-  const originalDigest = crypto.createHash("sha256").update(original).digest("hex");
+  const originalDigest = crypto
+    .createHash("sha256")
+    .update(original)
+    .digest("hex");
   const rows = [];
   try {
     for (const mutant of MUTANTS) {
@@ -1479,7 +1691,11 @@ async function runMutationBattery() {
       // FAIL CLOSED ON AN ABSENT ANCHOR. A mutant whose target text has moved proves nothing, and
       // silently skipping it would shrink the battery without failing it.
       if (occurrences !== 1) {
-        rows.push({ id: mutant.id, outcome: "ANCHOR_LOST", detail: `${occurrences} matches` });
+        rows.push({
+          id: mutant.id,
+          outcome: "ANCHOR_LOST",
+          detail: `${occurrences} matches`,
+        });
         continue;
       }
       fs.writeFileSync(ROUTE_SOURCE, original.replace(mutant.from, mutant.to));
@@ -1487,16 +1703,24 @@ async function runMutationBattery() {
       let detail;
       try {
         rebuildDaemon();
-        const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
-          cwd: ROOT,
-          encoding: "utf8",
-          env: { ...process.env, IOI_VERIFIER_CENSUS_DIR: "" },
-          maxBuffer: 64 * 1024 * 1024,
-        });
+        const child = spawnSync(
+          process.execPath,
+          [fileURLToPath(import.meta.url)],
+          {
+            cwd: ROOT,
+            encoding: "utf8",
+            env: { ...process.env, IOI_VERIFIER_CENSUS_DIR: "" },
+            maxBuffer: 64 * 1024 * 1024,
+          },
+        );
         const output = `${child.stdout ?? ""}${child.stderr ?? ""}`;
         const targeted = output.includes(`FAIL  ${mutant.reddens}`);
         const anyFailure = child.status !== 0;
-        outcome = targeted ? "RED_ON_TARGET" : anyFailure ? "RED_OFF_TARGET" : "SURVIVED";
+        outcome = targeted
+          ? "RED_ON_TARGET"
+          : anyFailure
+            ? "RED_OFF_TARGET"
+            : "SURVIVED";
         detail = targeted
           ? "the targeted assertion failed"
           : anyFailure
@@ -1525,7 +1749,9 @@ async function runMutationBattery() {
       process.exit(2);
     }
     rebuildDaemon();
-    process.stdout.write(`\nsource restored and rebuilt; sha256 ${originalDigest}\n`);
+    process.stdout.write(
+      `\nsource restored and rebuilt; sha256 ${originalDigest}\n`,
+    );
   }
   for (const row of rows) {
     process.stdout.write(
@@ -1547,7 +1773,11 @@ if (MUTATE) {
 } else {
   run()
     .catch((error) => {
-      ok("the verifier ran to completion", false, String(error?.stack || error));
+      ok(
+        "the verifier ran to completion",
+        false,
+        String(error?.stack || error),
+      );
     })
     .finally(async () => {
       await stopDaemon();
@@ -1558,7 +1788,9 @@ if (MUTATE) {
         );
       }
       const passed = results.filter((result) => result.pass).length;
-      process.stdout.write(`\nassurance-transition-receipt: ${passed}/${results.length}\n`);
+      process.stdout.write(
+        `\nassurance-transition-receipt: ${passed}/${results.length}\n`,
+      );
       emitVerifierCensus({
         verifierId: "assurance-transition-receipt",
         sourceUrl: import.meta.url,
