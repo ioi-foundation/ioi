@@ -14,8 +14,9 @@ traces, TLC state dumps, and compiled paper outputs live under
 [`internal-docs/formal/aft`](../../../formal/aft/).
 
 - [`specs/`](./specs/) — protocol specs, theorem surfaces, and yellow paper source.
-- [`IMPLEMENTATION_LEDGER.md`](./IMPLEMENTATION_LEDGER.md) — active M0–M8
-  post-quantum assurance implementation status, evidence, and claim gates.
+- [`IMPLEMENTATION_LEDGER.md`](./IMPLEMENTATION_LEDGER.md) — active M0–M18
+  post-quantum assurance and maximal-consensus status, evidence, and claim
+  gates.
 - [`MAXIMAL_CONSENSUS_ACTION_PLAN.md`](./MAXIMAL_CONSENSUS_ACTION_PLAN.md) —
   gated M9–M18 program from the immutable PQ v1 review through the
   non-circular `f=n-1` viability test, end-to-end production implementation,
@@ -31,5 +32,8 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`RUNBOOKS.md`](./RUNBOOKS.md) — operational runbooks.
 - [`OPERATIONAL_POLICY.md`](./OPERATIONAL_POLICY.md) — operational policy.
 - [`packets/`](./packets/) — historical review and external-evidence packets.
+- [`packets/M12-maximal-visibility-theorem-review.md`](./packets/M12-maximal-visibility-theorem-review.md)
+  — owner commissioning packet for independent review of the role-switching
+  lower-bound candidate.
 - [`twin/`](./twin/) — completed in-session clean-room precedent, explicitly
   bounded to specification clarity and vector agreement.

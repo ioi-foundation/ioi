@@ -15,6 +15,13 @@ Current theorem/protocol reference:
 Current follow-on design program:
 
 - Endogenous retrievability: design program for finishing the protocol-native retrievability plane rooted in canonical close, custody, challenge, extraction, and deterministic abort. No standalone program file is present in this snapshot.
+- [`maximal_consensus_task.md`](./maximal_consensus_task.md): the exact M11
+  `f=n-1` research task, including non-vacuous external agreement, validity,
+  decision/effect liveness, adversary, setup, storage, and verifier semantics
+- [`maximal_visibility_viability.md`](./maximal_visibility_viability.md): the
+  M12 canonical-public-state contract and current role-switching lower-bound
+  candidate; independent theorem review is pending and no production claim is
+  created
 
 - [`guardian_majority.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/specs/guardian_majority.md): historical GuardianMajority reference model, excluded from AFT PQ v1 production admission by ADR 0048
 - [`asymptote.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/specs/asymptote.md): two-tier finality with asynchronous sealing, equal-authority observer veto-collapse, and sealed-only effects under the repository's broader PSC-based all-but-one (`n-1` of `n`) Byzantine-safety claim, conditional on the AFT model delta

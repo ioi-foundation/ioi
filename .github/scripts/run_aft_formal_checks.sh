@@ -49,6 +49,14 @@ MODELS=(
   "consequence/AtMostOnceExternalization.cfg|consequence/AtMostOnceExternalization.tla"
   "economic_assurance/DistinctCollateralFloor.cfg|economic_assurance/DistinctCollateralFloor.tla"
   "cross_domain/CrossDomainNonInterference.cfg|cross_domain/CrossDomainNonInterference.tla"
+  "maximal_visibility/MaximalVisibilityDilemma2.cfg|maximal_visibility/MaximalVisibilityDilemma.tla"
+  "maximal_visibility/MaximalVisibilityDilemma3.cfg|maximal_visibility/MaximalVisibilityDilemma.tla"
+)
+
+# Mutation models that MUST produce the named counterexample. A surprising
+# pass means the lower-bound witness no longer exercises its claimed failure.
+COUNTERMODELS=(
+  "maximal_visibility/RoleSwitchConflict.cfg|maximal_visibility/RoleSwitchConflict.tla|Invariant ExternalNonConflict is violated"
 )
 
 # Every trace-conformance replay (AFT-CB R13 / C4a), as
@@ -68,9 +76,13 @@ TRACES=(
 # the formal corpus admits no silent orphans.
 census() {
   local executed=()
-  local p m
+  local p m c rest
   for p in "${PROOFS[@]}"; do executed+=("${p}"); done
   for m in "${MODELS[@]}"; do executed+=("${m##*|}"); done
+  for c in "${COUNTERMODELS[@]}"; do
+    rest="${c#*|}"
+    executed+=("${rest%%|*}")
+  done
 
   EXECUTED_MODULES="$(printf '%s\n' "${executed[@]}")" \
   FORMAL_DIR_ABS="${ROOT_DIR}/${FORMAL_DIR}" \
@@ -249,6 +261,37 @@ run_model() {
   return "${status}"
 }
 
+run_countermodel() {
+  local model_dir="$1"
+  local config_file="$2"
+  local tla_file="$3"
+  local expected="$4"
+  local output status workdir
+
+  workdir="$(mktemp -d)"
+  cp "${ROOT_DIR}/${model_dir}/${config_file}" "${workdir}/"
+  cp "${ROOT_DIR}/${model_dir}/${tla_file}" "${workdir}/"
+  pushd "${workdir}" >/dev/null
+  set +e
+  output="$(java -cp "${JAR_PATH}" tlc2.TLC -cleanup -deadlock \
+    -config "${config_file}" "${tla_file}" 2>&1)"
+  status=$?
+  set -e
+  popd >/dev/null
+  rm -rf "${workdir}"
+  if [[ ${status} -eq 0 ]]; then
+    printf '%s\n' "${output}" >&2
+    echo "countermodel unexpectedly passed: ${tla_file}" >&2
+    return 1
+  fi
+  if ! grep -Fq "${expected}" <<<"${output}"; then
+    printf '%s\n' "${output}" >&2
+    echo "countermodel failed without expected witness: ${expected}" >&2
+    return 1
+  fi
+  echo "expected counterexample observed: ${tla_file}: ${expected}"
+}
+
 run_trace() {
   local trace_rel="$1"
   local base_rel="$2"
@@ -276,6 +319,17 @@ if [[ "${1:-}" == "--smoke" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "--maximal-visibility-only" ]]; then
+  run_model "${FORMAL_DIR}/maximal_visibility" \
+    "MaximalVisibilityDilemma2.cfg" "MaximalVisibilityDilemma.tla"
+  run_model "${FORMAL_DIR}/maximal_visibility" \
+    "MaximalVisibilityDilemma3.cfg" "MaximalVisibilityDilemma.tla"
+  run_countermodel "${FORMAL_DIR}/maximal_visibility" \
+    "RoleSwitchConflict.cfg" "RoleSwitchConflict.tla" \
+    "Invariant ExternalNonConflict is violated"
+  exit 0
+fi
+
 for proof in "${PROOFS[@]}"; do
   run_proof "${FORMAL_DIR}/$(dirname "${proof}")" "$(basename "${proof}")"
 done
@@ -284,6 +338,15 @@ for model in "${MODELS[@]}"; do
   cfg="${model%%|*}"
   tla="${model##*|}"
   run_model "${FORMAL_DIR}/$(dirname "${tla}")" "$(basename "${cfg}")" "$(basename "${tla}")"
+done
+
+for countermodel in "${COUNTERMODELS[@]}"; do
+  cfg="${countermodel%%|*}"
+  rest="${countermodel#*|}"
+  tla="${rest%%|*}"
+  expected="${rest##*|}"
+  run_countermodel "${FORMAL_DIR}/$(dirname "${tla}")" \
+    "$(basename "${cfg}")" "$(basename "${tla}")" "${expected}"
 done
 
 for trace in "${TRACES[@]}"; do
