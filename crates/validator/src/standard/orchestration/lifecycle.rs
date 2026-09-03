@@ -955,21 +955,39 @@ where
                         )
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
                 }
+                let (pq_configured_tx, pq_configured_rx) = tokio::sync::oneshot::channel();
                 self.swarm_command_sender
-                    .send(SwarmCommand::ConfigurePqChannels(PqChannelLocalConfig {
-                        network_id: self.genesis_hash,
-                        configuration_hash,
-                        epoch: effective.effective_from_height,
-                        account_id: local_validator.account_id,
-                        peer_id: self.syncer.get_local_peer_id(),
-                        identity: pq_identity,
-                        identity_key_hash,
-                        outbox_path,
-                    }))
+                    .send(SwarmCommand::ConfigurePqChannels {
+                        config: PqChannelLocalConfig {
+                            network_id: self.genesis_hash,
+                            configuration_hash,
+                            epoch: effective.effective_from_height,
+                            account_id: local_validator.account_id,
+                            peer_id: self.syncer.get_local_peer_id(),
+                            identity: pq_identity,
+                            identity_key_hash,
+                            outbox_path,
+                        },
+                        enrollments: Vec::new(),
+                        response: pq_configured_tx,
+                    })
                     .await
                     .map_err(|error| {
                         ValidatorError::Other(format!(
                             "failed to configure strict AFT PQ channels: {error}"
+                        ))
+                    })?;
+                pq_configured_rx
+                    .await
+                    .map_err(|_| {
+                        ValidatorError::Other(
+                            "strict AFT PQ channel configuration acknowledgement was dropped"
+                                .into(),
+                        )
+                    })?
+                    .map_err(|error| {
+                        ValidatorError::Other(format!(
+                            "strict AFT PQ channel configuration was refused: {error}"
                         ))
                     })?;
                 aft_pq_peer_keys = Some(

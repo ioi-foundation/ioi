@@ -612,25 +612,36 @@ where
             &fallback_journal_path,
         )?;
     }
+    let enrollments = peers
+        .into_iter()
+        .filter_map(|(peer_id, account_id)| {
+            (account_id != local_account).then(|| {
+                desired
+                    .peer_keys
+                    .get(&account_id)
+                    .copied()
+                    .map(|identity_key_hash| PqPeerEnrollment {
+                        peer_id,
+                        account_id,
+                        identity_key_hash,
+                    })
+            })
+        })
+        .flatten()
+        .collect();
+    let (configured_tx, configured_rx) = tokio::sync::oneshot::channel();
     commander
-        .send(SwarmCommand::ConfigurePqChannels(desired.local))
+        .send(SwarmCommand::ConfigurePqChannels {
+            config: desired.local,
+            enrollments,
+            response: configured_tx,
+        })
         .await
         .map_err(|error| anyhow!("failed to queue PQ channel rotation: {error}"))?;
-    for (peer, account_id) in peers {
-        if account_id == local_account {
-            continue;
-        }
-        if let Some(identity_key_hash) = desired.peer_keys.get(&account_id).copied() {
-            commander
-                .send(SwarmCommand::EnrollPqPeer(PqPeerEnrollment {
-                    peer_id: peer,
-                    account_id,
-                    identity_key_hash,
-                }))
-                .await
-                .map_err(|error| anyhow!("failed to queue PQ peer re-enrollment: {error}"))?;
-        }
-    }
+    configured_rx
+        .await
+        .map_err(|_| anyhow!("PQ channel rotation acknowledgement was dropped"))?
+        .map_err(|error| anyhow!("PQ channel rotation was refused: {error}"))?;
     let mut context = context_arc.lock().await;
     context.local_validator_account_id = Some(local_account);
     context.aft_pq_configuration_hash = Some(desired_hash);

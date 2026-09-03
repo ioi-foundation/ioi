@@ -1,5 +1,8 @@
 target/
 /tools/*
+!/tools/aft-assurance-cleanroom/
+!/tools/aft-assurance-cleanroom/**
+**/__pycache__/
 !/tools/aft-pq-interop/
 !/tools/aft-pq-interop/**
 /tools/aft-pq-interop/target/

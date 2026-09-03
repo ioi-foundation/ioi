@@ -15,7 +15,7 @@
 
 use crate::error::CryptoError;
 use dcrypt::algorithms::aead::chacha20poly1305::ChaCha20Poly1305;
-use dcrypt::algorithms::kdf::{Argon2, KdfOperation, KeyDerivationFunction};
+use dcrypt::algorithms::kdf::{Argon2, Argon2Params, KdfOperation, KeyDerivationFunction};
 use dcrypt::algorithms::types::Nonce;
 use dcrypt::api::traits::symmetric::{DecryptOperation, EncryptOperation, SymmetricCipher};
 use rand::{rngs::OsRng, RngCore};
@@ -36,6 +36,15 @@ const SALT_LEN: usize = 16;
 const AEAD_ALGO_CHACHA20POLY1305: u8 = 1;
 const NONCE_LEN: usize = 12;
 const KEK_LEN: usize = 32;
+
+fn v1_kdf() -> Argon2<SALT_LEN> {
+    let mut params = Argon2Params::<SALT_LEN>::default();
+    params.memory_cost = KDF_MEM_KIB;
+    params.time_cost = KDF_ITERS;
+    params.parallelism = u32::from(KDF_LANES);
+    params.output_len = KEK_LEN;
+    Argon2::new_with_params(params)
+}
 
 /// A container for sensitive data that zeroizes on drop.
 #[derive(Zeroize, ZeroizeOnDrop)]
@@ -65,13 +74,9 @@ pub fn encrypt_key(secret: &[u8], passphrase: &str) -> Result<Vec<u8>, CryptoErr
     assert_eq!(header.len(), HEADER_LEN, "Header size mismatch");
 
     // 3. Derive KEK (Key Encryption Key)
-    let kdf = Argon2::<SALT_LEN>::new();
+    let kdf = v1_kdf();
 
-    // Note: If dcrypt supports custom Argon2 params in the future, inject KDF_MEM_KIB, etc. here.
-    // For now, we rely on the implementation defaults matching our header claims, or the header
-    // serving as the source of truth for future agility.
-
-    let kek = kdf
+    let mut kek = kdf
         .builder()
         .with_ikm(passphrase.as_bytes())
         .with_salt(&salt)
@@ -81,12 +86,13 @@ pub fn encrypt_key(secret: &[u8], passphrase: &str) -> Result<Vec<u8>, CryptoErr
         .map_err(|e| CryptoError::OperationFailed(format!("Argon2 derivation failed: {}", e)))?;
 
     // 4. Encrypt
-    // Note: Implicit binding of header data:
-    // - Salt, KDF params -> Bound by derived Key (wrong params = wrong key = tag failure)
-    // - Nonce -> Bound by AEAD usage (wrong nonce = tag failure)
-    // - Magic/Version -> Checked on decode before decrypt.
-    // Explicit AAD is skipped as dcrypt builder API in this version does not expose it on the generic trait.
+    // Every accepted V1 header coordinate is bound: magic/version and suite
+    // identifiers are exact-checked during decode, the declared Argon2 values
+    // are the values configured above, salt enters the KDF, and nonce enters
+    // the AEAD. The dcrypt generic operation in this pinned version does not
+    // expose separate AEAD AAD.
     let cipher = ChaCha20Poly1305::new(&kek);
+    kek.zeroize();
     let nonce = Nonce::new(nonce_bytes);
 
     let ciphertext_obj = SymmetricCipher::encrypt(&cipher)
@@ -122,7 +128,7 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
         .try_into()
         .map_err(|_| CryptoError::InvalidInput("Invalid version encoding".into()))?;
     let version = u16::from_be_bytes(version_bytes);
-    if version != 1 {
+    if version != HEADER_VERSION {
         return Err(CryptoError::Unsupported(format!(
             "Unsupported key format version: {}",
             version
@@ -130,28 +136,28 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
     }
 
     // 2. Extract Metadata
-    let _kdf_id = *data
+    let kdf_id = *data
         .get(10)
         .ok_or_else(|| CryptoError::InvalidInput("Missing KDF algorithm id".into()))?;
-    let _mem_kib = u32::from_be_bytes(
+    let mem_kib = u32::from_be_bytes(
         data.get(11..15)
             .ok_or_else(|| CryptoError::InvalidInput("Missing KDF memory setting".into()))?
             .try_into()
             .map_err(|_| CryptoError::InvalidInput("Invalid KDF memory encoding".into()))?,
     );
-    let _iters = u32::from_be_bytes(
+    let iters = u32::from_be_bytes(
         data.get(15..19)
             .ok_or_else(|| CryptoError::InvalidInput("Missing KDF iterations".into()))?
             .try_into()
             .map_err(|_| CryptoError::InvalidInput("Invalid KDF iteration encoding".into()))?,
     );
-    let _lanes = *data
+    let lanes = *data
         .get(19)
         .ok_or_else(|| CryptoError::InvalidInput("Missing KDF lanes".into()))?;
     let salt = data
         .get(20..36)
         .ok_or_else(|| CryptoError::InvalidInput("Missing KDF salt".into()))?;
-    let _aead_id = *data
+    let aead_id = *data
         .get(36)
         .ok_or_else(|| CryptoError::InvalidInput("Missing AEAD algorithm id".into()))?;
     let nonce_bytes: [u8; NONCE_LEN] = data
@@ -160,16 +166,28 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
         .try_into()
         .map_err(|_| CryptoError::InvalidInput("Invalid nonce encoding".into()))?;
 
+    // V1 has one exact algorithm/parameter suite. These metadata bytes are
+    // not tunable inputs to dcrypt's fixed-default Argon2 API; accepting any
+    // other value would let a tampered file claim a suite that was not used.
+    if kdf_id != KDF_ALGO_ARGON2ID
+        || mem_kib != KDF_MEM_KIB
+        || iters != KDF_ITERS
+        || lanes != KDF_LANES
+        || aead_id != AEAD_ALGO_CHACHA20POLY1305
+    {
+        return Err(CryptoError::Unsupported(format!(
+            "unsupported V1 key-wrap suite: kdf={kdf_id}, mem_kib={mem_kib}, iters={iters}, lanes={lanes}, aead={aead_id}"
+        )));
+    }
+
     let ciphertext_bytes = data
         .get(HEADER_LEN..)
         .ok_or_else(|| CryptoError::InvalidInput("Missing ciphertext payload".into()))?;
 
     // 3. Derive KEK
-    let kdf = Argon2::<SALT_LEN>::new();
+    let kdf = v1_kdf();
 
-    // In a full implementation, we would apply _mem_kib, _iters, _lanes here.
-
-    let kek = kdf
+    let mut kek = kdf
         .builder()
         .with_ikm(passphrase.as_bytes())
         .with_salt(salt)
@@ -180,6 +198,7 @@ pub fn decrypt_key(data: &[u8], passphrase: &str) -> Result<SensitiveBytes, Cryp
 
     // 4. Decrypt
     let cipher = ChaCha20Poly1305::new(&kek);
+    kek.zeroize();
     let nonce = Nonce::new(nonce_bytes);
     let ciphertext_obj = dcrypt::api::types::Ciphertext::new(ciphertext_bytes.to_vec());
 

@@ -781,6 +781,13 @@ jobs:
       - name: Formal census (no silent orphan modules)
         run: bash .github/scripts/run_aft_formal_checks.sh --census-only
 
+      # This stdlib-only verifier is deliberately outside the Rust/IOI
+      # implementation. Running its committed golden corpus from CI's clean
+      # checkout prevents the independent evidence from disappearing behind
+      # an ignore rule or existing only in an author's working tree.
+      - name: AFT clean-room assurance golden corpus
+        run: python3 tools/aft-assurance-cleanroom/verify.py
+
       # Claim discipline is part of the same floor: no unconditional or
       # rounded tolerance claim in the AFT corpus, and the whitepaper's
       # A1–A9 assumption ledger + interim conditional claim stay intact.

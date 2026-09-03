@@ -55,7 +55,11 @@ pub enum SwarmCommand {
     },
     /// Enables strict PQ consensus transport. Once configured, classical
     /// vote/QC/view-change gossip and relay paths are refused.
-    ConfigurePqChannels(PqChannelLocalConfig),
+    ConfigurePqChannels {
+        config: PqChannelLocalConfig,
+        enrollments: Vec<PqPeerEnrollment>,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
+    },
     EnrollPqPeer(PqPeerEnrollment),
     EstablishPqChannel(PeerId),
 

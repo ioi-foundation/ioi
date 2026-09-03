@@ -20,6 +20,12 @@ in `crates/agentgres/src/consequence.rs`. The operation is reachable only after
 4. re-verification of the committed runtime-v3 finality bundle; and
 5. the modeled atomic idempotency-register contract for irreversible effects.
 
+This is the pre-execution authorization path. `PortableAssuranceReceiptV1` is
+produced only after consequence evidence exists and is independently verified
+for relying parties; it is not fed back into this mutation owner. That
+direction is intentional because a receipt containing execution, outcome, and
+reconciliation roots cannot authorize the same execution without circularity.
+
 The static gate fails if another production external-mutation owner appears,
 if raw vector input reaches consequence authorization, or if the policy,
 committed-evidence verification, authorization binding, or atomic-resource

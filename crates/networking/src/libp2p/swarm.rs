@@ -13,7 +13,7 @@ use crate::metrics::metrics;
 use ioi_types::codec;
 
 use super::behaviour::{SyncBehaviour, SyncBehaviourEvent};
-use super::pq_channel::PqChannelSessionManager;
+use super::pq_channel::{PqChannelLocalConfig, PqChannelSessionManager, PqPeerEnrollment};
 use super::sync::{PqConsensusPayloadV1, SyncRequest, SyncResponse};
 use super::types::{SwarmCommand, SwarmInternalEvent};
 
@@ -82,6 +82,26 @@ fn publish_consensus_directly(
             .request_response
             .send_request(&peer, request.clone());
     }
+}
+
+fn replace_pq_channel_manager(
+    current: &mut Option<PqChannelSessionManager>,
+    config: PqChannelLocalConfig,
+    enrollments: Vec<PqPeerEnrollment>,
+) -> Result<(), String> {
+    // The old configuration must become unusable before any fallible work on
+    // the replacement. A construction or enrollment failure therefore leaves
+    // strict transport disabled, never silently active under stale authority.
+    *current = None;
+    let mut replacement =
+        PqChannelSessionManager::new(config).map_err(|error| error.to_string())?;
+    for enrollment in enrollments {
+        replacement
+            .enroll_peer(enrollment)
+            .map_err(|error| error.to_string())?;
+    }
+    *current = Some(replacement);
+    Ok(())
 }
 
 struct InflightPqRequest {
@@ -1208,8 +1228,21 @@ pub async fn run_swarm_loop(
                             }
                         }
                     }
-                    SwarmCommand::ConfigurePqChannels(config) => {
+                    SwarmCommand::ConfigurePqChannels { config, enrollments, response } => {
+                        // Reconfiguration is a fail-closed authority boundary.
+                        // Retire the old manager and every session before
+                        // validating replacement custody so a failed rotation
+                        // cannot continue under stale scope or keys.
+                        pq_channels = None;
+                        pending_votes.clear();
+                        inflight_pq_handshakes.clear();
+                        inflight_pq_consensus.clear();
                         if config.peer_id != *swarm.local_peer_id() {
+                            let error = format!(
+                                "configured carrier identity {} does not match running swarm {}",
+                                config.peer_id,
+                                swarm.local_peer_id()
+                            );
                             tracing::error!(
                                 target: "network",
                                 event = "pq_channel_configuration_refused",
@@ -1217,17 +1250,16 @@ pub async fn run_swarm_loop(
                                 swarm_peer = %swarm.local_peer_id(),
                                 "configured carrier identity does not match the running swarm"
                             );
+                            let _ = response.send(Err(error));
                         } else {
-                            match PqChannelSessionManager::new(config) {
-                                Ok(manager) => {
-                                    pq_channels = Some(manager);
-                                    pending_votes.clear();
-                                    inflight_pq_handshakes.clear();
-                                    inflight_pq_consensus.clear();
+                            match replace_pq_channel_manager(&mut pq_channels, config, enrollments) {
+                                Ok(()) => {
                                     tracing::info!(target: "network", event = "pq_channel_strict_mode_enabled");
+                                    let _ = response.send(Ok(()));
                                 }
                                 Err(error) => {
                                     tracing::error!(target: "network", event = "pq_channel_configuration_refused", %error);
+                                    let _ = response.send(Err(error.to_string()));
                                 }
                             }
                         }
@@ -1315,9 +1347,6 @@ pub async fn run_swarm_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::libp2p::pq_channel::{
-        PqChannelLocalConfig, PqChannelSessionManager, PqPeerEnrollment,
-    };
     use ioi_api::crypto::{SerializableKey, SigningKeyPair};
     use ioi_crypto::security::SecurityLevel;
     use ioi_crypto::sign::dilithium::MldsaScheme;
@@ -1335,6 +1364,36 @@ mod tests {
 
         let transport_only: Multiaddr = "/ip4/127.0.0.1/tcp/9000".parse().unwrap();
         assert_eq!(addressed_peer(&transport_only), None);
+    }
+
+    #[test]
+    fn failed_pq_reconfiguration_retires_old_authority() {
+        let temp = tempfile::tempdir().unwrap();
+        let old_config = local_config(1, temp.path().join("old.outbox"));
+        let mut active = Some(PqChannelSessionManager::new(old_config).unwrap());
+
+        let mut invalid_replacement = local_config(2, temp.path().join("invalid.outbox"));
+        invalid_replacement.configuration_hash = [0; 32];
+        assert!(replace_pq_channel_manager(&mut active, invalid_replacement, Vec::new()).is_err());
+        assert!(
+            active.is_none(),
+            "failed construction must retire the old manager"
+        );
+
+        let replacement = local_config(3, temp.path().join("replacement.outbox"));
+        let aliases_local_endpoint = PqPeerEnrollment {
+            peer_id: replacement.peer_id,
+            account_id: replacement.account_id,
+            identity_key_hash: replacement.identity_key_hash,
+        };
+        assert!(
+            replace_pq_channel_manager(&mut active, replacement, vec![aliases_local_endpoint],)
+                .is_err()
+        );
+        assert!(
+            active.is_none(),
+            "failed enrollment must leave strict transport disabled"
+        );
     }
 
     fn local_config(account: u8, outbox_path: std::path::PathBuf) -> PqChannelLocalConfig {

@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
+# The real-process AFT fixture launches the deterministic signer as a separate
+# binary. A clean checkout has no pre-existing target artifact, so build the
+# exact helper before starting the process drill.
+cargo build --locked -p ioi-node --bin ioi-signer --features validator-bins
+
 # Real four-validator process drill: three failed views force the default
 # hash-only fallback, a virtual block is admitted, all nodes cold-restart, and
 # a native PQ child resumes without a synthetic QC.

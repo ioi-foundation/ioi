@@ -35,3 +35,22 @@ fn test_tamper_header_salt() {
     let res = decrypt_key(&encrypted, "pass");
     assert!(res.is_err());
 }
+
+#[test]
+fn v1_refuses_unimplemented_algorithm_and_kdf_header_values() {
+    let encrypted = encrypt_key(b"header-bound-secret", "pass").unwrap();
+    for offset in [
+        10usize, // KDF algorithm
+        11,      // KDF memory
+        15,      // KDF iterations
+        19,      // KDF lanes
+        36,      // AEAD algorithm
+    ] {
+        let mut tampered = encrypted.clone();
+        tampered[offset] ^= 1;
+        assert!(
+            decrypt_key(&tampered, "pass").is_err(),
+            "header mutation at byte {offset} must fail closed"
+        );
+    }
+}

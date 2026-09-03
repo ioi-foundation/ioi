@@ -18,6 +18,7 @@ use dcrypt::sign::mldsa::{
     MlDsa44, MlDsa65, MlDsa87, MlDsaPublicKey as DcryptPublicKey,
     MlDsaSecretKey as DcryptSecretKey, MlDsaSignature as DcryptSignatureData,
 };
+use zeroize::Zeroizing;
 
 /// ML-DSA signature scheme
 pub struct MldsaScheme {
@@ -43,7 +44,7 @@ pub struct MldsaPublicKey(pub Vec<u8>);
 /// ML-DSA private key
 #[derive(Clone)]
 pub struct MldsaPrivateKey {
-    data: Vec<u8>,
+    data: Zeroizing<Vec<u8>>,
     level: SecurityLevel,
 }
 
@@ -68,7 +69,7 @@ impl MldsaScheme {
                 Ok(MldsaKeyPair {
                     public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
                     private_key: MldsaPrivateKey {
-                        data: sk.to_bytes().to_vec(),
+                        data: Zeroizing::new(sk.to_bytes_zeroizing().to_vec()),
                         level: self.level,
                     },
                     level: self.level,
@@ -81,7 +82,7 @@ impl MldsaScheme {
                 Ok(MldsaKeyPair {
                     public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
                     private_key: MldsaPrivateKey {
-                        data: sk.to_bytes().to_vec(),
+                        data: Zeroizing::new(sk.to_bytes_zeroizing().to_vec()),
                         level: self.level,
                     },
                     level: self.level,
@@ -94,7 +95,7 @@ impl MldsaScheme {
                 Ok(MldsaKeyPair {
                     public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
                     private_key: MldsaPrivateKey {
-                        data: sk.to_bytes().to_vec(),
+                        data: Zeroizing::new(sk.to_bytes_zeroizing().to_vec()),
                         level: self.level,
                     },
                     level: self.level,
@@ -107,7 +108,7 @@ impl MldsaScheme {
                 Ok(MldsaKeyPair {
                     public_key: MldsaPublicKey(pk.to_bytes().to_vec()),
                     private_key: MldsaPrivateKey {
-                        data: sk.to_bytes().to_vec(),
+                        data: Zeroizing::new(sk.to_bytes_zeroizing().to_vec()),
                         level: SecurityLevel::Level2,
                     },
                     level: SecurityLevel::Level2,
@@ -346,7 +347,7 @@ impl SigningKey for MldsaPrivateKey {
 
 impl SerializableKey for MldsaPrivateKey {
     fn to_bytes(&self) -> Vec<u8> {
-        self.data.clone()
+        self.data.to_vec()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
@@ -366,7 +367,7 @@ impl SerializableKey for MldsaPrivateKey {
             .map_err(|error| CryptoError::InvalidKey(error.to_string()))?;
 
         Ok(MldsaPrivateKey {
-            data: key.to_bytes().to_vec(),
+            data: Zeroizing::new(key.to_bytes_zeroizing().to_vec()),
             level,
         })
     }

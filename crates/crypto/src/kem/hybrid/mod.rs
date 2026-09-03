@@ -59,14 +59,14 @@ pub struct HybridPublicKey {
 /// Hybrid private key wrapper (holds serialized key)
 #[derive(Clone)]
 pub struct HybridPrivateKey {
-    bytes: Vec<u8>,
+    bytes: Zeroizing<Vec<u8>>,
     _level: SecurityLevel,
 }
 
 /// Hybrid encapsulated key (holds serialized ciphertext)
 pub struct HybridEncapsulated {
     ciphertext: Vec<u8>,
-    shared_secret: Vec<u8>,
+    shared_secret: Zeroizing<Vec<u8>>,
     _level: SecurityLevel,
 }
 
@@ -125,7 +125,7 @@ impl KeyEncapsulation for HybridKEM {
                 level: self.level,
             },
             private_key: HybridPrivateKey {
-                bytes: sk_bytes,
+                bytes: Zeroizing::new(sk_bytes),
                 _level: self.level,
             },
             _level: self.level,
@@ -156,7 +156,7 @@ impl KeyEncapsulation for HybridKEM {
 
         Ok(HybridEncapsulated {
             ciphertext: ct_bytes,
-            shared_secret: ss_bytes,
+            shared_secret: Zeroizing::new(ss_bytes),
             _level: public_key.level,
         })
     }
@@ -211,7 +211,7 @@ impl KemKeyPair for HybridKeyPair {
 
 impl SerializableKey for HybridPublicKey {
     fn to_bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+        self.bytes.to_vec()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
@@ -240,7 +240,7 @@ impl EncapsulationKey for HybridPublicKey {}
 
 impl SerializableKey for HybridPrivateKey {
     fn to_bytes(&self) -> Vec<u8> {
-        self.bytes.clone()
+        self.bytes.to_vec()
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
@@ -259,7 +259,7 @@ impl SerializableKey for HybridPrivateKey {
             }
         };
         Ok(HybridPrivateKey {
-            bytes: bytes.to_vec(),
+            bytes: Zeroizing::new(bytes.to_vec()),
             _level: level,
         })
     }
@@ -289,7 +289,7 @@ impl SerializableKey for HybridEncapsulated {
         };
         Ok(HybridEncapsulated {
             ciphertext: bytes.to_vec(),
-            shared_secret: vec![],
+            shared_secret: Zeroizing::new(Vec::new()),
             _level: level,
         })
     }

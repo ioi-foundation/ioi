@@ -34,6 +34,14 @@ distinct-collateral verifier, exact-compares the transformation trace and
 achieved vector, evaluates the manifest policy, and reports verified
 constituents. Unknown schema, verifier, algorithm, or transformation refuses.
 
+The receipt is post-consequence evidence, not the token that authorizes the
+same consequence. Production first reverifies source-neutral runtime-v3
+evidence, binds the exact manifest in Agentgres, and passes only the resulting
+opaque authorization and guarantee types to the mutation owner. After
+execution and reconciliation, the portable receipt packages that full history
+for a relying party. Requiring its outcome-bearing bytes before execution
+would be circular.
+
 An independent clean-room utility imports no IOI crate. It reproduces the
 closed JCS subset, hash/binding, arbitrary-precision collateral, transform and
 policy checks, while a separately compiled RustCrypto oracle verifies the
@@ -44,6 +52,8 @@ pin the cross-implementation representation.
 
 - Assurance becomes an offline-verifiable evidence object rather than a node
   API response.
+- Portable verification is a relying-party decision and never a backdoor raw-
+  vector input to production consequence authorization.
 - The verifier accepts only canonical RFC 8785/JCS bytes; pretty-printed or
   semantically equivalent noncanonical JSON refuses.
 - Receipt issuance uses a PQ envelope signature. The embedded runtime-v3

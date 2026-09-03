@@ -1395,10 +1395,17 @@ impl TestClusterBuilder {
             .and_then(|value| value.parse::<u64>().ok())
             .unwrap_or_else(|| if benchmark_harness_mode { 16 } else { 1 });
 
-        let full_mesh_bootnodes = std::env::var("IOI_TEST_FULL_MESH_BOOTNODES")
-            .ok()
-            .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
-            .unwrap_or(false);
+        // Strict PQ consensus sends authenticated point-to-point records and
+        // intentionally has no unauthenticated gossip relay. Every validator
+        // must therefore have a carrier connection to every other validator;
+        // making this an intrinsic property of the PQ harness avoids a
+        // height-zero deadlock when a caller correctly selects the PQ profile
+        // but does not know about the historical test-only mesh override.
+        let full_mesh_bootnodes = self.pq_consensus_profile
+            || std::env::var("IOI_TEST_FULL_MESH_BOOTNODES")
+                .ok()
+                .map(|value| matches!(value.as_str(), "1" | "true" | "TRUE" | "True"))
+                .unwrap_or(false);
 
         if !full_mesh_bootnodes && !validator_keys.is_empty() {
             let boot_peer_id = validator_keys[0].public().to_peer_id();
