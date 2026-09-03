@@ -11,11 +11,15 @@ the other.
 
 - Repository: `ioi-foundation/ioi`.
 - Candidate ref: annotated tag
+  `aft-maximal-visibility-lower-bound-candidate-r2-2026-09-03`.
+- Superseded predecessor (retained for audit):
   `aft-maximal-visibility-lower-bound-candidate-2026-09-03`.
 - Exact commit: resolve the tag and record its full hash in the commissioning
   record and final review. The candidate cannot self-contain its own hash.
 - Normative task: `../specs/maximal_consensus_task.md`.
 - Lower-bound candidate: `../specs/maximal_visibility_viability.md`.
+- Dated prior-art/task comparison:
+  `../specs/maximal_prior_art_comparison_2026-09-03.md`.
 - Mechanization: `../formal/maximal_visibility/`.
 
 Any substantive repair creates a new candidate and requires the reviewer to
@@ -57,6 +61,9 @@ are supporting evidence, not independent review.
    concrete counterexample protocol rather than relying only on terminology.
 10. If the conjunction is impossible, identify the minimal assumption or
     property change needed for each plausible alternative.
+11. Audit every row and cited primary source in the dated prior-art comparison.
+    Identify an omitted construction or a task mismatch that changes L-MAX;
+    do not treat the comparison itself as evidence of novelty.
 
 ## Required attacks
 

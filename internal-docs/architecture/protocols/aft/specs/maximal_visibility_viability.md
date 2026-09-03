@@ -69,7 +69,11 @@ The result applies to arbitrary finite participant-generated proof formats,
 not only threshold or `q`-of-`n` certificates.
 
 **Proof.** Choose two members `a != b` and conflicting valid values `X` and
-`Y` for the same rooted instance.
+`Y` for the same rooted instance and fixed externally rooted context. Hold all
+non-member public inputs and authorization prerequisites common between the
+executions. If a proof instead needs a non-reproducible selecting output from a
+non-member service, that service is an additional authority and falls outside
+the premise.
 
 In execution `E_a`, `a` is the sole correct member, `X` is correctly submitted
 to `a`, and every other member is permanently silent. By effect liveness, at
@@ -80,14 +84,16 @@ In execution `E_b`, role-switch the correct member: `b` is sole correct, `Y`
 is correctly submitted to `b`, and all others are silent. Liveness yields a
 finite accepted proof `pi_Y` with `Support(pi_Y) subseteq {b}`.
 
-Now construct `E_*` with `a` correct and every other member Byzantine. The
-adversary possesses `b`'s legitimate keys and can reproduce the finite local
-computation, chosen random tape, publications, and proof bytes from `E_b`.
-It emits byte-identical `pi_Y`. Correct member `a` follows its `E_a` prefix and
-emits `pi_X`; Byzantine members delay or omit everything else. The verifier's
-roots and proof inputs are byte-identical to the accepting inputs above, so it
-accepts both conflicting non-`Abort` proofs. This violates transferable
-non-conflict in an admissible execution.
+Now construct `E_*` with `a` correct and every other member Byzantine. Keep
+`b` silent until `a` follows its `E_a` prefix and emits `pi_X`. The adversary
+possesses `b`'s legitimate keys and can then reproduce the finite local
+computation, chosen random tape, publications, common public inputs, and proof
+bytes from `E_b`, emitting byte-identical `pi_Y`. Byzantine members delay or
+omit everything else. Known network bounds do not constrain when a Byzantine
+sender begins an action. The verifier's roots and proof inputs are
+byte-identical to the accepting inputs above, so it accepts both conflicting
+non-`Abort` proofs. This violates transferable non-conflict in an admissible
+execution.
 
 Randomization does not repair safety. Almost-sure liveness supplies terminating
 finite prefixes with nonzero probability; fix those random tapes for the
@@ -102,6 +108,13 @@ member. A permanently silent Byzantine member then prevents the proof, which
 violates effect liveness. Alternatively, a non-member CPS close can select one
 proof, but its consistency/availability becomes a new trusted authority.
 Either outcome contradicts one of the premises. QED.
+
+The theorem is about persistent, transferable authorization, not merely the
+private decision register of the sole correct process. A verifier-local
+first-seen cache does not repair the contradiction: two verifiers can receive
+the proofs in opposite orders. A shared linearizable cache can repair that
+ordering only by becoming the selecting service named in the second branch of
+the dilemma.
 
 ## 4. Relation to existing AFT bounds
 
@@ -170,7 +183,32 @@ This can implement canonical close only by importing its own consensus and
 availability assumptions. It is a named external authority/relay, not a
 relay-free construction from the target participants.
 
-## 7. Current M12 disposition
+## 7. Separation from established results
+
+The dated comparison in
+`maximal_prior_art_comparison_2026-09-03.md` records the detailed task and
+assumption deltas. The most important boundaries are:
+
+- Dolev-Strong supplies authenticated synchronous internal Byzantine
+  agreement with a `t+1`-round bound; it does not require a live persistent
+  singleton authorization that remains non-conflicting to offline verifiers.
+- FLP rules out deterministic asynchronous decision termination with one
+  crash. L-MAX does not rely on asynchrony or determinism and instead couples
+  transferable proof safety to non-`Abort` progress under Byzantine silence.
+- DLS separates unconditional safety from post-GST termination and places
+  authenticated Byzantine partial-synchrony consensus at `N >= 3t+1`; it does
+  not establish the target at `t=N-1`.
+- Reliable broadcast, ACS, and DAG availability certificates disseminate or
+  certify participant data under quorum assumptions. They do not turn the
+  absence of `N-1` Byzantine acts into a canonical selecting bit.
+- A wait-free linearizable first-writer or sticky object can provide that bit,
+  but it is consensus-powerful shared state. Treating it as an unmodeled
+  bulletin would assume the disputed construction.
+
+These comparisons are scope checks, not a novelty claim and not independent
+validation of L-MAX.
+
+## 8. Current M12 disposition
 
 Local result: **PROVED_IMPOSSIBLE candidate under the fixed task and excluded-
 authority constraints**.

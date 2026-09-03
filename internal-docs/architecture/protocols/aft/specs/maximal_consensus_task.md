@@ -37,6 +37,13 @@ instance accepts.
 Two non-`Abort` values conflict when they prescribe different canonical state
 or incompatible effects for the same typed instance.
 
+The task is nontrivial: at least one fixed, independently rooted context admits
+two conflicting externally valid values. A protocol theorem may restrict a
+value domain by policy, but it may not make agreement tautological by defining
+at most one value as externally valid for every instance. The paired executions
+below hold the roots, context, and all non-member public inputs fixed while
+varying which valid proposal reaches the sole correct member.
+
 An input is *correctly submitted* when its complete bytes reach at least one
 correct member through an authenticated client path and remain available in
 that member's durable storage. The model does not demand inclusion for an
@@ -192,6 +199,9 @@ constructing a safety counterexecution.
 - A proof remains valid or invalid by bytes, roots, and explicit freshness
   inputs; network arrival order at the verifier is not authority.
 - “First seen” is local observation, not canonical first publication.
+- If verifiers share a mutable service that makes their acceptance order
+  consistent, that service and its safety/liveness assumptions are part of the
+  protocol rather than an implementation detail.
 
 ## 8. Required smallest cases
 

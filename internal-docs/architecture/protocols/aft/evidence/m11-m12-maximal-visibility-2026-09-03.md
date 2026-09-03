@@ -2,12 +2,18 @@
 
 Status: **M11 LOCAL SPEC COMPLETE; M12 INDEPENDENT REVIEW PENDING**.
 
+Current review candidate: annotated tag
+`aft-maximal-visibility-lower-bound-candidate-r2-2026-09-03`. The predecessor
+tag without `-r2` remains immutable audit evidence.
+
 ## Deliverables
 
 - Exact task/adversary/verifier model:
   `../specs/maximal_consensus_task.md`.
 - Canonical-public-state contract and L-MAX lower-bound candidate:
   `../specs/maximal_visibility_viability.md`.
+- Dated primary-source comparison and construction attack:
+  `../specs/maximal_prior_art_comparison_2026-09-03.md`.
 - Bounded models and mutation witness: `../formal/maximal_visibility/`.
 - Independent review handoff:
   `../packets/M12-maximal-visibility-theorem-review.md`.
@@ -37,6 +43,35 @@ The model enumerates arbitrary value-indexed acceptance families of member
 support sets, rather than one fixed threshold. The prose proof supplies the
 general role-switching argument; bounded enumeration is supporting evidence,
 not a substitute for independent proof review.
+
+## Prior-art attack and repair
+
+Primary sources were checked for Dolev–Strong authenticated synchronous BA,
+FLP, DLS partial synchrony, Bracha RBC, HoneyBadger/ACS, DAG-Rider,
+Narwhal/Tusk, fraud/data-availability proofs, LazyLedger, Herlihy's consensus
+hierarchy, and Geeq user validation. The resulting dated matrix records the
+model, validity, liveness, availability, external-verifier, and effect
+semantics separately.
+
+No checked construction supplies the disputed non-`Abort` transferable proof
+from any possible sole correct identity while preventing a role-switched
+Byzantine identity from reproducing its own accepted bytes. The strongest
+escape, a shared linearizable first-publication object, supplies exactly the
+selecting bit but is consensus-powerful external state rather than ordinary
+dissemination.
+
+The attack exposed three clarifications now included in the R2 task/proof:
+
+1. the value task must admit two conflicting externally valid values under one
+   fixed context rather than becoming valid-by-definition;
+2. non-member public inputs are held fixed in the paired executions, and any
+   non-reproducible selecting output is charged as an external authority; and
+3. the role-switched Byzantine remains silent until the correct member emits
+   its proof, so known delivery bounds cannot prevent the replay.
+
+The comparison is local research evidence, not an exhaustive novelty claim or
+independent validation. The review packet now requires the theorist to audit
+each row and attempt an omitted construction.
 
 ## Local disposition
 

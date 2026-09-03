@@ -21,3 +21,9 @@ bash .github/scripts/run_aft_formal_checks.sh --maximal-visibility-only
 These bounded models support the general L-MAX proof in
 `../../specs/maximal_visibility_viability.md`; they do not replace independent
 theorem review or establish a positive construction.
+
+The mechanized support-set abstraction deliberately does not model a
+linearizable first-writer service, trusted clock, external chain, or other
+non-member selector. Adding one would trivially supply an ordering bit while
+changing the M11 authority model. The independent review packet requires any
+proposed escape to name and charge that dependency.

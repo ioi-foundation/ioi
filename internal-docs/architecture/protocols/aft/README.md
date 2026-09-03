@@ -35,5 +35,9 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`packets/M12-maximal-visibility-theorem-review.md`](./packets/M12-maximal-visibility-theorem-review.md)
   — owner commissioning packet for independent review of the role-switching
   lower-bound candidate.
+- [`specs/maximal_prior_art_comparison_2026-09-03.md`](./specs/maximal_prior_art_comparison_2026-09-03.md)
+  — dated task-level comparison against authenticated/synchronous BA,
+  asynchronous BA/RBC/ACS, DAG availability, data-availability sampling,
+  consensus-powerful shared objects, and Geeq user validation.
 - [`twin/`](./twin/) — completed in-session clean-room precedent, explicitly
   bounded to specification clarity and vector agreement.
