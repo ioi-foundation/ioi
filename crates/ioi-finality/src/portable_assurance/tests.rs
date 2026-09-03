@@ -22,6 +22,25 @@ fn hash<T: Serialize>(domain: &[u8], value: &T) -> [u8; 32] {
     Sha256::digest(material).into()
 }
 
+fn sign_receipt_value(mut value: Value, key: &MldsaKeyPair) -> Vec<u8> {
+    let public = BASE64.encode(key.public_key().to_bytes());
+    value["signature"]["algorithm"] = Value::String("ml-dsa-44".into());
+    value["signature"]["public_key_base64"] = Value::String(public);
+    value["signature"]["signature_base64"] = Value::String(String::new());
+    let mut preimage = value.clone();
+    let object = preimage.as_object_mut().unwrap();
+    object.remove("receipt_hash");
+    object.remove("signature");
+    let receipt_hash = hash_json(&preimage).unwrap();
+    value["receipt_hash"] = Value::String(receipt_hash.clone());
+    let signature = key
+        .private_key()
+        .sign(&signature_message(&receipt_hash))
+        .unwrap();
+    value["signature"]["signature_base64"] = Value::String(BASE64.encode(signature.to_bytes()));
+    serde_jcs::to_vec(&value).unwrap()
+}
+
 fn channel_coverage(
     context: &FinalityPqContext,
     member_keys: &[(AccountId, MldsaKeyPair)],
@@ -553,10 +572,11 @@ fn mutations_of_every_major_constituent_are_rejected() {
 }
 
 #[test]
-fn validly_reenveloped_inner_channel_seal_endpoint_and_enrollment_forgeries_refuse() {
+fn validly_reenveloped_inner_and_guarantee_vector_forgeries_refuse() {
     let envelope = generate_portable_receipt_key().unwrap();
-    for mutation in 0..7 {
-        let mut receipt = fixture();
+    let base = fixture();
+    for mutation in 0..9 {
+        let mut receipt = base.clone();
         match mutation {
             0 => {
                 receipt.channel_coverage.sessions.pop();
@@ -591,6 +611,15 @@ fn validly_reenveloped_inner_channel_seal_endpoint_and_enrollment_forgeries_refu
             6 => {
                 receipt.terminal_seal.shares.pop();
             }
+            7 => {
+                receipt.claimed_achieved.theorem_ids.insert("T999".into());
+            }
+            8 => {
+                receipt
+                    .claimed_achieved
+                    .constituent_hashes
+                    .insert([255; 32]);
+            }
             _ => unreachable!(),
         }
         let bytes = sign_portable_assurance_receipt(&mut receipt, &envelope).unwrap();
@@ -612,6 +641,25 @@ fn validly_reenveloped_inner_channel_seal_endpoint_and_enrollment_forgeries_refu
         let report = verify_portable_assurance_bytes(&bytes, &trust);
         assert!(!report.accepted, "inner mutation {mutation} passed");
     }
+
+    // Keep a valid outer envelope around an unknown signed field. This proves
+    // clean-room implementations reject schema extensions independently of
+    // signature and receipt-hash validity.
+    let mut receipt = base;
+    let canonical = sign_portable_assurance_receipt(&mut receipt, &envelope).unwrap();
+    let trust = trust_for(&receipt);
+    let mut value: Value = serde_json::from_slice(&canonical).unwrap();
+    value["unexpected_signed_field"] = Value::String("must-refuse".into());
+    let bytes = sign_receipt_value(value, &envelope);
+    if let Some(directory) = std::env::var_os("AFT_PORTABLE_NEGATIVE_OUTPUT_DIR") {
+        let directory = std::path::PathBuf::from(directory);
+        let path = directory.join("validly-reenveloped-inner-mutation-9.json");
+        std::fs::write(path, &bytes).expect("write requested unknown-field fixture");
+        let trust_path = directory.join("validly-reenveloped-inner-mutation-9.trust.json");
+        std::fs::write(trust_path, serde_jcs::to_vec(&trust).unwrap())
+            .expect("write requested unknown-field trust fixture");
+    }
+    assert!(!verify_portable_assurance_bytes(&bytes, &trust).accepted);
 }
 
 #[test]

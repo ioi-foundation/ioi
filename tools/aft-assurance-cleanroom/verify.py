@@ -11,6 +11,7 @@ tools/aft-pq-interop, never to IOI runtime code.
 
 import argparse
 import base64
+import copy
 import hashlib
 import json
 import subprocess
@@ -40,6 +41,7 @@ CLIENT_HELLO_DOMAIN = b"ioi::aft::pq-channel::client-hello::v1\0"
 SERVER_HELLO_DOMAIN = b"ioi::aft::pq-channel::server-hello::v1\0"
 CLIENT_FINISH_DOMAIN = b"ioi::aft::pq-channel::client-finish::v1\0"
 CHANNEL_COMPLETION_DOMAIN = b"ioi::aft::pq-channel::completion-evidence::v1\0"
+GUARANTEE_VECTOR_DOMAIN = b"ioi::aft::guarantee-vector::v1\0"
 
 
 def canonical(value):
@@ -59,6 +61,277 @@ def digest(value):
 
 def domain_digest(domain, value):
     return hashlib.sha256(domain + canonical(value)).digest()
+
+
+def exact_keys(value, required, label, optional=()):
+    assert isinstance(value, dict), f"{label} must be an object"
+    required, optional = set(required), set(optional)
+    actual = set(value)
+    unknown = actual - required - optional
+    missing = required - actual
+    assert not unknown, f"{label} contains unknown fields: {sorted(unknown)}"
+    assert not missing, f"{label} is missing fields: {sorted(missing)}"
+
+
+def close_requirements(value, label):
+    exact_keys(value, {
+        "minimum_finality_rank", "configuration_hash", "conflict_domain_hash",
+        "require_consensus_pq", "require_channel_pq", "require_externalization_pq",
+        "require_end_to_end_pq", "require_no_private_threshold_setup",
+        "minimum_accountability", "require_publication_retrievable",
+        "minimum_externalization", "require_at_most_once",
+    }, label, {"minimum_slashable_collateral"})
+    floor = value.get("minimum_slashable_collateral")
+    if floor is not None:
+        exact_keys(floor, {"asset_id_hash", "minimum_amount_base_units"}, label + ".minimum_slashable_collateral")
+
+
+def close_guarantee_vector(value, label):
+    exact_keys(value, {
+        "schema_version", "safety", "liveness", "crypto", "accountability",
+        "availability", "externalization", "slashable_collateral",
+        "measured_latency", "assumptions", "theorem_ids", "certificate_profiles",
+        "constituent_hashes", "transformation_hashes",
+    }, label)
+    exact_keys(value["safety"], {
+        "model", "finality_rank", "committee_n", "fault_bound_f", "quorum_q",
+        "configuration_hash", "conflict_domain_hash",
+    }, label + ".safety")
+    exact_keys(value["liveness"], {
+        "termination", "network", "adversary", "committee_n", "fault_bound_f",
+        "private_authenticated_channels",
+    }, label + ".liveness")
+    exact_keys(value["crypto"], {
+        "consensus_pq", "channel_pq", "externalization_pq", "end_to_end_pq",
+        "private_threshold_setup", "primitive_suites",
+    }, label + ".crypto")
+    exact_keys(value["availability"], {
+        "publication_retrievable", "custody_threshold", "retention_horizon",
+    }, label + ".availability")
+    exact_keys(value["externalization"], {
+        "mode", "at_most_once", "adapter_profile_hash",
+    }, label + ".externalization")
+    collateral = value["slashable_collateral"]
+    if collateral is not None:
+        exact_keys(collateral, {
+            "asset_id_hash", "amount_base_units", "collateral_set_hash",
+            "bond_snapshot_root", "locked_until", "evidence_rule_hash",
+            "slashing_contract_hash", "valuation_assumptions_hash",
+        }, label + ".slashable_collateral")
+    latency = value["measured_latency"]
+    if latency is not None:
+        exact_keys(latency, {"profile_hash", "percentile_bps", "milliseconds"}, label + ".measured_latency")
+
+
+def close_runtime_bundle(bundle):
+    exact_keys(bundle, {
+        "schema_version", "bundle_domain", "bundle_id", "bundle_hash", "checkpoint",
+        "operations", "receipts", "availability_payloads", "trusted_issuer",
+        "requested_axes", "compatibility_behavior",
+    }, "finality_bundle")
+    checkpoint = bundle["checkpoint"]
+    exact_keys(checkpoint, {
+        "schema_version", "checkpoint_domain", "checkpoint_id", "body_hash", "domain_id",
+        "authority_epoch", "authority_revocation_epoch", "operation_range", "receipt_range",
+        "previous_checkpoint_ref", "previous_checkpoint_hash", "previous_canonical_head",
+        "resulting_canonical_head", "previous_state_commitment", "resulting_state_commitment",
+        "operation_root", "receipt_root", "profile_contract_version", "profile", "writer_fence",
+        "authority_policy_root", "governance_policy_root", "availability_policy_root",
+        "availability_manifest", "availability_manifest_hash", "verifier_contract_ref",
+        "verifier_contract_hash", "durability_class", "finality_certificate",
+    }, "finality_bundle.checkpoint")
+    for name in ("operation_range", "receipt_range"):
+        exact_keys(checkpoint[name], {"first", "last"}, "checkpoint." + name)
+    for name in ("previous_state_commitment", "resulting_state_commitment"):
+        exact_keys(checkpoint[name], {"algorithm", "height", "root_base64", "root_hash"}, "checkpoint." + name)
+    exact_keys(checkpoint["writer_fence"], {"profile_epoch", "writer_identity", "fence_token"}, "checkpoint.writer_fence")
+    manifest = checkpoint["availability_manifest"]
+    exact_keys(manifest, {"schema_version", "manifest_id", "manifest_hash", "retention_class",
+                          "retention_policy_root", "payloads", "failure_behavior"}, "availability_manifest")
+    for row in manifest["payloads"]:
+        exact_keys(row, {"payload_ref", "payload_hash", "byte_length", "location_ref",
+                         "failure_domain_ref"}, "availability_manifest.payload")
+    certificate = checkpoint["finality_certificate"]
+    exact_keys(certificate, {
+        "schema_version", "certificate_domain", "certificate_variant", "certificate_id",
+        "domain_id", "authority_epoch", "authority_revocation_epoch", "checkpoint_hash",
+        "operation_range", "receipt_range", "profile_contract_version", "profile",
+        "profile_epoch", "writer_identity", "fence_token", "claimed_axes", "assurance",
+        "verifier_contract_ref", "verifier_contract_hash", "issuer_key_id",
+        "issuer_public_key", "body_hash", "signature_suite", "signature",
+    }, "finality_certificate", {"native_aft_evidence", "hash_async_evidence"})
+    for name in ("operation_range", "receipt_range"):
+        exact_keys(certificate[name], {"first", "last"}, "finality_certificate." + name)
+    assurance = certificate["assurance"]
+    exact_keys(assurance, {"schema_version", "requirements", "achieved",
+                           "achieved_commitment", "transformations"}, "finality_certificate.assurance")
+    close_requirements(assurance["requirements"], "finality_certificate.assurance.requirements")
+    close_guarantee_vector(assurance["achieved"], "finality_certificate.assurance.achieved")
+    for transform in assurance["transformations"]:
+        exact_keys(transform, {"schema_version", "coordinate", "rule", "input_vector_hashes",
+                               "new_evidence_hash", "theorem_id", "verifier_profile_hash",
+                               "claimed_output_hash"}, "finality_certificate.assurance.transform")
+    hash_evidence = certificate.get("hash_async_evidence")
+    if hash_evidence is not None:
+        exact_keys(hash_evidence, {
+            "schema_version", "consensus_protocol_ref", "membership_ref", "membership_epoch",
+            "fault_model", "synchrony_model", "private_threshold_setup",
+            "membership_enrollment_required", "private_authenticated_channels_required",
+            "pq_authenticated_channels_required", "post_quantum", "terminal_block_header_base64",
+            "certificate_base64", "witness_base64", "validator_set_base64", "members",
+        }, "finality_certificate.hash_async_evidence")
+        for member in hash_evidence["members"]:
+            exact_keys(member, {"member_ref", "signature_suite", "public_key"}, "hash_async_evidence.member")
+    native = certificate.get("native_aft_evidence")
+    if native is not None:
+        exact_keys(native, {
+            "schema_version", "consensus_protocol_ref", "membership_ref", "membership_epoch",
+            "fault_model", "synchrony_model", "total_voting_members",
+            "byzantine_fault_tolerance", "quorum_threshold", "block_height", "block_view",
+            "block_hash", "vote_message_domain", "effect_commitment", "membership_hash",
+            "members", "votes",
+        }, "finality_certificate.native_aft_evidence")
+        for member in native["members"]:
+            exact_keys(member, {"member_ref", "signature_suite", "public_key"}, "native_aft_evidence.member")
+        for vote in native["votes"]:
+            exact_keys(vote, {"member_ref", "account_id", "signature"}, "native_aft_evidence.vote")
+    for material in bundle["operations"] + bundle["receipts"]:
+        # `body` is deliberately a Value in the Rust schema; its hash is still checked.
+        exact_keys(material, {"sequence", "body", "body_hash"}, "finality_bundle.material")
+    for payload in bundle["availability_payloads"]:
+        exact_keys(payload, {"payload_ref", "payload_base64"}, "finality_bundle.availability_payload")
+    exact_keys(bundle["trusted_issuer"], {"issuer_key_id", "issuer_public_key", "domain_id",
+                                         "authority_epoch", "revocation_epoch"}, "finality_bundle.trusted_issuer")
+
+
+def close_portable_schema(receipt, trust):
+    exact_keys(receipt, {
+        "schema_version", "verifier_profile", "finality_bundle", "channel_coverage",
+        "terminal_seal", "effect_manifest", "policy", "configuration_snapshot",
+        "consequence", "economic_proof", "requested_anchors", "claimed_achieved",
+        "transformation_trace", "receipt_hash", "signature",
+    }, "receipt")
+    exact_keys(trust, {
+        "schema_version", "network_id", "configuration_hash", "epoch", "terminal_key_root",
+        "allowed_receipt_public_keys_base64", "required_anchors", "required_guarantees",
+    }, "trust")
+    close_requirements(receipt["policy"], "receipt.policy")
+    close_requirements(trust["required_guarantees"], "trust.required_guarantees")
+    close_guarantee_vector(receipt["claimed_achieved"], "receipt.claimed_achieved")
+    close_runtime_bundle(receipt["finality_bundle"])
+
+    coverage = receipt["channel_coverage"]
+    exact_keys(coverage, {"schema_version", "network_id", "configuration_hash", "epoch",
+                          "protected_finality_hash", "sessions"}, "receipt.channel_coverage")
+    for session in coverage["sessions"]:
+        exact_keys(session, {"protocol_version", "schema_version", "profile", "client_hello",
+                             "server_hello", "client_finish", "protected_payload_hash",
+                             "initiator_attestation_signature", "responder_attestation_signature"},
+                   "channel_coverage.session")
+        hello = session["client_hello"]
+        exact_keys(hello, {"protocol_version", "schema_version", "scope", "nonce",
+                           "kem_public_key", "identity_suite", "identity_public_key", "signature"},
+                   "channel.client_hello")
+        exact_keys(hello["scope"], {"network_id", "configuration_hash", "epoch", "initiator",
+                                    "responder", "initiator_transport_binding",
+                                    "responder_transport_binding"}, "channel.scope")
+        exact_keys(session["server_hello"], {"protocol_version", "schema_version", "client_hello_hash",
+                                             "nonce", "kem_ciphertext", "identity_suite",
+                                             "identity_public_key", "signature"}, "channel.server_hello")
+        exact_keys(session["client_finish"], {"protocol_version", "schema_version", "transcript_hash",
+                                              "key_confirmation", "signature"}, "channel.client_finish")
+
+    terminal = receipt["terminal_seal"]
+    exact_keys(terminal, {"schema_version", "key_manifest", "shares"}, "receipt.terminal_seal")
+    exact_keys(terminal["key_manifest"], {"schema_version", "entries"}, "terminal_seal.key_manifest")
+    for entry in terminal["key_manifest"]["entries"]:
+        exact_keys(entry, {"initial_key", "initial_key_commitment"}, "terminal_seal.manifest_entry")
+        close_seal_key(entry["initial_key"], "terminal_seal.initial_key")
+    for share in terminal["shares"]:
+        exact_keys(share, {"protocol_version", "schema_version", "current_key", "seal_slot",
+                           "seal_root", "next_key_commitment", "signature"}, "terminal_seal.share")
+        close_seal_key(share["current_key"], "terminal_seal.current_key")
+
+    manifest = receipt["effect_manifest"]
+    exact_keys(manifest, {"schema_version", "effect_id", "resource_id", "conflict_domain_id",
+                          "read_set", "write_set", "idempotency_key", "request_root",
+                          "predecessor_root", "intent_root", "expected_outcome_root",
+                          "resource_profile", "required_guarantees", "fence", "reconciliation",
+                          "irreversible"}, "receipt.effect_manifest")
+    for row in manifest["read_set"] + manifest["write_set"]:
+        exact_keys(row, {"key", "predecessor"}, "effect_manifest.resource_key")
+    exact_keys(manifest["resource_profile"], {"adapter_id", "adapter_version", "resource_profile_id",
+                                              "contract", "externalization_pq", "endpoint_pq_key_hash"},
+               "effect_manifest.resource_profile")
+    close_requirements(manifest["required_guarantees"], "effect_manifest.required_guarantees")
+    fence = manifest["fence"]
+    if fence.get("kind") == "protocol_height":
+        exact_keys(fence, {"kind", "configuration_hash", "minimum_height", "maximum_height"}, "effect_manifest.fence")
+    elif fence.get("kind") == "authority_epoch":
+        exact_keys(fence, {"kind", "authority_snapshot_hash", "authority_epoch", "expires_at_height"}, "effect_manifest.fence")
+    else:
+        raise AssertionError("unknown effect fence")
+    reconciliation = manifest["reconciliation"]
+    if reconciliation.get("kind") == "lookup_by_idempotency_key":
+        exact_keys(reconciliation, {"kind", "maximum_observations"}, "effect_manifest.reconciliation")
+    elif reconciliation.get("kind") == "no_safe_reconciliation":
+        exact_keys(reconciliation, {"kind"}, "effect_manifest.reconciliation")
+    else:
+        raise AssertionError("unknown reconciliation policy")
+
+    snapshot = receipt["configuration_snapshot"]
+    exact_keys(snapshot, {"network_id", "configuration_hash", "epoch", "key_root",
+                          "snapshot_height", "key_root_votes"}, "receipt.configuration_snapshot")
+    for vote in snapshot["key_root_votes"]:
+        exact_keys(vote, {"member_id", "signature_base64"}, "configuration_snapshot.vote")
+    consequence = receipt["consequence"]
+    exact_keys(consequence, {"manifest_root", "intent_root", "execution_root", "outcome_root",
+                             "reconciliation_root", "resource_record", "externalization_evidence"},
+               "receipt.consequence")
+    exact_keys(consequence["resource_record"], {"resource_id", "idempotency_key", "request_root",
+                                                "predecessor_root", "outcome_root", "mutation_sequence",
+                                                "evidence", "evidence_hash"}, "consequence.resource_record")
+    exact_keys(consequence["externalization_evidence"], {"schema_version", "algorithm",
+                                                         "endpoint_public_key_base64", "signature_base64"},
+               "consequence.externalization_evidence")
+    close_economic_proof(receipt["economic_proof"])
+    for anchor in receipt["requested_anchors"]:
+        exact_keys(anchor, {"anchor_ref", "anchor_hash"}, "receipt.requested_anchor")
+    for anchor in trust["required_anchors"]:
+        exact_keys(anchor, {"anchor_ref", "anchor_hash"}, "trust.required_anchor")
+    for transform in receipt["transformation_trace"]:
+        exact_keys(transform, {"rule", "theorem_id", "evidence_hash"}, "receipt.transformation")
+    exact_keys(receipt["signature"], {"algorithm", "public_key_base64", "signature_base64"}, "receipt.signature")
+
+
+def close_seal_key(key, label):
+    exact_keys(key, {"scope", "key_index", "signature_suite", "public_key",
+                     "predecessor_key_commitment"}, label)
+    exact_keys(key["scope"], {"network_id", "configuration_id", "epoch", "conflict_domain_id",
+                              "member_id", "member_index"}, label + ".scope")
+
+
+def close_economic_proof(package):
+    assert package is not None, "complete profile requires economic proof"
+    exact_keys(package, {"evidence", "snapshot", "claimed"}, "receipt.economic_proof")
+    evidence, snapshot, claim = package["evidence"], package["snapshot"], package["claimed"]
+    exact_keys(evidence, {"schema_version", "configuration_hash", "behavior", "evidence_predicate_hash",
+                          "evidence_hash", "implicated_members", "challenge_horizon_end"}, "economic.evidence")
+    exact_keys(snapshot, {"schema_version", "snapshot_height", "configuration_hash", "bonds"}, "economic.snapshot")
+    for bond in snapshot["bonds"]:
+        exact_keys(bond, {"bond_id", "collateral_id", "owner_member_hash", "asset_id_hash",
+                          "amount_base_units", "exclusive_configuration_hash", "locked_from",
+                          "locked_until", "challenge_horizon_end", "evidence_predicate_hash",
+                          "slashing_contract_hash", "active_encumbrance_hashes", "withdrawal_pending"},
+                   "economic.bond")
+    exact_keys(claim, {"schema_version", "asset_id_hash", "amount_base_units", "configuration_hash",
+                       "collateral_set_hash", "bond_snapshot_root", "snapshot_height", "locked_until",
+                       "challenge_horizon_end", "evidence_predicate", "evidence_predicate_hash",
+                       "slashing_contract_hash", "valuation_assumptions"}, "economic.claim")
+    if claim["valuation_assumptions"] is not None:
+        exact_keys(claim["valuation_assumptions"], {"quote_asset_id_hash", "oracle_profile_hash",
+                                                    "observed_at", "valid_until", "price_numerator",
+                                                    "price_denominator"}, "economic.valuation_assumptions")
 
 
 def as_bytes(value, expected=None):
@@ -242,6 +515,176 @@ def verify_runtime_finality(bundle, oracle):
     return members
 
 
+def derive_runtime_vector(bundle, members, configuration_hash):
+    """Derive the complete hash-async runtime vector without trusting its claim."""
+    checkpoint = bundle["checkpoint"]
+    certificate = checkpoint["finality_certificate"]
+    evidence = certificate["hash_async_evidence"]
+    n = len(members)
+    f = (n - 1) // 3
+    assert n >= 4 and n == 3 * f + 1, "hash-async committee is not exact n=3f+1"
+    q = 2 * f + 1
+    conflict_hash = hashlib.sha256(
+        CONFLICT_DOMAIN + checkpoint["domain_id"].encode()
+    ).digest()
+    availability = checkpoint["availability_manifest_hash"]
+    assert availability.startswith("sha256:") and len(availability) == 71
+    availability_hash = bytes.fromhex(availability[7:])
+    vector = {
+        "schema_version": "v1",
+        "safety": {
+            "model": "quorum_intersection_bft",
+            "finality_rank": "LiveTierBft",
+            "committee_n": n,
+            "fault_bound_f": f,
+            "quorum_q": q,
+            "configuration_hash": configuration_hash,
+            "conflict_domain_hash": list(conflict_hash),
+        },
+        "liveness": {
+            "termination": "randomized_asynchronous",
+            "network": "asynchronous_private_authenticated_channels",
+            "adversary": "static_byzantine",
+            "committee_n": n,
+            "fault_bound_f": f,
+            "private_authenticated_channels": True,
+        },
+        "crypto": {
+            "consensus_pq": evidence["post_quantum"],
+            "channel_pq": False,
+            "externalization_pq": False,
+            "end_to_end_pq": False,
+            "private_threshold_setup": evidence["private_threshold_setup"],
+            "primitive_suites": ["unresolved", "sha256", "ml_dsa44", "pq_authenticated_channel"],
+        },
+        "accountability": "transferable",
+        "availability": {
+            "publication_retrievable": True,
+            "custody_threshold": q,
+            "retention_horizon": None,
+        },
+        "externalization": {
+            "mode": "not_claimed",
+            "at_most_once": False,
+            "adapter_profile_hash": None,
+        },
+        "slashable_collateral": None,
+        "measured_latency": None,
+        "assumptions": ["A1", "A5"],
+        "theorem_ids": ["T4a", "T6"],
+        "certificate_profiles": ["HashAsyncOrderingCert"],
+        "constituent_hashes": sorted_unique([
+            list(digest(evidence)), list(availability_hash),
+        ]),
+        "transformation_hashes": [],
+    }
+    expected_requirements = {
+        "minimum_finality_rank": "LiveTierBft",
+        "configuration_hash": configuration_hash,
+        "conflict_domain_hash": list(conflict_hash),
+        "require_consensus_pq": True,
+        "require_channel_pq": False,
+        "require_externalization_pq": False,
+        "require_end_to_end_pq": False,
+        "require_no_private_threshold_setup": True,
+        "minimum_accountability": None,
+        "require_publication_retrievable": True,
+        "minimum_externalization": None,
+        "require_at_most_once": False,
+    }
+    envelope = certificate["assurance"]
+    assert envelope["schema_version"] == "ioi.runtime-assurance.v1"
+    assert envelope["requirements"] == expected_requirements, "runtime assurance requirements mismatch"
+    assert envelope["transformations"] == [], "runtime assurance transformations unsupported"
+    assert envelope["achieved"] == vector, "runtime achieved vector differs from verified evidence"
+    commitment = "sha256:" + hashlib.sha256(GUARANTEE_VECTOR_DOMAIN + canonical(vector)).hexdigest()
+    assert envelope["achieved_commitment"] == commitment, "runtime achieved commitment mismatch"
+    return vector
+
+
+def sorted_unique(values):
+    """Rust BTreeSet wire form for strings or fixed-size byte arrays."""
+    return sorted({canonical(value): value for value in values}.values())
+
+
+def enum_set(values, declaration_order):
+    unique = set(values)
+    assert unique <= set(declaration_order), "unknown enum-set value"
+    return [value for value in declaration_order if value in unique]
+
+
+def derive_achieved_vector(base, members, channel_hash, seal_hash, consequence_hash,
+                           profile_root, claim, proof_root):
+    """Reproduce the Rust verifier's complete coordinate derivation.
+
+    This intentionally returns the entire vector. Comparing only headline
+    coordinates would allow a validly re-enveloped receipt to substitute
+    theorem IDs, constituent roots, assumptions, or another ignored field.
+    """
+    achieved = copy.deepcopy(base)
+    achieved["crypto"]["channel_pq"] = True
+    achieved["externalization"] = {
+        "mode": "idempotency_register",
+        "at_most_once": True,
+        "adapter_profile_hash": list(profile_root),
+    }
+    achieved["crypto"]["externalization_pq"] = True
+    achieved["safety"].update({
+        "model": "unanimous_all_but_one",
+        "finality_rank": "SealedAllButOne",
+        "committee_n": len(members),
+        "fault_bound_f": len(members) - 1,
+        "quorum_q": len(members),
+    })
+    achieved["accountability"] = "full_configuration"
+    achieved["certificate_profiles"] = enum_set(
+        achieved["certificate_profiles"] + ["PqUnanimousBoundaryClose"],
+        ["LiveQuorumCert", "ClassicalSignedLiveQuorumCert", "PqLiveQuorumCert",
+         "HashAsyncOrderingCert", "GuardianCommitteeCert", "WitnessCert", "ObserverCert",
+         "UnanimousBoundaryClose", "PqUnanimousBoundaryClose", "AnchoredBoundaryClose",
+         "PqAnchoredBoundaryClose", "HashPcdReference", "RegenesisRoot"],
+    )
+    achieved["crypto"]["primitive_suites"] = enum_set(
+        achieved["crypto"]["primitive_suites"] + ["hash_based_signature"],
+        ["unresolved", "sha256", "ed25519", "bls12381", "ml_dsa44",
+         "hash_based_signature", "pq_authenticated_channel",
+         "classical_authenticated_channel"],
+    )
+    if (achieved["crypto"]["consensus_pq"]
+            and achieved["crypto"]["channel_pq"]
+            and achieved["crypto"]["externalization_pq"]):
+        achieved["crypto"]["primitive_suites"] = [
+            value for value in achieved["crypto"]["primitive_suites"]
+            if value != "unresolved"
+        ]
+    achieved["crypto"]["end_to_end_pq"] = (
+        achieved["crypto"]["consensus_pq"]
+        and achieved["crypto"]["channel_pq"]
+        and achieved["crypto"]["externalization_pq"]
+    )
+    achieved["constituent_hashes"] = sorted_unique(
+        achieved["constituent_hashes"]
+        + [list(channel_hash), list(seal_hash), list(consequence_hash), list(proof_root)]
+    )
+    achieved["theorem_ids"] = sorted_unique(
+        achieved["theorem_ids"] + ["T12", "T1", "T7", "T10", "T11"]
+    )
+    valuation = claim["valuation_assumptions"]
+    achieved["slashable_collateral"] = {
+        "asset_id_hash": claim["asset_id_hash"],
+        "amount_base_units": claim["amount_base_units"],
+        "collateral_set_hash": claim["collateral_set_hash"],
+        "bond_snapshot_root": claim["bond_snapshot_root"],
+        "locked_until": claim["locked_until"],
+        "evidence_rule_hash": claim["evidence_predicate_hash"],
+        "slashing_contract_hash": claim["slashing_contract_hash"],
+        "valuation_assumptions_hash": (
+            None if valuation is None else list(domain_digest(ECONOMIC_DOMAIN, valuation))
+        ),
+    }
+    return achieved
+
+
 def verify_channel_coverage(coverage, finality_hash, members, oracle):
     assert coverage["schema_version"] == "ioi.aft.pq-channel-coverage.v1"
     assert as_bytes(coverage["protected_finality_hash"], 32) == finality_hash
@@ -410,6 +853,7 @@ def verify_receipt(path, trust_path, pq_oracle):
     trust = json.loads(trust_raw)
     assert trust_raw == canonical(trust), "external trust policy is not canonical"
     assert raw == canonical(receipt), "receipt is not canonical"
+    close_portable_schema(receipt, trust)
     assert receipt["schema_version"] == SCHEMA, "unsupported schema"
     assert receipt["verifier_profile"] == PROFILE, "unsupported verifier"
     verify_external_trust(receipt, trust)
@@ -419,6 +863,9 @@ def verify_receipt(path, trust_path, pq_oracle):
     assert sha(preimage) == receipt["receipt_hash"], "receipt hash mismatch"
     finality_bundle = receipt["finality_bundle"]
     members = verify_runtime_finality(finality_bundle, pq_oracle)
+    base_achieved = derive_runtime_vector(
+        finality_bundle, members, receipt["configuration_snapshot"]["configuration_hash"]
+    )
     finality_hash = digest(finality_bundle)
     channel_hash = verify_channel_coverage(
         receipt["channel_coverage"], finality_hash, members, pq_oracle
@@ -520,6 +967,11 @@ def verify_receipt(path, trust_path, pq_oracle):
     assert as_bytes(receipt["transformation_trace"][3]["evidence_hash"]) == proof_root
 
     achieved, policy = receipt["claimed_achieved"], receipt["policy"]
+    expected_achieved = derive_achieved_vector(
+        base_achieved, members, channel_hash, seal_hash, consequence_hash,
+        profile_root, claim, proof_root,
+    )
+    assert achieved == expected_achieved, "claimed guarantee vector differs from verified evidence"
     assert achieved["safety"]["model"] == "unanimous_all_but_one"
     assert achieved["safety"]["finality_rank"] == "SealedAllButOne"
     assert achieved["safety"]["committee_n"] == len(members)

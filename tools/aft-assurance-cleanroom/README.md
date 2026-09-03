@@ -5,8 +5,11 @@ RustCrypto ML-DSA oracle in `tools/aft-pq-interop`. It imports no IOI crate and
 does not contact an IOI node. It independently reproduces the canonical/hash,
 runtime-certificate, full-mesh channel, rooted terminal-seal,
 manifest/consequence, collateral-floor, transformation and policy checks for
-the closed v1 receipt profile. The oracle verifies ML-DSA with RustCrypto and
-SLH-DSA with `fips205`, rather than the production dcrypt/`slh-dsa` paths.
+the closed v1 receipt profile. It rejects unknown fields throughout the typed
+receipt and trust-policy graph, derives the complete achieved guarantee vector
+from the verified constituents, and requires exact equality—including theorem
+IDs and constituent commitments. The oracle verifies ML-DSA with RustCrypto
+and SLH-DSA with `fips205`, rather than the production dcrypt/`slh-dsa` paths.
 
 Run the committed golden vectors:
 
@@ -20,6 +23,7 @@ Verify a complete canonical receipt after building the independent oracle:
 cargo build --manifest-path tools/aft-pq-interop/Cargo.toml
 python3 tools/aft-assurance-cleanroom/verify.py \
   --receipt RECEIPT.json \
+  --trust EXTERNAL-TRUST.json \
   --negative-dir VALIDLY_REENVELOPED_NEGATIVE_RECEIPTS \
   --pq-oracle tools/aft-pq-interop/target/debug/aft-pq-interop
 ```

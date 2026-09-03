@@ -104,6 +104,17 @@ fn replace_pq_channel_manager(
     Ok(())
 }
 
+fn begin_strict_pq_reconfiguration(
+    current: &mut Option<PqChannelSessionManager>,
+    legacy_consensus_transport_allowed: &mut bool,
+) {
+    // This transition is intentionally irreversible for the lifetime of the
+    // swarm. A failed replacement may be retried, but may never reactivate a
+    // classical consensus path by making `current` empty.
+    *legacy_consensus_transport_allowed = false;
+    *current = None;
+}
+
 struct InflightPqRequest {
     request_id: libp2p::request_response::OutboundRequestId,
     message_id: [u8; 32],
@@ -444,6 +455,11 @@ pub async fn run_swarm_loop(
     let mut pending_txs: VecDeque<Vec<u8>> = VecDeque::new();
     let mut pending_votes: VecDeque<(Vec<u8>, gossipsub::IdentTopic)> = VecDeque::new();
     let mut pq_channels: Option<PqChannelSessionManager> = None;
+    // A missing manager has two distinct meanings: the legacy profile has not
+    // requested PQ transport, or a requested strict-PQ configuration is not
+    // currently usable.  Keep that authority bit separate so a failed PQ
+    // rotation cannot silently reopen classical consensus transport.
+    let mut legacy_consensus_transport_allowed = true;
     let mut inflight_pq_handshakes: HashMap<libp2p::PeerId, InflightPqHandshake> = HashMap::new();
     let mut inflight_pq_consensus: HashMap<libp2p::PeerId, InflightPqRequest> = HashMap::new();
     let mut dialing_peers: HashSet<PeerId> = HashSet::new();
@@ -594,17 +610,17 @@ pub async fn run_swarm_loop(
                                 event_sender.send(SwarmInternalEvent::GossipBlock(message.data, source, mid)).await.ok();
                             } else if message.topic == tx_topic.hash() {
                                 event_sender.send(SwarmInternalEvent::GossipTransaction(message.data, source)).await.ok();
-                            } else if message.topic == vote_topic.hash() && pq_channels.is_none() {
+                            } else if message.topic == vote_topic.hash() && legacy_consensus_transport_allowed {
                                 event_sender.send(SwarmInternalEvent::ConsensusVoteReceived(message.data, source)).await.ok();
-                            } else if message.topic == qc_topic.hash() && pq_channels.is_none() {
+                            } else if message.topic == qc_topic.hash() && legacy_consensus_transport_allowed {
                                 event_sender.send(SwarmInternalEvent::QuorumCertificateReceived(message.data, source)).await.ok();
-                            } else if message.topic == timeout_topic.hash() && pq_channels.is_none() {
+                            } else if message.topic == timeout_topic.hash() && legacy_consensus_transport_allowed {
                                 event_sender.send(SwarmInternalEvent::ViewChangeVoteReceived(message.data, source)).await.ok();
-                            } else if message.topic == echo_topic.hash() && pq_channels.is_none() {
+                            } else if message.topic == echo_topic.hash() && legacy_consensus_transport_allowed {
                                 event_sender.send(SwarmInternalEvent::EchoReceived(message.data, source)).await.ok();
-                            } else if message.topic == panic_topic.hash() && pq_channels.is_none() {
+                            } else if message.topic == panic_topic.hash() && legacy_consensus_transport_allowed {
                                 event_sender.send(SwarmInternalEvent::PanicReceived(message.data, source)).await.ok();
-                            } else if message.topic == confidence_topic.hash() && pq_channels.is_none() {
+                            } else if message.topic == confidence_topic.hash() && legacy_consensus_transport_allowed {
                                 event_sender.send(SwarmInternalEvent::ConfidenceVoteReceived(message.data, source)).await.ok();
                             } else if message.topic == oracle_attestations_topic.hash() {
                                 event_sender.send(SwarmInternalEvent::GossipOracleAttestation(message.data, source)).await.ok();
@@ -635,7 +651,7 @@ pub async fn run_swarm_loop(
                                     let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::RelayTransactionAck);
                                 }
                                 SyncRequest::RelayConsensusVote(data) => {
-                                    if pq_channels.is_none() {
+                                    if legacy_consensus_transport_allowed {
                                         event_sender.send(SwarmInternalEvent::ConsensusVoteReceived(data, peer)).await.ok();
                                     } else {
                                         tracing::warn!(target: "network", event = "classical_consensus_relay_refused", %peer, kind = "vote");
@@ -643,7 +659,7 @@ pub async fn run_swarm_loop(
                                     let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::RelayConsensusAck);
                                 }
                                 SyncRequest::RelayQuorumCertificate(data) => {
-                                    if pq_channels.is_none() {
+                                    if legacy_consensus_transport_allowed {
                                         event_sender.send(SwarmInternalEvent::QuorumCertificateReceived(data, peer)).await.ok();
                                     } else {
                                         tracing::warn!(target: "network", event = "classical_consensus_relay_refused", %peer, kind = "quorum_certificate");
@@ -651,7 +667,7 @@ pub async fn run_swarm_loop(
                                     let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::RelayConsensusAck);
                                 }
                                 SyncRequest::RelayViewChange(data) => {
-                                    if pq_channels.is_none() {
+                                    if legacy_consensus_transport_allowed {
                                         event_sender.send(SwarmInternalEvent::ViewChangeVoteReceived(data, peer)).await.ok();
                                     } else {
                                         tracing::warn!(target: "network", event = "classical_consensus_relay_refused", %peer, kind = "view_change");
@@ -659,7 +675,7 @@ pub async fn run_swarm_loop(
                                     let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::RelayConsensusAck);
                                 }
                                 SyncRequest::RelayTimeoutCertificate(data) => {
-                                    if pq_channels.is_none() {
+                                    if legacy_consensus_transport_allowed {
                                         event_sender.send(SwarmInternalEvent::TimeoutCertificateReceived(data, peer)).await.ok();
                                     } else {
                                         tracing::warn!(target: "network", event = "classical_consensus_relay_refused", %peer, kind = "timeout_certificate");
@@ -667,7 +683,7 @@ pub async fn run_swarm_loop(
                                     let _ = swarm.behaviour_mut().request_response.send_response(channel, SyncResponse::RelayConsensusAck);
                                 }
                                 SyncRequest::RelayFallbackStart(data) => {
-                                    if pq_channels.is_none() {
+                                    if legacy_consensus_transport_allowed {
                                         event_sender.send(SwarmInternalEvent::FallbackStartReceived(data, peer)).await.ok();
                                     } else {
                                         tracing::warn!(target: "network", event = "classical_consensus_relay_refused", %peer, kind = "fallback_start");
@@ -1001,7 +1017,7 @@ pub async fn run_swarm_loop(
                                  &mut inflight_pq_consensus,
                                  PqConsensusPayloadV1::Vote(data),
                              );
-                         } else {
+                         } else if legacy_consensus_transport_allowed {
                          let direct_peer_limit = consensus_direct_relay_peer_limit();
                          let gossip_result = swarm.behaviour_mut().gossipsub.publish(vote_topic.clone(), data.clone());
                          let should_direct_relay = match gossip_result {
@@ -1026,6 +1042,8 @@ pub async fn run_swarm_loop(
                                  SyncRequest::RelayConsensusVote(data),
                                  peer_limit,
                              );
+                         } else {
+                             tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "vote", "Strict PQ transport is required but unavailable");
                          }
                          }
                     }
@@ -1038,7 +1056,7 @@ pub async fn run_swarm_loop(
                                  &mut inflight_pq_consensus,
                                  PqConsensusPayloadV1::QuorumCertificate(data),
                              );
-                         } else {
+                         } else if legacy_consensus_transport_allowed {
                          let direct_peer_limit = consensus_direct_relay_peer_limit();
                          let gossip_result = swarm.behaviour_mut().gossipsub.publish(qc_topic.clone(), data.clone());
                          let should_direct_relay = match gossip_result {
@@ -1063,6 +1081,8 @@ pub async fn run_swarm_loop(
                                  SyncRequest::RelayQuorumCertificate(data),
                                  peer_limit,
                              );
+                         } else {
+                             tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "quorum_certificate", "Strict PQ transport is required but unavailable");
                          }
                          }
                     }
@@ -1075,7 +1095,7 @@ pub async fn run_swarm_loop(
                                  &mut inflight_pq_consensus,
                                  PqConsensusPayloadV1::ViewChange(data),
                              );
-                         } else {
+                         } else if legacy_consensus_transport_allowed {
                          let direct_peer_limit = consensus_direct_relay_peer_limit();
                          let should_direct_relay = match swarm.behaviour_mut().gossipsub.publish(timeout_topic.clone(), data.clone()) {
                              Ok(_) => consensus_direct_relay_when_gossip_succeeds() && direct_peer_limit > 0,
@@ -1096,6 +1116,8 @@ pub async fn run_swarm_loop(
                                  SyncRequest::RelayViewChange(data),
                                  peer_limit,
                              );
+                         } else {
+                             tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "view_change", "Strict PQ transport is required but unavailable");
                          }
                          }
                     }
@@ -1121,12 +1143,14 @@ pub async fn run_swarm_loop(
                                 &mut inflight_pq_consensus,
                                 PqConsensusPayloadV1::TimeoutCertificate(data),
                             );
-                        } else {
+                        } else if legacy_consensus_transport_allowed {
                             publish_consensus_directly(
                                 &mut swarm,
                                 SyncRequest::RelayTimeoutCertificate(data),
                                 usize::MAX,
                             );
+                        } else {
+                            tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "timeout_certificate", "Strict PQ transport is required but unavailable");
                         }
                     }
                     SwarmCommand::BroadcastAftTimeoutCertificate(data) => {
@@ -1151,12 +1175,14 @@ pub async fn run_swarm_loop(
                                 &mut inflight_pq_consensus,
                                 PqConsensusPayloadV1::FallbackStart(data),
                             );
-                        } else {
+                        } else if legacy_consensus_transport_allowed {
                             publish_consensus_directly(
                                 &mut swarm,
                                 SyncRequest::RelayFallbackStart(data),
                                 usize::MAX,
                             );
+                        } else {
+                            tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "fallback_start", "Strict PQ transport is required but unavailable");
                         }
                     }
                     SwarmCommand::BroadcastAftAsyncOrdering(data) => {
@@ -1233,7 +1259,10 @@ pub async fn run_swarm_loop(
                         // Retire the old manager and every session before
                         // validating replacement custody so a failed rotation
                         // cannot continue under stale scope or keys.
-                        pq_channels = None;
+                        begin_strict_pq_reconfiguration(
+                            &mut pq_channels,
+                            &mut legacy_consensus_transport_allowed,
+                        );
                         pending_votes.clear();
                         inflight_pq_handshakes.clear();
                         inflight_pq_consensus.clear();
@@ -1292,22 +1321,28 @@ pub async fn run_swarm_loop(
                     SwarmCommand::BroadcastEcho(data) => {
                         if let Some(manager) = pq_channels.as_mut() {
                             broadcast_pq_consensus(&mut swarm, manager, &mut inflight_pq_handshakes, &mut inflight_pq_consensus, PqConsensusPayloadV1::Echo(data));
-                        } else {
+                        } else if legacy_consensus_transport_allowed {
                             let _ = swarm.behaviour_mut().gossipsub.publish(echo_topic.clone(), data);
+                        } else {
+                            tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "echo", "Strict PQ transport is required but unavailable");
                         }
                     }
                     SwarmCommand::BroadcastPanic(data) => {
                         if let Some(manager) = pq_channels.as_mut() {
                             broadcast_pq_consensus(&mut swarm, manager, &mut inflight_pq_handshakes, &mut inflight_pq_consensus, PqConsensusPayloadV1::Panic(data));
-                        } else {
+                        } else if legacy_consensus_transport_allowed {
                             let _ = swarm.behaviour_mut().gossipsub.publish(panic_topic.clone(), data);
+                        } else {
+                            tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "panic", "Strict PQ transport is required but unavailable");
                         }
                     }
                     SwarmCommand::BroadcastConfidence(data) => {
                         if let Some(manager) = pq_channels.as_mut() {
                             broadcast_pq_consensus(&mut swarm, manager, &mut inflight_pq_handshakes, &mut inflight_pq_consensus, PqConsensusPayloadV1::Confidence(data));
-                        } else {
+                        } else if legacy_consensus_transport_allowed {
                             let _ = swarm.behaviour_mut().gossipsub.publish(confidence_topic.clone(), data);
+                        } else {
+                            tracing::warn!(target: "network", event = "classical_consensus_broadcast_refused", kind = "confidence", "Strict PQ transport is required but unavailable");
                         }
                     }
                     SwarmCommand::GossipOracleAttestation(data) => { let _ = swarm.behaviour_mut().gossipsub.publish(oracle_attestations_topic.clone(), data); }
@@ -1371,6 +1406,17 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let old_config = local_config(1, temp.path().join("old.outbox"));
         let mut active = Some(PqChannelSessionManager::new(old_config).unwrap());
+        let mut legacy_consensus_transport_allowed = true;
+
+        begin_strict_pq_reconfiguration(&mut active, &mut legacy_consensus_transport_allowed);
+        assert!(
+            active.is_none(),
+            "strict transition retires the old manager"
+        );
+        assert!(
+            !legacy_consensus_transport_allowed,
+            "strict transition permanently closes classical consensus transport"
+        );
 
         let mut invalid_replacement = local_config(2, temp.path().join("invalid.outbox"));
         invalid_replacement.configuration_hash = [0; 32];
