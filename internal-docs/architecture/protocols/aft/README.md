@@ -39,6 +39,10 @@ traces, TLC state dumps, and compiled paper outputs live under
   — exact immutable refs, publication choices, reviewer assignment fields,
   returned-evidence requirements, and deterministic resume rules for the two
   owner-only independent reviews.
+- [`packets/M10-public-independent-review-request.md`](./packets/M10-public-independent-review-request.md)
+  and [`packets/M12-public-independent-theorem-review-request.md`](./packets/M12-public-independent-theorem-review-request.md)
+  — public outreach texts for qualified independent reviewers, bound to the
+  exact immutable candidates and explicit response requirements.
 - [`.github/scripts/prepare_aft_review_bundles.sh`](../../../../../.github/scripts/prepare_aft_review_bundles.sh)
   — fail-closed private-transfer bundle builder that pins annotated tag
   objects, clone-checks both candidates, and emits a checksum manifest without
