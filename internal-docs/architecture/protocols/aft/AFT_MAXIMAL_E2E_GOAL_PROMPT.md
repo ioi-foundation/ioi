@@ -10,14 +10,18 @@ effect integration, production implementation, adversarial qualification, and
 independent/public validation, following
 internal-docs/architecture/protocols/aft/MAXIMAL_CONSENSUS_ACTION_PLAN.md.
 
-Required target (a target until admitted, never a premise): relay-free,
-pure-software Byzantine consensus with agreement, explicitly selected validity,
-and termination at f=n-1, under a precisely defined AFT model whose added
-visibility primitive is implemented non-circularly rather than assumed. Carry
-the same theorem-bearing construction through canonical ordering, durable
-state, policy-authorized irreversible effects, modeled at-most-once
-externalization, portable guarantee-vector receipts, production admission,
-mechanized/code conformance, and an immutable independently reviewed release.
+Required research target (a target until admitted, never a premise): relay-
+free, pure-software Byzantine consensus with agreement, explicitly selected
+validity, and termination at f=n-1. Preserve M12a's proved result that the
+portable byte-verifier form is impossible under M11. Pursue ADR 0050's separate
+QUV path: participant-only online authorization in which every relying executor
+performs a known-synchronous durable write-through query to the configured
+membership and portable_final_receipt remains false. Prove before claiming that
+this per-slot primitive lifts to the consensus task. Carry only the theorem
+actually established through canonical ordering, durable state, policy-
+authorized irreversible effects, modeled at-most-once externalization,
+production admission, mechanized/code conformance, and an immutable
+independently reviewed release.
 
 Operate persistently across turns and context compaction. Begin by reading the
 action plan, accepted AFT ADRs, implementation ledger, theorem/pairing table,
@@ -27,7 +31,9 @@ marked critical path and update the ledger and evidence after each material
 gate. Use reproducible commands and bind every artifact to the exact commit,
 toolchain, configuration, and assumptions.
 
-Execute M9-M18 in order:
+Execute the current terminal path—M10, retained M12a, then M12b-M18Q—in gated
+order. Preserve original M13-M18 as blocked historical rows rather than
+laundering QUV into the byte-portable track:
 
 1. Freeze a clean, immutable PQ v1 candidate; reconcile T5d/T8 status; rerun
    all M8, CI, formal, claim, receipt, consequence, validator, and Hypervisor
@@ -55,31 +61,33 @@ Execute M9-M18 in order:
    forks whenever silence triggers authority and nontermination whenever a
    Byzantine-controlled act is required. Generalize the existing withholding
    lower bound to the proposed primitive.
-6. Do not begin a new maximal production profile unless the viability gate is
-   PASS_CONSTRUCTION: an executable, non-circular visibility construction and
-   reviewed proof survive the campaign. If a candidate fails, redesign and
-   repeat. If a reviewed lower bound proves the conjunction impossible under
-   the non-negotiable constraints, preserve the proof, mark the goal genuinely
-   blocked, and request the owner's explicit decision about which constraint
-   may change. Never weaken validity, count Abort as effect liveness, assume
-   publication, add a trusted oracle/relay/TEE, or mint authority from silence
-   without saying so.
-7. After PASS_CONSTRUCTION, prove agreement, selected validity, termination at
-   f=n-1, external evidence semantics, reconfiguration/restart behavior, and
-   exact costs. Pair every theorem with a lower bound and mechanize the safety
-   and liveness obligations, including mutation models that recover failures
-   when assumptions are removed.
+6. Retain M12a as PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS and its R3 review as
+   UPHELD_WITHIN_SCOPE. For M12b, independently reproduce the corrected QUV
+   explicit-time model, freeze an immutable candidate, and obtain the ADR-0049-
+   authorized context-isolated Daybreak construction review. Advance M12b only
+   on PASS_CONSTRUCTION; otherwise repair and re-review or reject it. Never call
+   bounded enumeration a proof or QUV a consensus protocol at this gate.
+7. After M12b PASS_CONSTRUCTION, execute M13Q. Prove arbitrary-n online non-
+   conflict and no-conflict solo progress, then define and prove the exact
+   agreement, selected validity, and termination task at f=n-1. Include multiple
+   correct members, concurrent opposite ordering, admission/queue bounds,
+   Byzantine query flooding, restart/rollback, reconfiguration, and exact costs.
+   Pair every theorem with a lower bound and mechanize safety and liveness,
+   including mutations that recover failures when assumptions are removed.
 8. Produce a dated systematic comparison with Dolev-Strong, FLP/DLS,
    reliable-broadcast, asynchronous-BA/ACS, data-availability, and Geeq task
    models. Compare assumptions and properties, not percentages. Make no
    novelty or superlative claim until independently reviewed.
-9. Lift the construction through canonical ordering and durable state, then
-   through irreversible-effect authorization without authority laundering.
-   Preserve the atomic idempotency-register boundary for at-most-once
-   externalization and externally provisioned trust roots for offline
-   receipts. Keep decision termination, inclusion, authorization, and physical
+9. In M14Q, lift the construction through predecessor-bound canonical ordering
+   and durable state, then through executor-side QUV immediately before
+   irreversible-effect authorization without authority laundering. Preserve the
+   atomic idempotency-register boundary for at-most-once externalization and
+   externally provisioned trust roots. Portable QUV transcripts are audit-only,
+   carry portable_final_receipt=false, and never authorize a later executor.
+   Keep decision termination, inclusion, authorization, and physical
    consequence distinct.
-10. Implement one explicitly named production profile using the exact
+10. Only after M13Q and M14Q pass, implement one explicitly named production
+    profile using the exact
     theorem-bearing protocol and visibility component. Do not relabel
     classic_bft, the f<n/3 hash-async profile, or research code. Enforce exact
     configuration geometry, PQ-path evidence, journals, domain separation,
@@ -97,18 +105,20 @@ Execute M9-M18 in order:
     testnet launch, and publication are owner actions: prepare everything and
     continue safe local work, but stop with an exact handoff when owner action
     is indispensable.
-13. Admit and print the target headline only when every clause is proved,
+13. Admit and print an online QUV headline only when every clause is proved,
     implemented in production, paired with its lower bound, reproduced,
     independently reviewed on the same immutable commit, and has no unresolved
     critical/high finding or relevant L-OPEN row. Until then retain the
     strongest already-admitted claim and label the maximal statement TARGET or
     BLOCKED.
 
-Completion means M9-M18 are all genuinely complete, the final release and
-portable verifier exercise the theorem-bearing path end to end, all required
-external evidence is present, and the claim gate authorizes the exact
-headline. Do not mark the goal complete merely because local engineering is
-finished or an external checkpoint is pending. When blocked by owner-only or
-external action, report the precise artifact/action required and preserve a
-deterministic resume point.
+Completion under ADR 0050 means M9-M12a have honest terminal dispositions,
+M12b-M18Q are genuinely complete, the final release and every relying executor
+exercise the theorem-bearing online path end to end, all required external
+evidence is present, and the claim gate authorizes the exact known-synchronous,
+non-portable headline. Original M13-M18 remain blocked by M12a and are not
+completion requirements for the changed-premise track. Do not mark the goal
+complete merely because local engineering is finished or an external
+checkpoint is pending. When blocked by owner-only or external action, report
+the precise artifact/action required and preserve a deterministic resume point.
 ```

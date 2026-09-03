@@ -1,7 +1,9 @@
 # Maximal visibility viability and role-switching lower bound
 
-Status: **M12 `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`**; R3 role-switch lower
-bound upheld by the owner-accepted context-isolated automated review.
+Status: **M12a `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`**; R3 role-switch lower
+bound upheld within its byte-portable scope by the owner-accepted
+context-isolated automated review. ADR 0050 opens a separate M12b interactive
+candidate and does not alter this theorem.
 
 Date: 2026-09-03.
 
@@ -9,8 +11,8 @@ This document attacks the proposed canonical-public-state escape hatch before
 any maximal production profile is built. The exact R3 candidate was upheld by
 the context-isolated Daybreak review recorded in
 `../evidence/m12-r3-daybreak-retest-2026-09-03.md`. Under ADR 0049 this closes
-the owner-controlled M12 gate; it is explicitly automated, not human peer
-review.
+the owner-controlled byte-portable M12a gate; it is explicitly automated, not
+human peer review.
 
 ## 1. Candidate primitive contract
 
@@ -230,7 +232,7 @@ assumption deltas. The most important boundaries are:
 These comparisons are scope checks, not a novelty claim and not independent
 validation of L-MAX.
 
-## 8. M12 disposition
+## 8. M12a disposition
 
 Result: **`PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`**.
 
@@ -246,7 +248,12 @@ challenge must identify a concrete CPS operation whose output distinguishes
    silence; and
 5. how an offline verifier checks it from independently rooted bytes.
 
-M12 therefore does not return `PASS_CONSTRUCTION`. M13-M18 remain blocked, and
-no maximal implementation or headline is authorized. Resuming that path
-requires an explicit owner decision changing at least one task property or
-permitting and naming an additional authority/assumption.
+M12a therefore does not return `PASS_CONSTRUCTION`. Original M13-M18 remain
+blocked for the M11 portable-byte target, and no maximal implementation or
+headline is authorized on this evidence.
+
+ADR 0050 supplies the explicit owner decision to study a different protocol
+class. M12b replaces `Verify(root, bytes)` with a participant-interactive,
+known-synchronous operation. Its QUV candidate and bounded evidence live in
+`query_unanimity_verification.md`; neither that track nor this lower bound may
+be generalized across the other's finality-mode coordinate.

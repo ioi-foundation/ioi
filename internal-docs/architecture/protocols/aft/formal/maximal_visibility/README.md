@@ -33,6 +33,25 @@ These bounded models support the general L-MAX proof in
 `../../specs/maximal_visibility_viability.md`; they do not replace independent
 theorem review or establish a positive construction.
 
+`quv_timed_model_r3.py` is a separate positive-candidate and mutation model for
+the M12b interactive track created by ADR 0050. It exhausts an explicit-time
+`n=2`, one-correct-member, two-verifier space, including honest-owner,
+dishonest-owner, and unowned authority modes. Its synchronous rows must have no
+conflicting accepts or modeled solo-liveness failures. The one-way deadline,
+cross-slot/configuration replay, and reply-before-durable mutations must expose
+conflicts. The harness regenerates the JSON and compares it structurally with
+`quv_timed_results_r3.json`.
+
+Focused QUV reproduction:
+
+```text
+bash .github/scripts/run_aft_formal_checks.sh --quv-only
+```
+
+This is bounded executable evidence, not the arbitrary-`n` M13Q theorem. It
+does not model reconfiguration, unbounded operation counts, production queue
+contention, or the end-to-end effect path.
+
 The mechanized support-set abstraction deliberately does not model a
 linearizable first-writer service, trusted clock, external chain, or other
 non-member selector. Adding one would trivially supply an ordering bit while

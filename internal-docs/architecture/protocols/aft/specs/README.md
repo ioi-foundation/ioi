@@ -19,9 +19,13 @@ Current follow-on design program:
   `f=n-1` research task, including non-vacuous external agreement, validity,
   decision/effect liveness, adversary, setup, storage, and verifier semantics
 - [`maximal_visibility_viability.md`](./maximal_visibility_viability.md): the
-  M12 canonical-public-state contract and current role-switching lower-bound
-  candidate; independent theorem review is pending and no production claim is
-  created
+  M12a canonical-public-state contract and upheld byte-portable role-switching
+  lower bound; ADR 0050 preserves its scope rather than generalizing it to
+  interactive verifiers
+- [`query_unanimity_verification.md`](./query_unanimity_verification.md): the
+  M12b participant-interactive QUV candidate, its safety-critical known-
+  synchrony and durable-state assumptions, bounded evidence, and explicit
+  non-portability boundary; independent construction review is pending
 
 - [`guardian_majority.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/specs/guardian_majority.md): historical GuardianMajority reference model, excluded from AFT PQ v1 production admission by ADR 0048
 - [`asymptote.md`](/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/specs/asymptote.md): two-tier finality with asynchronous sealing, equal-authority observer veto-collapse, and sealed-only effects under the repository's broader PSC-based all-but-one (`n-1` of `n`) Byzantine-safety claim, conditional on the AFT model delta

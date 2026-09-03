@@ -165,6 +165,38 @@ if [[ "${1:-}" == "--census-only" ]]; then
   exit 0
 fi
 
+run_quv_model() {
+  local workdir model expected generated
+
+  workdir="$(mktemp -d)"
+  model="${ROOT_DIR}/${FORMAL_DIR}/maximal_visibility/quv_timed_model_r3.py"
+  expected="${ROOT_DIR}/${FORMAL_DIR}/maximal_visibility/quv_timed_results_r3.json"
+  pushd "${workdir}" >/dev/null
+  python3 "${model}" | tee quv_timed_run_r3.txt
+  generated="${workdir}/quv_timed_results_r3.json"
+  python3 - "${expected}" "${generated}" <<'PY'
+import json
+import sys
+
+expected_path, generated_path = sys.argv[1:]
+with open(expected_path, encoding="utf-8") as source:
+    expected = json.load(source)
+with open(generated_path, encoding="utf-8") as source:
+    generated = json.load(source)
+if expected != generated:
+    print("QUV R3 FAIL: generated JSON differs from committed expectation", file=sys.stderr)
+    sys.exit(1)
+print("QUV R3 OK: generated JSON matches committed expectation")
+PY
+  popd >/dev/null
+  rm -rf "${workdir}"
+}
+
+if [[ "${1:-}" == "--quv-only" ]]; then
+  run_quv_model
+  exit 0
+fi
+
 platform() {
   local os arch
 
@@ -360,3 +392,5 @@ for trace in "${TRACES[@]}"; do
   rest="${trace#*|}"
   run_trace "${trace%%|*}" "${rest%%|*}" "${rest##*|}"
 done
+
+run_quv_model

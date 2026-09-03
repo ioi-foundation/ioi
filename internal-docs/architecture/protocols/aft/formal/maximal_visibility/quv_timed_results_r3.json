@@ -1,0 +1,153 @@
+{
+  "model": "aft_quv_explicit_time_r3",
+  "bounded_scope": "n=2, one correct member, two verifier operations",
+  "D": 1,
+  "E": 1,
+  "DELTA_RT": 4,
+  "rows": [
+    {
+      "authority": "honest",
+      "mode": "sync",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 24576,
+      "conflicts": 0,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "dishonest",
+      "mode": "sync",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 2281472,
+      "conflicts": 0,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "unowned",
+      "mode": "sync",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 2281472,
+      "conflicts": 0,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "dishonest",
+      "mode": "oneway",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 2281472,
+      "conflicts": 33328,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": {
+        "initial_correct": [],
+        "initial_byzantine": ["X", "Y"],
+        "candidates": ["X", "Y"],
+        "starts": [0, 0],
+        "delays": [[0, 0, 0], [0, 0, 1]],
+        "skews": [0, 1],
+        "tie_order": [0, 1],
+        "byzantine_replies": [[], ["Y"]],
+        "crash_tick": null,
+        "replay_choices": [null, null],
+        "accepted": {"0": "X", "1": "Y"}
+      }
+    },
+    {
+      "authority": "dishonest",
+      "mode": "volatile",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 13688832,
+      "conflicts": 47104,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": {
+        "initial_correct": [],
+        "initial_byzantine": ["X", "Y"],
+        "candidates": ["X", "Y"],
+        "starts": [0, 0],
+        "delays": [[0, 0, 0], [0, 0, 0]],
+        "skews": [0, 0],
+        "tie_order": [0, 1],
+        "byzantine_replies": [[], []],
+        "crash_tick": null,
+        "replay_choices": [null, null],
+        "accepted": {"0": "X", "1": "Y"}
+      }
+    },
+    {
+      "authority": "unowned",
+      "mode": "oneway",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 2281472,
+      "conflicts": 172192,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": {
+        "initial_correct": [],
+        "initial_byzantine": ["X", "Y"],
+        "candidates": ["X", "Y"],
+        "starts": [0, 0],
+        "delays": [[0, 0, 0], [0, 0, 1]],
+        "skews": [0, 1],
+        "tie_order": [0, 1],
+        "byzantine_replies": [[], ["Y"]],
+        "crash_tick": null,
+        "replay_choices": [null, null],
+        "accepted": {"0": "X", "1": "Y"}
+      }
+    },
+    {
+      "authority": "dishonest",
+      "mode": "replay_unbound",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 1283328,
+      "conflicts": 16384,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": {
+        "initial_correct": [],
+        "initial_byzantine": ["X", "Y"],
+        "candidates": ["X", "Y"],
+        "starts": [0, 0],
+        "delays": [[0, 0, 0], [0, 0, 0]],
+        "skews": [0, 0],
+        "tie_order": [0, 1],
+        "byzantine_replies": [[], []],
+        "crash_tick": null,
+        "replay_choices": [null, 1],
+        "accepted": {"0": "X", "1": "Y"}
+      }
+    },
+    {
+      "authority": "dishonest",
+      "mode": "replay_same_slot",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 1283328,
+      "conflicts": 0,
+      "universal_solo_liveness_failures": 0,
+      "first_counterexample": null
+    }
+  ],
+  "summary": {
+    "sync_safe_all_authorities": true,
+    "universal_solo_liveness": true,
+    "oneway_bound_mutation_breaks": true,
+    "unbound_reply_replay_mutation_breaks": true,
+    "same_slot_stale_replay_is_harmless": true,
+    "reply_before_durable_mutation_breaks": true
+  }
+}

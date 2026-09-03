@@ -39,9 +39,23 @@ traces, TLC state dumps, and compiled paper outputs live under
   — attributable context-isolated automated R2 review, its
   `REPAIR_REQUIRED` findings, and the R3 response; governed by ADR 0049 and
   explicitly not represented as human peer review.
+- [`evidence/m10-r3-daybreak-retest-2026-09-03.md`](./evidence/m10-r3-daybreak-retest-2026-09-03.md)
+  — exact R3 automated retest: prior high findings and M10-006/007 closed,
+  while M10-003 remains open on four-signer cold-restart reproducibility.
 - [`evidence/m12-r3-daybreak-retest-2026-09-03.md`](./evidence/m12-r3-daybreak-retest-2026-09-03.md)
-  — exact-candidate `UPHELD` retest closing M12 as
-  `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; automated, not human peer review.
+  — exact-candidate `UPHELD` retest closing byte-portable M12a as
+  `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; automated, not human peer review and
+  not a result about ADR 0050's interactive class.
+- [`docs/decisions/0050`](../../../../docs/decisions/0050-split-aft-m12-offline-and-interactive-visibility.md)
+  — owner decision retaining that result as byte-portable M12a while opening
+  participant-interactive, known-synchronous QUV as non-portable M12b.
+- [`specs/query_unanimity_verification.md`](./specs/query_unanimity_verification.md)
+  — normative research specification and exact assumption boundary for
+  `aft_quv_v0`; no production or consensus claim is created.
+- [`evidence/m12b-quv-r3-local-evidence-2026-09-03.md`](./evidence/m12b-quv-r3-local-evidence-2026-09-03.md)
+  — corrected, reproducible explicit-time enumeration and its bounded scope.
+- [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
+  — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
   — exact immutable refs, publication choices, reviewer assignment fields,
   returned-evidence requirements, and deterministic resume rules for the two

@@ -1,7 +1,7 @@
 # AFT maximal-consensus end-to-end action plan
 
-Status: proposed execution plan; no new theorem or production claim is created
-by this document.
+Status: active execution plan, amended by ADR 0050; no theorem or production
+claim is created by this document.
 
 Date: 2026-09-03.
 
@@ -18,11 +18,26 @@ The research and implementation target is:
 > termination at `f = n - 1`, under a precisely defined AFT model whose added
 > visibility primitive is implemented non-circularly rather than assumed.
 
+M12a proved that the original portable byte-verifier version of this target is
+impossible under M11. ADR 0050 therefore authorizes a separate target rather
+than weakening that result invisibly:
+
+> Relay-free, participant-only, pure-software online Byzantine authorization
+> at `f = n - 1`, where every relying executor performs a known-synchronous
+> write-through query to the configured members and no portable-finality claim
+> is made.
+
+M13Q must still establish whether that per-slot authorization primitive can be
+lifted into the requested agreement, validity, and termination theorem. Until
+then, QUV is a construction candidate rather than “groundbreaking consensus.”
+
 The result is not complete unless the same theorem-bearing construction is
 carried through canonical ordering, durable state, policy-authorized
-irreversible effects, portable evidence, production admission, implementation
-conformance, independent security review, and honest publication of every
-assumption and cost.
+irreversible effects, production admission, implementation conformance,
+independent security review, and honest publication of every assumption and
+cost. The original track additionally requires portable final evidence. The
+QUV track instead requires every relying executor to re-run the online check;
+its portable artifacts are audit records explicitly marked non-final.
 
 This is a target, not a current claim. The present corpus proves an obstruction:
 for a `q`-of-`n` certificate family, all-but-one safety forces `q = n`, while
@@ -301,6 +316,11 @@ change.
 
 ### Phase C — Prove the theorem-bearing protocol
 
+For the original track, Phase C remains blocked by M12a. For the ADR 0050 track,
+substitute M13Q only after M12b receives an independently reviewed
+`PASS_CONSTRUCTION`. All Phase C obligations still apply, but external evidence
+means the live `VerifyOnline` operation rather than a bearer proof.
+
 #### C1. Consensus core
 
 Define and prove, under the exact model from Phase B:
@@ -395,9 +415,17 @@ the positive theorem states exactly the task actually modeled.
 - Reject omitted constituents, self-nominated roots, unknown transforms,
   legacy evidence, and evidence whose model differs from policy.
 
-Exit gate: one exact receipt can be traced from theorem-bearing decision through
-the sole external mutation owner and independently reproduced without an IOI
-runtime import.
+For the QUV track, a portable object may attest what an executor observed for
+audit, but it must carry `portable_final_receipt=false` and cannot authorize a
+later relying party. The later party must execute QUV again. Therefore the QUV
+version of this exit gate is an independently reproduced online decision plus
+a non-authorizing audit record, not an offline final receipt.
+
+Original-track exit gate: one exact receipt can be traced from theorem-bearing
+decision through the sole external mutation owner and independently reproduced
+without an IOI runtime import. QUV-track exit gate: the executor's online
+decision and external mutation are reproduced, while its portable audit object
+is verified to be non-authorizing.
 
 ### Phase E — Production implementation and migration
 
@@ -510,17 +538,26 @@ exercise to terminal safety.
 | M9 | Immutable PQ v1 candidate | Clean checkout and all local M8 gates pass |
 | M10 | Independent PQ v1 review and release | Final independent report; no unresolved high/critical findings |
 | M11 | Exact maximal task/model | Non-vacuous definitions and complete adversary/assumption ledger |
-| M12 | Visibility viability result | `PASS_CONSTRUCTION`; a formal impossibility is retained evidence but blocks M13-M18 |
+| M12a | Byte-portable visibility result | `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; immutable lower bound retained and original M13-M18 blocked |
+| M12b | Interactive visibility result | Independently reviewed `PASS_CONSTRUCTION` for QUV's exact known-synchronous assumptions |
 | M13 | Maximal consensus theorem | Agreement, validity, termination, external evidence, lower bounds, mechanization |
 | M14 | End-to-end theorem lift | Ordering, durable state, effect authorization, consequence, portable assurance |
 | M15 | Production implementation | Real processes use the theorem-bearing profile and conformance traces pass |
 | M16 | Adversarial and performance qualification | Full `f=n-1`, restart, fork, receipt, and consequence campaigns pass |
 | M17 | Independent maximal review | Security review, theorem review, twin, and finding remediation complete |
 | M18 | Public admission and release | Claim gate, public evidence, peer-review disposition, immutable release |
+| M13Q | QUV theorem | Arbitrary-`n` online non-conflict and no-conflict solo progress, exact validity/termination task, lower bounds, and mechanization |
+| M14Q | Online end-to-end lift | Ordering, durable state, executor-side revalidation, effect authorization, consequence, and non-authorizing audit evidence |
+| M15Q | QUV production implementation | Real processes use the theorem-bearing profile; no cached transcript authorizes an effect |
+| M16Q | QUV qualification | Timing/load, rollback, restart, reconfiguration, conflict, mixed-domain, and consequence campaigns pass |
+| M17Q | Independent QUV review | Fresh security/theorem review, twin, and all finding remediation complete |
+| M18Q | QUV public admission | Exact known-synchronous online claim admitted on an immutable release; portable finality remains false |
 
-Only one milestone may be the critical path. Initially M9 is critical; after
-its completion M10 becomes critical, then M11, and so on. M13-M18 do not exist
-as production claims unless M12 closes with `PASS_CONSTRUCTION`.
+Only one milestone may be the critical path. M10 remains the current release
+critical path until its independent-review defect is closed. Research may
+continue on M12b without mislabeling it as release-critical. Original M13-M18
+remain blocked by M12a. M13Q-M18Q do not exist as production claims unless
+M12b closes with an independently reviewed `PASS_CONSTRUCTION`.
 
 ## 7. Evidence and issue discipline
 
@@ -549,8 +586,11 @@ Recommended finding prefixes:
 
 ## 8. Stop, block, and completion rules
 
-The program is complete only when M9-M18 are complete and the final immutable
-release supports the admitted headline end to end.
+Under ADR 0050, the executable program is complete only when M9-M12a and
+M12b-M18Q have their terminal honest dispositions and the final immutable QUV
+release supports its admitted online headline end to end. Original M13-M18 are
+retained as blocked by the proved portable-byte impossibility; they are not
+laundered into QUV completion.
 
 The program must stop and report a blocker when:
 
@@ -570,14 +610,15 @@ resume point and the minimum evidence the owner must supply.
 
 ## 9. Immediate next actions
 
-1. Freeze the existing M0-M8 tree as the PQ v1 review candidate.
-2. Reconcile T5d and T8 status across the theorem/claim ledgers.
-3. Run the complete release harness from a clean candidate checkout.
-4. Resolve P4.5a's candidate field out of band with the annotated candidate
-   tag/commissioning record and hand both to the independent reviewer selected
-   by the owner; do not mutate the frozen candidate to self-record its hash.
-5. While external review proceeds, draft M11's exact task/model and the
-   `n=2, f=1` paired-execution challenge without modifying reviewed candidate
-   code.
-6. Do not start maximal production implementation until M12 returns
-   `PASS_CONSTRUCTION`.
+1. Close M10's independently observed cold-restart signer-startup defect and
+   retest the exact PQ v1 candidate.
+2. Freeze the M12b QUV construction, explicit-time model, generated results,
+   assumptions, and review packet at an annotated candidate tag.
+3. Obtain the ADR-0049-authorized context-isolated construction review. Repair
+   and re-review every finding until the reviewer returns `PASS_CONSTRUCTION`
+   or rejects the construction.
+4. Only after that pass, execute M13Q: arbitrary-`n` theorem, multiple-correct-
+   member concurrency, admitted-load timing, liveness, lower-bound pairings,
+   and mechanization.
+5. Keep original M13-M18 blocked and `portable_final_receipt=false`; do not
+   start QUV production implementation until M13Q passes.
