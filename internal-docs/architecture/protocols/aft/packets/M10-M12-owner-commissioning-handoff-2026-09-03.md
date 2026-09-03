@@ -67,6 +67,21 @@ candidate in a review report. A private signed bundle or read-only mirror is
 also acceptable if public disclosure is premature, provided the reviewer
 records the same commit and tag-object hashes.
 
+For private transfer, generate and independently clone-check both Git bundles
+plus their manifest and checksums with:
+
+```text
+output_dir="$(mktemp -d)"
+bash .github/scripts/prepare_aft_review_bundles.sh "${output_dir}"
+(cd "${output_dir}" && sha256sum --check --strict SHA256SUMS)
+```
+
+The generated directory contains one bundle per review so the M10 reviewer
+does not receive later research code by accident. Transfer through an
+owner-approved channel; the script does not upload or disclose anything.
+The local two-run reproduction and fail-closed checks are recorded in
+`../evidence/m10-m12-review-bundle-reproduction-2026-09-03.md`.
+
 ## 3. Reviewer assignments
 
 The owner records the following before work begins.

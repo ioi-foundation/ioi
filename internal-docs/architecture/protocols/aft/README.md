@@ -39,6 +39,13 @@ traces, TLC state dumps, and compiled paper outputs live under
   — exact immutable refs, publication choices, reviewer assignment fields,
   returned-evidence requirements, and deterministic resume rules for the two
   owner-only independent reviews.
+- [`.github/scripts/prepare_aft_review_bundles.sh`](../../../../../.github/scripts/prepare_aft_review_bundles.sh)
+  — fail-closed private-transfer bundle builder that pins annotated tag
+  objects, clone-checks both candidates, and emits a checksum manifest without
+  publishing them.
+- [`evidence/m10-m12-review-bundle-reproduction-2026-09-03.md`](./evidence/m10-m12-review-bundle-reproduction-2026-09-03.md)
+  — two-run byte reproducibility, independent clone checks, transfer hashes,
+  and negative target-refusal evidence for the private review packages.
 - [`specs/maximal_prior_art_comparison_2026-09-03.md`](./specs/maximal_prior_art_comparison_2026-09-03.md)
   — dated task-level comparison against authenticated/synchronous BA,
   asynchronous BA/RBC/ACS, DAG availability, data-availability sampling,
