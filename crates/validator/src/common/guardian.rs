@@ -84,6 +84,7 @@ use tokio_rustls::{
 };
 use tonic::transport::Channel;
 
+#[cfg(feature = "consensus-aft")]
 pub mod seal_signer;
 
 include!("guardian/types.rs");

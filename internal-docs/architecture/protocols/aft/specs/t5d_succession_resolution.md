@@ -123,8 +123,9 @@ The kernel runs in the `aft_formal_floor` CI job on every build.
 - The operative exits from a dead ring remain, and are now *justified* as
   the only safe options: the §9 unanimous handover and the §14 labeled
   re-genesis are scheduled/consented transitions, exactly the fence shape.
-- The T5d pairing row stays L-OPEN in the flagship sense (the succession
-  lower-bound question is now ANSWERED as an impossibility, but the
-  program's final-flagship rung was gated on a mechanized *positive* T5d
-  with R11+R12 landed; that rung stays unreachable — the resolution
-  sharpens the residual rather than opening the rung).
+- The T5d pairing row is CLOSED by L-S: the succession lower-bound question is
+  answered as an impossibility and scheduled slot-disjoint safety is
+  mechanized. The program's final responsive flagship rung was gated on a
+  positive cadence theorem; that condition remains unavailable and the rung
+  stays unreachable. It is a claim-ladder blocker, not an open lower-bound
+  row.

@@ -69,9 +69,10 @@ impl GuardianMajorityEngine {
     /// coordinates rather than network arrival order.
     ///
     /// Returns `true` for a new binding and `false` for exact idempotent
-    /// redelivery.  A different binding at the same slot, or a counter that is
-    /// not strictly between its adjacent observed slots, is equivocation or a
-    /// rollback and is refused.
+    /// redelivery. A different binding at the same slot is always refused.
+    /// Guardian-dependent compatibility profiles additionally require a
+    /// counter strictly between adjacent observed slots. Classic BFT does not:
+    /// its safety authority is the authenticated quorum, not guardian state.
     pub(super) fn admit_guardian_counter_binding(
         &mut self,
         producer: AccountId,
@@ -108,6 +109,14 @@ impl GuardianMajorityEngine {
             } else {
                 Err(invalid("was rebound at an already observed slot"))
             };
+        }
+
+        // Classic BFT derives safety from authenticated quorum intersection.
+        // The legacy counter/trace fields remain signature-bound wire data but
+        // guardian monotonicity is not a safety assumption in this mode.
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            history.insert(slot, binding);
+            return Ok(true);
         }
 
         let predecessor = history
@@ -319,10 +328,23 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         // Retain the authoritative sets so `handle_vote`, which carries no
         // state view, can still authenticate against real membership.
         self.remember_validator_sets(height, &sets);
+        let normative_pq_profile = matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && vs
+                .validators
+                .iter()
+                .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft) && !normative_pq_profile {
+            error!(target: "consensus", height, "AFT PQ v1 refuses a classic_bft membership containing a non-ML-DSA consensus key");
+            return ConsensusDecision::Stall;
+        }
 
         if self.pacemaker_height != height {
             self.pacemaker.lock().await.start_height();
             self.pacemaker_height = height;
+        }
+        if self.fallback_starts.contains_key(&height) {
+            debug!(target: "consensus", height, "Optimistic decision path is fenced after durable fallback start");
+            return ConsensusDecision::Stall;
         }
         let mut current_view = { self.pacemaker.lock().await.current_view };
         let bootstrap_first_commit_pending =
@@ -338,7 +360,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             current_view = 0;
             if bootstrap_first_commit_pending {
                 self.timeout_votes_sent
-                    .retain(|(vote_height, _)| *vote_height != height);
+                    .retain(|(vote_height, _), _| *vote_height != height);
                 self.tc_formed.retain(|(tc_height, _)| *tc_height != height);
             }
             if Self::benchmark_trace_enabled() {
@@ -361,28 +383,65 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         }
 
         if !bootstrap_first_commit_pending {
-            let tc_views = self
-                .view_votes
-                .get(&height)
-                .map(|view_map| view_map.keys().copied().collect::<Vec<_>>())
-                .unwrap_or_default();
+            let tc_views = if normative_pq_profile {
+                self.aft_timeout_votes
+                    .get(&height)
+                    .map(|view_map| view_map.keys().copied().collect::<Vec<_>>())
+                    .unwrap_or_default()
+            } else {
+                self.view_votes
+                    .get(&height)
+                    .map(|view_map| view_map.keys().copied().collect::<Vec<_>>())
+                    .unwrap_or_default()
+            };
             let mut newest_tc_view = current_view;
             for view in tc_views {
                 if self.tc_formed.contains(&(height, view)) {
                     newest_tc_view = newest_tc_view.max(view);
                     continue;
                 }
-                if self
-                    .check_quorum(height, view, vs.total_weight, &sets)
-                    .is_some()
+                let adopted = if normative_pq_profile {
+                    let certificate = match self.check_aft_timeout_quorum(height, view, &sets) {
+                        Ok(certificate) => certificate,
+                        Err(error) => {
+                            error!(target: "consensus", height, view, %error, "Refusing scoped timeout quorum");
+                            return ConsensusDecision::Stall;
+                        }
+                    };
+                    if let Some(certificate) = certificate {
+                        self.adopt_aft_timeout_certificate(certificate, false).await
+                    } else {
+                        Ok(false)
+                    }
+                } else if let Some(certificate) =
+                    self.check_quorum(height, view, vs.total_weight, &sets)
                 {
-                    info!(
-                        target: "consensus",
-                        height,
-                        view,
-                        "Majority quorum reached for view change. Advancing pacemaker."
-                    );
-                    self.tc_formed.insert((height, view));
+                    self.adopt_timeout_certificate(certificate, false).await
+                } else {
+                    Ok(false)
+                };
+                match adopted {
+                    Ok(true) => {
+                        info!(
+                            target: "consensus",
+                            height,
+                            view,
+                            "Majority quorum reached for view change. Advancing pacemaker."
+                        );
+                    }
+                    Ok(false) => {}
+                    Err(error) => {
+                        error!(
+                            target: "consensus",
+                            height,
+                            view,
+                            %error,
+                            "Refusing timeout-certificate transition"
+                        );
+                        return ConsensusDecision::Stall;
+                    }
+                }
+                if self.tc_formed.contains(&(height, view)) {
                     newest_tc_view = newest_tc_view.max(view);
                 }
             }
@@ -391,10 +450,26 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 current_view = newest_tc_view;
             }
 
+            // Adopting the third scoped TC above may have durably installed
+            // fallback. No optimistic timeout, proposal, or vote authority is
+            // issued beyond that transition point.
+            if self.fallback_starts.contains_key(&height) {
+                debug!(target: "consensus", height, "Optimistic decision path fenced by newly persisted fallback start");
+                return ConsensusDecision::Stall;
+            }
+
             let timed_out = { self.pacemaker.lock().await.check_timeout() };
             if timed_out {
                 let next_view = current_view + 1;
-                if self.timeout_votes_sent.insert((height, next_view)) {
+                let now = Instant::now();
+                let should_relay = self
+                    .timeout_votes_sent
+                    .get(&(height, next_view))
+                    .is_none_or(|last_relay| {
+                        now.duration_since(*last_relay) >= Duration::from_secs(1)
+                    });
+                if should_relay {
+                    self.timeout_votes_sent.insert((height, next_view), now);
                     if Self::benchmark_trace_enabled() {
                         eprintln!(
                             "[BENCH-AFT-DECIDE] height={} decision=timeout current_view={} next_view={} reason=pacemaker_timed_out",
@@ -494,8 +569,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
                     // The locally committed parent identifies the only block a
                     // child may extend, but it is not quorum evidence. Classic
-                    // BFT must wait until the exact parent carries a currently
-                    // authenticated 2f+1 certificate. In particular, never
+                    // BFT must wait until the exact parent carries either a
+                    // currently authenticated 2f+1 native certificate or the
+                    // separately verified typed async-parent proof. In
+                    // particular, never
                     // promote `synthetic_parent_qc_for_height` into authority:
                     // that helper is an unsigned coordinate/recovery surface.
                     let expected_parent = self.synthetic_parent_qc_for_height(height);
@@ -503,7 +580,8 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                         self.highest_qc.height == expected.height
                             && self.highest_qc.view == expected.view
                             && self.highest_qc.block_hash == expected.block_hash
-                            && self.authenticated_quorum(&self.highest_qc).is_ok()
+                            && (self.authenticated_quorum(&self.highest_qc).is_ok()
+                                || self.has_async_parent_proof(&self.highest_qc))
                     });
                     if !authenticated_parent {
                         if Self::benchmark_trace_enabled() {
@@ -586,7 +664,15 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                                 .unwrap_or(false))
                     {
                         let next_view = current_view + 1;
-                        if self.timeout_votes_sent.insert((height, next_view)) {
+                        let now = Instant::now();
+                        let should_relay = self
+                            .timeout_votes_sent
+                            .get(&(height, next_view))
+                            .is_none_or(|last_relay| {
+                                now.duration_since(*last_relay) >= Duration::from_secs(1)
+                            });
+                        if should_relay {
+                            self.timeout_votes_sent.insert((height, next_view), now);
                             if Self::benchmark_trace_enabled() {
                                 eprintln!(
                                 "[BENCH-AFT-DECIDE] height={} decision=timeout current_view={} next_view={} highest_qc_height={} reason=leader_missing_parent_qc",
@@ -714,10 +800,23 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .unwrap_or_else(|| parent_status.latest_timestamp_ms_or_legacy());
             let expected_ts = timestamp_millis_to_legacy_seconds(expected_ts_ms);
 
-            let timeout_certificate = if current_view > 0 {
-                self.check_quorum(height, current_view, vs.total_weight, &sets)
+            let (timeout_certificate, aft_timeout_certificate) = if current_view > 0 {
+                if normative_pq_profile {
+                    match self.check_aft_timeout_quorum(height, current_view, &sets) {
+                        Ok(certificate) => (None, certificate),
+                        Err(error) => {
+                            error!(target: "consensus", height, current_view, %error, "Refusing malformed scoped timeout quorum during proposal construction");
+                            return ConsensusDecision::Stall;
+                        }
+                    }
+                } else {
+                    (
+                        self.check_quorum(height, current_view, vs.total_weight, &sets),
+                        None,
+                    )
+                }
             } else {
-                None
+                (None, None)
             };
 
             let (
@@ -755,6 +854,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 previous_canonical_collapse_commitment_hash,
                 canonical_collapse_extension_certificate,
                 timeout_certificate,
+                aft_timeout_certificate,
             }
         } else {
             ConsensusDecision::WaitForBlock
@@ -770,6 +870,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         CS: CommitmentScheme + Send + Sync,
         ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof> + Send + Sync + 'static,
     {
+        if self.fallback_starts.contains_key(&block.header.height) {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "optimistic proposal arrived after durable fallback start".into(),
+            ));
+        }
         if let Some(proof) = self.check_divergence(&block.header) {
             error!(target: "consensus", "CRITICAL: DIVERGENCE PROOF CONSTRUCTED: {:?}", proof);
             return Err(ConsensusError::BlockVerificationFailed(
@@ -815,6 +920,16 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             };
 
         let vs = effective_set_for_height(&sets, header.height);
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && vs
+                .validators
+                .iter()
+                .any(|validator| validator.consensus_key.suite != SignatureSuite::ML_DSA_44)
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT PQ v1 classic_bft membership contains a non-ML-DSA consensus key".into(),
+            ));
+        }
         // Proposal processing is the first anchored-state edge every follower
         // must cross before accepting a block. Hydrate here as well as in
         // `decide`: a follower can receive votes or a QC before it ever runs a
@@ -850,21 +965,77 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                 hex::encode(header.producer_account_id)
             )));
         }
+        let leader_record = vs
+            .validators
+            .iter()
+            .find(|validator| validator.account_id == expected_leader)
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(
+                    "expected AFT leader is missing its validator record".into(),
+                )
+            })?;
+        if leader_record.consensus_key.since_height > header.height {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "AFT leader consensus key is not active until height {}",
+                leader_record.consensus_key.since_height
+            )));
+        }
+        if header.producer_key_suite != leader_record.consensus_key.suite {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "AFT producer suite {:?} does not match rooted leader suite {:?}",
+                header.producer_key_suite, leader_record.consensus_key.suite
+            )));
+        }
+        let derived_producer_key_hash =
+            account_id_from_key_material(header.producer_key_suite, &header.producer_pubkey)
+                .map_err(|error| {
+                    ConsensusError::BlockVerificationFailed(format!(
+                        "failed to derive AFT producer key hash: {error}"
+                    ))
+                })?;
+        if derived_producer_key_hash != header.producer_pubkey_hash
+            || derived_producer_key_hash != leader_record.consensus_key.public_key_hash
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT producer key is not the rooted consensus key authorized to the leader".into(),
+            ));
+        }
         if header.view == 0 {
-            if header.timeout_certificate.is_some() {
+            if header.timeout_certificate.is_some() || header.aft_timeout_certificate.is_some() {
                 return Err(ConsensusError::BlockVerificationFailed(format!(
                     "Unexpected timeout certificate on view-0 proposal H={}",
                     header.height
                 )));
             }
         } else {
-            let timeout_certificate = header.timeout_certificate.as_ref().ok_or_else(|| {
-                ConsensusError::BlockVerificationFailed(format!(
-                    "Missing timeout certificate for non-zero-view proposal H={} V={}",
-                    header.height, header.view
-                ))
-            })?;
-            self.verify_timeout_certificate(timeout_certificate, &sets)?;
+            if header.timeout_certificate.is_some() && header.aft_timeout_certificate.is_some() {
+                return Err(ConsensusError::BlockVerificationFailed(
+                    "proposal carries both legacy and scoped timeout authority".into(),
+                ));
+            }
+            if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+                let certificate = header.aft_timeout_certificate.as_ref().ok_or_else(|| {
+                    ConsensusError::BlockVerificationFailed(format!(
+                        "Missing scoped AFT timeout certificate for PQ proposal H={} V={}",
+                        header.height, header.view
+                    ))
+                })?;
+                if certificate.height != header.height || certificate.view != header.view {
+                    return Err(ConsensusError::BlockVerificationFailed(
+                        "scoped AFT timeout certificate does not authorize the proposal slot"
+                            .into(),
+                    ));
+                }
+                self.verify_aft_timeout_certificate(certificate, &sets)?;
+            } else {
+                let certificate = header.timeout_certificate.as_ref().ok_or_else(|| {
+                    ConsensusError::BlockVerificationFailed(format!(
+                        "Missing legacy timeout certificate for compatibility proposal H={} V={}",
+                        header.height, header.view
+                    ))
+                })?;
+                self.verify_timeout_certificate(certificate, &sets)?;
+            }
         }
 
         let threshold = self.quorum_count_threshold_for_height(header.height);
@@ -909,7 +1080,11 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     "Parent QC hash mismatch".into(),
                 ));
             }
-            let parent_verification = if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            let async_parent = matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+                && self.has_async_parent_proof(parent_qc);
+            let parent_verification = if async_parent {
+                Ok(())
+            } else if matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
                 self.authenticated_quorum(parent_qc).map(|_| ())
             } else {
                 self.verify_qc(parent_qc, &sets)
@@ -933,8 +1108,10 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
                     parent_qc.height
                 )));
             }
-            self.remember_qc(parent_qc);
-            self.reconcile_classic_safety_qc(parent_qc);
+            if !async_parent {
+                self.remember_qc(parent_qc);
+                self.reconcile_classic_safety_qc(parent_qc);
+            }
             if parent_qc.height > self.highest_qc.height {
                 self.highest_qc = parent_qc.clone();
             }
@@ -945,6 +1122,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
             .map_err(|e| ConsensusError::BlockVerificationFailed(e.to_string()))?;
         verify_guardian_signature(
             &preimage,
+            header.producer_key_suite,
             &header.producer_pubkey,
             &header.signature,
             header.oracle_counter,
@@ -1038,6 +1216,12 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     }
 
     async fn handle_vote(&mut self, vote: ConsensusVote) -> Result<(), ConsensusError> {
+        if self.fallback_starts.contains_key(&vote.height) {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "optimistic vote arrived after durable fallback start at H={} V={}",
+                vote.height, vote.view
+            )));
+        }
         // Authenticate before the vote can influence any quorum. A vote that
         // fails here never reaches the pool, so it can never be counted toward
         // a threshold nor appear in a certificate this node assembles.
@@ -1103,6 +1287,110 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         qc: QuorumCertificate,
     ) -> Result<(), ConsensusError> {
         self.accept_quorum_certificate(qc, false).await
+    }
+
+    async fn handle_timeout_certificate(
+        &mut self,
+        certificate: TimeoutCertificate,
+    ) -> Result<(), ConsensusError> {
+        self.adopt_timeout_certificate(certificate, true)
+            .await
+            .map(|_| ())
+    }
+
+    async fn handle_aft_timeout_vote(
+        &mut self,
+        from: PeerId,
+        vote: AftTimeoutVoteV1,
+    ) -> Result<(), ConsensusError> {
+        if self.pacemaker_height > 0 && vote.height < self.pacemaker_height {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "stale AFT timeout vote for height {} below active height {}",
+                vote.height, self.pacemaker_height
+            )));
+        }
+        if vote.height > self.pacemaker_height.saturating_add(1) {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "future AFT timeout vote for height {} exceeds active height {}",
+                vote.height, self.pacemaker_height
+            )));
+        }
+        let active_view = self.pacemaker.lock().await.current_view;
+        if vote.height == self.pacemaker_height && vote.view > active_view.saturating_add(1) {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "future AFT timeout vote view {} skips active view {}",
+                vote.view, active_view
+            )));
+        }
+        self.authenticated_aft_timeout_vote(&vote)?;
+        info!(target: "consensus", "Scoped AFT timeout vote H={} V={} from {}", vote.height, vote.view, from);
+        self.aft_timeout_votes
+            .entry(vote.height)
+            .or_default()
+            .entry(vote.view)
+            .or_default()
+            .insert(vote.voter, vote);
+        Ok(())
+    }
+
+    async fn handle_aft_timeout_certificate(
+        &mut self,
+        certificate: AftTimeoutCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        self.adopt_aft_timeout_certificate(certificate, true)
+            .await
+            .map(|_| ())
+    }
+
+    async fn handle_fallback_start_certificate(
+        &mut self,
+        certificate: FallbackStartCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        self.adopt_fallback_start(certificate).map(|_| ())
+    }
+
+    fn observe_aft_async_parent_proof(
+        &mut self,
+        proof: AftAsyncParentProofV1,
+    ) -> Result<(), ConsensusError> {
+        self.accept_async_parent_proof(proof)
+    }
+
+    fn aft_timeout_safe_state(&self, height: u64) -> Option<AftTimeoutSafeStateV1> {
+        if height == 0 || self.highest_qc.height >= height {
+            return None;
+        }
+        let locked_qc = self.safety.locked_qc.clone().unwrap_or_default();
+        if locked_qc.height > self.highest_qc.height {
+            return None;
+        }
+        Some(AftTimeoutSafeStateV1 {
+            highest_qc_async_parent_proof_hash: self.async_parent_proof_hash(&self.highest_qc),
+            locked_qc_async_parent_proof_hash: self.async_parent_proof_hash(&locked_qc),
+            highest_qc: self.highest_qc.clone(),
+            locked_qc,
+        })
+    }
+
+    fn aft_timeout_vote_for_relay(
+        &self,
+        height: u64,
+        view: u64,
+        voter: &AccountId,
+    ) -> Option<AftTimeoutVoteV1> {
+        self.aft_timeout_votes
+            .get(&height)?
+            .get(&view)?
+            .get(voter)
+            .cloned()
+    }
+
+    fn configure_fallback_journal(
+        &mut self,
+        scope: AftFallbackScopeV1,
+        path: &std::path::Path,
+    ) -> Result<(), ConsensusError> {
+        self.configure_fallback_transition_journal(scope, path)
     }
 
     async fn handle_view_change(
@@ -1198,6 +1486,18 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
 
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
         self.drain_pending_quorum_certificates()
+    }
+
+    fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
+        self.drain_pending_timeout_certificates()
+    }
+
+    fn take_pending_aft_timeout_certificates(&mut self) -> Vec<AftTimeoutCertificateV1> {
+        self.drain_pending_aft_timeout_certificates()
+    }
+
+    fn take_pending_fallback_starts(&mut self) -> Vec<FallbackStartCertificateV1> {
+        self.drain_pending_fallback_starts()
     }
 
     fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {

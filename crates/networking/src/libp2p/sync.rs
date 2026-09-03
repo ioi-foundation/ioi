@@ -5,6 +5,10 @@
 use crate::traits::{BlockSync, NodeState, SyncError};
 use async_trait::async_trait;
 use futures::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use ioi_crypto::transport::pq_authenticated_channel::{
+    PqChannelClientFinishV1, PqChannelClientHelloV1, PqChannelContentTypeV1, PqChannelRecordV1,
+    PqChannelServerHelloV1,
+};
 use ioi_types::app::{AccountId, Block, ChainId, ChainTransaction};
 use ioi_types::codec;
 use libp2p::{request_response::Codec, PeerId};
@@ -16,6 +20,38 @@ use tokio::sync::Mutex;
 use super::{Libp2pSync, SwarmCommand};
 
 // --- Block Sync Protocol Definitions ---
+
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub enum PqConsensusPayloadV1 {
+    Vote(Vec<u8>),
+    QuorumCertificate(Vec<u8>),
+    ViewChange(Vec<u8>),
+    AftTimeoutVote(Vec<u8>),
+    TimeoutCertificate(Vec<u8>),
+    AftTimeoutCertificate(Vec<u8>),
+    FallbackStart(Vec<u8>),
+    AftAsyncOrdering(Vec<u8>),
+    Echo(Vec<u8>),
+    Panic(Vec<u8>),
+    Confidence(Vec<u8>),
+}
+
+impl PqConsensusPayloadV1 {
+    pub fn content_type(&self) -> PqChannelContentTypeV1 {
+        match self {
+            Self::Vote(_) => PqChannelContentTypeV1::ConsensusVote,
+            Self::QuorumCertificate(_) => PqChannelContentTypeV1::QuorumCertificate,
+            Self::ViewChange(_) | Self::AftTimeoutVote(_) => PqChannelContentTypeV1::ViewChange,
+            Self::TimeoutCertificate(_)
+            | Self::AftTimeoutCertificate(_)
+            | Self::FallbackStart(_) => PqChannelContentTypeV1::FallbackControl,
+            Self::AftAsyncOrdering(_) => PqChannelContentTypeV1::AsynchronousConsensus,
+            Self::Echo(_) | Self::Panic(_) | Self::Confidence(_) => {
+                PqChannelContentTypeV1::FallbackControl
+            }
+        }
+    }
+}
 
 fn max_sync_request_bytes() -> usize {
     std::env::var("IOI_AFT_MAX_SYNC_REQUEST_BYTES")
@@ -46,6 +82,8 @@ pub enum SyncRequest {
     RelayConsensusVote(Vec<u8>),
     RelayQuorumCertificate(Vec<u8>),
     RelayViewChange(Vec<u8>),
+    RelayTimeoutCertificate(Vec<u8>),
+    RelayFallbackStart(Vec<u8>),
     AgenticPrompt(String),
     // [NEW] Request missing transactions for compact block reconstruction
     // Changed usize to u32 for deterministic SCALE encoding
@@ -54,6 +92,13 @@ pub enum SyncRequest {
     // Research-only witness/audit sampling for ExperimentalNestedGuardian.
     /// Request the peer's observed preferred block hash and confidence for a given height.
     SamplePreference(u64),
+
+    /// `aft-pq-channel-v1` handshake and protected application records. The
+    /// libp2p transport is only a carrier; these messages establish the PQ
+    /// security boundary used by strict AFT consensus mode.
+    PqChannelClientHello(PqChannelClientHelloV1),
+    PqChannelClientFinish(PqChannelClientFinishV1),
+    PqChannelRecord(PqChannelRecordV1),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
@@ -80,6 +125,8 @@ pub enum SyncResponse {
         /// The peer's local observability confidence score for this block.
         confidence: u32,
     },
+    PqChannelServerHello(PqChannelServerHelloV1),
+    PqChannelAck,
 }
 
 #[derive(Debug, Clone, Default)]

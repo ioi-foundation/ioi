@@ -83,6 +83,20 @@ pub(super) fn post_commit_vote_replay_delays_ms() -> Vec<u64> {
         .unwrap_or_else(|| vec![150, 500, 1200])
 }
 
+pub(super) fn post_commit_proposal_replay_delays_ms() -> Vec<u64> {
+    std::env::var("IOI_AFT_POST_COMMIT_PROPOSAL_REPLAY_DELAYS_MS")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .filter_map(|part| part.trim().parse::<u64>().ok())
+                .filter(|delay| *delay > 0)
+                .collect::<Vec<_>>()
+        })
+        .filter(|delays| !delays.is_empty())
+        .unwrap_or_else(|| vec![2_000, 6_000])
+}
+
 /// Runs the durable finalized-header update, and publishes `Committed` plus
 /// the per-transaction completion events for the block's transactions ONLY if
 /// that update succeeded.
@@ -235,13 +249,14 @@ where
 
 pub(super) async fn replay_committed_block_vote_once<CE>(
     consensus_engine_ref: &Arc<Mutex<CE>>,
-    local_keypair: &libp2p::identity::Keypair,
+    vote_signer: &LocalAftVoteSigner,
+    our_account_id: AccountId,
     swarm_sender: &mpsc::Sender<SwarmCommand>,
     block: &Block<ChainTransaction>,
 ) where
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
-    if block.header.height == 0 {
+    if block.header.height == 0 || block.header.signature.is_empty() {
         return;
     }
 
@@ -272,20 +287,6 @@ pub(super) async fn replay_committed_block_vote_once<CE>(
         }
     };
 
-    let our_pk = local_keypair.public().encode_protobuf();
-    let our_id_hash = match account_id_from_key_material(SignatureSuite::ED25519, &our_pk) {
-        Ok(id) => id,
-        Err(error) => {
-            tracing::debug!(
-                target: "consensus",
-                height = block.header.height,
-                view = block.header.view,
-                error = %error,
-                "Skipping committed block vote replay because the local account id could not be derived."
-            );
-            return;
-        }
-    };
     let vote_payload = (block.header.height, block.header.view, vote_hash);
     let vote_bytes = match codec::to_bytes_canonical(&vote_payload) {
         Ok(bytes) => bytes,
@@ -300,7 +301,7 @@ pub(super) async fn replay_committed_block_vote_once<CE>(
             return;
         }
     };
-    let signature = match local_keypair.sign(&vote_bytes) {
+    let signature = match vote_signer.sign(&vote_bytes) {
         Ok(signature) => signature,
         Err(error) => {
             tracing::debug!(
@@ -318,7 +319,7 @@ pub(super) async fn replay_committed_block_vote_once<CE>(
         height: block.header.height,
         view: block.header.view,
         block_hash: vote_hash,
-        voter: AccountId(our_id_hash),
+        voter: our_account_id,
         signature,
     };
 
@@ -353,28 +354,117 @@ pub(super) async fn replay_committed_block_vote_once<CE>(
 
 pub(crate) fn schedule_committed_block_vote_replays<CE>(
     consensus_engine_ref: Arc<Mutex<CE>>,
-    local_keypair: libp2p::identity::Keypair,
+    vote_signer: LocalAftVoteSigner,
+    our_account_id: AccountId,
     swarm_sender: mpsc::Sender<SwarmCommand>,
     block: Block<ChainTransaction>,
 ) where
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
+    // Hash-async virtual envelopes deliberately carry no single-producer
+    // signature. Their executed-block certificate is the authority, so
+    // manufacturing native votes afterward would both cross certificate
+    // classes and keep a completed all-to-all instance alive under load.
+    if block.header.signature.is_empty() {
+        return;
+    }
     for delay_ms in post_commit_vote_replay_delays_ms() {
         let consensus_engine_ref = Arc::clone(&consensus_engine_ref);
-        let local_keypair = local_keypair.clone();
+        let vote_signer = vote_signer.clone();
         let swarm_sender = swarm_sender.clone();
         let block = block.clone();
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
             replay_committed_block_vote_once(
                 &consensus_engine_ref,
-                &local_keypair,
+                &vote_signer,
+                our_account_id,
                 &swarm_sender,
                 &block,
             )
             .await;
         });
     }
+}
+
+/// Re-publishes the producer's exact signed proposal independently of the
+/// consensus tick. A producer may be delayed after durable commit while it
+/// signs or loops back its own vote; proposal availability must not share that
+/// failure domain. The networking layer converts a duplicate gossip publish
+/// into direct request/response relay, while receivers discard an exact block
+/// they have already executed.
+fn schedule_committed_block_proposal_replays(
+    swarm_sender: mpsc::Sender<SwarmCommand>,
+    proposal_blob: Vec<u8>,
+) {
+    for delay_ms in post_commit_proposal_replay_delays_ms() {
+        let swarm_sender = swarm_sender.clone();
+        let proposal_blob = proposal_blob.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            let _ = swarm_sender
+                .send(SwarmCommand::PublishBlock(proposal_blob))
+                .await;
+        });
+    }
+}
+
+async fn local_vote_identity_for_block<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    block: &Block<ChainTransaction>,
+) -> Result<(AccountId, LocalAftVoteSigner)>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let (view_resolver, local_keypair, pqc_signer) = {
+        let context = context_arc.lock().await;
+        (
+            context.view_resolver.clone(),
+            context.local_keypair.clone(),
+            context.pqc_signer.clone(),
+        )
+    };
+    let parent_ref = StateRef {
+        height: block.header.height.saturating_sub(1),
+        state_root: block.header.parent_state_root.as_ref().to_vec(),
+        block_hash: block.header.parent_hash,
+    };
+    let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+    let encoded_sets = parent_view
+        .get(VALIDATOR_SET_KEY)
+        .await?
+        .ok_or_else(|| anyhow!("AFT validator set missing in committed block parent state"))?;
+    let sets = read_validator_sets(&encoded_sets)?;
+    let effective = effective_set_for_height(&sets, block.header.height);
+    select_local_aft_vote_signer(
+        &effective,
+        block.header.height,
+        &local_keypair,
+        pqc_signer.as_ref(),
+    )
 }
 
 pub(super) fn schedule_post_commit_rekicks(
@@ -415,6 +505,139 @@ pub(super) fn dispatch_swarm_command(
     }
 }
 
+struct PqRotationSnapshot<CE> {
+    workload_client: Arc<dyn WorkloadClientApi>,
+    current_hash: Option<[u8; 32]>,
+    was_strict: bool,
+    network_id: [u8; 32],
+    peer_id: libp2p::PeerId,
+    pq_signer: Option<MldsaKeyPair>,
+    outbox_root: Option<String>,
+    commander: mpsc::Sender<SwarmCommand>,
+    peer_accounts_ref: Arc<Mutex<std::collections::HashMap<libp2p::PeerId, AccountId>>>,
+    consensus_engine_ref: Arc<Mutex<CE>>,
+    aft_safety_mode: AftSafetyMode,
+}
+
+async fn rotate_pq_channels_for_next_height<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    snapshot: PqRotationSnapshot<CE>,
+    next_height: u64,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let PqRotationSnapshot {
+        workload_client,
+        current_hash,
+        was_strict,
+        network_id,
+        peer_id,
+        pq_signer,
+        outbox_root,
+        commander,
+        peer_accounts_ref,
+        consensus_engine_ref,
+        aft_safety_mode,
+    } = snapshot;
+    let peers = peer_accounts_ref.lock().await.clone();
+    let encoded_sets = workload_client
+        .query_raw_state(VALIDATOR_SET_KEY)
+        .await?
+        .ok_or_else(|| anyhow!("AFT validator sets missing after committed state transition"))?;
+    let sets = read_validator_sets(&encoded_sets)?;
+    let effective = effective_set_for_height(&sets, next_height);
+    let desired = build_aft_pq_channel_configuration(
+        effective,
+        next_height,
+        network_id,
+        peer_id,
+        pq_signer.as_ref(),
+        outbox_root.as_deref(),
+    )?;
+    let Some(desired) = desired else {
+        if was_strict {
+            return Err(anyhow!(
+                "refusing silent downgrade from strict PQ AFT channels at height {next_height}"
+            ));
+        }
+        return Ok(());
+    };
+    let desired_hash = desired.local.configuration_hash;
+    if current_hash == Some(desired_hash) {
+        return Ok(());
+    }
+    let local_account = desired.local.account_id;
+    let fallback_journal_path = super::super::consensus::aft_fallback_journal_path(
+        outbox_root.as_deref(),
+        desired_hash,
+        local_account,
+    )?;
+    if matches!(aft_safety_mode, AftSafetyMode::ClassicBft) {
+        let mut engine = consensus_engine_ref.lock().await;
+        if !engine.observe_validator_sets(next_height, &sets) {
+            return Err(anyhow!(
+                "consensus engine refused the next AFT validator set before PQ rotation"
+            ));
+        }
+        engine.configure_fallback_journal(
+            ioi_types::app::AftFallbackScopeV1 {
+                network_id,
+                configuration_hash: desired_hash,
+                epoch: effective.effective_from_height,
+            },
+            &fallback_journal_path,
+        )?;
+    }
+    commander
+        .send(SwarmCommand::ConfigurePqChannels(desired.local))
+        .await
+        .map_err(|error| anyhow!("failed to queue PQ channel rotation: {error}"))?;
+    for (peer, account_id) in peers {
+        if account_id == local_account {
+            continue;
+        }
+        if let Some(identity_key_hash) = desired.peer_keys.get(&account_id).copied() {
+            commander
+                .send(SwarmCommand::EnrollPqPeer(PqPeerEnrollment {
+                    peer_id: peer,
+                    account_id,
+                    identity_key_hash,
+                }))
+                .await
+                .map_err(|error| anyhow!("failed to queue PQ peer re-enrollment: {error}"))?;
+        }
+    }
+    let mut context = context_arc.lock().await;
+    context.local_validator_account_id = Some(local_account);
+    context.aft_pq_configuration_hash = Some(desired_hash);
+    context.aft_pq_peer_keys = Some(desired.peer_keys);
+    Ok(())
+}
+
 pub(super) fn leader_accounts_for_upcoming_heights(
     local_height: u64,
     validator_ids: &[Vec<u8>],
@@ -451,6 +674,7 @@ pub async fn finalize_and_broadcast_block<CS, ST, CE, V>(
     execution_receipts: Vec<ioi_api::chain::BlockExecutionReceipt>,
     deferred_transactions: Vec<ChainTransaction>,
     signer: Arc<dyn GuardianSigner>,
+    local_vote_identity: (AccountId, LocalAftVoteSigner),
     swarm_commander: &mpsc::Sender<SwarmCommand>,
     consensus_engine_ref: &Arc<Mutex<CE>>,
     tx_pool: &Arc<Mempool>,
@@ -505,10 +729,76 @@ where
             ));
         }
     }
-    let (aft_mode, consensus_type) = {
+    let (
+        aft_mode,
+        consensus_type,
+        pq_rotation_snapshot,
+        consensus_kick_tx,
+        consensus_kick_scheduled,
+    ) = {
         let ctx = context_arc.lock().await;
-        (ctx.config.aft_safety_mode, ctx.config.consensus_type)
+        let snapshot = matches!(
+            ctx.config.consensus_type,
+            ioi_types::config::ConsensusType::Aft
+        )
+        .then(|| PqRotationSnapshot {
+            workload_client: ctx.view_resolver.workload_client().clone(),
+            current_hash: ctx.aft_pq_configuration_hash,
+            was_strict: ctx.aft_pq_peer_keys.is_some(),
+            network_id: ctx.genesis_hash,
+            peer_id: ctx.local_keypair.public().to_peer_id(),
+            pq_signer: ctx.pqc_signer.clone(),
+            outbox_root: ctx.config.aft_pq_outbox_dir.clone(),
+            commander: ctx.swarm_commander.clone(),
+            peer_accounts_ref: ctx.peer_accounts_ref.clone(),
+            consensus_engine_ref: ctx.consensus_engine_ref.clone(),
+            aft_safety_mode: ctx.config.aft_safety_mode,
+        });
+        (
+            ctx.config.aft_safety_mode,
+            ctx.config.consensus_type,
+            snapshot,
+            ctx.consensus_kick_tx.clone(),
+            ctx.consensus_kick_scheduled.clone(),
+        )
     };
+    // Validate the post-transition carrier configuration before signing or
+    // durably publishing this header. The actual manager replacement remains
+    // after this height's vote/QC emission, but a malformed rotation or a
+    // strict-to-classical downgrade cannot strand a committed header between
+    // incompatible network epochs.
+    if matches!(consensus_type, ioi_types::config::ConsensusType::Aft) {
+        let (workload_client, was_strict, network_id, peer_id, pq_signer, outbox_root) = {
+            let context = context_arc.lock().await;
+            (
+                context.view_resolver.workload_client().clone(),
+                context.aft_pq_peer_keys.is_some(),
+                context.genesis_hash,
+                context.local_keypair.public().to_peer_id(),
+                context.pqc_signer.clone(),
+                context.config.aft_pq_outbox_dir.clone(),
+            )
+        };
+        let encoded_sets = workload_client
+            .query_raw_state(VALIDATOR_SET_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("AFT validator sets missing after state transition"))?;
+        let sets = read_validator_sets(&encoded_sets)?;
+        let next_height = block_height.saturating_add(1);
+        let desired = build_aft_pq_channel_configuration(
+            effective_set_for_height(&sets, next_height),
+            next_height,
+            network_id,
+            peer_id,
+            pq_signer.as_ref(),
+            outbox_root.as_deref(),
+        )?;
+        if was_strict && desired.is_none() {
+            return Err(anyhow!(
+                "refusing silent downgrade from strict PQ AFT channels at height {next_height} before header publication"
+            ));
+        }
+    }
     if matches!(aft_mode, AftSafetyMode::Asymptote) {
         match build_single_member_committed_surface_canonical_order_certificate(
             &final_block.header,
@@ -626,7 +916,12 @@ where
     }
 
     let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
-    dispatch_swarm_command(swarm_commander, SwarmCommand::PublishBlock(data));
+    dispatch_swarm_command(swarm_commander, SwarmCommand::PublishBlock(data.clone()));
+    if matches!(consensus_type, ioi_types::config::ConsensusType::Aft)
+        && !final_block.header.signature.is_empty()
+    {
+        schedule_committed_block_proposal_replays(swarm_commander.clone(), data);
+    }
 
     if matches!(aft_mode, AftSafetyMode::Asymptote) {
         let sealing_context = Arc::clone(context_arc);
@@ -689,68 +984,80 @@ where
 
     // [FIX] Self-Vote Logic for the Leader/Producer
     // The producer must vote for their own block to ensure Quorum is reached.
-    if final_block.header.height > 0 {
-        let (local_keypair, swarm_sender) = {
-            let ctx = context_arc.lock().await;
-            (ctx.local_keypair.clone(), ctx.swarm_commander.clone())
-        };
+    if final_block.header.height > 0
+        && matches!(consensus_type, ioi_types::config::ConsensusType::Aft)
+        && !final_block.header.signature.is_empty()
+    {
+        // The caller already supplies the exact sender installed in the
+        // orchestration context. Re-locking the global context here can form a
+        // post-commit lock cycle with concurrent admission processing, leaving
+        // the producer durably advanced but unable to emit its own vote.
+        let swarm_sender = swarm_commander.clone();
 
         let vote_height = final_block.header.height;
         let vote_view = final_block.header.view;
-        let vote_hash_vec = final_block.header.hash().unwrap_or(vec![0u8; 32]);
-        let vote_hash = to_root_hash(&vote_hash_vec).unwrap_or([0u8; 32]);
+        let vote_hash = to_root_hash(&final_block.header.hash()?)?;
+        // Production already resolved this identity from the rooted parent
+        // validator set before it built the proposal. Re-resolving that same
+        // parent here can block behind the workload's post-commit state lock,
+        // stranding proposal recovery and the producer's own vote after the
+        // block was published. Carry the authorized identity across the
+        // commit boundary instead.
+        let (our_id, vote_signer) = local_vote_identity;
+        let vote_payload = (vote_height, vote_view, vote_hash);
+        let vote_bytes = codec::to_bytes_canonical(&vote_payload).map_err(anyhow::Error::msg)?;
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Signing producer self-vote.");
+        let vote = ConsensusVote {
+            height: vote_height,
+            view: vote_view,
+            block_hash: vote_hash,
+            voter: our_id,
+            signature: vote_signer.sign(&vote_bytes)?,
+        };
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Producer self-vote signed.");
+        let vote_blob = codec::to_bytes_canonical(&vote).map_err(anyhow::Error::msg)?;
 
-        let our_pk = local_keypair.public().encode_protobuf();
-        if let Ok(our_id_hash) = account_id_from_key_material(SignatureSuite::ED25519, &our_pk) {
-            let our_id = AccountId(our_id_hash);
-
-            let vote_payload = (vote_height, vote_view, vote_hash);
-            if let Ok(vote_bytes) = codec::to_bytes_canonical(&vote_payload) {
-                if let Ok(sig) = local_keypair.sign(&vote_bytes) {
-                    let vote = ConsensusVote {
-                        height: vote_height,
-                        view: vote_view,
-                        block_hash: vote_hash,
-                        voter: our_id,
-                        signature: sig,
-                    };
-
-                    if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
-                        // 1. Broadcast to network
-                        dispatch_swarm_command(
-                            &swarm_sender,
-                            SwarmCommand::BroadcastVote(vote_blob),
-                        );
-
-                        // 2. Feed back to local engine (so we track our own contribution to the QC)
-                        let mut engine = consensus_engine_ref.lock().await;
-                        if let Err(e) = engine.handle_vote(vote).await {
-                            tracing::warn!(target: "consensus", "Failed to handle own vote: {}", e);
-                        } else {
-                            let pending_qcs = engine.take_pending_quorum_certificates();
-                            drop(engine);
-                            for qc in pending_qcs {
-                                if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
-                                    dispatch_swarm_command(
-                                        &swarm_sender,
-                                        SwarmCommand::BroadcastQuorumCertificate(qc_blob),
-                                    );
-                                }
-                            }
-                        }
-
-                        tracing::info!(target: "consensus", "Self-Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
-                    }
+        dispatch_swarm_command(&swarm_sender, SwarmCommand::BroadcastVote(vote_blob));
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Waiting to loop back producer self-vote.");
+        let mut engine = consensus_engine_ref.lock().await;
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Looping back producer self-vote.");
+        if let Err(error) = engine.handle_vote(vote).await {
+            tracing::warn!(target: "consensus", "Failed to handle own vote: {}", error);
+        } else {
+            let pending_qcs = engine.take_pending_quorum_certificates();
+            drop(engine);
+            for qc in pending_qcs {
+                if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
+                    dispatch_swarm_command(
+                        &swarm_sender,
+                        SwarmCommand::BroadcastQuorumCertificate(qc_blob),
+                    );
                 }
             }
         }
 
+        tracing::info!(target: "consensus", "Self-Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
+
         schedule_committed_block_vote_replays(
             Arc::clone(consensus_engine_ref),
-            local_keypair,
+            vote_signer,
+            our_id,
             swarm_sender,
             final_block.clone(),
         );
+    }
+
+    // Install the exact effective configuration for the next height only
+    // after this height's final vote/QC traffic has been emitted. Replacing
+    // the swarm manager destroys every old traffic key and pending handshake;
+    // records from the prior configuration therefore fail before delivery.
+    if matches!(consensus_type, ioi_types::config::ConsensusType::Aft) {
+        rotate_pq_channels_for_next_height(
+            context_arc,
+            pq_rotation_snapshot.expect("AFT finalization captures PQ rotation inputs"),
+            block_height.saturating_add(1),
+        )
+        .await?;
     }
 
     // Self-voting (and any QC it completed) runs before this drain so native
@@ -758,9 +1065,30 @@ where
     // single_authority_v1 the exact staged block is admitted here instead.
     // Every publication consequence is redriven from the committed Agentgres
     // outbox by this call; an empty drain publishes nothing.
+    // Consensus completion must not wait behind a long-running gossip handler
+    // that currently owns the coarse orchestration context. The execution and
+    // finality evidence are already durable at this point, and the admission
+    // coordinator/outbox is explicitly redrivable, so drain it in order on an
+    // independent task. A terminal refusal still quarantines the node.
     {
-        let mut ctx = context_arc.lock().await;
-        super::super::runtime_finality::admit_available(&mut ctx, Some(&final_block)).await?;
+        let admission_context = Arc::clone(context_arc);
+        let admission_block = final_block.clone();
+        tokio::spawn(async move {
+            let mut ctx = admission_context.lock().await;
+            if let Err(error) =
+                super::super::runtime_finality::admit_available(&mut ctx, Some(&admission_block))
+                    .await
+            {
+                ctx.is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "consensus",
+                    height = admission_block.header.height,
+                    error = %error,
+                    "Terminal post-commit runtime finality admission refusal; node frozen"
+                );
+            }
+        });
     }
 
     {
@@ -781,17 +1109,12 @@ where
 
     // A committed block usually implies the next height is immediately actionable.
     // Trigger the next consensus tick instead of waiting for the coarse timer loop.
-    {
-        let (kick_tx, kick_scheduled) = {
-            let ctx = context_arc.lock().await;
-            (
-                ctx.consensus_kick_tx.clone(),
-                ctx.consensus_kick_scheduled.clone(),
-            )
-        };
-        let _ = kick_tx.send(());
-        schedule_post_commit_rekicks(Arc::clone(tx_pool), kick_tx, kick_scheduled);
-    }
+    let _ = consensus_kick_tx.send(());
+    schedule_post_commit_rekicks(
+        Arc::clone(tx_pool),
+        consensus_kick_tx,
+        consensus_kick_scheduled,
+    );
 
     Ok(())
 }
@@ -911,6 +1234,70 @@ pub(super) async fn relay_remaining_mempool_to_upcoming_leaders<CS, ST, CE, V>(
     }
 }
 
+async fn bind_consensus_bundle_to_producer_suite<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    final_block: &Block<ChainTransaction>,
+    preimage_hash: [u8; 32],
+    mut bundle: SignatureBundle,
+) -> Result<SignatureBundle>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    match final_block.header.producer_key_suite {
+        SignatureSuite::ED25519 => Ok(bundle),
+        SignatureSuite::ML_DSA_44 => {
+            let keypair =
+                context_arc.lock().await.pqc_signer.clone().ok_or_else(|| {
+                    anyhow!("ML-DSA block producer has no configured ML-DSA signer")
+                })?;
+            let public_key = keypair.public_key().to_bytes();
+            if public_key != final_block.header.producer_pubkey {
+                return Err(anyhow!(
+                    "configured ML-DSA signer does not match the block producer public key"
+                ));
+            }
+            let key_hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_key)?;
+            if key_hash != final_block.header.producer_pubkey_hash {
+                return Err(anyhow!(
+                    "configured ML-DSA signer does not match the block producer key hash"
+                ));
+            }
+            let mut signed_payload = Vec::with_capacity(72);
+            signed_payload.extend_from_slice(&preimage_hash);
+            signed_payload.extend_from_slice(&bundle.counter.to_be_bytes());
+            signed_payload.extend_from_slice(&bundle.trace_hash);
+            bundle.signature = keypair.sign(&signed_payload)?.to_bytes();
+            Ok(bundle)
+        }
+        suite => Err(anyhow!(
+            "unsupported block producer signature suite {suite:?}"
+        )),
+    }
+}
+
 pub(super) async fn issue_consensus_bundle<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     signer: &dyn GuardianSigner,
@@ -952,11 +1339,23 @@ where
         )
     };
 
+    if matches!(mode, AftSafetyMode::ClassicBft)
+        && final_block.header.producer_key_suite == SignatureSuite::ML_DSA_44
+    {
+        let keypair = context_arc
+            .lock()
+            .await
+            .pqc_signer
+            .clone()
+            .ok_or_else(|| anyhow!("ML-DSA block producer has no configured ML-DSA signer"))?;
+        return issue_pq_header_authority_bundle(&keypair, &final_block.header, preimage_hash);
+    }
+
     if !matches!(
         mode,
         AftSafetyMode::ExperimentalNestedGuardian | AftSafetyMode::Asymptote
     ) {
-        return signer
+        let bundle = signer
             .sign_consensus_payload(
                 preimage_hash,
                 final_block.header.height,
@@ -964,11 +1363,18 @@ where
                 None,
                 None,
             )
-            .await;
+            .await?;
+        return bind_consensus_bundle_to_producer_suite(
+            context_arc,
+            final_block,
+            preimage_hash,
+            bundle,
+        )
+        .await;
     }
 
     if matches!(mode, AftSafetyMode::Asymptote) {
-        return signer
+        let bundle = signer
             .sign_consensus_payload(
                 preimage_hash,
                 final_block.header.height,
@@ -976,7 +1382,14 @@ where
                 None,
                 None,
             )
-            .await;
+            .await?;
+        return bind_consensus_bundle_to_producer_suite(
+            context_arc,
+            final_block,
+            preimage_hash,
+            bundle,
+        )
+        .await;
     }
 
     let parent_ref = resolve_parent_state_ref(&last_executed_block, view_resolver.as_ref()).await?;
@@ -1040,7 +1453,13 @@ where
                         "Witness stratum assignment succeeded after reassignment"
                     );
                 }
-                return Ok(bundle);
+                return bind_consensus_bundle_to_producer_suite(
+                    context_arc,
+                    final_block,
+                    preimage_hash,
+                    bundle,
+                )
+                .await;
             }
             Err(error) => {
                 let evidence = build_witness_omission_evidence(
@@ -1294,8 +1713,8 @@ where
     if let Some(artifacts) = canonical_observer_artifacts.as_ref() {
         publish_canonical_observer_artifacts(&publisher, artifacts).await?;
     }
-    let local_keypair = { context_arc.lock().await.local_keypair.clone() };
-    sign_sealed_finality_proof(&mut sealed_finality_proof, &local_keypair)?;
+    let (_, vote_signer) = local_vote_identity_for_block(context_arc, &sealed_block).await?;
+    sign_sealed_finality_proof(&mut sealed_finality_proof, &vote_signer)?;
 
     sealed_block.header.sealed_finality_proof = Some(sealed_finality_proof);
     view_resolver

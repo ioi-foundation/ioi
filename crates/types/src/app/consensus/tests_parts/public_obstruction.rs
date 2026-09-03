@@ -26,7 +26,8 @@ fn derive_canonical_order_execution_object_returns_abort_without_certificate() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
 
     let abort = derive_canonical_order_execution_object(&header, &[])
         .expect_err("missing canonical-order certificate must derive abort");

@@ -200,6 +200,7 @@ fn sample_archived_recovered_restart_page(
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             signature: Vec::new(),
         },
     };

@@ -1,5 +1,4 @@
 use super::*;
-
 impl GuardianMajorityEngine {
     #[allow(dead_code)]
     pub(super) fn assign_mirror(&self, account: &AccountId) -> u8 {
@@ -36,10 +35,14 @@ impl GuardianMajorityEngine {
             }
         }
 
-        // Aft deterministic Quorum: Simple Majority (> 50%)
-        let threshold = self.quorum_weight_threshold(total_weight);
+        // A legacy vote does not sign the configuration scope and therefore
+        // has no authority in the sole admitted classic_bft profile. The
+        // weight path remains only for explicitly selected, non-admitted
+        // historical research modes.
+        let compatibility_weight_quorum = !matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && accumulated_weight > self.quorum_weight_threshold(total_weight);
 
-        if accumulated_weight > threshold {
+        if compatibility_weight_quorum {
             Some(TimeoutCertificate {
                 height,
                 view,
@@ -48,6 +51,42 @@ impl GuardianMajorityEngine {
         } else {
             None
         }
+    }
+
+    /// Checks the exact `2f+1` quorum for configuration-scoped PQ timeout
+    /// votes. Signature verification happened on admission and is repeated
+    /// when the resulting certificate is adopted.
+    pub(super) fn check_aft_timeout_quorum(
+        &self,
+        height: u64,
+        view: u64,
+        sets: &ioi_types::app::ValidatorSetsV1,
+    ) -> Result<Option<AftTimeoutCertificateV1>, ConsensusError> {
+        let Some(votes_map) = self
+            .aft_timeout_votes
+            .get(&height)
+            .and_then(|height_map| height_map.get(&view))
+        else {
+            return Ok(None);
+        };
+        let active_set = effective_set_for_height(sets, height);
+        let geometry = authenticated_quorum::pq_optimistic_quorum_geometry(active_set)?;
+        if votes_map.len() < geometry.q as usize {
+            return Ok(None);
+        }
+        let scope = self.fallback_scope.ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed(
+                "cannot form an AFT timeout certificate without an active scope".into(),
+            )
+        })?;
+        let certificate = AftTimeoutCertificateV1::new(
+            scope,
+            height,
+            view,
+            votes_map.values().cloned().collect(),
+        )
+        .map_err(ConsensusError::BlockVerificationFailed)?;
+        Ok(Some(certificate))
     }
 
     /// Internal helper to detect divergence.

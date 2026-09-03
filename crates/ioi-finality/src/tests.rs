@@ -1,6 +1,21 @@
 use super::*;
 use ioi_api::chain::BlockExecutionReceipt;
-use ioi_types::app::{ApplicationTransaction, SignHeader, SignatureProof};
+use ioi_api::crypto::SigningKeyPair;
+use ioi_crypto::security::SecurityLevel;
+use ioi_crypto::sign::dilithium::MldsaScheme;
+use ioi_types::app::{
+    aft_async_canonical_qc_reference, aft_async_proposal_payload_hash,
+    canonical_validator_set_hash, AccountId, ActiveKeyRecord, AftAsyncBatchProposalV1,
+    AftAsyncDecisionVoteV1, AftAsyncExecutedBlockCertificateV1, AftAsyncExecutedBlockDecisionV1,
+    AftAsyncExecutedBlockVoteV1, AftAsyncGeometryV1, AftAsyncInstanceV1,
+    AftAsyncOrderingCertificateV1, AftAsyncOrderingDecisionV1,
+    AftAsyncProposalAvailabilityCertificateV1, AftAsyncProposalAvailabilityVoteV1,
+    AftAsyncProposalDescriptorV1, AftAsyncSelectedBatchWitnessV1,
+    AftAsyncSelectedProposalWitnessV1, AftAsyncTranscriptSummaryV1, AftFallbackScopeV1,
+    AftFallbackTriggerCertificateV1, AftTimeoutCertificateV1, AftTimeoutVoteV1,
+    ApplicationTransaction, FallbackStartCertificateV1, SignHeader, SignatureProof, ValidatorSetV1,
+    ValidatorV1, AFT_ASYNC_PROTOCOL_VERSION_V1, AFT_ASYNC_SCHEMA_VERSION_V1,
+};
 use ioi_types::config::RuntimeFinalityProfile;
 use std::fs;
 use std::path::PathBuf;
@@ -730,7 +745,7 @@ fn checkpoint_state_version_must_advance_exactly_once() {
 // Native AFT bridge: imported QuorumCertificate evidence
 // ---------------------------------------------------------------------------
 
-use ioi_types::app::{AccountId, StateRoot};
+use ioi_types::app::StateRoot;
 
 const NATIVE_TEMPLATE: &str = "tests/fixtures/template-offline-native-aft.json";
 const NATIVE_HEIGHT: u64 = 7;
@@ -751,14 +766,15 @@ fn native_members() -> Vec<NativeAftMember> {
         .enumerate()
         .map(|(index, key)| NativeAftMember {
             member_ref: format!("node://acme/aft/{index}"),
-            public_key: native_key_bytes(key),
+            signature_suite: SignatureSuite::ED25519,
+            public_key: native_key_bytes(key).to_vec(),
         })
         .collect()
 }
 
 fn native_account(member: &NativeAftMember) -> AccountId {
     AccountId(
-        account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+        account_id_from_key_material(member.signature_suite, &member.public_key)
             .expect("account id derives"),
     )
 }
@@ -784,13 +800,14 @@ fn native_header(members: &[NativeAftMember], height: u64, view: u64) -> BlockHe
         producer_account_id: native_account(&members[0]),
         producer_key_suite: SignatureSuite::ED25519,
         producer_pubkey_hash: [10_u8; 32],
-        producer_pubkey: members[0].public_key.to_vec(),
+        producer_pubkey: members[0].public_key.clone(),
         oracle_counter: 0,
         oracle_trace_hash: [0_u8; 32],
         guardian_certificate: None,
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash: [0_u8; 32],
         canonical_collapse_extension_certificate: None,
@@ -1506,10 +1523,435 @@ fn runtime_v3_bundle(profile: RuntimeFinalityProfile) -> Value {
             block: &block,
             receipts: &receipts,
             native_aft,
+            hash_async: None,
         },
         &native_issuer(),
     )
     .expect("runtime v3 fixture emits and self-verifies")
+}
+
+fn runtime_v3_pq_bundle() -> Value {
+    let scheme = MldsaScheme::new(SecurityLevel::Level2);
+    let keys: Vec<_> = (0..4)
+        .map(|_| scheme.generate_keypair().expect("ML-DSA-44 keypair"))
+        .collect();
+    let members: Vec<_> = keys
+        .iter()
+        .enumerate()
+        .map(|(index, key)| NativeAftMember {
+            member_ref: format!("node://acme/pq-aft/{index}"),
+            signature_suite: SignatureSuite::ML_DSA_44,
+            public_key: key.public_key().to_bytes(),
+        })
+        .collect();
+    let transactions = vec![native_effect_transaction(77)];
+    let mut header = native_header(&members, NATIVE_HEIGHT, NATIVE_VIEW);
+    header.producer_key_suite = SignatureSuite::ML_DSA_44;
+    header.producer_pubkey = members[0].public_key.clone();
+    header.transactions_root =
+        canonical_transactions_root(&transactions).expect("transaction root derives");
+    let block = Block {
+        header,
+        transactions,
+    };
+    let block_hash: [u8; 32] = block
+        .header
+        .hash()
+        .expect("header hashes")
+        .as_slice()
+        .try_into()
+        .expect("32-byte digest");
+    let message = native_aft_vote_message(NATIVE_HEIGHT, NATIVE_VIEW, &block_hash)
+        .expect("native vote message");
+    let signatures = [0_usize, 1, 2]
+        .into_iter()
+        .map(|index| {
+            (
+                native_account(&members[index]),
+                keys[index]
+                    .sign(&message)
+                    .expect("PQ member signs")
+                    .to_bytes(),
+            )
+        })
+        .collect();
+    let finalized = NativeAftFinalizedBlock {
+        block_header_bytes: to_bytes_canonical(&block.header).expect("header encodes"),
+        quorum_certificate: QuorumCertificate {
+            height: NATIVE_HEIGHT,
+            view: NATIVE_VIEW,
+            block_hash,
+            signatures,
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        },
+        members,
+        membership_ref: "node-membership://acme/pq-aft/1".into(),
+        membership_epoch: 1,
+        consensus_protocol_ref: "protocol://ioi/aft/pq-optimistic/v1".into(),
+        byzantine_fault_tolerance: 1,
+    };
+    let receipts = vec![BlockExecutionReceipt::for_success(
+        block.header.height,
+        0,
+        block.transactions[0].hash().expect("transaction hashes"),
+        0,
+        &[],
+    )];
+    emit_runtime_bundle_v3(
+        RuntimeBundleV3Input {
+            bundle_id: "proof://acme/runtime/pq/7",
+            checkpoint_id: "receipt-checkpoint://acme/runtime/pq/7",
+            certificate_id: "finality-certificate://acme/runtime/pq/7",
+            availability_manifest_id: "availability-manifest://acme/runtime/pq/7",
+            block_payload_ref: "payload://acme/runtime/pq/block/7",
+            domain_id: "domain://acme/runtime/pq",
+            authority_epoch: 9,
+            authority_revocation_epoch: 4,
+            profile: RuntimeFinalityProfile::BftConsensusAftV1,
+            profile_epoch: 3,
+            writer_identity: "writer://acme/validator/1",
+            fence_token: 17,
+            operation_sequence_first: 41,
+            receipt_sequence_first: 81,
+            previous_checkpoint_ref: None,
+            previous_checkpoint_hash: None,
+            authority_policy_root: RUNTIME_TEST_HASH,
+            governance_policy_root: RUNTIME_TEST_HASH,
+            availability_policy_root: RUNTIME_TEST_HASH,
+            retention_policy_root: RUNTIME_TEST_HASH,
+            location_ref: "agentgres://acme/runtime/pq/block/7",
+            failure_domain_ref: "failure-domain://acme/local-device",
+            verifier_contract_hash: RUNTIME_TEST_HASH,
+            issuer_key_id: "key://acme/finality/9",
+            block: &block,
+            receipts: &receipts,
+            native_aft: Some(&finalized),
+            hash_async: None,
+        },
+        &native_issuer(),
+    )
+    .expect("PQ runtime v3 fixture emits and self-verifies")
+}
+
+pub(crate) fn runtime_v3_hash_async_bundle() -> Value {
+    runtime_v3_hash_async_bundle_for_subject(false, false).0
+}
+
+fn runtime_v3_hash_async_parent_bundle() -> Value {
+    runtime_v3_hash_async_bundle_for_subject(true, false).0
+}
+
+fn runtime_v3_hash_async_pq_issuer_bundle() -> Value {
+    runtime_v3_hash_async_bundle_for_subject(false, true).0
+}
+
+pub(crate) fn runtime_v3_hash_async_pq_bundle_with_keys() -> (Value, Vec<(AccountId, MldsaKeyPair)>)
+{
+    runtime_v3_hash_async_bundle_for_subject(false, true)
+}
+
+fn runtime_v3_hash_async_bundle_for_subject(
+    admit_parent: bool,
+    pq_issuer: bool,
+) -> (Value, Vec<(AccountId, MldsaKeyPair)>) {
+    let scheme = MldsaScheme::new(SecurityLevel::Level2);
+    let mut keyed = (0..4)
+        .map(|_| {
+            let key = scheme.generate_keypair().expect("ML-DSA-44 keypair");
+            let raw = key.public_key().to_bytes();
+            let account = AccountId(
+                account_id_from_key_material(SignatureSuite::ML_DSA_44, &raw)
+                    .expect("account derives"),
+            );
+            (account, key, raw)
+        })
+        .collect::<Vec<_>>();
+    keyed.sort_by_key(|(account, _, _)| *account);
+    let members = keyed
+        .iter()
+        .enumerate()
+        .map(|(index, (_, _, raw))| NativeAftMember {
+            member_ref: format!("node://acme/hash-async/{index}"),
+            signature_suite: SignatureSuite::ML_DSA_44,
+            public_key: raw.clone(),
+        })
+        .collect::<Vec<_>>();
+    let set = ValidatorSetV1 {
+        effective_from_height: 1,
+        total_weight: 4,
+        validators: keyed
+            .iter()
+            .map(|(account, _, raw)| ValidatorV1 {
+                account_id: *account,
+                weight: 1,
+                consensus_key: ActiveKeyRecord {
+                    suite: SignatureSuite::ML_DSA_44,
+                    public_key_hash: account_id_from_key_material(SignatureSuite::ML_DSA_44, raw)
+                        .expect("key hash derives"),
+                    since_height: 1,
+                },
+            })
+            .collect(),
+    };
+    let scope = AftFallbackScopeV1 {
+        network_id: [0x31; 32],
+        configuration_hash: canonical_validator_set_hash(&set).expect("set hashes"),
+        epoch: 1,
+    };
+    let mut parent_header = native_header(&members, NATIVE_HEIGHT - 1, 0);
+    parent_header.transactions_root = canonical_transactions_root(&[]).unwrap();
+    let parent_block = Block {
+        header: parent_header,
+        transactions: Vec::new(),
+    };
+    let parent_hash: [u8; 32] = parent_block
+        .header
+        .hash()
+        .unwrap()
+        .as_slice()
+        .try_into()
+        .unwrap();
+    let mut high_qc = QuorumCertificate {
+        height: NATIVE_HEIGHT - 1,
+        view: 0,
+        block_hash: parent_hash,
+        signatures: Vec::new(),
+        aggregated_signature: Vec::new(),
+        signers_bitfield: Vec::new(),
+    };
+    let high_qc_message =
+        native_aft_vote_message(high_qc.height, high_qc.view, &high_qc.block_hash)
+            .expect("high-QC message");
+    high_qc.signatures = keyed
+        .iter()
+        .take(3)
+        .map(|(account, key, _)| (*account, key.sign(&high_qc_message).unwrap().to_bytes()))
+        .collect();
+    let timeout = |view| {
+        let votes = keyed
+            .iter()
+            .take(3)
+            .map(|(account, key, _)| {
+                let mut vote = AftTimeoutVoteV1::unsigned(
+                    scope,
+                    NATIVE_HEIGHT,
+                    view,
+                    *account,
+                    high_qc.clone(),
+                    high_qc.clone(),
+                );
+                let message = vote.signing_bytes().expect("timeout signing bytes");
+                vote.signature = key.sign(&message).unwrap().to_bytes();
+                vote
+            })
+            .collect();
+        AftTimeoutCertificateV1::new(scope, NATIVE_HEIGHT, view, votes).expect("timeout shapes")
+    };
+    let start = FallbackStartCertificateV1::new(
+        scope,
+        NATIVE_HEIGHT,
+        AftFallbackTriggerCertificateV1 {
+            height: NATIVE_HEIGHT,
+            consecutive_timeout_certificates: vec![timeout(1), timeout(2), timeout(3)],
+        },
+    )
+    .expect("fallback start shapes");
+    let instance =
+        AftAsyncInstanceV1::from_fallback_start(&start, AftAsyncGeometryV1::exact(4).unwrap())
+            .expect("instance shapes");
+    let proposal = AftAsyncBatchProposalV1::new(&instance, Vec::new()).unwrap();
+    let payload = to_bytes_canonical(&proposal).unwrap();
+    let mut witnesses = Vec::new();
+    let mut references = Vec::new();
+    for proposer in 0..3_u16 {
+        let descriptor = AftAsyncProposalDescriptorV1 {
+            instance_hash: instance.instance_hash().unwrap(),
+            proposer,
+            proposal_hash: aft_async_proposal_payload_hash(&payload).unwrap(),
+            payload_len: payload.len() as u64,
+            parent_root: instance.locked_root,
+        };
+        let votes = (0..3_u16)
+            .map(|member_index| {
+                let voter = keyed[member_index as usize].0;
+                let message = AftAsyncProposalAvailabilityVoteV1::signing_bytes(
+                    &descriptor,
+                    member_index,
+                    voter,
+                )
+                .unwrap();
+                AftAsyncProposalAvailabilityVoteV1 {
+                    proposal_binding_hash: descriptor.binding_hash().unwrap(),
+                    member_index,
+                    voter,
+                    signature_suite: SignatureSuite::ML_DSA_44,
+                    signature: keyed[member_index as usize]
+                        .1
+                        .sign(&message)
+                        .unwrap()
+                        .to_bytes(),
+                }
+            })
+            .collect();
+        let availability = AftAsyncProposalAvailabilityCertificateV1 {
+            protocol_version: AFT_ASYNC_PROTOCOL_VERSION_V1,
+            schema_version: AFT_ASYNC_SCHEMA_VERSION_V1,
+            descriptor,
+            votes,
+        };
+        references.push(availability.proposal_ref(&instance).unwrap());
+        witnesses.push(AftAsyncSelectedProposalWitnessV1 {
+            proposal: proposal.clone(),
+            availability_certificate: availability,
+        });
+    }
+    let transcript = AftAsyncTranscriptSummaryV1::new(&instance, 0, references.clone()).unwrap();
+    let ordering_decision = AftAsyncOrderingDecisionV1::new(
+        instance.clone(),
+        references,
+        transcript.transcript_root(&instance).unwrap(),
+    )
+    .unwrap();
+    let ordering_votes = (0..3_u16)
+        .map(|member_index| {
+            let voter = keyed[member_index as usize].0;
+            let message =
+                AftAsyncDecisionVoteV1::signing_bytes(&ordering_decision, member_index, voter)
+                    .unwrap();
+            AftAsyncDecisionVoteV1 {
+                decision_hash: ordering_decision.decision_hash().unwrap(),
+                member_index,
+                voter,
+                signature_suite: SignatureSuite::ML_DSA_44,
+                signature: keyed[member_index as usize]
+                    .1
+                    .sign(&message)
+                    .unwrap()
+                    .to_bytes(),
+            }
+        })
+        .collect();
+    let ordering = AftAsyncOrderingCertificateV1 {
+        protocol_version: AFT_ASYNC_PROTOCOL_VERSION_V1,
+        schema_version: AFT_ASYNC_SCHEMA_VERSION_V1,
+        decision: ordering_decision,
+        transcript,
+        votes: ordering_votes,
+    };
+    let batch_witness = AftAsyncSelectedBatchWitnessV1 {
+        selected: witnesses,
+    };
+    let mut header = native_header(&members, NATIVE_HEIGHT, 4);
+    header.parent_hash = high_qc.block_hash;
+    header.parent_qc = aft_async_canonical_qc_reference(&high_qc);
+    header.transactions_root = canonical_transactions_root(&[]).unwrap();
+    header.producer_key_suite = SignatureSuite::ML_DSA_44;
+    header.producer_account_id = keyed[0].0;
+    header.producer_pubkey_hash = keyed[0].0 .0;
+    header.producer_pubkey = keyed[0].2.clone();
+    header.signature.clear();
+    let block = Block {
+        header,
+        transactions: Vec::new(),
+    };
+    let block_hash: [u8; 32] = block.header.hash().unwrap().as_slice().try_into().unwrap();
+    let executed_decision =
+        AftAsyncExecutedBlockDecisionV1::new(ordering.clone(), batch_witness.clone(), block_hash)
+            .unwrap();
+    let executed_votes = (0..3_u16)
+        .map(|member_index| {
+            let voter = keyed[member_index as usize].0;
+            let message =
+                AftAsyncExecutedBlockVoteV1::signing_bytes(&executed_decision, member_index, voter)
+                    .unwrap();
+            AftAsyncExecutedBlockVoteV1 {
+                decision_hash: executed_decision.decision_hash().unwrap(),
+                member_index,
+                voter,
+                signature_suite: SignatureSuite::ML_DSA_44,
+                signature: keyed[member_index as usize]
+                    .1
+                    .sign(&message)
+                    .unwrap()
+                    .to_bytes(),
+            }
+        })
+        .collect();
+    let subject = if admit_parent { &parent_block } else { &block };
+    let finalized = NativeAftHashAsyncFinalizedBlock {
+        block_header_bytes: to_bytes_canonical(&subject.header).unwrap(),
+        terminal_block_header_bytes: to_bytes_canonical(&block.header).unwrap(),
+        certificate: AftAsyncExecutedBlockCertificateV1 {
+            protocol_version: AFT_ASYNC_PROTOCOL_VERSION_V1,
+            schema_version: AFT_ASYNC_SCHEMA_VERSION_V1,
+            decision: executed_decision,
+            ordering,
+            votes: executed_votes,
+        },
+        witness: batch_witness,
+        validator_set: set,
+        members,
+        membership_ref: "node-membership://acme/hash-async/1".into(),
+        membership_epoch: 1,
+    };
+    let input = RuntimeBundleV3Input {
+        bundle_id: "proof://acme/runtime/hash-async/7",
+        checkpoint_id: "receipt-checkpoint://acme/runtime/hash-async/7",
+        certificate_id: "finality-certificate://acme/runtime/hash-async/7",
+        availability_manifest_id: "availability-manifest://acme/runtime/hash-async/7",
+        block_payload_ref: "payload://acme/runtime/hash-async/block/7",
+        domain_id: "domain://acme/runtime/hash-async",
+        authority_epoch: 9,
+        authority_revocation_epoch: 4,
+        profile: RuntimeFinalityProfile::BftConsensusAftV1,
+        profile_epoch: 3,
+        writer_identity: "writer://acme/validator/1",
+        fence_token: 17,
+        operation_sequence_first: 41,
+        receipt_sequence_first: 81,
+        previous_checkpoint_ref: None,
+        previous_checkpoint_hash: None,
+        authority_policy_root: RUNTIME_TEST_HASH,
+        governance_policy_root: RUNTIME_TEST_HASH,
+        availability_policy_root: RUNTIME_TEST_HASH,
+        retention_policy_root: RUNTIME_TEST_HASH,
+        location_ref: "agentgres://acme/runtime/hash-async/block/7",
+        failure_domain_ref: "failure-domain://acme/local-device",
+        verifier_contract_hash: RUNTIME_TEST_HASH,
+        issuer_key_id: "key://acme/finality/9",
+        block: subject,
+        receipts: &[],
+        native_aft: None,
+        hash_async: Some(&finalized),
+    };
+    let member_keys = keyed
+        .iter()
+        .map(|(account, key, _)| (*account, key.clone()))
+        .collect();
+    let bundle = if pq_issuer {
+        let issuer = scheme.generate_keypair().expect("PQ runtime issuer");
+        emit_runtime_bundle_v3_pq(input, &issuer)
+            .expect("PQ hash-async runtime bundle emits and self-verifies")
+    } else {
+        emit_runtime_bundle_v3(input, &native_issuer())
+            .expect("hash-async runtime bundle emits and self-verifies")
+    };
+    (bundle, member_keys)
+}
+
+#[test]
+fn runtime_v3_hash_async_supports_pq_checkpoint_issuer_without_downgrade() {
+    let bundle = runtime_v3_hash_async_pq_issuer_bundle();
+    assert_eq!(
+        bundle
+            .pointer("/checkpoint/finality_certificate/signature_suite")
+            .and_then(Value::as_str),
+        Some("ml-dsa-44")
+    );
+    let claim = verify_runtime_bundle_v3(&bundle).expect("PQ issuer verifies offline");
+    assert!(claim.assurance.crypto.consensus_pq);
+    assert!(!claim.assurance.crypto.private_threshold_setup);
 }
 
 fn rehash_runtime_outer(bundle: &mut Value) {
@@ -1600,6 +2042,7 @@ fn runtime_v3_empty_block_advances_with_a_block_transition_receipt() {
             block: &block,
             receipts: &[],
             native_aft: Some(&fixture.finalized),
+            hash_async: None,
         },
         &native_issuer(),
     )
@@ -1691,5 +2134,209 @@ fn runtime_v3_peer_evidence_refuses_forgery_even_after_issuer_reissue() {
     assert!(matches!(
         verify_runtime_bundle_v3(&relabelled),
         Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn runtime_v3_reverifies_ml_dsa_quorum_without_downgrade() {
+    let bundle = runtime_v3_pq_bundle();
+    let claim = verify_runtime_bundle_v3(&bundle).expect("PQ quorum verifies offline");
+    assert!(claim.native_quorum_verified);
+    let members = bundle
+        .pointer("/checkpoint/finality_certificate/native_aft_evidence/members")
+        .and_then(Value::as_array)
+        .expect("PQ evidence members");
+    assert!(members.iter().all(|member| {
+        member.get("signature_suite").and_then(Value::as_str) == Some("ml-dsa-44")
+    }));
+
+    let mut relabelled = bundle;
+    relabelled["checkpoint"]["finality_certificate"]["native_aft_evidence"]["members"][0]
+        ["signature_suite"] = Value::String("ed25519".into());
+    reissue_runtime_certificate(&mut relabelled);
+    assert!(verify_runtime_bundle_v3(&relabelled).is_err());
+}
+
+#[test]
+fn runtime_v3_reverifies_hash_async_chain_without_synthetic_qc() {
+    let bundle = runtime_v3_hash_async_bundle();
+    let claim = verify_runtime_bundle_v3(&bundle).expect("hash-async chain verifies offline");
+    assert!(claim.native_quorum_verified);
+    assert!(claim.effect_committed_in_block);
+    assert!(claim.assurance.crypto.consensus_pq);
+    assert!(!claim.assurance.crypto.channel_pq);
+    assert!(!claim.assurance.crypto.end_to_end_pq);
+    assert_eq!(
+        claim.assurance.liveness.termination,
+        TerminationV1::RandomizedAsynchronous
+    );
+    let evidence = bundle
+        .pointer("/checkpoint/finality_certificate/hash_async_evidence")
+        .expect("distinct hash-async evidence exists");
+    assert_eq!(
+        evidence
+            .get("consensus_protocol_ref")
+            .and_then(Value::as_str),
+        Some("protocol://ioi/aft/hash-async/v1")
+    );
+    assert_eq!(
+        evidence
+            .get("private_threshold_setup")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        evidence
+            .get("membership_enrollment_required")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        evidence
+            .get("private_authenticated_channels_required")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert_eq!(
+        evidence
+            .get("pq_authenticated_channels_required")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+    assert!(bundle
+        .pointer("/checkpoint/finality_certificate/native_aft_evidence")
+        .is_none());
+}
+
+#[test]
+fn runtime_v3_reissued_wrapper_cannot_launder_assurance_vector() {
+    let mut bundle = runtime_v3_hash_async_bundle();
+    bundle["checkpoint"]["finality_certificate"]["assurance"]["achieved"]["crypto"]["channel_pq"] =
+        Value::Bool(true);
+    reissue_runtime_certificate(&mut bundle);
+    assert!(matches!(
+        verify_runtime_bundle_v3(&bundle),
+        Err(VerificationError::ConsensusEvidence(_))
+    ));
+}
+
+#[test]
+fn portable_verifier_reloads_hash_async_receipt_from_disk_and_refuses_mutation() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("hash-async-runtime-v3.json");
+    let bundle = runtime_v3_hash_async_bundle();
+    fs::write(&path, serde_json::to_vec_pretty(&bundle).unwrap()).unwrap();
+
+    let reloaded: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let claim = verify_portable_bundle(&reloaded).expect("reloaded receipt verifies offline");
+    assert!(matches!(claim, VerifiedPortableClaim::RuntimeV3(_)));
+
+    let mut mutated = reloaded;
+    let encoded = mutated
+        .pointer("/checkpoint/finality_certificate/hash_async_evidence/certificate_base64")
+        .and_then(Value::as_str)
+        .unwrap();
+    let mut certificate: AftAsyncExecutedBlockCertificateV1 =
+        from_bytes_canonical(&BASE64.decode(encoded).unwrap()).unwrap();
+    certificate
+        .decision
+        .instance
+        .fallback_start
+        .trigger_certificate
+        .consecutive_timeout_certificates[0]
+        .votes[0]
+        .signature[0] ^= 1;
+    mutated["checkpoint"]["finality_certificate"]["hash_async_evidence"]["certificate_base64"] =
+        Value::String(BASE64.encode(to_bytes_canonical(&certificate).unwrap()));
+    reissue_runtime_certificate(&mut mutated);
+    fs::write(&path, serde_json::to_vec_pretty(&mutated).unwrap()).unwrap();
+    let reloaded_mutation: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert!(matches!(
+        verify_portable_bundle(&reloaded_mutation),
+        Err(VerificationError::ConsensusEvidence(_) | VerificationError::Crypto(_))
+    ));
+}
+
+#[test]
+fn runtime_v3_hash_async_direct_parent_receipt_retains_terminal_proof() {
+    let bundle = runtime_v3_hash_async_parent_bundle();
+    let claim = verify_runtime_bundle_v3(&bundle)
+        .expect("direct high-QC parent verifies through terminal hash-async evidence");
+    assert!(claim.native_quorum_verified);
+    assert!(claim.effect_committed_in_block);
+    assert!(bundle
+        .pointer("/checkpoint/finality_certificate/native_aft_evidence")
+        .is_none());
+    let terminal = bundle
+        .pointer(
+            "/checkpoint/finality_certificate/hash_async_evidence/terminal_block_header_base64",
+        )
+        .and_then(Value::as_str)
+        .expect("parent receipt retains its terminal virtual header");
+    assert!(!BASE64.decode(terminal).unwrap().is_empty());
+}
+
+#[test]
+fn runtime_v3_hash_async_signature_mutation_fails_after_issuer_reissue() {
+    let mut bundle = runtime_v3_hash_async_bundle();
+    let encoded = bundle
+        .pointer("/checkpoint/finality_certificate/hash_async_evidence/certificate_base64")
+        .and_then(Value::as_str)
+        .unwrap();
+    let bytes = BASE64.decode(encoded).unwrap();
+    let mut certificate: AftAsyncExecutedBlockCertificateV1 = from_bytes_canonical(&bytes).unwrap();
+    certificate.votes[0].signature[0] ^= 1;
+    bundle["checkpoint"]["finality_certificate"]["hash_async_evidence"]["certificate_base64"] =
+        Value::String(BASE64.encode(to_bytes_canonical(&certificate).unwrap()));
+    reissue_runtime_certificate(&mut bundle);
+    assert!(matches!(
+        verify_runtime_bundle_v3(&bundle),
+        Err(VerificationError::ConsensusEvidence(_) | VerificationError::Crypto(_))
+    ));
+
+    let mut bundle = runtime_v3_hash_async_bundle();
+    let encoded = bundle
+        .pointer("/checkpoint/finality_certificate/hash_async_evidence/certificate_base64")
+        .and_then(Value::as_str)
+        .unwrap();
+    let bytes = BASE64.decode(encoded).unwrap();
+    let mut certificate: AftAsyncExecutedBlockCertificateV1 = from_bytes_canonical(&bytes).unwrap();
+    certificate
+        .decision
+        .instance
+        .fallback_start
+        .trigger_certificate
+        .consecutive_timeout_certificates[0]
+        .votes[0]
+        .signature[0] ^= 1;
+    bundle["checkpoint"]["finality_certificate"]["hash_async_evidence"]["certificate_base64"] =
+        Value::String(BASE64.encode(to_bytes_canonical(&certificate).unwrap()));
+    reissue_runtime_certificate(&mut bundle);
+    assert!(matches!(
+        verify_runtime_bundle_v3(&bundle),
+        Err(VerificationError::ConsensusEvidence(_) | VerificationError::Crypto(_))
+    ));
+}
+
+#[test]
+fn hash_async_execution_refuses_omitted_reordered_or_extra_transactions() {
+    let first = native_effect_transaction(1);
+    let second = native_effect_transaction(2);
+    let selected = vec![first.clone(), second.clone()];
+
+    assert!(super::runtime_v3::hash_async_executed_batch_matches(
+        &selected, &selected
+    ));
+    assert!(!super::runtime_v3::hash_async_executed_batch_matches(
+        &selected,
+        std::slice::from_ref(&first)
+    ));
+    assert!(!super::runtime_v3::hash_async_executed_batch_matches(
+        &selected,
+        &[second.clone(), first.clone()]
+    ));
+    assert!(!super::runtime_v3::hash_async_executed_batch_matches(
+        &selected,
+        &[first, second.clone(), second]
     ));
 }

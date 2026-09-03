@@ -26,8 +26,19 @@ impl GuardianMajorityEngine {
             guardian_counter_history: HashMap::new(),
             guardian_counter_floors: HashMap::new(),
             view_votes: HashMap::new(),
+            aft_timeout_votes: HashMap::new(),
             tc_formed: HashSet::new(),
-            timeout_votes_sent: HashSet::new(),
+            pending_tc_broadcasts: VecDeque::new(),
+            pending_aft_tc_broadcasts: VecDeque::new(),
+            announced_tcs: HashSet::new(),
+            announced_aft_tcs: HashSet::new(),
+            fallback_scope: None,
+            fallback_journal: None,
+            fallback_starts: BTreeMap::new(),
+            async_parent_proofs: BTreeMap::new(),
+            pending_fallback_broadcasts: VecDeque::new(),
+            announced_fallback_instances: HashSet::new(),
+            timeout_votes_sent: HashMap::new(),
             pacemaker_height: 0,
             seen_headers: HashMap::new(),
             vote_pool: HashMap::new(),
@@ -168,6 +179,156 @@ impl GuardianMajorityEngine {
         Some(effective_set_for_height(sets, height).clone())
     }
 
+    /// Verifies and retains one evidence-preserving asynchronous predecessor.
+    /// The corresponding empty-signature `QuorumCertificate` is only a header
+    /// reference and never enters the native QC pool.
+    pub(super) fn accept_async_parent_proof(
+        &mut self,
+        proof: AftAsyncParentProofV1,
+    ) -> Result<(), ConsensusError> {
+        if !matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT asynchronous parent proofs require the exact Classic-BFT PQ profile".into(),
+            ));
+        }
+        let instance = &proof.executed_certificate.decision.instance;
+        let height = instance.height;
+        let set = self.effective_validator_set_for(height).ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed(format!(
+                "no observed validator set for AFT asynchronous parent height {height}"
+            ))
+        })?;
+        verify_async_parent_proof(&proof, &set, &self.key_registry)?;
+        let local_start = self.fallback_starts.get(&height).ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed(
+                "AFT asynchronous parent proof has no locally durable fallback transition".into(),
+            )
+        })?;
+        let expected = AftAsyncInstanceV1::from_fallback_start(local_start, instance.geometry)
+            .map_err(ConsensusError::BlockVerificationFailed)?;
+        if expected
+            .instance_hash()
+            .map_err(ConsensusError::BlockVerificationFailed)?
+            != instance
+                .instance_hash()
+                .map_err(ConsensusError::BlockVerificationFailed)?
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT asynchronous parent proof crosses the durable fallback instance".into(),
+            ));
+        }
+        let header = proof
+            .parent_header()
+            .map_err(ConsensusError::BlockVerificationFailed)?;
+        if let Some(existing) = self.async_parent_proofs.get(&height) {
+            let existing_header = existing
+                .parent_header()
+                .map_err(ConsensusError::BlockVerificationFailed)?;
+            let existing_decision = existing
+                .executed_certificate
+                .decision
+                .decision_hash()
+                .map_err(ConsensusError::BlockVerificationFailed)?;
+            let incoming_decision = proof
+                .executed_certificate
+                .decision
+                .decision_hash()
+                .map_err(ConsensusError::BlockVerificationFailed)?;
+            if existing_header != header || existing_decision != incoming_decision {
+                return Err(ConsensusError::BlockVerificationFailed(
+                    "conflicting AFT asynchronous parent proof at one height".into(),
+                ));
+            }
+            return Ok(());
+        }
+        // The async certificate is a distinct authority class, but the
+        // virtual block is still part of the proof-carrying execution spine.
+        // Reconstruct its collapse from the already admitted predecessor and
+        // retain it so H+1 can build an ordinary extension certificate. This
+        // derives evidence from the header surface; it does not launder the
+        // empty-signature async parent reference into a native QC.
+        let previous_collapse = if height <= 1 {
+            None
+        } else {
+            Some(self.committed_collapses.get(&(height - 1)).ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "AFT asynchronous parent lacks admitted collapse predecessor at height {}",
+                    height - 1
+                ))
+            })?)
+        };
+        let collapse = self
+            .canonical_collapse_from_header_surface_with_previous(&header, previous_collapse)
+            .map_err(|error| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "AFT asynchronous parent collapse continuity failed: {error}"
+                ))
+            })?;
+        if !self.record_committed_block(&header, Some(&collapse)) {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT asynchronous parent header could not enter the committed-header cache".into(),
+            ));
+        }
+        let reference = aft_async_canonical_parent_reference(&header)
+            .map_err(ConsensusError::BlockVerificationFailed)?;
+        if reference.height != height
+            || reference.block_hash != proof.executed_certificate.decision.block_hash
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT asynchronous parent reference does not name the finalized block".into(),
+            ));
+        }
+        self.async_parent_proofs.insert(height, proof);
+        if self.highest_qc.height <= height {
+            self.highest_qc = reference;
+        }
+        // Agentgres admission of the virtual block completes before this
+        // proof is installed. The orchestration loop can therefore already
+        // have asked `decide` about H+1 and started its pacemaker while the
+        // relatively expensive executed-certificate admission was still in
+        // flight. Treat the verified async parent as the actual progress
+        // boundary and give its optimistic child a fresh view-zero window.
+        // This changes no authority: H+1 remains unable to extend the empty-
+        // signature reference without the typed proof retained above.
+        if let Ok(mut pacemaker) = self.pacemaker.try_lock() {
+            pacemaker.start_height();
+            self.pacemaker_height = height.saturating_add(1);
+        }
+        Ok(())
+    }
+
+    /// Returns whether a canonical empty-signature reference is backed by the
+    /// exact typed asynchronous proof retained for its height and block hash.
+    pub(super) fn has_async_parent_proof(&self, reference: &QuorumCertificate) -> bool {
+        self.async_parent_proof_hash(reference).is_some()
+    }
+
+    /// Returns the semantic proof commitment for an exact retained async
+    /// parent reference. Different valid exact-q witness subsets preserve this
+    /// hash because they establish the same executed decision.
+    pub(super) fn async_parent_proof_hash(
+        &self,
+        reference: &QuorumCertificate,
+    ) -> Option<[u8; 32]> {
+        if !reference.signatures.is_empty()
+            || !reference.aggregated_signature.is_empty()
+            || !reference.signers_bitfield.is_empty()
+        {
+            return None;
+        }
+        let proof = self
+            .async_parent_proofs
+            .get(&reference.height)
+            .filter(|proof| {
+                proof
+                    .parent_header()
+                    .ok()
+                    .and_then(|header| aft_async_canonical_parent_reference(&header).ok())
+                    .is_some_and(|expected| expected == *reference)
+            })?;
+        proof.proof_hash().ok()
+    }
+
     /// Learns the keys inlined in already-authenticated peer identities.
     ///
     /// The transport authenticated these peers, and an Ed25519 peer id carries
@@ -203,13 +364,6 @@ impl GuardianMajorityEngine {
             {
                 continue;
             }
-            if validator.consensus_key.suite != ioi_types::app::SignatureSuite::ED25519 {
-                return Err(ConsensusError::BlockVerificationFailed(format!(
-                    "native AFT validator {} declares unsupported consensus suite {:?}",
-                    hex::encode(validator.account_id.as_ref()),
-                    validator.consensus_key.suite
-                )));
-            }
             let key = [ACCOUNT_ID_TO_PUBKEY_PREFIX, validator.account_id.as_ref()].concat();
             let Some(encoded) = view.get(&key).await.map_err(|error| {
                 ConsensusError::BlockVerificationFailed(format!(
@@ -224,13 +378,18 @@ impl GuardianMajorityEngine {
                 complete = false;
                 continue;
             };
-            let public_key = PublicKey::try_decode_protobuf(&encoded).map_err(|_| {
-                ConsensusError::BlockVerificationFailed(format!(
-                    "canonical consensus key is malformed for validator {}",
-                    hex::encode(validator.account_id.as_ref())
-                ))
-            })?;
-            let observed_hash = self.key_registry.learn_public_key(&public_key)?;
+            let observed_hash = match validator.consensus_key.suite {
+                ioi_types::app::SignatureSuite::ED25519 => {
+                    let public_key = PublicKey::try_decode_protobuf(&encoded).map_err(|_| {
+                        ConsensusError::BlockVerificationFailed(format!(
+                            "canonical Ed25519 consensus key is malformed for validator {}",
+                            hex::encode(validator.account_id.as_ref())
+                        ))
+                    })?;
+                    self.key_registry.learn_public_key(&public_key)?
+                }
+                suite => self.key_registry.learn_raw_public_key(suite, &encoded)?,
+            };
             if observed_hash != validator.consensus_key.public_key_hash {
                 return Err(ConsensusError::BlockVerificationFailed(format!(
                     "canonical consensus key substitution for validator {}: expected={} actual={}",
@@ -243,12 +402,18 @@ impl GuardianMajorityEngine {
         Ok(complete)
     }
 
-    /// Records a protobuf-encoded public key the node has authenticated.
-    pub(super) fn record_validator_public_key(&mut self, protobuf_public_key: &[u8]) -> bool {
-        let Ok(key) = PublicKey::try_decode_protobuf(protobuf_public_key) else {
-            return false;
-        };
-        self.key_registry.learn_public_key(&key).is_ok()
+    /// Records an authenticated public key learned outside rooted state.
+    ///
+    /// Transport identities currently supply protobuf Ed25519. Raw ML-DSA-44
+    /// keys are accepted for explicit enrollment/test plumbing, but are not
+    /// treated as transport-authenticated merely because they have that size.
+    pub(super) fn record_validator_public_key(&mut self, public_key: &[u8]) -> bool {
+        if let Ok(key) = PublicKey::try_decode_protobuf(public_key) {
+            return self.key_registry.learn_public_key(&key).is_ok();
+        }
+        self.key_registry
+            .learn_raw_public_key(ioi_types::app::SignatureSuite::ML_DSA_44, public_key)
+            .is_ok()
     }
 
     /// Re-verifies a certificate against the effective set and known raw keys.
@@ -266,12 +431,20 @@ impl GuardianMajorityEngine {
                 qc.height
             ))
         })?;
+        let threshold = if matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && set.validators.iter().all(|validator| {
+                validator.consensus_key.suite == ioi_types::app::SignatureSuite::ML_DSA_44
+            }) {
+            authenticated_quorum::pq_optimistic_quorum_geometry(&set)?.q as usize
+        } else {
+            self.quorum_count_threshold_for_height(qc.height)
+        };
         authenticated_quorum::verify_quorum_certificate(
             qc,
             &set,
             &self.key_registry,
             self.safety_mode,
-            self.quorum_count_threshold_for_height(qc.height),
+            threshold,
         )
     }
 
@@ -304,7 +477,47 @@ impl GuardianMajorityEngine {
                     vote.height
                 ))
             })?;
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && set
+                .validators
+                .iter()
+                .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "legacy unscoped view-change vote is forbidden in the normative PQ profile".into(),
+            ));
+        }
         authenticated_quorum::verify_view_change_vote(vote, &set, &self.key_registry)
+    }
+
+    /// Verifies one normative PQ timeout vote against the configured scope and
+    /// the enrolled key for its exact effective validator set.
+    pub(super) fn authenticated_aft_timeout_vote(
+        &self,
+        vote: &AftTimeoutVoteV1,
+    ) -> Result<authenticated_quorum::VerifiedSigner, ConsensusError> {
+        let scope = self.fallback_scope.ok_or_else(|| {
+            ConsensusError::BlockVerificationFailed(
+                "AFT timeout vote arrived before the configuration-scoped journal was installed"
+                    .into(),
+            )
+        })?;
+        if vote.scope != scope {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT timeout vote scope does not match the active network/configuration/epoch"
+                    .into(),
+            ));
+        }
+        let set = self
+            .effective_validator_set_for(vote.height)
+            .ok_or_else(|| {
+                ConsensusError::BlockVerificationFailed(format!(
+                    "no observed validator set to authenticate an AFT timeout vote for height {}",
+                    vote.height
+                ))
+            })?;
+        authenticated_quorum::pq_optimistic_quorum_geometry(&set)?;
+        authenticated_quorum::verify_aft_timeout_vote(vote, &set, &self.key_registry)
     }
 
     /// Queues finalized-block evidence, exactly once per finalized block.

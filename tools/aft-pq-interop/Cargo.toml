@@ -1,0 +1,15 @@
+[package]
+name = "aft-pq-interop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[dependencies]
+base64 = "0.22"
+dcrypt = { version = "=4.0.1", features = ["full"] }
+fips205 = { version = "=0.4.1", default-features = false, features = ["default-rng", "slh_dsa_sha2_128s"] }
+ml-dsa = { version = "=0.1.1" }
+slh-dsa = { version = "=0.2.0-rc.5", features = ["zeroize"] }
+
+[workspace]

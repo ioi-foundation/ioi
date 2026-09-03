@@ -5,12 +5,14 @@ impl GuardianMajorityEngine {
         self.maybe_promote_committed_height_qc(height);
         self.prune_guardian_counter_history(height);
         self.view_votes.retain(|h, _| *h >= height);
+        self.aft_timeout_votes.retain(|h, _| *h >= height);
         self.tc_formed.retain(|(h, _)| *h >= height);
-        self.timeout_votes_sent.retain(|(h, _)| *h >= height);
+        self.timeout_votes_sent.retain(|(h, _), _| *h >= height);
         self.seen_headers.retain(|(h, _), _| *h >= height);
         self.vote_pool.retain(|h, _| *h >= height);
         self.validator_count_by_height.retain(|h, _| *h >= height);
         self.qc_pool.retain(|h, _| *h + 2 >= height);
+        self.async_parent_proofs.retain(|h, _| *h + 2 >= height);
         self.committed_headers.retain(|h, _| *h + 2 >= height);
         if !matches!(self.safety_mode, AftSafetyMode::Asymptote) {
             self.committed_collapses.retain(|h, _| *h + 2 >= height);
@@ -22,6 +24,13 @@ impl GuardianMajorityEngine {
             .retain(|h, _| *h + 2 >= height);
         self.pending_qc_broadcasts
             .retain(|qc| qc.height + 2 >= height);
+        self.pending_tc_broadcasts.retain(|tc| tc.height >= height);
+        self.pending_aft_tc_broadcasts
+            .retain(|tc| tc.height >= height);
+        self.announced_tcs
+            .retain(|(tc_height, _)| *tc_height >= height);
+        self.announced_aft_tcs
+            .retain(|(_, tc_height, _)| *tc_height >= height);
         self.announced_qcs
             .retain(|(qc_height, _)| *qc_height + 2 >= height);
         self.echo_pool.retain(|(h, _), _| *h >= height);

@@ -456,6 +456,78 @@ async fn an_empty_block_publishes_no_completion_event() {
 const POST_COMMIT_SOURCE: &str = include_str!("../post_commit.rs");
 
 #[test]
+fn classic_pq_header_authority_is_rooted_and_guardian_independent() {
+    use ioi_api::crypto::VerifyingKey;
+    use ioi_crypto::security::SecurityLevel;
+    use ioi_crypto::sign::dilithium::{MldsaScheme, MldsaSignature};
+
+    let keypair = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .expect("ML-DSA key generation");
+    let public_key = keypair.public_key().to_bytes();
+    let mut header = sample_block_header();
+    header.producer_key_suite = SignatureSuite::ML_DSA_44;
+    header.producer_pubkey = public_key.clone();
+    header.producer_pubkey_hash =
+        account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_key).unwrap();
+    header.height = 41;
+    header.view = 3;
+    let preimage_hash = [0xa5; 32];
+
+    let bundle = issue_pq_header_authority_bundle(&keypair, &header, preimage_hash).unwrap();
+    assert_eq!(bundle.counter, 0);
+    assert_ne!(bundle.trace_hash, [0; 32]);
+    assert!(bundle.guardian_certificate.is_none());
+    assert!(bundle.sealed_finality_proof.is_none());
+
+    let mut signed_payload = Vec::with_capacity(72);
+    signed_payload.extend_from_slice(&preimage_hash);
+    signed_payload.extend_from_slice(&bundle.counter.to_be_bytes());
+    signed_payload.extend_from_slice(&bundle.trace_hash);
+    let signature = MldsaSignature::from_bytes(&bundle.signature).unwrap();
+    keypair
+        .public_key()
+        .verify(&signed_payload, &signature)
+        .unwrap();
+
+    signed_payload[0] ^= 0xff;
+    assert!(keypair
+        .public_key()
+        .verify(&signed_payload, &signature)
+        .is_err());
+
+    let other_keypair = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .expect("second ML-DSA key generation");
+    assert!(issue_pq_header_authority_bundle(&other_keypair, &header, preimage_hash).is_err());
+}
+
+#[test]
+fn pq_rotation_is_preflighted_before_header_authority_or_durability() {
+    let preflight = POST_COMMIT_SOURCE
+        .find("refusing silent downgrade from strict PQ AFT channels at height {next_height} before header publication")
+        .expect("the strict PQ rotation preflight must remain present");
+    let authority = POST_COMMIT_SOURCE
+        .find("issue_consensus_bundle(context_arc")
+        .expect("header authority issuance must remain present");
+    let durability = POST_COMMIT_SOURCE
+        .find(".update_block_header(final_block.clone())")
+        .expect("durable header update must remain present");
+    let activation = POST_COMMIT_SOURCE
+        .rfind("rotate_pq_channels_for_next_height(")
+        .expect("post-vote PQ rotation must remain present");
+    let self_vote = POST_COMMIT_SOURCE
+        .find("Self-Voted for block")
+        .expect("current-height self-vote must remain present");
+
+    assert!(preflight < authority && preflight < durability);
+    assert!(
+        self_vote < activation,
+        "old-configuration vote/QC traffic must be emitted before manager replacement"
+    );
+}
+
+#[test]
 fn committed_publication_has_no_module_level_definition() {
     // A module-level `async fn publish_committed_tx_statuses` is reachable from
     // every sibling in the file, including `finalize_and_broadcast_block`. A

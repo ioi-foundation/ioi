@@ -50,3 +50,22 @@ fn measured_wire_costs_are_pinned() {
     assert_eq!(close_bytes, 180, "canonical bulletin close");
     assert_eq!(audit_bytes, 106, "optional audit record (marginal, zero at rest)");
 }
+
+#[test]
+fn aft_pq_v1_block_header_scale_fingerprint_is_pinned() {
+    let header = sample_ordering_header(7, 3, 0x41);
+    let encoded = codec::to_bytes_canonical(&header).expect("canonical block header");
+    let fingerprint: [u8; 32] = DcryptSha256::digest(&encoded)
+        .expect("header fingerprint")
+        .as_ref()
+        .try_into()
+        .expect("sha256 width");
+    assert_eq!(
+        fingerprint,
+        [
+            62, 109, 156, 251, 206, 85, 147, 63, 136, 163, 50, 204, 222, 162, 94, 112, 90,
+            35, 189, 156, 24, 18, 140, 3, 18, 125, 121, 68, 55, 158, 58, 230,
+        ],
+        "ADR 0048 AFT PQ v1 new-genesis SCALE fingerprint changed"
+    );
+}

@@ -25,6 +25,18 @@ zeroize = { workspace = true, features = ["alloc"] }
 rayon = "1.8"
 libp2p = { workspace = true }
 subtle = "2.4"  # [FIX] Added subtle dependency
+parity-scale-codec = { workspace = true, features = ["derive", "std"] }
+slh-dsa = { workspace = true, optional = true }
 
 [features]
 default = []
+aft-terminal-seals = ["dep:slh-dsa"]
+
+[dev-dependencies]
+criterion = "0.5"
+hex = { workspace = true }
+serde_json = { workspace = true }
+
+[[bench]]
+name = "aft_pq_crypto"
+harness = false

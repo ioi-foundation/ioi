@@ -126,6 +126,8 @@ async fn main() -> Result<()> {
         consensus_type: ConsensusType::Aft, // Follows chain consensus
         finality_profile: None,
         aft_safety_mode: Default::default(),
+        aft_pq_outbox_dir: None,
+        aft_external_anchor_dir: None,
         guardian_production_mode: Default::default(),
         key_authority: None,
         rpc_listen_address: "0.0.0.0:8545".to_string(),

@@ -789,6 +789,16 @@ where
         &mut self,
         workload: &WorkloadContainer<ST>,
     ) -> Result<(), ChainError> {
+        // Genesis identity is immutable chain metadata. The live state root is
+        // expected to advance, so reconstructing `GenesisState` from that root
+        // after restart makes otherwise identical peers advertise different
+        // chain identities. Resolve the durable height-zero header before
+        // taking the state lock and retain its root for the recovery branch.
+        let durable_genesis_root = workload
+            .store
+            .get_block_by_height(0)
+            .map_err(|error| ChainError::State(StateError::Backend(error.to_string())))?
+            .map(|block| block.header.state_root.0);
         let state_tree_arc = workload.state_tree();
         let mut state = state_tree_arc.write().await;
 
@@ -901,9 +911,14 @@ where
                 }
 
                 let root = state.root_commitment().as_ref().to_vec();
-                self.state.last_state_root = root.clone();
+                self.state.last_state_root = root;
+                let genesis_root = durable_genesis_root.ok_or_else(|| {
+                    ChainError::State(StateError::Backend(
+                        "existing chain state is missing its durable genesis block".into(),
+                    ))
+                })?;
                 self.state.genesis_state = GenesisState::Ready {
-                    root,
+                    root: genesis_root,
                     chain_id: self.state.chain_id,
                 };
             }
@@ -1053,6 +1068,7 @@ where
                         sealed_finality_proof: None,
                         canonical_order_certificate: None,
                         timeout_certificate: None,
+                        aft_timeout_certificate: None,
                     },
                     transactions: vec![],
                 };

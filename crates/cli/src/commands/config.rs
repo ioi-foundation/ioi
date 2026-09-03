@@ -53,6 +53,8 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 consensus_type: ConsensusType::Aft,
                 finality_profile: None,
                 aft_safety_mode: Default::default(),
+                aft_pq_outbox_dir: Some("./data/aft-pq-outbox".to_string()),
+                aft_external_anchor_dir: None,
                 guardian_production_mode: Default::default(),
                 key_authority: None,
                 rpc_listen_address: "127.0.0.1:8545".into(),

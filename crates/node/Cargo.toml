@@ -13,17 +13,17 @@ repository = "https://github.com/ioi-foundation/ioi"
 agentgres = { path = "../agentgres" }
 ioi-api = { path = "../api" }
 ioi-types = { path = "../types" }
-ioi-execution = { path = "../execution" }
-ioi-state = { path = "../state", default-features = false }
-ioi-consensus = { path = "../consensus", default-features = false }
-ioi-storage = { path = "../storage" }
-ioi-networking = { path = "../networking" }
-ioi-tx = { path = "../tx" }
-ioi-validator = { path = "../validator", default-features = false }
+ioi-execution = { path = "../execution", optional = true }
+ioi-state = { path = "../state", default-features = false, optional = true }
+ioi-consensus = { path = "../consensus", default-features = false, optional = true }
+ioi-storage = { path = "../storage", optional = true }
+ioi-networking = { path = "../networking", optional = true }
+ioi-tx = { path = "../tx", optional = true }
+ioi-validator = { path = "../validator", default-features = false, optional = true }
 ioi-crypto = { path = "../crypto" }
 ioi-vm-wasm = { path = "../vm/wasm", optional = true }
 ioi-services = { path = "../services", default-features = false }
-ioi-client = { path = "../client" }
+ioi-client = { path = "../client", optional = true }
 ioi-telemetry = { path = "../telemetry" }
 ioi-ipc = { path = "../ipc" }
 ioi-drivers = { path = "../drivers" }
@@ -88,8 +88,24 @@ tempfile = "3.3"
 [features]
 default = []
 
+# Dependencies used by validator/orchestration binaries but not by the
+# Hypervisor HTTP daemon. Keeping this edge explicit removes consensus,
+# validator, and their AFT-only cryptographic graph from a default Hypervisor
+# build. Wallet/runtime services still own their narrower client/state edges.
+kernel-node = [
+    "dep:ioi-client",
+    "dep:ioi-consensus",
+    "dep:ioi-execution",
+    "dep:ioi-networking",
+    "dep:ioi-state",
+    "dep:ioi-storage",
+    "dep:ioi-tx",
+    "dep:ioi-validator",
+]
+
 # This feature is for building the standard validator binaries.
 validator-bins = [
+    "kernel-node",
     "dep:clap",
     "dep:env_logger",
     "ioi-consensus/aft", 
@@ -156,6 +172,7 @@ ethereum-zk = [
 # 1. Local Mode (Desktop App)
 # Lightest profile.
 local-mode = [
+    "kernel-node",
     "dep:clap",
     "dep:env_logger",
     "vm-wasm",
@@ -169,6 +186,7 @@ local-mode = [
 # 2. Validator Mode (Consensus Only)
 # Fast, secure, minimal attack surface. No heavy bridges.
 validator-mode = [
+    "kernel-node",
     "dep:clap",
     "dep:env_logger",
     "vm-wasm",
@@ -189,6 +207,7 @@ bridge-mode = [
 # 4. Provider Mode (Compute Node)
 # Optimized for AI workloads (GPU/CPU).
 provider-mode = [
+    "kernel-node",
     "dep:clap",
     "dep:env_logger",
     "vm-wasm",

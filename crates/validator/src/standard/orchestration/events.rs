@@ -345,6 +345,216 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
         }
 
+        NetworkEvent::AftTimeoutVoteReceived { vote, from } => {
+            let (engine_ref, kick_tx) = {
+                let ctx = context_arc.lock().await;
+                if ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                (
+                    ctx.consensus_engine_ref.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                )
+            };
+            let mut engine = engine_ref.lock().await;
+            if let Err(error) = engine.handle_aft_timeout_vote(from, vote).await {
+                tracing::warn!(target: "consensus", %from, %error, "Refused scoped AFT timeout vote");
+            } else {
+                let _ = kick_tx.send(());
+            }
+        }
+
+        NetworkEvent::TimeoutCertificateReceived { certificate, from } => {
+            let (engine_ref, kick_tx, swarm_sender) = {
+                let ctx = context_arc.lock().await;
+                if ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                (
+                    ctx.consensus_engine_ref.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                    ctx.swarm_commander.clone(),
+                )
+            };
+            let mut engine = engine_ref.lock().await;
+            if let Err(error) = engine.handle_timeout_certificate(certificate).await {
+                tracing::warn!(target: "consensus", %from, %error, "Refused relayed timeout certificate");
+                return;
+            }
+            let pending_tcs = engine.take_pending_timeout_certificates();
+            let pending_starts = engine.take_pending_fallback_starts();
+            drop(engine);
+            for certificate in pending_tcs {
+                if let Ok(bytes) = codec::to_bytes_canonical(&certificate) {
+                    let _ = swarm_sender
+                        .send(SwarmCommand::BroadcastTimeoutCertificate(bytes))
+                        .await;
+                }
+            }
+            for certificate in pending_starts {
+                if let Ok(bytes) = codec::to_bytes_canonical(&certificate) {
+                    let _ = swarm_sender
+                        .send(SwarmCommand::BroadcastFallbackStart(bytes))
+                        .await;
+                }
+                let activation = {
+                    let mut context = context_arc.lock().await;
+                    let height = certificate.height;
+                    super::hash_async::activate(&mut context, certificate).and_then(
+                        |mut actions| {
+                            actions.extend(super::hash_async::propose_local(&mut context, height)?);
+                            Ok(actions)
+                        },
+                    )
+                };
+                match activation {
+                    Ok(actions) => {
+                        if let Err(error) = super::hash_async::dispatch(context_arc, actions).await
+                        {
+                            tracing::warn!(target: "consensus", %error, "Failed to dispatch activated hash-only fallback");
+                        }
+                    }
+                    Err(error) => {
+                        tracing::warn!(target: "consensus", %error, "Refused hash-only fallback activation")
+                    }
+                }
+            }
+            let _ = kick_tx.send(());
+        }
+
+        NetworkEvent::AftTimeoutCertificateReceived { certificate, from } => {
+            let (engine_ref, kick_tx, swarm_sender) = {
+                let ctx = context_arc.lock().await;
+                if ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                (
+                    ctx.consensus_engine_ref.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                    ctx.swarm_commander.clone(),
+                )
+            };
+            let mut engine = engine_ref.lock().await;
+            if let Err(error) = engine.handle_aft_timeout_certificate(certificate).await {
+                tracing::warn!(target: "consensus", %from, %error, "Refused scoped AFT timeout certificate");
+                return;
+            }
+            let pending = engine.take_pending_aft_timeout_certificates();
+            let pending_starts = engine.take_pending_fallback_starts();
+            drop(engine);
+            for certificate in pending {
+                if let Ok(bytes) = codec::to_bytes_canonical(&certificate) {
+                    let _ = swarm_sender
+                        .send(SwarmCommand::BroadcastAftTimeoutCertificate(bytes))
+                        .await;
+                }
+            }
+            for certificate in pending_starts {
+                if let Ok(bytes) = codec::to_bytes_canonical(&certificate) {
+                    let _ = swarm_sender
+                        .send(SwarmCommand::BroadcastFallbackStart(bytes))
+                        .await;
+                }
+                let activation = {
+                    let mut context = context_arc.lock().await;
+                    let height = certificate.height;
+                    super::hash_async::activate(&mut context, certificate).and_then(
+                        |mut actions| {
+                            actions.extend(super::hash_async::propose_local(&mut context, height)?);
+                            Ok(actions)
+                        },
+                    )
+                };
+                match activation {
+                    Ok(actions) => {
+                        if let Err(error) = super::hash_async::dispatch(context_arc, actions).await
+                        {
+                            tracing::warn!(target: "consensus", %error, "Failed to dispatch activated hash-only fallback");
+                        }
+                    }
+                    Err(error) => {
+                        tracing::warn!(target: "consensus", %error, "Refused hash-only fallback activation")
+                    }
+                }
+            }
+            let _ = kick_tx.send(());
+        }
+
+        NetworkEvent::FallbackStartReceived { certificate, from } => {
+            let async_start = certificate.clone();
+            let (engine_ref, kick_tx, swarm_sender) = {
+                let ctx = context_arc.lock().await;
+                if ctx.is_quarantined.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                (
+                    ctx.consensus_engine_ref.clone(),
+                    ctx.consensus_kick_tx.clone(),
+                    ctx.swarm_commander.clone(),
+                )
+            };
+            let mut engine = engine_ref.lock().await;
+            if let Err(error) = engine.handle_fallback_start_certificate(certificate).await {
+                tracing::warn!(target: "consensus", %from, %error, "Refused relayed fallback-start certificate");
+                return;
+            }
+            let pending = engine.take_pending_fallback_starts();
+            drop(engine);
+            for certificate in pending {
+                if let Ok(bytes) = codec::to_bytes_canonical(&certificate) {
+                    let _ = swarm_sender
+                        .send(SwarmCommand::BroadcastFallbackStart(bytes))
+                        .await;
+                }
+            }
+            let activation = {
+                let mut context = context_arc.lock().await;
+                let height = async_start.height;
+                super::hash_async::activate(&mut context, async_start).and_then(|mut actions| {
+                    actions.extend(super::hash_async::propose_local(&mut context, height)?);
+                    Ok(actions)
+                })
+            };
+            match activation {
+                Ok(actions) => {
+                    if let Err(error) = super::hash_async::dispatch(context_arc, actions).await {
+                        tracing::warn!(target: "consensus", %from, %error, "Failed to dispatch relayed hash-only fallback activation");
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(target: "consensus", %from, %error, "Refused relayed hash-only fallback activation")
+                }
+            }
+            let _ = kick_tx.send(());
+        }
+
+        NetworkEvent::AftAsyncOrderingReceived {
+            carrier,
+            authenticated_account,
+            from,
+        } => {
+            let actions = {
+                let mut context = context_arc.lock().await;
+                if context
+                    .is_quarantined
+                    .load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    return;
+                }
+                super::hash_async::handle_carrier(&mut context, authenticated_account, carrier)
+            };
+            match actions {
+                Ok(actions) => {
+                    if let Err(error) = super::hash_async::dispatch(context_arc, actions).await {
+                        tracing::warn!(target: "consensus", %from, %error, "Failed to dispatch hash-only fallback actions");
+                    }
+                }
+                Err(error) => {
+                    tracing::warn!(target: "consensus", %from, authenticated_account = %hex::encode(authenticated_account.as_ref()), %error, "Refused strict-PQ hash-only fallback carrier");
+                }
+            }
+        }
+
         NetworkEvent::PanicReceived { panic, from } => {
             tracing::warn!(
                 target: "orchestration",

@@ -10,6 +10,7 @@ repository = "https://github.com/ioi-foundation/ioi"
 [dependencies]
 # This crate has minimal dependencies to remain stable.
 serde = { workspace = true, features = ["derive", "rc"] }
+serde_bytes = { workspace = true }
 thiserror = { workspace = true }
 dcrypt = { workspace = true }
 serde_json = { workspace = true }

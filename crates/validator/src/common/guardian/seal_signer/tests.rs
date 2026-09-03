@@ -90,6 +90,112 @@ fn three_members_two_seals_end_to_end() {
     }
 }
 
+fn v2_scope(member_index: u32) -> ioi_types::app::consensus::SealKeyScopeV1 {
+    ioi_types::app::consensus::SealKeyScopeV1 {
+        network_id: [0x11; 32],
+        configuration_id: [0x22; 32],
+        epoch: 9,
+        conflict_domain_id: [0x33; 32],
+        member_id: ioi_types::app::AccountId([member_index as u8 + 1; 32]),
+        member_index,
+    }
+}
+
+fn v2_binding(
+    key: &SlhDsaSealKeyPair,
+    member_index: u32,
+    key_index: u64,
+    predecessor_key_commitment: [u8; 32],
+) -> SealKeyBindingV1 {
+    SealKeyBindingV1 {
+        scope: v2_scope(member_index),
+        key_index,
+        signature_suite: ioi_types::app::SignatureSuite::SLH_DSA_SHA2_128S,
+        public_key: key.public_key_bytes(),
+        predecessor_key_commitment,
+    }
+}
+
+#[test]
+fn slh_dsa_sha2_128s_matches_nist_acvp_key_generation_vector() {
+    // ACVP SLH-DSA-keyGen-FIPS205 internalProjection.json, tcId 1.
+    let key = SlhDsaSealKeyPair::from_seed_material(
+        hex::decode("2F896D61D9CD9038CA303394FADAA22A")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+        hex::decode("24AC5EC1D86A989CA2196C3C8632419C")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+        hex::decode("1A05A42FE300E87B16AEE116CB2E2363")
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    assert_eq!(
+        hex::encode_upper(key.public_key_bytes()),
+        "1A05A42FE300E87B16AEE116CB2E236358E2C3E62632C9DE03D08A535A0EB7E7"
+    );
+}
+
+#[test]
+fn v2_initial_share_requires_manifest_owned_key_and_chains_successor() {
+    let key0 = SlhDsaSealKeyPair::from_seed_material([1; 16], [2; 16], [3; 16]);
+    let binding0 = v2_binding(&key0, 0, 0, [0x44; 32]);
+    let commitment0 = binding0.commitment().unwrap();
+    let key1 = SlhDsaSealKeyPair::from_seed_material([4; 16], [5; 16], [6; 16]);
+    let binding1 = v2_binding(&key1, 0, 1, commitment0);
+    let commitment1 = binding1.commitment().unwrap();
+
+    let manifest = SealKeyManifestV1 {
+        schema_version: ioi_types::app::consensus::AFT_SEAL_KEY_MANIFEST_SCHEMA_V1,
+        entries: vec![ioi_types::app::consensus::SealKeyManifestEntryV1 {
+            initial_key: binding0.clone(),
+            initial_key_commitment: commitment0,
+        }],
+    };
+
+    let share0 = key0
+        .sign_share(binding0, 0, [0xAA; 32], commitment1)
+        .unwrap();
+    verify_initial_seal_share_v2(&share0, &manifest).unwrap();
+
+    let key2 = SlhDsaSealKeyPair::from_seed_material([7; 16], [8; 16], [9; 16]);
+    let binding2 = v2_binding(&key2, 0, 2, commitment1);
+    let share1 = key1
+        .sign_share(binding1, 1, [0xBB; 32], binding2.commitment().unwrap())
+        .unwrap();
+    verify_seal_share_v2(&share1, share0.next_key_commitment).unwrap();
+}
+
+#[test]
+fn v2_rejects_self_authentication_and_cross_scope_replay() {
+    let enrolled_key = SlhDsaSealKeyPair::from_seed_material([1; 16], [2; 16], [3; 16]);
+    let enrolled_binding = v2_binding(&enrolled_key, 0, 0, [0x44; 32]);
+    let enrolled_commitment = enrolled_binding.commitment().unwrap();
+    let manifest = SealKeyManifestV1 {
+        schema_version: ioi_types::app::consensus::AFT_SEAL_KEY_MANIFEST_SCHEMA_V1,
+        entries: vec![ioi_types::app::consensus::SealKeyManifestEntryV1 {
+            initial_key: enrolled_binding,
+            initial_key_commitment: enrolled_commitment,
+        }],
+    };
+
+    let rogue_key = SlhDsaSealKeyPair::from_seed_material([7; 16], [8; 16], [9; 16]);
+    let rogue_binding = v2_binding(&rogue_key, 0, 0, [0x44; 32]);
+    let rogue_share = rogue_key
+        .sign_share(rogue_binding.clone(), 0, [0xAA; 32], [0x55; 32])
+        .unwrap();
+    // A mathematically valid signature under the carried key is insufficient.
+    verify_seal_share_v2(&rogue_share, rogue_binding.commitment().unwrap()).unwrap();
+    assert!(verify_initial_seal_share_v2(&rogue_share, &manifest).is_err());
+
+    let mut replay = rogue_share;
+    replay.current_key.scope.configuration_id[0] ^= 1;
+    assert!(verify_seal_share_v2(&replay, replay.current_key_commitment().unwrap()).is_err());
+}
+
 // Clean-room twin conformance-vector generator (AFT-CB P4.5b in-session).
 // Emits the seal-share verification + double-signer extraction vectors an
 // isolated non-Rust twin must reproduce. Run with AFT_TWIN_VECTORS=1 to

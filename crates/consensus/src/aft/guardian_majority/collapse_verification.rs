@@ -1,4 +1,5 @@
 use super::*;
+use ioi_types::app::SignatureSuite;
 
 // Test-only meter for local canonical-collapse continuity verification steps.
 // Bounded-work tests assert on this counter rather than wall-clock timing. A
@@ -715,7 +716,7 @@ impl GuardianMajorityEngine {
     pub(super) async fn refresh_liveness_after_qc(&mut self, qc_height: u64) {
         let next_height = qc_height.saturating_add(1);
         self.timeout_votes_sent
-            .retain(|(height, _)| *height != next_height);
+            .retain(|(height, _), _| *height != next_height);
         let mut pacemaker = self.pacemaker.lock().await;
         pacemaker.view_start_time = std::time::Instant::now();
     }
@@ -727,6 +728,11 @@ impl GuardianMajorityEngine {
     ) -> Result<(), ConsensusError> {
         if qc.height == 0 {
             return Ok(());
+        }
+        if self.fallback_starts.contains_key(&qc.height) {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "optimistic quorum certificate arrived after durable fallback start".into(),
+            ));
         }
 
         // The single authentication chokepoint for quorum certificates. Both
@@ -894,14 +900,75 @@ impl GuardianMajorityEngine {
             accumulated_weight = accumulated_weight.saturating_add(*weight);
         }
 
-        let threshold = self.quorum_weight_threshold(active_set.total_weight);
-        if accumulated_weight <= threshold {
-            return Err(ConsensusError::BlockVerificationFailed(format!(
-                "Timeout certificate weight {} does not exceed threshold {}",
-                accumulated_weight, threshold
-            )));
+        if matches!(self.safety_mode, AftSafetyMode::ClassicBft)
+            && active_set
+                .validators
+                .iter()
+                .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "legacy unscoped timeout certificate is forbidden in the normative PQ profile"
+                    .into(),
+            ));
+        } else {
+            let threshold = self.quorum_weight_threshold(active_set.total_weight);
+            if accumulated_weight <= threshold {
+                return Err(ConsensusError::BlockVerificationFailed(format!(
+                    "Timeout certificate weight {} does not exceed threshold {}",
+                    accumulated_weight, threshold
+                )));
+            }
         }
 
+        Ok(())
+    }
+
+    /// Verifies a versioned timeout certificate against its exact rooted
+    /// membership and the locally configured authority scope.
+    pub(super) fn verify_aft_timeout_certificate(
+        &self,
+        certificate: &AftTimeoutCertificateV1,
+        sets: &ioi_types::app::ValidatorSetsV1,
+    ) -> Result<(), ConsensusError> {
+        certificate
+            .validate_shape()
+            .map_err(ConsensusError::BlockVerificationFailed)?;
+        if self
+            .fallback_scope
+            .is_some_and(|scope| certificate.scope != scope)
+        {
+            return Err(ConsensusError::BlockVerificationFailed(
+                "AFT timeout certificate scope does not match the active configuration".into(),
+            ));
+        }
+        let active_set = effective_set_for_height(sets, certificate.height);
+        let geometry = authenticated_quorum::pq_optimistic_quorum_geometry(active_set)?;
+        let mut seen = HashSet::new();
+        for vote in &certificate.votes {
+            if !seen.insert(vote.voter) {
+                return Err(ConsensusError::BlockVerificationFailed(
+                    "AFT timeout certificate contains duplicate voters".into(),
+                ));
+            }
+            authenticated_quorum::verify_aft_timeout_vote(vote, active_set, &self.key_registry)?;
+            self.validate_safe_state_qc(
+                &vote.highest_qc,
+                vote.highest_qc_async_parent_proof_hash,
+                "timeout-vote high QC",
+            )?;
+            self.validate_safe_state_qc(
+                &vote.locked_qc,
+                vote.locked_qc_async_parent_proof_hash,
+                "timeout-vote locked QC",
+            )?;
+        }
+        if seen.len() < geometry.q as usize {
+            return Err(ConsensusError::BlockVerificationFailed(format!(
+                "AFT timeout certificate has {} distinct signers, below q={}",
+                seen.len(),
+                geometry.q
+            )));
+        }
         Ok(())
     }
 

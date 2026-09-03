@@ -248,7 +248,8 @@ fn sample_canonical_order_publication_bundle_with_retrievability(
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([seed.wrapping_add(5); 32]),
@@ -599,7 +600,8 @@ fn sample_recovered_publication_bundle_fixture_with_scheme_and_optional_omission
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([nonzero_test_byte(seed.wrapping_add(10)); 32]),

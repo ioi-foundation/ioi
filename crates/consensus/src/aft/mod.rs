@@ -3,6 +3,7 @@ pub mod authenticated_quorum;
 pub mod boundary_ring_trace;
 pub mod experimental;
 pub mod guardian_majority;
+pub mod hash_async;
 pub mod ring_membership_sim;
 
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
@@ -13,9 +14,10 @@ use ioi_api::consensus::{ConsensusControl, NativeAftFinalizedEvidence};
 use ioi_api::state::{StateAccess, StateManager};
 use ioi_system::SystemState;
 use ioi_types::app::{
-    AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
-    AftRecoveredRestartHeaderEntry, Block, BlockHeader, ConsensusVote, FailureReport,
-    QuorumCertificate, ValidatorSetsV1,
+    AccountId, AftAsyncParentProofV1, AftFallbackScopeV1, AftRecoveredCertifiedHeaderEntry,
+    AftRecoveredConsensusHeaderEntry, AftRecoveredRestartHeaderEntry, AftTimeoutCertificateV1,
+    AftTimeoutSafeStateV1, AftTimeoutVoteV1, Block, BlockHeader, ConsensusVote, FailureReport,
+    FallbackStartCertificateV1, QuorumCertificate, TimeoutCertificate, ValidatorSetsV1,
 };
 use ioi_types::config::AftSafetyMode;
 use ioi_types::error::{ConsensusError, TransactionError};
@@ -152,6 +154,89 @@ where
         .await
     }
 
+    async fn handle_timeout_certificate(
+        &mut self,
+        certificate: TimeoutCertificate,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::handle_timeout_certificate(
+            &mut self.core,
+            certificate,
+        )
+        .await
+    }
+
+    async fn handle_aft_timeout_vote(
+        &mut self,
+        from: PeerId,
+        vote: AftTimeoutVoteV1,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::handle_aft_timeout_vote(
+            &mut self.core,
+            from,
+            vote,
+        )
+        .await
+    }
+
+    async fn handle_aft_timeout_certificate(
+        &mut self,
+        certificate: AftTimeoutCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::handle_aft_timeout_certificate(
+            &mut self.core,
+            certificate,
+        )
+        .await
+    }
+
+    async fn handle_fallback_start_certificate(
+        &mut self,
+        certificate: FallbackStartCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::handle_fallback_start_certificate(
+            &mut self.core,
+            certificate,
+        )
+        .await
+    }
+
+    fn observe_aft_async_parent_proof(
+        &mut self,
+        proof: AftAsyncParentProofV1,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::observe_aft_async_parent_proof(
+            &mut self.core,
+            proof,
+        )
+    }
+
+    fn aft_timeout_safe_state(&self, height: u64) -> Option<AftTimeoutSafeStateV1> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::aft_timeout_safe_state(&self.core, height)
+    }
+
+    fn aft_timeout_vote_for_relay(
+        &self,
+        height: u64,
+        view: u64,
+        voter: &AccountId,
+    ) -> Option<AftTimeoutVoteV1> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::aft_timeout_vote_for_relay(
+            &self.core, height, view, voter,
+        )
+    }
+
+    fn configure_fallback_journal(
+        &mut self,
+        scope: AftFallbackScopeV1,
+        path: &std::path::Path,
+    ) -> Result<(), ConsensusError> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::configure_fallback_journal(
+            &mut self.core,
+            scope,
+            path,
+        )
+    }
+
     async fn handle_view_change(
         &mut self,
         from: PeerId,
@@ -276,6 +361,22 @@ where
         <GuardianMajorityEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(
             &mut self.core,
         )
+    }
+
+    fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::take_pending_timeout_certificates(
+            &mut self.core,
+        )
+    }
+
+    fn take_pending_aft_timeout_certificates(&mut self) -> Vec<AftTimeoutCertificateV1> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::take_pending_aft_timeout_certificates(
+            &mut self.core,
+        )
+    }
+
+    fn take_pending_fallback_starts(&mut self) -> Vec<FallbackStartCertificateV1> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::take_pending_fallback_starts(&mut self.core)
     }
 
     fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {

@@ -10,12 +10,20 @@ use ioi_api::{
     chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
     state::StateManager,
 };
+use ioi_consensus::aft::{
+    authenticated_quorum::ValidatorKeyRegistry,
+    hash_async::{DurableCrossPathSigningFence, HashAsyncSession},
+};
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_networking::traits::NodeState;
 use ioi_types::app::KernelEvent; // [NEW]
-use ioi_types::app::{AccountId, Block, ChainTransaction, OracleAttestation, TxHash};
+use ioi_types::app::{
+    AccountId, AftAsyncExecutedBlockCertificateV1, AftAsyncOrderingCertificateV1,
+    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation, TxHash,
+    ValidatorSetV1,
+};
 use libp2p::{identity, PeerId};
 use lru::LruCache;
 use parity_scale_codec::{Decode, Encode};
@@ -27,6 +35,7 @@ use std::sync::{
     Arc,
 };
 use tokio::sync::{mpsc, watch, Mutex}; // [FIX] Added imports
+use zeroize::Zeroizing;
 
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel}; // [FIX] Added InferenceRuntime
                                                                   // [NEW] Import OsDriver trait
@@ -56,6 +65,12 @@ pub struct SyncProgress {
     pub req_id: u64,
     /// When the current or most recent sync request was issued.
     pub requested_at: std::time::Instant,
+    /// Earliest instant at which an empty/failed response may be retried.
+    ///
+    /// A peer can truthfully advertise an execution tip ahead of its admitted
+    /// serving boundary.  Without this fence, alternating such peers creates
+    /// an unbounded request/empty-response loop in the main event task.
+    pub retry_not_before: Option<std::time::Instant>,
 }
 
 /// Stores the current status of a transaction for RPC queries.
@@ -118,10 +133,45 @@ where
     pub local_keypair: identity::Keypair,
     /// Optional post-quantum keypair for signing.
     pub pqc_signer: Option<MldsaKeyPair>,
+    /// Stable validator account authorized by the effective rooted set. This
+    /// is deliberately distinct from either rotating consensus-key hash.
+    pub local_validator_account_id: Option<AccountId>,
     /// Set of currently connected and known peers.
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     /// Mapping from connected peer IDs to validator account IDs learned during status handshakes.
     pub peer_accounts_ref: Arc<Mutex<HashMap<PeerId, AccountId>>>,
+    /// Rooted ML-DSA channel identities for the active all-PQ AFT
+    /// configuration. `None` means the swarm remains in the explicitly
+    /// classical compatibility profile.
+    pub aft_pq_peer_keys: Option<HashMap<AccountId, [u8; 32]>>,
+    /// Effective-set commitment currently installed in the strict swarm.
+    pub aft_pq_configuration_hash: Option<[u8; 32]>,
+    /// Rooted membership and raw PQ verification keys for the active
+    /// normative asynchronous profile.
+    pub aft_async_membership: Option<(ValidatorSetV1, ValidatorKeyRegistry)>,
+    /// Domain-separated custody key for encrypted asynchronous journals. The
+    /// wrapper zeroizes it when the runtime context is dropped.
+    pub aft_async_custody_key: Option<Zeroizing<[u8; 32]>>,
+    /// Single persistent signing fence shared by optimistic and fallback
+    /// decision signers.
+    pub aft_cross_path_signing_fence: Option<Arc<std::sync::Mutex<DurableCrossPathSigningFence>>>,
+    /// Active per-height hash-only fallback sessions.
+    pub aft_async_sessions: BTreeMap<u64, HashAsyncSession>,
+    /// Verified exact-q asynchronous certificates awaiting or completing the
+    /// sole block/finality admission path.
+    pub aft_async_finalized: BTreeMap<u64, AftAsyncOrderingCertificateV1>,
+    /// Canonical transaction batches reconstructed from the selected,
+    /// availability-certified payloads for each verified asynchronous result.
+    pub aft_async_finalized_batches: BTreeMap<u64, Vec<ChainTransaction>>,
+    /// Fully verified post-execution evidence awaiting or completing the sole
+    /// finality admission path.
+    pub aft_async_executed: BTreeMap<
+        u64,
+        (
+            AftAsyncExecutedBlockCertificateV1,
+            AftAsyncSelectedBatchWitnessV1,
+        ),
+    >,
     /// Number of bootstrap peers configured at startup.
     pub configured_bootstrap_peers: usize,
     /// Flag indicating if the node is quarantined.

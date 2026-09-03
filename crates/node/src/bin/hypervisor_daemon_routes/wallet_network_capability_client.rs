@@ -45,7 +45,6 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
-use ioi_validator::common::GuardianContainer;
 use sha2::{Digest, Sha256};
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 
@@ -238,7 +237,7 @@ fn load_config() -> Result<Config, ResolveError> {
             ))
         })?;
     let key_path = PathBuf::from(required_env("IOI_HYPERVISOR_WALLET_CLIENT_KEY_PATH")?);
-    let key_bytes = GuardianContainer::load_encrypted_file(&key_path).map_err(|error| {
+    let key_bytes = load_encrypted_wallet_key(&key_path).map_err(|error| {
         ResolveError::NotConfigured(format!(
             "Hypervisor wallet capability key '{}' could not be decrypted: {error}",
             key_path.display()
@@ -306,6 +305,25 @@ fn load_config() -> Result<Config, ResolveError> {
         tls_server_name,
         timeout: Duration::from_millis(timeout_ms),
     })
+}
+
+/// Load the Hypervisor wallet client key without linking the validator
+/// runtime. The desktop daemon is a capability client, not a validator, and
+/// importing `GuardianContainer` here previously pulled consensus, networking,
+/// state and every AFT implementation into its default build graph.
+fn load_encrypted_wallet_key(path: &std::path::Path) -> Result<Vec<u8>, String> {
+    let content = std::fs::read(path).map_err(|error| error.to_string())?;
+    if !content.starts_with(b"IOI-GKEY") {
+        return Err("wallet capability key is not an IOI-GKEY encrypted key".into());
+    }
+    let passphrase = std::env::var("IOI_GUARDIAN_KEY_PASS")
+        .map_err(|_| "IOI_GUARDIAN_KEY_PASS is required to decrypt the wallet capability key")?;
+    if passphrase.is_empty() {
+        return Err("IOI_GUARDIAN_KEY_PASS cannot be empty".into());
+    }
+    let secret = ioi_crypto::key_store::decrypt_key(&content, &passphrase)
+        .map_err(|error| error.to_string())?;
+    Ok(secret.0.clone())
 }
 
 async fn connect(config: &Config) -> Result<PublicApiClient<Channel>, ResolveError> {

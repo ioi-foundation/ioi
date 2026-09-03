@@ -289,6 +289,7 @@ fn archived_recovered_restart_page_builder_matches_segment_range() {
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             signature: Vec::new(),
         },
     };
@@ -419,6 +420,7 @@ fn archived_recovered_history_checkpoint_builder_commits_segment_and_page_hashes
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             signature: Vec::new(),
         },
     };
@@ -524,6 +526,7 @@ fn archived_recovered_history_checkpoint_builder_chains_previous_hash() {
                     sealed_finality_proof: None,
                     canonical_order_certificate: None,
                     timeout_certificate: None,
+                    aft_timeout_certificate: None,
                     signature: Vec::new(),
                 },
             })

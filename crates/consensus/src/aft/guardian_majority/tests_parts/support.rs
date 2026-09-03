@@ -282,6 +282,7 @@ fn build_case(
         canonical_collapse_extension_certificate: None,
         publication_frontier: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         signature: Vec::new(),
     };
 
@@ -853,6 +854,258 @@ impl AuthenticatedValidators {
     }
 }
 
+/// Exact unit-weight n=3f+1 membership using the normative ML-DSA-44 live
+/// signature suite.
+struct PqAuthenticatedValidators {
+    keypairs: Vec<ioi_crypto::sign::dilithium::MldsaKeyPair>,
+    sets: ValidatorSetsV1,
+}
+
+impl PqAuthenticatedValidators {
+    fn new(count: usize) -> Self {
+        let keypairs = (0..count)
+            .map(|_| {
+                ioi_crypto::sign::dilithium::MldsaScheme::new(
+                    ioi_crypto::security::SecurityLevel::Level2,
+                )
+                .generate_keypair()
+                .expect("generate ML-DSA validator key")
+            })
+            .collect::<Vec<_>>();
+        let mut validators = keypairs
+            .iter()
+            .map(|keypair| {
+                let public_key = keypair.public_key().to_bytes();
+                let key_hash = ioi_types::app::account_id_from_key_material(
+                    SignatureSuite::ML_DSA_44,
+                    &public_key,
+                )
+                .expect("derive ML-DSA key hash");
+                ValidatorV1 {
+                    account_id: AccountId(key_hash),
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ML_DSA_44,
+                        public_key_hash: key_hash,
+                        since_height: 1,
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        validators.sort_by_key(|validator| validator.account_id);
+        Self {
+            keypairs,
+            sets: ValidatorSetsV1 {
+                current: ValidatorSetV1 {
+                    effective_from_height: 1,
+                    total_weight: count as u128,
+                    validators,
+                },
+                next: None,
+            },
+        }
+    }
+
+    fn account_id(&self, index: usize) -> AccountId {
+        AccountId(
+            ioi_types::app::account_id_from_key_material(
+                SignatureSuite::ML_DSA_44,
+                &self.keypairs[index].public_key().to_bytes(),
+            )
+            .expect("derive ML-DSA account id"),
+        )
+    }
+
+    fn install(&self, engine: &mut GuardianMajorityEngine, height: u64) {
+        engine.remember_validator_sets(height, &self.sets);
+        engine.remember_validator_count(height, self.keypairs.len());
+        for keypair in &self.keypairs {
+            assert!(engine.record_validator_public_key(&keypair.public_key().to_bytes()));
+        }
+    }
+
+    fn signed_view_change(&self, index: usize, height: u64, view: u64) -> ViewChangeVote {
+        let preimage = authenticated_quorum::view_change_vote_signing_bytes(height, view)
+            .expect("view-change preimage");
+        ViewChangeVote {
+            height,
+            view,
+            voter: self.account_id(index),
+            signature: self.keypairs[index]
+                .sign(&preimage)
+                .expect("sign ML-DSA view change")
+                .to_bytes(),
+        }
+    }
+
+    fn fallback_scope(&self) -> AftFallbackScopeV1 {
+        AftFallbackScopeV1 {
+            network_id: [0xA5; 32],
+            configuration_hash: ioi_types::app::canonical_validator_set_hash(&self.sets.current)
+                .expect("validator-set hash"),
+            epoch: self.sets.current.effective_from_height,
+        }
+    }
+
+    fn signed_aft_timeout_for_scope(
+        &self,
+        index: usize,
+        scope: AftFallbackScopeV1,
+        height: u64,
+        view: u64,
+    ) -> AftTimeoutVoteV1 {
+        self.signed_aft_timeout_with_safe_state(
+            index,
+            scope,
+            height,
+            view,
+            QuorumCertificate::default(),
+            QuorumCertificate::default(),
+        )
+    }
+
+    fn signed_aft_timeout_with_safe_state(
+        &self,
+        index: usize,
+        scope: AftFallbackScopeV1,
+        height: u64,
+        view: u64,
+        highest_qc: QuorumCertificate,
+        locked_qc: QuorumCertificate,
+    ) -> AftTimeoutVoteV1 {
+        let mut vote = AftTimeoutVoteV1::unsigned(
+            scope,
+            height,
+            view,
+            self.account_id(index),
+            highest_qc,
+            locked_qc,
+        );
+        vote.signature = self.keypairs[index]
+            .sign(&vote.signing_bytes().expect("AFT timeout preimage"))
+            .expect("sign scoped ML-DSA timeout vote")
+            .to_bytes();
+        vote
+    }
+
+    fn timeout_certificate(&self, height: u64, view: u64) -> AftTimeoutCertificateV1 {
+        self.timeout_certificate_for_scope(self.fallback_scope(), height, view)
+    }
+
+    fn timeout_certificate_for_scope(
+        &self,
+        scope: AftFallbackScopeV1,
+        height: u64,
+        view: u64,
+    ) -> AftTimeoutCertificateV1 {
+        AftTimeoutCertificateV1::new(
+            scope,
+            height,
+            view,
+            (0..3)
+                .map(|index| self.signed_aft_timeout_for_scope(index, scope, height, view))
+                .collect(),
+        )
+        .expect("scoped AFT timeout certificate")
+    }
+
+    fn timeout_certificate_with_safe_state(
+        &self,
+        scope: AftFallbackScopeV1,
+        height: u64,
+        view: u64,
+        highest_qc: QuorumCertificate,
+        locked_qc: QuorumCertificate,
+    ) -> AftTimeoutCertificateV1 {
+        AftTimeoutCertificateV1::new(
+            scope,
+            height,
+            view,
+            (0..3)
+                .map(|index| {
+                    self.signed_aft_timeout_with_safe_state(
+                        index,
+                        scope,
+                        height,
+                        view,
+                        highest_qc.clone(),
+                        locked_qc.clone(),
+                    )
+                })
+                .collect(),
+        )
+        .expect("scoped AFT timeout certificate with safe state")
+    }
+
+    fn timeout_certificate_with_signers_and_safe_state(
+        &self,
+        scope: AftFallbackScopeV1,
+        height: u64,
+        view: u64,
+        signers: &[usize],
+        highest_qc: QuorumCertificate,
+        locked_qc: QuorumCertificate,
+    ) -> AftTimeoutCertificateV1 {
+        AftTimeoutCertificateV1::new(
+            scope,
+            height,
+            view,
+            signers
+                .iter()
+                .map(|index| {
+                    self.signed_aft_timeout_with_safe_state(
+                        *index,
+                        scope,
+                        height,
+                        view,
+                        highest_qc.clone(),
+                        locked_qc.clone(),
+                    )
+                })
+                .collect(),
+        )
+        .expect("scoped AFT timeout certificate with selected signers")
+    }
+
+    fn signed_vote(
+        &self,
+        index: usize,
+        height: u64,
+        view: u64,
+        block_hash: [u8; 32],
+    ) -> ConsensusVote {
+        let preimage =
+            authenticated_quorum::consensus_vote_signing_bytes(height, view, &block_hash)
+                .expect("vote preimage");
+        ConsensusVote {
+            height,
+            view,
+            block_hash,
+            voter: self.account_id(index),
+            signature: self.keypairs[index]
+                .sign(&preimage)
+                .expect("sign ML-DSA vote")
+                .to_bytes(),
+        }
+    }
+
+    fn signed_qc(&self, height: u64, view: u64, block_hash: [u8; 32]) -> QuorumCertificate {
+        QuorumCertificate {
+            height,
+            view,
+            block_hash,
+            signatures: (0..3)
+                .map(|index| {
+                    let vote = self.signed_vote(index, height, view, block_hash);
+                    (vote.voter, vote.signature)
+                })
+                .collect(),
+            aggregated_signature: Vec::new(),
+            signers_bitfield: Vec::new(),
+        }
+    }
+}
+
 fn build_parent_view_with_asymptote_observers(
     committee_manifest: &GuardianCommitteeManifest,
     log_descriptors: &[GuardianTransparencyLogDescriptor],
@@ -951,6 +1204,7 @@ fn build_progress_parent_header(height: u64, view: u64) -> BlockHeader {
         canonical_collapse_extension_certificate: None,
         publication_frontier: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         signature: vec![height as u8 + 34; 64],
     }
 }

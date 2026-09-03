@@ -3,7 +3,7 @@ name = "ioi-finality"
 version = "0.1.0"
 edition = "2021"
 license.workspace = true
-description = "Source-neutral ReceiptCheckpoint v2 emission and offline verification with fail-closed profile support."
+description = "Source-neutral finality evidence and externally rooted portable AFT assurance verification."
 
 [dependencies]
 base64 = { workspace = true }
@@ -17,9 +17,16 @@ serde_jcs = { workspace = true }
 sha2 = "0.10"
 thiserror = { workspace = true }
 
+[features]
+default = []
+portable-assurance = ["ioi-crypto/aft-terminal-seals"]
+
 [dev-dependencies]
 tempfile = { workspace = true }
+ml-dsa = "=0.1.1"
+slh-dsa = { workspace = true }
 
 [[bin]]
 name = "ioi-receipt-proof-verify"
 path = "src/main.rs"
+required-features = ["portable-assurance"]

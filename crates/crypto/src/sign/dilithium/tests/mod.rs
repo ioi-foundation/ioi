@@ -1,5 +1,71 @@
 // Path: crates/crypto/src/sign/dilithium/tests/mod.rs
 use super::*;
+use dcrypt::sign::mldsa::{
+    MlDsa44 as DcryptMlDsa44, MlDsaPublicKey as DcryptMlDsaPublicKey,
+    MlDsaSignature as DcryptMlDsaSignature,
+};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AcvpSigVerTest {
+    tc_id: u64,
+    test_passed: bool,
+    pk: String,
+    mu: String,
+    signature: String,
+}
+
+#[derive(Deserialize)]
+struct AcvpSigVerFixture {
+    source: String,
+    source_commit: String,
+    revision: String,
+    #[serde(rename = "parameterSet")]
+    parameter_set: String,
+    #[serde(rename = "signatureInterface")]
+    signature_interface: String,
+    test: AcvpSigVerTest,
+}
+
+#[test]
+fn nist_acvp_fips204_mldsa44_internal_sigver_tc91() {
+    let fixture: AcvpSigVerFixture =
+        serde_json::from_str(include_str!("vectors/nist_acvp_mldsa44_sigver_tc91.json"))
+            .expect("checked-in NIST ACVP fixture must parse");
+
+    assert_eq!(fixture.source, "NIST ACVP-Server");
+    assert_eq!(
+        fixture.source_commit,
+        "975de31eb83d87039ec88934fdc47d8c312b892d"
+    );
+    assert_eq!(fixture.revision, "FIPS204");
+    assert_eq!(fixture.parameter_set, "ML-DSA-44");
+    assert_eq!(fixture.signature_interface, "internal");
+    assert_eq!(fixture.test.tc_id, 91);
+    assert!(fixture.test.test_passed);
+
+    let public_key = DcryptMlDsaPublicKey::from_bytes(
+        &hex::decode(&fixture.test.pk).expect("ACVP public key is hex"),
+    )
+    .expect("ACVP public key must decode");
+    let signature_bytes = hex::decode(&fixture.test.signature).expect("ACVP signature is hex");
+    let signature = DcryptMlDsaSignature::from_bytes(&signature_bytes)
+        .expect("ACVP signature must be canonical");
+    let mu: [u8; 64] = hex::decode(&fixture.test.mu)
+        .expect("ACVP mu is hex")
+        .try_into()
+        .expect("ACVP mu must be 64 bytes");
+
+    DcryptMlDsa44::verify_mu(&mu, &signature, &public_key)
+        .expect("official valid FIPS 204 vector must verify");
+
+    let mut corrupted = signature_bytes;
+    corrupted[0] ^= 1;
+    let corrupted = DcryptMlDsaSignature::from_bytes(&corrupted)
+        .expect("commitment corruption remains structurally canonical");
+    assert!(DcryptMlDsa44::verify_mu(&mu, &corrupted, &public_key).is_err());
+}
 
 #[test]
 fn test_dilithium_level2_sign_verify() {
@@ -76,6 +142,19 @@ fn test_signature_serialization() {
 
     // Verify with restored signature
     assert!(keypair.public_key().verify(message, &sig_restored).is_ok());
+}
+
+#[test]
+fn signature_deserialization_rejects_noncanonical_hint_encoding() {
+    // ML-DSA-44 signatures end in 80 hint indices followed by four cumulative
+    // boundaries. Repeated indices inside one polynomial are non-canonical.
+    let mut encoded = vec![0u8; 2420];
+    let hint_offset = 32 + 4 * 576;
+    encoded[hint_offset] = 7;
+    encoded[hint_offset + 1] = 7;
+    encoded[hint_offset + 80] = 2;
+
+    assert!(MldsaSignature::from_bytes(&encoded).is_err());
 }
 
 #[test]

@@ -1,6 +1,7 @@
 // Path: crates/consensus/src/aft/guardian_majority/mod.rs
 
 use crate::aft::authenticated_quorum::{self, AftFinalizedQuorumEvent, ValidatorKeyRegistry};
+use crate::aft::hash_async::verify_async_parent_proof;
 use crate::common::penalty::apply_quarantine_penalty;
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};
 use async_trait::async_trait;
@@ -9,13 +10,16 @@ use ioi_api::commitment::CommitmentScheme;
 use ioi_api::consensus::{
     CanonicalCollapseContinuityVerifier, ConsensusControl, NativeAftFinalizedEvidence,
 };
+use ioi_api::crypto::{SerializableKey, VerifyingKey};
 use ioi_api::state::{StateAccess, StateManager};
+use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
 use ioi_crypto::sign::guardian_committee::{verify_quorum_certificate, verify_witness_certificate};
 use ioi_crypto::sign::guardian_log::{
     canonical_log_leaf_hash, verify_checkpoint_proof, verify_checkpoint_signature,
 };
 use ioi_system::SystemState;
 use ioi_types::app::{
+    account_id_from_key_material, aft_async_canonical_parent_reference,
     aft_bulletin_availability_certificate_key, aft_bulletin_commitment_key,
     aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
     aft_canonical_order_abort_key, aft_publication_frontier_contradiction_key,
@@ -46,8 +50,10 @@ use ioi_types::app::{
     timestamp_millis_to_legacy_seconds, to_root_hash,
     verify_block_header_canonical_collapse_evidence, verify_canonical_collapse_continuity,
     verify_canonical_order_certificate, verify_publication_frontier_binding,
-    verify_publication_frontier_chain, AccountId, AftRecoveredCertifiedHeaderEntry,
-    AftRecoveredConsensusHeaderEntry, AftRecoveredRestartHeaderEntry, AsymptoteObserverAssignment,
+    verify_publication_frontier_chain, AccountId, AftAsyncInstanceV1, AftAsyncParentProofV1,
+    AftFallbackScopeV1, AftFallbackTriggerCertificateV1, AftRecoveredCertifiedHeaderEntry,
+    AftRecoveredConsensusHeaderEntry, AftRecoveredRestartHeaderEntry, AftTimeoutCertificateV1,
+    AftTimeoutSafeStateV1, AftTimeoutVoteV1, AsymptoteObserverAssignment,
     AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate,
     AsymptoteObserverChallengeKind, AsymptoteObserverObservationRequest,
     AsymptoteObserverSealingMode, AsymptoteObserverStatement, AsymptoteObserverTranscript,
@@ -56,13 +62,14 @@ use ioi_types::app::{
     CanonicalBulletinClose, CanonicalCollapseContinuityProofSystem,
     CanonicalCollapseExtensionCertificate, CanonicalCollapseKind, CanonicalCollapseObject,
     CanonicalOrderAbort, CanonicalOrderingCollapse, ChainStatus, ChainTransaction, CollapseState,
-    ConsensusVote, EchoMessage, FailureReport, FinalityTier, GuardianCommitteeManifest,
-    GuardianDecision, GuardianDecisionDomain, GuardianLogCheckpoint, GuardianQuorumCertificate,
-    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed,
-    GuardianWitnessSet, GuardianWitnessStatement, ProofOfDivergence, PublicationFrontier,
-    PublicationFrontierContradiction, QuorumCertificate, RecoveredCanonicalHeaderEntry,
-    RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry, TimeoutCertificate,
-    ValidatorSetV1, ValidatorSetsV1, ViewChangeVote,
+    ConsensusVote, EchoMessage, FailureReport, FallbackStartCertificateV1, FinalityTier,
+    GuardianCommitteeManifest, GuardianDecision, GuardianDecisionDomain, GuardianLogCheckpoint,
+    GuardianQuorumCertificate, GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
+    GuardianWitnessEpochSeed, GuardianWitnessSet, GuardianWitnessStatement, ProofOfDivergence,
+    PublicationFrontier, PublicationFrontierContradiction, QuorumCertificate,
+    RecoveredCanonicalHeaderEntry, RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry,
+    SignatureSuite, TimeoutCertificate, ValidatorSetV1, ValidatorSetsV1, ViewChangeVote,
+    AFT_FALLBACK_TRIGGER_VIEW_V1,
 };
 use ioi_types::codec;
 use ioi_types::config::AftSafetyMode;
@@ -84,10 +91,10 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use zk_driver_succinct::SuccinctDriver;
 
-pub mod aggregator;
 mod collapse_verification;
 pub mod divergence;
 mod engine;
+mod fallback_state;
 #[cfg(test)]
 mod network_simulator;
 pub mod pacemaker;
@@ -145,14 +152,12 @@ impl MirrorStats {
 /// Verifies the block producer's signature against the Oracle-anchored extended payload.
 fn verify_guardian_signature(
     preimage: &[u8],
+    suite: ioi_types::app::SignatureSuite,
     public_key: &[u8],
     signature: &[u8],
     oracle_counter: u64,
     oracle_trace: &[u8; 32],
 ) -> Result<(), ConsensusError> {
-    let pk =
-        PublicKey::try_decode_protobuf(public_key).map_err(|_| ConsensusError::InvalidSignature)?;
-
     let header_hash = ioi_crypto::algorithms::hash::sha256(preimage).map_err(|e| {
         warn!("Failed to hash header preimage: {}", e);
         ConsensusError::InvalidSignature
@@ -163,10 +168,26 @@ fn verify_guardian_signature(
     signed_payload.extend_from_slice(&oracle_counter.to_be_bytes());
     signed_payload.extend_from_slice(oracle_trace);
 
-    if pk.verify(&signed_payload, signature) {
-        Ok(())
-    } else {
-        Err(ConsensusError::InvalidSignature)
+    match suite {
+        ioi_types::app::SignatureSuite::ED25519 => {
+            let pk = PublicKey::try_decode_protobuf(public_key)
+                .map_err(|_| ConsensusError::InvalidSignature)?;
+            pk.verify(&signed_payload, signature)
+                .then_some(())
+                .ok_or(ConsensusError::InvalidSignature)
+        }
+        ioi_types::app::SignatureSuite::ML_DSA_44 => {
+            if public_key.len() != 1312 {
+                return Err(ConsensusError::InvalidSignature);
+            }
+            let pk = MldsaPublicKey::from_bytes(public_key)
+                .map_err(|_| ConsensusError::InvalidSignature)?;
+            let signature = MldsaSignature::from_bytes(signature)
+                .map_err(|_| ConsensusError::InvalidSignature)?;
+            pk.verify(&signed_payload, &signature)
+                .map_err(|_| ConsensusError::InvalidSignature)
+        }
+        _ => Err(ConsensusError::InvalidSignature),
     }
 }
 
@@ -184,17 +205,40 @@ fn verify_sealed_finality_proof_signature(
             "sealed finality proof signer does not match the block producer".into(),
         ));
     }
-    let pk = PublicKey::try_decode_protobuf(&proof.proof_signature.public_key)
-        .map_err(|_| ConsensusError::InvalidSignature)?;
+    if proof.proof_signature.suite != header.producer_key_suite {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "sealed finality proof signer suite does not match the block producer".into(),
+        ));
+    }
     let sign_bytes = canonical_sealed_finality_proof_signing_bytes(proof)
         .map_err(ConsensusError::BlockVerificationFailed)?;
-    if pk.verify(&sign_bytes, &proof.proof_signature.signature) {
-        Ok(())
-    } else {
-        Err(ConsensusError::BlockVerificationFailed(
-            "sealed finality proof producer signature is invalid".into(),
-        ))
+    let valid = match header.producer_key_suite {
+        ioi_types::app::SignatureSuite::ED25519 => {
+            PublicKey::try_decode_protobuf(&proof.proof_signature.public_key)
+                .map(|key| key.verify(&sign_bytes, &proof.proof_signature.signature))
+                .unwrap_or(false)
+        }
+        ioi_types::app::SignatureSuite::ML_DSA_44 => {
+            if proof.proof_signature.public_key.len() != 1312 {
+                false
+            } else {
+                MldsaPublicKey::from_bytes(&proof.proof_signature.public_key)
+                    .and_then(|key| {
+                        MldsaSignature::from_bytes(&proof.proof_signature.signature)
+                            .and_then(|signature| key.verify(&sign_bytes, &signature))
+                    })
+                    .is_ok()
+            }
+        }
+        _ => false,
+    };
+    if !valid {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "sealed finality proof producer signature is invalid or uses an unsupported suite"
+                .into(),
+        ));
     }
+    Ok(())
 }
 
 /// The Aft deterministic Consensus Engine.
@@ -211,12 +255,48 @@ pub struct GuardianMajorityEngine {
     /// Tracks view change votes received.
     view_votes: HashMap<u64, HashMap<u64, HashMap<AccountId, ViewChangeVote>>>,
 
+    /// Configuration-scoped timeout votes for the normative PQ profile.
+    aft_timeout_votes: HashMap<u64, HashMap<u64, HashMap<AccountId, AftTimeoutVoteV1>>>,
+
     /// Tracks if we have already formed a TC for a (height, view).
     tc_formed: HashSet<(u64, u64)>,
 
-    /// Tracks local timeout votes already emitted for a target (height, view).
-    /// A local timeout should request a new view once, then wait for a TC.
-    timeout_votes_sent: HashSet<(u64, u64)>,
+    /// Newly authenticated timeout certificates awaiting prompt relay.
+    pending_tc_broadcasts: VecDeque<TimeoutCertificate>,
+
+    /// Newly authenticated normative PQ timeout certificates awaiting relay.
+    pending_aft_tc_broadcasts: VecDeque<AftTimeoutCertificateV1>,
+
+    /// Deduplicates timeout-certificate relay by its authority coordinate.
+    announced_tcs: HashSet<(u64, u64)>,
+
+    /// Deduplicates scoped timeout-certificate relay by authority coordinate.
+    announced_aft_tcs: HashSet<(AftFallbackScopeV1, u64, u64)>,
+
+    /// Active configuration scope for optimistic-to-asynchronous transitions.
+    fallback_scope: Option<AftFallbackScopeV1>,
+
+    /// Crash-safe journal. Normative PQ AFT refuses to transition without it.
+    fallback_journal: Option<fallback_state::FallbackJournal>,
+
+    /// One durable transition per height, keyed independently of arrival order.
+    fallback_starts: BTreeMap<u64, FallbackStartCertificateV1>,
+
+    /// Fully verified asynchronous predecessor authority, kept separate from
+    /// the canonical empty-signature QC reference placed in child headers.
+    /// The reference is never usable without the corresponding typed proof.
+    async_parent_proofs: BTreeMap<u64, AftAsyncParentProofV1>,
+
+    /// Newly persisted fallback transitions awaiting prompt relay.
+    pending_fallback_broadcasts: VecDeque<FallbackStartCertificateV1>,
+
+    /// Deduplicates fallback relay by deterministic instance id.
+    announced_fallback_instances: HashSet<[u8; 32]>,
+
+    /// Tracks when local timeout evidence was last handed to transport for a
+    /// target (height, view). The same signed vote is periodically re-relayed
+    /// until a TC forms, covering peer enrollment and reconnect races.
+    timeout_votes_sent: HashMap<(u64, u64), Instant>,
 
     /// Height whose view the pacemaker currently tracks.
     ///

@@ -211,9 +211,26 @@ fn checkout_source_revision() -> Option<String> {
         return None;
     }
     let mut worktree = git_stdout(&["diff", "HEAD", "--binary"])?;
-    // Untracked files can carry a whole module; `--porcelain` names them, and
-    // naming them is enough to invalidate a reused binary set.
+    // Untracked files can carry a whole module. Hash their bytes as well as
+    // their names: `status --porcelain` alone changes only when a path first
+    // appears, so subsequent edits to a new module would otherwise reuse stale
+    // node binaries while recording them as current evidence.
     worktree.extend_from_slice(&git_stdout(&["status", "--porcelain"])?);
+    let untracked = String::from_utf8(git_stdout(&[
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "-z",
+    ])?)
+    .ok()?;
+    for relative in untracked.split('\0').filter(|path| !path.is_empty()) {
+        let bytes = std::fs::read(super::build::workspace_root().join(relative)).ok()?;
+        worktree.extend_from_slice(b"\0untracked-path\0");
+        worktree.extend_from_slice(&(relative.len() as u64).to_le_bytes());
+        worktree.extend_from_slice(relative.as_bytes());
+        worktree.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+        worktree.extend_from_slice(&bytes);
+    }
     if worktree.is_empty() {
         return Some(head);
     }
@@ -484,6 +501,7 @@ impl TestValidator {
     #[allow(clippy::too_many_arguments)]
     pub async fn launch(
         keypair: identity::Keypair,
+        pqc_keypair_override: Option<MldsaKeyPair>,
         genesis_content: String,
         base_port: u16,
         port_reservations: Vec<std::net::TcpListener>,
@@ -553,6 +571,12 @@ impl TestValidator {
                 "build",
                 "-p",
                 "ioi-node",
+                "--bin",
+                "orchestration",
+                "--bin",
+                "workload",
+                "--bin",
+                "guardian",
                 "--no-default-features",
                 "--features",
                 &features,
@@ -619,6 +643,8 @@ impl TestValidator {
                 MldsaKeyPair::from_bytes(&hex::decode(public_hex)?, &hex::decode(private_hex)?)
                     .map_err(|error| anyhow!(error.to_string()))?,
             )
+        } else if let Some(keypair) = pqc_keypair_override {
+            Some(keypair)
         } else {
             Some(MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2).generate_keypair())
                 .transpose()?
@@ -742,6 +768,18 @@ impl TestValidator {
             consensus_type: consensus_enum,
             finality_profile: None,
             aft_safety_mode,
+            aft_pq_outbox_dir: Some(
+                config_dir_path
+                    .join("aft-pq-outbox")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+            aft_external_anchor_dir: Some(
+                config_dir_path
+                    .join("aft-external-anchors")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
             guardian_production_mode: Default::default(),
             key_authority: None,
             rpc_listen_address: if use_docker {

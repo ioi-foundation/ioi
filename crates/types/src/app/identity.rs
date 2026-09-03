@@ -122,6 +122,10 @@ impl SignatureSuite {
     /// Private range identifier.
     pub const BLS12_381: Self = Self(-300);
 
+    /// SLH-DSA-SHA2-128s (FIPS 205) for AFT terminal seal shares.
+    /// `-301` is an IOI-private wire identifier, not an IANA assignment.
+    pub const SLH_DSA_SHA2_128S: Self = Self(-301);
+
     /// Hybrid Scheme: Ed25519 + ML-DSA-44.
     /// Concatenated Public Keys and Signatures.
     /// Private range ID.
@@ -131,7 +135,10 @@ impl SignatureSuite {
     pub fn is_post_quantum(&self) -> bool {
         matches!(
             *self,
-            Self::ML_DSA_44 | Self::FALCON_512 | Self::HYBRID_ED25519_ML_DSA_44
+            Self::ML_DSA_44
+                | Self::FALCON_512
+                | Self::HYBRID_ED25519_ML_DSA_44
+                | Self::SLH_DSA_SHA2_128S
         )
     }
 }

@@ -1,12 +1,249 @@
 use super::{
-    format_proposal_wait_line, parse_failed_tx_index, required_aft_bootstrap_peer_count,
-    resolve_ordering_cadence, retain_nonce_heads_for_canonical_order,
-    workload_tip_requires_hydration, BENCH_PROPOSAL_WAIT_TAG,
+    forced_hash_fallback_spec_matches, format_proposal_wait_line, parse_failed_tx_index,
+    required_aft_bootstrap_peer_count, resolve_ordering_cadence,
+    retain_nonce_heads_for_canonical_order, should_rebroadcast_pending_aft_proposal,
+    tip_vote_replay_backoff, workload_tip_requires_hydration, BENCH_PROPOSAL_WAIT_TAG,
 };
+use ioi_api::crypto::{SerializableKey, SigningKeyPair, VerifyingKey};
+use ioi_crypto::security::SecurityLevel;
+use ioi_crypto::sign::dilithium::{MldsaScheme, MldsaSignature};
 use ioi_types::app::{
-    AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
-    SystemPayload, SystemTransaction,
+    account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
+    SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
+    ValidatorV1,
 };
+use ioi_types::config::ConsensusType;
+
+#[test]
+fn forced_hash_fallback_fault_spec_is_exact_and_bounded() {
+    assert!(forced_hash_fallback_spec_matches(
+        Some("1"),
+        Some("4"),
+        Some("3"),
+        4,
+        2
+    ));
+    assert!(!forced_hash_fallback_spec_matches(
+        Some("0"),
+        Some("4"),
+        Some("3"),
+        4,
+        2
+    ));
+    assert!(!forced_hash_fallback_spec_matches(
+        Some("1"),
+        Some("5"),
+        Some("3"),
+        4,
+        2
+    ));
+    assert!(!forced_hash_fallback_spec_matches(
+        Some("1"),
+        Some("4"),
+        Some("3"),
+        4,
+        3
+    ));
+    assert!(!forced_hash_fallback_spec_matches(
+        Some("1"),
+        Some("not-a-height"),
+        Some("3"),
+        4,
+        0
+    ));
+}
+
+#[test]
+fn pending_aft_proposal_rebroadcast_is_producer_owned() {
+    let producer = AccountId([0x11; 32]);
+    let follower = AccountId([0x22; 32]);
+
+    assert!(should_rebroadcast_pending_aft_proposal(
+        ConsensusType::Aft,
+        true,
+        8,
+        7,
+        producer,
+        producer,
+    ));
+    assert!(!should_rebroadcast_pending_aft_proposal(
+        ConsensusType::Aft,
+        true,
+        8,
+        7,
+        follower,
+        producer,
+    ));
+    assert!(!should_rebroadcast_pending_aft_proposal(
+        ConsensusType::Aft,
+        true,
+        8,
+        8,
+        producer,
+        producer,
+    ));
+    assert!(!should_rebroadcast_pending_aft_proposal(
+        ConsensusType::Solo,
+        true,
+        8,
+        7,
+        producer,
+        producer,
+    ));
+}
+
+#[test]
+fn strict_pq_vote_replay_has_bounded_cadence() {
+    assert_eq!(
+        tip_vote_replay_backoff(SignatureSuite::ML_DSA_44),
+        std::time::Duration::from_secs(5)
+    );
+    assert_eq!(
+        tip_vote_replay_backoff(SignatureSuite::ED25519),
+        std::time::Duration::from_millis(750)
+    );
+}
+
+#[test]
+fn rooted_validator_record_selects_ml_dsa_vote_signer() {
+    let ed25519 = libp2p::identity::Keypair::generate_ed25519();
+    let ml_dsa = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let ml_public = ml_dsa.public_key().to_bytes();
+    let ml_hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &ml_public).unwrap();
+    let stable_account = AccountId([0x42; 32]);
+    let set = ValidatorSetV1 {
+        effective_from_height: 7,
+        total_weight: 1,
+        validators: vec![ValidatorV1 {
+            account_id: stable_account,
+            weight: 1,
+            consensus_key: ActiveKeyRecord {
+                suite: SignatureSuite::ML_DSA_44,
+                public_key_hash: ml_hash,
+                since_height: 7,
+            },
+        }],
+    };
+
+    let (account, signer) =
+        super::super::select_local_aft_vote_signer(&set, 7, &ed25519, Some(&ml_dsa)).unwrap();
+    assert_eq!(account, stable_account);
+    assert_eq!(signer.suite(), SignatureSuite::ML_DSA_44);
+    let message = b"rooted ML-DSA vote signer";
+    let signature = MldsaSignature::from_bytes(&signer.sign(message).unwrap()).unwrap();
+    ml_dsa.public_key().verify(message, &signature).unwrap();
+}
+
+#[test]
+fn uniform_ml_dsa_set_builds_rooted_pq_channel_configuration() {
+    let local = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let remote = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let local_hash =
+        account_id_from_key_material(SignatureSuite::ML_DSA_44, &local.public_key().to_bytes())
+            .unwrap();
+    let remote_hash =
+        account_id_from_key_material(SignatureSuite::ML_DSA_44, &remote.public_key().to_bytes())
+            .unwrap();
+    let local_account = AccountId([0x31; 32]);
+    let remote_account = AccountId([0x32; 32]);
+    let set = ValidatorSetV1 {
+        effective_from_height: 9,
+        total_weight: 2,
+        validators: vec![
+            ValidatorV1 {
+                account_id: local_account,
+                weight: 1,
+                consensus_key: ActiveKeyRecord {
+                    suite: SignatureSuite::ML_DSA_44,
+                    public_key_hash: local_hash,
+                    since_height: 9,
+                },
+            },
+            ValidatorV1 {
+                account_id: remote_account,
+                weight: 1,
+                consensus_key: ActiveKeyRecord {
+                    suite: SignatureSuite::ML_DSA_44,
+                    public_key_hash: remote_hash,
+                    since_height: 9,
+                },
+            },
+        ],
+    };
+    let peer_id = libp2p::identity::Keypair::generate_ed25519()
+        .public()
+        .to_peer_id();
+    let configured = super::super::build_aft_pq_channel_configuration(
+        &set,
+        9,
+        [0x44; 32],
+        peer_id,
+        Some(&local),
+        Some("/tmp/ioi-aft-pq-channel-test"),
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(configured.local.account_id, local_account);
+    assert_eq!(configured.local.identity_key_hash, local_hash);
+    assert_eq!(configured.local.epoch, 9);
+    assert_eq!(
+        configured.peer_keys.get(&remote_account),
+        Some(&remote_hash)
+    );
+}
+
+#[test]
+fn mixed_or_unenrolled_pq_channel_configuration_fails_closed() {
+    let local = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let local_hash =
+        account_id_from_key_material(SignatureSuite::ML_DSA_44, &local.public_key().to_bytes())
+            .unwrap();
+    let peer_id = libp2p::identity::Keypair::generate_ed25519()
+        .public()
+        .to_peer_id();
+    let mut set = ValidatorSetV1 {
+        effective_from_height: 4,
+        total_weight: 1,
+        validators: vec![ValidatorV1 {
+            account_id: AccountId([0x41; 32]),
+            weight: 1,
+            consensus_key: ActiveKeyRecord {
+                suite: SignatureSuite::ML_DSA_44,
+                public_key_hash: local_hash,
+                since_height: 4,
+            },
+        }],
+    };
+    assert!(super::super::build_aft_pq_channel_configuration(
+        &set,
+        4,
+        [0x55; 32],
+        peer_id,
+        None,
+        Some("/tmp/ioi-aft-pq-channel-test"),
+    )
+    .is_err());
+
+    set.validators[0].consensus_key.suite = SignatureSuite::ED25519;
+    assert!(super::super::build_aft_pq_channel_configuration(
+        &set,
+        4,
+        [0x55; 32],
+        peer_id,
+        Some(&local),
+        Some("/tmp/ioi-aft-pq-channel-test"),
+    )
+    .unwrap()
+    .is_none());
+}
 
 fn system_tx(account_id: AccountId, nonce: u64) -> ChainTransaction {
     ChainTransaction::System(Box::new(SystemTransaction {

@@ -84,6 +84,7 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
     let mut port_block = reserve_free_validator_ports()?;
     let node_guard = TestValidator::launch(
         keypair,
+        None,
         genesis_content,
         port_block.base_port,
         port_block.take_reservations(),

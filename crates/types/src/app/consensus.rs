@@ -37,6 +37,21 @@ mod collapse {
     include!("consensus/collapse.rs");
 }
 
+mod seal_shares {
+    use super::*;
+    include!("consensus/seal_shares.rs");
+}
+
+mod fallback {
+    use super::*;
+    include!("consensus/fallback.rs");
+}
+
+mod async_fallback {
+    use super::*;
+    include!("consensus/async_fallback.rs");
+}
+
 #[cfg(test)]
 #[path = "consensus/tests.rs"]
 mod tests;
@@ -54,7 +69,10 @@ use collapse::{
 };
 
 pub use artifacts::*;
+pub use async_fallback::*;
 pub use collapse::*;
+pub use fallback::*;
 pub use messages::*;
+pub use seal_shares::*;
 pub use state_keys::*;
 pub use validator_sets::*;

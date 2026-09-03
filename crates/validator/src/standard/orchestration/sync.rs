@@ -12,7 +12,7 @@ use ioi_api::{
     consensus::ConsensusEngine,
     state::{StateManager, Verifier},
 };
-use ioi_networking::libp2p::{SwarmCommand, SyncResponse};
+use ioi_networking::libp2p::{pq_channel::PqPeerEnrollment, SwarmCommand, SyncResponse};
 use ioi_networking::traits::NodeState;
 use ioi_types::app::{Block, ChainTransaction};
 use ioi_types::config::RuntimeFinalityProfile;
@@ -89,6 +89,25 @@ where
         + 'static
         + Debug,
 {
+    if crate::standard::testing_trivial_aft_restart_anchor_enabled() {
+        // The opt-in stable-state test harness reopens the raw durable AFT
+        // projection because it has no canonical-collapse artifacts. Keep its
+        // catch-up cursor on that same explicitly selected truth surface. If we
+        // instead start at Agentgres' intentionally older admitted height, sync
+        // replays already recovered blocks through runtime-finality admission
+        // before it reaches the genuinely missing suffix.
+        //
+        // Production never enables this flag and therefore continues to use
+        // the fail-closed Agentgres floor below.
+        return Some(
+            context
+                .last_executed_block
+                .as_ref()
+                .map(|block| block.header.height)
+                .unwrap_or(0),
+        );
+    }
+
     match super::runtime_finality::agentgres_admitted_height(context).await {
         Ok(height) => Some(height),
         Err(error) => {
@@ -201,6 +220,7 @@ pub async fn start_catchup_to_peer<CS, ST, CE, V>(
         inflight: false,
         req_id: 0,
         requested_at: Instant::now(),
+        retry_not_before: None,
     });
     request_next_batch(context).await;
 }
@@ -229,28 +249,47 @@ pub async fn handle_status_request<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let (height, head_hash, chain_id) = {
-        let chain = context.chain_ref.lock().await;
-        let status = (*chain).status();
-        let head_hash = (*chain)
-            .get_block(status.height)
-            .and_then(|b| b.header.hash().ok())
-            .and_then(|h| h.try_into().ok())
-            .unwrap_or([0; 32]);
-        (status.height, head_hash, context.chain_id)
-    };
+    let (height, head_hash, chain_id) =
+        if crate::standard::testing_trivial_aft_restart_anchor_enabled() {
+            // The stable-state GuardianMajority/ClassicBFT harness has no sealed
+            // collapse objects from which to reconstruct a production recovery
+            // boundary.  It deliberately reopens the raw durable projection, so
+            // its peer-facing test surface must advertise that same projection or
+            // every restarted node reports height zero and catch-up cannot begin.
+            // Received blocks still traverse the normal signature, QC, execution,
+            // and bounded-replacement checks; this branch grants no authority and
+            // is unreachable unless the testing-only resume flag is injected.
+            let tip = context.last_executed_block.as_ref();
+            let height = tip.map(|block| block.header.height).unwrap_or(0);
+            let head_hash = tip
+                .and_then(|block| block.header.hash().ok())
+                .and_then(|hash| hash.try_into().ok())
+                .unwrap_or([0; 32]);
+            (height, head_hash, context.chain_id)
+        } else {
+            let chain = context.chain_ref.lock().await;
+            let status = (*chain).status();
+            let head_hash = (*chain)
+                .get_block(status.height)
+                .and_then(|b| b.header.hash().ok())
+                .and_then(|h| h.try_into().ok())
+                .unwrap_or([0; 32]);
+            (status.height, head_hash, context.chain_id)
+        };
     let genesis_root = context
         .view_resolver
         .genesis_root()
         .await
         .unwrap_or_default();
-    let validator_account_id = Some(AccountId(
-        account_id_from_key_material(
-            SignatureSuite::ED25519,
-            &context.local_keypair.public().encode_protobuf(),
-        )
-        .unwrap_or_default(),
-    ));
+    let validator_account_id = context.local_validator_account_id.or_else(|| {
+        Some(AccountId(
+            account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &context.local_keypair.public().encode_protobuf(),
+            )
+            .unwrap_or_default(),
+        ))
+    });
     tracing::info!(
         target: "sync",
         %_peer,
@@ -301,7 +340,12 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let committed_tip = context.last_committed_block.as_ref();
+    let expose_test_projection = crate::standard::testing_trivial_aft_restart_anchor_enabled();
+    let committed_tip = if expose_test_projection {
+        context.last_executed_block.as_ref()
+    } else {
+        context.last_committed_block.as_ref()
+    };
     let committed_height = committed_tip.map(|block| block.header.height).unwrap_or(0);
     let committed_hash = committed_tip.and_then(|block| block.header.hash().ok());
     let mut blocks = context
@@ -329,7 +373,8 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
             committed_height,
             fetched_blocks,
             returned_blocks = blocks.len(),
-            "Withheld workload blocks that are not yet orchestration-committed."
+            expose_test_projection,
+            "Withheld workload blocks beyond the active sync-serving boundary."
         );
     }
     context
@@ -367,14 +412,6 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    if let Some(account_id) = validator_account_id {
-        context
-            .peer_accounts_ref
-            .lock()
-            .await
-            .insert(peer, account_id);
-    }
-
     let our_height = context
         .last_executed_block
         .as_ref()
@@ -396,24 +433,46 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         "Received status response."
     );
 
-    if let Some(sync_cursor) = sync_cursor {
-        let our_chain_id = context.chain_id;
-        let our_genesis_root = match context.view_resolver.genesis_root().await {
-            Ok(root) => root,
-            Err(_) => return,
-        };
-        if peer_chain_id != our_chain_id || peer_genesis_root != our_genesis_root {
-            log::warn!(
-                "Ignoring peer {} for sync due to chain identity mismatch. our_chain_id={} peer_chain_id={} our_genesis={} peer_genesis={}",
-                peer,
-                our_chain_id.0,
-                peer_chain_id.0,
-                hex::encode(&our_genesis_root[..4.min(our_genesis_root.len())]),
-                hex::encode(&peer_genesis_root[..4.min(peer_genesis_root.len())]),
-            );
-            return;
-        }
+    let our_genesis_root = match context.view_resolver.genesis_root().await {
+        Ok(root) => root,
+        Err(_) => return,
+    };
+    if peer_chain_id != context.chain_id || peer_genesis_root != our_genesis_root {
+        log::warn!(
+            "Ignoring peer {} due to chain identity mismatch. our_chain_id={} peer_chain_id={} our_genesis={} peer_genesis={}",
+            peer,
+            context.chain_id.0,
+            peer_chain_id.0,
+            hex::encode(&our_genesis_root[..4.min(our_genesis_root.len())]),
+            hex::encode(&peer_genesis_root[..4.min(peer_genesis_root.len())]),
+        );
+        return;
+    }
 
+    if let Some(account_id) = validator_account_id {
+        context
+            .peer_accounts_ref
+            .lock()
+            .await
+            .insert(peer, account_id);
+        if let Some(identity_key_hash) = context
+            .aft_pq_peer_keys
+            .as_ref()
+            .and_then(|keys| keys.get(&account_id))
+            .copied()
+        {
+            let _ = context
+                .swarm_commander
+                .send(SwarmCommand::EnrollPqPeer(PqPeerEnrollment {
+                    peer_id: peer,
+                    account_id,
+                    identity_key_hash,
+                }))
+                .await;
+        }
+    }
+
+    if let Some(sync_cursor) = sync_cursor {
         if let Some(progress) = context.sync_progress.as_mut() {
             if peer_height > progress.tip {
                 tracing::info!(
@@ -448,6 +507,7 @@ pub async fn handle_status_response<CS, ST, CE, V>(
                 inflight: false,
                 req_id: 0,
                 requested_at: Instant::now(),
+                retry_not_before: None,
             });
             request_next_batch(context).await;
         }
@@ -533,6 +593,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 inflight: false,
                 req_id: 0,
                 requested_at: Instant::now(),
+                retry_not_before: None,
             });
             blocks = sequential_blocks;
         } else {
@@ -1031,6 +1092,7 @@ async fn retry_sync_from_peer_set<CS, ST, CE, V>(
     let preferred_target = progress.target.filter(|peer| Some(*peer) != failed_peer);
     progress.inflight = false;
     progress.requested_at = Instant::now();
+    progress.retry_not_before = Instant::now().checked_add(std::time::Duration::from_millis(250));
 
     let fallback_target = {
         let known_peers = context.known_peers_ref.lock().await;
@@ -1119,6 +1181,12 @@ where
         if progress.inflight {
             return;
         }
+        if progress
+            .retry_not_before
+            .is_some_and(|not_before| Instant::now() < not_before)
+        {
+            return;
+        }
         let Some(target_peer) = progress.target else {
             return;
         };
@@ -1130,6 +1198,7 @@ where
             "Requesting next sync batch."
         );
         progress.inflight = true;
+        progress.retry_not_before = None;
         progress.req_id += 1;
         progress.requested_at = Instant::now();
         context
@@ -1229,7 +1298,7 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
         + Debug,
 {
     // Don't vote for Genesis (Height 0)
-    if block.header.height == 0 {
+    if block.header.height == 0 || block.header.signature.is_empty() {
         return;
     }
 

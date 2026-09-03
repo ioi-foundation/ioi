@@ -42,11 +42,14 @@ pub enum AssumptionId {
     A5,
     /// The deployed freshness anchor is live and unequivocating.
     A6,
-    /// Bond and slashing values are economically binding.
+    /// Proof-system soundness for succinct verification. Full replay uses
+    /// only A1; no economic claim is carried by this identifier.
     A7,
-    /// Custody storage integrity over the retention window.
+    /// Per-seal key evolution with verified immediate erasure: signing
+    /// material does not persist beyond its authorized slot.
     A8,
-    /// Physical-time drift bound for the VDF succession clock.
+    /// VDF sequentiality under a bounded, published adversary hardware
+    /// advantage wherever the legacy protocol reads objective ticks.
     A9,
     /// Succession-path observation (PROVISIONAL — no shipped profile may
     /// cite it while §16 is design-open).
@@ -98,6 +101,14 @@ pub struct AssumptionLabel {
 pub enum CertificateProfile {
     /// Live-tier quorum certificate (pairing/BLS-class aggregate).
     LiveQuorumCert,
+    /// Exact-geometry live quorum certificate with classical individual
+    /// signatures.
+    ClassicalSignedLiveQuorumCert,
+    /// Exact-geometry live quorum certificate with rooted PQ signatures.
+    PqLiveQuorumCert,
+    /// Hash-only asynchronous ordering/executed certificate chain with rooted
+    /// PQ authorization signatures.
+    HashAsyncOrderingCert,
     /// Guardian committee certificate bound to a proposal (ed25519).
     GuardianCommitteeCert,
     /// Witness certificate (witness-augmented lanes).
@@ -106,11 +117,15 @@ pub enum CertificateProfile {
     ObserverCert,
     /// Unanimous Boundary Close (n-of-n, attribution-preserving).
     UnanimousBoundaryClose,
+    /// Unanimous Boundary Close with a PQ signature chain.
+    PqUnanimousBoundaryClose,
     /// A UBC whose seal is additionally bound into the deployed
     /// freshness anchor. A single profile on purpose: a meet can only
     /// report the weakest constituent, so an UPGRADE (seal + anchor)
     /// must arrive as one certificate, never as a composition.
     AnchoredBoundaryClose,
+    /// Anchored unanimous close with a PQ signature chain.
+    PqAnchoredBoundaryClose,
     /// The labeled non-succinct reference continuity binding (HashPcdV1).
     /// Evidence-only: it binds history under A1; it finalizes nothing.
     HashPcdReference,
@@ -125,13 +140,18 @@ impl CertificateProfile {
     /// wildcard-free match is the completeness gate for labels; the
     /// `certificate_profile_all_is_exhaustive` test pins this list's
     /// length so a new variant must be added here too.
-    pub const ALL: [CertificateProfile; 8] = [
+    pub const ALL: [CertificateProfile; 13] = [
         CertificateProfile::LiveQuorumCert,
+        CertificateProfile::ClassicalSignedLiveQuorumCert,
+        CertificateProfile::PqLiveQuorumCert,
+        CertificateProfile::HashAsyncOrderingCert,
         CertificateProfile::GuardianCommitteeCert,
         CertificateProfile::WitnessCert,
         CertificateProfile::ObserverCert,
         CertificateProfile::UnanimousBoundaryClose,
+        CertificateProfile::PqUnanimousBoundaryClose,
         CertificateProfile::AnchoredBoundaryClose,
+        CertificateProfile::PqAnchoredBoundaryClose,
         CertificateProfile::HashPcdReference,
         CertificateProfile::RegenesisRoot,
     ];
@@ -148,6 +168,16 @@ pub fn label_of(profile: CertificateProfile) -> AssumptionLabel {
             assumes: BTreeSet::from([A1, A5]),
             // Pairing-based aggregate signatures: not post-quantum.
             pq: false,
+        },
+        ClassicalSignedLiveQuorumCert => AssumptionLabel {
+            finality_rank: Some(LiveTierBft),
+            assumes: BTreeSet::from([A1, A5]),
+            pq: false,
+        },
+        PqLiveQuorumCert | HashAsyncOrderingCert => AssumptionLabel {
+            finality_rank: Some(LiveTierBft),
+            assumes: BTreeSet::from([A1, A5]),
+            pq: true,
         },
         GuardianCommitteeCert => AssumptionLabel {
             finality_rank: Some(LiveTierBft),
@@ -170,10 +200,20 @@ pub fn label_of(profile: CertificateProfile) -> AssumptionLabel {
             assumes: BTreeSet::from([A1, A2, A3]),
             pq: false,
         },
+        PqUnanimousBoundaryClose => AssumptionLabel {
+            finality_rank: Some(SealedAllButOne),
+            assumes: BTreeSet::from([A1, A2, A3]),
+            pq: true,
+        },
         AnchoredBoundaryClose => AssumptionLabel {
             finality_rank: Some(SealedAnchored),
             assumes: BTreeSet::from([A1, A2, A3, A6]),
             pq: false,
+        },
+        PqAnchoredBoundaryClose => AssumptionLabel {
+            finality_rank: Some(SealedAnchored),
+            assumes: BTreeSet::from([A1, A2, A3, A6]),
+            pq: true,
         },
         HashPcdReference => AssumptionLabel {
             // Evidence-only: an honest hash binding under A1 — sound

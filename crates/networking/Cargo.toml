@@ -15,6 +15,7 @@ ioi-consensus = { path = "../consensus" }
 ioi-telemetry = { path = "../telemetry" }
 ioi-tx = { path = "../tx" }
 ioi-state = { path = "../state" }
+ioi-crypto = { path = "../crypto" }
 parity-scale-codec = { workspace = true, features = ["std"] }
 once_cell = { workspace = true }
 log = { workspace = true }
@@ -29,6 +30,10 @@ tokio = { workspace = true, features = ["full"] }
 libp2p = { workspace = true, features = ["ping"] }
 futures = { workspace = true }
 async-trait = { workspace = true }
+fs2 = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
 
 [features]
 default = []

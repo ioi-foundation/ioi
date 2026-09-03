@@ -549,6 +549,7 @@ pub fn recovered_restart_block_header_entry(
             sealed_finality_proof: None,
             canonical_order_certificate: Some(full_surface.canonical_order_certificate.clone()),
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             parent_qc: certified_header.certified_parent_quorum_certificate.clone(),
             previous_canonical_collapse_commitment_hash: certified_header
                 .header

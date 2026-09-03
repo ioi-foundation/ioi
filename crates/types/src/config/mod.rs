@@ -1205,6 +1205,17 @@ pub struct OrchestrationConfig {
     /// Safety mode for the Aft Fault Tolerance family.
     #[serde(default)]
     pub aft_safety_mode: AftSafetyMode,
+    /// Durable root for configuration-scoped protected-consensus outboxes.
+    /// Required when an all-ML-DSA AFT validator set enables strict PQ
+    /// channels; payload evidence is fsynced here before network issuance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aft_pq_outbox_dir: Option<String>,
+    /// Externally controlled monotone-anchor root for hash-asynchronous
+    /// journals and the shared optimistic/fallback signing fence. It must not
+    /// be included in clonable node snapshots or colocated with
+    /// `aft_pq_outbox_dir`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aft_external_anchor_dir: Option<String>,
     /// Guardianized signing / deployment profile.
     #[serde(default)]
     pub guardian_production_mode: GuardianProductionMode,

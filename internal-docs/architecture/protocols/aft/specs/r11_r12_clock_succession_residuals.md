@@ -135,8 +135,9 @@ responsive form.
 
 ## Claim-surface effects
 
-- The frontier-completeness flagship (P4.4) was already unreachable
-  this cycle (T5d withdrawn; RES-R10 open; three L-OPEN pairing rows).
+- The frontier-completeness flagship (P4.4) remains unreachable: responsive
+  T5d is refuted by L-S, and T8 is the one remaining `L-OPEN` pairing row.
+  RES-R10 closed on 2026-09-03 and is no longer one of those blockers.
   RES-R11 and RES-R12 add two more named gates to that list — nothing
   weakens, the gate list lengthens.
 - The interim conditional claim (whitepaper §5.3) is UNAFFECTED: it

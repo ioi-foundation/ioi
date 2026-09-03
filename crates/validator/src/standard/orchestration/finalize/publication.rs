@@ -1441,15 +1441,15 @@ pub(super) fn canonicalize_observer_sealed_finality_proof(
 
 pub(super) fn sign_sealed_finality_proof(
     proof: &mut SealedFinalityProof,
-    local_keypair: &libp2p::identity::Keypair,
+    vote_signer: &LocalAftVoteSigner,
 ) -> Result<()> {
     proof.proof_signature = SignatureProof::default();
     let sign_bytes =
         canonical_sealed_finality_proof_signing_bytes(proof).map_err(anyhow::Error::msg)?;
     proof.proof_signature = SignatureProof {
-        suite: SignatureSuite::ED25519,
-        public_key: local_keypair.public().encode_protobuf(),
-        signature: local_keypair.sign(&sign_bytes)?,
+        suite: vote_signer.suite(),
+        public_key: vote_signer.public_key(),
+        signature: vote_signer.sign(&sign_bytes)?,
     };
     Ok(())
 }

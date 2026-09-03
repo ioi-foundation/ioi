@@ -1,5 +1,8 @@
-//! AFT-CB R9 — signer hardening: attribution-preserving seal shares with
-//! per-seal key evolution and verified immediate erasure.
+//! AFT terminal-share signing and verification.
+//!
+//! The Ed25519 R9 implementation in this file is retained only as a legacy
+//! conformance reference. Production migration targets [`SealShareV2`], whose
+//! SLH-DSA key must match an enrolled configuration/key-root manifest.
 //!
 //! Every seal share is INDIVIDUALLY verifiable (the P2.6 wire
 //! discipline): a share carries its own per-seal public key and
@@ -33,7 +36,15 @@ use ioi_api::crypto::{SerializableKey, SigningKeyPair, VerifyingKey};
 use ioi_crypto::sign::eddsa::{
     Ed25519KeyPair, Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature,
 };
+use ioi_types::app::consensus::{
+    SealKeyBindingV1, SealKeyManifestV1, SealShareV2, AFT_SEAL_PROTOCOL_VERSION_V2,
+    AFT_SEAL_SHARE_SCHEMA_V2,
+};
 use ioi_types::error::CryptoError as TypesCryptoError;
+use rand::RngCore;
+use slh_dsa::signature::Signer;
+use slh_dsa::{Sha2_128s, Signature as SlhDsaSignature, SigningKey as SlhDsaSigningKey};
+use zeroize::Zeroizing;
 
 /// One attribution-preserving seal share: individually verifiable from
 /// its own contents plus the seal hash — no aggregate, no context.
@@ -88,6 +99,117 @@ pub fn verify_seal_share(share: &SealShare) -> Result<(), String> {
     public_key
         .verify(&message, &signature)
         .map_err(|e| e.to_string())
+}
+
+/// In-memory SLH-DSA key material used by the v2 signer state machine.
+///
+/// The selected provider zeroizes its secret seed and PRF material on drop.
+/// This type is deliberately not `Clone`; durable reservation and clone
+/// detection are implemented by the state store rather than by duplicating
+/// secret-bearing values.
+pub struct SlhDsaSealKeyPair {
+    signing_key: SlhDsaSigningKey<Sha2_128s>,
+}
+
+impl SlhDsaSealKeyPair {
+    /// Generates a fresh FIPS 205 SLH-DSA-SHA2-128s key using three
+    /// independently sampled 128-bit seeds.
+    pub fn generate() -> Self {
+        let mut sk_seed = [0u8; 16];
+        let mut sk_prf = [0u8; 16];
+        let mut pk_seed = [0u8; 16];
+        let mut rng = rand::rngs::OsRng;
+        rng.fill_bytes(&mut sk_seed);
+        rng.fill_bytes(&mut sk_prf);
+        rng.fill_bytes(&mut pk_seed);
+        let signing_key =
+            SlhDsaSigningKey::<Sha2_128s>::slh_keygen_internal(&sk_seed, &sk_prf, &pk_seed);
+        sk_seed.fill(0);
+        sk_prf.fill(0);
+        pk_seed.fill(0);
+        Self { signing_key }
+    }
+
+    /// Deterministically constructs key material for FIPS known-answer and
+    /// independent interoperability vectors.
+    pub fn from_seed_material(sk_seed: [u8; 16], sk_prf: [u8; 16], pk_seed: [u8; 16]) -> Self {
+        Self {
+            signing_key: SlhDsaSigningKey::<Sha2_128s>::slh_keygen_internal(
+                &sk_seed, &sk_prf, &pk_seed,
+            ),
+        }
+    }
+
+    /// Exact FIPS 205 public-key encoding committed by the configuration.
+    pub fn public_key_bytes(&self) -> Vec<u8> {
+        self.signing_key.as_ref().to_vec()
+    }
+
+    /// Reconstructs provider key material from the encrypted durable state.
+    pub fn from_secret_key_bytes(bytes: &[u8]) -> Result<Self, String> {
+        let signing_key = SlhDsaSigningKey::<Sha2_128s>::try_from(bytes)
+            .map_err(|_| "invalid SLH-DSA-SHA2-128s secret key".to_string())?;
+        Ok(Self { signing_key })
+    }
+
+    /// Serializes secret material only for immediate encrypted persistence.
+    /// The returned allocation zeroizes on drop.
+    pub fn secret_key_bytes(&self) -> Zeroizing<Vec<u8>> {
+        Zeroizing::new(self.signing_key.to_vec())
+    }
+
+    /// Constructs and signs one identity-, configuration-, domain-, slot-,
+    /// root-, suite-, and successor-bound v2 terminal share.
+    pub fn sign_share(
+        &self,
+        current_key: SealKeyBindingV1,
+        seal_slot: u64,
+        seal_root: [u8; 32],
+        next_key_commitment: [u8; 32],
+    ) -> Result<SealShareV2, String> {
+        if current_key.public_key != self.public_key_bytes() {
+            return Err("v2 signing key does not match the scheduled public key".into());
+        }
+        let mut share = SealShareV2 {
+            protocol_version: AFT_SEAL_PROTOCOL_VERSION_V2,
+            schema_version: AFT_SEAL_SHARE_SCHEMA_V2,
+            current_key,
+            seal_slot,
+            seal_root,
+            next_key_commitment,
+            signature: Vec::new(),
+        };
+        let message = share.signing_bytes()?;
+        let signature: SlhDsaSignature<Sha2_128s> = self
+            .signing_key
+            .try_sign(&message)
+            .map_err(|_| "SLH-DSA terminal signing failed".to_string())?;
+        share.signature = signature.to_vec();
+        share.validate_shape()?;
+        Ok(share)
+    }
+}
+
+mod state;
+pub use state::*;
+
+/// Verifies a v2 share only after its current public key matches the exact
+/// enrolled or predecessor-provided commitment supplied by the caller.
+pub fn verify_seal_share_v2(
+    share: &SealShareV2,
+    expected_key_commitment: [u8; 32],
+) -> Result<(), String> {
+    ioi_crypto::sign::slh_dsa::verify_seal_share_v2(share, expected_key_commitment)
+}
+
+/// Verifies the first v2 share for a scope against configuration-owned
+/// enrollment. There is intentionally no fallback to a key carried by an
+/// otherwise unrecognized share.
+pub fn verify_initial_seal_share_v2(
+    share: &SealShareV2,
+    manifest: &SealKeyManifestV1,
+) -> Result<(), String> {
+    ioi_crypto::sign::slh_dsa::verify_initial_seal_share_v2(share, manifest)
 }
 
 /// The forensic result of examining two certificates for one slot:

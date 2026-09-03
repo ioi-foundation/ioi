@@ -4,6 +4,10 @@
 resolver = "2"
 exclude = [
     "crates/cli/tests/fixtures/mock-verifier",
+    # AFT M1: an intentionally separate Rust-1.85+ interoperability oracle.
+    # Keeping it out of the workspace preserves the workspace's Rust 1.78 MSRV.
+    "tools/aft-pq-interop",
+    "fuzz/aft-pq-crypto",
     # [FIX] Updated exclusion path to match new directory structure
     "crates/plugins/sp1-guests",
     # AFT-CB P2.5: the real recursive-backend workspace builds with the
@@ -107,6 +111,7 @@ tonic = { version = "0.12", features = ["tls", "transport"] }
 # --- Cryptography ---
 rand = { version = "0.8" }
 dcrypt = { version = "4.0.1", features = ["full"] }
+slh-dsa = { version = "=0.2.0-rc.5", features = ["zeroize"] }
 
 # --- CLI & Logging ---
 clap = { version = "4", features = ["derive"] }

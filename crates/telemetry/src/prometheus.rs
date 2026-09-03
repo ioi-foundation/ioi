@@ -27,6 +27,10 @@ static MEMPOOL_TRANSACTIONS_ADDED_TOTAL: OnceCell<IntCounter> = OnceCell::new();
 static GOSSIP_MESSAGES_RECEIVED_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static RPC_REQUESTS_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
 static CONSENSUS_TICK_DURATION_SECONDS: OnceCell<Histogram> = OnceCell::new();
+static AFT_HASH_ASYNC_MESSAGES_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
+static AFT_HASH_ASYNC_BYTES_TOTAL: OnceCell<IntCounterVec> = OnceCell::new();
+static AFT_HASH_ASYNC_STAGE_DURATION_SECONDS: OnceCell<HistogramVec> = OnceCell::new();
+static AFT_HASH_ASYNC_ACTIVE_SESSIONS: OnceCell<Gauge> = OnceCell::new();
 static RPC_REQUEST_DURATION_SECONDS: OnceCell<HistogramVec> = OnceCell::new();
 
 // --- NEW/MODIFIED METRICS ---
@@ -96,6 +100,22 @@ impl ConsensusMetricsSink for PrometheusSink {
     }
     fn observe_tick_duration(&self, duration_secs: f64) {
         get_metric!(CONSENSUS_TICK_DURATION_SECONDS).observe(duration_secs);
+    }
+    fn observe_aft_hash_async_message(&self, direction: &str, class: &str, bytes: u64) {
+        get_metric!(AFT_HASH_ASYNC_MESSAGES_TOTAL)
+            .with_label_values(&[direction, class])
+            .inc();
+        get_metric!(AFT_HASH_ASYNC_BYTES_TOTAL)
+            .with_label_values(&[direction, class])
+            .inc_by(bytes);
+    }
+    fn observe_aft_hash_async_stage_duration(&self, stage: &str, duration_secs: f64) {
+        get_metric!(AFT_HASH_ASYNC_STAGE_DURATION_SECONDS)
+            .with_label_values(&[stage])
+            .observe(duration_secs);
+    }
+    fn set_aft_hash_async_active_sessions(&self, count: u64) {
+        get_metric!(AFT_HASH_ASYNC_ACTIVE_SESSIONS).set(count as f64);
     }
 }
 impl RpcMetricsSink for PrometheusSink {
@@ -233,6 +253,34 @@ pub fn install() -> Result<&'static dyn MetricsSink, prometheus::Error> {
             "ioi_consensus_tick_duration_seconds",
             "Latency of a single consensus tick.",
             exponential_buckets(0.002, 2.0, 15)?
+        )?)
+        .expect("static already initialized");
+    AFT_HASH_ASYNC_MESSAGES_TOTAL
+        .set(register_int_counter_vec!(
+            "ioi_aft_hash_async_messages_total",
+            "Hash-only fallback carriers observed at the validator boundary.",
+            &["direction", "class"]
+        )?)
+        .expect("static already initialized");
+    AFT_HASH_ASYNC_BYTES_TOTAL
+        .set(register_int_counter_vec!(
+            "ioi_aft_hash_async_bytes_total",
+            "Canonical hash-only fallback carrier bytes at the validator boundary.",
+            &["direction", "class"]
+        )?)
+        .expect("static already initialized");
+    AFT_HASH_ASYNC_STAGE_DURATION_SECONDS
+        .set(register_histogram_vec!(
+            "ioi_aft_hash_async_stage_duration_seconds",
+            "Hash-only fallback boundary latency by stage.",
+            &["stage"],
+            exponential_buckets(0.0001, 2.0, 20)?
+        )?)
+        .expect("static already initialized");
+    AFT_HASH_ASYNC_ACTIVE_SESSIONS
+        .set(register_gauge!(
+            "ioi_aft_hash_async_active_sessions",
+            "Durable hash-only fallback sessions retained by the validator."
         )?)
         .expect("static already initialized");
     RPC_REQUEST_DURATION_SECONDS

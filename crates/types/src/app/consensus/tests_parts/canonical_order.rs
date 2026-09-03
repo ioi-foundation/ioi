@@ -26,7 +26,8 @@ fn reference_canonical_order_certificate_verifies_for_empty_block() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
 
     let certificate =
         build_reference_canonical_order_certificate(&header, &[]).expect("build certificate");
@@ -75,7 +76,8 @@ fn committed_surface_canonical_order_certificate_verifies_for_canonical_block() 
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([12u8; 32]),
@@ -262,6 +264,7 @@ fn canonical_collapse_header_surface_equality_ignores_materialized_ordering_bund
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash: [0u8; 32],
         canonical_collapse_extension_certificate: None,
@@ -324,6 +327,7 @@ fn canonical_collapse_commitment_stays_stable_across_materialized_ordering_bundl
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash: [0u8; 32],
         canonical_collapse_extension_certificate: None,
@@ -402,7 +406,8 @@ fn r1_censorship_gate_unjustified_omission_refused_and_justified_omission_verifi
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let included_tx = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([12u8; 32]),
@@ -526,7 +531,8 @@ fn r2_availability_standing_derives_from_close_with_zero_audit_records() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([14u8; 32]),

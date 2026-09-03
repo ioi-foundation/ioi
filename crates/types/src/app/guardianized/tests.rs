@@ -176,6 +176,7 @@ fn derives_recovery_witness_certificate_from_header_guardian_certificate_pair() 
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate {
             height: 32,
             view: 4,

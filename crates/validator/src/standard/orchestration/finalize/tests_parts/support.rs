@@ -331,6 +331,7 @@ fn sample_block_header() -> ioi_types::app::BlockHeader {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate {
             height: 10,
             view: 3,
@@ -697,6 +698,7 @@ fn synthetic_archived_restart_page(
                 sealed_finality_proof: None,
                 canonical_order_certificate: None,
                 timeout_certificate: None,
+                aft_timeout_certificate: None,
                 signature: Vec::new(),
             },
         });

@@ -5,6 +5,7 @@
 // Declare submodules
 pub mod behaviour;
 pub mod mempool;
+pub mod pq_channel;
 pub mod swarm;
 pub mod sync;
 pub mod transport;
@@ -14,7 +15,10 @@ use crate::traits::NodeState;
 use ioi_api::transaction::TransactionModel;
 use ioi_tx::unified::UnifiedTransactionModel;
 // [FIX] Removed unused Block and ChainTransaction imports
-use ioi_types::app::{ConfidenceVote, ConsensusVote, EchoMessage, OracleAttestation, PanicMessage};
+use ioi_types::app::{
+    AftAsyncCarrierV1, ConfidenceVote, ConsensusVote, EchoMessage, FallbackStartCertificateV1,
+    OracleAttestation, PanicMessage, TimeoutCertificate,
+};
 use ioi_types::codec;
 use libp2p::{identity, Multiaddr, PeerId};
 use std::{collections::HashSet, sync::Arc};
@@ -36,6 +40,7 @@ pub use self::types::{NetworkEvent, SwarmCommand, SwarmInternalEvent};
 // Import ViewChangeVote for use in forwarder
 use ioi_types::app::QuorumCertificate;
 use ioi_types::app::ViewChangeVote;
+use ioi_types::app::{AftTimeoutCertificateV1, AftTimeoutVoteV1};
 
 /// The main networking struct.
 pub struct Libp2pSync {
@@ -205,6 +210,47 @@ impl Libp2pSync {
                             .ok()
                             .map(|vote| NetworkEvent::ViewChangeVoteReceived { vote, from: source })
                     }
+                    SwarmInternalEvent::AftTimeoutVoteReceived(data, source) => {
+                        codec::from_bytes_canonical::<AftTimeoutVoteV1>(&data)
+                            .ok()
+                            .map(|vote| NetworkEvent::AftTimeoutVoteReceived { vote, from: source })
+                    }
+                    SwarmInternalEvent::TimeoutCertificateReceived(data, source) => {
+                        codec::from_bytes_canonical::<TimeoutCertificate>(&data)
+                            .ok()
+                            .map(|certificate| NetworkEvent::TimeoutCertificateReceived {
+                                certificate,
+                                from: source,
+                            })
+                    }
+                    SwarmInternalEvent::AftTimeoutCertificateReceived(data, source) => {
+                        codec::from_bytes_canonical::<AftTimeoutCertificateV1>(&data)
+                            .ok()
+                            .map(|certificate| NetworkEvent::AftTimeoutCertificateReceived {
+                                certificate,
+                                from: source,
+                            })
+                    }
+                    SwarmInternalEvent::FallbackStartReceived(data, source) => {
+                        codec::from_bytes_canonical::<FallbackStartCertificateV1>(&data)
+                            .ok()
+                            .map(|certificate| NetworkEvent::FallbackStartReceived {
+                                certificate,
+                                from: source,
+                            })
+                    }
+                    SwarmInternalEvent::AftAsyncOrderingReceived(
+                        data,
+                        authenticated_account,
+                        source,
+                    ) => codec::from_bytes_canonical::<AftAsyncCarrierV1>(&data)
+                        .ok()
+                        .filter(|carrier| carrier.validate_shape().is_ok())
+                        .map(|carrier| NetworkEvent::AftAsyncOrderingReceived {
+                            carrier,
+                            authenticated_account,
+                            from: source,
+                        }),
                     SwarmInternalEvent::EchoReceived(data, source) => {
                         codec::from_bytes_canonical::<EchoMessage>(&data)
                             .ok()

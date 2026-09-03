@@ -92,10 +92,22 @@ impl SigningOracleGuard {
             // Close stdin to signal EOF (some readers might wait for newline or EOF)
         }
 
+        // ML-DSA cluster tests can start several encrypted signer processes
+        // while the host is still paging freshly linked validator binaries.
+        // Five seconds is below the observed cold-start envelope and turns a
+        // healthy signer into a harness failure. Keep the bound explicit and
+        // configurable while retaining a finite startup deadline.
+        let startup_timeout = std::env::var("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| *value > 0)
+            .map(Duration::from_secs)
+            .unwrap_or_else(|| Duration::from_secs(20));
+
         // Wait for the port to be open
         let start = std::time::Instant::now();
         let mut connected = false;
-        while start.elapsed() < Duration::from_secs(5) {
+        while start.elapsed() < startup_timeout {
             if std::net::TcpStream::connect(&addr).is_ok() {
                 connected = true;
                 break;

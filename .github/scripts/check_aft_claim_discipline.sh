@@ -84,8 +84,9 @@ fi
 # complete" may appear ONLY on a line that also carries a blocked/gated
 # marker (BLOCKED, "does not print", "gated on", "unreachable", "cannot
 # print", "REMAINING EDITORIAL", or the adjudication's quoting context).
-# Both flagship rungs are blocked this cycle (RES-R10, T5d withdrawn,
-# RES-R11/R12, three L-OPEN rows); a bare assertion of frontier-
+# Both flagship rungs remain blocked (T8's supply bound is L-OPEN; responsive
+# T5d is refuted by L-S; scheduled R12 still depends on RES-R11); a bare
+# assertion of frontier-
 # completeness is therefore a false claim and fails the gate. This gate
 # is mutation-tested (AFT-CB standing rule 3): a bare "frontier-complete
 # consensus architecture" line must turn it RED.

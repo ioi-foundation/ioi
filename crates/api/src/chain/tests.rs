@@ -83,6 +83,7 @@ fn journal_block(transactions: Vec<ChainTransaction>, gas_used: u64) -> Block<Ch
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0; 32],
             canonical_collapse_extension_certificate: None,

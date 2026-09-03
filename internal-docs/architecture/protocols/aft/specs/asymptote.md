@@ -2,8 +2,10 @@
 
 Status: internal protocol spec (AFT corpus); non-canonical.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
-`Asymptote` is the scalable two-tier finality mode in the Aft Fault Tolerance
-family.
+`Asymptote` is a historical two-tier finality construction in the Aft Fault
+Tolerance family. ADR 0048 excludes this selector from AFT PQ v1 production
+admission; terminal effects now use the explicit unanimous SLH-DSA boundary
+seal profile over the classic-BFT/hash-async live tier.
 
 It keeps block transport and tentative `BaseFinal` progression on the
 `GuardianMajority` hot path, then upgrades selected slots to a stronger

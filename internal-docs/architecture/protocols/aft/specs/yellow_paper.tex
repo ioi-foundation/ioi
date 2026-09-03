@@ -200,7 +200,11 @@ synchrony-conditional, and the classical lower bound is refused rather
 than refuted: its carrier --- dense positive voting relayed through the
 same parties the adversary may control --- is replaced by direct
 publication with compressed public echo, and in the replaced carrier the
-safety threshold ascends to its information-theoretic maximum.
+safety threshold ascends to its information-theoretic maximum. The live tier
+uses randomized asynchronous termination below one-third Byzantine
+membership after three certified failed optimistic views; eventual synchrony
+is required only for the optimistic path's latency, not for that fallback's
+declared termination model.
 \end{abstract}
 
 \section{Scope and Status}
@@ -212,15 +216,15 @@ specification to be understood.
 The instantiated protocol surfaces are:
 
 \begin{itemize}[leftmargin=1.5em]
-\item \code{GuardianMajority} as the production guardian-backed base-finality
-mode.
-\item \code{Asymptote} as the two-tier sealing and irreversible-effects mode.
+\item \code{classic\_bft} as the sole admitted AFT PQ v1 production mode,
+using ML-DSA live votes and the mandatory hash-only asynchronous path.
+\item unanimous, configuration-enrolled SLH-DSA boundary seals as the terminal
+irreversible-effects profile.
 \item \code{CanonicalOrdering} through the live
 \code{CommittedSurfaceV1} certificate path plus compact
 \code{PublicationFrontier} summaries attached to committed blocks.
-\item \code{NestedGuardian} as an experimental witness-augmented operational mode with
-safety proofs, bounded operational checks, and a finished composed-liveness /
-classical-agreement bridge rather than a remaining composed-liveness kernel.
+\item \code{GuardianMajority}, \code{Asymptote}, and \code{NestedGuardian} as
+non-admitted historical research/reference constructions.
 \end{itemize}
 
 Implementation correspondence is included below as exact symbol references.
@@ -330,9 +334,11 @@ reassignment, outage, profile rotation, and archival page boundaries. That
 kernel is no longer open; it is the discharged bridge that supports the
 promoted AFT model-delta theorem.
 
-The relevant liveness fact is not that \AFT{} declines to claim a fully
-asynchronous theorem; the relevant fact is that it states the exact
+For the common-publication boundary, the relevant liveness fact is the exact
 post-stabilization visibility resource used to halt the classical adversary.
+Separately, the live ordering tier has a hash-only randomized asynchronous
+fallback under its own static-adversary, (f<n/3), reliable-private-channel
+profile; that result does not remove the publication boundary's assumptions.
 The protocol does not require universal timely receipt before the cutoff. It
 requires eventual delivery, persistence, and hash-fetchability of repeatedly
 published admissible artifacts after stabilization, realized by direct
@@ -1087,9 +1093,13 @@ This produces a fail-closed operational behavior:
 allowing fork continuation.
 \end{itemize}
 
-\section{GuardianMajority: Production Base Finality}
+\section{GuardianMajority: Historical Reference Model}
 
-\code{GuardianMajority} is the production fault model for \AFT{} base finality.
+\code{GuardianMajority} is not a production fault model for AFT PQ v1. ADR
+0048 closes its configuration and assurance admission; this section is
+retained to state the historical construction and its assumptions while
+shared theorem material is extracted. The production profile is
+\code{classic\_bft} plus the hash-only randomized asynchronous path.
 Validator votes alone never make a proposal admissible. Every valid proposal
 must also carry a guardian committee certificate that verifies against current
 registered committee state.
@@ -2301,10 +2311,12 @@ the journal entry is written in the same atomic step that lets the share
 exist, and recovery replays bytes without re-deciding. \\
 A4 & Reachability to at least one honest signer --- for submitters
 (completeness) and for retrievers (availability's serving path). \\
-A5 & Post-GST synchrony as a full honest mesh (pairwise delivery within
-the bound between honest parties) and bounded dishonest bonded weight.
-Liveness, seal cadence, and the live tier only; no strong-lineage safety
-claim cites A5. \\
+A5 & The selected liveness environment and bounded dishonest weight. The
+optimistic live path and seal cadence use post-GST synchrony as a full honest
+mesh. The hash-only fallback instead uses a static adversary with (f<n/3),
+reliable private authenticated channels with eventual delivery, and private
+random inputs. The profiles remain separately labelled; liveness only, and no
+strong-lineage safety claim cites A5. \\
 A6 & A historical-freshness anchor, exactly one deployed, each separately
 priced: a recent authenticated checkpoint; forward-secure or puncturable
 signatures with secure key erasure; or an external objective checkpoint.
@@ -2329,7 +2341,7 @@ the uniqueness and lineage ladder never cites it. \\
 \end{tabularx}
 \end{center}
 
-\subsection{Theorems T1--T9}
+\subsection{Theorems T1--T12}
 \label{sec:corpus-theorems}
 
 Statements are condensed; the corpus document carries each full proof, and
@@ -2373,15 +2385,20 @@ replication at compliant signers; zero-audit witness).
 \textit{Pairing:} L-H (holder necessity).
 
 \paragraph{T4a --- Live-tier liveness.}
-\textit{Assumes A5.} Block production advances under the live engine's own
-fault bound and partial-synchrony assumption, independently of the ring:
-no Boundary Ring rule appears in the proposal, vote, or commit path. A
-ring stall delays only the release of effects \emph{typed} irreversible
-(unsealed-over-unsafe); the engine's asynchronous-fallback obligation is a
-named residual (RES-R10), deliberately not claimed.
+\textit{Assumes A1, A5.} Block production advances under the selected live
+profile, independently of the ring. The optimistic profile is responsive
+post-GST at exact (n=3f+1,q=2f+1). After the durable D2 trigger, the
+normative hash-only fallback has randomized asynchronous progress against a
+static Byzantine adversary with (f<n/3), reliable private authenticated
+channels, eventual delivery, and private random inputs. Randomness schedules
+and selects; rooted PQ votes authorize. No Boundary Ring rule appears in
+either live path. A stalled ring delays only effects \emph{typed}
+irreversible (unsealed-over-unsafe), never unrelated ordering.
 \textit{Mechanization:} the two-tier separation property of
-\code{BoundaryLiveness.tla}. \textit{Pairing:} L-OPEN --- the row closes
-only when the sim-exercised fallback lands.
+\code{BoundaryLiveness.tla} plus
+\code{OptimisticFallbackComposition.tla}; the adverse production/cold-restart
+gate closes RES-R10. \textit{Pairing:} L-A (FLP randomness necessity and the
+optimal (f<n/3) resilience boundary) \cite{hashasync,hashasynctheory}.
 
 \paragraph{T4b --- Seal cadence.}
 \textit{Assumes A2, A3, A4, A5.} With all \(n\) members responsive and
@@ -2429,27 +2446,30 @@ lineage root, never continuity.
 obligation + the no-silence action-set assertion); the membership plane's
 type layer. \textit{Pairing:} L2 and L1.
 
-\paragraph{T5d --- Pre-consented succession safety (withdrawn).}
-\textit{Assumes A1, A2, A3, A9, A10.} The succession extension's safety
-claim is \emph{withdrawn for this cycle}: three successive formulations
-were refuted by the program's own adversarial reviews, and the operative
-exits from a dead ring remain the unanimous handover and the labeled
-re-genesis. \code{SuccessionClock.tla} survives as an honestly narrowed
-kernel; the conditions a fourth formulation must meet are recorded in the
-specification's status banner.
-\textit{Pairing:} L-OPEN, claim withdrawn.
+\paragraph{T5d --- Succession adjudication.}
+\textit{Assumes for scheduled safety: A1, A2, A3, A9, and a
+formation-time clock-fenced lease.} Responsive succession is impossible in
+the declared asynchronous model: a dead ring and an alive-but-partitioned ring
+with a hidden conflicting seal have the same successor-visible prefix, so
+silence or elapsed time cannot safely authorize failover. Scheduled,
+slot-disjoint succession is safe under the explicit fence and is mechanized in
+\code{SuccessionSchedule.tla}; it is not a death-detection, gapless-continuation,
+or cadence theorem. A10 is needed only for the stronger gapless variant.
+\textit{Pairing:} L-S (silence cannot prove inaction; fence necessity).
 
 \paragraph{T6 --- Composition (the lattice meet).}
-\textit{Assumes A1.} Every certificate profile carries a machine-readable
-assumption label; the collapse verifier computes the meet over all
-constituents; a composed object's effective guarantee is exactly its
-weakest constituent's, including the post-quantum bit (AND). Reporting the
-meet is exact --- anything stronger is unsound (L-M), anything weaker
-discards guarantee --- and exhaustive matching over profiles makes a
-silently unlabeled new profile a compile error.
-\textit{Mechanization:} the runtime lattice's unit gates (meet, pq-meet,
-exhaustive-match-by-construction). \textit{Pairing:} L-M (above-meet
-unsoundness).
+\textit{Assumes A1.} Requirements, verified evidence, and transformations are
+separate objects. For each coordinate the verifier derives the meet of its
+load-bearing constituents; PQ uses conjunction and exact scopes survive only
+on equality. A wrapper may strengthen one coordinate only when a versioned,
+coordinate-specific verifier establishes new evidence, names the permitting
+theorem, and commits to its inputs and output. Unknown or unverified rules
+refuse. The L-M indistinguishability bound shows why: identical constituent
+certificate bytes force identical certificate-only output, so a wrapper
+cannot soundly distinguish an execution where the stronger property is false.
+\textit{Mechanization:} \code{GuaranteeMeet.tla}, the opaque runtime
+\code{VerifiedGuaranteeV1} algebra, exhaustive profile census, and laundering
+negative corpus. \textit{Pairing:} L-M.
 
 \paragraph{T7 --- Forensic accountability (accountable degradation).}
 \textit{Assumes A1.} Proven against the wire format, not an abstraction:
@@ -2484,24 +2504,89 @@ bound is analysis work, recorded open.
 
 \paragraph{T9 --- Maximal accountable safety.}
 \textit{Assumes A1.} Any seal-uniqueness violation cryptographically
-convicts the entire violating coalition --- all \(n\) signers --- with
-slashable floor \(n \times \mathrm{bond}\). The convicted-to-necessary
+convicts the entire violating coalition --- all \(n\) signers. The convicted-to-necessary
 ratio is 1.0, which is maximal: L9 states no protocol can attribute
 beyond the signers of the conflicting certificates, and T9 meets that
-ceiling. The lineage-escape maneuver (laundering a double-seal through a
+ceiling. Attribution alone supplies no monetary floor; T11 separately verifies
+distinct, live and enforceable collateral. The lineage-escape maneuver (laundering a double-seal through a
 self-serving re-genesis) is closed upstream by root-admissibility rules,
 so the maneuver changes the offense's name, not its price.
 \textit{Mechanization:} \code{ForensicAccountability.tla} (attribution
 completeness); share-level verification in the hardened signer.
 \textit{Pairing:} L9 (the attribution cap).
 
+\paragraph{T10 --- Consequence at-most-once externalization.}
+\textit{Assumes A1.} For an accepted \code{EffectManifestV1} bound to an
+atomic put-if-absent, compare-and-set, or equivalent external idempotency
+register, the durable consequence executor causes at most one modeled
+resource mutation. It flushes \code{Claimed} and \code{InFlight} before its
+only mutation call; every clear or ambiguous result, including restart from a
+post-call \code{InFlight} state, advances only through same-key observation to
+\code{Reconciled}. The receipt commits intent, request, predecessor, expected
+outcome, observed outcome, and reconciliation evidence. A contradictory
+resource record is attributable only when its evidence verifies under the
+committed resource profile; network ambiguity alone carries no blame.
+\textit{Mechanization:} \code{AtMostOnceExternalization.tla} (66 generated,
+42 distinct states, depth 8), Rust trace conformance, all-boundary crash
+injection, duplicate-delivery and forged-evidence tests. \textit{Pairing:}
+L-X, the ambiguous-response retry dilemma: without endpoint-visible atomic
+deduplication, retry may duplicate the mutation while no retry may omit it.
+
+\paragraph{T11 --- Evidence-qualified distinct collateral floor.}
+\textit{Assumes A1.} Given transferable signed-fault evidence naming a
+non-empty implicated set, the offline verifier reports exactly the sum in one
+native asset of distinct collateral lots that are exclusively bound to those
+members and the implicated configuration, accept the exact evidence predicate
+under one slashing contract, were locked at the snapshot, remain locked
+through the challenge horizon, and are neither withdrawing nor encumbered.
+Duplicate bond or lot identifiers, shared assignments, mixed assets/contracts,
+expired locks and mismatched claims refuse. Withholding and silence yield no
+floor. Oracle assumptions remain visible and cannot inflate native units.
+\textit{Mechanization:} \code{DistinctCollateralFloor.tla} (33 generated,
+8 distinct states, depth 4), arbitrary-precision offline verification,
+negative attack tests and guard-deletion mutation. \textit{Pairing:} L-C,
+the indistinguishability bound that no unproved eligibility condition can
+raise a sound floor. The acquisition/supply bound remains separate and open.
+
+\paragraph{T12 --- Portable PQ-channel coverage for one authorized payload.}
+\textit{Assumes A1.} The receipt verifier reconstructs the exact static member
+set and canonical finality-bundle hash from a PQ-issued hash-asynchronous
+certificate. It reports \code{channel\_pq=true} only when it verifies exactly
+one dual-endpoint \code{PqChannelCompletionEvidenceV1} for every unordered
+member pair. Each edge binds the same network, configuration, epoch, channel
+profile, ML-KEM-768 transcript, derived-key completion, protected-payload hash,
+and both rooted ML-DSA-44 identities. Missing, duplicate, foreign, singly
+attested, classically authenticated, or mutated edges refuse. This is a
+payload-scoped demonstrated-path result, not a claim about historical traffic,
+delivery, adaptive security, or unobserved sessions. \textit{Mechanization:}
+the executable complete-graph verifier and its edge/transcript/scope/payload
+mutation corpus. \textit{Pairing:} L-PQCH: identical consensus bytes can be
+carried over PQ or classical channels, so independently authenticated channel
+evidence is necessary.
+
+Portability does not allow a receipt to select its own authority. A production
+offline decision additionally consumes a separately provisioned
+\code{PortableAssuranceTrustV1} that pins the network, configuration, epoch,
+terminal-key root, allowed receipt signer, anchors, and relying-party guarantee
+floor. A self-consistent parallel configuration is valid evidence only
+relative to its own roots and is refused as authority under different pinned
+roots.
+
 \subsection{Lower-bound pairing}
 \label{sec:pairing-table}
 
 Each positive theorem is paired with the necessity bound that makes its
-trade forced; three rows are honestly open. Per the program's claim
+trade forced; one row is honestly open. Per the program's claim
 ladder, no flagship-completeness rung prints while any row is open --- the
 corpus's own checkers enforce the gate (Section~\ref{sec:claims}).
+
+L-S is the responsive-succession indistinguishability bound. A dead original
+configuration and an alive-but-partitioned original configuration can expose
+the same finite successor-visible prefix; therefore silence or elapsed time
+cannot both trigger live failover and prove that no conflicting original seal
+exists. A formation-time slot fence makes scheduled ranges disjoint rather
+than detecting death. Removing that fence reaches the conflicting-seal state
+in \code{SuccessionSchedule.tla}.
 
 \begin{center}
 \small
@@ -2512,16 +2597,19 @@ corpus's own checkers enforce the gate (Section~\ref{sec:claims}).
 T1 uniqueness & L1 (zero-honest equivocation) & cited \\
 T2 completeness & L-E (eclipse) & cited \\
 T3 availability & L-H (holder necessity) & cited \\
-T4a live-tier liveness & --- & L-OPEN (RES-R10: the engine's asynchronous bound) \\
+T4a live-tier liveness & L-A (FLP + optimal (f<n/3) asynchronous resilience) & cited; RES-R10 closed \\
 T4b seal cadence & L2 (unanimity forces the one-withholder stall) & cited \\
 T5a membership canonicity & L1 (per configuration) & cited \\
 T5b bootstrap & L-LR (long-range indistinguishability; a necessity bound that forces \emph{some} anchor) & cited \\
 T5c\('\) reconfiguration & L2 + L1 & cited \\
-T5d succession safety & --- & L-OPEN; claim withdrawn \\
+T5d succession adjudication & L-S (silence cannot prove inaction; fence necessity) & responsive positive claim refuted; scheduled safety mechanized \\
 T6 composition & L-M (above-meet unsoundness) & cited \\
 T7 forensic accountability & L9 (attribution cap) & cited \\
 T8 selection supply & --- & L-OPEN (cheapest-capture supply bound) \\
 T9 maximal accountable safety & L9 (ratio 1.0 is the cap) & cited \\
+T10 consequence externalization & L-X (ambiguous-response retry dilemma) & cited; proved and model-checked \\
+T11 distinct collateral floor & L-C (unproved eligibility cannot raise a floor) & cited; proved and model-checked; T8 separate \\
+T12 portable PQ-channel coverage & L-PQCH (transport bytes do not reveal channel properties) & cited; executable complete-graph proof \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -2554,6 +2642,7 @@ follows:
 \code{ForensicAccountabilityProof} & T7 against the wire-level certificate structure, including the staged all-Byzantine double-seal extraction \\
 \code{SuccessionClockProof} & the honestly narrowed succession kernel (T5d itself withdrawn; the kernel header states the narrowing) \\
 \code{BoundaryRingTraceReference} & the trace-conformance lane: a committed reference trace replays against \code{BoundaryRing} with deadlock detection as the divergence signal, on every build \\
+\code{AtMostOnceExternalization} & T10 durable claim-before-call, at-most-one invocation/mutation, crash-to-unknown, and lookup-only reconciliation \\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -3164,7 +3253,7 @@ weight-independently with a mechanized proof
 ratio 1.0 (T9/L9), every violator individually, from the two
 certificates alone,
 \item the common-boundary theorem corpus of
-Section~\ref{sec:aft-cb-corpus}: T1--T9 with explicit Assumes lines over
+Section~\ref{sec:aft-cb-corpus}: T1--T12 with explicit Assumes lines over
 the A1--A10 ledger, each theorem paired with its necessity bound, with the
 mechanized kernels of Appendix~\ref{appendix:formal-artifacts} as their
 machine-checked successors and a trace-conformance lane holding code to
@@ -3219,25 +3308,27 @@ on at least one honest signer per configuration; the economics memo
 prices how open selection \emph{supplies} that condition (T8, as a
 probability only), and no surface converts that price into a
 deterministic tolerance figure.
-\item \textbf{RES-R10 --- asynchronous liveness.} The live engine's
-recovery is timeout-driven and fully deterministic, so no asynchronous
-progress guarantee is possible without a common coin (an
-engine-structure change). The fallback is designed (view synchronizer,
-trigger, coin options) and not built; T4a's pairing row stays open and
-every completeness-class claim rung stays gated on it.
+\item \textbf{RES-R10 --- closed asynchronous-live-tier residual.} The
+normative hash-only fallback now supplies randomized asynchronous progress for
+a static adversary with (f<n/3) over reliable private authenticated
+channels, without private threshold setup or DKG. D1--D4, the load-bearing
+mutation checks, exact (n=130) benchmark, same-height production race, cold
+restart, and native PQ re-entry are complete. No adaptive-security or bounded
+latency claim follows. T8 remains the open lower-bound row; responsive T5d is
+separately refuted and paired with L-S.
 \item \textbf{RES-R11 --- the VDF clock plane.} Every candidate
 construction requires externally vetted cryptography (class-group,
 isogeny, or checkpointed-hash approaches each fail a stated requirement
 today); selection and review are an owner action. Sortition's beacon is
 the reference ordering beacon until this closes --- an honest label, not
 a security bound.
-\item \textbf{RES-R12 and the T5d withdrawal --- succession.} Three
-successive succession formulations were refuted by the program's own
-adversarial reviews; the claim is withdrawn, the operative exits from a
-dead ring are the unanimous handover and the labeled re-genesis, and no
-path in the estate activates a successor ring from elapsed time or
-non-response. The conditions a fourth formulation must meet are
-recorded in the specification's status banner.
+\item \textbf{RES-R12 and the T5d resolution --- succession.} Three
+responsive succession formulations were refuted, and L-S closes the question:
+silence cannot prove future inaction in the declared asynchronous model.
+Scheduled slot-disjoint succession is safe under a formation-time clock-fenced
+lease and is mechanized, but no production path activates it and it supplies no
+responsive cadence theorem. The operative exits from a dead ring remain the
+unanimous handover and labeled re-genesis.
 \item \textbf{RES-P4.3-throughput.} The live measurement loop is closed
 with an honest caveat, not a promoted claim: two separately authorized
 campaigns on the same exact audited provider allocation and immutable
@@ -3633,6 +3724,20 @@ Bingyong Guo, Zhenliang Lu, Qiang Tang, Jing Xu, and Zhenfeng Zhang.
 \newblock Proceedings of the 2020 ACM SIGSAC Conference on Computer and
 Communications Security.
 \newblock \url{https://dblp.org/rec/conf/ccs/GuoL0XZ20}
+
+\bibitem{hashasync}
+Sourav Das, Sisi Duan, Shengqi Liu, Atsuki Momose, Ling Ren, and Victor Shoup.
+\newblock \emph{Asynchronous Consensus without Trusted Setup or Public-Key
+Cryptography}.
+\newblock Proceedings of the 2024 ACM SIGSAC Conference on Computer and
+Communications Security; IACR ePrint 2024/677.
+\newblock \url{https://eprint.iacr.org/2024/677}
+
+\bibitem{hashasynctheory}
+Victor Shoup.
+\newblock \emph{A Theoretical Take on a Practical Consensus Protocol}.
+\newblock IACR ePrint 2024/696.
+\newblock \url{https://eprint.iacr.org/2024/696}
 
 \bibitem{grandpa}
 Alistair Stewart and Eleftherios Kokoris-Kogias.

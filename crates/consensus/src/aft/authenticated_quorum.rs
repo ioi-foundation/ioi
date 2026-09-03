@@ -13,7 +13,7 @@
 //! accepted certificate is re-derived from raw key material:
 //!
 //! ```text
-//! raw Ed25519 public key
+//! raw Ed25519 or ML-DSA-44 public key
 //!   -> account_id_from_key_material(suite, key)      (canonical derivation)
 //!   -> ActiveKeyRecord::public_key_hash              (authoritative binding)
 //!   -> ValidatorV1 named by the vote's `voter`       (effective-set membership)
@@ -37,9 +37,11 @@
 use ioi_api::consensus::{
     NativeAftFinalizedEvidence, NativeAftMembershipMember, NativeAftQuorumSigner,
 };
+use ioi_api::crypto::{SerializableKey, VerifyingKey};
+use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
 use ioi_types::app::{
-    account_id_from_key_material, AccountId, ConsensusVote, QuorumCertificate, SignatureSuite,
-    ValidatorSetV1, ValidatorV1, ViewChangeVote,
+    account_id_from_key_material, AccountId, AftTimeoutVoteV1, ConsensusVote, QuorumCertificate,
+    SignatureSuite, ValidatorSetV1, ValidatorV1, ViewChangeVote,
 };
 use ioi_types::codec;
 use ioi_types::config::AftSafetyMode;
@@ -81,14 +83,20 @@ pub fn view_change_vote_signing_bytes(height: u64, view: u64) -> Result<Vec<u8>,
 }
 
 /// A public key that some validator's `consensus_key` record may bind to.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ValidatorPublicKey {
     suite: SignatureSuite,
     /// Canonical raw key bytes (32 bytes for Ed25519). This is the form the
     /// offline `ioi-finality` verifier consumes and the form
     /// `account_id_from_key_material` reduces every encoding to.
     raw: Vec<u8>,
-    verifier: PublicKey,
+    verifier: ValidatorVerifier,
+}
+
+#[derive(Clone)]
+enum ValidatorVerifier {
+    Ed25519(PublicKey),
+    MlDsa44(MldsaPublicKey),
 }
 
 impl ValidatorPublicKey {
@@ -112,8 +120,23 @@ impl ValidatorPublicKey {
         })
     }
 
-    fn verify(&self, message: &[u8], signature: &[u8]) -> bool {
-        self.verifier.verify(message, signature)
+    pub(crate) fn verify(&self, message: &[u8], signature: &[u8]) -> bool {
+        match &self.verifier {
+            ValidatorVerifier::Ed25519(key) => key.verify(message, signature),
+            ValidatorVerifier::MlDsa44(key) => MldsaSignature::from_bytes(signature)
+                .and_then(|signature| key.verify(message, &signature))
+                .is_ok(),
+        }
+    }
+}
+
+impl std::fmt::Debug for ValidatorPublicKey {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ValidatorPublicKey")
+            .field("suite", &self.suite)
+            .field("raw_len", &self.raw.len())
+            .finish_non_exhaustive()
     }
 }
 
@@ -186,7 +209,7 @@ impl ValidatorKeyRegistry {
         Self::default()
     }
 
-    /// Records a raw libp2p public key, returning the key hash it binds to.
+    /// Records a libp2p Ed25519 public key, returning the key hash it binds to.
     pub fn learn_public_key(&mut self, key: &PublicKey) -> Result<[u8; 32], ConsensusError> {
         let raw = key
             .clone()
@@ -201,7 +224,57 @@ impl ValidatorKeyRegistry {
         let entry = ValidatorPublicKey {
             suite: SignatureSuite::ED25519,
             raw,
-            verifier: key.clone(),
+            verifier: ValidatorVerifier::Ed25519(key.clone()),
+        };
+        let hash = entry.key_hash()?;
+        self.keys.insert(hash, entry);
+        Ok(hash)
+    }
+
+    /// Records canonical raw key bytes for an explicitly declared suite.
+    ///
+    /// ML-DSA keys cannot be recovered from a libp2p peer id, so they arrive
+    /// through the rooted validator identity map. The suite is never inferred
+    /// from attacker-controlled length alone.
+    pub fn learn_raw_public_key(
+        &mut self,
+        suite: SignatureSuite,
+        raw: &[u8],
+    ) -> Result<[u8; 32], ConsensusError> {
+        let verifier = match suite {
+            SignatureSuite::ED25519 => {
+                let key =
+                    libp2p::identity::ed25519::PublicKey::try_from_bytes(raw).map_err(|_| {
+                        ConsensusError::BlockVerificationFailed(
+                            "malformed raw Ed25519 native AFT consensus key".into(),
+                        )
+                    })?;
+                ValidatorVerifier::Ed25519(PublicKey::from(key))
+            }
+            SignatureSuite::ML_DSA_44 => {
+                if raw.len() != 1312 {
+                    return Err(ConsensusError::BlockVerificationFailed(format!(
+                        "malformed ML-DSA-44 native AFT consensus key: expected 1312 bytes, got {}",
+                        raw.len()
+                    )));
+                }
+                let key = MldsaPublicKey::from_bytes(raw).map_err(|error| {
+                    ConsensusError::BlockVerificationFailed(format!(
+                        "malformed ML-DSA-44 native AFT consensus key: {error}"
+                    ))
+                })?;
+                ValidatorVerifier::MlDsa44(key)
+            }
+            _ => {
+                return Err(ConsensusError::BlockVerificationFailed(format!(
+                    "unsupported native AFT consensus key suite {suite:?}"
+                )))
+            }
+        };
+        let entry = ValidatorPublicKey {
+            suite,
+            raw: raw.to_vec(),
+            verifier,
         };
         let hash = entry.key_hash()?;
         self.keys.insert(hash, entry);
@@ -263,6 +336,68 @@ pub struct VerifiedMember {
     pub account_id: AccountId,
     pub suite: SignatureSuite,
     pub public_key: Vec<u8>,
+    pub weight: u128,
+}
+
+/// Exact committee geometry for the normative PQ optimistic profile.
+///
+/// The profile is deliberately count-based: every member has one unit of
+/// voting authority, `n = 3f + 1`, and a certificate requires `q = 2f + 1`
+/// distinct ML-DSA-44 signatures. Weighted or mixed-suite memberships remain
+/// separately labelled compatibility profiles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PqOptimisticQuorumGeometryV1 {
+    /// Number of voting members.
+    pub n: u32,
+    /// Declared Byzantine fault bound.
+    pub f: u32,
+    /// Required distinct signer count.
+    pub q: u32,
+}
+
+/// Validates and derives the exact M2 normative quorum geometry.
+pub fn pq_optimistic_quorum_geometry(
+    set: &ValidatorSetV1,
+) -> Result<PqOptimisticQuorumGeometryV1, ConsensusError> {
+    let n = u32::try_from(set.validators.len()).map_err(|_| {
+        ConsensusError::BlockVerificationFailed(
+            "PQ optimistic validator count exceeds the v1 geometry range".into(),
+        )
+    })?;
+    if n == 0 || (n - 1) % 3 != 0 {
+        return Err(ConsensusError::BlockVerificationFailed(format!(
+            "PQ optimistic membership requires exact n=3f+1 geometry, got n={n}"
+        )));
+    }
+    if set
+        .validators
+        .windows(2)
+        .any(|pair| pair[0].account_id >= pair[1].account_id)
+    {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "PQ optimistic membership must be strictly sorted by account id with no duplicates"
+                .into(),
+        ));
+    }
+    if set
+        .validators
+        .iter()
+        .any(|validator| validator.consensus_key.suite != SignatureSuite::ML_DSA_44)
+    {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "PQ optimistic membership requires ML-DSA-44 for every validator".into(),
+        ));
+    }
+    if set.validators.iter().any(|validator| validator.weight != 1)
+        || set.total_weight != u128::from(n)
+    {
+        return Err(ConsensusError::BlockVerificationFailed(
+            "PQ optimistic v1 is unit-weight and refuses weighted authority".into(),
+        ));
+    }
+    let f = (n - 1) / 3;
+    let q = f.saturating_mul(2).saturating_add(1);
+    Ok(PqOptimisticQuorumGeometryV1 { n, f, q })
 }
 
 /// A quorum certificate whose every signer was re-verified from raw key
@@ -323,6 +458,41 @@ impl VerifiedQuorum {
         let minimum_signers = tolerance.saturating_mul(2).saturating_add(1);
         self.total_voting_members >= minimum_members
             && self.distinct_member_signatures_verified() >= minimum_signers
+    }
+
+    /// Whether the verified certificate satisfies the exact normative PQ
+    /// optimistic profile rather than merely a classical BFT threshold.
+    pub fn qualifies_pq_optimistic_aft_v1(&self) -> bool {
+        if !matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            return false;
+        }
+        let n = self.total_voting_members;
+        if n == 0 || self.members.len() as u64 != n || (n - 1) % 3 != 0 {
+            return false;
+        }
+        let f = (n - 1) / 3;
+        if f == 0 {
+            return false;
+        }
+        let member_ids: BTreeSet<AccountId> = self
+            .members
+            .iter()
+            .filter(|member| member.suite == SignatureSuite::ML_DSA_44 && member.weight == 1)
+            .map(|member| member.account_id)
+            .collect();
+        if member_ids.len() as u64 != n {
+            return false;
+        }
+        let signer_ids: BTreeSet<AccountId> = self
+            .signers
+            .iter()
+            .filter(|signer| signer.suite == SignatureSuite::ML_DSA_44)
+            .map(|signer| signer.account_id)
+            .collect();
+        self.quorum_threshold == 2 * f + 1
+            && signer_ids.len() == self.signers.len()
+            && signer_ids.is_subset(&member_ids)
+            && signer_ids.len() as u64 >= self.quorum_threshold
     }
 }
 
@@ -393,9 +563,10 @@ fn verify_member_signature_over_preimage(
         )));
     }
 
-    // Only the Ed25519 native path is signable by this engine. Anything else is
-    // refused rather than waved through on a suite we cannot actually check.
-    if record.suite != SignatureSuite::ED25519 {
+    if !matches!(
+        record.suite,
+        SignatureSuite::ED25519 | SignatureSuite::ML_DSA_44
+    ) {
         return Err(ConsensusError::BlockVerificationFailed(format!(
             "consensus key suite {:?} for {} is not verifiable on the native AFT vote path",
             record.suite,
@@ -466,7 +637,10 @@ fn verify_member_key(
             height
         )));
     }
-    if record.suite != SignatureSuite::ED25519 {
+    if !matches!(
+        record.suite,
+        SignatureSuite::ED25519 | SignatureSuite::ML_DSA_44
+    ) {
         return Err(ConsensusError::BlockVerificationFailed(format!(
             "consensus key suite {:?} for {} is not exportable on the native AFT finality path",
             record.suite,
@@ -501,6 +675,7 @@ fn verify_member_key(
         account_id: validator.account_id,
         suite: record.suite,
         public_key: key.raw().to_vec(),
+        weight: validator.weight,
     })
 }
 
@@ -540,6 +715,36 @@ pub fn verify_view_change_vote(
         registry,
         &preimage,
         &format!("view-change H={} V={}", vote.height, vote.view),
+    )
+}
+
+/// Verifies a normative PQ timeout vote over its complete versioned authority
+/// scope. The caller separately pins `vote.scope` to the configured scope.
+pub fn verify_aft_timeout_vote(
+    vote: &AftTimeoutVoteV1,
+    set: &ValidatorSetV1,
+    registry: &ValidatorKeyRegistry,
+) -> Result<VerifiedSigner, ConsensusError> {
+    vote.validate_shape()
+        .map_err(ConsensusError::BlockVerificationFailed)?;
+    let preimage = vote
+        .signing_bytes()
+        .map_err(ConsensusError::BlockVerificationFailed)?;
+    verify_member_signature_over_preimage(
+        &vote.voter,
+        vote.height,
+        &vote.signature,
+        set,
+        registry,
+        &preimage,
+        &format!(
+            "AFT timeout H={} V={} network={} configuration={} epoch={}",
+            vote.height,
+            vote.view,
+            hex::encode(&vote.scope.network_id[..4]),
+            hex::encode(&vote.scope.configuration_hash[..4]),
+            vote.scope.epoch,
+        ),
     )
 }
 
@@ -641,6 +846,9 @@ pub struct AftFinalizedQuorumEvent {
     pub distinct_member_signatures_verified: u64,
     /// Whether this evidence may back a `bft_consensus_aft_v1` export.
     pub bft_consensus_aft_v1_qualified: bool,
+    /// Whether exact unit-weight `n=3f+1`, `q=2f+1`, all-ML-DSA geometry was
+    /// verified for the normative PQ optimistic profile.
+    pub pq_optimistic_aft_v1_qualified: bool,
 }
 
 impl AftFinalizedQuorumEvent {
@@ -649,6 +857,7 @@ impl AftFinalizedQuorumEvent {
         let byzantine_fault_tolerance = verified.byzantine_fault_tolerance();
         let distinct_member_signatures_verified = verified.distinct_member_signatures_verified();
         let bft_consensus_aft_v1_qualified = verified.qualifies_bft_consensus_aft_v1();
+        let pq_optimistic_aft_v1_qualified = verified.qualifies_pq_optimistic_aft_v1();
         Self {
             quorum_certificate: verified.quorum_certificate,
             signers: verified.signers,
@@ -660,6 +869,7 @@ impl AftFinalizedQuorumEvent {
             quorum_threshold: verified.quorum_threshold,
             distinct_member_signatures_verified,
             bft_consensus_aft_v1_qualified,
+            pq_optimistic_aft_v1_qualified,
         }
     }
 
@@ -712,6 +922,9 @@ impl From<AftFinalizedQuorumEvent> for NativeAftFinalizedEvidence {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_api::crypto::SigningKeyPair;
+    use ioi_crypto::security::SecurityLevel;
+    use ioi_crypto::sign::dilithium::MldsaScheme;
     use ioi_types::app::ActiveKeyRecord;
     use libp2p::identity::Keypair;
 
@@ -768,6 +981,148 @@ mod tests {
         }
     }
 
+    fn pq_set(n: u8) -> ValidatorSetV1 {
+        let validators = (1..=n)
+            .map(|index| ValidatorV1 {
+                account_id: AccountId([index; 32]),
+                weight: 1,
+                consensus_key: ActiveKeyRecord {
+                    suite: SignatureSuite::ML_DSA_44,
+                    public_key_hash: [index; 32],
+                    since_height: 1,
+                },
+            })
+            .collect::<Vec<_>>();
+        ValidatorSetV1 {
+            effective_from_height: 1,
+            total_weight: validators.len() as u128,
+            validators,
+        }
+    }
+
+    fn pq_verified_quorum(n: u8, signer_count: u8) -> VerifiedQuorum {
+        let set = pq_set(n);
+        let members = set
+            .validators
+            .iter()
+            .map(|validator| VerifiedMember {
+                account_id: validator.account_id,
+                suite: validator.consensus_key.suite,
+                public_key: vec![validator.account_id.0[0]; 32],
+                weight: validator.weight,
+            })
+            .collect::<Vec<_>>();
+        let signers = members
+            .iter()
+            .take(signer_count as usize)
+            .map(|member| VerifiedSigner {
+                account_id: member.account_id,
+                suite: member.suite,
+                public_key: member.public_key.clone(),
+                signature: vec![member.account_id.0[0]; 64],
+            })
+            .collect::<Vec<_>>();
+        let f = u64::from(n.saturating_sub(1) / 3);
+        VerifiedQuorum {
+            quorum_certificate: QuorumCertificate::default(),
+            signers,
+            members,
+            membership_effective_from_height: 1,
+            safety_mode: AftSafetyMode::ClassicBft,
+            total_voting_members: u64::from(n),
+            quorum_threshold: 2 * f + 1,
+        }
+    }
+
+    #[test]
+    fn pq_optimistic_geometry_is_exactly_three_f_plus_one_and_two_f_plus_one() {
+        assert_eq!(
+            pq_optimistic_quorum_geometry(&pq_set(4)).unwrap(),
+            PqOptimisticQuorumGeometryV1 { n: 4, f: 1, q: 3 }
+        );
+        assert_eq!(
+            pq_optimistic_quorum_geometry(&pq_set(7)).unwrap(),
+            PqOptimisticQuorumGeometryV1 { n: 7, f: 2, q: 5 }
+        );
+    }
+
+    #[test]
+    fn pq_quorums_intersect_in_at_least_f_plus_one_members() {
+        // Exhaust every quorum pair for representative exact geometries. This
+        // checks the set property consumed by safety, not only the arithmetic
+        // used to derive q.
+        for f in [1u32, 2, 3] {
+            let n = 3 * f + 1;
+            let q = 2 * f + 1;
+            let limit = 1u32 << n;
+            for left in 0..limit {
+                if left.count_ones() < q {
+                    continue;
+                }
+                for right in 0..limit {
+                    if right.count_ones() < q {
+                        continue;
+                    }
+                    assert!(
+                        (left & right).count_ones() >= f + 1,
+                        "n={n} q={q} left={left:#b} right={right:#b}"
+                    );
+                }
+            }
+            assert!(n - f >= q, "honest capacity must be able to form q");
+        }
+
+        // Algebraic regression over a much wider range catches overflow or a
+        // future formula drift without exponential enumeration.
+        for f in 1u64..=10_000 {
+            let n = 3 * f + 1;
+            let q = 2 * f + 1;
+            assert_eq!(2 * q - n, f + 1);
+            assert_eq!(n - f, q);
+        }
+    }
+
+    #[test]
+    fn pq_optimistic_geometry_rejects_ambiguous_or_non_pq_authority() {
+        assert!(pq_optimistic_quorum_geometry(&pq_set(5)).is_err());
+
+        let mut mixed = pq_set(4);
+        mixed.validators[3].consensus_key.suite = SignatureSuite::ED25519;
+        assert!(pq_optimistic_quorum_geometry(&mixed).is_err());
+
+        let mut weighted = pq_set(4);
+        weighted.validators[3].weight = 2;
+        weighted.total_weight = 5;
+        assert!(pq_optimistic_quorum_geometry(&weighted).is_err());
+
+        let mut wrong_total = pq_set(4);
+        wrong_total.total_weight = 5;
+        assert!(pq_optimistic_quorum_geometry(&wrong_total).is_err());
+
+        let mut duplicate = pq_set(4);
+        duplicate.validators[3].account_id = duplicate.validators[2].account_id;
+        assert!(pq_optimistic_quorum_geometry(&duplicate).is_err());
+    }
+
+    #[test]
+    fn pq_optimistic_qualification_is_fail_closed() {
+        assert!(pq_verified_quorum(4, 3).qualifies_pq_optimistic_aft_v1());
+        assert!(!pq_verified_quorum(4, 2).qualifies_pq_optimistic_aft_v1());
+        assert!(!pq_verified_quorum(1, 1).qualifies_pq_optimistic_aft_v1());
+
+        let mut weighted = pq_verified_quorum(4, 3);
+        weighted.members[0].weight = 2;
+        assert!(!weighted.qualifies_pq_optimistic_aft_v1());
+
+        let mut duplicate_signer = pq_verified_quorum(4, 3);
+        duplicate_signer.signers[2].account_id = duplicate_signer.signers[1].account_id;
+        assert!(!duplicate_signer.qualifies_pq_optimistic_aft_v1());
+
+        let mut compatibility_mode = pq_verified_quorum(4, 3);
+        compatibility_mode.safety_mode = AftSafetyMode::GuardianMajority;
+        assert!(!compatibility_mode.qualifies_pq_optimistic_aft_v1());
+    }
+
     #[test]
     fn vote_preimage_is_the_plain_scale_tuple_the_network_signs() {
         let bytes = consensus_vote_signing_bytes(7, 2, &[9u8; 32]).unwrap();
@@ -791,6 +1146,60 @@ mod tests {
         assert_eq!(verified.suite, SignatureSuite::ED25519);
         assert_eq!(verified.public_key.len(), 32);
         assert_eq!(verified.signature, vote.signature);
+    }
+
+    #[test]
+    fn genuine_ml_dsa_44_vote_verifies_and_replays_fail_closed() {
+        let keypair = MldsaScheme::new(SecurityLevel::Level2)
+            .generate_keypair()
+            .unwrap();
+        let public_key = keypair.public_key().to_bytes();
+        let key_hash =
+            account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_key).unwrap();
+        let validator = ValidatorV1 {
+            account_id: AccountId(key_hash),
+            weight: 1,
+            consensus_key: ActiveKeyRecord {
+                suite: SignatureSuite::ML_DSA_44,
+                public_key_hash: key_hash,
+                since_height: 1,
+            },
+        };
+        let set = ValidatorSetV1 {
+            effective_from_height: 1,
+            total_weight: 1,
+            validators: vec![validator],
+        };
+        let mut registry = ValidatorKeyRegistry::new();
+        assert_eq!(
+            registry
+                .learn_raw_public_key(SignatureSuite::ML_DSA_44, &public_key)
+                .unwrap(),
+            key_hash
+        );
+
+        let block_hash = [0xabu8; 32];
+        let preimage = consensus_vote_signing_bytes(8, 3, &block_hash).unwrap();
+        let signature = keypair.sign(&preimage).unwrap().to_bytes();
+        let vote = ConsensusVote {
+            height: 8,
+            view: 3,
+            block_hash,
+            voter: AccountId(key_hash),
+            signature,
+        };
+
+        let verified = verify_consensus_vote(&vote, &set, &registry).unwrap();
+        assert_eq!(verified.suite, SignatureSuite::ML_DSA_44);
+        assert_eq!(verified.public_key, public_key);
+
+        let mut replayed = vote.clone();
+        replayed.view += 1;
+        assert!(verify_consensus_vote(&replayed, &set, &registry).is_err());
+
+        let mut wrong_suite_set = set;
+        wrong_suite_set.validators[0].consensus_key.suite = SignatureSuite::ED25519;
+        assert!(verify_consensus_vote(&vote, &wrong_suite_set, &registry).is_err());
     }
 
     #[test]

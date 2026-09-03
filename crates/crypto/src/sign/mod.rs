@@ -6,3 +6,5 @@ pub mod dilithium;
 pub mod eddsa;
 pub mod guardian_committee;
 pub mod guardian_log;
+#[cfg(feature = "aft-terminal-seals")]
+pub mod slh_dsa;

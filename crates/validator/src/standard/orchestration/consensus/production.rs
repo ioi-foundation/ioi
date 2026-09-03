@@ -77,6 +77,77 @@ pub(super) fn proposal_tx_select_max_bytes() -> Option<usize> {
         .or(Some(4 * 1024 * 1024))
 }
 
+pub(super) fn forced_hash_fallback_spec_matches(
+    armed: Option<&str>,
+    target_height: Option<&str>,
+    maximum_view: Option<&str>,
+    height: u64,
+    view: u64,
+) -> bool {
+    armed == Some("1")
+        && target_height.and_then(|value| value.parse::<u64>().ok()) == Some(height)
+        && maximum_view
+            .and_then(|value| value.parse::<u64>().ok())
+            .is_some_and(|maximum| view < maximum)
+}
+
+/// Debug-build-only process fault seam for the full fallback drill. It never
+/// fabricates a certificate: it only suppresses the scheduled proposal, then
+/// leaves every validator (including the proposer) to traverse the ordinary
+/// pacemaker timeout path and collect exact-q rooted ML-DSA votes for views
+/// 1..=3. Release binaries compile this to false.
+#[cfg(debug_assertions)]
+fn force_hash_fallback_for_test(height: u64, view: u64) -> bool {
+    forced_hash_fallback_spec_matches(
+        std::env::var("IOI_TEST_AFT_FORCE_HASH_FALLBACK_ARMED")
+            .ok()
+            .as_deref(),
+        std::env::var("IOI_TEST_AFT_FORCE_HASH_FALLBACK_HEIGHT")
+            .ok()
+            .as_deref(),
+        std::env::var("IOI_TEST_AFT_FORCE_HASH_FALLBACK_VIEWS")
+            .ok()
+            .as_deref(),
+        height,
+        view,
+    )
+}
+
+#[cfg(not(debug_assertions))]
+fn force_hash_fallback_for_test(_height: u64, _view: u64) -> bool {
+    false
+}
+
+/// Claims the single normal optimistic production attempt retained by the
+/// process fallback race drill. The proposal still traverses the real
+/// workload gRPC prepare/commit boundary; only consensus finalization and
+/// broadcast are suppressed afterward so exact timeout evidence must drive
+/// the same height into the pessimistic path.
+#[cfg(debug_assertions)]
+fn claim_hash_fallback_projection_for_test(height: u64, view: u64) -> bool {
+    if view != 0
+        || std::env::var("IOI_TEST_AFT_STAGE_OPTIMISTIC_PROJECTION")
+            .ok()
+            .as_deref()
+            != Some("1")
+        || !force_hash_fallback_for_test(height, view)
+    {
+        return false;
+    }
+    static CLAIMED: std::sync::OnceLock<std::sync::Mutex<std::collections::BTreeSet<u64>>> =
+        std::sync::OnceLock::new();
+    CLAIMED
+        .get_or_init(|| std::sync::Mutex::new(std::collections::BTreeSet::new()))
+        .lock()
+        .expect("hash-fallback projection claim lock poisoned")
+        .insert(height)
+}
+
+#[cfg(not(debug_assertions))]
+fn claim_hash_fallback_projection_for_test(_height: u64, _view: u64) -> bool {
+    false
+}
+
 pub(crate) fn recovered_consensus_header_stitch_window_budget() -> u64 {
     std::env::var("IOI_AFT_RECOVERED_CONSENSUS_HEADER_STITCH_WINDOW_BUDGET")
         .ok()
@@ -104,7 +175,7 @@ pub(crate) fn recovered_consensus_header_stitch_segment_fold_budget() -> u64 {
         .unwrap_or(DEFAULT_AFT_RECOVERED_CONSENSUS_HEADER_STITCH_SEGMENT_FOLD_BUDGET)
 }
 
-pub(super) fn trim_candidate_transactions_to_byte_budget(
+pub(crate) fn trim_candidate_transactions_to_byte_budget(
     candidate_txs: Vec<ChainTransaction>,
     max_bytes: Option<usize>,
 ) -> Result<Vec<ChainTransaction>> {
@@ -407,7 +478,9 @@ pub(super) async fn emit_local_view_change<CE>(
     consensus_engine_ref: &Arc<Mutex<CE>>,
     swarm_commander: &tokio::sync::mpsc::Sender<SwarmCommand>,
     local_keypair: &libp2p::identity::Keypair,
+    vote_signer: &LocalAftVoteSigner,
     our_account_id: &AccountId,
+    aft_timeout_scope: Option<ioi_types::app::AftFallbackScopeV1>,
     height: u64,
     view: u64,
     reason: &'static str,
@@ -415,12 +488,63 @@ pub(super) async fn emit_local_view_change<CE>(
 where
     CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
 {
-    use ioi_types::app::ViewChangeVote;
+    use ioi_types::app::{AftTimeoutVoteV1, ViewChangeVote};
+
+    if let Some(scope) = aft_timeout_scope {
+        let existing = consensus_engine_ref
+            .lock()
+            .await
+            .aft_timeout_vote_for_relay(height, view, our_account_id);
+        let vote = if let Some(vote) = existing {
+            vote
+        } else {
+            let safe_state = consensus_engine_ref
+                .lock()
+                .await
+                .aft_timeout_safe_state(height)
+                .ok_or_else(|| {
+                    anyhow!(
+                        "AFT timeout at height {height} has no admissible authenticated safe-state snapshot"
+                    )
+                })?;
+            let mut vote = AftTimeoutVoteV1::unsigned_with_parent_proofs(
+                scope,
+                height,
+                view,
+                *our_account_id,
+                safe_state.highest_qc,
+                safe_state.highest_qc_async_parent_proof_hash,
+                safe_state.locked_qc,
+                safe_state.locked_qc_async_parent_proof_hash,
+            );
+            let sign_bytes = vote
+                .signing_bytes()
+                .map_err(|error| anyhow!("failed to encode scoped AFT timeout vote: {error}"))?;
+            vote.signature = vote_signer.sign(&sign_bytes)?;
+            vote.validate_shape()
+                .map_err(|error| anyhow!("invalid locally signed AFT timeout vote: {error}"))?;
+            let mut engine = consensus_engine_ref.lock().await;
+            let local_peer_id = local_keypair.public().to_peer_id();
+            engine
+                .handle_aft_timeout_vote(local_peer_id, vote.clone())
+                .await
+                .map_err(|error| anyhow!("local scoped AFT timeout vote was refused: {error}"))?;
+            vote
+        };
+        let vote_blob = codec::to_bytes_canonical(&vote)
+            .map_err(|error| anyhow!("failed to serialize scoped AFT timeout vote: {error}"))?;
+        dispatch_swarm_command(
+            swarm_commander,
+            SwarmCommand::BroadcastAftTimeoutVote(vote_blob),
+        );
+        tracing::info!(target: "consensus", height, view, reason, "Broadcasted scoped AFT timeout vote.");
+        return Ok(());
+    }
 
     let sign_payload = (height, view);
     let sign_bytes = codec::to_bytes_canonical(&sign_payload)
         .map_err(|e| anyhow!("Failed to serialize vote payload: {}", e))?;
-    let sig = local_keypair.sign(&sign_bytes)?;
+    let sig = vote_signer.sign(&sign_bytes)?;
 
     let signed_vote = ViewChangeVote {
         height,
@@ -465,7 +589,8 @@ where
 pub(super) async fn maybe_replay_tip_vote<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     consensus_engine_ref: &Arc<Mutex<CE>>,
-    local_keypair: &libp2p::identity::Keypair,
+    vote_signer: &LocalAftVoteSigner,
+    our_account_id: AccountId,
     tip_block: &Block<ChainTransaction>,
     rebroadcast_proposal: bool,
 ) -> Result<()>
@@ -496,13 +621,18 @@ where
         + Encode
         + Decode,
 {
-    if tip_block.header.height == 0 {
+    if tip_block.header.height == 0 || tip_block.header.signature.is_empty() {
         return Ok(());
     }
 
     let vote_hash = to_root_hash(&tip_block.header.hash()?)?;
     let replay_marker = (tip_block.header.height, tip_block.header.view, vote_hash);
-    let replay_backoff = std::time::Duration::from_millis(750);
+    // ML-DSA signing is intentionally much more expensive than Ed25519.
+    // Replaying it at the historical sub-second cadence can consume the main
+    // loop and, worse, make every node flood every other node with duplicate
+    // proposals before the first quorum has been admitted.  Keep the cheap
+    // classical recovery cadence while bounding the strict-PQ path.
+    let replay_backoff = tip_vote_replay_backoff(vote_signer.suite());
 
     let swarm_commander = {
         let mut ctx = context_arc.lock().await;
@@ -520,17 +650,10 @@ where
         ctx.swarm_commander.clone()
     };
 
-    let our_account_id = AccountId(
-        account_id_from_key_material(
-            SignatureSuite::ED25519,
-            &local_keypair.public().encode_protobuf(),
-        )
-        .map_err(|e| anyhow!("failed to derive local account id for tip replay: {e}"))?,
-    );
     let vote_payload = (tip_block.header.height, tip_block.header.view, vote_hash);
     let vote_bytes = codec::to_bytes_canonical(&vote_payload)
         .map_err(|e| anyhow!("failed to encode tip replay vote payload: {e}"))?;
-    let signature = local_keypair.sign(&vote_bytes)?;
+    let signature = vote_signer.sign(&vote_bytes)?;
     let vote = ConsensusVote {
         height: tip_block.header.height,
         view: tip_block.header.view,
@@ -593,6 +716,31 @@ where
     Ok(())
 }
 
+fn tip_vote_replay_backoff(suite: SignatureSuite) -> std::time::Duration {
+    match suite {
+        SignatureSuite::ML_DSA_44 => std::time::Duration::from_secs(5),
+        _ => std::time::Duration::from_millis(750),
+    }
+}
+
+fn should_rebroadcast_pending_aft_proposal(
+    consensus_type: ioi_types::config::ConsensusType,
+    native_bft_profile: bool,
+    tip_height: u64,
+    admitted_height: u64,
+    local_account_id: AccountId,
+    producer_account_id: AccountId,
+) -> bool {
+    matches!(consensus_type, ioi_types::config::ConsensusType::Aft)
+        && native_bft_profile
+        && tip_height > admitted_height
+        // Votes may be replayed by every validator, but only the validator
+        // named by the signed proposal may retransmit the full proposal.  A
+        // follower rebroadcast adds no availability authority and turns one
+        // lost packet into an all-to-all duplicate-verification storm.
+        && local_account_id == producer_account_id
+}
+
 pub(super) fn parent_ref_from_last_committed_or_recovered_tip(
     last_executed_block_opt: &Option<Block<ChainTransaction>>,
     recovered_tip_anchor: Option<&RecoveredConsensusTipAnchor>,
@@ -628,6 +776,7 @@ fn normalize_decision_parent_qc(
             previous_canonical_collapse_commitment_hash,
             canonical_collapse_extension_certificate,
             timeout_certificate,
+            aft_timeout_certificate,
         } => {
             let parent_qc = if parent_qc.height == 0 && parent_qc.block_hash == [0; 32] {
                 let parent_view = last_executed_block_opt
@@ -654,6 +803,7 @@ fn normalize_decision_parent_qc(
                 previous_canonical_collapse_commitment_hash,
                 canonical_collapse_extension_certificate,
                 timeout_certificate,
+                aft_timeout_certificate,
             }
         }
         _ => decision,
@@ -710,6 +860,9 @@ where
         signer,
         batch_verifier,
         runtime_finality_ref,
+        genesis_hash,
+        aft_safety_mode,
+        configured_aft_pq_hash,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -727,6 +880,9 @@ where
             ctx.signer.clone(),
             ctx.batch_verifier.clone(),
             ctx.runtime_finality.clone(),
+            ctx.genesis_hash,
+            ctx.config.aft_safety_mode,
+            ctx.aft_pq_configuration_hash,
         )
     };
 
@@ -1035,7 +1191,7 @@ where
                 }
             }
             if recovered_tip_anchor.is_none() {
-                tracing::warn!(
+                tracing::debug!(
                     target: "consensus",
                     status_height,
                     "Skipping AFT consensus tick because neither an ordinary committed block nor a recovered validator restart anchor is locally available."
@@ -1161,23 +1317,91 @@ where
         return Ok(());
     }
 
-    if let Some(tip_block) = last_executed_block_opt.as_ref() {
-        let rebroadcast_proposal = if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) {
-            let coordinator = runtime_finality_ref.lock().await;
-            let admitted_height = coordinator
-                .last_admitted_block()?
-                .map(|block| block.header.height)
-                .unwrap_or(0);
-            coordinator.active_profile()?
-                == ioi_types::config::RuntimeFinalityProfile::BftConsensusAftV1
-                && tip_block.header.height > admitted_height
+    let (parent_ref, _parent_anchor) = match resolve_parent_ref_and_anchor(
+        &last_executed_block_opt,
+        recovered_tip_anchor.as_ref(),
+        view_resolver.as_ref(),
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(target: "consensus", event = "view_resolve_fail", error = %e);
+            return Err(e);
+        }
+    };
+
+    let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+    let (our_account_id, vote_signer, aft_timeout_scope) = if matches!(
+        cons_ty,
+        ioi_types::config::ConsensusType::Aft
+    ) {
+        let validator_sets = parent_view
+            .get(VALIDATOR_SET_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("AFT validator set missing in parent state"))?;
+        let validator_sets = read_validator_sets(&validator_sets)?;
+        let effective_set = ioi_types::app::effective_set_for_height(&validator_sets, producing_h);
+        let (account_id, signer) = select_local_aft_vote_signer(
+            &effective_set,
+            producing_h,
+            &local_keypair,
+            pqc_signer.as_ref(),
+        )?;
+        let all_ml_dsa = effective_set.validators.iter().all(|validator| {
+            validator.consensus_key.suite == ioi_types::app::SignatureSuite::ML_DSA_44
+        });
+        let timeout_scope = if matches!(aft_safety_mode, AftSafetyMode::ClassicBft) && all_ml_dsa {
+            let actual_hash = ioi_types::app::canonical_validator_set_hash(effective_set)
+                .map_err(anyhow::Error::msg)?;
+            if configured_aft_pq_hash != Some(actual_hash) {
+                return Err(anyhow!(
+                    "normative PQ AFT timeout scope is not installed for the effective configuration"
+                ));
+            }
+            Some(ioi_types::app::AftFallbackScopeV1 {
+                network_id: genesis_hash,
+                configuration_hash: actual_hash,
+                epoch: effective_set.effective_from_height,
+            })
         } else {
-            false
+            None
         };
+        (account_id, signer, timeout_scope)
+    } else {
+        let signer = LocalAftVoteSigner::Ed25519(local_keypair.clone());
+        (AccountId(signer.key_hash()?), signer, None)
+    };
+
+    if let Some(tip_block) = last_executed_block_opt.as_ref() {
+        let (native_bft_profile, admitted_height) =
+            if matches!(cons_ty, ioi_types::config::ConsensusType::Aft) {
+                let coordinator = runtime_finality_ref.lock().await;
+                let admitted_height = coordinator
+                    .last_admitted_block()?
+                    .map(|block| block.header.height)
+                    .unwrap_or(0);
+                (
+                    coordinator.active_profile()?
+                        == ioi_types::config::RuntimeFinalityProfile::BftConsensusAftV1,
+                    admitted_height,
+                )
+            } else {
+                (false, 0)
+            };
+        let rebroadcast_proposal = should_rebroadcast_pending_aft_proposal(
+            cons_ty,
+            native_bft_profile,
+            tip_block.header.height,
+            admitted_height,
+            our_account_id,
+            tip_block.header.producer_account_id,
+        );
         if let Err(error) = maybe_replay_tip_vote(
             context_arc,
             &consensus_engine_ref,
-            &local_keypair,
+            &vote_signer,
+            our_account_id,
             tip_block,
             rebroadcast_proposal,
         )
@@ -1193,37 +1417,58 @@ where
         }
     }
 
-    let our_account_id = AccountId(
-        account_id_from_key_material(
-            SignatureSuite::ED25519,
-            &local_keypair.public().encode_protobuf(),
-        )
-        .map_err(|e| anyhow!("[Consensus Tick] failed to derive local account id: {e}"))?,
-    );
-
-    let (parent_ref, _parent_anchor) = match resolve_parent_ref_and_anchor(
-        &last_executed_block_opt,
-        recovered_tip_anchor.as_ref(),
-        view_resolver.as_ref(),
-    )
-    .await
-    {
-        Ok(v) => v,
-        Err(e) => {
-            tracing::error!(target: "consensus", event = "view_resolve_fail", error = %e);
-            return Err(e);
-        }
-    };
-
-    let decision = {
-        let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+    let (decision, pending_tcs, pending_aft_tcs, pending_fallback_starts) = {
         let mut engine: tokio::sync::MutexGuard<'_, CE> = consensus_engine_ref.lock().await;
         let known_peers = known_peers_ref.lock().await;
 
-        engine
+        let decision = engine
             .decide(&our_account_id, producing_h, 0, &*parent_view, &known_peers)
-            .await
+            .await;
+        let pending_tcs = engine.take_pending_timeout_certificates();
+        let pending_aft_tcs = engine.take_pending_aft_timeout_certificates();
+        let pending_fallback_starts = engine.take_pending_fallback_starts();
+        (
+            decision,
+            pending_tcs,
+            pending_aft_tcs,
+            pending_fallback_starts,
+        )
     };
+    for certificate in pending_tcs {
+        let bytes = codec::to_bytes_canonical(&certificate)
+            .map_err(|error| anyhow!("failed to encode timeout certificate: {error}"))?;
+        dispatch_swarm_command(
+            &swarm_commander,
+            SwarmCommand::BroadcastTimeoutCertificate(bytes),
+        );
+    }
+    for certificate in pending_aft_tcs {
+        let bytes = codec::to_bytes_canonical(&certificate)
+            .map_err(|error| anyhow!("failed to encode scoped AFT timeout certificate: {error}"))?;
+        dispatch_swarm_command(
+            &swarm_commander,
+            SwarmCommand::BroadcastAftTimeoutCertificate(bytes),
+        );
+    }
+    for certificate in pending_fallback_starts {
+        let bytes = codec::to_bytes_canonical(&certificate)
+            .map_err(|error| anyhow!("failed to encode fallback-start certificate: {error}"))?;
+        dispatch_swarm_command(
+            &swarm_commander,
+            SwarmCommand::BroadcastFallbackStart(bytes),
+        );
+        let actions = {
+            let mut context = context_arc.lock().await;
+            let height = certificate.height;
+            let mut actions = super::super::hash_async::activate(&mut context, certificate)?;
+            actions.extend(super::super::hash_async::propose_local(
+                &mut context,
+                height,
+            )?);
+            actions
+        };
+        super::super::hash_async::dispatch(context_arc, actions).await?;
+    }
     let decision = normalize_decision_parent_qc(decision, &parent_ref, &last_executed_block_opt);
 
     if producing_h <= 3 {
@@ -1283,7 +1528,9 @@ where
                 &consensus_engine_ref,
                 &swarm_commander,
                 &local_keypair,
+                &vote_signer,
                 &our_account_id,
+                aft_timeout_scope,
                 height,
                 view,
                 "timeout",
@@ -1302,7 +1549,7 @@ where
             let vote_bytes = codec::to_bytes_canonical(&vote_payload)
                 .map_err(|e| anyhow!("Failed to serialize vote payload: {}", e))?;
 
-            let signature = local_keypair.sign(&vote_bytes)?;
+            let signature = vote_signer.sign(&vote_bytes)?;
 
             let vote = ConsensusVote {
                 height,
@@ -1346,8 +1593,20 @@ where
             previous_canonical_collapse_commitment_hash,
             canonical_collapse_extension_certificate,
             timeout_certificate,
+            aft_timeout_certificate,
             ..
         } => {
+            let stage_optimistic_projection =
+                claim_hash_fallback_projection_for_test(producing_h, view);
+            if force_hash_fallback_for_test(producing_h, view) && !stage_optimistic_projection {
+                tracing::debug!(
+                    target: "consensus",
+                    height = producing_h,
+                    view,
+                    "Debug fault drill suppressed the scheduled optimistic proposal; the ordinary pacemaker must produce the rooted timeout vote"
+                );
+                return Ok(());
+            }
             let mut parent_ref = resolve_parent_ref_and_anchor(
                 &last_executed_block_opt,
                 recovered_tip_anchor.as_ref(),
@@ -1830,7 +2089,9 @@ where
                         &consensus_engine_ref,
                         &swarm_commander,
                         &local_keypair,
+                        &vote_signer,
                         &our_account_id,
+                        aft_timeout_scope,
                         producing_h,
                         view + 1,
                         "branch_mismatch",
@@ -2040,6 +2301,7 @@ where
                 sealed_finality_proof: None,
                 canonical_order_certificate: None,
                 timeout_certificate,
+                aft_timeout_certificate,
             };
             let ordered_txs = if matches!(aft_mode, AftSafetyMode::Asymptote) {
                 let nonce_independent_txs = retain_nonce_heads_for_canonical_order(&valid_txs);
@@ -2182,6 +2444,16 @@ where
                             "workload_client.process_block() is slow"
                         );
                     }
+                    if stage_optimistic_projection {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = final_block.header.height,
+                            view,
+                            block_hash = %hex::encode(final_block.header.hash()?),
+                            "Debug fault drill retained one normal optimistic workload projection without broadcasting consensus authority"
+                        );
+                        return Ok(());
+                    }
                     if final_block.transactions.len() < valid_txs.len() {
                         tracing::info!(
                             target: "consensus",
@@ -2214,6 +2486,7 @@ where
                         execution_receipts,
                         deferred_transactions,
                         signer,
+                        (our_account_id, vote_signer.clone()),
                         &swarm_commander,
                         &consensus_engine_ref,
                         &tx_pool_ref,
@@ -2420,7 +2693,7 @@ where
     Ok((parent_ref, parent_anchor))
 }
 
-pub(super) fn verify_batch_and_filter(
+pub(crate) fn verify_batch_and_filter(
     candidate_txs: &[ChainTransaction],
     batch_verifier: &dyn BatchVerifier,
     tx_pool: &Mempool,

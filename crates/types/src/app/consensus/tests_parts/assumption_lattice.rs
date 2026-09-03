@@ -10,6 +10,26 @@
 use std::collections::BTreeSet;
 
 #[test]
+fn assumption_ids_serialize_to_the_whitepaper_ledger_tokens() {
+    let ids = [
+        AssumptionId::A1,
+        AssumptionId::A2,
+        AssumptionId::A3,
+        AssumptionId::A4,
+        AssumptionId::A5,
+        AssumptionId::A6,
+        AssumptionId::A7,
+        AssumptionId::A8,
+        AssumptionId::A9,
+        AssumptionId::A10,
+    ];
+    assert_eq!(
+        serde_json::to_value(ids).expect("assumption ids serialize"),
+        serde_json::json!(["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10"])
+    );
+}
+
+#[test]
 fn certificate_profile_census_is_exhaustive() {
     // Every listed profile has a constructible label, and the list has
     // no duplicates. `label_of`'s wildcard-free match is the compile
@@ -17,7 +37,7 @@ fn certificate_profile_census_is_exhaustive() {
     // extended in the same change.
     let unique: BTreeSet<_> = CertificateProfile::ALL.iter().copied().collect();
     assert_eq!(unique.len(), CertificateProfile::ALL.len());
-    assert_eq!(CertificateProfile::ALL.len(), 8);
+    assert_eq!(CertificateProfile::ALL.len(), 13);
     for p in CertificateProfile::ALL {
         let _ = label_of(p);
     }
@@ -194,13 +214,19 @@ fn pq_meets_correctly() {
     let g = assumption_meet(&[CertificateProfile::HashPcdReference]).expect("non-empty");
     assert!(g.pq);
 
-    // Today every finality-bearing profile is pre-quantum: no
-    // composition with a rank may report pq.
+    // The explicitly named PQ profiles are finality-bearing; classical and
+    // compatibility profiles remain false rather than inheriting that bit.
     for p in CertificateProfile::ALL {
         let l = label_of(p);
-        if l.finality_rank.is_some() {
-            assert!(!l.pq, "{p:?}: no shipped finality-bearing profile is pq");
-        }
+        let expected = matches!(
+            p,
+            CertificateProfile::PqLiveQuorumCert
+                | CertificateProfile::HashAsyncOrderingCert
+                | CertificateProfile::PqUnanimousBoundaryClose
+                | CertificateProfile::PqAnchoredBoundaryClose
+                | CertificateProfile::HashPcdReference
+        );
+        assert_eq!(l.pq, expected, "{p:?}: explicit PQ profile census");
     }
 }
 

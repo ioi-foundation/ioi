@@ -11,6 +11,7 @@ use dcrypt::sign::eddsa::Ed25519SecretKey;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::bls::BlsKeyPair;
+use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::guardian_committee::{
     canonical_manifest_hash, canonical_witness_manifest_hash,
 };
@@ -186,6 +187,9 @@ struct PersistedClusterState {
     commitment_scheme: String,
     aft_safety_mode: String,
     num_validators: usize,
+    /// Whether genesis authority is rooted in each validator's ML-DSA-44 key.
+    #[serde(default)]
+    pq_consensus_profile: bool,
     /// Genesis-shaping timing identity. A resume under a different benchmark
     /// interval must fail closed instead of echoing new configuration over an
     /// old on-chain floor.
@@ -404,13 +408,21 @@ impl TestCluster {
     }
 
     pub async fn shutdown(self) -> Result<()> {
+        let mut first_error = None;
         for guard in self.validators {
-            guard.shutdown().await?;
+            if let Err(error) = guard.shutdown().await {
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
+            }
         }
         if let Some(lock_path) = self._port_block_lock_path {
             let _ = fs::remove_file(lock_path);
         }
-        Ok(())
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 }
 
@@ -440,6 +452,7 @@ pub struct TestClusterBuilder {
     aft_safety_mode: AftSafetyMode,
     guardian_config_toml: Option<String>,
     state_dir: Option<PathBuf>,
+    pq_consensus_profile: bool,
 }
 
 impl Default for TestClusterBuilder {
@@ -470,6 +483,7 @@ impl Default for TestClusterBuilder {
             aft_safety_mode: AftSafetyMode::GuardianMajority,
             guardian_config_toml: None,
             state_dir: None,
+            pq_consensus_profile: false,
         }
     }
 }
@@ -908,6 +922,13 @@ impl TestClusterBuilder {
         self
     }
 
+    /// Roots the AFT validator set in the per-node ML-DSA-44 keys supplied to
+    /// the orchestration processes, activating strict ML-KEM/ML-DSA transport.
+    pub fn with_pq_consensus_profile(mut self) -> Self {
+        self.pq_consensus_profile = true;
+        self
+    }
+
     pub fn with_chain_id(mut self, id: u32) -> Self {
         self.chain_id = id.into();
         self
@@ -1079,6 +1100,11 @@ impl TestClusterBuilder {
                     self.num_validators.to_string(),
                 ),
                 (
+                    "pq_consensus_profile",
+                    manifest.pq_consensus_profile.to_string(),
+                    self.pq_consensus_profile.to_string(),
+                ),
+                (
                     "genesis_block_interval_ms",
                     manifest.genesis_block_interval_ms.to_string(),
                     benchmark_genesis_block_timing()
@@ -1156,6 +1182,23 @@ impl TestClusterBuilder {
                 account_id_from_key_material(SignatureSuite::ED25519, &pk_b).unwrap_or([0; 32]);
             id_a.cmp(&id_b)
         });
+
+        let validator_pq_keys = if self.pq_consensus_profile
+            && !matches!(state_plan, ClusterStatePlan::Resume { .. })
+        {
+            let scheme = MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2);
+            Some(
+                (0..validator_keys.len())
+                    .map(|_| {
+                        scheme
+                            .generate_keypair()
+                            .map_err(|error| anyhow!(error.to_string()))
+                    })
+                    .collect::<Result<Vec<MldsaKeyPair>>>()?,
+            )
+        } else {
+            None
+        };
 
         let ValidatorPortAllocation {
             bases: validator_base_ports,
@@ -1262,25 +1305,46 @@ impl TestClusterBuilder {
         } else {
             // [FIX] Insert default genesis configuration to register validators
             // and set block timing. This ensures nodes don't stall on startup.
+            let pq_genesis_keys = validator_pq_keys.as_ref().map(|keys| {
+                keys.iter()
+                    .map(|key| SigningKeyPair::public_key(key).to_bytes())
+                    .collect::<Vec<_>>()
+            });
             self.genesis_modifiers.insert(
                 0,
                 Box::new(
-                    |builder: &mut GenesisBuilder, keys: &Vec<identity::Keypair>| {
+                    move |builder: &mut GenesisBuilder, keys: &Vec<identity::Keypair>| {
                         let mut validators = Vec::new();
-                        for key in keys {
-                            let account_id = builder.add_identity(key);
-                            validators.push(ValidatorV1 {
-                                account_id,
-                                weight: 1,
-                                consensus_key: ActiveKeyRecord {
-                                    suite: SignatureSuite::ED25519,
-                                    public_key_hash: account_id.0,
-                                    since_height: 0,
-                                },
-                            });
+                        if let Some(public_keys) = pq_genesis_keys.as_ref() {
+                            for public_key in public_keys {
+                                let account_id = builder
+                                    .add_identity_custom(SignatureSuite::ML_DSA_44, public_key);
+                                validators.push(ValidatorV1 {
+                                    account_id,
+                                    weight: 1,
+                                    consensus_key: ActiveKeyRecord {
+                                        suite: SignatureSuite::ML_DSA_44,
+                                        public_key_hash: account_id.0,
+                                        since_height: 0,
+                                    },
+                                });
+                            }
+                        } else {
+                            for key in keys {
+                                let account_id = builder.add_identity(key);
+                                validators.push(ValidatorV1 {
+                                    account_id,
+                                    weight: 1,
+                                    consensus_key: ActiveKeyRecord {
+                                        suite: SignatureSuite::ED25519,
+                                        public_key_hash: account_id.0,
+                                        since_height: 0,
+                                    },
+                                });
+                            }
                         }
 
-                        // Sort to ensure canonical order
+                        // Sort to ensure canonical order.
                         validators.sort_by(|a, b| a.account_id.cmp(&b.account_id));
 
                         let vs = ValidatorSetsV1 {
@@ -1386,6 +1450,10 @@ impl TestClusterBuilder {
             let captured_inference_config = self.inference_config.clone();
             let captured_safety_mode = self.aft_safety_mode;
             let captured_guardian_config = self.guardian_config_toml.clone();
+            let captured_pqc_keypair = validator_pq_keys
+                .as_ref()
+                .and_then(|keys| keys.first())
+                .cloned();
             let base_port = validator_base_ports[0];
             let port_reservations = validator_port_reservations[0]
                 .take()
@@ -1399,6 +1467,7 @@ impl TestClusterBuilder {
 
             let guard = TestValidator::launch(
                 key_clone,
+                captured_pqc_keypair,
                 captured_genesis,
                 base_port,
                 port_reservations,
@@ -1469,6 +1538,10 @@ impl TestClusterBuilder {
                 let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
+                let captured_pqc_keypair = validator_pq_keys
+                    .as_ref()
+                    .and_then(|keys| keys.get(i))
+                    .cloned();
                 let captured_chain_id = self.chain_id;
                 let base_port = validator_base_ports[i];
                 let port_reservations = validator_port_reservations[i]
@@ -1485,6 +1558,7 @@ impl TestClusterBuilder {
                 let fut = async move {
                     TestValidator::launch(
                         key_clone,
+                        captured_pqc_keypair,
                         captured_genesis,
                         base_port,
                         port_reservations,
@@ -1557,6 +1631,10 @@ impl TestClusterBuilder {
                 let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
+                let captured_pqc_keypair = validator_pq_keys
+                    .as_ref()
+                    .and_then(|keys| keys.get(i))
+                    .cloned();
                 let key_clone = key.clone();
                 let port_reservations = validator_port_reservations[i]
                     .take()
@@ -1572,6 +1650,7 @@ impl TestClusterBuilder {
                 let fut = async move {
                     TestValidator::launch(
                         key_clone,
+                        captured_pqc_keypair,
                         captured_genesis,
                         base_port,
                         port_reservations,
@@ -1672,14 +1751,29 @@ impl TestClusterBuilder {
                     let mut observed_peer_counts = Vec::new();
                     let mut zero_height_indices = Vec::new();
 
+                    // Sample every validator concurrently. A sequential probe
+                    // turns one transient 10-second RPC stall per node into a
+                    // 40-second blind spot for a four-node cluster and can
+                    // consume the entire readiness budget even while the
+                    // cluster is advancing normally.
+                    let mut status_futures = FuturesUnordered::new();
                     for (i, v_guard) in validators.iter().enumerate() {
-                        let rpc_addr = &v_guard.validator().rpc_addr;
-                        let metrics_addr = &v_guard.validator().orchestration_telemetry_addr;
+                        let rpc_addr = v_guard.validator().rpc_addr.clone();
+                        let metrics_addr = v_guard.validator().orchestration_telemetry_addr.clone();
+                        status_futures.push(async move {
+                            let peers = fetch_peer_count(&metrics_addr).await;
+                            let status = crate::testing::rpc::get_status(&rpc_addr).await;
+                            (i, peers, status)
+                        });
+                    }
+                    let mut status_samples = Vec::with_capacity(validators.len());
+                    while let Some(sample) = status_futures.next().await {
+                        status_samples.push(sample);
+                    }
+                    status_samples.sort_by_key(|(i, _, _)| *i);
 
-                        let peers = fetch_peer_count(metrics_addr).await;
-
-                        // Use the existing rpc helper
-                        match crate::testing::rpc::get_status(rpc_addr).await {
+                    for (i, peers, status) in status_samples {
+                        match status {
                             Ok(status) => {
                                 let peer_count = peers.parse::<usize>().unwrap_or_default();
                                 observed_heights.push(status.height);
@@ -1786,14 +1880,28 @@ impl TestClusterBuilder {
                         } else {
                             let shared_height = min_height;
                             let mut shared_tip_hash: Option<Vec<u8>> = None;
+                            let mut block_futures = FuturesUnordered::new();
                             for (i, v_guard) in validators.iter().enumerate() {
-                                let rpc_addr = &v_guard.validator().rpc_addr;
-                                match crate::testing::rpc::get_block_by_height_resilient(
-                                    rpc_addr,
-                                    shared_height,
-                                )
-                                .await
-                                {
+                                let rpc_addr = v_guard.validator().rpc_addr.clone();
+                                block_futures.push(async move {
+                                    let result =
+                                        crate::testing::rpc::get_block_by_height_resilient(
+                                            &rpc_addr,
+                                            shared_height,
+                                        )
+                                        .await;
+                                    (i, result)
+                                });
+                            }
+                            let mut block_samples = Vec::with_capacity(validators.len());
+                            while let Some(sample) = block_futures.next().await {
+                                block_samples.push(sample);
+                            }
+                            // Establish the expected hash in validator order,
+                            // independent of RPC completion order.
+                            block_samples.sort_by_key(|(i, _)| *i);
+                            for (i, result) in block_samples {
+                                match result {
                                     Ok(Some(block)) => {
                                         let Ok(hash) = block.header.hash() else {
                                             all_reached = false;
@@ -1886,6 +1994,7 @@ impl TestClusterBuilder {
                 commitment_scheme: self.commitment_scheme.clone(),
                 aft_safety_mode: format!("{:?}", self.aft_safety_mode),
                 num_validators: validator_keys.len(),
+                pq_consensus_profile: self.pq_consensus_profile,
                 genesis_block_interval_ms: benchmark_genesis_block_timing()
                     .0
                     .base_interval_ms_or_legacy(),

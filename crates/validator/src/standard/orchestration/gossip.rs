@@ -1,6 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 
 use super::aft_collapse::observe_live_committed_chain_through_block;
+use super::consensus::{select_local_aft_vote_signer, LocalAftVoteSigner};
 use super::context::MainLoopContext;
 use super::finalize::schedule_committed_block_vote_replays;
 use super::sync as sync_handlers;
@@ -13,7 +14,10 @@ use ioi_api::consensus::{ConsensusEngine, PenaltyMechanism};
 use ioi_api::state::{StateAccess, StateManager, Verifier};
 use ioi_networking::traits::NodeState;
 use ioi_types::{
-    app::{AccountId, Block, ChainTransaction, FailureReport, StateRoot},
+    app::{
+        effective_set_for_height, read_validator_sets, AccountId, Block, ChainTransaction,
+        FailureReport, StateRoot,
+    },
     config::{AftSafetyMode, ConsensusType},
     error::{ChainError, TransactionError},
 };
@@ -33,6 +37,7 @@ use crate::metrics::rpc_metrics as metrics;
 use ioi_networking::libp2p::SwarmCommand;
 use ioi_types::app::{account_id_from_key_material, to_root_hash, ConsensusVote, SignatureSuite};
 use ioi_types::codec;
+use ioi_types::keys::VALIDATOR_SET_KEY;
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 const AFT_ENRICHMENT_SYNC_MAX_BYTES: u32 = 32 * 1024 * 1024;
@@ -385,6 +390,49 @@ async fn relay_remaining_mempool_to_upcoming_leaders(
 
 /// Emit this validator's vote only after the caller has established that the
 /// exact proposal is backed by durable workload execution and runtime staging.
+async fn local_vote_identity<CS, ST, CE, V>(
+    context: &MainLoopContext<CS, ST, CE, V>,
+    block: &Block<ChainTransaction>,
+) -> Result<(AccountId, LocalAftVoteSigner)>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof:
+        Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let parent_ref = StateRef {
+        height: block.header.height.saturating_sub(1),
+        state_root: block.header.parent_state_root.as_ref().to_vec(),
+        block_hash: block.header.parent_hash,
+    };
+    let parent_view = context.view_resolver.resolve_anchored(&parent_ref).await?;
+    let encoded_sets = parent_view
+        .get(VALIDATOR_SET_KEY)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("AFT validator set missing in proposal parent state"))?;
+    let sets = read_validator_sets(&encoded_sets)?;
+    let effective = effective_set_for_height(&sets, block.header.height);
+    select_local_aft_vote_signer(
+        &effective,
+        block.header.height,
+        &context.local_keypair,
+        context.pqc_signer.as_ref(),
+    )
+}
+
 async fn emit_durable_proposal_vote<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
     block: &Block<ChainTransaction>,
@@ -408,7 +456,7 @@ where
         Serialize + for<'de> Deserialize<'de> + Clone + Send + Sync + 'static + Debug,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    if block.header.height == 0 {
+    if block.header.height == 0 || block.header.signature.is_empty() {
         return Ok(());
     }
 
@@ -417,11 +465,7 @@ where
     let vote_hash_vec = block.header.hash().map_err(anyhow::Error::msg)?;
     let vote_hash =
         to_root_hash(&vote_hash_vec).map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    let our_pk = context.local_keypair.public().encode_protobuf();
-    let our_id = AccountId(
-        account_id_from_key_material(SignatureSuite::ED25519, &our_pk)
-            .map_err(|error| anyhow::anyhow!(error.to_string()))?,
-    );
+    let (our_id, vote_signer) = local_vote_identity(context, block).await?;
     let vote_payload = (vote_height, vote_view, vote_hash);
     let vote_bytes = codec::to_bytes_canonical(&vote_payload).map_err(anyhow::Error::msg)?;
     let vote = ConsensusVote {
@@ -429,10 +473,7 @@ where
         view: vote_view,
         block_hash: vote_hash,
         voter: our_id,
-        signature: context
-            .local_keypair
-            .sign(&vote_bytes)
-            .map_err(|error| anyhow::anyhow!(error.to_string()))?,
+        signature: vote_signer.sign(&vote_bytes)?,
     };
 
     // Do not put a locally rejected vote on the network.  The engine's safety
@@ -519,6 +560,25 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             "Detected a gossiped block height gap; switching into catch-up sync."
         );
         sync_handlers::start_catchup_to_peer(context, source_peer, block.header.height).await;
+        return;
+    }
+
+    // One proposal may legitimately arrive through mirror A, mirror B, and
+    // the direct-relay availability path.  Once these exact bytes are the
+    // durably executed local tip, repeating proposal verification and signing
+    // another vote adds no information.  It is especially harmful for the
+    // strict-PQ profile because each copy incurs ML-DSA work and can starve
+    // delivery of the next height.  Compare the complete block rather than
+    // only its consensus hash: sealing enrichment, metadata changes, and
+    // higher-view replacements must still take the validated paths below.
+    if block.header.height == our_height && context.last_executed_block.as_ref() == Some(&block) {
+        tracing::debug!(
+            target: "gossip",
+            height = block.header.height,
+            view = block.header.view,
+            source_peer = %source_peer,
+            "Ignoring an exact duplicate of the durably executed block."
+        );
         return;
     }
 
@@ -1012,12 +1072,21 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 });
             }
 
-            schedule_committed_block_vote_replays(
-                Arc::clone(&engine_ref),
-                context.local_keypair.clone(),
-                context.swarm_commander.clone(),
-                processed_block.clone(),
-            );
+            match local_vote_identity(context, &processed_block).await {
+                Ok((our_account_id, vote_signer)) => schedule_committed_block_vote_replays(
+                    Arc::clone(&engine_ref),
+                    vote_signer,
+                    our_account_id,
+                    context.swarm_commander.clone(),
+                    processed_block.clone(),
+                ),
+                Err(error) => tracing::warn!(
+                    target: "consensus",
+                    height = processed_block.header.height,
+                    error = %error,
+                    "Skipping committed-block vote replays because no unique rooted local vote key is authorized"
+                ),
+            }
 
             let _ = context.consensus_kick_tx.send(());
             if !context.tx_pool_ref.is_empty() {

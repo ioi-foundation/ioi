@@ -10,6 +10,44 @@
 /// `n >= 3f + 1` tolerance is 1.
 const BFT_MEMBERS: usize = 4;
 
+#[test]
+fn ml_dsa_guardian_payload_signature_verifies_under_declared_suite_only() {
+    let keypair = ioi_crypto::sign::dilithium::MldsaScheme::new(
+        ioi_crypto::security::SecurityLevel::Level2,
+    )
+    .generate_keypair()
+    .unwrap();
+    let preimage = b"canonical block-header preimage";
+    let counter: u64 = 17;
+    let trace = [0x33; 32];
+    let header_hash = ioi_crypto::algorithms::hash::sha256(preimage).unwrap();
+    let mut signed_payload = Vec::new();
+    signed_payload.extend_from_slice(&header_hash);
+    signed_payload.extend_from_slice(&counter.to_be_bytes());
+    signed_payload.extend_from_slice(&trace);
+    let signature = keypair.sign(&signed_payload).unwrap().to_bytes();
+    let public_key = keypair.public_key().to_bytes();
+
+    verify_guardian_signature(
+        preimage,
+        SignatureSuite::ML_DSA_44,
+        &public_key,
+        &signature,
+        counter,
+        &trace,
+    )
+    .unwrap();
+    assert!(verify_guardian_signature(
+        preimage,
+        SignatureSuite::ED25519,
+        &public_key,
+        &signature,
+        counter,
+        &trace,
+    )
+    .is_err());
+}
+
 fn counter_binding(counter: u64, seed: u8) -> GuardianCounterBinding {
     GuardianCounterBinding {
         counter,
@@ -20,7 +58,7 @@ fn counter_binding(counter: u64, seed: u8) -> GuardianCounterBinding {
 
 #[test]
 fn guardian_counter_tracker_accepts_authenticated_out_of_order_views() {
-    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
     let producer = AccountId([0x41; 32]);
 
     assert!(engine
@@ -58,7 +96,7 @@ fn guardian_counter_tracker_is_idempotent_only_for_the_exact_binding() {
 
 #[test]
 fn guardian_counter_tracker_rejects_counter_reuse_and_slot_order_rollback() {
-    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
     let producer = AccountId([0x43; 32]);
 
     engine
@@ -77,7 +115,7 @@ fn guardian_counter_tracker_rejects_counter_reuse_and_slot_order_rollback() {
 
 #[test]
 fn guardian_counter_floor_survives_history_pruning() {
-    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::GuardianMajority);
     let producer = AccountId([0x44; 32]);
 
     engine
@@ -95,6 +133,25 @@ fn guardian_counter_floor_survives_history_pruning() {
     assert!(engine
         .admit_guardian_counter_binding(producer, (32, 0), counter_binding(72, 4))
         .unwrap());
+}
+
+#[test]
+fn classic_bft_does_not_derive_authority_from_guardian_counter_monotonicity() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    let producer = AccountId([0x45; 32]);
+
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (40, 0), counter_binding(0, 1))
+        .unwrap());
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (41, 0), counter_binding(0, 2))
+        .unwrap());
+
+    let mut conflicting = counter_binding(0, 1);
+    conflicting.block_hash[0] ^= 0xff;
+    assert!(engine
+        .admit_guardian_counter_binding(producer, (40, 0), conflicting)
+        .is_err());
 }
 
 fn classic_engine(validators: &AuthenticatedValidators, heights: &[u64]) -> GuardianMajorityEngine {
@@ -227,6 +284,338 @@ async fn same_validator_cannot_vote_for_two_hashes_in_one_height_and_view() {
 
     assert!(matches!(error, ConsensusError::BlockVerificationFailed(_)));
     assert!(!engine.vote_pool[&5].contains_key(&[8u8; 32]));
+}
+
+fn pq_fallback_scope(validators: &PqAuthenticatedValidators) -> AftFallbackScopeV1 {
+    validators.fallback_scope()
+}
+
+fn pq_fallback_engine(
+    validators: &PqAuthenticatedValidators,
+    height: u64,
+    path: &std::path::Path,
+) -> GuardianMajorityEngine {
+    let mut engine = classic_engine_for_pq(validators, &[1, height]);
+    engine.pacemaker_height = height;
+    engine
+        .configure_fallback_transition_journal(pq_fallback_scope(validators), path)
+        .expect("configure durable fallback journal");
+    engine
+}
+
+fn pq_fallback_trigger(
+    validators: &PqAuthenticatedValidators,
+    height: u64,
+) -> AftFallbackTriggerCertificateV1 {
+    AftFallbackTriggerCertificateV1 {
+        height,
+        consecutive_timeout_certificates: (1..=AFT_FALLBACK_TRIGGER_VIEW_V1)
+            .map(|view| validators.timeout_certificate(height, view))
+            .collect(),
+    }
+}
+
+fn classic_engine_for_pq(
+    validators: &PqAuthenticatedValidators,
+    heights: &[u64],
+) -> GuardianMajorityEngine {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::ClassicBft);
+    for height in heights {
+        validators.install(&mut engine, *height);
+    }
+    engine
+}
+
+#[tokio::test]
+async fn relayed_timeout_certificate_advances_once_and_is_relayed_once() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fallback.scale");
+    let mut engine = pq_fallback_engine(&validators, 5, &path);
+    let certificate = validators.timeout_certificate(5, 1);
+
+    assert!(engine
+        .adopt_aft_timeout_certificate(certificate.clone(), true)
+        .await
+        .unwrap());
+    assert_eq!(engine.pacemaker.lock().await.current_view, 1);
+    assert_eq!(engine.drain_pending_aft_timeout_certificates(), vec![certificate.clone()]);
+
+    assert!(!engine
+        .adopt_aft_timeout_certificate(certificate, true)
+        .await
+        .unwrap());
+    assert!(engine.drain_pending_aft_timeout_certificates().is_empty());
+}
+
+#[tokio::test]
+async fn scoped_timeout_refuses_cross_network_replay_and_legacy_downgrade() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fallback.scale");
+    let mut engine = pq_fallback_engine(&validators, 5, &path);
+
+    let mut foreign_scope = validators.fallback_scope();
+    foreign_scope.network_id[0] ^= 1;
+    let foreign = validators.timeout_certificate_for_scope(foreign_scope, 5, 1);
+    assert!(engine
+        .adopt_aft_timeout_certificate(foreign, true)
+        .await
+        .is_err());
+    assert!(engine.aft_timeout_votes.is_empty());
+    assert!(engine.fallback_starts.is_empty());
+
+    let legacy = validators.signed_view_change(0, 5, 1);
+    assert!(engine.authenticated_view_change_vote(&legacy).is_err());
+    // The legacy vote is valid ML-DSA evidence over `(height, view)` but still
+    // cannot acquire normative authority through the scoped verifier.
+    assert!(engine.view_votes.is_empty());
+}
+
+#[tokio::test]
+async fn scoped_timeout_votes_form_exact_q_and_canonical_certificate() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fallback.scale");
+    let mut engine = pq_fallback_engine(&validators, 5, &path);
+    let scope = validators.fallback_scope();
+    let source = libp2p::identity::Keypair::generate_ed25519()
+        .public()
+        .to_peer_id();
+
+    for index in [2usize, 0] {
+        let vote = validators.signed_aft_timeout_for_scope(index, scope, 5, 1);
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_aft_timeout_vote(
+            &mut engine,
+            source,
+            vote,
+        )
+        .await
+        .unwrap();
+    }
+    assert!(engine
+        .check_aft_timeout_quorum(5, 1, &validators.sets)
+        .unwrap()
+        .is_none());
+
+    let vote = validators.signed_aft_timeout_for_scope(1, scope, 5, 1);
+    // Source identity is transport attribution only; authority comes from the
+    // rooted account/key binding in the signed vote.
+    engine
+        .authenticated_aft_timeout_vote(&vote)
+        .expect("third scoped vote authenticates");
+    engine
+        .aft_timeout_votes
+        .entry(5)
+        .or_default()
+        .entry(1)
+        .or_default()
+        .insert(vote.voter, vote);
+    let certificate = engine
+        .check_aft_timeout_quorum(5, 1, &validators.sets)
+        .unwrap()
+        .expect("exact q forms a TC");
+    assert!(certificate
+        .votes
+        .windows(2)
+        .all(|pair| pair[0].voter < pair[1].voter));
+    engine
+        .verify_aft_timeout_certificate(&certificate, &validators.sets)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn canonical_third_timeout_persists_one_fallback_instance_across_restart() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fallback.scale");
+    let scope = pq_fallback_scope(&validators);
+    let instance_id;
+    {
+        let mut engine = pq_fallback_engine(&validators, 5, &path);
+        for view in 1..=AFT_FALLBACK_TRIGGER_VIEW_V1 {
+            engine
+                .adopt_aft_timeout_certificate(validators.timeout_certificate(5, view), true)
+                .await
+                .unwrap();
+        }
+        let starts = engine.drain_pending_fallback_starts();
+        assert_eq!(starts.len(), 1);
+        instance_id = starts[0].fallback_instance_id;
+        assert_eq!(
+            instance_id,
+            FallbackStartCertificateV1::derive_instance_id(scope, 5).unwrap()
+        );
+        assert_eq!(
+            starts[0]
+                .trigger_certificate
+                .consecutive_timeout_certificates
+                .last()
+                .unwrap()
+                .view,
+            3
+        );
+    }
+
+    let restarted = pq_fallback_engine(&validators, 5, &path);
+    let restored = restarted.fallback_starts.get(&5).expect("restored start");
+    assert_eq!(restored.fallback_instance_id, instance_id);
+    assert_eq!(restored.scope, scope);
+}
+
+#[tokio::test]
+async fn fallback_start_refuses_missing_durability_mutations_stale_future_and_conflict() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let trigger = validators.timeout_certificate(5, AFT_FALLBACK_TRIGGER_VIEW_V1);
+
+    let mut unconfigured = classic_engine_for_pq(&validators, &[1, 5]);
+    unconfigured.pacemaker_height = 5;
+    assert!(unconfigured
+        .adopt_aft_timeout_certificate(trigger.clone(), true)
+        .await
+        .is_err());
+    assert!(unconfigured.fallback_starts.is_empty());
+
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fallback.scale");
+    let mut engine = pq_fallback_engine(&validators, 5, &path);
+    let high_a = validators.signed_qc(4, 0, [0x41; 32]);
+    engine.highest_qc = high_a.clone();
+    for view in 1..AFT_FALLBACK_TRIGGER_VIEW_V1 {
+        engine
+            .adopt_aft_timeout_certificate(
+                validators.timeout_certificate_with_safe_state(
+                    pq_fallback_scope(&validators),
+                    5,
+                    view,
+                    high_a.clone(),
+                    QuorumCertificate::default(),
+                ),
+                true,
+            )
+            .await
+            .unwrap();
+    }
+    engine
+        .adopt_aft_timeout_certificate(
+            validators.timeout_certificate_with_safe_state(
+                pq_fallback_scope(&validators),
+                5,
+                AFT_FALLBACK_TRIGGER_VIEW_V1,
+                high_a.clone(),
+                QuorumCertificate::default(),
+            ),
+            true,
+        )
+        .await
+        .unwrap();
+    let original = engine.fallback_starts[&5].clone();
+
+    let late_vote = validators.signed_vote(0, 5, 4, [0x51; 32]);
+    assert!(<GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::handle_vote(
+        &mut engine,
+        late_vote,
+    )
+    .await
+    .is_err());
+    let late_qc = validators.signed_qc(5, 4, [0x51; 32]);
+    assert!(engine
+        .accept_quorum_certificate(late_qc, false)
+        .await
+        .is_err());
+
+    let mut malformed = original.clone();
+    malformed.trigger_certificate.consecutive_timeout_certificates[1].votes[0].signature[0] ^= 1;
+    assert!(engine.adopt_fallback_start(malformed).is_err());
+
+    let equivalent = FallbackStartCertificateV1::new(
+        pq_fallback_scope(&validators),
+        5,
+        AftFallbackTriggerCertificateV1 {
+            height: 5,
+            consecutive_timeout_certificates: (1..=AFT_FALLBACK_TRIGGER_VIEW_V1)
+                .map(|view| {
+                    validators.timeout_certificate_with_signers_and_safe_state(
+                        pq_fallback_scope(&validators),
+                        5,
+                        view,
+                        &[1, 2, 3],
+                        high_a.clone(),
+                        QuorumCertificate::default(),
+                    )
+                })
+                .collect(),
+        },
+    )
+    .unwrap();
+    assert_ne!(equivalent, original);
+    assert!(engine.adopt_fallback_start(equivalent).is_ok());
+    assert_eq!(engine.fallback_starts[&5], original);
+
+    let other_scope = AftFallbackScopeV1 {
+        network_id: [0xB6; 32],
+        ..pq_fallback_scope(&validators)
+    };
+    let cross_scope = FallbackStartCertificateV1::new(
+        other_scope,
+        5,
+        AftFallbackTriggerCertificateV1 {
+            height: 5,
+            consecutive_timeout_certificates: (1..=AFT_FALLBACK_TRIGGER_VIEW_V1)
+                .map(|view| validators.timeout_certificate_for_scope(other_scope, 5, view))
+                .collect(),
+        },
+    )
+    .unwrap();
+    assert!(engine.adopt_fallback_start(cross_scope).is_err());
+
+    let conflicting_high = validators.signed_qc(4, 1, [0x42; 32]);
+    let conflicting = FallbackStartCertificateV1::new(
+        pq_fallback_scope(&validators),
+        5,
+        AftFallbackTriggerCertificateV1 {
+            height: 5,
+            consecutive_timeout_certificates: (1..=AFT_FALLBACK_TRIGGER_VIEW_V1)
+                .map(|view| {
+                    validators.timeout_certificate_with_safe_state(
+                        pq_fallback_scope(&validators),
+                        5,
+                        view,
+                        conflicting_high.clone(),
+                        QuorumCertificate::default(),
+                    )
+                })
+                .collect(),
+        },
+    )
+    .unwrap();
+    assert!(engine.adopt_fallback_start(conflicting).is_err());
+
+    assert!(engine
+        .adopt_aft_timeout_certificate(validators.timeout_certificate(4, 1), true)
+        .await
+        .is_err());
+    assert!(engine
+        .adopt_aft_timeout_certificate(validators.timeout_certificate(7, 1), true)
+        .await
+        .is_err());
+    assert_eq!(engine.fallback_starts[&5], original);
+}
+
+#[test]
+fn fallback_journal_has_single_process_ownership() {
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("fallback.scale");
+    let first = pq_fallback_engine(&validators, 5, &path);
+    let mut clone_attempt = classic_engine_for_pq(&validators, &[1, 5]);
+    assert!(clone_attempt
+        .configure_fallback_transition_journal(pq_fallback_scope(&validators), &path)
+        .is_err());
+    drop(first);
+    assert!(clone_attempt
+        .configure_fallback_transition_journal(pq_fallback_scope(&validators), &path)
+        .is_ok());
 }
 
 #[tokio::test]
@@ -584,7 +973,7 @@ async fn conflicting_authenticated_certificates_in_one_classic_slot_are_refused(
 
 #[tokio::test]
 async fn classic_bft_child_proposal_waits_for_exact_authenticated_parent_quorum() {
-    let validators = AuthenticatedValidators::new(BFT_MEMBERS);
+    let validators = PqAuthenticatedValidators::new(BFT_MEMBERS);
     let active_validators = validators
         .sets
         .current
@@ -599,12 +988,11 @@ async fn classic_bft_child_proposal_waits_for_exact_authenticated_parent_quorum(
     );
     let collapse_chain = test_canonical_collapse_chain_ending(1, [0x21u8; 32], [0x22u8; 32]);
     insert_published_collapse_chain(&mut parent_view, &collapse_chain);
-    let known_peers = validators
-        .keypairs
-        .iter()
-        .map(|keypair| PeerId::from_public_key(&keypair.public()))
-        .collect::<HashSet<_>>();
-    let mut engine = classic_engine(&validators, &[1, 2]);
+    // ML-DSA validator keys do not double as libp2p identities. The selected
+    // local account is the height-two/view-zero leader, so peer discovery is
+    // irrelevant to the parent-certificate admission property under test.
+    let known_peers = HashSet::new();
+    let mut engine = classic_engine_for_pq(&validators, &[1, 2]);
     engine.bootstrap_grace_until = Instant::now() + Duration::from_secs(60);
 
     let parent_header = build_progress_parent_header(1, 0);
@@ -617,7 +1005,7 @@ async fn classic_bft_child_proposal_waits_for_exact_authenticated_parent_quorum(
     assert!(matches!(without_quorum, ConsensusDecision::WaitForBlock));
     assert_eq!(engine.highest_qc.height, 0);
 
-    engine.highest_qc = validators.signed_qc(&[0, 1, 2], 1, 0, parent_hash);
+    engine.highest_qc = validators.signed_qc(1, 0, parent_hash);
     let with_quorum: ConsensusDecision<ChainTransaction> = engine
         .decide(&active_validators[1], 2, 0, &parent_view, &known_peers)
         .await;

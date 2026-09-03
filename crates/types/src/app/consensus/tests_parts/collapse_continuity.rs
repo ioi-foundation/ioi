@@ -26,7 +26,8 @@ fn derive_canonical_collapse_object_returns_order_abort_without_certificate() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
 
     let collapse = derive_canonical_collapse_object(&header, &[]).expect("derive collapse object");
     assert_eq!(collapse.height, header.height);
@@ -74,7 +75,8 @@ fn derive_canonical_collapse_object_binds_order_close_and_sealed_close() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([25u8; 32]),
@@ -228,6 +230,7 @@ fn derive_canonical_collapse_object_binds_previous_collapse_hash() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash:
             canonical_collapse_commitment_hash_from_object(&previous)
@@ -301,6 +304,7 @@ fn block_header_canonical_collapse_evidence_requires_carried_certificate() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash:
             canonical_collapse_commitment_hash_from_object(&previous).unwrap(),
@@ -360,6 +364,7 @@ fn block_header_canonical_collapse_evidence_rejects_missing_previous_anchor() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash:
             canonical_collapse_commitment_hash_from_object(&previous).unwrap(),
@@ -419,6 +424,7 @@ fn block_header_canonical_collapse_evidence_rejects_parent_state_root_mismatch()
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash:
             canonical_collapse_commitment_hash_from_object(&previous).unwrap(),
@@ -506,6 +512,7 @@ fn block_header_canonical_collapse_evidence_accepts_recursive_proof_backed_prede
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash:
             canonical_collapse_commitment_hash_from_object(&previous).unwrap(),
@@ -713,6 +720,7 @@ fn block_header_canonical_collapse_evidence_rejects_mismatched_predecessor_head(
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         parent_qc: QuorumCertificate::default(),
         previous_canonical_collapse_commitment_hash:
             canonical_collapse_commitment_hash_from_object(&previous).unwrap(),

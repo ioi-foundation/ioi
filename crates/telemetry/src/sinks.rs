@@ -25,6 +25,11 @@ pub fn service_metrics() -> &'static dyn ServiceMetricsSink {
     SINK.get().copied().unwrap_or(&NOP_SINK)
 }
 
+/// Returns the configured consensus metrics sink or a no-op sink.
+pub fn consensus_metrics() -> &'static dyn ConsensusMetricsSink {
+    SINK.get().copied().unwrap_or(&NOP_SINK)
+}
+
 // --- Trait Definitions ---
 
 /// A sink for metrics related to the persistent storage layer.
@@ -77,11 +82,21 @@ pub trait ConsensusMetricsSink: Send + Sync + std::fmt::Debug {
     fn inc_view_changes_proposed(&self);
     /// Observes the duration of a single consensus tick.
     fn observe_tick_duration(&self, duration_secs: f64);
+    /// Counts one hash-only fallback carrier and its canonical byte size.
+    fn observe_aft_hash_async_message(&self, direction: &str, class: &str, bytes: u64);
+    /// Observes a production hash-only fallback boundary operation.
+    fn observe_aft_hash_async_stage_duration(&self, stage: &str, duration_secs: f64);
+    /// Tracks durable hash-only fallback instances currently retained by the
+    /// validator runtime.
+    fn set_aft_hash_async_active_sessions(&self, count: u64);
 }
 impl ConsensusMetricsSink for NopSink {
     fn inc_blocks_produced(&self) {}
     fn inc_view_changes_proposed(&self) {}
     fn observe_tick_duration(&self, _duration_secs: f64) {}
+    fn observe_aft_hash_async_message(&self, _direction: &str, _class: &str, _bytes: u64) {}
+    fn observe_aft_hash_async_stage_duration(&self, _stage: &str, _duration_secs: f64) {}
+    fn set_aft_hash_async_active_sessions(&self, _count: u64) {}
 }
 
 /// A sink for metrics related to the public RPC server.

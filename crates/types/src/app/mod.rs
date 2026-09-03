@@ -18,6 +18,10 @@ pub mod bench_planted_delay;
 pub mod chat;
 /// Data structures related to consensus, such as the canonical validator set
 pub mod consensus;
+/// Effect-native consequence manifests and external-resource evidence.
+pub mod consequence;
+/// Offline-verifiable distinct slashable-collateral assurance.
+pub mod economic_assurance;
 /// Data structures for unified kernel events.
 pub mod events;
 /// Generated runtime action schema contract shared with Hypervisor Workbench.
@@ -78,6 +82,8 @@ pub mod workload;
 pub use action::*;
 pub use adapter::*;
 pub use consensus::*;
+pub use consequence::*;
+pub use economic_assurance::*;
 // Explicitly re-export the new agentic types
 pub use agentic::{
     AgentMacro, AgentSkill, CommitteeCertificate, ExternalSkillEvidence, InferenceOptions,
@@ -380,6 +386,11 @@ pub struct BlockHeader {
     /// Optional timeout certificate authorizing this proposal to execute in a non-zero view.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout_certificate: Option<TimeoutCertificate>,
+    /// Versioned, configuration-scoped timeout certificate used by the
+    /// normative PQ AFT profile. It is mutually exclusive with the legacy
+    /// timeout certificate above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aft_timeout_certificate: Option<AftTimeoutCertificateV1>,
     /// Proof that the PARENT block was accepted by the network.
     /// This provides the "chaining" of security in Chained BFT.
     /// A valid QC proves that >= 2/3 of validators voted for parent_hash.

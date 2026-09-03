@@ -98,6 +98,7 @@ pub struct RuntimeTrustedIssuerV1 {
 #[serde(deny_unknown_fields)]
 pub struct RuntimeAftMemberV2 {
     pub member_ref: String,
+    pub signature_suite: String,
     pub public_key: String,
 }
 
@@ -131,6 +132,35 @@ pub struct RuntimeNativeAftEvidenceV2 {
     pub votes: Vec<RuntimeAftVoteV2>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeHashAsyncEvidenceV1 {
+    pub schema_version: String,
+    pub consensus_protocol_ref: String,
+    pub membership_ref: String,
+    pub membership_epoch: u64,
+    pub fault_model: String,
+    pub synchrony_model: String,
+    /// This profile has no private threshold setup or DKG. Membership
+    /// enrollment and authenticated-channel provisioning remain explicit
+    /// assumptions and are deliberately not described as "no setup".
+    pub private_threshold_setup: bool,
+    pub membership_enrollment_required: bool,
+    pub private_authenticated_channels_required: bool,
+    pub pq_authenticated_channels_required: bool,
+    pub post_quantum: bool,
+    /// Canonical terminal virtual-block header. For a parent catch-up receipt,
+    /// this proves the subject is the exact high-QC ancestor extended by the
+    /// asynchronous decision rather than silently relabeling it as native QC
+    /// finality.
+    pub terminal_block_header_base64: String,
+    pub certificate_base64: String,
+    pub witness_base64: String,
+    pub validator_set_base64: String,
+    /// Complete membership in exact member-index order.
+    pub members: Vec<RuntimeAftMemberV2>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeFinalityCertificateV2 {
@@ -150,6 +180,8 @@ pub struct RuntimeFinalityCertificateV2 {
     pub writer_identity: String,
     pub fence_token: u64,
     pub claimed_axes: Vec<String>,
+    /// Requirements, achieved evidence meet, and transform trace are distinct.
+    pub assurance: RuntimeAssuranceV1,
     pub verifier_contract_ref: String,
     pub verifier_contract_hash: String,
     pub issuer_key_id: String,
@@ -159,6 +191,25 @@ pub struct RuntimeFinalityCertificateV2 {
     pub signature: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native_aft_evidence: Option<RuntimeNativeAftEvidenceV2>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hash_async_evidence: Option<RuntimeHashAsyncEvidenceV1>,
+}
+
+/// Coordinate-wise assurance carried by the runtime certificate. The verifier
+/// recomputes this object from the embedded evidence before policy evaluation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeAssuranceV1 {
+    /// Assurance-envelope version.
+    pub schema_version: String,
+    /// Policy requirements evaluated by the issuer and verifier.
+    pub requirements: GuaranteeRequirementsV1,
+    /// Certificate-derived evidence meet, never a caller-selected vector.
+    pub achieved: GuaranteeVectorV1,
+    /// Domain-separated canonical commitment to `achieved`.
+    pub achieved_commitment: String,
+    /// Independently verified coordinate transformations; empty in M4.
+    pub transformations: Vec<GuaranteeTransformV1>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -240,6 +291,7 @@ pub struct RuntimeBundleV3Input<'a> {
     pub block: &'a Block<ChainTransaction>,
     pub receipts: &'a [BlockExecutionReceipt],
     pub native_aft: Option<&'a NativeAftFinalizedBlock>,
+    pub hash_async: Option<&'a NativeAftHashAsyncFinalizedBlock>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -261,6 +313,8 @@ pub struct VerifiedRuntimeClaimV3 {
     pub effect_committed_in_block: bool,
     pub receipts_committed_in_block: bool,
     pub established_axes: Vec<String>,
+    /// Coordinate-wise assurance recomputed from the embedded evidence.
+    pub assurance: GuaranteeVectorV1,
 }
 
 fn safe_u64(value: u64, field: &str) -> Result<(), VerificationError> {
@@ -449,7 +503,8 @@ fn native_evidence_v2(
     let mut by_account = BTreeMap::new();
     let mut members = Vec::with_capacity(finalized.members.len());
     for member in &finalized.members {
-        let account = account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+        let signature_suite = native_signature_suite_name(member.signature_suite)?;
+        let account = account_id_from_key_material(member.signature_suite, &member.public_key)
             .map_err(|error| refuse_evidence(format!("member account id: {error}")))?;
         if by_account
             .insert(account, member.member_ref.clone())
@@ -459,7 +514,8 @@ fn native_evidence_v2(
         }
         members.push(RuntimeAftMemberV2 {
             member_ref: member.member_ref.clone(),
-            public_key: hex::encode(member.public_key),
+            signature_suite: signature_suite.into(),
+            public_key: hex::encode(&member.public_key),
         });
     }
     members.sort_by(|left, right| left.member_ref.cmp(&right.member_ref));
@@ -511,11 +567,336 @@ fn native_evidence_v2(
     })
 }
 
+fn hash_async_evidence_v1(
+    finalized: &NativeAftHashAsyncFinalizedBlock,
+) -> Result<RuntimeHashAsyncEvidenceV1, VerificationError> {
+    finalized
+        .certificate
+        .validate_with_witness(&finalized.witness)
+        .map_err(refuse_evidence)?;
+    let instance = &finalized.certificate.decision.instance;
+    if finalized.members.len() != instance.geometry.n as usize
+        || finalized.membership_epoch != instance.scope.epoch
+    {
+        return Err(refuse_evidence(
+            "hash-async membership cardinality or epoch",
+        ));
+    }
+    let members = finalized
+        .members
+        .iter()
+        .map(|member| {
+            Ok(RuntimeAftMemberV2 {
+                member_ref: member.member_ref.clone(),
+                signature_suite: native_signature_suite_name(member.signature_suite)?.into(),
+                public_key: hex::encode(&member.public_key),
+            })
+        })
+        .collect::<Result<Vec<_>, VerificationError>>()?;
+    Ok(RuntimeHashAsyncEvidenceV1 {
+        schema_version: "ioi.native-aft-hash-async-evidence.v1".into(),
+        consensus_protocol_ref: "protocol://ioi/aft/hash-async/v1".into(),
+        membership_ref: finalized.membership_ref.clone(),
+        membership_epoch: finalized.membership_epoch,
+        fault_model: "static_byzantine_f_lt_n_over_3".into(),
+        synchrony_model: "asynchronous_randomized_termination".into(),
+        private_threshold_setup: false,
+        membership_enrollment_required: true,
+        private_authenticated_channels_required: true,
+        pq_authenticated_channels_required: true,
+        post_quantum: true,
+        terminal_block_header_base64: BASE64.encode(&finalized.terminal_block_header_bytes),
+        certificate_base64: BASE64
+            .encode(to_bytes_canonical(&finalized.certificate).map_err(VerificationError::Field)?),
+        witness_base64: BASE64
+            .encode(to_bytes_canonical(&finalized.witness).map_err(VerificationError::Field)?),
+        validator_set_base64: BASE64.encode(
+            to_bytes_canonical(&finalized.validator_set).map_err(VerificationError::Field)?,
+        ),
+        members,
+    })
+}
+
+fn parse_sha256_array(value: &str, field: &str) -> Result<[u8; 32], VerificationError> {
+    require_hash(value, field)?;
+    let decoded = hex::decode(&value[7..])
+        .map_err(|error| VerificationError::Field(format!("{field}: {error}")))?;
+    decoded
+        .try_into()
+        .map_err(|_| VerificationError::Field(field.into()))
+}
+
+fn runtime_assurance_v1(
+    native: Option<&RuntimeNativeAftEvidenceV2>,
+    hash_async: Option<&RuntimeHashAsyncEvidenceV1>,
+    domain_id: &str,
+    availability_manifest_hash: &str,
+) -> Result<RuntimeAssuranceV1, VerificationError> {
+    let domain_hash = conflict_domain_id_commitment(domain_id)
+        .map_err(|error| VerificationError::Field(error.to_string()))?;
+    let availability_hash =
+        parse_sha256_array(availability_manifest_hash, "availability_manifest_hash")?;
+    let mut vector = match (native, hash_async) {
+        (Some(evidence), None) => {
+            let all_pq = !evidence.members.is_empty()
+                && evidence
+                    .members
+                    .iter()
+                    .all(|member| member.signature_suite == "ml-dsa-44");
+            let profile = if all_pq {
+                CertificateProfile::PqLiveQuorumCert
+            } else {
+                CertificateProfile::ClassicalSignedLiveQuorumCert
+            };
+            let mut vector = guarantee_vector_of(profile);
+            let n = u32::try_from(evidence.total_voting_members)
+                .map_err(|_| VerificationError::Field("assurance committee_n".into()))?;
+            let f = u32::try_from(evidence.byzantine_fault_tolerance)
+                .map_err(|_| VerificationError::Field("assurance fault_bound_f".into()))?;
+            let q = u32::try_from(evidence.quorum_threshold)
+                .map_err(|_| VerificationError::Field("assurance quorum_q".into()))?;
+            vector.safety.model = SafetyModelV1::QuorumIntersectionBft;
+            vector.safety.committee_n = Some(n);
+            vector.safety.fault_bound_f = Some(f);
+            vector.safety.quorum_q = Some(q);
+            vector.safety.configuration_hash = Some(parse_sha256_array(
+                &evidence.membership_hash,
+                "native membership_hash",
+            )?);
+            vector.safety.conflict_domain_hash = Some(domain_hash);
+            vector.liveness.adversary = AdversaryModelV1::StaticByzantine;
+            vector.liveness.committee_n = Some(n);
+            vector.liveness.fault_bound_f = Some(f);
+            vector.crypto.consensus_pq = all_pq;
+            vector.crypto.channel_pq = false;
+            vector.crypto.externalization_pq = false;
+            vector.crypto.end_to_end_pq = false;
+            vector.crypto.primitive_suites = BTreeSet::from([
+                PrimitiveSuiteV1::Sha256,
+                if all_pq {
+                    PrimitiveSuiteV1::MlDsa44
+                } else {
+                    PrimitiveSuiteV1::Ed25519
+                },
+                PrimitiveSuiteV1::Unresolved,
+            ]);
+            vector.constituent_hashes.insert(parse_sha256_array(
+                &hash_value(&json_value(evidence, "native assurance evidence")?)?,
+                "native assurance evidence hash",
+            )?);
+            vector
+        }
+        (None, Some(evidence)) => {
+            let certificate_bytes = BASE64
+                .decode(&evidence.certificate_base64)
+                .map_err(|error| VerificationError::Field(error.to_string()))?;
+            let certificate: AftAsyncExecutedBlockCertificateV1 =
+                from_bytes_canonical(&certificate_bytes)
+                    .map_err(|error| VerificationError::Field(error.to_string()))?;
+            let instance = &certificate.decision.instance;
+            let mut vector = guarantee_vector_of(CertificateProfile::HashAsyncOrderingCert);
+            vector.safety.model = SafetyModelV1::QuorumIntersectionBft;
+            vector.safety.committee_n = Some(instance.geometry.n.into());
+            vector.safety.fault_bound_f = Some(instance.geometry.f.into());
+            vector.safety.quorum_q = Some(instance.geometry.quorum.into());
+            vector.safety.configuration_hash = Some(instance.scope.configuration_hash);
+            vector.safety.conflict_domain_hash = Some(domain_hash);
+            vector.liveness = LivenessCoordinateV1 {
+                termination: TerminationV1::RandomizedAsynchronous,
+                network: NetworkAssumptionV1::AsynchronousPrivateAuthenticatedChannels,
+                adversary: AdversaryModelV1::StaticByzantine,
+                committee_n: Some(instance.geometry.n.into()),
+                fault_bound_f: Some(instance.geometry.f.into()),
+                private_authenticated_channels: true,
+            };
+            vector.crypto.consensus_pq = evidence.post_quantum;
+            // The receipt carries the channel requirement but not a channel
+            // transcript proof, so M4 deliberately leaves this coordinate false.
+            vector.crypto.channel_pq = false;
+            vector.crypto.externalization_pq = false;
+            vector.crypto.end_to_end_pq = false;
+            vector.crypto.private_threshold_setup = evidence.private_threshold_setup;
+            vector.crypto.primitive_suites = BTreeSet::from([
+                PrimitiveSuiteV1::Sha256,
+                PrimitiveSuiteV1::MlDsa44,
+                PrimitiveSuiteV1::PqAuthenticatedChannel,
+                PrimitiveSuiteV1::Unresolved,
+            ]);
+            vector.availability.custody_threshold = Some(instance.geometry.quorum.into());
+            vector.constituent_hashes.insert(parse_sha256_array(
+                &hash_value(&json_value(evidence, "hash-async assurance evidence")?)?,
+                "hash-async assurance evidence hash",
+            )?);
+            vector
+        }
+        (None, None) => guarantee_vector_of(CertificateProfile::HashPcdReference),
+        (Some(_), Some(_)) => {
+            return Err(refuse_evidence(
+                "runtime assurance refuses multiple finality variants",
+            ))
+        }
+    };
+    vector.accountability = match (native, hash_async) {
+        (Some(_), None) | (None, Some(_)) => AccountabilityV1::Transferable,
+        _ => AccountabilityV1::None,
+    };
+    vector.availability = AvailabilityCoordinateV1 {
+        publication_retrievable: true,
+        custody_threshold: vector.availability.custody_threshold.or(Some(1)),
+        retention_horizon: None,
+    };
+    vector.externalization = ExternalizationCoordinateV1 {
+        mode: ExternalizationModeV1::NotClaimed,
+        at_most_once: false,
+        adapter_profile_hash: None,
+    };
+    vector.constituent_hashes.insert(availability_hash);
+    vector.theorem_ids.insert("T6".into());
+    vector.validate().map_err(|error| {
+        VerificationError::Binding(format!("runtime assurance vector: {error}"))
+    })?;
+
+    let requirements = GuaranteeRequirementsV1 {
+        minimum_finality_rank: vector.safety.finality_rank,
+        configuration_hash: vector.safety.configuration_hash,
+        conflict_domain_hash: vector.safety.conflict_domain_hash,
+        require_consensus_pq: vector.crypto.consensus_pq,
+        require_no_private_threshold_setup: !vector.crypto.private_threshold_setup,
+        require_publication_retrievable: true,
+        ..Default::default()
+    };
+    let verified = CertificateOnlyGuaranteeVerifierV1::verify(&[vector.clone()])
+        .map_err(|error| VerificationError::Binding(format!("runtime assurance meet: {error}")))?;
+    if !requirements.is_satisfied_by(&verified) {
+        return Err(refuse_evidence(
+            "runtime assurance does not satisfy its own requirements",
+        ));
+    }
+    let achieved = verified.into_achieved();
+    let achieved_commitment = format!(
+        "sha256:{}",
+        hex::encode(achieved.commitment().map_err(|error| {
+            VerificationError::Binding(format!("runtime assurance commitment: {error}"))
+        })?)
+    );
+    Ok(RuntimeAssuranceV1 {
+        schema_version: "ioi.runtime-assurance.v1".into(),
+        requirements,
+        achieved,
+        achieved_commitment,
+        transformations: Vec::new(),
+    })
+}
+
+fn verify_hash_async_subject_relation(
+    finalized: &NativeAftHashAsyncFinalizedBlock,
+    subject: &Block<ChainTransaction>,
+) -> Result<(), VerificationError> {
+    let subject_header_bytes =
+        to_bytes_canonical(&subject.header).map_err(VerificationError::Field)?;
+    if subject_header_bytes != finalized.block_header_bytes {
+        return Err(refuse_evidence(
+            "hash-async receipt subject header differs from the admitted block",
+        ));
+    }
+    let terminal_header: BlockHeader = from_bytes_canonical(&finalized.terminal_block_header_bytes)
+        .map_err(|error| {
+            VerificationError::Field(format!("hash-async terminal header: {error}"))
+        })?;
+    let terminal_header_bytes =
+        to_bytes_canonical(&terminal_header).map_err(VerificationError::Field)?;
+    if terminal_header_bytes != finalized.terminal_block_header_bytes {
+        return Err(refuse_evidence(
+            "hash-async terminal header is not canonically encoded",
+        ));
+    }
+    let subject_hash: [u8; 32] = subject
+        .header
+        .hash()
+        .map_err(|error| VerificationError::Field(error.to_string()))?
+        .as_slice()
+        .try_into()
+        .map_err(|_| VerificationError::Field("hash-async subject hash".into()))?;
+    let terminal_hash: [u8; 32] = terminal_header
+        .hash()
+        .map_err(|error| VerificationError::Field(error.to_string()))?
+        .as_slice()
+        .try_into()
+        .map_err(|_| VerificationError::Field("hash-async terminal hash".into()))?;
+    let instance = &finalized.certificate.decision.instance;
+    if terminal_hash != finalized.certificate.decision.block_hash
+        || terminal_header.height != instance.height
+    {
+        return Err(refuse_evidence(
+            "hash-async terminal header is not the certified decision block",
+        ));
+    }
+    if subject_hash == terminal_hash {
+        if subject.header != terminal_header {
+            return Err(refuse_evidence(
+                "hash-async terminal subject does not equal its certified header",
+            ));
+        }
+        return Ok(());
+    }
+    if subject.header.height.saturating_add(1) != terminal_header.height
+        || terminal_header.parent_hash != subject_hash
+        || instance.fallback_start.highest_qc.height != subject.header.height
+        || instance.fallback_start.highest_qc.block_hash != subject_hash
+    {
+        return Err(refuse_evidence(
+            "hash-async parent subject is not the certified terminal block's direct high-QC ancestor",
+        ));
+    }
+    Ok(())
+}
+
 /// Emit and self-verify an explicit v3 runtime bundle.
 pub fn emit_runtime_bundle_v3(
     input: RuntimeBundleV3Input<'_>,
     signing_key: &Ed25519PrivateKey,
 ) -> Result<Value, VerificationError> {
+    let public_key = signing_key
+        .public_key()
+        .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+    emit_runtime_bundle_v3_with_signer(input, public_key.to_bytes(), "ed25519", |message| {
+        signing_key
+            .sign(message)
+            .map(|signature| signature.to_bytes().to_vec())
+            .map_err(|error| VerificationError::Crypto(error.to_string()))
+    })
+}
+
+/// PQ issuer variant for the normative AFT receipt path. The embedded
+/// consensus evidence is unchanged; only the source-neutral checkpoint issuer
+/// signature changes from Ed25519 to ML-DSA-44.
+pub fn emit_runtime_bundle_v3_pq(
+    input: RuntimeBundleV3Input<'_>,
+    signing_key: &MldsaKeyPair,
+) -> Result<Value, VerificationError> {
+    emit_runtime_bundle_v3_with_signer(
+        input,
+        signing_key.public_key().to_bytes(),
+        "ml-dsa-44",
+        |message| {
+            signing_key
+                .private_key()
+                .sign(message)
+                .map(|signature| signature.to_bytes())
+                .map_err(|error| VerificationError::Crypto(error.to_string()))
+        },
+    )
+}
+
+fn emit_runtime_bundle_v3_with_signer<F>(
+    input: RuntimeBundleV3Input<'_>,
+    issuer_public_key: Vec<u8>,
+    issuer_signature_suite: &str,
+    sign: F,
+) -> Result<Value, VerificationError>
+where
+    F: Fn(&[u8]) -> Result<Vec<u8>, VerificationError>,
+{
     for (field, value) in [
         ("bundle_id", input.bundle_id),
         ("checkpoint_id", input.checkpoint_id),
@@ -615,40 +996,53 @@ pub fn emit_runtime_bundle_v3(
         &["manifest_hash"],
     )?)?;
 
-    let native_aft_evidence = match (input.profile, input.native_aft) {
-        (RuntimeFinalityProfile::BftConsensusAftV1, Some(finalized)) => {
-            let header_bytes =
-                to_bytes_canonical(&input.block.header).map_err(VerificationError::Field)?;
-            if header_bytes != finalized.block_header_bytes
-                || finalized.quorum_certificate.block_hash != block_hash
-            {
-                return Err(refuse_evidence(
-                    "runtime block is not the block named by native AFT finality",
-                ));
+    let (native_aft_evidence, hash_async_evidence) =
+        match (input.profile, input.native_aft, input.hash_async) {
+            (RuntimeFinalityProfile::BftConsensusAftV1, Some(finalized), None) => {
+                let header_bytes =
+                    to_bytes_canonical(&input.block.header).map_err(VerificationError::Field)?;
+                if header_bytes != finalized.block_header_bytes
+                    || finalized.quorum_certificate.block_hash != block_hash
+                {
+                    return Err(refuse_evidence(
+                        "runtime block is not the block named by native AFT finality",
+                    ));
+                }
+                (Some(native_evidence_v2(finalized)?), None)
             }
-            Some(native_evidence_v2(finalized)?)
-        }
-        (RuntimeFinalityProfile::BftConsensusAftV1, None) => {
-            return Err(refuse_evidence(
-                "bft runtime bundle has no native AFT quorum",
-            ))
-        }
-        (RuntimeFinalityProfile::SingleAuthorityV1, None) => None,
-        (RuntimeFinalityProfile::SingleAuthorityV1, Some(_)) => {
-            return Err(refuse_evidence(
-                "single-authority runtime bundle must not carry peer quorum evidence",
-            ))
-        }
-    };
-    let public_key = signing_key
-        .public_key()
-        .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            (RuntimeFinalityProfile::BftConsensusAftV1, None, Some(finalized)) => {
+                verify_hash_async_subject_relation(finalized, input.block)?;
+                (None, Some(hash_async_evidence_v1(finalized)?))
+            }
+            (RuntimeFinalityProfile::BftConsensusAftV1, None, None) => {
+                return Err(refuse_evidence(
+                    "bft runtime bundle has no native AFT quorum",
+                ))
+            }
+            (RuntimeFinalityProfile::BftConsensusAftV1, Some(_), Some(_)) => {
+                return Err(refuse_evidence(
+                    "bft runtime bundle carries two finality variants",
+                ))
+            }
+            (RuntimeFinalityProfile::SingleAuthorityV1, None, None) => (None, None),
+            (RuntimeFinalityProfile::SingleAuthorityV1, _, _) => {
+                return Err(refuse_evidence(
+                    "single-authority runtime bundle must not carry peer quorum evidence",
+                ))
+            }
+        };
     let profile = input.profile.canonical_member().to_owned();
     let variant = input.profile.certificate_variant().to_owned();
     let verifier_contract_ref = format!(
         "verifier-contract://ioi/runtime-receipt-proof-v3/{}",
         input.profile.certificate_variant()
     );
+    let assurance = runtime_assurance_v1(
+        native_aft_evidence.as_ref(),
+        hash_async_evidence.as_ref(),
+        input.domain_id,
+        &availability_manifest.manifest_hash,
+    )?;
     let mut certificate = RuntimeFinalityCertificateV2 {
         schema_version: RUNTIME_CERTIFICATE_V2.into(),
         certificate_domain: RUNTIME_CERTIFICATE_V2.into(),
@@ -666,14 +1060,16 @@ pub fn emit_runtime_bundle_v3(
         writer_identity: input.writer_identity.into(),
         fence_token: input.fence_token,
         claimed_axes: vec!["integrity".into(), "availability".into()],
+        assurance,
         verifier_contract_ref: verifier_contract_ref.clone(),
         verifier_contract_hash: input.verifier_contract_hash.into(),
         issuer_key_id: input.issuer_key_id.into(),
-        issuer_public_key: hex::encode(public_key.to_bytes()),
+        issuer_public_key: hex::encode(&issuer_public_key),
         body_hash: String::new(),
-        signature_suite: "ed25519".into(),
+        signature_suite: issuer_signature_suite.into(),
         signature: String::new(),
         native_aft_evidence,
+        hash_async_evidence,
     };
     let mut checkpoint = RuntimeCheckpointV3 {
         schema_version: RUNTIME_CHECKPOINT_V3.into(),
@@ -720,16 +1116,11 @@ pub fn emit_runtime_bundle_v3(
     certificate.checkpoint_hash = checkpoint.body_hash.clone();
     certificate.body_hash = hash_value(&certificate_preimage(&certificate)?)?;
     let message = format!("{RUNTIME_CERTIFICATE_V2}\0{}", certificate.body_hash);
-    certificate.signature = hex::encode(
-        signing_key
-            .sign(message.as_bytes())
-            .map_err(|error| VerificationError::Crypto(error.to_string()))?
-            .to_bytes(),
-    );
+    certificate.signature = hex::encode(sign(message.as_bytes())?);
     checkpoint.finality_certificate = certificate;
     let trusted_issuer = RuntimeTrustedIssuerV1 {
         issuer_key_id: input.issuer_key_id.into(),
-        issuer_public_key: hex::encode(public_key.to_bytes()),
+        issuer_public_key: hex::encode(&issuer_public_key),
         domain_id: input.domain_id.into(),
         authority_epoch: input.authority_epoch,
         revocation_epoch: input.authority_revocation_epoch,
@@ -839,24 +1230,24 @@ fn verify_native_quorum_v2(
     let mut keys = BTreeSet::new();
     let mut native_members = Vec::with_capacity(evidence.members.len());
     for member in &evidence.members {
-        let key: [u8; 32] = hex::decode(&member.public_key)
-            .map_err(|error| VerificationError::Crypto(error.to_string()))?
-            .try_into()
-            .map_err(|_| VerificationError::Field("member public key".into()))?;
-        if !keys.insert(key) {
+        let suite = native_signature_suite(&member.signature_suite)?;
+        let key = hex::decode(&member.public_key)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        if !keys.insert((suite, key.clone())) {
             return Err(refuse_evidence("duplicate native AFT public key"));
         }
-        let account = account_id_from_key_material(SignatureSuite::ED25519, &key)
+        let account = account_id_from_key_material(suite, &key)
             .map_err(|error| refuse_evidence(format!("member account id: {error}")))?;
         if !accounts.insert(account)
             || by_ref
-                .insert(member.member_ref.clone(), (key, account))
+                .insert(member.member_ref.clone(), (suite, key.clone(), account))
                 .is_some()
         {
             return Err(refuse_evidence("duplicate native AFT member"));
         }
         native_members.push(NativeAftMember {
             member_ref: member.member_ref.clone(),
+            signature_suite: suite,
             public_key: key,
         });
     }
@@ -880,7 +1271,7 @@ fn verify_native_quorum_v2(
     let mut voted = BTreeSet::new();
     let mut signatures = Vec::with_capacity(evidence.votes.len());
     for vote in &evidence.votes {
-        let (key, account) = by_ref
+        let (suite, key, account) = by_ref
             .get(&vote.member_ref)
             .ok_or_else(|| refuse_evidence("vote from undeclared member"))?;
         if !voted.insert(vote.member_ref.clone()) || vote.account_id != hex::encode(account) {
@@ -888,12 +1279,7 @@ fn verify_native_quorum_v2(
         }
         let signature_bytes = hex::decode(&vote.signature)
             .map_err(|error| VerificationError::Crypto(error.to_string()))?;
-        let public = Ed25519PublicKey::from_bytes(key)
-            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
-        let signature = Ed25519Signature::from_bytes(&signature_bytes)
-            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
-        public
-            .verify(&message, &signature)
+        verify_native_signature(*suite, key, &message, &signature_bytes)
             .map_err(|_| refuse_evidence(format!("member {} signature", vote.member_ref)))?;
         signatures.push((ioi_types::app::AccountId(*account), signature_bytes));
     }
@@ -913,6 +1299,304 @@ fn verify_native_quorum_v2(
         consensus_protocol_ref: evidence.consensus_protocol_ref.clone(),
         byzantine_fault_tolerance: evidence.byzantine_fault_tolerance,
     })
+}
+
+fn verify_hash_async_qc(
+    qc: &QuorumCertificate,
+    members: &[(SignatureSuite, Vec<u8>, ioi_types::app::AccountId)],
+    quorum: usize,
+) -> Result<(), VerificationError> {
+    if qc.height == 0 {
+        return if qc == &QuorumCertificate::default() {
+            Ok(())
+        } else {
+            Err(refuse_evidence("non-canonical hash-async genesis QC"))
+        };
+    }
+    if !qc.aggregated_signature.is_empty() || !qc.signers_bitfield.is_empty() {
+        return Err(refuse_evidence(
+            "hash-async safe-state QC uses an unsupported aggregate signature",
+        ));
+    }
+    if qc.signatures.len() < quorum {
+        return Err(refuse_evidence(format!(
+            "hash-async safe-state QC has {} signatures below q={quorum}",
+            qc.signatures.len()
+        )));
+    }
+    let message = native_aft_vote_message(qc.height, qc.view, &qc.block_hash)?;
+    let mut seen = BTreeSet::new();
+    for (account, signature) in &qc.signatures {
+        if !seen.insert(*account) {
+            return Err(refuse_evidence("hash-async safe-state QC repeats a signer"));
+        }
+        let (suite, key, _) = members
+            .iter()
+            .find(|(_, _, member)| member == account)
+            .ok_or_else(|| refuse_evidence("hash-async safe-state QC signer is not enrolled"))?;
+        verify_native_signature(*suite, key, &message, signature)?;
+    }
+    Ok(())
+}
+
+fn verify_hash_async_fallback_start(
+    instance: &ioi_types::app::AftAsyncInstanceV1,
+    members: &[(SignatureSuite, Vec<u8>, ioi_types::app::AccountId)],
+) -> Result<(), VerificationError> {
+    let quorum = instance.geometry.quorum as usize;
+    let start = &instance.fallback_start;
+    for timeout in &start.trigger_certificate.consecutive_timeout_certificates {
+        if timeout.votes.len() < quorum {
+            return Err(refuse_evidence(format!(
+                "hash-async timeout certificate for view {} has {} votes below q={quorum}",
+                timeout.view,
+                timeout.votes.len()
+            )));
+        }
+        for vote in &timeout.votes {
+            let (suite, key, _) = members
+                .iter()
+                .find(|(_, _, member)| member == &vote.voter)
+                .ok_or_else(|| refuse_evidence("hash-async timeout voter is not enrolled"))?;
+            let message = vote.signing_bytes().map_err(VerificationError::Field)?;
+            verify_native_signature(*suite, key, &message, &vote.signature)?;
+            verify_hash_async_qc(&vote.highest_qc, members, quorum)?;
+            verify_hash_async_qc(&vote.locked_qc, members, quorum)?;
+        }
+    }
+    verify_hash_async_qc(&start.highest_qc, members, quorum)?;
+    verify_hash_async_qc(&start.locked_qc, members, quorum)?;
+    Ok(())
+}
+
+fn verify_hash_async_evidence_v1(
+    evidence: &RuntimeHashAsyncEvidenceV1,
+    block: &Block<ChainTransaction>,
+) -> Result<(), VerificationError> {
+    if evidence.schema_version != "ioi.native-aft-hash-async-evidence.v1"
+        || evidence.consensus_protocol_ref != "protocol://ioi/aft/hash-async/v1"
+        || evidence.fault_model != "static_byzantine_f_lt_n_over_3"
+        || evidence.synchrony_model != "asynchronous_randomized_termination"
+        || evidence.private_threshold_setup
+        || !evidence.membership_enrollment_required
+        || !evidence.private_authenticated_channels_required
+        || !evidence.pq_authenticated_channels_required
+        || !evidence.post_quantum
+    {
+        return Err(refuse_evidence("hash-async evidence contract"));
+    }
+    let certificate_bytes = BASE64
+        .decode(&evidence.certificate_base64)
+        .map_err(|error| VerificationError::Field(error.to_string()))?;
+    let witness_bytes = BASE64
+        .decode(&evidence.witness_base64)
+        .map_err(|error| VerificationError::Field(error.to_string()))?;
+    let validator_set_bytes = BASE64
+        .decode(&evidence.validator_set_base64)
+        .map_err(|error| VerificationError::Field(error.to_string()))?;
+    let terminal_header_bytes = BASE64
+        .decode(&evidence.terminal_block_header_base64)
+        .map_err(|error| VerificationError::Field(error.to_string()))?;
+    let certificate: ioi_types::app::AftAsyncExecutedBlockCertificateV1 =
+        from_bytes_canonical(&certificate_bytes).map_err(|error| {
+            VerificationError::Field(format!("hash-async certificate: {error}"))
+        })?;
+    let witness: ioi_types::app::AftAsyncSelectedBatchWitnessV1 =
+        from_bytes_canonical(&witness_bytes)
+            .map_err(|error| VerificationError::Field(format!("hash-async witness: {error}")))?;
+    let set: ValidatorSetV1 = from_bytes_canonical(&validator_set_bytes)
+        .map_err(|error| VerificationError::Field(format!("hash-async validator set: {error}")))?;
+    let terminal_header: BlockHeader =
+        from_bytes_canonical(&terminal_header_bytes).map_err(|error| {
+            VerificationError::Field(format!("hash-async terminal header: {error}"))
+        })?;
+    if to_bytes_canonical(&terminal_header).map_err(VerificationError::Field)?
+        != terminal_header_bytes
+    {
+        return Err(refuse_evidence(
+            "hash-async terminal header is not canonically encoded",
+        ));
+    }
+    certificate
+        .validate_with_witness(&witness)
+        .map_err(refuse_evidence)?;
+    let instance = &certificate.decision.instance;
+    if evidence.membership_epoch != instance.scope.epoch
+        || evidence.members.len() != instance.geometry.n as usize
+    {
+        return Err(refuse_evidence("hash-async membership geometry"));
+    }
+
+    let mut member_refs = BTreeSet::new();
+    let mut accounts = BTreeSet::new();
+    let mut raw_members = Vec::with_capacity(evidence.members.len());
+    let mut previous_account = None;
+    if set.effective_from_height != evidence.membership_epoch
+        || set.validators.len() != evidence.members.len()
+        || set.total_weight != set.validators.len() as u128
+    {
+        return Err(refuse_evidence("hash-async validator-set geometry"));
+    }
+    for (member, validator) in evidence.members.iter().zip(&set.validators) {
+        if !member_refs.insert(member.member_ref.clone()) {
+            return Err(refuse_evidence("duplicate hash-async member reference"));
+        }
+        let suite = native_signature_suite(&member.signature_suite)?;
+        if suite != SignatureSuite::ML_DSA_44 {
+            return Err(refuse_evidence("hash-async member is not ML-DSA-44"));
+        }
+        let public_key = hex::decode(&member.public_key)
+            .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+        let account = account_id_from_key_material(suite, &public_key)
+            .map_err(|error| refuse_evidence(format!("hash-async member account: {error}")))?;
+        if !accounts.insert(account) {
+            return Err(refuse_evidence("duplicate hash-async member account"));
+        }
+        if previous_account.is_some_and(|previous| previous >= account) {
+            return Err(refuse_evidence(
+                "hash-async validator set is not canonically account-ordered",
+            ));
+        }
+        previous_account = Some(account);
+        if validator.account_id != ioi_types::app::AccountId(account)
+            || validator.weight != 1
+            || validator.consensus_key.suite != suite
+            || validator.consensus_key.public_key_hash != account
+            || validator.consensus_key.since_height > instance.height
+        {
+            return Err(refuse_evidence("hash-async validator key binding"));
+        }
+        raw_members.push((suite, public_key, ioi_types::app::AccountId(account)));
+    }
+    if canonical_validator_set_hash(&set).map_err(VerificationError::Field)?
+        != instance.scope.configuration_hash
+        || block.header.validator_set
+            != set
+                .validators
+                .iter()
+                .map(|member| member.account_id.0.to_vec())
+                .collect::<Vec<_>>()
+        || terminal_header.validator_set != block.header.validator_set
+    {
+        return Err(refuse_evidence("hash-async rooted membership binding"));
+    }
+    verify_hash_async_fallback_start(instance, &raw_members)?;
+    let subject_hash: [u8; 32] = block
+        .header
+        .hash()
+        .map_err(|error| VerificationError::Field(error.to_string()))?
+        .as_slice()
+        .try_into()
+        .map_err(|_| VerificationError::Field("hash-async block hash".into()))?;
+    let terminal_hash: [u8; 32] = terminal_header
+        .hash()
+        .map_err(|error| VerificationError::Field(error.to_string()))?
+        .as_slice()
+        .try_into()
+        .map_err(|_| VerificationError::Field("hash-async terminal block hash".into()))?;
+    let terminal_view = instance
+        .fallback_start
+        .trigger_certificate
+        .consecutive_timeout_certificates
+        .last()
+        .map(|timeout| timeout.view.saturating_add(1))
+        .ok_or_else(|| refuse_evidence("hash-async fallback terminal view"))?;
+    let first = raw_members
+        .first()
+        .ok_or_else(|| refuse_evidence("hash-async empty membership"))?;
+    if certificate.decision.block_hash != terminal_hash
+        || instance.height != terminal_header.height
+        || terminal_view != terminal_header.view
+        || terminal_header.parent_qc
+            != ioi_types::app::aft_async_canonical_qc_reference(&instance.fallback_start.highest_qc)
+        || (terminal_header.height > 1
+            && terminal_header.parent_hash != instance.fallback_start.highest_qc.block_hash)
+        || terminal_header.producer_account_id != first.2
+        || terminal_header.producer_key_suite != first.0
+        || terminal_header.producer_pubkey != first.1
+        || !terminal_header.signature.is_empty()
+    {
+        return Err(refuse_evidence("hash-async virtual block binding"));
+    }
+
+    let verify_indexed = |index: u16,
+                          account: ioi_types::app::AccountId,
+                          message: &[u8],
+                          signature: &[u8]|
+     -> Result<(), VerificationError> {
+        let (suite, key, expected) = raw_members
+            .get(index as usize)
+            .ok_or_else(|| refuse_evidence("hash-async signer index"))?;
+        if account != *expected {
+            return Err(refuse_evidence("hash-async signer account/index"));
+        }
+        verify_native_signature(*suite, key, message, signature)
+    };
+    for selected in &witness.selected {
+        let availability = &selected.availability_certificate;
+        for vote in &availability.votes {
+            let message = ioi_types::app::AftAsyncProposalAvailabilityVoteV1::signing_bytes(
+                &availability.descriptor,
+                vote.member_index,
+                vote.voter,
+            )
+            .map_err(VerificationError::Field)?;
+            verify_indexed(vote.member_index, vote.voter, &message, &vote.signature)?;
+        }
+    }
+    for vote in &certificate.ordering.votes {
+        let message = ioi_types::app::AftAsyncDecisionVoteV1::signing_bytes(
+            &certificate.ordering.decision,
+            vote.member_index,
+            vote.voter,
+        )
+        .map_err(VerificationError::Field)?;
+        verify_indexed(vote.member_index, vote.voter, &message, &vote.signature)?;
+    }
+    for vote in &certificate.votes {
+        let message = ioi_types::app::AftAsyncExecutedBlockVoteV1::signing_bytes(
+            &certificate.decision,
+            vote.member_index,
+            vote.voter,
+        )
+        .map_err(VerificationError::Field)?;
+        verify_indexed(vote.member_index, vote.voter, &message, &vote.signature)?;
+    }
+    let selected = witness
+        .canonical_transactions(&certificate.ordering)
+        .map_err(refuse_evidence)?;
+    if ioi_types::app::canonical_transactions_root(&selected).map_err(VerificationError::Field)?
+        != terminal_header.transactions_root
+    {
+        return Err(refuse_evidence(
+            "hash-async selected witness does not match the terminal transactions root",
+        ));
+    }
+    if subject_hash == terminal_hash {
+        if block.header != terminal_header
+            || !hash_async_executed_batch_matches(&selected, &block.transactions)
+        {
+            return Err(refuse_evidence(
+                "hash-async executed transactions differ from the complete ordered witness",
+            ));
+        }
+    } else if block.header.height.saturating_add(1) != terminal_header.height
+        || terminal_header.parent_hash != subject_hash
+        || instance.fallback_start.highest_qc.height != block.header.height
+        || instance.fallback_start.highest_qc.block_hash != subject_hash
+    {
+        return Err(refuse_evidence(
+            "hash-async subject is not the certified terminal block or its direct high-QC parent",
+        ));
+    }
+    Ok(())
+}
+
+pub(crate) fn hash_async_executed_batch_matches(
+    selected: &[ChainTransaction],
+    executed: &[ChainTransaction],
+) -> bool {
+    selected == executed
 }
 
 /// Offline-verify only the explicit v3 runtime contract. v1/v2 and unknown
@@ -1074,7 +1758,6 @@ pub fn verify_runtime_bundle_v3(
         || trusted.domain_id != certificate.domain_id
         || trusted.authority_epoch != certificate.authority_epoch
         || trusted.revocation_epoch != certificate.authority_revocation_epoch
-        || certificate.signature_suite != "ed25519"
     {
         return Err(VerificationError::Binding("runtime trusted issuer".into()));
     }
@@ -1082,16 +1765,29 @@ pub fn verify_runtime_bundle_v3(
         .map_err(|error| VerificationError::Crypto(error.to_string()))?;
     let signature_bytes = hex::decode(&certificate.signature)
         .map_err(|error| VerificationError::Crypto(error.to_string()))?;
-    let public = Ed25519PublicKey::from_bytes(&public_bytes)
-        .map_err(|error| VerificationError::Crypto(error.to_string()))?;
-    let signature = Ed25519Signature::from_bytes(&signature_bytes)
-        .map_err(|error| VerificationError::Crypto(error.to_string()))?;
-    public
-        .verify(
-            format!("{RUNTIME_CERTIFICATE_V2}\0{}", certificate.body_hash).as_bytes(),
-            &signature,
-        )
-        .map_err(|_| VerificationError::Crypto("runtime certificate signature".into()))?;
+    let message = format!("{RUNTIME_CERTIFICATE_V2}\0{}", certificate.body_hash);
+    match certificate.signature_suite.as_str() {
+        "ed25519" => {
+            let public = Ed25519PublicKey::from_bytes(&public_bytes)
+                .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            let signature = Ed25519Signature::from_bytes(&signature_bytes)
+                .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            public
+                .verify(message.as_bytes(), &signature)
+                .map_err(|_| VerificationError::Crypto("runtime certificate signature".into()))?;
+        }
+        "ml-dsa-44" => verify_native_signature(
+            SignatureSuite::ML_DSA_44,
+            &public_bytes,
+            message.as_bytes(),
+            &signature_bytes,
+        )?,
+        other => {
+            return Err(refuse_evidence(format!(
+                "unsupported runtime certificate signature suite {other}"
+            )))
+        }
+    }
 
     let profile = match (
         checkpoint.profile.as_str(),
@@ -1430,31 +2126,72 @@ pub fn verify_runtime_bundle_v3(
         ));
     }
 
-    let (native_quorum_verified, effect_committed_in_block) =
-        match (profile, certificate.native_aft_evidence.as_ref()) {
-            (RuntimeFinalityProfile::BftConsensusAftV1, Some(evidence)) => {
-                let finalized = verify_native_quorum_v2(evidence, &block.header)?;
-                let effect = verify_native_aft_full_block_effects(
-                    &finalized,
-                    &full_block_bytes,
-                    &bindings,
-                    block.header.parent_state_root.as_ref(),
-                    block.header.state_root.as_ref(),
-                )?;
-                (true, effect.effect_committed_in_block)
-            }
-            (RuntimeFinalityProfile::BftConsensusAftV1, None) => {
-                return Err(refuse_evidence(
-                    "runtime BFT certificate has no native quorum",
-                ))
-            }
-            (RuntimeFinalityProfile::SingleAuthorityV1, None) => (false, true),
-            (RuntimeFinalityProfile::SingleAuthorityV1, Some(_)) => {
-                return Err(refuse_evidence(
-                    "single authority carries native quorum evidence",
-                ))
-            }
-        };
+    let (native_quorum_verified, effect_committed_in_block) = match (
+        profile,
+        certificate.native_aft_evidence.as_ref(),
+        certificate.hash_async_evidence.as_ref(),
+    ) {
+        (RuntimeFinalityProfile::BftConsensusAftV1, Some(evidence), None) => {
+            let finalized = verify_native_quorum_v2(evidence, &block.header)?;
+            let effect = verify_native_aft_full_block_effects(
+                &finalized,
+                &full_block_bytes,
+                &bindings,
+                block.header.parent_state_root.as_ref(),
+                block.header.state_root.as_ref(),
+            )?;
+            (true, effect.effect_committed_in_block)
+        }
+        (RuntimeFinalityProfile::BftConsensusAftV1, None, Some(evidence)) => {
+            verify_hash_async_evidence_v1(evidence, &block)?;
+            (true, true)
+        }
+        (RuntimeFinalityProfile::BftConsensusAftV1, None, None) => {
+            return Err(refuse_evidence(
+                "runtime BFT certificate has no native quorum",
+            ))
+        }
+        (RuntimeFinalityProfile::BftConsensusAftV1, Some(_), Some(_)) => {
+            return Err(refuse_evidence(
+                "runtime BFT certificate carries two quorum variants",
+            ))
+        }
+        (RuntimeFinalityProfile::SingleAuthorityV1, None, None) => (false, true),
+        (RuntimeFinalityProfile::SingleAuthorityV1, _, _) => {
+            return Err(refuse_evidence(
+                "single authority carries native quorum evidence",
+            ))
+        }
+    };
+
+    let expected_assurance = runtime_assurance_v1(
+        certificate.native_aft_evidence.as_ref(),
+        certificate.hash_async_evidence.as_ref(),
+        &checkpoint.domain_id,
+        &checkpoint.availability_manifest_hash,
+    )?;
+    if certificate.assurance.schema_version != "ioi.runtime-assurance.v1"
+        || certificate.assurance.requirements != expected_assurance.requirements
+        || certificate.assurance.transformations != expected_assurance.transformations
+        || certificate.assurance.achieved_commitment != expected_assurance.achieved_commitment
+    {
+        return Err(refuse_evidence("runtime assurance envelope mismatch"));
+    }
+    let verified_assurance = CertificateOnlyGuaranteeVerifierV1::verify_claim(
+        &[expected_assurance.achieved],
+        &certificate.assurance.achieved,
+        &certificate.assurance.transformations,
+    )
+    .map_err(|error| refuse_evidence(format!("runtime assurance verification: {error}")))?;
+    if !certificate
+        .assurance
+        .requirements
+        .is_satisfied_by(&verified_assurance)
+    {
+        return Err(refuse_evidence(
+            "runtime assurance requirements are not satisfied",
+        ));
+    }
 
     Ok(VerifiedRuntimeClaimV3 {
         checkpoint_id: checkpoint.checkpoint_id.clone(),
@@ -1474,5 +2211,6 @@ pub fn verify_runtime_bundle_v3(
         effect_committed_in_block,
         receipts_committed_in_block: false,
         established_axes: bundle.requested_axes,
+        assurance: verified_assurance.into_achieved(),
     })
 }

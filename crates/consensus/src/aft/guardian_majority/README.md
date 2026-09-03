@@ -1,6 +1,9 @@
 # GuardianMajority
 
-`GuardianMajority` is the production consensus mode in the Aft Fault Tolerance family.
+`GuardianMajority` is retained research/reference code in the Aft Fault
+Tolerance source tree. It is not an admitted production mode under ADR 0048;
+the sole AFT PQ v1 production selector is `classic_bft` with ML-DSA live votes
+and the mandatory hash-only asynchronous path.
 
 Canonical prose specs:
 
@@ -15,7 +18,7 @@ It replaces the old single-device non-equivocation story with:
 - anchored transparency-log checkpoints
 - explicit registry and epoch state
 
-## Core Safety Model
+## Historical safety model
 
 A proposal is only valid when:
 

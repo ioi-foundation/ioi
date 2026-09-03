@@ -300,13 +300,9 @@ impl SerializableKey for MldsaPublicKey {
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
-        match bytes.len() {
-            1312 | 1952 | 2592 => Ok(MldsaPublicKey(bytes.to_vec())),
-            n => Err(CryptoError::InvalidKey(format!(
-                "Invalid ML-DSA public key size: {} bytes",
-                n
-            ))),
-        }
+        DcryptPublicKey::from_bytes(bytes)
+            .map(|key| MldsaPublicKey(key.to_bytes().to_vec()))
+            .map_err(|error| CryptoError::InvalidKey(error.to_string()))
     }
 }
 
@@ -366,8 +362,11 @@ impl SerializableKey for MldsaPrivateKey {
             }
         };
 
+        let key = DcryptSecretKey::from_bytes(bytes)
+            .map_err(|error| CryptoError::InvalidKey(error.to_string()))?;
+
         Ok(MldsaPrivateKey {
-            data: bytes.to_vec(),
+            data: key.to_bytes().to_vec(),
             level,
         })
     }
@@ -379,7 +378,9 @@ impl SerializableKey for MldsaSignature {
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
-        Ok(MldsaSignature(bytes.to_vec()))
+        DcryptSignatureData::from_bytes(bytes)
+            .map(|signature| MldsaSignature(signature.to_bytes().to_vec()))
+            .map_err(|error| CryptoError::InvalidSignature(error.to_string()))
     }
 }
 

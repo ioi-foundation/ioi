@@ -9,6 +9,7 @@ base64 = { workspace = true }
 fs2 = { workspace = true }
 ioi-crypto = { path = "../crypto" }
 ioi-finality = { path = "../ioi-finality" }
+ioi-types = { path = "../types" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_jcs = { workspace = true }

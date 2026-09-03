@@ -22,11 +22,18 @@ claim below verbatim and MUST NOT print either flagship rung while this
 adjudication records them blocked. The adjudication — not the LaTeX
 prose — is what determines what can be claimed.
 
+> **R10 CLOSURE (2026-09-03).** The normative hash-only fallback, its
+> production admission path, adverse/mutation campaigns, exact `n=130`
+> benchmark, cold restart, and native PQ re-entry are complete. T4a is paired
+> with L-A. This closes only RES-R10; the other claim-ladder gates below keep
+> their independent state.
+
 ## The printable claim (program doc §9, upgraded)
 
-> **Deterministic all-but-one safety for certified boundaries; live
-> consensus under separately bounded adversarial weight and eventual
-> synchrony.**
+> **Deterministic all-but-one safety for certified boundaries. Live ordering
+> is optimistically responsive after GST and has randomized asynchronous
+> progress against a static Byzantine adversary below one-third under its
+> separately declared reliable-private-channel profile.**
 
 **PRINTABLE.** Every leg this claim depends on is closed:
 
@@ -36,13 +43,12 @@ prose — is what determines what can be claimed.
   A2 and bond-independent — the economics memo (P4.2) prices how open
   selection SUPPLIES A2 but the safety statement does not rest on that
   supply.
-- *Live consensus under separately bounded adversarial weight and
-  eventual synchrony* is T4a, and the claim STATES its two conditions
-  (bounded weight; eventual synchrony = A5). Because the claim scopes
-  itself to eventual synchrony, R10's asynchronous-fallback residual
-  (RES-R10) does NOT undercut it — the claim never asserted asynchronous
-  liveness. This is the exact line the intermediate flagship crosses and
-  this claim does not.
+- *Live ordering under separately declared profiles* is T4a. The optimistic
+  arm consumes post-GST delivery; the hash-only fallback consumes static
+  `f<n/3`, reliable private authenticated channels, eventual delivery and
+  private randomness. The profiles do not inherit one another's timing or
+  latency. L-A pairs the result with FLP and the optimal one-third
+  asynchronous resilience boundary.
 
 No rounded-percentage tolerance figure appears; the claim-discipline
 gate (P0.2) enforces that.
@@ -56,13 +62,13 @@ conditions PLUS the four below) is not satisfied:
 
 | Condition | State | Gate |
 |---|---|---|
-| R10 asynchronous fallback DEMONSTRATED (not residual) | **OPEN** | RES-R10 is filed as a residual + design; the fallback is not built (FLP forecloses it without a common coin — engine-structure change). |
+| R10 asynchronous fallback DEMONSTRATED (not residual) | CLOSED | D1–D4 and the hash-only adverse production/cold-restart gate pass; see `../evidence/m3-adversarial-release-gate-2026-09-03.md`. |
 | T7 proven against the wire format | CLOSED | P2.6 (`ForensicAccountability.tla`, 146/146) proves T7 against the P2.6 seal-share wire format; R9 lands the attribution-preserving signer. |
 | T8 published in probabilistic form | CLOSED | P4.2 publishes T8 in correlated-failure probabilistic form, with the no-deterministic-conversion rule. |
-| Pairing table has ZERO `L-OPEN` rows | **OPEN** | Three `L-OPEN` rows stand: T4a (RES-R10), T5d (withdrawn), T8 (supply lower bound is an analysis, not a proven bound). |
+| Pairing table has ZERO `L-OPEN` rows | **OPEN** | One `L-OPEN` row stands: T8 (the supply analysis is not yet a proved cheapest-capture lower bound). T5d is paired with L-S; its responsive positive theorem is refuted rather than open. |
 
-Two independent gates (R10 fallback + the L-OPEN rows) block this rung.
-It cannot print this cycle.
+The remaining T8 `L-OPEN` row blocks this rung. It cannot print while that row
+remains open.
 
 ## Final flagship — BLOCKED
 
@@ -73,15 +79,15 @@ additional conditions are not satisfied:
 
 | Condition | State | Gate |
 |---|---|---|
-| T5d mechanized (P2.7) | **OPEN** | T5d is WITHDRAWN for this cycle — three formulations refuted across five review rounds; §16's banner carries the v4 conditions. |
-| R11 + R12 landed | **OPEN** | RES-R11 (VDF vetting, rule-12 owner action) and RES-R12 (depends on T5d + R11) are filed as residuals. |
+| Positive responsive T5d cadence theorem | **IMPOSSIBLE IN THE DECLARED ASYNC MODEL** | L-S and `SuccessionSchedule.tla` resolve the question: silence cannot prove inaction. Scheduled slot-disjoint safety is mechanized, but it is not responsive cadence. |
+| R11 + scheduled R12 landed | **OPEN** | RES-R11 remains an owner-action VDF-vetting residual. R12 is buildable only as formation-time, clock-fenced scheduled succession after R11; it cannot restore the responsive wording. |
 | T9/L9 paired in the table | CLOSED | The pairing table pairs T9 (maximal accountable safety) with L9 (attribution cap, ratio 1.0). |
 | R13 trace-conformance lane green | CLOSED | R13 merged; the lane runs in `aft_formal_floor` on every build. |
 
-The "clocked by verifiable elapsed time" and "succession pre-consented at
-formation" phrases require exactly the two residual planes (R11, R12);
-"held to its proofs by continuous conformance" is R13-green (satisfied)
-but the rung needs its full set. It cannot print this cycle.
+The final rung's responsive reading is unreachable in the declared model even
+if R11 and scheduled R12 land: a clock proves elapsed time, never death.
+"Held to its proofs by continuous conformance" is R13-green, but that does not
+repair the impossible cadence clause. The rung cannot print as written.
 
 ## Maximality presentation (owner-directed, 2026-08-18)
 
@@ -109,11 +115,12 @@ rung, which are not.
 
 ## Adjudication summary
 
-- **Prints now:** the §9 upgraded claim (deterministic all-but-one
-  safety + synchrony-conditional live consensus).
-- **Blocked, this cycle:** both flagship rungs, by residuals the program
-  deliberately did not paper over (RES-R10, T5d withdrawal, RES-R11/R12,
-  three L-OPEN rows).
+- **Prints now:** the upgraded model-relative claim (deterministic all-but-one
+  boundary safety, post-GST optimistic progress, and static-adversary
+  randomized asynchronous fallback below one-third).
+- **Blocked:** the intermediate rung by T8's one `L-OPEN` supply-bound row;
+  the final responsive rung by L-S's impossibility result, plus the unbuilt
+  R11/scheduled-R12 plane for the weaker scheduled construction.
 - **Enforcement:** the flagship strings appear in this corpus only where
   marked BLOCKED; the claim-discipline gate fails on any bare flagship
   assertion.

@@ -115,31 +115,39 @@ zero-audit gate P2.4 checks. ∎
 Mechanization: P2.4 (`CustodyObligation.tla`: close-time replication at
 compliant signers). Pairing: L-H.
 
-## T4a — Live-tier liveness
+## T4a — Live-tier liveness and ring non-interference
 
-Assumes: A5.
+Assumes: A1, A5.
 
-**Statement.** Block production advances under the live engine's own fault
-bound and partial-synchrony assumption (A5), independently of the ring:
-no Boundary Ring rule appears in the live tier's proposal, vote, or commit
-path, so ring stalls do not affect block liveness.
+**Statement.** Block production advances independently of the ring under the
+selected live profile. The optimistic profile is responsive after GST under
+its exact `n=3f+1`, `q=2f+1` bound. After the durable D2 trigger, the normative
+hash-only profile has randomized asynchronous progress against a static
+Byzantine adversary with `f<n/3`, reliable private authenticated channels and
+eventual delivery. No Boundary Ring rule appears in either proposal, vote,
+fallback, or commit path, so a stalled ring cannot stall unrelated live-tier
+ordering.
 
-**Proof.** The live tier is GuardianMajority operating under its existing
-model; its liveness argument is the engine's own and is not restated here.
-What this theorem adds is non-interference, and that is structural: by
-§11.4, the only protocol edge from ring to live tier is the release gate
-for effects TYPED irreversible; block production, ordering, and reversible
-effects consult no seal. A ring stall therefore delays irreversible-effect
-release and nothing else (unsealed-over-unsafe). The engine's optimistic
-responsiveness is inherited; its asynchronous-fallback obligation is
-tracked as R10 and deliberately NOT claimed here. ∎
+**Proof.** Optimistic quorum intersection and timeout-certificate relay are
+the D1/D2 executable obligations. D3 instantiates the Das–Duan–Liu–Momose–Ren–
+Shoup hash-only ACS construction with its explicitly declared static-adversary
+model; exact rooted availability, ordering, and executed-block certificates
+bind its selected set to AFT authority. D4 carries the highest authenticated
+lock into the fallback and fences later optimistic authority at that height;
+randomness schedules and selects but never signs or authorizes. The bounded
+composition model proves the one-height non-conflict seam, and the adverse
+simulation plus four-validator production/cold-restart drill establish trace
+conformance at `n=4, f=1`. This is randomized termination, not a deterministic
+time bound or an adaptive-security claim.
 
-Mechanization: P2.2's two-tier separation property (live-tier progress
-abstraction stays green while the ring is stalled). Pairing: L-OPEN
-(the live engine's own asynchronous bound is R10's subject; the residual
-is FILED as RES-R10 with the assessment and fallback design in
-`r10_live_tier_async_fallback.md` — the row closes only when the
-sim-exercised fallback lands, and the flagship stays gated on it).
+Ring non-interference is structural: by §11.4, the only ring-to-live edge is
+the release gate for effects TYPED irreversible. Block production, ordering,
+and reversible effects consult no seal. A ring stall therefore delays only
+irreversible-effect release (unsealed-over-unsafe). ∎
+
+Mechanization: P2.2's two-tier separation property and
+`OptimisticFallbackComposition.tla`; executable evidence is
+`../evidence/m3-adversarial-release-gate-2026-09-03.md`. Pairing: L-A.
 
 ## T4b — Seal cadence
 
@@ -273,9 +281,14 @@ be mistaken for — or claim the guarantees of — continuity. ∎
 Mechanization: P2.3 (T5c′ obligation + the no-silence action-set
 assertion). Pairing: L2 (unanimity forced at f = n−1) and L1.
 
-## T5d — Pre-consented succession safety
+## T5d — Succession adjudication: responsive impossibility and scheduled safety
 
-Assumes: A1, A2, A3, A9, A10.
+Assumes: A1, A2, A3, A9.
+
+The scheduled theorem additionally requires the formation-time clock-fenced
+lease defined below. A10 is required only by the stronger
+gapless-continuation variant; it is not needed for slot-disjoint scheduled
+succession.
 
 **STATUS: RESOLVED (2026-08-18) — RESPONSIVE succession is PROVEN
 IMPOSSIBLE; SCHEDULED succession is SAFE and MECHANIZED.** A clean-slate
@@ -311,18 +324,18 @@ formulation was refuted (publication ≠ delivery under asynchrony); its
 round-2 repair was refuted in turn (the succession medium is an unmodeled
 consensus object with no consistency rule and no stamp witness —
 R2-F1/R2-F2 — and its voidness rules broke normal operation, R2-F3).
-Per the estate's twice-falsified-design scar and the program doc's named
-fallback, this theorem's claim is WITHDRAWN: the block below is the
-refuted-and-repaired DRAFT kept for the P2.7 respecification (whose
-commissioned direction — standby-UBC-committed observation sets under
-`S_v`'s own MHA, no bulletin, no stamps — is recorded in spec §16's
-status banner), the final claim-ladder rung remains unreachable, and the
-operative exits on ring death are §9 handover and §14 labeled
-re-genesis. No downstream surface may cite T5d until the respecification
-survives its own adversarial review. (A1 joined the Assumes line per
-R2-F10.5 — the draft proof verifies signatures throughout.)
+The original RESPONSIVE positive claim is WITHDRAWN and refuted, not
+design-open. The active T5d result is the resolved pair above: responsive
+succession is impossible in the pure asynchronous model, while scheduled,
+slot-disjoint succession is safe under the explicit formation-time fence.
+That scheduled result is mechanized but is not a cadence, death-detection, or
+production-admission theorem. The final responsive flagship rung is therefore
+unreachable under its current wording. The block below is retained only as the
+historical refuted-and-repaired draft; no downstream surface may cite it as an
+operative protocol or positive responsive result. (A1 joined the historical
+draft's Assumes line per R2-F10.5 — that draft verifies signatures throughout.)
 
-**Draft statement (non-normative, rebuilt after round 1).** No reachable state contains both a fallback-released
+**Historical draft statement (non-normative, rebuilt after round 1).** No reachable state contains both a fallback-released
 irreversible effect for a slot and a BINDING conflicting old-ring seal for
 that slot — where bindingness is the old ring's own formation-time
 pre-signed rule (§16.3): a share stamped at or past the slot's authority
@@ -375,44 +388,49 @@ scheduled succession safe — `Disjoint` and `NoFork` hold over all
 reachable states; the fence-deleted mutation reaches the fork,
 mechanizing the impossibility). `SuccessionClock.tla` survives as the
 honestly-narrowed P2.7 kernel of the withdrawn responsive draft.
-Pairing: L-OPEN in the flagship sense, but the succession lower-bound
-question is now ANSWERED: safe succession with liveness is impossible in
-the pure async model, forced (by two convergent reductions) to require a
-scoped assumption — the clock-fenced lease (necessary and sufficient for
-the scheduled form), plus a known staleness bound only for gapless
-continuation. Formalization is no longer open; it is
-`t5d_succession_resolution.md` + `SuccessionSchedule.tla`.
+Pairing: L-S. The succession lower-bound question is answered: responsive
+safe succession with liveness is impossible in the pure asynchronous model.
+The clock-fenced lease is necessary and sufficient for the scheduled,
+slot-disjoint form; a known staleness bound is additionally required for
+gapless continuation. Formalization is
+`t5d_succession_resolution.md` + `SuccessionSchedule.tla`. The unavailable
+positive responsive theorem remains a claim-ladder blocker, not an `L-OPEN`
+pairing row.
 
 ## T6 — Composition (the lattice meet)
 
 Assumes: A1.
 
-**Statement.** Every certificate profile (live-tier QC, guardian
-certificate, witness, observer, UBC, re-genesis root) carries a
-machine-readable assumption label; the collapse verifier computes the meet
-over all constituents; a collapse object's effective guarantee is exactly
-its weakest constituent's, including the `pq` bit (AND, §18.2). There is
-no silent degradation between tiers.
+**Statement.** Requirements, verified constituent evidence, and transforms
+are three distinct types. For every guarantee coordinate `p`, the verifier
+reports the meet of the load-bearing constituents' verified `p` labels. A
+constituent that bears no claim for `p` cannot grant it; a constituent declared
+evidence-only for `p` is neutral only where the coordinate definition says so.
+A wrapper may strengthen `p` only through a versioned rule whose independent
+verifier establishes new evidence for `p`, names the permitting theorem, and
+commits to the exact inputs and output. The default for every rule and unknown
+version is refusal. PQ coordinates use conjunction, exact scopes survive only
+on equality, and unrelated safety, availability, collateral, liveness, and
+externalization coordinates never promote one another.
 
-**Proof.** Labels are part of the signed content of each certificate (A1:
-they cannot be detached or swapped). Soundness of each individual label is
-its profile's own theorem (a UBC's label by T1–T3; a live-QC's by the
-engine's model; a root's by its anchor mechanism). For the composite:
-define the guarantee order as the assumption-lattice order (label ℓ₁ ≤ ℓ₂
-iff every execution satisfying ℓ₁'s vector satisfies ℓ₂'s). The meet of
-the constituents is, by definition of meet, the greatest label ≤ every
-constituent's; the composed object's actual guarantee is bounded by each
-constituent (an adversary that breaks one constituent breaks the
-composition that relies on it), so the meet is an upper bound on what may
-be soundly reported, and it is achieved because the verifier checks each
-constituent against its own label. Reporting the meet is therefore exact:
-anything stronger is unsound (L-M), anything weaker discards guarantee.
-The `pq` AND is the meet restricted to the pq coordinate (§18.2).
-Exhaustive matching over profiles (R6: adding a profile without a label is
-a compile error) closes the "silent new profile" hole mechanically. ∎
+**Proof.** A1 binds each certificate to its profile and evidence bytes. The
+certificate-only verifier discards any wrapper-reported vector and recomputes
+the coordinate meet. Policy evaluation accepts only its opaque verified
+result, so a caller cannot substitute a requirements join or a structurally
+valid raw claim. For each coordinate, the meet is sound because every
+load-bearing constituent establishes at least that value; it is the greatest
+such certificate-only report by the lattice definition. L-M proves that any
+unverified above-meet report is indistinguishable from an execution in which
+the stronger property is false. A verified transform changes the information
+available to the verifier, so it escapes that indistinguishability argument
+only for the coordinate and theorem its new evidence establishes. Exhaustive
+profile/rule matching and the signed transformation commitment make unknown
+profiles, rules, inputs, outputs, or cross-coordinate substitutions fail
+closed. ∎
 
-Mechanization: R6 unit gates (meet tests, pq-meet tests,
-exhaustive-match-by-construction). Pairing: L-M.
+Mechanization: `GuaranteeMeet.tla` (11,666 generated / 5,833 distinct states),
+the opaque `VerifiedGuaranteeV1` runtime algebra, exhaustive profile census,
+and the laundering negative corpus. Pairing: L-M.
 
 ## T7 — Forensic accountability (accountable degradation)
 
@@ -507,9 +525,10 @@ is P4.2 analysis work, recorded open).
 Assumes: A1.
 
 **Statement.** Any seal-uniqueness violation cryptographically convicts
-the entire violating coalition — all n signers of the configuration — with
-slashable floor `n × bond`. The convicted-to-necessary ratio is 1.0, which
-is maximal (L9): finality with a price tag, by construction.
+the entire violating coalition — all n signers of the configuration. The
+convicted-to-necessary ratio is 1.0, which is maximal (L9). A monetary floor
+does not follow from attribution alone; only T11's separately verified bond
+snapshot may establish one.
 
 **Proof.** By T7, two conflicting seals convict every member of `C_v`
 individually, for any holder of both. Each conviction is an A1-sound share
@@ -517,9 +536,10 @@ pair (§12.5) admissible as slashing evidence against that member's bond
 (the bond exists by the membership plane's registration rule, §9). The
 violation requires all n (a UBC is n-of-n), so necessary = n and convicted
 = n: ratio 1.0. L9 states no protocol can attribute beyond the signers of
-the conflicting certificates, so 1.0 is the ceiling and T9 meets it. The
-economic floor follows: n bonds are simultaneously slashable on the
-evidence. The lineage-escape variant (P1.3 round 1, F11) — converting a
+the conflicting certificates, so 1.0 is the ceiling and T9 meets it. Whether
+those identities have distinct, live, unencumbered and enforceably slashable
+bonds is an independent state claim resolved by T11, not assumed here. The
+lineage-escape variant (P1.3 round 1, F11) — converting a
 same-slot double-seal into a "fresh lineage" via a self-serving re-genesis
 — is closed UPSTREAM OF THIS THEOREM, by §14.2's admissibility machinery:
 a root whose own embedded chain reference shows the prior lineage
@@ -536,8 +556,123 @@ line are untouched by it. So the maneuver changes the offense's name,
 not its price. ∎
 
 Mechanization: P2.6 (attribution completeness); R9 (share-level
-verification in the signer); the economic floor is P4.2's parameter work.
-Pairing: L9.
+verification in the signer). Pairing: L9.
+
+## T10 — Consequence at-most-once externalization
+
+Assumes: A1.
+
+**Statement.** Let one accepted effect authorization commit an
+`EffectManifestV1` whose exact adapter/resource profile exposes an atomic
+put-if-absent, compare-and-set, or equivalent idempotency register. If the
+durable executor persists `Claimed` and `InFlight` before its only mutation
+invocation, and every state at or after `InFlight` recovers through same-key
+lookup rather than reinvocation, then the authorization causes at most one
+modeled external-resource mutation. Its receipt binds the intent, request,
+predecessor, expected outcome, observed outcome, and reconciliation evidence.
+A conflicting resource record yields transferable attribution only when its
+evidence verifies under the committed resource profile; ordinary timeout or
+network ambiguity is not attributed.
+
+**Proof.** Before `InFlight` no resource call is enabled. The transition to
+`InFlight` is device-flushed before the executor calls the resource. Exactly
+one code transition out of `Claimed` owns that call, and the resource's atomic
+register maps the stable idempotency key to at most one record. A clear reply
+persists `Executed`; an ambiguous reply persists `Unknown`. If the process
+crashes after the call but before either persistence, restart observes durable
+`InFlight` and moves only to `Unknown`. `Executed` and `Unknown` enable only
+lookup of the same key and then `Reconciled`; neither enables the mutation
+call. Thus all crash, retry, and duplicate-delivery histories contain at most
+one invocation by this authorization, and the atomic register contains at
+most one corresponding mutation. L-X shows why the endpoint primitive is a
+necessary boundary rather than an implementation convenience. For
+attribution, A1 plus the committed resource-profile verifier authenticates a
+contradictory record; without such evidence the runtime emits only local
+ambiguity and constructs no blame proof. ∎
+
+Mechanization: `AtMostOnceExternalization.tla` (66 generated / 42 distinct
+states, depth 8), plus Rust trace-conformance, every-boundary crash injection,
+duplicate-delivery, unsupported-profile, and forged-evidence tests. Pairing:
+L-X.
+
+## T11 — Evidence-qualified distinct collateral floor
+
+Assumes: A1.
+
+**Statement.** Given transferable A1-sound accountability evidence naming a
+non-empty implicated member set and an objective signed-fault predicate, the
+offline verifier reports exactly the sum, in one native asset, of the distinct
+collateral lots in a committed snapshot that (i) belong exclusively to those
+members and the implicated configuration, (ii) accept that exact evidence
+predicate under one committed slashing contract, (iii) were locked at the
+snapshot and remain locked through the complete challenge horizon, and (iv)
+are neither withdrawing nor encumbered. Every implicated member must have a
+qualifying lot. Duplicate bond IDs or collateral-lot IDs, shared configuration
+assignments, mixed assets/contracts, expired locks, and mismatched claimed
+amounts refuse. Withholding and silence yield no floor. Optional oracle
+assumptions remain visible metadata and never inflate the native-unit sum.
+
+**Proof.** A1 authenticates the implicated signed-fault evidence. The snapshot
+root commits every bond field used by the decision. The verifier requires a
+strictly increasing bond-ID list and inserts every underlying collateral ID
+into a set, refusing a repeated insertion; therefore each lot contributes at
+most once. It checks exact equality for configuration, evidence predicate,
+asset, and slashing contract, and checks lock, challenge, withdrawal and
+encumbrance predicates before arbitrary-precision addition. It independently
+recomputes the snapshot root, selected-set root, minimum lock horizon, exact
+sum, and complete `EconomicAssuranceV1`, then accepts only equality with the
+portable claim. L-C shows that omitted eligibility/distinctness evidence
+cannot soundly support a larger floor. The result says nothing about
+acquisition cost, asset value, liquidity, corruption supply, or configuration-
+capture probability. ∎
+
+Mechanization: `DistinctCollateralFloor.tla` (33 generated / 8 distinct
+states, depth 4), the arbitrary-precision Rust verifier, duplicate/expired/
+unlocked/encumbered attack corpus, and a guard-deletion mutation. Pairing: L-C.
+
+## T12 — Portable PQ-channel coverage for one authorized payload
+
+Assumes: A1.
+
+**Statement.** Let a portable receipt identify the exact static member set of
+one PQ-issued hash-asynchronous ordering certificate and the exact canonical
+finality-bundle hash authorizing an effect. If the receipt contains exactly
+one valid `PqChannelCompletionEvidenceV1` for every unordered pair of distinct
+members, then an offline verifier soundly reports `channel_pq=true` for that
+authorized payload. Every evidence object must bind the same network,
+configuration, epoch, channel profile, ML-KEM-768 handshake transcript,
+derived-key confirmation, protected-payload hash, and both members' rooted
+ML-DSA-44 identities. Missing, duplicate, out-of-scope, classically
+authenticated, singly attested, or mutated edges refuse. The result proves
+complete demonstrated-path coverage and transferable endpoint
+accountability; it does not prove secrecy of historical traffic, delivery,
+adaptive security, or an unobserved all-time channel property.
+
+**Proof.** The finality verifier independently reconstructs the static member
+set and finality-bundle hash from the PQ-issued certificate. A canonical
+unordered-pair set over `n` distinct members has exactly `n(n-1)/2` elements.
+For every submitted edge, the channel verifier checks the ML-KEM transcript,
+both rooted ML-DSA handshake signatures, both derived-key-completion
+attestations, the exact scope, and the exact protected-payload hash; the
+coverage verifier refuses a repeated pair and then exact-compares the observed
+pair set with the complete pair set. Consequently each load-bearing member
+pair on this demonstrated payload has independently authenticated PQ channel
+completion evidence. L-PQCH shows why neither a profile boolean nor the same
+finality bytes alone can establish this coordinate. The conclusion is then
+fed through T6's meet rule with consensus and endpoint evidence. ∎
+
+Mechanization: the versioned Rust verifier and its complete-graph, missing-edge,
+duplicate-edge, endpoint-signature, transcript, scope and payload mutation
+corpus. Pairing: L-PQCH.
+
+**Portable authorization boundary.** T12 and the other receipt-carried
+results establish properties relative to externally selected roots; they do
+not let a receipt select those roots. A production offline decision therefore
+also requires `PortableAssuranceTrustV1`, provisioned independently of the
+receipt, that pins network, configuration, epoch, terminal-key root, receipt
+signer, anchors, and the relying party's guarantee floor. A self-consistent
+parallel configuration remains cryptographically valid data but is not
+authority for that relying party.
 
 ---
 
@@ -591,6 +726,41 @@ a certificate needs `q ≤ n − f`. At `f = n − 1`: safety gives
 concedes. ∎
 
 Pairs with: T4b, T5c′ (unanimity of transitions).
+
+## L-S — Responsive succession cannot infer inaction from silence
+
+Assumes: none beyond the pure asynchronous schedule being challenged.
+
+**Statement.** A responsive succession rule for disjoint configurations cannot
+both (a) preserve single-slot safety and (b) eventually replace every dead
+configuration when its trigger is derived only from silence or elapsed time in
+an asynchronous network. Safe slot-disjoint succession instead requires a
+formation-time authority fence; gapless continuation additionally requires a
+known staleness/delivery bound or an equivalent inaction oracle.
+
+**Proof.** Construct two executions with the same successor-visible prefix. In
+`E_dead`, the original configuration emits nothing and is permanently dead.
+In `E_partitioned`, it is alive behind a partition and has already produced,
+or may still produce, a valid conflicting seal that has not reached the
+successor. Any responsive rule that eventually activates in `E_dead` must act
+at some finite successor-visible prefix. It acts at the indistinguishable
+prefix in `E_partitioned`, where the two disjoint configurations can authorize
+conflicting values. Randomization cannot restore safety: fix any coin outcome
+on which the required activation occurs. Elapsed-time evidence distinguishes
+neither execution because it proves time, not future inaction.
+
+A formation-time lease changes the executions rather than detecting them: at
+least one honest original signer has already committed not to sign above a
+public slot/time fence. Since the original certificate is unanimous, that
+pre-commitment prevents every later original seal above the fence, making the
+original and successor slot ranges disjoint. It supplies scheduled safety but
+does not identify death or preserve a gapless prefix. Gapless continuation
+needs the successor to know that every earlier valid seal has surfaced, which
+is exactly a staleness/delivery bound or equivalent oracle. The formal mutation
+in `SuccessionSchedule.tla` removes the fence and reaches the conflicting-seal
+state. ∎
+
+Pairs with: T5d.
 
 ## L-E — Completeness requires reachability (eclipse bound)
 
@@ -660,26 +830,126 @@ Each anchor is exactly an A6 mechanism; none is free. ∎
 
 Pairs with: T5b.
 
+## L-A — Asynchronous agreement requires randomness and the one-third bound
+
+Assumes: none (impossibility bounds).
+
+**Statement.** A deterministic protocol cannot guarantee consensus
+termination in a fully asynchronous message-passing system even with one
+crash fault (FLP). In the standard asynchronous Byzantine-agreement model used
+by the selected hash-only construction, `f<n/3` is the optimal resilience
+boundary. Therefore no implementation in that model can soundly promise both
+the same agreement/termination properties and either deterministic
+termination or tolerance of `f>=n/3`.
+
+**Argument.** FLP supplies the first impossibility directly: an admissible
+message schedule can keep a deterministic consensus execution bivalent.
+Randomized common-coin/ASKS steps escape that schedule only probabilistically;
+they do not create an elapsed-time bound. The second boundary is the standard
+three-way indistinguishability partition for asynchronous Byzantine
+agreement. The selected construction explicitly identifies its `t<n/3`
+resilience as optimal and proves randomized ACS at that boundary. AFT uses
+exact `n=3f+1`, so T4a meets rather than evades the bound. See
+Das et al., *Asynchronous Consensus without Trusted Setup or Public-Key
+Cryptography*, CCS 2024 / IACR ePrint 2024/677, and Shoup, *A Theoretical Take
+on a Practical Consensus Protocol*, IACR ePrint 2024/696. ∎
+
+Pairs with: T4a.
+
 ## L-M — Reporting above the meet is unsound
 
 Assumes: none (counterexample construction).
 
-**Statement.** A composition verifier that reports any label strictly
-stronger than the meet of its constituents' labels is unsound: there is an
-execution where the reported guarantee fails while every constituent's
-label is satisfied.
+**Statement.** For any guarantee coordinate `p`, a verifier whose complete
+input is the same constituent-certificate bytes in two executions cannot
+soundly report `p` above their verified meet when `p` differs between those
+executions. A wrapper certificate over those same bytes does not change the
+bound. Strengthening requires new independently verified evidence that rules
+out the weaker execution.
 
-**Proof.** Let composed object O contain constituent c whose label ℓ_c is
-strictly below the reported label ℓ_r in some coordinate (definition of
-"above the meet"). Take an execution where exactly the assumptions of ℓ_c
-hold and the stronger coordinate of ℓ_r fails (such an execution exists
-because the lattice order is semantic, §T6). Break c there — by ℓ_c's own
-theorem being tight at its assumptions, c's guarantee can fail in that
-execution — and O, which relies on c, fails with it, while ℓ_r asserted
-it could not. So ℓ_r is unsound; the meet is the strongest sound report
-(T6 shows it is achievable, so it is exactly right). ∎
+**Proof.** Fix the constituent bytes `C`. Construct executions `E0` and `E1`
+that expose exactly `C` to the verifier and satisfy every label attached to
+`C`, but where a stronger property `p+` is false in `E0` and true in `E1`.
+Such a pair is exactly what it means for `p+` not to follow from the verified
+constituent labels—for example, identical PQ seal bytes can wrap classical BLS
+ordering, identical conflict certificates can coexist with unavailable
+payloads, and identical timeout bytes say nothing about permission to
+downgrade finality. A deterministic certificate-only verifier has identical
+input in `E0` and `E1`, hence identical output. If it reports `p+`, it is false
+in `E0`; if it does not, it has not strengthened. Re-signing `C` with a wrapper
+key preserves indistinguishability. New evidence verified under a theorem for
+`p` changes the input and is the only escape, scoped to that coordinate. Thus
+the meet is the greatest sound certificate-only report. ∎
 
 Pairs with: T6.
+
+## L-X — Ambiguous externalization requires endpoint deduplication
+
+Assumes: none (indistinguishability construction at the external boundary).
+
+**Statement.** Without an atomic endpoint-visible idempotency register or an
+equivalent operation, no client can guarantee both retry progress and
+at-most-once mutation after an ambiguous response.
+
+**Proof.** Consider two executions with the same client-visible trace: in
+`E0` the endpoint mutates and the success reply is lost; in `E1` the request is
+lost before mutation. After the timeout the client state is byte-identical.
+If it retries, a non-deduplicating endpoint may mutate twice in `E0`; if it
+does not retry, the requested consequence never occurs in `E1`. Local durable
+logging distinguishes neither execution because ambiguity lies beyond the
+client's crash boundary. An atomic same-key register changes the observable
+contract: retry/lookup returns the one prior record instead of issuing an
+independent mutation. Therefore T10's resource premise is necessary for its
+combined safety/reconciliation claim. ∎
+
+Pairs with: T10.
+
+## L-C — Unproved collateral eligibility cannot raise a slashable floor
+
+Assumes: none (indistinguishability construction over verifier inputs).
+
+**Statement.** An offline verifier cannot soundly count a collateral lot more
+than once, or count a lot whose exclusivity, lock, challenge horizon,
+encumbrance state, ownership, predicate, or enforcement contract is absent
+from its authenticated snapshot.
+
+**Proof.** For any omitted condition construct two external states with the
+same verifier-visible bytes: in one the lot is distinct, exclusive, locked,
+unencumbered and slashable by the named proof; in the other it is an alias of
+an already counted lot, shared, expired, withdrawn, encumbered, owned by an
+unimplicated party, or controlled by an incompatible contract. The verifier
+must return the same result in both states, so counting the lot is unsound in
+the second. Duplicate identifiers are the direct alias case. Authenticated
+snapshot fields and exact predicate/contract checks distinguish the states;
+without them the only sound floor excludes the lot. This bounds T11 at the
+sum of distinct lots whose complete eligibility is proved. ∎
+
+Pairs with: T11.
+
+## L-PQCH — Channel properties require authenticated channel evidence
+
+Assumes: none (indistinguishability construction over transported bytes).
+
+**Statement.** A verifier given only an authorized payload or consensus
+certificate cannot soundly infer that the channel carrying it was
+post-quantum authenticated. A profile label or wrapper assertion over those
+same bytes does not change the bound. Establishing `channel_pq=true` requires
+independently authenticated evidence binding the relevant endpoints, scope,
+PQ handshake, completion, and exact protected payload.
+
+**Proof.** Construct two executions that yield byte-identical finality
+certificates and payloads. In `E_pq`, every relevant member pair transports
+the payload over the declared ML-KEM/ML-DSA channel. In `E_classical`, one
+load-bearing pair transports the same bytes over a classically authenticated
+channel (or no authenticated PQ session at all). A verifier seeing only the
+certificate and payload has identical input and therefore identical output in
+both executions; reporting `channel_pq=true` is false in `E_classical`.
+Re-signing a boolean assertion merely moves the unsupported claim into a
+wrapper. Per-edge dual-endpoint evidence bound to the exact payload and a
+complete rooted membership set distinguishes the executions, and T12 states
+the resulting positive theorem. ∎
+
+Pairs with: T12.
 
 ## L9 — Attribution is capped at the signers
 
@@ -719,15 +989,22 @@ this table has zero `L-OPEN` rows (P4.4 gate).
 | T1 uniqueness | L1 (zero-honest equivocation) | cited |
 | T2 completeness | L-E (eclipse) | cited |
 | T3 availability | L-H (holder necessity) | cited |
-| T4a live-tier liveness | — | **L-OPEN** (engine's asynchronous bound is R10's subject; RES-R10 FILED — assessment + fallback design in `r10_live_tier_async_fallback.md`; closes only on the sim-exercised fallback) |
+| T4a live-tier liveness | L-A (FLP randomness necessity + optimal `f<n/3` asynchronous resilience) | cited; RES-R10 closed by the hash-only adverse/production drill |
 | T4b seal cadence | L2 (unanimity forces 1-withholder stall) | cited |
 | T5a membership canonicity | L1 (per configuration) | cited |
 | T5b bootstrap | L-LR (long-range indistinguishability — a NECESSITY bound: it forces some anchor, and does not certify any mechanism's sufficiency; mechanism (iv) is accordingly a hardening layer only, per F6) | cited |
 | T5c′ reconfiguration | L2 + L1 | cited |
-| T5d succession safety | — | **L-OPEN + CLAIM WITHDRAWN** (refuted rounds 1–2; design-open pending the P2.7 respecification and its own review; the lower-bound question — necessity of a scoped observation assumption for any safe succession — remains open with it) |
+| T5d succession adjudication | L-S (silence cannot prove inaction; fence necessity) | cited; responsive positive claim refuted; scheduled slot-disjoint safety mechanized; no cadence claim |
 | T6 composition | L-M (above-meet unsoundness) | cited |
 | T7 forensic accountability | L9 (attribution cap) | cited |
 | T8 selection supply | — | **L-OPEN** (cheapest-capture supply bound: P4.2 analysis) |
 | T9 maximal accountable safety | L9 (ratio 1.0 is the cap) | cited |
+| T10 consequence at-most-once externalization | L-X (ambiguous-response retry dilemma) | cited; proved and model-checked |
+| T11 distinct collateral floor | L-C (unproved collateral eligibility cannot raise a floor) | cited; proved and model-checked; T8 remains separate and open |
+| T12 portable PQ-channel coverage | L-PQCH (transport bytes do not reveal channel properties) | cited; executable complete-graph proof and mutation corpus |
 
-Three `L-OPEN` rows stand. Per the claim ladder, the frontier-completeness flagship does not print while any row is open (see `p4_claim_adjudication.md`); the interim conditional claim (whitepaper §5.3) does not require this table to be closed.
+One `L-OPEN` row stands: T8's cheapest-capture supply lower bound. Per the
+claim ladder, the frontier-completeness flagship does not print while that row
+is open (see `p4_claim_adjudication.md`). Independently, the responsive T5d
+flagship condition is impossible under the pure asynchronous model; resolving
+its lower bound does not create the missing positive cadence theorem.

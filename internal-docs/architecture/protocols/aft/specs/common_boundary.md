@@ -693,8 +693,16 @@ permissionless.
 Assumes: A2 (per configuration — including the standby's own), A3, A9,
 A10; A1 for all signatures.
 
-**STATUS: v3 REFUTED (review round 5) — DESIGN OPEN; EVERY RULE BELOW IS
-NON-NORMATIVE.** Three formulations of pre-consented succession have now
+**STATUS SUPERSESSION (2026-08-18): RESPONSIVE SUCCESSION IS IMPOSSIBLE;
+SCHEDULED SLOT-DISJOINT SUCCESSION IS SAFE AND MECHANIZED.** The active
+adjudication is `t5d_succession_resolution.md`, paired with L-S in
+`common_boundary_theorems.md`. The responsive positive claim is withdrawn and
+refuted, not open for a fourth formulation. Scheduled succession consumes a
+formation-time clock-fenced lease and does not prove death detection, gapless
+continuation, or cadence. Every rule below is retained as historical,
+non-normative v3 material.
+
+**HISTORICAL v3 STATUS: REFUTED (review round 5).** Three formulations of pre-consented succession have now
 been refuted by independent fresh-context review (round 1: publication
 is not delivery; round 2: the bulletin was an unmodeled consensus
 object; round 5, against THIS v3: Byzantine obs_commit padding passes
@@ -703,7 +711,7 @@ void-by-policy was never wired into §11.3/§12/§19, and rules 3 and 5
 below give OPPOSITE verdicts on the same rival seal — R5-F2; the
 mechanized kernel proves a strictly narrowed statement — R5-F3; full
 findings in the program's reviews registry, p2-7-respec-review.md).
-T5d is WITHDRAWN for this program cycle: the operative exits on ring
+The v3 T5d claim was withdrawn for that program cycle: the operative exits on ring
 death are §9 handover and §14 labeled re-genesis, the final
 claim-ladder rung is unreachable (as the program doc's own fallback
 pre-named), and a v4 — if ever attempted — must satisfy the round-5

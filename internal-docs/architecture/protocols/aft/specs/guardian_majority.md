@@ -2,7 +2,10 @@
 
 Status: internal protocol spec (AFT corpus); non-canonical.
 Authority: `docs/architecture/` owners and accepted ADRs are canonical and win on drift; this file is private protocol context only.
-This document defines the production fault model for `AftSafetyMode::GuardianMajority`.
+This document records the historical fault model for
+`AftSafetyMode::GuardianMajority`. ADR 0048 excludes it from AFT PQ v1
+production admission; references to “production” below describe the archived
+profile and are not current release claims.
 
 ## Thought Experiment: The Republic of Inconvenient Paperwork
 
@@ -67,7 +70,7 @@ tentative transport / proposal engine beneath that PSC-gated durability layer.
 
 ### Committee threshold assumptions
 
-- Production committees must use majority thresholds: `t = floor(n / 2) + 1`.
+- The archived profile's committees use majority thresholds: `t = floor(n / 2) + 1`.
 - Majority thresholds guarantee pairwise quorum intersection.
 - The committee certificate verifier rejects:
   - wrong manifest hash

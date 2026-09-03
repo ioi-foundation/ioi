@@ -162,6 +162,7 @@ fn sample_recovered_restart_step(
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             parent_qc,
             previous_canonical_collapse_commitment_hash: [collapse_seed; 32],
             canonical_collapse_extension_certificate: None,
@@ -563,7 +564,8 @@ fn sample_recovered_publication_fixture_3_of_7_with_parent(
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([seed.wrapping_add(10); 32]),
@@ -1732,6 +1734,7 @@ fn sample_block(height: u64, seed: u8) -> Block<ChainTransaction> {
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0u8; 32],
             canonical_collapse_extension_certificate: None,

@@ -151,7 +151,8 @@ fn publishing_aft_canonical_order_artifact_bundle_with_missing_entry_is_rejected
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([84u8; 32]),
@@ -244,7 +245,8 @@ fn publishing_aft_canonical_order_artifact_bundle_with_wrong_height_is_rejected(
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([94u8; 32]),
@@ -337,7 +339,8 @@ fn publishing_aft_canonical_order_artifact_bundle_after_abort_is_rejected() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([114u8; 32]),
@@ -445,7 +448,8 @@ fn publishing_contradictory_shard_manifest_challenge_materializes_abort() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([124u8; 32]),
@@ -1335,7 +1339,8 @@ fn publishing_contradictory_custody_receipt_challenge_materializes_abort() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([134u8; 32]),

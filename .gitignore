@@ -1,5 +1,8 @@
 target/
-/tools/
+/tools/*
+!/tools/aft-pq-interop/
+!/tools/aft-pq-interop/**
+/tools/aft-pq-interop/target/
 codebase_snapshot.md
 
 # @ioi/design-system owns the canonical assets; consumers regenerate public/assets via

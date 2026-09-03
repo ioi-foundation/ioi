@@ -37,6 +37,7 @@ use base64::Engine;
 use fs2::FileExt;
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_finality::VerificationError;
+use ioi_types::app::EffectManifestV1;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -439,6 +440,10 @@ pub struct RecognizedEffectRecord {
     pub authority: AuthoritySnapshot,
     pub bundle: Value,
     pub outbox: Vec<OutboxIntent>,
+    /// Optional M5 consequence manifest commitment. Legacy recognized effects
+    /// remain decodable but cannot authorize the consequence executor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect_manifest_root: Option<String>,
     pub record_hash: String,
 }
 
@@ -455,6 +460,44 @@ impl PreparedRecognizedEffect {
 
     pub fn canonical_bytes(&self) -> &[u8] {
         &self.canonical_bytes
+    }
+
+    /// Bind one exact consequence manifest before the Agentgres
+    /// linearization point. A prepared record remains inert until `commit`.
+    pub fn bind_effect_manifest(
+        mut self,
+        manifest: &EffectManifestV1,
+    ) -> Result<Self, RecognizedEffectError> {
+        if self.record.effect_id != manifest.effect_id {
+            return Err(RecognizedEffectError::ReplayConflict {
+                identity: manifest.effect_id.clone(),
+            });
+        }
+        let digest = manifest
+            .commitment()
+            .map_err(|error| RecognizedEffectError::Invalid(error.to_string()))?;
+        let root = format!(
+            "sha256:{}",
+            digest
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        );
+        if self
+            .record
+            .effect_manifest_root
+            .as_ref()
+            .is_some_and(|existing| existing != &root)
+        {
+            return Err(RecognizedEffectError::ReplayConflict {
+                identity: manifest.effect_id.clone(),
+            });
+        }
+        self.record.effect_manifest_root = Some(root);
+        self.record.record_hash = record_hash(&self.record)?;
+        self.canonical_bytes = serde_jcs::to_vec(&self.record)
+            .map_err(|error| RecognizedEffectError::Invalid(error.to_string()))?;
+        Ok(self)
     }
 }
 
@@ -1066,6 +1109,7 @@ impl RecognizedEffectStore {
             authority,
             bundle,
             outbox,
+            effect_manifest_root: None,
             record_hash: String::new(),
         };
         record.record_hash = record_hash(&record)?;
@@ -1201,6 +1245,7 @@ impl RecognizedEffectStore {
             authority,
             bundle,
             outbox,
+            effect_manifest_root: None,
             record_hash: String::new(),
         };
         record.record_hash = record_hash(&record)?;
@@ -2309,6 +2354,9 @@ fn validate_record(
     }
     validate_bundle_authority(&record.bundle, &record.authority)?;
     validate_outbox(&record.outbox)?;
+    if let Some(root) = &record.effect_manifest_root {
+        validate_hash("effect_manifest_root", root)?;
+    }
     let expected_hash = record_hash(record)?;
     if record.record_hash != expected_hash {
         return Err(RecognizedEffectError::Invalid(

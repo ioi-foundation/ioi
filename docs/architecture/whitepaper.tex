@@ -7382,10 +7382,14 @@ registry. Nothing safety-critical cites A5.
   second edge added by program review round 2, whose audit found the
   availability theorem consuming it while this row disclaimed it.
 \item
-  \textbf{A5} post-GST synchrony — pairwise delivery within the bound
-  between honest parties, i.e.\ a full honest mesh — and bounded
-  dishonest bonded weight (liveness, seal cadence, and the live tier
-  only; no strong-lineage safety claim cites A5).
+  \textbf{A5} the declared liveness environment and bounded dishonest
+  weight. For the optimistic live path and seal cadence this is post-GST
+  pairwise delivery within the bound between honest parties (a full honest
+  mesh). For the hash-only asynchronous fallback it is a static adversary
+  with (f<n/3), reliable private authenticated channels with eventual
+  delivery, and private random inputs to the hash-based construction. These
+  are separate profiles; neither inherits the other's timing or latency.
+  No strong-lineage safety claim cites A5.
 \item
   \textbf{A6} a historical-freshness anchor, exactly one deployed, each
   separately priced: a recent authenticated checkpoint; forward-secure or

@@ -34,15 +34,17 @@ use ioi_api::{
 };
 use ioi_system::SystemState;
 use ioi_types::app::{
-    AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
-    AftRecoveredRestartHeaderEntry, Block, BlockHeader, ConsensusVote, FailureReport,
-    QuorumCertificate, ValidatorSetsV1,
+    AccountId, AftAsyncParentProofV1, AftFallbackScopeV1, AftRecoveredCertifiedHeaderEntry,
+    AftRecoveredConsensusHeaderEntry, AftRecoveredRestartHeaderEntry, AftTimeoutCertificateV1,
+    AftTimeoutSafeStateV1, AftTimeoutVoteV1, Block, BlockHeader, ConsensusVote, FailureReport,
+    FallbackStartCertificateV1, QuorumCertificate, TimeoutCertificate, ValidatorSetsV1,
 };
 use ioi_types::config::ConsensusType;
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::path::Path;
 
 #[cfg(feature = "aft")]
 use aft::AftEngine;
@@ -271,6 +273,125 @@ where
                 <SoloEngine as ConsensusEngine<T>>::handle_quorum_certificate(engine, qc).await
             }
             Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    async fn handle_timeout_certificate(
+        &mut self,
+        _certificate: TimeoutCertificate,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_timeout_certificate(engine, _certificate)
+                    .await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    async fn handle_aft_timeout_vote(
+        &mut self,
+        _from: PeerId,
+        _vote: AftTimeoutVoteV1,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_aft_timeout_vote(engine, _from, _vote)
+                    .await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    async fn handle_aft_timeout_certificate(
+        &mut self,
+        _certificate: AftTimeoutCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_aft_timeout_certificate(
+                    engine,
+                    _certificate,
+                )
+                .await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    async fn handle_fallback_start_certificate(
+        &mut self,
+        _certificate: FallbackStartCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::handle_fallback_start_certificate(
+                    engine,
+                    _certificate,
+                )
+                .await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    fn observe_aft_async_parent_proof(
+        &mut self,
+        proof: AftAsyncParentProofV1,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::observe_aft_async_parent_proof(engine, proof)
+            }
+            _ => Err(ConsensusError::BlockVerificationFailed(
+                "selected consensus engine does not support AFT asynchronous parent proofs".into(),
+            )),
+        }
+    }
+
+    fn aft_timeout_safe_state(&self, height: u64) -> Option<AftTimeoutSafeStateV1> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::aft_timeout_safe_state(engine, height)
+            }
+            _ => None,
+        }
+    }
+
+    fn aft_timeout_vote_for_relay(
+        &self,
+        height: u64,
+        view: u64,
+        voter: &AccountId,
+    ) -> Option<AftTimeoutVoteV1> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::aft_timeout_vote_for_relay(
+                    engine, height, view, voter,
+                )
+            }
+            _ => None,
+        }
+    }
+
+    fn configure_fallback_journal(
+        &mut self,
+        _scope: AftFallbackScopeV1,
+        _path: &Path,
+    ) -> Result<(), ConsensusError> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::configure_fallback_journal(engine, _scope, _path)
+            }
+            _ => Ok(()),
         }
     }
 
@@ -659,6 +780,36 @@ where
                 <SoloEngine as ConsensusEngine<T>>::take_pending_quorum_certificates(engine)
             }
             Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
+    fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::take_pending_timeout_certificates(engine)
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn take_pending_aft_timeout_certificates(&mut self) -> Vec<AftTimeoutCertificateV1> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::take_pending_aft_timeout_certificates(engine)
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn take_pending_fallback_starts(&mut self) -> Vec<FallbackStartCertificateV1> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::take_pending_fallback_starts(engine)
+            }
+            _ => Vec::new(),
         }
     }
 

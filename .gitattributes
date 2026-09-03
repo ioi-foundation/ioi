@@ -1,0 +1,2 @@
+# Fuzz seeds are opaque byte strings; never normalize or line-diff them.
+fuzz/**/corpus/** binary

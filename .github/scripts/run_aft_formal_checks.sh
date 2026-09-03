@@ -44,6 +44,11 @@ MODELS=(
   "common_boundary/ForensicAccountabilityAllByz.cfg|common_boundary/ForensicAccountability.tla"
   "common_boundary/SuccessionClock.cfg|common_boundary/SuccessionClock.tla"
   "common_boundary/SuccessionSchedule.cfg|common_boundary/SuccessionSchedule.tla"
+  "hash_async/OptimisticFallbackComposition.cfg|hash_async/OptimisticFallbackComposition.tla"
+  "no_laundering/GuaranteeMeet.cfg|no_laundering/GuaranteeMeet.tla"
+  "consequence/AtMostOnceExternalization.cfg|consequence/AtMostOnceExternalization.tla"
+  "economic_assurance/DistinctCollateralFloor.cfg|economic_assurance/DistinctCollateralFloor.tla"
+  "cross_domain/CrossDomainNonInterference.cfg|cross_domain/CrossDomainNonInterference.tla"
 )
 
 # Every trace-conformance replay (AFT-CB R13 / C4a), as
@@ -188,22 +193,60 @@ fi
 run_proof() {
   local model_dir="$1"
   local tla_file="$2"
+  local link_path original_link="" had_link=0 status
 
   pushd "${ROOT_DIR}/${model_dir}" >/dev/null
-  ln -sf "${TLAPS_STDLIB}" TLAPS.tla
+  link_path="${PWD}/TLAPS.tla"
+  if [[ -L "${link_path}" ]]; then
+    had_link=1
+    original_link="$(readlink "${link_path}")"
+  elif [[ -e "${link_path}" ]]; then
+    echo "refusing to replace non-symlink ${link_path}" >&2
+    popd >/dev/null
+    return 1
+  fi
+  ln -sfn "${TLAPS_STDLIB}" "${link_path}"
+  set +e
   "${TLAPM_BIN}" --cleanfp "${tla_file}"
+  status=$?
+  set -e
+  if [[ ${had_link} -eq 1 ]]; then
+    ln -sfn "${original_link}" "${link_path}"
+  else
+    unlink "${link_path}"
+  fi
   popd >/dev/null
+  return "${status}"
 }
 
 run_model() {
   local model_dir="$1"
   local config_file="$2"
   local tla_file="$3"
+  local link_path original_link="" had_link=0 status
 
   pushd "${ROOT_DIR}/${model_dir}" >/dev/null
-  ln -sf "${TLAPS_STDLIB}" TLAPS.tla
+  link_path="${PWD}/TLAPS.tla"
+  if [[ -L "${link_path}" ]]; then
+    had_link=1
+    original_link="$(readlink "${link_path}")"
+  elif [[ -e "${link_path}" ]]; then
+    echo "refusing to replace non-symlink ${link_path}" >&2
+    popd >/dev/null
+    return 1
+  fi
+  ln -sfn "${TLAPS_STDLIB}" "${link_path}"
+  set +e
   java -cp "${JAR_PATH}" tlc2.TLC -cleanup -deadlock -config "${config_file}" "${tla_file}"
+  status=$?
+  set -e
+  if [[ ${had_link} -eq 1 ]]; then
+    ln -sfn "${original_link}" "${link_path}"
+  else
+    unlink "${link_path}"
+  fi
   popd >/dev/null
+  return "${status}"
 }
 
 run_trace() {
@@ -226,6 +269,12 @@ run_trace() {
   popd >/dev/null
   rm -rf "${workdir}"
 }
+
+if [[ "${1:-}" == "--smoke" ]]; then
+  run_proof "${FORMAL_DIR}" "AsymptoteProof.tla"
+  run_model "${FORMAL_DIR}" "Asymptote.cfg" "Asymptote.tla"
+  exit 0
+fi
 
 for proof in "${PROOFS[@]}"; do
   run_proof "${FORMAL_DIR}/$(dirname "${proof}")" "$(basename "${proof}")"

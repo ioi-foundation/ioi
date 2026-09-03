@@ -1,0 +1,3 @@
+{"schema":"ioi.aft.hash-async-journal-benchmark.v1","sample":1,"n":4,"f_silent":1,"persisted_events":585,"delivered_messages":573,"decision_and_compaction_ms":16584.691,"terminal_reopen_ms":0.711,"compacted_journal_bytes":6945}
+{"schema":"ioi.aft.hash-async-journal-benchmark.v1","sample":2,"n":4,"f_silent":1,"persisted_events":585,"delivered_messages":573,"decision_and_compaction_ms":16745.551,"terminal_reopen_ms":0.707,"compacted_journal_bytes":6945}
+{"schema":"ioi.aft.hash-async-journal-benchmark.v1","sample":3,"n":4,"f_silent":1,"persisted_events":585,"delivered_messages":573,"decision_and_compaction_ms":15013.218,"terminal_reopen_ms":0.615,"compacted_journal_bytes":6945}

@@ -28,9 +28,14 @@ tokio = { workspace = true, features = ["time"], optional = true }
 bs58 = "0.4"
 cfg-if = "1.0"
 hex = { workspace = true }
+fs2 = { workspace = true }
 parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 tracing = { workspace = true }
 zk-driver-succinct = { path = "../plugins/zk-driver-succinct" }
+dcrypt = { workspace = true }
+rand = { workspace = true }
+zeroize = { workspace = true }
+libc = { workspace = true }
 
 [features]
 default = []
@@ -38,3 +43,6 @@ aft = ["dep:tokio"]
 poa = []
 pos = []
 custom-consensus = []
+
+[dev-dependencies]
+tempfile = { workspace = true }

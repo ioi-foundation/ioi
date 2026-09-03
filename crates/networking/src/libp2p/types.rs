@@ -1,13 +1,17 @@
 // Path: crates/networking/src/libp2p/types.rs
 
-use ioi_types::app::ViewChangeVote;
 use ioi_types::app::{
     AccountId, Block, ChainId, ChainTransaction, ConfidenceVote, ConsensusVote, EchoMessage,
     OracleAttestation, PanicMessage, QuorumCertificate,
 };
+use ioi_types::app::{
+    AftAsyncCarrierV1, AftTimeoutCertificateV1, AftTimeoutVoteV1, FallbackStartCertificateV1,
+    TimeoutCertificate, ViewChangeVote,
+};
 // [FIX] Removed unused codec import
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 // [FIX] Removed unused SyncRequest import
+use crate::libp2p::pq_channel::{PqChannelLocalConfig, PqPeerEnrollment};
 use crate::libp2p::sync::SyncResponse;
 
 #[derive(Debug)]
@@ -23,6 +27,37 @@ pub enum SwarmCommand {
     BroadcastVote(Vec<u8>),
     BroadcastQuorumCertificate(Vec<u8>),
     BroadcastViewChange(Vec<u8>),
+    /// Normative PQ-only, configuration-scoped timeout vote.
+    BroadcastAftTimeoutVote(Vec<u8>),
+    BroadcastTimeoutCertificate(Vec<u8>),
+    /// Normative PQ-only, configuration-scoped timeout certificate.
+    BroadcastAftTimeoutCertificate(Vec<u8>),
+    BroadcastFallbackStart(Vec<u8>),
+    /// Broadcasts public hash-only fallback traffic over the strict PQ channel.
+    BroadcastAftAsyncOrdering(Vec<u8>),
+    /// Sends one private ASKS share to exactly one enrolled PQ peer.
+    SendAftAsyncOrdering {
+        peer: PeerId,
+        data: Vec<u8>,
+    },
+    /// Durably queues hash-only fallback traffic by rooted account identity.
+    /// This form remains safe before the account's transient peer carrier has
+    /// been discovered or its PQ session has completed.
+    QueueAftAsyncOrdering {
+        recipient: AccountId,
+        data: Vec<u8>,
+    },
+    /// Durably removes only traffic for a terminal hash-async instance. The
+    /// caller supplies the verified instance commitment after executed-block
+    /// certification; unrelated and control-plane evidence remains queued.
+    RetireAftAsyncOrdering {
+        instance_hash: [u8; 32],
+    },
+    /// Enables strict PQ consensus transport. Once configured, classical
+    /// vote/QC/view-change gossip and relay paths are refused.
+    ConfigurePqChannels(PqChannelLocalConfig),
+    EnrollPqPeer(PqPeerEnrollment),
+    EstablishPqChannel(PeerId),
 
     // Protocol Apex Commands
     BroadcastEcho(Vec<u8>),
@@ -87,6 +122,27 @@ pub enum NetworkEvent {
     },
     ViewChangeVoteReceived {
         vote: ViewChangeVote,
+        from: PeerId,
+    },
+    AftTimeoutVoteReceived {
+        vote: AftTimeoutVoteV1,
+        from: PeerId,
+    },
+    TimeoutCertificateReceived {
+        certificate: TimeoutCertificate,
+        from: PeerId,
+    },
+    AftTimeoutCertificateReceived {
+        certificate: AftTimeoutCertificateV1,
+        from: PeerId,
+    },
+    FallbackStartReceived {
+        certificate: FallbackStartCertificateV1,
+        from: PeerId,
+    },
+    AftAsyncOrderingReceived {
+        carrier: AftAsyncCarrierV1,
+        authenticated_account: AccountId,
         from: PeerId,
     },
 
@@ -159,6 +215,11 @@ pub enum SwarmInternalEvent {
     ConsensusVoteReceived(Vec<u8>, PeerId),
     QuorumCertificateReceived(Vec<u8>, PeerId),
     ViewChangeVoteReceived(Vec<u8>, PeerId),
+    AftTimeoutVoteReceived(Vec<u8>, PeerId),
+    TimeoutCertificateReceived(Vec<u8>, PeerId),
+    AftTimeoutCertificateReceived(Vec<u8>, PeerId),
+    FallbackStartReceived(Vec<u8>, PeerId),
+    AftAsyncOrderingReceived(Vec<u8>, AccountId, PeerId),
 
     EchoReceived(Vec<u8>, PeerId),
     PanicReceived(Vec<u8>, PeerId),

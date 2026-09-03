@@ -26,3 +26,41 @@ pub fn consensus_metrics() -> &'static dyn ConsensusMetricsSink {
 pub fn rpc_metrics() -> &'static dyn RpcMetricsSink {
     RPC_SINK.get().copied().unwrap_or(&NOP_SINK)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{consensus_metrics, CONSENSUS_SINK};
+    use ioi_telemetry::sinks::ConsensusMetricsSink;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[derive(Debug)]
+    struct ConsensusProbe {
+        async_stage_observations: AtomicU64,
+    }
+
+    impl ConsensusMetricsSink for ConsensusProbe {
+        fn inc_blocks_produced(&self) {}
+        fn inc_view_changes_proposed(&self) {}
+        fn observe_tick_duration(&self, _duration_secs: f64) {}
+        fn observe_aft_hash_async_message(&self, _direction: &str, _class: &str, _bytes: u64) {}
+        fn observe_aft_hash_async_stage_duration(&self, _stage: &str, _duration_secs: f64) {
+            self.async_stage_observations.fetch_add(1, Ordering::SeqCst);
+        }
+        fn set_aft_hash_async_active_sessions(&self, _count: u64) {}
+    }
+
+    static PROBE: ConsensusProbe = ConsensusProbe {
+        async_stage_observations: AtomicU64::new(0),
+    };
+
+    #[test]
+    fn configured_consensus_accessor_routes_hash_async_observations() {
+        let _ = CONSENSUS_SINK.set(&PROBE);
+        let before = PROBE.async_stage_observations.load(Ordering::SeqCst);
+        consensus_metrics().observe_aft_hash_async_stage_duration("execution_prepare", 0.25);
+        assert_eq!(
+            PROBE.async_stage_observations.load(Ordering::SeqCst),
+            before + 1
+        );
+    }
+}

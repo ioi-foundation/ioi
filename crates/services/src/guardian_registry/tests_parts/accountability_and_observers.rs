@@ -91,7 +91,8 @@ fn publishing_aft_canonical_order_artifact_bundle_with_omission_proof_materializ
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([31u8; 32]),
@@ -312,7 +313,8 @@ fn reporting_aft_omission_after_positive_ordering_artifacts_materializes_abort_d
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([34u8; 32]),

@@ -4,8 +4,9 @@ use super::aft_collapse::{
     derive_expected_aft_canonical_collapse_for_block, observe_live_committed_chain_through_block,
 };
 use super::consensus::{
-    recovered_consensus_header_stitch_segment_budget,
-    recovered_consensus_header_stitch_window_budget, AFT_RECOVERED_CONSENSUS_HEADER_STITCH_OVERLAP,
+    build_aft_pq_channel_configuration, recovered_consensus_header_stitch_segment_budget,
+    recovered_consensus_header_stitch_window_budget, select_local_aft_vote_signer,
+    LocalAftVoteSigner, AFT_RECOVERED_CONSENSUS_HEADER_STITCH_OVERLAP,
     AFT_RECOVERED_CONSENSUS_HEADER_WINDOW,
 };
 use anyhow::{anyhow, Result};
@@ -13,12 +14,14 @@ use ioi_api::{
     chain::{StateRef, WorkloadClientApi},
     commitment::CommitmentScheme,
     consensus::ConsensusEngine,
+    crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
+use ioi_crypto::sign::dilithium::MldsaKeyPair;
 // REMOVED: use ioi_client::WorkloadClient;
 #[cfg(test)]
 use ioi_ipc::public::TxStatus;
-use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::libp2p::{pq_channel::PqPeerEnrollment, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_types::{
     app::{
@@ -106,6 +109,63 @@ use ioi_types::app::{
 };
 
 const DEFAULT_AFT_ARCHIVED_RECOVERED_HISTORY_RETENTION_HORIZON: u64 = 1024;
+
+const AFT_PQ_HEADER_AUTHORITY_V1_DOMAIN: &[u8] = b"ioi/aft/pq-header-authority/v1";
+
+/// Issues the normative PQ producer signature directly from the rooted
+/// ML-DSA key. Guardian counters and certificates are policy evidence in this
+/// profile; they are not an authority prerequisite for Classic-BFT safety or
+/// liveness.
+fn issue_pq_header_authority_bundle(
+    keypair: &MldsaKeyPair,
+    header: &BlockHeader,
+    preimage_hash: [u8; 32],
+) -> Result<SignatureBundle> {
+    if header.producer_key_suite != SignatureSuite::ML_DSA_44 {
+        return Err(anyhow!(
+            "PQ header authority requires an ML-DSA-44 producer suite"
+        ));
+    }
+    let public_key = keypair.public_key().to_bytes();
+    if public_key != header.producer_pubkey {
+        return Err(anyhow!(
+            "configured ML-DSA signer does not match the block producer public key"
+        ));
+    }
+    let key_hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_key)?;
+    if key_hash != header.producer_pubkey_hash {
+        return Err(anyhow!(
+            "configured ML-DSA signer does not match the block producer key hash"
+        ));
+    }
+
+    // These legacy header fields remain signed for wire compatibility. Zero
+    // explicitly means that no guardian monotonic-counter claim is made. The
+    // trace commits the suite-bound authority context and is not represented
+    // as a guardian trace.
+    let counter: u64 = 0;
+    let mut authority_context =
+        Vec::with_capacity(AFT_PQ_HEADER_AUTHORITY_V1_DOMAIN.len() + 32 + 32 + 8 + 8);
+    authority_context.extend_from_slice(AFT_PQ_HEADER_AUTHORITY_V1_DOMAIN);
+    authority_context.extend_from_slice(header.producer_account_id.as_ref());
+    authority_context.extend_from_slice(&header.producer_pubkey_hash);
+    authority_context.extend_from_slice(&header.height.to_be_bytes());
+    authority_context.extend_from_slice(&header.view.to_be_bytes());
+    let trace_hash = ioi_crypto::algorithms::hash::sha256(&authority_context)?;
+
+    let mut signed_payload = Vec::with_capacity(72);
+    signed_payload.extend_from_slice(&preimage_hash);
+    signed_payload.extend_from_slice(&counter.to_be_bytes());
+    signed_payload.extend_from_slice(&trace_hash);
+    let signature = keypair.sign(&signed_payload)?.to_bytes();
+    Ok(SignatureBundle {
+        signature,
+        counter,
+        trace_hash,
+        guardian_certificate: None,
+        sealed_finality_proof: None,
+    })
+}
 
 mod archived_history;
 mod post_commit;

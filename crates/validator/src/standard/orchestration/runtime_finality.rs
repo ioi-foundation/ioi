@@ -29,15 +29,18 @@ use ioi_api::crypto::SerializableKey;
 use ioi_api::state::{StateManager, Verifier};
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
 use ioi_finality::{
-    emit_runtime_bundle_v3, NativeAftFinalizedBlock, NativeAftMember, RuntimeBundleV3Input,
-    RUNTIME_PROFILE_CONTRACT_V1,
+    emit_runtime_bundle_v3, NativeAftFinalizedBlock, NativeAftHashAsyncFinalizedBlock,
+    NativeAftMember, RuntimeBundleV3Input, RUNTIME_PROFILE_CONTRACT_V1,
 };
 use ioi_ipc::public::TxStatus;
 use ioi_services::wallet_network::{
     AuthorizeFinalityProfileCutoverParamsV1, GovernedFinalityProfileCutoverV1,
     GovernedRollbackKindV1, AUTHORIZE_FINALITY_PROFILE_CUTOVER_METHOD,
 };
-use ioi_types::app::{Block, ChainTransaction, KernelEvent, SignatureSuite, SystemPayload};
+use ioi_types::app::{
+    account_id_from_key_material, canonical_validator_set_hash, AccountId, Block, ChainTransaction,
+    KernelEvent, SignatureSuite, SystemPayload,
+};
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use ioi_types::config::RuntimeFinalityProfile;
 use parity_scale_codec::{Decode, Encode};
@@ -170,6 +173,210 @@ where
         .lock()
         .await
         .stage_block(block, receipts)
+}
+
+/// Admits a fully verified hash-only asynchronous block through the same
+/// Agentgres spine and outbox boundary as optimistic AFT. No synthetic native
+/// QC is created: the portable bundle retains the distinct asynchronous
+/// certificate and its availability witness.
+pub(crate) async fn admit_hash_async_finalized<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    certificate: ioi_types::app::AftAsyncExecutedBlockCertificateV1,
+    witness: ioi_types::app::AftAsyncSelectedBatchWitnessV1,
+) -> Result<Option<String>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let height = certificate.decision.instance.height;
+    if let Some(admitted) = context
+        .last_committed_block
+        .as_ref()
+        .filter(|block| block.header.height >= height)
+    {
+        if admitted.header.height == height
+            && block_hash(admitted)? == certificate.decision.block_hash
+        {
+            return Ok(None);
+        }
+        return Err(anyhow!(
+            "hash-async finality is behind or conflicts with the admitted spine"
+        ));
+    }
+    let (set, registry) = context
+        .aft_async_membership
+        .as_ref()
+        .cloned()
+        .ok_or_else(|| anyhow!("hash-async admission lacks rooted membership"))?;
+    ioi_consensus::aft::hash_async::verify_async_executed_block_certificate(
+        &certificate,
+        &witness,
+        &set,
+        &registry,
+    )
+    .map_err(|error| anyhow!(error.to_string()))?;
+    let block = context
+        .view_resolver
+        .workload_client()
+        .get_block_by_height(height)
+        .await?
+        .ok_or_else(|| anyhow!("hash-async finalized workload block is absent"))?;
+    if block_hash(&block)? != certificate.decision.block_hash {
+        return Err(anyhow!(
+            "hash-async certificate does not name the workload block"
+        ));
+    }
+    verify_rooted_execution_journal(context.view_resolver.as_ref(), &block, None).await?;
+    let domain_id = context.runtime_finality.lock().await.domain_id.clone();
+    let members = set
+        .validators
+        .iter()
+        .map(|member| {
+            let key = registry
+                .get(&member.consensus_key.public_key_hash)
+                .ok_or_else(|| anyhow!("hash-async member lacks rooted raw key"))?;
+            Ok(NativeAftMember {
+                member_ref: format!(
+                    "node://ioi/{}/{}",
+                    domain_id,
+                    hex::encode(member.account_id.0)
+                ),
+                signature_suite: member.consensus_key.suite,
+                public_key: key.raw().to_vec(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let configuration_hash = canonical_validator_set_hash(&set).map_err(anyhow::Error::msg)?;
+    let membership_ref = format!(
+        "node-membership://ioi/hash-async/{}",
+        hex::encode(configuration_hash)
+    );
+    let terminal_block_header_bytes =
+        to_bytes_canonical(&block.header).map_err(anyhow::Error::msg)?;
+
+    // Native AFT is a two-chain commit, so the Agentgres spine can be one
+    // staged parent behind when fallback finalizes the replacement block. The
+    // asynchronous certificate finalizes that direct high-QC parent as an
+    // ancestor, but it must remain visibly hash-async evidence. Admit the
+    // parent first with the same terminal proof instead of skipping a block or
+    // laundering it into the native-QC certificate class.
+    let admitted_height = context
+        .last_committed_block
+        .as_ref()
+        .map_or(0, |admitted| admitted.header.height);
+    if admitted_height.saturating_add(1) < height {
+        if admitted_height.saturating_add(2) != height {
+            return Err(anyhow!(
+                "hash-async finality cannot bridge more than its direct high-QC parent"
+            ));
+        }
+        let parent_height = height - 1;
+        let parent = context
+            .view_resolver
+            .workload_client()
+            .get_block_by_height(parent_height)
+            .await?
+            .ok_or_else(|| anyhow!("hash-async finalized parent workload block is absent"))?;
+        let parent_hash = block_hash(&parent)?;
+        if parent_hash
+            != certificate
+                .decision
+                .instance
+                .fallback_start
+                .highest_qc
+                .block_hash
+            || certificate
+                .decision
+                .instance
+                .fallback_start
+                .highest_qc
+                .height
+                != parent_height
+            || block.header.parent_hash != parent_hash
+        {
+            return Err(anyhow!(
+                "hash-async terminal block does not extend the exact staged high-QC parent"
+            ));
+        }
+        verify_rooted_execution_journal(context.view_resolver.as_ref(), &parent, None).await?;
+        let parent_finalized = NativeAftHashAsyncFinalizedBlock {
+            block_header_bytes: to_bytes_canonical(&parent.header).map_err(anyhow::Error::msg)?,
+            terminal_block_header_bytes: terminal_block_header_bytes.clone(),
+            certificate: certificate.clone(),
+            witness: witness.clone(),
+            validator_set: set.clone(),
+            members: members.clone(),
+            membership_ref: membership_ref.clone(),
+            membership_epoch: set.effective_from_height,
+        };
+        let parent_admission = context
+            .runtime_finality
+            .lock()
+            .await
+            .admit_hash_async(parent_finalized, runtime_wall_clock_ms())?;
+        context
+            .runtime_finality
+            .lock()
+            .await
+            .discard_pending_native_through(parent_height);
+        context
+            .consensus_engine_ref
+            .lock()
+            .await
+            .observe_admitted_finality_height(parent_height);
+        deliver_runtime_admission_with_terminal_policy(context, parent_admission).await?;
+    }
+
+    let finalized = NativeAftHashAsyncFinalizedBlock {
+        block_header_bytes: terminal_block_header_bytes.clone(),
+        terminal_block_header_bytes,
+        certificate,
+        witness,
+        validator_set: set.clone(),
+        members,
+        membership_ref,
+        membership_epoch: set.effective_from_height,
+    };
+    let admission = context
+        .runtime_finality
+        .lock()
+        .await
+        .admit_hash_async(finalized, runtime_wall_clock_ms())?;
+    let effect_id = admission.effect_id.clone();
+    context
+        .runtime_finality
+        .lock()
+        .await
+        .discard_pending_native_through(height);
+    context
+        .consensus_engine_ref
+        .lock()
+        .await
+        .observe_admitted_finality_height(admission.block.header.height);
+    deliver_runtime_admission_with_terminal_policy(context, admission).await?;
+    Ok(Some(effect_id))
 }
 
 /// Stage an exact consensus envelope whose effects are already rooted in the
@@ -1222,6 +1429,11 @@ impl RuntimeFinalityCoordinator {
             .retain(|pending| native_evidence_key(pending) != key);
     }
 
+    fn discard_pending_native_through(&mut self, height: u64) {
+        self.pending_native_aft
+            .retain(|pending| pending.quorum_certificate.height > height);
+    }
+
     pub(crate) fn admit_single_authority(
         &mut self,
         block_hash: [u8; 32],
@@ -1232,7 +1444,7 @@ impl RuntimeFinalityCoordinator {
                 "single-authority admission requested under a different active profile"
             ));
         }
-        self.admit_staged(block_hash, None, recorded_at_ms)
+        self.admit_staged(block_hash, None, None, recorded_at_ms)
     }
 
     pub(crate) fn admit_native_aft(
@@ -1249,7 +1461,30 @@ impl RuntimeFinalityCoordinator {
         let hash = evidence.quorum_certificate.block_hash;
         let staged = self.read_staged(&hash)?;
         let native = native_finalized_block(&self.domain_id, &staged.block, evidence)?;
-        self.admit_material(staged, Some(native), recorded_at_ms)
+        self.admit_material(staged, Some(native), None, recorded_at_ms)
+    }
+
+    pub(crate) fn admit_hash_async(
+        &mut self,
+        finalized: NativeAftHashAsyncFinalizedBlock,
+        recorded_at_ms: u64,
+    ) -> Result<RuntimeAdmission> {
+        if self.active_profile()? != RuntimeFinalityProfile::BftConsensusAftV1 {
+            return Err(anyhow!(
+                "hash-async evidence arrived under a different active profile"
+            ));
+        }
+        let subject_header: ioi_types::app::BlockHeader =
+            from_bytes_canonical(&finalized.block_header_bytes)
+                .map_err(|error| anyhow!("hash-async subject header: {error}"))?;
+        let hash: [u8; 32] = subject_header
+            .hash()
+            .map_err(|error| anyhow!(error.to_string()))?
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("hash-async subject header hash is not 32 bytes"))?;
+        let staged = self.read_staged(&hash)?;
+        self.admit_material(staged, None, Some(finalized), recorded_at_ms)
     }
 
     pub(crate) fn pending_outbox(&self, effect_id: &str) -> Result<Vec<OutboxIntent>> {
@@ -1628,18 +1863,38 @@ impl RuntimeFinalityCoordinator {
         &mut self,
         hash: [u8; 32],
         native: Option<NativeAftFinalizedBlock>,
+        hash_async: Option<NativeAftHashAsyncFinalizedBlock>,
         recorded_at_ms: u64,
     ) -> Result<RuntimeAdmission> {
         let staged = self.read_staged(&hash)?;
-        self.admit_material(staged, native, recorded_at_ms)
+        self.admit_material(staged, native, hash_async, recorded_at_ms)
     }
 
     fn admit_material(
         &mut self,
         staged: StagedBlock,
         native: Option<NativeAftFinalizedBlock>,
+        hash_async: Option<NativeAftHashAsyncFinalizedBlock>,
         recorded_at_ms: u64,
     ) -> Result<RuntimeAdmission> {
+        let hash = block_hash(&staged.block)?;
+        let suffix = hex::encode(hash);
+        let effect_id = format!("runtime-effect-{suffix}");
+        // The recognized-effect commit is intentionally earlier than outbox
+        // delivery and the caller's in-memory completion marker. A duplicate
+        // finality certificate can therefore arrive in that crash/retry
+        // window. Recover the already committed effect by its block-derived
+        // identity instead of preparing a new bundle against a now-stale
+        // predecessor head.
+        if self.store.committed(&effect_id).is_some() {
+            let recovered = self.recover_admission(&effect_id)?;
+            if recovered.block != staged.block {
+                return Err(anyhow!(
+                    "committed runtime effect identity rebound to different staged bytes"
+                ));
+            }
+            return Ok(recovered);
+        }
         let active = self
             .store
             .spine_state()
@@ -1653,19 +1908,21 @@ impl RuntimeFinalityCoordinator {
         }
         let authority_owner = ExactAuthority(active.authority.clone());
         let profile = runtime_profile(active.identity.profile)?;
-        match (profile, native.as_ref()) {
-            (RuntimeFinalityProfile::BftConsensusAftV1, None) => {
+        match (profile, native.as_ref(), hash_async.as_ref()) {
+            (RuntimeFinalityProfile::BftConsensusAftV1, None, None) => {
                 return Err(anyhow!("AFT admission has no finalized native quorum"))
             }
-            (RuntimeFinalityProfile::SingleAuthorityV1, Some(_)) => {
+            (RuntimeFinalityProfile::BftConsensusAftV1, Some(_), Some(_)) => {
+                return Err(anyhow!("AFT admission carries two finality variants"))
+            }
+            (RuntimeFinalityProfile::SingleAuthorityV1, Some(_), _)
+            | (RuntimeFinalityProfile::SingleAuthorityV1, _, Some(_)) => {
                 return Err(anyhow!(
                     "single-authority admission carried peer quorum evidence"
                 ))
             }
             _ => {}
         }
-        let hash = block_hash(&staged.block)?;
-        let suffix = hex::encode(hash);
         let (operation_first, receipt_first, previous_ref, previous_hash) =
             next_material_coordinates(&self.store)?;
         let location = self.staged_path(&hash).display().to_string();
@@ -1698,10 +1955,10 @@ impl RuntimeFinalityCoordinator {
                 block: &staged.block,
                 receipts: &staged.receipts,
                 native_aft: native.as_ref(),
+                hash_async: hash_async.as_ref(),
             },
             &self.signing_key,
         )?;
-        let effect_id = format!("runtime-effect-{suffix}");
         let outbox = build_outbox(&effect_id, &staged.block, &bundle)?;
         let prepared = self.store.prepare_runtime_bundle(
             effect_id.clone(),
@@ -2086,12 +2343,20 @@ fn validate_native_evidence(evidence: &NativeAftFinalizedEvidence) -> Result<()>
         .map(|member| member.account_id)
         .collect::<BTreeSet<_>>();
     if members.len() != evidence.members.len()
-        || evidence
-            .members
-            .iter()
-            .any(|member| member.suite != SignatureSuite::ED25519 || member.public_key.len() != 32)
+        || evidence.members.iter().any(|member| {
+            !matches!(
+                member.suite,
+                SignatureSuite::ED25519 | SignatureSuite::ML_DSA_44
+            ) || member.public_key.is_empty()
+                || account_id_from_key_material(member.suite, &member.public_key)
+                    .map(AccountId)
+                    .ok()
+                    != Some(member.account_id)
+        })
     {
-        return Err(anyhow!("native AFT membership is duplicate or not Ed25519"));
+        return Err(anyhow!(
+            "native AFT membership is duplicate, unsupported, or key/account mismatched"
+        ));
     }
     for signer in &evidence.signers {
         let member = evidence
@@ -2106,7 +2371,10 @@ fn validate_native_evidence(evidence: &NativeAftFinalizedEvidence) -> Result<()>
             .find(|(account, _)| *account == signer.account_id)
             .map(|(_, signature)| signature)
             .ok_or_else(|| anyhow!("authenticated signer is absent from quorum certificate"))?;
-        if member.public_key != signer.public_key || signature != &signer.signature {
+        if member.suite != signer.suite
+            || member.public_key != signer.public_key
+            || signature != &signer.signature
+        {
             return Err(anyhow!("native AFT signer/key/certificate substitution"));
         }
     }
@@ -2122,18 +2390,14 @@ fn native_finalized_block(
         .members
         .iter()
         .map(|member| {
-            let public_key: [u8; 32] = member
-                .public_key
-                .as_slice()
-                .try_into()
-                .map_err(|_| anyhow!("native AFT member key is not 32 bytes"))?;
             Ok(NativeAftMember {
                 member_ref: format!(
                     "node://ioi/{}/{}",
                     domain_id,
                     hex::encode(member.account_id.0)
                 ),
-                public_key,
+                signature_suite: member.suite,
+                public_key: member.public_key.clone(),
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -2143,9 +2407,13 @@ fn native_finalized_block(
         "effective_from_height": evidence.membership_effective_from_height,
         "members": members.iter().map(|member| json!({
             "member_ref": member.member_ref,
-            "public_key": hex::encode(member.public_key),
+            "signature_suite": member.signature_suite.0,
+            "public_key": hex::encode(&member.public_key),
         })).collect::<Vec<_>>(),
     }))?;
+    let all_post_quantum = members
+        .iter()
+        .all(|member| member.signature_suite.is_post_quantum());
     Ok(NativeAftFinalizedBlock {
         block_header_bytes: to_bytes_canonical(&block.header).map_err(anyhow::Error::msg)?,
         quorum_certificate: evidence.quorum_certificate,
@@ -2155,7 +2423,11 @@ fn native_finalized_block(
             hex::encode(ioi_crypto::algorithms::hash::sha256(&membership_bytes)?)
         ),
         membership_epoch: evidence.membership_effective_from_height,
-        consensus_protocol_ref: "protocol://ioi/aft/classic-bft/v1".into(),
+        consensus_protocol_ref: if all_post_quantum {
+            "protocol://ioi/aft/pq-optimistic/v1".into()
+        } else {
+            "protocol://ioi/aft/classic-bft/v1".into()
+        },
         byzantine_fault_tolerance: evidence.byzantine_fault_tolerance,
     })
 }
@@ -2294,6 +2566,7 @@ mod tests {
                 sealed_finality_proof: None,
                 canonical_order_certificate: None,
                 timeout_certificate: None,
+                aft_timeout_certificate: None,
                 parent_qc: QuorumCertificate::default(),
                 previous_canonical_collapse_commitment_hash: [0; 32],
                 canonical_collapse_extension_certificate: None,
@@ -2790,6 +3063,12 @@ mod tests {
                 .len(),
             5
         );
+        let replay = coordinator
+            .admit_single_authority(hash, 1_700_000_000_002)
+            .expect("durably committed admission replays before outbox completion");
+        assert_eq!(replay.effect_id, admission.effect_id);
+        assert_eq!(replay.block, block);
+        assert_eq!(replay.commit.disposition, CommitDisposition::Replayed);
         drop(coordinator);
 
         let reopened = RuntimeFinalityCoordinator::open(

@@ -9,17 +9,20 @@ use crate::state::{StateAccess, StateManager};
 use async_trait::async_trait;
 // [MODIFIED] Added ProofOfDivergence to imports
 use ioi_types::app::{
-    AccountId, AftRecoveredCertifiedHeaderEntry, AftRecoveredConsensusHeaderEntry,
-    AftRecoveredRestartHeaderEntry, AftRecoveredStateObservationStats, AftRecoveredStateSurface,
-    Block, BlockHeader, CanonicalCollapseContinuityProofSystem,
-    CanonicalCollapseContinuityPublicInputs, CanonicalCollapseExtensionCertificate,
-    CanonicalCollapseObject, ConsensusVote, ProofOfDivergence, QuorumCertificate,
+    AccountId, AftAsyncParentProofV1, AftFallbackScopeV1, AftRecoveredCertifiedHeaderEntry,
+    AftRecoveredConsensusHeaderEntry, AftRecoveredRestartHeaderEntry,
+    AftRecoveredStateObservationStats, AftRecoveredStateSurface, AftTimeoutCertificateV1,
+    AftTimeoutSafeStateV1, AftTimeoutVoteV1, Block, BlockHeader,
+    CanonicalCollapseContinuityProofSystem, CanonicalCollapseContinuityPublicInputs,
+    CanonicalCollapseExtensionCertificate, CanonicalCollapseObject, ConsensusVote,
+    FallbackStartCertificateV1, ProofOfDivergence, QuorumCertificate,
     RecoveredCanonicalHeaderEntry, RecoveredCertifiedHeaderEntry, RecoveredRestartBlockHeaderEntry,
     TimeoutCertificate, ValidatorSetsV1,
 };
 use ioi_types::error::{ConsensusError, TransactionError};
 use libp2p::PeerId;
 use std::collections::HashSet;
+use std::path::Path;
 
 /// Represents the decision a node should take in a given consensus round.
 #[derive(Debug)]
@@ -37,7 +40,12 @@ pub enum ConsensusDecision<T> {
         parent_qc: QuorumCertificate, // <--- NEW
         previous_canonical_collapse_commitment_hash: [u8; 32],
         canonical_collapse_extension_certificate: Option<CanonicalCollapseExtensionCertificate>,
+        /// Legacy unscoped timeout authority, permitted only by explicitly
+        /// classical compatibility profiles.
         timeout_certificate: Option<TimeoutCertificate>,
+        /// Versioned configuration-scoped timeout authority for normative PQ
+        /// AFT non-zero-view proposals.
+        aft_timeout_certificate: Option<AftTimeoutCertificateV1>,
     },
     /// The node needs to cast a vote for a valid block proposal.
     /// This signals the orchestrator to sign and broadcast the vote.
@@ -235,8 +243,102 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         proof_bytes: &[u8],
     ) -> Result<(), ConsensusError>;
 
+    /// Handles a fully formed timeout certificate relayed by a peer. AFT uses
+    /// this to synchronize view entry; engines without explicit TC relay may
+    /// ignore it.
+    async fn handle_timeout_certificate(
+        &mut self,
+        _certificate: TimeoutCertificate,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    /// Handles a versioned, configuration-scoped timeout vote on the
+    /// normative PQ profile. Compatibility engines may ignore it.
+    async fn handle_aft_timeout_vote(
+        &mut self,
+        _from: PeerId,
+        _vote: AftTimeoutVoteV1,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    /// Handles a versioned, configuration-scoped timeout certificate on the
+    /// normative PQ profile. Compatibility engines may ignore it.
+    async fn handle_aft_timeout_certificate(
+        &mut self,
+        _certificate: AftTimeoutCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    /// Handles an authenticated optimistic-to-fallback transition. Engines
+    /// without a pessimistic path ignore it.
+    async fn handle_fallback_start_certificate(
+        &mut self,
+        _certificate: FallbackStartCertificateV1,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
+    /// Offers a complete, locally verified hash-async finalization proof for a
+    /// parent block. A successful implementation may use its canonical
+    /// empty-signature QC reference only while this distinct typed proof is
+    /// retained; it must never reinterpret that reference as a native QC.
+    fn observe_aft_async_parent_proof(
+        &mut self,
+        _proof: AftAsyncParentProofV1,
+    ) -> Result<(), ConsensusError> {
+        Err(ConsensusError::BlockVerificationFailed(
+            "consensus engine does not support AFT asynchronous parent proofs".into(),
+        ))
+    }
+
+    /// Returns the optimistic safe state that a local timeout vote must bind.
+    /// Engines without the authenticated AFT fallback profile return `None`.
+    fn aft_timeout_safe_state(&self, _height: u64) -> Option<AftTimeoutSafeStateV1> {
+        None
+    }
+
+    /// Returns the exact locally authenticated scoped timeout vote already
+    /// admitted for this coordinate, so a transport retry can relay identical
+    /// signed evidence instead of manufacturing another signature.
+    fn aft_timeout_vote_for_relay(
+        &self,
+        _height: u64,
+        _view: u64,
+        _voter: &AccountId,
+    ) -> Option<AftTimeoutVoteV1> {
+        None
+    }
+
+    /// Configures the crash-safe fallback-transition journal. AFT refuses to
+    /// enter fallback until this succeeds; other engines need no journal.
+    fn configure_fallback_journal(
+        &mut self,
+        _scope: AftFallbackScopeV1,
+        _path: &Path,
+    ) -> Result<(), ConsensusError> {
+        Ok(())
+    }
+
     /// Returns newly formed quorum certificates that should be propagated to peers.
     fn take_pending_quorum_certificates(&mut self) -> Vec<QuorumCertificate> {
+        Vec::new()
+    }
+
+    /// Returns newly authenticated timeout certificates for prompt relay.
+    fn take_pending_timeout_certificates(&mut self) -> Vec<TimeoutCertificate> {
+        Vec::new()
+    }
+
+    /// Returns newly authenticated configuration-scoped timeout certificates.
+    fn take_pending_aft_timeout_certificates(&mut self) -> Vec<AftTimeoutCertificateV1> {
+        Vec::new()
+    }
+
+    /// Returns newly persisted fallback transitions for prompt relay.
+    fn take_pending_fallback_starts(&mut self) -> Vec<FallbackStartCertificateV1> {
         Vec::new()
     }
 

@@ -142,6 +142,8 @@ async fn main() -> Result<()> {
         consensus_type: ConsensusType::Aft,
         finality_profile: None,
         aft_safety_mode: Default::default(),
+        aft_pq_outbox_dir: Some("./data/aft-pq-outbox".to_string()),
+        aft_external_anchor_dir: None,
         guardian_production_mode: Default::default(),
         key_authority: None,
         rpc_listen_address: "0.0.0.0:8545".to_string(), // Public RPC

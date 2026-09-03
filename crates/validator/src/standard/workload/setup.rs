@@ -95,6 +95,29 @@ where
     ST: StateManager + ProofProvider,
 {
     if let Ok((Membership::Present(bytes), _)) = state_tree.get_with_proof_at_anchor(anchor, key) {
+        // `adopt_known_root` already makes the anchored tree the live tree for
+        // store-aware backends. Re-inserting an identical value is not a
+        // semantic no-op for a versioned tree: the leaf version changes and
+        // therefore so does the root. That left the recovered machine state
+        // inconsistent with the durable block header it had just adopted.
+        // Only materialize the key for backends whose adopted view genuinely
+        // cannot read it; otherwise preserve the exact committed root.
+        match state_tree.get(key)? {
+            Some(current) if current == bytes => {
+                tracing::debug!(
+                    target: "workload",
+                    key = key_name,
+                    "Recovery anchor key already present in the adopted state."
+                );
+                return Ok(());
+            }
+            Some(_) => {
+                return Err(anyhow!(
+                    "adopted recovery root disagrees with anchored {key_name} bytes"
+                ));
+            }
+            None => {}
+        }
         state_tree.insert(key, &bytes)?;
         tracing::info!(
             target: "workload",
@@ -379,6 +402,11 @@ where
                     VALIDATOR_SET_KEY,
                     "VALIDATOR_SET_KEY",
                 )?;
+                if state_tree.root_commitment().as_ref() != recovered_root.as_slice() {
+                    return Err(anyhow!(
+                        "recovery bootstrap mutated the adopted durable state root at height {recovered_height}"
+                    ));
+                }
             }
         }
     }
@@ -455,6 +483,8 @@ where
         consensus_type: config.consensus_type,
         finality_profile: None,
         aft_safety_mode: Default::default(),
+        aft_pq_outbox_dir: None,
+        aft_external_anchor_dir: None,
         guardian_production_mode: Default::default(),
         key_authority: None,
         rpc_listen_address: String::new(),

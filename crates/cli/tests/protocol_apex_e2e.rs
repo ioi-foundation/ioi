@@ -51,6 +51,7 @@ fn build_divergence_proof(
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
         previous_canonical_collapse_commitment_hash: [0u8; 32],
         canonical_collapse_extension_certificate: None,
         publication_frontier: None,

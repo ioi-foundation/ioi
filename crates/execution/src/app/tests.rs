@@ -264,6 +264,7 @@ fn resolve_execution_parent_anchor_matches_ordinary_lane_when_recovered_header_c
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
+        aft_timeout_certificate: None,
     };
     header.signature = vec![1, 2, 3];
     let block = Block {

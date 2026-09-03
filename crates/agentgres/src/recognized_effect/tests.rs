@@ -1,4 +1,5 @@
 use super::*;
+use crate::consequence::AcceptedEffectAuthorizationV1;
 use crate::cutover::{
     guarantee_delta_digest, GovernanceEvidence, GovernanceVerdict, RefuseAllWeakening,
     RollbackKind, RollbackPlan,
@@ -12,7 +13,9 @@ use ioi_finality::{
 };
 use ioi_types::app::{
     account_id_from_key_material, canonical_transactions_root, AccountId, ApplicationTransaction,
-    Block, BlockHeader, ChainTransaction, QuorumCertificate, SignHeader, SignatureProof,
+    Block, BlockHeader, ChainTransaction, EffectFenceV1, EffectManifestV1, EffectManifestVersionV1,
+    EffectResourceKeyV1, ExternalResourceContractV1, ExternalResourceProfileV1,
+    GuaranteeRequirementsV1, QuorumCertificate, ReconciliationPolicyV1, SignHeader, SignatureProof,
     SignatureSuite, StateRoot,
 };
 use ioi_types::codec::to_bytes_canonical;
@@ -28,6 +31,41 @@ const INITIAL_HEAD: &str =
 
 fn hash_label(byte: u8) -> String {
     format!("sha256:{}", format!("{byte:02x}").repeat(32))
+}
+
+fn consequence_manifest(effect_id: &str) -> EffectManifestV1 {
+    EffectManifestV1 {
+        schema_version: EffectManifestVersionV1::V1,
+        effect_id: effect_id.into(),
+        resource_id: "resource://acme/test".into(),
+        conflict_domain_id: "domain://acme/test".into(),
+        read_set: Vec::new(),
+        write_set: vec![EffectResourceKeyV1 {
+            key: "result".into(),
+            predecessor: None,
+        }],
+        idempotency_key: format!("idem-{effect_id}"),
+        request_root: [31; 32],
+        predecessor_root: [32; 32],
+        intent_root: [33; 32],
+        expected_outcome_root: [34; 32],
+        resource_profile: ExternalResourceProfileV1 {
+            adapter_id: "adapter://acme/test".into(),
+            adapter_version: "v1".into(),
+            resource_profile_id: "resource-profile://best-effort-v1".into(),
+            contract: ExternalResourceContractV1::UnsupportedBestEffort,
+            externalization_pq: false,
+            endpoint_pq_key_hash: None,
+        },
+        required_guarantees: GuaranteeRequirementsV1::default(),
+        fence: EffectFenceV1::ProtocolHeight {
+            configuration_hash: [35; 32],
+            minimum_height: 1,
+            maximum_height: 1,
+        },
+        reconciliation: ReconciliationPolicyV1::NoSafeReconciliation,
+        irreversible: false,
+    }
 }
 const ISSUER_KEY_ID: &str = "key://acme/finality/1";
 const WRITER_A: &str = "writer://acme/a";
@@ -307,6 +345,7 @@ fn single_runtime_bundle(
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0; 32],
             canonical_collapse_extension_certificate: None,
@@ -351,6 +390,7 @@ fn single_runtime_bundle(
             block: &block,
             receipts: &[receipt],
             native_aft: None,
+            hash_async: None,
         },
         &Ed25519PrivateKey::from_bytes(&[7; 32]).expect("issuer key"),
     )
@@ -367,20 +407,20 @@ fn aft_runtime_bundle() -> Value {
         .enumerate()
         .map(|(index, key)| NativeAftMember {
             member_ref: format!("node://acme/aft/{index}"),
+            signature_suite: SignatureSuite::ED25519,
             public_key: key
                 .public_key()
                 .expect("member public key")
                 .to_bytes()
                 .as_slice()
-                .try_into()
-                .expect("32-byte public key"),
+                .to_vec(),
         })
         .collect();
     let accounts: Vec<_> = members
         .iter()
         .map(|member| {
             AccountId(
-                account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+                account_id_from_key_material(member.signature_suite, &member.public_key)
                     .expect("member account"),
             )
         })
@@ -414,6 +454,7 @@ fn aft_runtime_bundle() -> Value {
             sealed_finality_proof: None,
             canonical_order_certificate: None,
             timeout_certificate: None,
+            aft_timeout_certificate: None,
             parent_qc: QuorumCertificate::default(),
             previous_canonical_collapse_commitment_hash: [0; 32],
             canonical_collapse_extension_certificate: None,
@@ -495,6 +536,7 @@ fn aft_runtime_bundle() -> Value {
             block: &block,
             receipts: &[receipt],
             native_aft: Some(&finalized),
+            hash_async: None,
         },
         &Ed25519PrivateKey::from_bytes(&[7; 32]).expect("issuer key"),
     )
@@ -727,6 +769,7 @@ fn runtime_v3_effect_linearizes_recovers_and_replays_on_the_agentgres_spine() {
     let mut store = open(&temp);
     let owner = StaticAuthority(authority());
     let bundle = single_runtime_bundle(0, WRITER_A, 1, [0; 32], 1, 0, bindings_digest());
+    let manifest = consequence_manifest("runtime-effect-1");
     let prepared = store
         .prepare_runtime_bundle(
             "runtime-effect-1",
@@ -735,7 +778,9 @@ fn runtime_v3_effect_linearizes_recovers_and_replays_on_the_agentgres_spine() {
             &owner,
             outbox("runtime-effect-1"),
         )
-        .expect("runtime effect prepares");
+        .expect("runtime effect prepares")
+        .bind_effect_manifest(&manifest)
+        .expect("effect manifest binds before admission");
     let retry = prepared.clone();
     let canonical_bytes = prepared.canonical_bytes().to_vec();
     let committed = store
@@ -744,6 +789,9 @@ fn runtime_v3_effect_linearizes_recovers_and_replays_on_the_agentgres_spine() {
     assert_eq!(committed.disposition, CommitDisposition::Committed);
     let claim = ioi_finality::verify_runtime_bundle_v3(&committed.effect.record.bundle)
         .expect("committed runtime proof verifies offline");
+    let authorization = AcceptedEffectAuthorizationV1::from_committed(&committed.effect, &manifest)
+        .expect("committed effect authorizes the exact manifest");
+    assert_ne!(authorization.commitment(), [0; 32]);
     assert_eq!(claim.profile_epoch, 0);
     assert_eq!(claim.writer_identity, WRITER_A);
     assert_eq!(claim.fence_token, 1);

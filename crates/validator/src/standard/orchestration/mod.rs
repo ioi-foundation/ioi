@@ -25,7 +25,7 @@ use ioi_api::{
 use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 // [FIX] Removed unused Libp2pSync import
-use ioi_networking::libp2p::{NetworkEvent, SwarmCommand};
+use ioi_networking::libp2p::{pq_channel::PqChannelLocalConfig, NetworkEvent, SwarmCommand};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -42,7 +42,7 @@ use lru::LruCache;
 use parity_scale_codec::{Decode, Encode};
 use rand::seq::SliceRandom;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::panic::AssertUnwindSafe;
 use std::sync::{
@@ -74,6 +74,7 @@ mod consensus;
 pub mod context;
 mod gossip;
 mod grpc_public;
+mod hash_async;
 mod ingestion;
 /// Transaction mempool logic.
 pub mod mempool;

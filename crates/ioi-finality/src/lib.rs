@@ -99,14 +99,20 @@ pub use runtime_v3::*;
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
-use ioi_api::crypto::{SerializableKey, SigningKey, VerifyingKey};
+use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair, VerifyingKey};
+use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaPublicKey, MldsaSignature};
 use ioi_crypto::sign::eddsa::{Ed25519PrivateKey, Ed25519PublicKey, Ed25519Signature};
 use ioi_types::app::generated::architecture_contracts::{
     architecture_contract_schema_hash, validate_architecture_contract,
 };
 use ioi_types::app::{
-    account_id_from_key_material, canonical_transactions_root, Block, BlockHeader,
-    ChainTransaction, SignatureSuite,
+    account_id_from_key_material, canonical_transactions_root, canonical_validator_set_hash,
+    conflict_domain_id_commitment, guarantee_vector_of, AccountabilityV1, AdversaryModelV1,
+    AftAsyncExecutedBlockCertificateV1, AftAsyncSelectedBatchWitnessV1, AvailabilityCoordinateV1,
+    Block, BlockHeader, CertificateOnlyGuaranteeVerifierV1, CertificateProfile, ChainTransaction,
+    ExternalizationCoordinateV1, ExternalizationModeV1, GuaranteeRequirementsV1,
+    GuaranteeTransformV1, GuaranteeVectorV1, LivenessCoordinateV1, NetworkAssumptionV1,
+    PrimitiveSuiteV1, SafetyModelV1, SignatureSuite, TerminationV1, ValidatorSetV1,
 };
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use serde::{Deserialize, Serialize};
@@ -151,6 +157,59 @@ const DECLARED_ASSOCIATION: &str = "declared_association_v1";
 pub const FULL_BLOCK_EFFECT_COMMITMENT: &str = "full_block_effect_commitment_v1";
 
 const FULL_BLOCK_OPERATION_ROOT_DOMAIN: &str = "ioi.full-block-operation-root.scale.v1";
+
+fn native_signature_suite_name(suite: SignatureSuite) -> Result<&'static str, VerificationError> {
+    match suite {
+        SignatureSuite::ED25519 => Ok("ed25519"),
+        SignatureSuite::ML_DSA_44 => Ok("ml-dsa-44"),
+        _ => Err(refuse_evidence(format!(
+            "unsupported native AFT signature suite {}",
+            suite.0
+        ))),
+    }
+}
+
+fn native_signature_suite(value: &str) -> Result<SignatureSuite, VerificationError> {
+    match value {
+        "ed25519" => Ok(SignatureSuite::ED25519),
+        "ml-dsa-44" => Ok(SignatureSuite::ML_DSA_44),
+        other => Err(refuse_evidence(format!(
+            "unsupported native AFT signature suite {other}"
+        ))),
+    }
+}
+
+fn verify_native_signature(
+    suite: SignatureSuite,
+    public_key: &[u8],
+    message: &[u8],
+    signature: &[u8],
+) -> Result<(), VerificationError> {
+    match suite {
+        SignatureSuite::ED25519 => {
+            let public = Ed25519PublicKey::from_bytes(public_key)
+                .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            let signature = Ed25519Signature::from_bytes(signature)
+                .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            public
+                .verify(message, &signature)
+                .map_err(|_| refuse_evidence("invalid Ed25519 native AFT signature"))
+        }
+        SignatureSuite::ML_DSA_44 => {
+            let public = MldsaPublicKey::from_bytes(public_key)
+                .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            let signature = MldsaSignature::from_bytes(signature)
+                .map_err(|error| VerificationError::Crypto(error.to_string()))?;
+            public
+                .verify(message, &signature)
+                .map_err(|_| refuse_evidence("invalid ML-DSA-44 native AFT signature"))
+        }
+        _ => Err(refuse_evidence(format!(
+            "unsupported native AFT signature suite {}",
+            suite.0
+        ))),
+    }
+}
 
 /// The exact native AFT vote preimage: SCALE over `(height, view, block_hash)`,
 /// which is byte-for-byte what `codec::to_bytes_canonical(&vote_payload)`
@@ -478,6 +537,32 @@ pub struct VerifiedClaim {
     /// Present only for `bft_consensus`; `None` says no quorum was claimed or
     /// checked, never that a quorum was assumed.
     pub quorum: Option<VerifiedQuorum>,
+}
+
+/// Version-dispatched output of the standalone portable verifier. The enum is
+/// untagged so existing v2 CLI JSON remains byte-shape compatible while the
+/// explicit runtime-v3 verifier can be used by the same air-gapped binary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum VerifiedPortableClaim {
+    V2(VerifiedClaim),
+    RuntimeV3(VerifiedRuntimeClaimV3),
+}
+
+/// Dispatches only the two independently implemented, version-pinned offline
+/// verifier contracts. Unknown and predecessor runtime versions fail closed;
+/// no field other than `schema_version` is interpreted before dispatch.
+pub fn verify_portable_bundle(bundle: &Value) -> Result<VerifiedPortableClaim, VerificationError> {
+    match bundle.get("schema_version").and_then(Value::as_str) {
+        Some(RUNTIME_BUNDLE_V3) => {
+            verify_runtime_bundle_v3(bundle).map(VerifiedPortableClaim::RuntimeV3)
+        }
+        Some("ioi.foundations.receipt-proof-bundle.v2") => {
+            verify_bundle(bundle).map(VerifiedPortableClaim::V2)
+        }
+        Some(version) => Err(VerificationError::UnsupportedVersion(version.to_owned())),
+        None => Err(VerificationError::UnsupportedVersion("missing".into())),
+    }
 }
 
 /// Axes this crate refuses for every profile, because it does not check them.
@@ -2317,11 +2402,13 @@ pub use ioi_types::app::QuorumCertificate;
 pub struct NativeAftMember {
     /// Stable `node://` reference for the seat.
     pub member_ref: String,
-    /// The member's raw 32-byte Ed25519 public key. The chain stores only a
-    /// hash of this key on `ValidatorV1`, so the key itself has to be supplied
-    /// here; it is checked by deriving the `AccountId` and requiring it to
-    /// appear in the certified block's own committed validator set.
-    pub public_key: [u8; 32],
+    /// Signature suite committed by the member's active consensus key.
+    pub signature_suite: SignatureSuite,
+    /// Canonical raw public-key bytes. The chain stores only a hash of this key
+    /// on `ValidatorV1`, so the key itself has to be supplied here; it is
+    /// checked by deriving the `AccountId` with `signature_suite` and requiring
+    /// it to appear in the certified block's own committed validator set.
+    pub public_key: Vec<u8>,
 }
 
 /// A block the native AFT path already finalized, with the certificate that
@@ -2345,6 +2432,34 @@ pub struct NativeAftFinalizedBlock {
     pub consensus_protocol_ref: String,
     /// Byzantine faults the membership is declared to tolerate.
     pub byzantine_fault_tolerance: u64,
+}
+
+/// A block finalized by the setup-free hash-only asynchronous fallback. The
+/// complete portable certificate and selected-payload witness are carried so
+/// an offline verifier can recompute every layer instead of treating the
+/// runtime issuer as a consensus oracle.
+#[derive(Debug, Clone)]
+pub struct NativeAftHashAsyncFinalizedBlock {
+    /// SCALE-encoded canonical block header whose effects this receipt admits.
+    /// This is either the terminal virtual block or its direct high-QC parent.
+    pub block_header_bytes: Vec<u8>,
+    /// SCALE-encoded terminal virtual-block header named by `certificate`.
+    /// Keeping this distinct from the subject header lets the portable proof
+    /// advance a staged two-chain parent without laundering that consequence
+    /// into the native-QC certificate class.
+    pub terminal_block_header_bytes: Vec<u8>,
+    /// Exact-q executed-block certificate, including its ordering evidence.
+    pub certificate: AftAsyncExecutedBlockCertificateV1,
+    /// Availability-backed proposal bytes committed by the decision.
+    pub witness: AftAsyncSelectedBatchWitnessV1,
+    /// Exact rooted validator-set record, including key activation heights.
+    pub validator_set: ValidatorSetV1,
+    /// Complete rooted membership in member-index order.
+    pub members: Vec<NativeAftMember>,
+    /// Stable membership evidence reference.
+    pub membership_ref: String,
+    /// Effective membership epoch.
+    pub membership_epoch: u64,
 }
 
 /// Translate a native `QuorumCertificate` into `consensus_evidence`, checking
@@ -2395,13 +2510,18 @@ fn native_evidence_from_certificate(
     let mut by_account = BTreeMap::new();
     let mut members = Vec::with_capacity(finalized.members.len());
     for member in &finalized.members {
-        let account_id = account_id_from_key_material(SignatureSuite::ED25519, &member.public_key)
+        if member.signature_suite != SignatureSuite::ED25519 {
+            return Err(refuse_evidence(
+                "ioi.bft-consensus-evidence.v1 supports only Ed25519 members; use the runtime v3 evidence contract for ML-DSA-44",
+            ));
+        }
+        let account_id = account_id_from_key_material(member.signature_suite, &member.public_key)
             .map_err(|error| {
-                refuse_evidence(format!(
-                    "member {} account id derivation: {error}",
-                    member.member_ref
-                ))
-            })?;
+            refuse_evidence(format!(
+                "member {} account id derivation: {error}",
+                member.member_ref
+            ))
+        })?;
         if by_account
             .insert(account_id, member.member_ref.clone())
             .is_some()
@@ -2413,7 +2533,7 @@ fn native_evidence_from_certificate(
         }
         members.push(json!({
             "member_ref": member.member_ref,
-            "public_key": hex::encode(member.public_key),
+            "public_key": hex::encode(&member.public_key),
         }));
     }
     members.sort_by(|left, right| {
@@ -2598,5 +2718,7 @@ fn material_root_rewrite(
     material_root(domain, materials)
 }
 
+#[cfg(feature = "portable-assurance")]
+pub mod portable_assurance;
 #[cfg(test)]
 mod tests;

@@ -324,7 +324,8 @@ fn recovered_publication_frontier_header(
         sealed_finality_proof: None,
         canonical_order_certificate: Some(payload.canonical_order_certificate.clone()),
         timeout_certificate: None,
-    }
+        aft_timeout_certificate: None,
+        }
 }
 
 fn validator_sets(validators: &[(u8, u128)]) -> ValidatorSetsV1 {
@@ -621,7 +622,8 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_registry_state() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([31u8; 32]),
@@ -803,7 +805,8 @@ fn extracting_published_bulletin_surface_returns_canonical_entries() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([31u8; 32]),
@@ -903,7 +906,8 @@ fn extracting_published_bulletin_surface_requires_positive_reconstruction_certif
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([36u8; 32]),
@@ -1007,7 +1011,8 @@ fn publishing_aft_canonical_order_artifact_bundle_persists_extractable_close_sur
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([31u8; 32]),
@@ -1208,7 +1213,8 @@ fn publishing_aft_canonical_collapse_object_persists_registry_state() {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    };
+        aft_timeout_certificate: None,
+        };
     let tx_one = ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {
             account_id: AccountId([124u8; 32]),

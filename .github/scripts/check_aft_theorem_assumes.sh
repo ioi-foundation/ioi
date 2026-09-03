@@ -31,10 +31,11 @@ err() { echo "FAIL: $1"; fail=1; }
 
 # Split the doc into blocks keyed by theorem id. A block runs from its
 # "## <id> " heading to the next "## " heading. Ids: T1, T2, T3, T4a, T4b,
-# T5a, T5b, T5c′, T5d, T6, T7, T8, T9, L1, L2, L9, L-E, L-H, L-LR, L-M.
+# T5a, T5b, T5c′, T5d, T6, T7, T8, T9, L1, L2, L-S, L9, L-E, L-H,
+# L-LR, L-A, L-M, L-X, L-C, L-PQCH.
 mapfile -t ids < <(grep -oP '^## \K(T[0-9]+[a-z]?['"'"'′]?|L-?[A-Z0-9]+)(?= —)' "$DOC")
 
-REQUIRED_IDS=(T1 T2 T3 T4a T4b T5a T5b "T5c′" T5d T6 T7 T8 T9 L1 L2 L9)
+REQUIRED_IDS=(T1 T2 T3 T4a T4b T5a T5b "T5c′" T5d T6 T7 T8 T9 L1 L2 L-S L9)
 for want in "${REQUIRED_IDS[@]}"; do
   found=0
   for id in "${ids[@]}"; do [[ "$id" == "$want" ]] && found=1; done

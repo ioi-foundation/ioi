@@ -262,7 +262,8 @@ fn sample_ordering_header(height: u64, view: u64, seed: u8) -> BlockHeader {
         sealed_finality_proof: None,
         canonical_order_certificate: None,
         timeout_certificate: None,
-    }
+        aft_timeout_certificate: None,
+        }
 }
 
 fn sample_ordering_transactions(seed: u8) -> Vec<ChainTransaction> {
