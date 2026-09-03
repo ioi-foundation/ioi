@@ -547,7 +547,7 @@ impl TestValidator {
         let build_release = build_profile.eq_ignore_ascii_case("release");
         let node_target_dir = test_node_target_dir(&build_profile, &features);
         let node_binary_dir = test_node_binary_dir(&build_profile, &features);
-        let binaries_present = ["orchestration", "workload", "guardian"]
+        let binaries_present = ["orchestration", "workload", "guardian", "ioi-signer"]
             .iter()
             .all(|bin| node_binary_dir.join(bin).exists());
 
@@ -577,6 +577,8 @@ impl TestValidator {
                 "workload",
                 "--bin",
                 "guardian",
+                "--bin",
+                "ioi-signer",
                 "--no-default-features",
                 "--features",
                 &features,
