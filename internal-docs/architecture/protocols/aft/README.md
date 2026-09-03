@@ -50,6 +50,11 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`evidence/m10-m12-review-bundle-reproduction-2026-09-03.md`](./evidence/m10-m12-review-bundle-reproduction-2026-09-03.md)
   — two-run byte reproducibility, independent clone checks, transfer hashes,
   and negative target-refusal evidence for the private review packages.
+- [`evidence/m10-m12-public-review-outreach-2026-09-03.md`](./evidence/m10-m12-public-review-outreach-2026-09-03.md)
+  — remotely read-back candidate refs and public GitHub commissions
+  [#357](https://github.com/ioi-foundation/ioi/issues/357) and
+  [#358](https://github.com/ioi-foundation/ioi/issues/358), explicitly still
+  awaiting qualified reviewer assignment and reports.
 - [`specs/maximal_prior_art_comparison_2026-09-03.md`](./specs/maximal_prior_art_comparison_2026-09-03.md)
   — dated task-level comparison against authenticated/synchronous BA,
   asynchronous BA/RBC/ACS, DAG availability, data-availability sampling,

@@ -1,12 +1,19 @@
 # M10/M12 owner commissioning handoff — 2026-09-03
 
-Status: **OWNER ACTION REQUIRED; NO REVIEW HAS BEEN COMMISSIONED OR
-PERFORMED**.
+Status: **CANDIDATES PUBLISHED AND PUBLIC REQUESTS OPEN; REVIEWER ASSIGNMENT
+AND REPORTS PENDING**.
 
 This is the exact handoff for the two independent reviews that local agents
 cannot honestly perform. M10 remains the sole critical-path milestone. The M12
 theorem review may run concurrently, but it cannot unlock production work
 unless it returns `REFUTED` with a construction that survives the M11 task.
+
+Public outreach:
+
+- M10 security review: <https://github.com/ioi-foundation/ioi/issues/357>
+- M12 theorem review: <https://github.com/ioi-foundation/ioi/issues/358>
+
+Both requests are open and unassigned. Opening them is not review evidence.
 
 ## 1. Immutable candidates
 
@@ -39,9 +46,10 @@ role-switch timing. Do not commission a new review against the predecessor.
 
 ## 2. Publication choice
 
-At the time of this record, `origin/master` is
-`ef20d4ff5a7e486ece3dc3410d9c7e6d6eda9eba` and none of the candidate tags is
-present on `origin`. Publishing commits or tags is an owner action.
+The owner published `master` and both operative candidate tags on 2026-09-03.
+Remote refs were read back and matched the commit and tag-object hashes in
+Section 1. The commands below are retained as reproduction/transfer guidance;
+they are no longer an outstanding action.
 
 The smallest remote disclosure that lets reviewers fetch immutable candidates
 without moving `master` is:
