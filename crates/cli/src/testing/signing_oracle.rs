@@ -3,7 +3,6 @@ use anyhow::{anyhow, Result};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::key_store::encrypt_key; // NEW
 use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
-use std::io::Write; // NEW
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -81,16 +80,15 @@ impl SigningOracleGuard {
             .arg("--listen-addr")
             .arg(&addr)
             .env("RUST_LOG", "error")
-            .stdin(Stdio::piped()) // [FIX] Pipe stdin for password
+            // GuardianContainer deliberately refuses password input from a
+            // non-TTY stdin. Test signers therefore use the documented
+            // non-interactive passphrase channel rather than a pipe that the
+            // child can never consume.
+            .env("IOI_GUARDIAN_KEY_PASS", password)
+            .stdin(Stdio::null())
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()?;
-
-        // [FIX] Write password to stdin immediately
-        if let Some(mut stdin) = process.stdin.take() {
-            stdin.write_all(password.as_bytes())?;
-            // Close stdin to signal EOF (some readers might wait for newline or EOF)
-        }
 
         // ML-DSA cluster tests can start several encrypted signer processes
         // while the host is still paging freshly linked validator binaries.
