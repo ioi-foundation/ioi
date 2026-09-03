@@ -42,21 +42,31 @@ not force a Byzantine member to emit or reveal an artifact.
 
 ## 2. Generalized support-set model
 
-For any finite accepted proof `pi`, let `Support(pi)` be the set of configured
-members whose unforgeable acts are necessary to construct `pi`. Hashes,
-deterministic computation, wrapper signatures by already supported members,
-and public copies of the same bytes do not add a new support identity.
+For any finite accepted proof `pi`, partition its prerequisites as follows:
 
-An object emitted by an external service adds that service as an authority. If
-the service's safety or liveness is required to select the decision, it must be
-included in the fault model; calling it a bulletin does not make it free.
+- `SupportP(pi)` is the set of configured members whose unforgeable acts are
+  necessary to construct `pi`.
+- `Common(pi)` is the replayable rooted/public material fixed across paired
+  executions, including client bytes and explicit verifier freshness inputs.
+- `ExternalSupport(pi)` is the set of required non-member acts whose
+  consistency or liveness selects, closes, orders, or makes an authorization
+  canonical.
+
+Hashes, deterministic computation, wrapper signatures by already supported
+members, and public copies of the same bytes do not add a new support identity.
+L-MAX conditions on the same `Common` material and assumes
+`ExternalSupport(pi) = {}`. An object emitted by an external service adds that
+service to `ExternalSupport`; if its safety or liveness selects the decision,
+the service must be included in the fault model. Calling it a bulletin does
+not make it free.
 
 ## 3. L-MAX — role-switching proof/visibility dilemma
 
 Assumes: the exact task in `maximal_consensus_task.md`; `n >= 2`; every
 singleton correct set is admissible; proof verification is a deterministic
-function of bytes and independently provisioned roots; there is no trusted
-authority outside `P`.
+function of bytes, independently provisioned roots, and explicitly named
+freshness inputs held common in the paired executions; after conditioning on
+`Common`, every accepted proof has `ExternalSupport(pi) = {}`.
 
 **Statement.** No protocol can simultaneously provide:
 
@@ -75,14 +85,17 @@ executions. If a proof instead needs a non-reproducible selecting output from a
 non-member service, that service is an additional authority and falls outside
 the premise.
 
-In execution `E_a`, `a` is the sole correct member, `X` is correctly submitted
-to `a`, and every other member is permanently silent. By effect liveness, at
-some finite prefix an offline verifier accepts a non-`Abort` proof `pi_X`.
-Because no other member acted, `Support(pi_X) subseteq {a}`.
+In execution `E_a`, `a` is the sole correct member, `X` is the only valid
+non-`Abort` effect correctly submitted for the instance, and every other
+member is permanently silent. No conflict rule rejects `X`. By effect
+liveness, at some finite prefix an offline verifier accepts a non-`Abort`
+proof `pi_X`. Because no other member acted,
+`SupportP(pi_X) subseteq {a}`.
 
 In execution `E_b`, role-switch the correct member: `b` is sole correct, `Y`
-is correctly submitted to `b`, and all others are silent. Liveness yields a
-finite accepted proof `pi_Y` with `Support(pi_Y) subseteq {b}`.
+is the only valid non-`Abort` effect correctly submitted for the instance,
+and all others are silent. Liveness yields a finite accepted proof `pi_Y` with
+`SupportP(pi_Y) subseteq {b}`.
 
 Now construct `E_*` with `a` correct and every other member Byzantine. Keep
 `b` silent until `a` follows its `E_a` prefix and emits `pi_X`. The adversary
@@ -115,6 +128,11 @@ first-seen cache does not repair the contradiction: two verifiers can receive
 the proofs in opposite orders. A shared linearizable cache can repair that
 ordering only by becoming the selecting service named in the second branch of
 the dilemma.
+
+The atomic idempotency-register resource modeled for consequence execution is
+strictly downstream: its compare-and-set receipt is not an input to `Verify`.
+Feeding that receipt back into proof acceptance moves the resource into
+`ExternalSupport` and changes the theorem premises; it does not refute L-MAX.
 
 ## 4. Relation to existing AFT bounds
 

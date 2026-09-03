@@ -1,8 +1,8 @@
 # M12 maximal-visibility independent theorem-review packet
 
-Status: **READY FOR OWNER COMMISSIONING; REVIEW NOT YET PERFORMED**.
+Status: **R2 AUTOMATED REVIEW RETURNED `REPAIR_REQUIRED`; R3 RETEST PENDING**.
 
-This packet asks an independent distributed-computing theorist to attack the
+This packet asks an independent distributed-computing reviewer to attack the
 exact M11 task and the L-MAX role-switching lower-bound candidate. It is not
 the P4.5a implementation/cryptography audit and neither review substitutes for
 the other.
@@ -11,7 +11,10 @@ the other.
 
 - Repository: `ioi-foundation/ioi`.
 - Candidate ref: annotated tag
-  `aft-maximal-visibility-lower-bound-candidate-r2-2026-09-03`.
+  `aft-maximal-visibility-lower-bound-candidate-r3-2026-09-03`.
+- Reviewed predecessor (retained for audit):
+  `aft-maximal-visibility-lower-bound-candidate-r2-2026-09-03`, for which the
+  context-isolated Daybreak review returned `REPAIR_REQUIRED`.
 - Superseded predecessor (retained for audit):
   `aft-maximal-visibility-lower-bound-candidate-2026-09-03`.
 - Exact commit: resolve the tag and record its full hash in the commissioning
@@ -30,8 +33,10 @@ name the retested commit.
 The final report must identify the reviewer, relevant qualifications, and any
 relationship or conflict. The reviewer must not have authored the candidate,
 must select their own proof method, and must report objections and failed
-attacks as well as agreement. Internal agents, TLC, TLAPS, and clean-room code
-are supporting evidence, not independent review.
+attacks as well as agreement. Under ADR 0049, the owner has explicitly accepted
+a context-isolated `gpt-daybreak-blue-latest` review for this owner-controlled
+gate. Its automated nature must remain explicit; it is not human academic peer
+review, institutional certification, or external professional assurance.
 
 ## Questions the review must answer
 
@@ -97,8 +102,12 @@ Expected bounded evidence:
 
 - `n=2`: all 256 acceptance families checked; `Dilemma` invariant holds;
 - `n=3`: all 65,536 acceptance families checked; `Dilemma` invariant holds;
+- conflict-qualified task model: each singleton value remains authorized while
+  a joint conflicting submission authorizes at most one value;
 - mutation: TLC reports `Invariant ExternalNonConflict is violated`; the
-  harness treats that exact counterexample as success.
+  harness treats that exact counterexample as success; and
+- selector mutation: TLC reports `Invariant ParticipantOnlyVerifier is
+  violated` when a downstream CAS receipt is fed into verification.
 
 The reviewer should add their own formalization. Passing bounded TLC models is
 not a proof of the general theorem.

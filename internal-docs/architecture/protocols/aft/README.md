@@ -35,6 +35,10 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`packets/M12-maximal-visibility-theorem-review.md`](./packets/M12-maximal-visibility-theorem-review.md)
   — owner commissioning packet for independent review of the role-switching
   lower-bound candidate.
+- [`evidence/m12-r2-daybreak-review-2026-09-03.md`](./evidence/m12-r2-daybreak-review-2026-09-03.md)
+  — attributable context-isolated automated R2 review, its
+  `REPAIR_REQUIRED` findings, and the R3 response; governed by ADR 0049 and
+  explicitly not represented as human peer review.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
   — exact immutable refs, publication choices, reviewer assignment fields,
   returned-evidence requirements, and deterministic resume rules for the two

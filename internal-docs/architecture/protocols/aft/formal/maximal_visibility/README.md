@@ -12,6 +12,17 @@ it could produce in the role-switched sole-honest execution. TLC must find the
 `ExternalNonConflict` violation. The formal harness treats absence of this
 counterexample as a gate failure.
 
+`ConflictQualifiedLiveness.tla` checks the repaired task boundary: each valid
+value submitted alone remains live even when every peer is silent, while a
+rooted conflict rule may authorize at most one value when both are submitted.
+The task does not require authorization of both conflicting submissions.
+
+`ExternalSelectorMutation.tla` distinguishes replayable client bytes in
+`Common(pi)` from non-member selecting acts in `ExternalSupport(pi)`. Its
+mutation feeds a downstream atomic-register receipt into `Verify`; TLC must
+then violate `ParticipantOnlyVerifier`, proving that this escape changes the
+authority model rather than satisfying the participant-only premise.
+
 Focused reproduction:
 
 ```text

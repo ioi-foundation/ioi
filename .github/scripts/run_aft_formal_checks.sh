@@ -51,12 +51,14 @@ MODELS=(
   "cross_domain/CrossDomainNonInterference.cfg|cross_domain/CrossDomainNonInterference.tla"
   "maximal_visibility/MaximalVisibilityDilemma2.cfg|maximal_visibility/MaximalVisibilityDilemma.tla"
   "maximal_visibility/MaximalVisibilityDilemma3.cfg|maximal_visibility/MaximalVisibilityDilemma.tla"
+  "maximal_visibility/ConflictQualifiedLiveness.cfg|maximal_visibility/ConflictQualifiedLiveness.tla"
 )
 
 # Mutation models that MUST produce the named counterexample. A surprising
 # pass means the lower-bound witness no longer exercises its claimed failure.
 COUNTERMODELS=(
   "maximal_visibility/RoleSwitchConflict.cfg|maximal_visibility/RoleSwitchConflict.tla|Invariant ExternalNonConflict is violated"
+  "maximal_visibility/ExternalSelectorMutation.cfg|maximal_visibility/ExternalSelectorMutation.tla|Invariant ParticipantOnlyVerifier is violated"
 )
 
 # Every trace-conformance replay (AFT-CB R13 / C4a), as
@@ -324,9 +326,14 @@ if [[ "${1:-}" == "--maximal-visibility-only" ]]; then
     "MaximalVisibilityDilemma2.cfg" "MaximalVisibilityDilemma.tla"
   run_model "${FORMAL_DIR}/maximal_visibility" \
     "MaximalVisibilityDilemma3.cfg" "MaximalVisibilityDilemma.tla"
+  run_model "${FORMAL_DIR}/maximal_visibility" \
+    "ConflictQualifiedLiveness.cfg" "ConflictQualifiedLiveness.tla"
   run_countermodel "${FORMAL_DIR}/maximal_visibility" \
     "RoleSwitchConflict.cfg" "RoleSwitchConflict.tla" \
     "Invariant ExternalNonConflict is violated"
+  run_countermodel "${FORMAL_DIR}/maximal_visibility" \
+    "ExternalSelectorMutation.cfg" "ExternalSelectorMutation.tla" \
+    "Invariant ParticipantOnlyVerifier is violated"
   exit 0
 fi
 

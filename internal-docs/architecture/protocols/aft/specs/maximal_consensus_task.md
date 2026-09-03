@@ -108,10 +108,17 @@ random bit.
 
 ### 3.7 Authorization and effect liveness
 
-For every correctly submitted effect whose value and policy are valid, some
-non-`Abort` decision eventually produces an offline-verifiable authorization.
-Given the already modeled atomic idempotency-register resource and a reachable
-honest executor, that authorization is eventually offered to the resource.
+For every correctly submitted effect whose value and policy are valid and
+that is not rejected by a separately identified, externally valid conflict or
+policy rule, some non-`Abort` decision eventually produces an
+offline-verifiable authorization. Such a rule must be fixed by the rooted
+context and may not derive authority from local arrival order, silence, or
+unmodeled external state. In particular, when exactly one valid non-`Abort`
+effect is correctly submitted for an instance, permanent silence by the other
+`n - 1` members is not a rejection rule and the authorization must eventually
+be produced. Given the already modeled downstream atomic idempotency-register
+resource and a reachable honest executor, that authorization is eventually
+offered to the resource.
 
 The protocol does not claim that arbitrary physical actors must comply.
 `Abort`, a timeout record, an accountability proof, or a receipt below policy
@@ -198,6 +205,15 @@ constructing a safety counterexecution.
   assignment.
 - A proof remains valid or invalid by bytes, roots, and explicit freshness
   inputs; network arrival order at the verifier is not authority.
+- Every freshness input is either fixed in the independently provisioned root
+  or explicitly included in `Verify` and held common in paired executions. A
+  non-reproducible freshness output is an external authority.
+- No non-member service supplies an output used by `Verify` or by proof
+  construction to select, close, order, or make one authorization canonical.
+- The modeled atomic idempotency resource is permitted only downstream, after
+  authorization acceptance, and its receipt is not an input to `Verify`. A
+  protocol using that resource's linearization or receipt to distinguish `X`
+  from `Y` is outside this premise and must name the resource as its selector.
 - “First seen” is local observation, not canonical first publication.
 - If verifiers share a mutable service that makes their acceptance order
   consistent, that service and its safety/liveness assumptions are part of the
@@ -210,8 +226,16 @@ Every construction must instantiate:
 - `n = 2, f = 1`, values `X` and `Y`, with `X` submitted only to `p_0`
   and `Y` submitted only to `p_1` in their respective sole-honest executions;
 - both Byzantine-silent executions;
+- both conflicting values submitted together, where the rooted conflict rule
+  does not require authorization of both;
+- each conflicting value submitted alone, where silence by every other member
+  still requires its authorization;
 - the role-switched execution in which one proof-producing identity is
   Byzantine and replays the proof bytes it could produce when honest;
+- replayable client bytes held common across paired executions, contrasted
+  with a non-reproducible external selecting output; and
+- a mutation that feeds an idempotency-register receipt into `Verify` and is
+  therefore classified as an external selector;
 - arbitrary `n >= 2, f = n - 1`;
 - all Byzantine equivocation as well as all Byzantine silence;
 - restart before and after publication/close/decision; and

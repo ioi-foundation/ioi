@@ -1,10 +1,11 @@
 # M11/M12 maximal-visibility local evidence — 2026-09-03
 
-Status: **M11 LOCAL SPEC COMPLETE; M12 INDEPENDENT REVIEW PENDING**.
+Status: **M11 REPAIRED; M12 R2 AUTOMATED REVIEW RETURNED `REPAIR_REQUIRED`;
+R3 RETEST PENDING**.
 
 Current review candidate: annotated tag
-`aft-maximal-visibility-lower-bound-candidate-r2-2026-09-03`. The predecessor
-tag without `-r2` remains immutable audit evidence.
+`aft-maximal-visibility-lower-bound-candidate-r3-2026-09-03`. The R2 candidate
+and predecessor tag without `-r2` remain immutable audit evidence.
 
 ## Deliverables
 
@@ -28,7 +29,7 @@ bash .github/scripts/run_aft_formal_checks.sh --maximal-visibility-only
 
 Result: **PASS**.
 
-- Formal census: 42 modules = 29 executed + 13 explicitly manual.
+- Formal census: 44 modules = 31 executed + 13 explicitly manual.
 - `MaximalVisibilityDilemma`, `n=2`: 512 generated / 256 distinct states,
   depth 1; no error.
 - `MaximalVisibilityDilemma`, `n=3`: 131,072 generated / 65,536 distinct
@@ -36,6 +37,12 @@ Result: **PASS**.
 - `RoleSwitchConflict`: the expected `ExternalNonConflict` invariant violation
   was observed; the harness would fail if the mutation unexpectedly passed or
   failed for another reason.
+- `ConflictQualifiedLiveness`: three distinct task states checked; no error.
+  Each value submitted alone remains authorized, while a rooted conflict rule
+  authorizes at most one value when both are submitted.
+- `ExternalSelectorMutation`: the expected `ParticipantOnlyVerifier`
+  invariant violation was observed when an external CAS receipt entered proof
+  verification.
 - Temporary `TLAPS.tla` links were removed/restored; the focused run left no
   symlink delta.
 
@@ -60,14 +67,21 @@ escape, a shared linearizable first-publication object, supplies exactly the
 selecting bit but is consensus-powerful external state rather than ordinary
 dissemination.
 
-The attack exposed three clarifications now included in the R2 task/proof:
+The first context-isolated Daybreak review of R2 returned `REPAIR_REQUIRED`.
+The automated provenance is governed by ADR 0049 and is not represented as
+human peer review. Its findings are retained in the review record. R3 applies
+all requested repairs:
 
-1. the value task must admit two conflicting externally valid values under one
-   fixed context rather than becoming valid-by-definition;
-2. non-member public inputs are held fixed in the paired executions, and any
-   non-reproducible selecting output is charged as an external authority; and
-3. the role-switched Byzantine remains silent until the correct member emits
-   its proof, so known delivery bounds cannot prevent the replay.
+1. effect liveness now has the same rooted conflict/policy exception as input
+   inclusion, plus an explicit solo-input liveness obligation;
+2. verifier freshness inputs are rooted or explicit and held common;
+3. participant support, common replayable inputs, and external selecting acts
+   are separate sets;
+4. the atomic register is downstream only, and feeding its receipt into
+   verification is classified as an external-selector construction;
+5. the prior-art wording and source pins are repaired; and
+6. the requested positive task-boundary and negative selector-mutation models
+   are in the standing harness.
 
 The comparison is local research evidence, not an exhaustive novelty claim or
 independent validation. The review packet now requires the theorist to audit
@@ -85,5 +99,5 @@ No tested canonical-public-state design escapes the following fork:
    permanent-withholder nontermination or violating the target constraints.
 
 Accordingly no maximal production profile is authorized. M12 remains in
-progress until an independent reviewer returns `UPHELD`, `REPAIR_REQUIRED`, or
-`REFUTED` against the immutable lower-bound candidate.
+progress until the same context-isolated reviewer returns `UPHELD`,
+`REPAIR_REQUIRED`, or `REFUTED` against the immutable R3 lower-bound candidate.
