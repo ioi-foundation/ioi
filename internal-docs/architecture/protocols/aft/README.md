@@ -35,6 +35,10 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`packets/M12-maximal-visibility-theorem-review.md`](./packets/M12-maximal-visibility-theorem-review.md)
   — owner commissioning packet for independent review of the role-switching
   lower-bound candidate.
+- [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
+  — exact immutable refs, publication choices, reviewer assignment fields,
+  returned-evidence requirements, and deterministic resume rules for the two
+  owner-only independent reviews.
 - [`specs/maximal_prior_art_comparison_2026-09-03.md`](./specs/maximal_prior_art_comparison_2026-09-03.md)
   — dated task-level comparison against authenticated/synchronous BA,
   asynchronous BA/RBC/ACS, DAG availability, data-availability sampling,
