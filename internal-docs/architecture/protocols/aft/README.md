@@ -39,6 +39,9 @@ traces, TLC state dumps, and compiled paper outputs live under
   — attributable context-isolated automated R2 review, its
   `REPAIR_REQUIRED` findings, and the R3 response; governed by ADR 0049 and
   explicitly not represented as human peer review.
+- [`evidence/m12-r3-daybreak-retest-2026-09-03.md`](./evidence/m12-r3-daybreak-retest-2026-09-03.md)
+  — exact-candidate `UPHELD` retest closing M12 as
+  `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; automated, not human peer review.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
   — exact immutable refs, publication choices, reviewer assignment fields,
   returned-evidence requirements, and deterministic resume rules for the two

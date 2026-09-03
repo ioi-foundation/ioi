@@ -32,9 +32,11 @@ Execute M9-M18 in order:
 1. Freeze a clean, immutable PQ v1 candidate; reconcile T5d/T8 status; rerun
    all M8, CI, formal, claim, receipt, consequence, validator, and Hypervisor
    gates.
-2. Prepare and support the P4.5a independent review. Never represent an
-   internal agent, clean room, oracle, or proof tool as the independent human
-   reviewer. Require reviewer identity, independence disclosure, exact
+2. Prepare and support the P4.5a independent review. Apply the explicit ADR
+   0049 owner decision accepting context-isolated Daybreak review for M10/M12,
+   while always disclosing its exact model and automated nature and never
+   calling it human peer review, institutional certification, or professional
+   assurance. Require reviewer identity/model, independence disclosure, exact
    candidate hash, complete findings, and attributable final report. Remediate
    findings, invalidate stale evidence, obtain reviewer verification, and
    release PQ v1 only with no unresolved critical/high finding.

@@ -1,7 +1,7 @@
 # M11/M12 maximal-visibility local evidence — 2026-09-03
 
-Status: **M11 REPAIRED; M12 R2 AUTOMATED REVIEW RETURNED `REPAIR_REQUIRED`;
-R3 RETEST PENDING**.
+Status: **M11 COMPLETE; M12 R3 AUTOMATED REVIEW RETURNED `UPHELD`;
+`PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`**.
 
 Current review candidate: annotated tag
 `aft-maximal-visibility-lower-bound-candidate-r3-2026-09-03`. The R2 candidate
@@ -98,6 +98,8 @@ No tested canonical-public-state design escapes the following fork:
    identity (all `n` members) or a new external selecting authority, causing
    permanent-withholder nontermination or violating the target constraints.
 
-Accordingly no maximal production profile is authorized. M12 remains in
-progress until the same context-isolated reviewer returns `UPHELD`,
-`REPAIR_REQUIRED`, or `REFUTED` against the immutable R3 lower-bound candidate.
+The same context-isolated reviewer returned `UPHELD` against the immutable R3
+candidate. Accordingly M12 closes as `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`.
+No maximal production profile is authorized and M13-M18 remain blocked. The
+program can resume only after an explicit owner decision changes a required
+property or permits and names an added authority/assumption.

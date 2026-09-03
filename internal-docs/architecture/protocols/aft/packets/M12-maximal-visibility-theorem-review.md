@@ -1,6 +1,7 @@
 # M12 maximal-visibility independent theorem-review packet
 
-Status: **R2 AUTOMATED REVIEW RETURNED `REPAIR_REQUIRED`; R3 RETEST PENDING**.
+Status: **R3 AUTOMATED RETEST RETURNED `UPHELD`; M12 CLOSED AS
+`PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`**.
 
 This packet asks an independent distributed-computing reviewer to attack the
 exact M11 task and the L-MAX role-switching lower-bound candidate. It is not

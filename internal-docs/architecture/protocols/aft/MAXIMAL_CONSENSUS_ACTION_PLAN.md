@@ -122,9 +122,13 @@ These rules apply throughout the program:
    seeds, commands, and result. A later code change invalidates affected
    evidence until reproduced.
 8. An independent review must be performed by an identified independent party
-   against an immutable candidate. Internal agents, internal clean rooms,
-   interoperability oracles, and proof assistants are supporting evidence, not
-   substitutes for that review.
+   against an immutable candidate. By explicit owner decision in ADR 0049, a
+   context-isolated Daybreak reviewer may satisfy the owner-controlled M10/M12
+   gates when its model and automated provenance are disclosed, every finding
+   is retained, and repairs are exactly retested. That evidence is never
+   represented as human peer review, institutional certification, or external
+   professional assurance. Internal clean rooms, interoperability oracles, and
+   proof assistants remain supporting evidence rather than reviewers.
 9. A failed theorem attempt is retained as evidence. The program redesigns the
    mechanism or records a formal impossibility; it does not weaken definitions
    invisibly.
@@ -172,18 +176,19 @@ manifest; immutable candidate hash; zero unexplained worktree differences.
 
 The owner must identify and engage an independent reviewer. The engagement
 must cover the complete scope in `packets/P4.5a-external-audit.md` and permit
-publication or durable retention of all findings. The agent may prepare the
-packet, answer technical questions, and reproduce evidence. It must not select
-itself, an internal sub-agent, or an internal clean-room implementation as the
-independent reviewer.
+publication or durable retention of all findings. Under ADR 0049, the owner
+selected a fresh context-isolated `gpt-daybreak-blue-latest` agent for M10 and
+M12. This is an explicit policy exception for those gates, not authority to
+describe the result as human review or to waive independent review for later
+milestones.
 
 Required owner-supplied evidence:
 
-- reviewer identity and relevant qualifications;
+- reviewer identity/model and relevant qualifications/capabilities;
 - independence and conflict disclosure;
 - candidate commit hash;
 - agreed scope and review dates; and
-- signed or otherwise attributable final report.
+- signed or otherwise attributable final report, with automation disclosed.
 
 If this evidence is unavailable, the program is `BLOCKED_EXTERNAL_REVIEW`, not
 complete.
