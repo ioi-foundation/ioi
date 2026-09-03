@@ -2057,6 +2057,14 @@ async fn wallet_network_principal_authority_fixture() -> Result<()> {
         .with_aft_safety_mode(AftSafetyMode::ClassicBft)
         .with_state_tree("IAVL")
         .with_service_policy("wallet_network", wallet_policy());
+    if matches!(ordering_profile, OrderingProfile::Aft) {
+        // AFT PQ v1 made ClassicBft a clean break: its validator set and the
+        // corresponding per-process signing keys must be ML-DSA-44. Leaving
+        // the test builder on its historical Ed25519 default now fails closed
+        // at height zero, which is the intended production behavior but not a
+        // valid AFT control fixture.
+        cluster_builder = cluster_builder.with_pq_consensus_profile();
+    }
     if wall_clock_fixture {
         // The real IAVL fixture commits a setup census before publishing
         // readiness. Those blocks can take materially longer than the normal

@@ -368,7 +368,12 @@ jobs:
         if: matrix.verifier_id == 'outcome-room-system-spine'
         run: |
           curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.18.3 sh
-          test "$(ollama --version | awk '{print $NF}')" = "0.18.3"
+          # A freshly installed client can print a transient server-connect warning before its
+          # version line. Parse the client version line itself instead of comparing every token
+          # emitted by the command substitution, while retaining the exact-version refusal.
+          OLLAMA_CLIENT_VERSION="$(ollama --version 2>&1 | sed -n 's/^ollama version is //p' | tail -n 1)"
+          echo "installed Ollama client version: ${OLLAMA_CLIENT_VERSION:-absent}"
+          test "$OLLAMA_CLIENT_VERSION" = "0.18.3"
           nohup ollama serve > /tmp/ollama-serve.log 2>&1 &
           for attempt in $(seq 1 30); do
             curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break

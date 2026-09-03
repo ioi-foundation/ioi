@@ -450,9 +450,14 @@ const PINNED = {
   // add no ODK-family-resolving position, production writer bucket, family mention, or raw
   // filesystem call. All new families admit only through the shared owner-scoped Agentgres
   // mutation boundary; the unchanged 57/237/302 writer census is the owner-spine result.
+  // M06.1/AFT PQ v1 re-derivation (2026-09-03): the Verified Work Graph projection and the
+  // wallet-network capability client add 334 reachable source tokens, 14 opaque initialisers and
+  // five foreign-qualified names. The family-resolving population, ODK-family mention count,
+  // production writer buckets and raw-filesystem call count remain unchanged, so this is a closed
+  // world census movement without a new ontology admitter or owner spine.
   modules: 112,
   familyMentions: 285,
-  tokenMentions: 144150,
+  tokenMentions: 144484,
   judgedTokenPositions: 281,
   productionWriterCalls: { family: 57, nonFamilyLiteral: 237, runtimeParameter: 302 },
   productionFsCalls: 234,
@@ -473,8 +478,8 @@ const PINNED = {
    * Burning these down, and entailing the resolver so they need not exist, is next-legs XV.
    */
   unadjudicable: {
-    "foreign-qualified": 4452,
-    "opaque-initialiser": 2693,
+    "foreign-qualified": 4457,
+    "opaque-initialiser": 2707,
     "bare-undeclared": 532,
     "ambiguous-module": 0,
     "not-a-visible-const": 0,

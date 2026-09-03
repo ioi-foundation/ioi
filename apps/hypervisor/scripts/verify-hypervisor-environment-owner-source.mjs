@@ -129,7 +129,7 @@ const portExpose = body(src.env, "handle_env_port_expose");
 const portTargetFence = body(src.env, "admitted_environment_port_target");
 
 check("R1_DERIVED_CLOSED_WORLD",
-  census.registered_route_handlers === 1069 && census.workspace_route_handlers === 38
+  census.registered_route_handlers === 1097 && census.workspace_route_handlers === 38
     && census.routes.length === 44 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"
