@@ -678,6 +678,17 @@ where
             let pending_qcs = engine.take_pending_quorum_certificates();
             drop(engine);
             for qc in pending_qcs {
+                if let Err(error) =
+                    super::super::quv::observe_certified_handoff(context_arc, &qc).await
+                {
+                    tracing::warn!(
+                        target: "quv",
+                        height = qc.height,
+                        view = qc.view,
+                        error = %error,
+                        "Failed to record a locally formed replay QC for the QUV handoff"
+                    );
+                }
                 if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
                     let _ = swarm_commander
                         .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
@@ -864,6 +875,7 @@ where
         aft_safety_mode,
         configured_aft_pq_hash,
         quv_enabled,
+        quv_handoff_only,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -885,8 +897,20 @@ where
             ctx.config.aft_safety_mode,
             ctx.aft_pq_configuration_hash,
             !ctx.config.aft_quv_domain_policies.is_empty(),
+            ctx.local_validator_account_id.is_none()
+                && ctx.aft_pq_local_account_id.is_some()
+                && ctx.aft_quv_staged_successor.is_some(),
         )
     };
+
+    // A pre-active Q-EA7 successor is a transport endpoint for PUSHQUERY and
+    // replies, not an old-root ordering participant. Keeping it out of the
+    // scheduler prevents both accidental old-root signing attempts and noisy
+    // consensus broadcasts before its own live install flips the authority
+    // fields atomically.
+    if quv_handoff_only {
+        return Ok(());
+    }
 
     // Narrowly gated ordering/finality attribution for the M04.9 parity
     // experiment. Read ONLY when the estate's existing benchmark trace seam is
@@ -1585,6 +1609,17 @@ where
                     let pending_qcs = engine.take_pending_quorum_certificates();
                     drop(engine);
                     for qc in pending_qcs {
+                        if let Err(error) =
+                            super::super::quv::observe_certified_handoff(context_arc, &qc).await
+                        {
+                            tracing::warn!(
+                                target: "quv",
+                                height = qc.height,
+                                view = qc.view,
+                                error = %error,
+                                "Failed to record a locally formed vote QC for the QUV handoff"
+                            );
+                        }
                         if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
                             dispatch_swarm_command(
                                 &swarm_commander,

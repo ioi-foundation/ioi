@@ -133,7 +133,27 @@ fn sync_cursor_when_peer_is_ahead(
     admitted_height: u64,
     peer_height: u64,
 ) -> Option<u64> {
-    (peer_height > executed_height).then_some(admitted_height)
+    if peer_height <= executed_height {
+        return None;
+    }
+
+    // Height one is the locally executed genesis transition. Agentgres has no
+    // runtime-finality receipt to admit for that bootstrap transition, so its
+    // canonical cursor remains zero even though every node with the same
+    // checked genesis root already holds the exact height-one state. Peers do
+    // not necessarily retain/serve that bootstrap block through the ordinary
+    // committed-history range; asking from zero can therefore receive height
+    // two first and reject a valid suffix as non-consecutive.
+    //
+    // Advance only across that single protocol-defined bootstrap boundary.
+    // Once either height is above it, keep starting from Agentgres' admitted
+    // truth so an unadmitted AFT projection can never become a sync authority.
+    let cursor = if admitted_height == 0 && executed_height == 1 {
+        1
+    } else {
+        admitted_height
+    };
+    Some(cursor)
 }
 
 fn effective_executed_height(reported_height: u64, tracked_height: u64) -> u64 {
@@ -344,10 +364,31 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + Debug,
 {
     let expose_test_projection = crate::standard::testing_trivial_aft_restart_anchor_enabled();
+    let certified_handoff_tip = context
+        .aft_quv_certified_handoff
+        .as_ref()
+        .zip(context.last_executed_block.as_ref())
+        .filter(|(qc, block)| {
+            qc.height == block.header.height
+                && qc.view == block.header.view
+                && block
+                    .header
+                    .hash()
+                    .ok()
+                    .and_then(|hash| <[u8; 32]>::try_from(hash).ok())
+                    == Some(qc.block_hash)
+        })
+        .map(|(_, block)| block);
     let committed_tip = if expose_test_projection {
         context.last_executed_block.as_ref()
     } else {
-        context.last_committed_block.as_ref()
+        // A verified QC-backed transition boundary must be available to its
+        // staged successors even though ordinary two-chain admission still
+        // waits for a descendant that only the successor configuration may
+        // produce. This widens data availability, not authority: the receiver
+        // still needs a fresh QUV operation and every correct old member
+        // independently checks this exact QC/state pair before replying.
+        certified_handoff_tip.or(context.last_committed_block.as_ref())
     };
     let committed_height = committed_tip.map(|block| block.header.height).unwrap_or(0);
     let committed_hash = committed_tip.and_then(|block| block.header.hash().ok());
@@ -1406,6 +1447,13 @@ mod tests {
         assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 13), Some(10));
         assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 12), None);
         assert_eq!(sync_cursor_when_peer_is_ahead(12, 10, 11), None);
+    }
+
+    #[test]
+    fn sync_skips_only_the_locally_executed_genesis_transition() {
+        assert_eq!(sync_cursor_when_peer_is_ahead(1, 0, 2), Some(1));
+        assert_eq!(sync_cursor_when_peer_is_ahead(2, 0, 3), Some(0));
+        assert_eq!(sync_cursor_when_peer_is_ahead(1, 1, 2), Some(1));
     }
 
     #[test]

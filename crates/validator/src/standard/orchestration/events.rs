@@ -244,6 +244,17 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                             );
                         }
                     }
+                    if let Err(error) =
+                        super::quv::observe_certified_handoff(context_arc, &qc).await
+                    {
+                        tracing::warn!(
+                            target: "quv",
+                            height = qc.height,
+                            view = qc.view,
+                            %error,
+                            "Could not record locally formed QC as a QUV handoff boundary"
+                        );
+                    }
                 }
                 let mut ctx = context_arc.lock().await;
                 if let Err(error) = super::runtime_finality::admit_available(&mut ctx, None).await {
@@ -261,6 +272,7 @@ pub async fn handle_network_event<CS, ST, CE, V>(
         }
 
         NetworkEvent::QuorumCertificateReceived { qc, from } => {
+            let observed_qc = qc.clone();
             let is_quarantined = context_arc
                 .lock()
                 .await
@@ -296,6 +308,17 @@ pub async fn handle_network_event<CS, ST, CE, V>(
                 );
             } else {
                 drop(engine);
+                if let Err(error) =
+                    super::quv::observe_certified_handoff(context_arc, &observed_qc).await
+                {
+                    tracing::warn!(
+                        target: "quv",
+                        height = observed_qc.height,
+                        view = observed_qc.view,
+                        %error,
+                        "Could not record received QC as a QUV handoff boundary"
+                    );
+                }
                 let mut ctx = context_arc.lock().await;
                 if let Err(error) = super::runtime_finality::admit_available(&mut ctx, None).await {
                     ctx.is_quarantined

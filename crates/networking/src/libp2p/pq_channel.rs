@@ -740,6 +740,32 @@ impl PqChannelSessionManager {
         }
     }
 
+    /// Sender-side mirror of `permits_received_payload`. Filtering at enqueue
+    /// keeps old-root consensus broadcasts out of successor-only durable
+    /// outboxes instead of relying on the remote endpoint to reject them.
+    pub fn permits_sent_payload(&self, peer: &PeerId, payload: &PqConsensusPayloadV1) -> bool {
+        let Some(remote_capability) = self.peer_capabilities.get(peer).copied() else {
+            return false;
+        };
+        match (self.local_capability, remote_capability) {
+            (PqChannelCapabilityV1::ConfiguredMember, PqChannelCapabilityV1::ConfiguredMember) => {
+                true
+            }
+            (
+                PqChannelCapabilityV1::ConfiguredMember,
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+            ) => matches!(payload, PqConsensusPayloadV1::QuvReply(_)),
+            (
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+                PqChannelCapabilityV1::ConfiguredMember,
+            ) => matches!(payload, PqConsensusPayloadV1::QuvPushQuery(_)),
+            (
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+            ) => false,
+        }
+    }
+
     pub fn peer_for_account(&self, account: AccountId) -> Option<PeerId> {
         self.enrollments
             .iter()
@@ -764,6 +790,11 @@ impl PqChannelSessionManager {
     }
 
     pub fn enqueue(&mut self, peer: PeerId, payload: PqConsensusPayloadV1) -> Result<[u8; 32]> {
+        if !self.permits_sent_payload(&peer, &payload) {
+            return Err(anyhow!(
+                "PQ payload exceeds the rooted local/remote endpoint capabilities"
+            ));
+        }
         let recipient = self.enrollment(&peer)?.account_id;
         self.enqueue_for_account(recipient, payload)
     }
@@ -953,6 +984,12 @@ mod tests {
         assert!(successor.permits_received_payload(&old_peer, &reply));
         assert!(!successor.permits_received_payload(&old_peer, &push));
         assert!(!successor.permits_received_payload(&old_peer, &vote));
+        assert!(old.permits_sent_payload(&successor_peer, &reply));
+        assert!(!old.permits_sent_payload(&successor_peer, &push));
+        assert!(!old.permits_sent_payload(&successor_peer, &vote));
+        assert!(successor.permits_sent_payload(&old_peer, &push));
+        assert!(!successor.permits_sent_payload(&old_peer, &reply));
+        assert!(!successor.permits_sent_payload(&old_peer, &vote));
         assert!(successor.enqueue_for_account(old_account, push).is_ok());
         assert!(successor.enqueue_for_account(old_account, reply).is_err());
         assert!(successor.enqueue_for_account(old_account, vote).is_err());

@@ -538,6 +538,22 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         .last_executed_block
         .as_ref()
         .map_or(0, |b| b.header.height);
+    let quv_handoff_only = context.local_validator_account_id.is_none()
+        && context.aft_pq_local_account_id.is_some()
+        && context.aft_quv_staged_successor.is_some();
+    if quv_handoff_only {
+        // A staged successor is not an old-root consensus participant. In
+        // particular it must not execute an unsigned proposal and thereby
+        // create a local state projection that can race the exact committed
+        // handoff boundary. Gossip is only a height hint until the successor's
+        // process-local live QUV install activates it; committed bytes arrive
+        // through the sync path, whose serving side is bounded by the old
+        // member's Agentgres-admitted tip.
+        if block.header.height > our_height {
+            sync_handlers::start_catchup_to_peer(context, source_peer, block.header.height).await;
+        }
+        return;
+    }
     if block.header.height < our_height {
         if let Err(error) = maybe_apply_block_enrichment(context, &block, false).await {
             tracing::warn!(

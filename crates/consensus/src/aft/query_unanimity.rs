@@ -35,6 +35,7 @@ const REPLY_SIGNING_DOMAIN_V0: &[u8] = b"AFT-QUV-REPLY-v0";
 const STORE_HEAD_DOMAIN_V0: &[u8] = b"ioi/aft/quv-store-head/v0";
 const ANCHOR_TAG_DOMAIN_V0: &[u8] = b"ioi/aft/quv-anchor-tag/v0";
 const HANDOFF_DOMAIN_ID_V0: &[u8] = b"ioi/aft/quv-handoff-domain/v0";
+const HANDOFF_INITIAL_PREDECESSOR_V0: &[u8] = b"ioi/aft/quv-handoff-initial-predecessor/v0";
 const HANDOFF_PAYLOAD_HASH_V0: &[u8] = b"ioi/aft/quv-handoff-payload/v0";
 const HANDOFF_STATE_ROOT_MAX_BYTES_V0: usize = 4 * 1024;
 const HANDOFF_STORE_MAGIC_V0: [u8; 8] = *b"AFTHOFF0";
@@ -66,6 +67,41 @@ pub fn quv_handoff_domain_id(
     ))
 }
 
+/// Derive the rooted initial predecessor for a configuration handoff domain.
+///
+/// A handoff conflict domain is unique to one old/successor-root transition,
+/// so its first QUV slot has no earlier QUV candidate. Its predecessor is
+/// therefore this commitment to the exact final old-root state, rather than a
+/// value nominated by the candidate source.
+pub fn quv_handoff_initial_predecessor(
+    network_id: QuvHash,
+    old_configuration_root: QuvHash,
+    activation_height: u64,
+    state_height: u64,
+    state_block_hash: QuvHash,
+    state_root: &[u8],
+) -> Result<QuvHash, QuvError> {
+    if network_id == [0; 32]
+        || old_configuration_root == [0; 32]
+        || activation_height <= 1
+        || state_height != activation_height - 1
+        || state_block_hash == [0; 32]
+        || state_root.is_empty()
+        || state_root.len() > HANDOFF_STATE_ROOT_MAX_BYTES_V0
+    {
+        return Err(QuvError::InvalidHandoff);
+    }
+    hash_canonical(&(
+        HANDOFF_INITIAL_PREDECESSOR_V0.to_vec(),
+        network_id,
+        old_configuration_root,
+        activation_height,
+        state_height,
+        state_block_hash,
+        state_root.to_vec(),
+    ))
+}
+
 pub fn quv_handoff_payload_hash(handoff: &QuvConfigurationHandoffV0) -> Result<QuvHash, QuvError> {
     validate_quv_handoff_payload(handoff)?;
     hash_canonical(&(HANDOFF_PAYLOAD_HASH_V0.to_vec(), handoff))
@@ -85,16 +121,27 @@ pub fn validate_quv_handoff_payload(handoff: &QuvConfigurationHandoffV0) -> Resu
         .iter()
         .try_fold(0_u128, |sum, member| sum.checked_add(member.weight))
         .ok_or(QuvError::InvalidHandoff)?;
+    let expected_predecessor = quv_handoff_initial_predecessor(
+        handoff.network_id,
+        handoff.old_configuration_root,
+        handoff.activation_height,
+        handoff.state_height,
+        handoff.state_block_hash,
+        &handoff.state_root,
+    )?;
     if handoff.network_id == [0; 32]
         || handoff.old_configuration_root == [0; 32]
         || successor_root == [0; 32]
         || handoff.activation_height <= 1
         || handoff.old_authority_expiry_height != expected_expiry
         || handoff.state_height != expected_expiry
-        || handoff.predecessor_candidate_hash == [0; 32]
+        || handoff.predecessor_candidate_hash != expected_predecessor
         || handoff.state_block_hash == [0; 32]
         || handoff.state_root.is_empty()
         || handoff.state_root.len() > HANDOFF_STATE_ROOT_MAX_BYTES_V0
+        || handoff.boundary_qc.height != handoff.state_height
+        || handoff.boundary_qc.block_hash != handoff.state_block_hash
+        || handoff.boundary_qc.signatures.is_empty()
         || handoff.successor_set.effective_from_height != handoff.activation_height
         || handoff.successor_set.validators.len() < 2
         || handoff.successor_set.validators.len() > QUV_MAX_CONFIGURED_MEMBERS_V0
@@ -1400,7 +1447,9 @@ mod tests {
     use agentgres::consequence::ImmediateOnlineEffectAuthorizationV1;
     use ioi_api::crypto::{SerializableKey, SigningKeyPair};
     use ioi_crypto::{security::SecurityLevel, sign::dilithium::MldsaScheme};
-    use ioi_types::app::{account_id_from_key_material, ActiveKeyRecord, ValidatorV1};
+    use ioi_types::app::{
+        account_id_from_key_material, ActiveKeyRecord, QuorumCertificate, ValidatorV1,
+    };
     use tempfile::TempDir;
 
     struct AcceptCandidates;
@@ -1743,10 +1792,21 @@ mod tests {
             successor_set,
             activation_height: 11,
             old_authority_expiry_height: 10,
-            predecessor_candidate_hash: [4; 32],
+            predecessor_candidate_hash: quv_handoff_initial_predecessor(
+                [2; 32], [1; 32], 11, 10, [5; 32], &[6; 32],
+            )
+            .unwrap(),
             state_height: 10,
             state_block_hash: [5; 32],
             state_root: vec![6; 32],
+            boundary_qc: QuorumCertificate {
+                height: 10,
+                view: 0,
+                block_hash: [5; 32],
+                signatures: vec![(account(1), vec![1])],
+                aggregated_signature: vec![],
+                signers_bitfield: vec![],
+            },
         };
         let successor_root =
             ioi_types::app::canonical_validator_set_hash(&handoff.successor_set).unwrap();
@@ -1782,6 +1842,18 @@ mod tests {
             validate_quv_handoff_candidate(&candidate, &substituted),
             Err(QuvError::InvalidHandoff)
         ));
+        let mut source_nominated_predecessor = handoff.clone();
+        source_nominated_predecessor.predecessor_candidate_hash = [4; 32];
+        assert!(matches!(
+            validate_quv_handoff_payload(&source_nominated_predecessor),
+            Err(QuvError::InvalidHandoff)
+        ));
+        let mut substituted_boundary_qc = handoff.clone();
+        substituted_boundary_qc.boundary_qc.block_hash = [3; 32];
+        assert!(matches!(
+            validate_quv_handoff_payload(&substituted_boundary_qc),
+            Err(QuvError::InvalidHandoff)
+        ));
         let mut premature = handoff;
         premature.state_height = 9;
         assert!(matches!(
@@ -1814,10 +1886,21 @@ mod tests {
             successor_set,
             activation_height: 11,
             old_authority_expiry_height: 10,
-            predecessor_candidate_hash: [4; 32],
+            predecessor_candidate_hash: quv_handoff_initial_predecessor(
+                [2; 32], [1; 32], 11, 10, [5; 32], &[6; 32],
+            )
+            .unwrap(),
             state_height: 10,
             state_block_hash: [5; 32],
             state_root: vec![6; 32],
+            boundary_qc: QuorumCertificate {
+                height: 10,
+                view: 0,
+                block_hash: [5; 32],
+                signatures: vec![(account(1), vec![1])],
+                aggregated_signature: vec![],
+                signers_bitfield: vec![],
+            },
         };
         let successor_root =
             ioi_types::app::canonical_validator_set_hash(&handoff.successor_set).unwrap();

@@ -1309,6 +1309,7 @@ where
             aft_cross_path_signing_fence,
             aft_quv_member,
             aft_quv_handoff_envelope,
+            aft_quv_certified_handoff: None,
             aft_quv_handoff_store,
             aft_quv_push_inflight: HashSet::new(),
             aft_quv_starting: false,

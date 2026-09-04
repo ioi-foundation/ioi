@@ -816,7 +816,9 @@ where
     // durably publishing this header. The actual manager replacement remains
     // after this height's vote/QC emission, but a malformed rotation or a
     // strict-to-classical downgrade cannot strand a committed header between
-    // incompatible network epochs.
+    // incompatible network epochs. The QUV candidate is derived later only
+    // after the old-root engine verifies a QC for the executed boundary,
+    // never from a proposal at this pre-publication seam.
     if matches!(consensus_type, ioi_types::config::ConsensusType::Aft) {
         let (
             workload_client,
@@ -853,16 +855,6 @@ where
                 .iter()
                 .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
         let desired = if quv_pq_preflight {
-            let desired_hash = ioi_types::app::canonical_validator_set_hash(effective_next)
-                .map_err(anyhow::Error::msg)?;
-            if current_hash != Some(desired_hash) {
-                super::super::quv::require_handoff_source_for_block(
-                    context_arc,
-                    &final_block,
-                    next_height,
-                )
-                .await?;
-            }
             None
         } else {
             build_aft_pq_channel_configuration(
@@ -1122,6 +1114,17 @@ where
                         SwarmCommand::BroadcastQuorumCertificate(qc_blob),
                     );
                 }
+                if let Err(error) =
+                    super::super::quv::observe_certified_handoff(context_arc, &qc).await
+                {
+                    tracing::warn!(
+                        target: "quv",
+                        height = qc.height,
+                        view = qc.view,
+                        %error,
+                        "Could not record producer-formed QC as a QUV handoff boundary"
+                    );
+                }
             }
         }
 
@@ -1164,10 +1167,10 @@ where
         let admission_block = final_block.clone();
         tokio::spawn(async move {
             let mut ctx = admission_context.lock().await;
-            if let Err(error) =
+            let admission =
                 super::super::runtime_finality::admit_available(&mut ctx, Some(&admission_block))
-                    .await
-            {
+                    .await;
+            if let Err(error) = admission {
                 ctx.is_quarantined
                     .store(true, std::sync::atomic::Ordering::SeqCst);
                 tracing::error!(
@@ -1176,6 +1179,7 @@ where
                     error = %error,
                     "Terminal post-commit runtime finality admission refusal; node frozen"
                 );
+                return;
             }
         });
     }

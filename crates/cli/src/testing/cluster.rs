@@ -16,7 +16,7 @@ use ioi_crypto::sign::guardian_committee::{
     canonical_manifest_hash, canonical_witness_manifest_hash,
 };
 use ioi_types::config::{
-    AftSafetyMode, GuardianCommitteeConfig, GuardianCommitteeMemberConfig,
+    AftQuvDomainPolicyV0, AftSafetyMode, GuardianCommitteeConfig, GuardianCommitteeMemberConfig,
     GuardianWitnessCommitteeConfig, InferenceConfig, InitialServiceConfig, ServicePolicy,
     ValidatorRole,
 };
@@ -28,8 +28,8 @@ use ioi_types::app::{
     guardian_registry_witness_set_key, AccountId, ActiveKeyRecord, AsymptoteObserverSealingMode,
     AsymptotePolicy, BlockTimingParams, BlockTimingRuntime, FinalityTier,
     GuardianCommitteeManifest, GuardianCommitteeMember, GuardianTransparencyLogDescriptor,
-    GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed, GuardianWitnessSet, SignatureSuite,
-    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    GuardianWitnessCommitteeManifest, GuardianWitnessEpochSeed, GuardianWitnessSet,
+    QuvAuthorityModeV0, SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::keys::CURRENT_EPOCH_KEY;
 use ioi_validator::config::{AttestationSignaturePolicy, GuardianConfig};
@@ -453,6 +453,16 @@ pub struct TestClusterBuilder {
     guardian_config_toml: Option<String>,
     state_dir: Option<PathBuf>,
     pq_consensus_profile: bool,
+    quv_handoff_profile: Option<TestQuvHandoffProfile>,
+}
+
+#[derive(Clone)]
+struct TestQuvHandoffProfile {
+    old_member_count: usize,
+    activation_height: u64,
+    delta_rt_millis: u64,
+    continuation_millis: u64,
+    source_path: String,
 }
 
 impl Default for TestClusterBuilder {
@@ -484,6 +494,7 @@ impl Default for TestClusterBuilder {
             guardian_config_toml: None,
             state_dir: None,
             pq_consensus_profile: false,
+            quv_handoff_profile: None,
         }
     }
 }
@@ -560,6 +571,30 @@ fn digest_to_array(digest: impl AsRef<[u8]>) -> Result<[u8; 32]> {
         .as_ref()
         .try_into()
         .map_err(|_| anyhow!("sha256 digest was not 32 bytes"))
+}
+
+fn quv_handoff_domain_id_for_fixture(
+    network_id: [u8; 32],
+    old_configuration_root: [u8; 32],
+    successor_configuration_root: [u8; 32],
+    activation_height: u64,
+) -> Result<[u8; 32]> {
+    if network_id == [0; 32]
+        || old_configuration_root == [0; 32]
+        || successor_configuration_root == [0; 32]
+        || activation_height <= 1
+    {
+        return Err(anyhow!("invalid QUV handoff fixture domain"));
+    }
+    let bytes = ioi_types::codec::to_bytes_canonical(&(
+        b"ioi/aft/quv-handoff-domain/v0".to_vec(),
+        network_id,
+        old_configuration_root,
+        successor_configuration_root,
+        activation_height,
+    ))
+    .map_err(anyhow::Error::msg)?;
+    Ok(ioi_crypto::algorithms::hash::sha256(bytes)?)
 }
 
 fn derive_guardian_policy_hash(config: &GuardianConfig) -> Result<[u8; 32]> {
@@ -926,6 +961,29 @@ impl TestClusterBuilder {
     /// the orchestration processes, activating strict ML-KEM/ML-DSA transport.
     pub fn with_pq_consensus_profile(mut self) -> Self {
         self.pq_consensus_profile = true;
+        self
+    }
+
+    /// Configure a deterministic QUV handoff fixture. PQ accounts are sorted
+    /// canonically; the first `old_member_count` form `current` and the rest
+    /// form `next`. The runtime policy is derived only after the exact genesis
+    /// bytes (and therefore the network id) are known.
+    pub fn with_quv_handoff_profile(
+        mut self,
+        old_member_count: usize,
+        activation_height: u64,
+        delta_rt_millis: u64,
+        continuation_millis: u64,
+        source_path: impl Into<String>,
+    ) -> Self {
+        self.pq_consensus_profile = true;
+        self.quv_handoff_profile = Some(TestQuvHandoffProfile {
+            old_member_count,
+            activation_height,
+            delta_rt_millis,
+            continuation_millis,
+            source_path: source_path.into(),
+        });
         self
     }
 
@@ -1367,6 +1425,63 @@ impl TestClusterBuilder {
             );
         }
 
+        let mut quv_root_material = None;
+        if let Some(profile) = self.quv_handoff_profile.as_ref() {
+            if matches!(state_plan, ClusterStatePlan::Resume { .. }) {
+                return Err(anyhow!(
+                    "QUV handoff fixture resume must reuse running validator configs; rebuilding the cluster profile is not yet supported"
+                ));
+            }
+            let pq_keys = validator_pq_keys.as_ref().ok_or_else(|| {
+                anyhow!("QUV handoff fixture requires generated ML-DSA validator keys")
+            })?;
+            if profile.old_member_count == 0 || profile.old_member_count >= pq_keys.len() {
+                return Err(anyhow!(
+                    "QUV handoff fixture requires nonempty disjoint old and successor partitions"
+                ));
+            }
+            let mut validators = pq_keys
+                .iter()
+                .map(|key| {
+                    let public = SigningKeyPair::public_key(key).to_bytes();
+                    let hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &public)?;
+                    Ok(ValidatorV1 {
+                        account_id: AccountId(hash),
+                        weight: 1,
+                        consensus_key: ActiveKeyRecord {
+                            suite: SignatureSuite::ML_DSA_44,
+                            public_key_hash: hash,
+                            since_height: 0,
+                        },
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            validators.sort_by_key(|validator| validator.account_id);
+            let mut successor_members = validators.split_off(profile.old_member_count);
+            for member in &mut successor_members {
+                member.consensus_key.since_height = profile.activation_height;
+            }
+            let old = ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: validators.iter().map(|member| member.weight).sum(),
+                validators,
+            };
+            let successor = ValidatorSetV1 {
+                effective_from_height: profile.activation_height,
+                total_weight: successor_members.iter().map(|member| member.weight).sum(),
+                validators: successor_members,
+            };
+            let owner = old.validators[0].account_id;
+            let rooted_sets = ValidatorSetsV1 {
+                current: old.clone(),
+                next: Some(successor.clone()),
+            };
+            self.genesis_modifiers.push(Box::new(move |builder, _keys| {
+                builder.set_validators(&rooted_sets);
+            }));
+            quv_root_material = Some((old, successor, owner));
+        }
+
         let genesis_content = if let ClusterStatePlan::Resume { manifest, .. } = &state_plan {
             manifest.genesis_content.clone()
         } else {
@@ -1379,6 +1494,39 @@ impl TestClusterBuilder {
             })
             .to_string()
         };
+
+        let (aft_quv_domain_policies, aft_quv_handoff_source) =
+            if let (Some(profile), Some((old, successor, owner))) = (
+                self.quv_handoff_profile.as_ref(),
+                quv_root_material.as_ref(),
+            ) {
+                let network_id = digest_to_array(
+                    Sha256::digest(genesis_content.as_bytes())
+                        .map_err(|error| anyhow!(error.to_string()))?,
+                )?;
+                let old_root = ioi_types::app::canonical_validator_set_hash(old)
+                    .map_err(anyhow::Error::msg)?;
+                let successor_root = ioi_types::app::canonical_validator_set_hash(successor)
+                    .map_err(anyhow::Error::msg)?;
+                let domain_id = quv_handoff_domain_id_for_fixture(
+                    network_id,
+                    old_root,
+                    successor_root,
+                    profile.activation_height,
+                )?;
+                (
+                    vec![AftQuvDomainPolicyV0 {
+                        domain_id,
+                        authority_mode: QuvAuthorityModeV0::Owned,
+                        owner: Some(*owner),
+                        delta_rt_millis: profile.delta_rt_millis,
+                        continuation_millis: profile.continuation_millis,
+                    }],
+                    Some(profile.source_path.clone()),
+                )
+            } else {
+                (Vec::new(), None)
+            };
 
         let mut service_policies = ioi_types::config::default_service_policies();
         for (k, v) in self.service_policies_override.clone() {
@@ -1456,6 +1604,8 @@ impl TestClusterBuilder {
             let captured_workload_env = self.workload_env.clone();
             let captured_inference_config = self.inference_config.clone();
             let captured_safety_mode = self.aft_safety_mode;
+            let captured_quv_policies = aft_quv_domain_policies.clone();
+            let captured_quv_source = aft_quv_handoff_source.clone();
             let captured_guardian_config = self.guardian_config_toml.clone();
             let captured_pqc_keypair = validator_pq_keys
                 .as_ref()
@@ -1499,6 +1649,8 @@ impl TestClusterBuilder {
                 captured_inference_config,
                 role,
                 captured_safety_mode,
+                captured_quv_policies,
+                captured_quv_source,
                 captured_guardian_config,
                 captured_state_dir,
             )
@@ -1509,6 +1661,16 @@ impl TestClusterBuilder {
             })?;
             validators.push(guard);
         } else if validator_keys.len() > 1 && full_mesh_bootnodes {
+            // Large PQ topologies exercise expensive durable-state and signer
+            // initialization in every process. Permit a test to bound that
+            // host-only startup fan-out without changing the resulting full
+            // mesh or the number of live protocol participants.
+            let launch_concurrency = std::env::var("IOI_TEST_VALIDATOR_LAUNCH_CONCURRENCY")
+                .ok()
+                .and_then(|value| value.parse::<usize>().ok())
+                .filter(|value| *value > 0)
+                .unwrap_or(validator_keys.len());
+            let launch_permits = Arc::new(tokio::sync::Semaphore::new(launch_concurrency));
             let launch_with_bootnodes = |index: usize| {
                 full_mesh_bootnode_addrs
                     .as_ref()
@@ -1544,6 +1706,8 @@ impl TestClusterBuilder {
                 let captured_workload_env = self.workload_env.clone();
                 let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
+                let captured_quv_policies = aft_quv_domain_policies.clone();
+                let captured_quv_source = aft_quv_handoff_source.clone();
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let captured_pqc_keypair = validator_pq_keys
                     .as_ref()
@@ -1561,8 +1725,13 @@ impl TestClusterBuilder {
                     .cloned()
                     .unwrap_or(ValidatorRole::Consensus);
                 let captured_state_dir = state_plan.validator_state_dir(i);
+                let launch_permits = launch_permits.clone();
 
                 let fut = async move {
+                    let _launch_permit = launch_permits
+                        .acquire_owned()
+                        .await
+                        .map_err(|_| anyhow!("validator launch semaphore closed"))?;
                     TestValidator::launch(
                         key_clone,
                         captured_pqc_keypair,
@@ -1590,6 +1759,8 @@ impl TestClusterBuilder {
                         captured_inference_config,
                         role,
                         captured_safety_mode,
+                        captured_quv_policies,
+                        captured_quv_source,
                         captured_guardian_config,
                         captured_state_dir,
                     )
@@ -1637,6 +1808,8 @@ impl TestClusterBuilder {
                 let captured_workload_env = self.workload_env.clone();
                 let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
+                let captured_quv_policies = aft_quv_domain_policies.clone();
+                let captured_quv_source = aft_quv_handoff_source.clone();
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let captured_pqc_keypair = validator_pq_keys
                     .as_ref()
@@ -1686,6 +1859,8 @@ impl TestClusterBuilder {
                         captured_inference_config,
                         role,
                         captured_safety_mode,
+                        captured_quv_policies,
+                        captured_quv_source,
                         captured_guardian_config,
                         captured_state_dir,
                     )

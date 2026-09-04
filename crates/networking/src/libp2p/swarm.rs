@@ -223,6 +223,9 @@ fn broadcast_pq_consensus(
 ) {
     let peers = manager.enrolled_peers().collect::<Vec<_>>();
     for peer in peers {
+        if !manager.permits_sent_payload(&peer, &payload) {
+            continue;
+        }
         if let Err(error) = manager.enqueue(peer, payload.clone()) {
             tracing::error!(target: "network", event = "pq_consensus_durable_enqueue_failed", %peer, %error);
             continue;

@@ -22,7 +22,7 @@ use ioi_networking::traits::NodeState;
 use ioi_types::app::KernelEvent; // [NEW]
 use ioi_types::app::{
     AccountId, AftAsyncExecutedBlockCertificateV1, AftAsyncOrderingCertificateV1,
-    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation,
+    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation, QuorumCertificate,
     QuvConfigurationHandoffEnvelopeV0, QuvNonce, TxHash, ValidatorSetV1,
 };
 use libp2p::{identity, PeerId};
@@ -176,6 +176,11 @@ where
     /// Owner-signed typed source currently admitted for the staged handoff.
     /// These bytes are candidate input only and never portable authorization.
     pub aft_quv_handoff_envelope: Option<QuvConfigurationHandoffEnvelopeV0>,
+    /// Exact old-root QC whose block may be exposed to staged successors and
+    /// proposed to QUV as the terminal handoff state. A QC is ordering
+    /// evidence, not final successor authority; the live operation remains
+    /// mandatory.
+    pub aft_quv_certified_handoff: Option<QuorumCertificate>,
     /// Rollback-anchored process-local install gate for a local staged
     /// successor. Absent on old-only members.
     pub aft_quv_handoff_store: Option<Arc<Mutex<DurableQuvHandoffV0>>>,

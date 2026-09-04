@@ -410,6 +410,12 @@ pub struct TestValidator {
     // NOTE: This struct represents the *driver* of the test process, not the internal state of the node.
 }
 
+impl TestValidator {
+    pub fn state_dir(&self) -> &Path {
+        self._state_dir.path()
+    }
+}
+
 #[must_use = "ValidatorGuard must be explicitly shut down to prevent resource leaks"]
 pub struct ValidatorGuard {
     validator: Option<TestValidator>,
@@ -526,6 +532,8 @@ impl TestValidator {
         inference_config: InferenceConfig,
         role: ValidatorRole,
         aft_safety_mode: AftSafetyMode,
+        aft_quv_domain_policies: Vec<ioi_types::config::AftQuvDomainPolicyV0>,
+        aft_quv_handoff_source: Option<String>,
         guardian_config_toml: Option<String>,
         stable_state_dir: Option<PathBuf>,
     ) -> Result<ValidatorGuard> {
@@ -782,8 +790,8 @@ impl TestValidator {
                     .to_string_lossy()
                     .into_owned(),
             ),
-            aft_quv_domain_policies: Vec::new(),
-            aft_quv_handoff_source: None,
+            aft_quv_domain_policies,
+            aft_quv_handoff_source,
             guardian_production_mode: Default::default(),
             key_authority: None,
             rpc_listen_address: if use_docker {

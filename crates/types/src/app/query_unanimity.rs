@@ -3,7 +3,7 @@
 //! These bytes are transport and audit material. They are not a portable
 //! finality receipt and cannot authorize a later offline executor.
 
-use super::{AccountId, ValidatorSetV1};
+use super::{AccountId, QuorumCertificate, ValidatorSetV1};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -123,7 +123,8 @@ pub struct QuvConfigurationHandoffV0 {
     pub activation_height: u64,
     /// Last height at which the old QUV authority is live.
     pub old_authority_expiry_height: u64,
-    /// Exact prior accepted candidate in the handoff conflict domain.
+    /// Canonical rooted initial predecessor derived from the exact final
+    /// old-root state. A candidate source cannot nominate this value.
     pub predecessor_candidate_hash: QuvHash,
     /// Final old-root state height installed by the successor.
     pub state_height: u64,
@@ -131,6 +132,10 @@ pub struct QuvConfigurationHandoffV0 {
     pub state_block_hash: QuvHash,
     /// Complete application state-root bytes for that block.
     pub state_root: Vec<u8>,
+    /// Old-root quorum certificate for the exact installed boundary. This is
+    /// ordering evidence needed to extend the chain after activation; it does
+    /// not replace the fresh online QUV authorization of successor authority.
+    pub boundary_qc: QuorumCertificate,
 }
 
 /// Independently provisioned Q-EA7 source object. The candidate carries the

@@ -4,12 +4,20 @@
 use anyhow::Result;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_cli::testing::backend::ProcessBackend;
-use ioi_cli::testing::{build_test_artifacts, rpc, wait_for_height, TestCluster};
+use ioi_cli::testing::{
+    assert_log_contains, build_test_artifacts, rpc, wait_for, wait_for_height, TestCluster,
+};
+use ioi_consensus::aft::query_unanimity::{
+    quv_candidate_authority_signing_bytes, quv_handoff_domain_id, quv_policy_root,
+    validate_quv_handoff_candidate,
+};
 use ioi_types::{
     app::{
-        account_id_from_key_material, ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime,
-        SignatureSuite, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
+        BlockTimingRuntime, QuvAuthorityModeV0, QuvConfigurationHandoffEnvelopeV0, SignatureSuite,
+        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
     },
+    codec,
     config::{AftSafetyMode, InitialServiceConfig},
     service_configs::MigrationConfig,
 };
@@ -217,6 +225,316 @@ async fn test_aft_leader_rotation() -> Result<()> {
     }
 
     result
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation() -> Result<()> {
+    let _env_lock = AFT_E2E_ENV_LOCK.lock().await;
+    build_test_artifacts();
+    let fixture = tempfile::tempdir()?;
+    let source_path = fixture.path().join("handoff.scale");
+    let draft_path = fixture.path().join("handoff.scale.draft");
+    let source_path_string = source_path.to_string_lossy().into_owned();
+    let activation_height = 3;
+    let delta_rt_millis = 30_000;
+    let continuation_millis = 5_000;
+    let _env = ScopedEnv::set(&[
+        ("IOI_TEST_BUILD_PROFILE", "release"),
+        ("IOI_TEST_VALIDATOR_LAUNCH_CONCURRENCY", "2"),
+        ("IOI_TEST_FULL_MESH_BOOTNODES", "1"),
+        // The cluster intentionally contains four pre-active processes whose
+        // canonical height remains zero until their own live QUV install.
+        // The test below waits for the canonical handoff draft and then checks
+        // every successor boundary explicitly, so the generic all-process
+        // shared-tip predicate is inapplicable here.
+        ("IOI_TEST_SKIP_SHARED_TIP_WAIT", "1"),
+        ("IOI_TEST_READY_HEIGHT_LAG_MAX", "1"),
+        ("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS", "30"),
+        ("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS", "120"),
+        ("IOI_BENCH_BLOCK_INTERVAL_MS", "1000"),
+        ("IOI_AFT_BLOCK_DIRECT_RELAY", "1"),
+    ]);
+
+    let cluster = TestCluster::builder()
+        // Both the old live-ordering configuration and its fully disjoint
+        // successor retain the normative n=3f+1 geometry. QUV changes the
+        // effect-authorization/handoff theorem; it does not launder an
+        // undersized ordering committee into a qualified BFT profile.
+        .with_validators(8)
+        .with_consensus_type("Aft")
+        .with_aft_safety_mode(AftSafetyMode::ClassicBft)
+        .with_state_tree("IAVL")
+        .with_chain_id(0xA19)
+        .with_quv_handoff_profile(
+            4,
+            activation_height,
+            delta_rt_millis,
+            continuation_millis,
+            source_path_string,
+        )
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 0xA19,
+            grace_period_blocks: 0,
+            accept_staged_during_grace: false,
+            allowed_target_suites: vec![SignatureSuite::ML_DSA_44],
+            allow_downgrade: false,
+        }))
+        .build()
+        .await?;
+
+    let run = async {
+        let mut keyed = cluster
+            .validators
+            .iter()
+            .enumerate()
+            .map(|(index, guard)| {
+                let keypair = guard
+                    .validator()
+                    .pqc_keypair
+                    .as_ref()
+                    .expect("QUV fixture must retain every ML-DSA validator key");
+                let public = keypair.public_key().to_bytes();
+                let account = AccountId(account_id_from_key_material(
+                    SignatureSuite::ML_DSA_44,
+                    &public,
+                )?);
+                Ok((account, index, public))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        keyed.sort_by_key(|(account, _, _)| *account);
+
+        let old = ValidatorSetV1 {
+            effective_from_height: 1,
+            total_weight: 4,
+            validators: keyed[..4]
+                .iter()
+                .map(|(account, _, _)| ValidatorV1 {
+                    account_id: *account,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ML_DSA_44,
+                        public_key_hash: account.0,
+                        since_height: 0,
+                    },
+                })
+                .collect(),
+        };
+        let successor = ValidatorSetV1 {
+            effective_from_height: activation_height,
+            total_weight: 4,
+            validators: keyed[4..]
+                .iter()
+                .map(|(account, _, _)| ValidatorV1 {
+                    account_id: *account,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ML_DSA_44,
+                        public_key_hash: account.0,
+                        since_height: activation_height,
+                    },
+                })
+                .collect(),
+        };
+        let old_root =
+            ioi_types::app::canonical_validator_set_hash(&old).map_err(anyhow::Error::msg)?;
+        let successor_root =
+            ioi_types::app::canonical_validator_set_hash(&successor).map_err(anyhow::Error::msg)?;
+        let network_id = ioi_crypto::algorithms::hash::sha256(cluster.genesis_content.as_bytes())?;
+        let domain_id =
+            quv_handoff_domain_id(network_id, old_root, successor_root, activation_height)?;
+        let policy_root = quv_policy_root(
+            domain_id,
+            QuvAuthorityModeV0::Owned,
+            Some(keyed[0].0),
+            delta_rt_millis,
+            continuation_millis,
+        )?;
+
+        let mut successor_logs = keyed[4..]
+            .iter()
+            .map(|(_, index, _)| {
+                let (orchestration, _, _) = cluster.validators[*index].validator().subscribe_logs();
+                (*index, orchestration)
+            })
+            .collect::<Vec<_>>();
+        let mut envelope = wait_for(
+            "the exact unsigned QUV handoff owner-ceremony draft",
+            Duration::from_millis(250),
+            Duration::from_secs(90),
+            || {
+                let draft_path = draft_path.clone();
+                async move {
+                    let Ok(bytes) = std::fs::read(&draft_path) else {
+                        return Ok(None);
+                    };
+                    match codec::from_bytes_canonical::<QuvConfigurationHandoffEnvelopeV0>(&bytes) {
+                        Ok(envelope) => Ok(Some(envelope)),
+                        Err(_) => Ok(None),
+                    }
+                }
+            },
+        )
+        .await?;
+        let drafted_successor_root =
+            ioi_types::app::canonical_validator_set_hash(&envelope.handoff.successor_set)
+                .map_err(anyhow::Error::msg)?;
+        if envelope.handoff.network_id != network_id
+            || envelope.handoff.old_configuration_root != old_root
+            || drafted_successor_root != successor_root
+            || envelope.handoff.activation_height != activation_height
+            || envelope.handoff.state_height != activation_height - 1
+            || envelope.handoff.boundary_qc.height != envelope.handoff.state_height
+            || envelope.handoff.boundary_qc.block_hash != envelope.handoff.state_block_hash
+            || envelope.handoff.boundary_qc.signatures.len() != 3
+            || envelope.candidate.slot.domain_id != domain_id
+            || envelope.candidate.slot.policy_root != policy_root
+            || envelope.candidate.authorizer != keyed[0].0
+            || !envelope.candidate.authority_signature.is_empty()
+        {
+            return Err(anyhow::anyhow!(
+                "pre-publication QUV handoff draft differs from the rooted ceremony"
+            ));
+        }
+        validate_quv_handoff_candidate(&envelope.candidate, &envelope.handoff)?;
+        let owner_key = cluster.validators[keyed[0].1]
+            .validator()
+            .pqc_keypair
+            .as_ref()
+            .expect("old rooted owner key must be available");
+        envelope.candidate.authority_signature = owner_key
+            .sign(&quv_candidate_authority_signing_bytes(&envelope.candidate)?)?
+            .to_bytes();
+        let encoded = codec::to_bytes_canonical(&envelope).map_err(anyhow::Error::msg)?;
+        let staged_path = source_path.with_extension("scale.tmp");
+        std::fs::write(&staged_path, encoded)?;
+        std::fs::rename(&staged_path, &source_path)?;
+
+        let first_successor_rpc = cluster.validators[keyed[4].1].validator().rpc_addr.clone();
+        let synchronized_boundary = wait_for(
+            "the first successor's synchronized QUV boundary block",
+            Duration::from_millis(250),
+            Duration::from_secs(90),
+            || {
+                let rpc_addr = first_successor_rpc.clone();
+                async move {
+                    rpc::get_block_by_height_resilient(&rpc_addr, activation_height - 1).await
+                }
+            },
+        )
+        .await?;
+        let synchronized_hash: [u8; 32] = synchronized_boundary
+            .header
+            .hash()?
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("synchronized QUV block hash is not 32 bytes"))?;
+        if synchronized_boundary.header.height != envelope.handoff.state_height
+            || synchronized_hash != envelope.handoff.state_block_hash
+            || synchronized_boundary.header.state_root.0 != envelope.handoff.state_root
+        {
+            let mut observed = Vec::new();
+            for (index, guard) in cluster.validators.iter().enumerate() {
+                let role = if keyed[..4]
+                    .iter()
+                    .any(|(_, member_index, _)| *member_index == index)
+                {
+                    "old"
+                } else {
+                    "successor"
+                };
+                match rpc::get_block_by_height_resilient(
+                    &guard.validator().rpc_addr,
+                    activation_height - 1,
+                )
+                .await
+                {
+                    Ok(Some(block)) => observed.push(format!(
+                        "node{index}:{role}:hash={}:root={}:sig={}:view={}:producer={}",
+                        hex::encode(block.header.hash()?),
+                        hex::encode(&block.header.state_root.0),
+                        block.header.signature.len(),
+                        block.header.view,
+                        hex::encode(block.header.producer_account_id.as_ref()),
+                    )),
+                    Ok(None) => observed.push(format!("node{index}:{role}:missing")),
+                    Err(error) => observed.push(format!("node{index}:{role}:rpc-error({error:#})")),
+                }
+            }
+            return Err(anyhow::anyhow!(
+                "successor synchronized a different QUV boundary: height={}/{} hash={}/{} state_root={}/{} signature_len={} guardian={} seal={}; all_nodes=[{}]",
+                synchronized_boundary.header.height,
+                envelope.handoff.state_height,
+                hex::encode(synchronized_hash),
+                hex::encode(envelope.handoff.state_block_hash),
+                hex::encode(&synchronized_boundary.header.state_root.0),
+                hex::encode(&envelope.handoff.state_root),
+                synchronized_boundary.header.signature.len(),
+                synchronized_boundary.header.guardian_certificate.is_some(),
+                synchronized_boundary.header.sealed_finality_proof.is_some(),
+                observed.join(", "),
+            ));
+        }
+
+        for (index, log) in &mut successor_logs {
+            assert_log_contains(
+                &format!("QUV successor node {index}"),
+                log,
+                "Activated successor from its local live old-root QUV install",
+            )
+            .await?;
+        }
+        let progress_order = keyed[4..]
+            .iter()
+            .map(|(_, index, _)| ("successor", *index))
+            .chain(keyed[..4].iter().map(|(_, index, _)| ("retired-old", *index)))
+            .collect::<Vec<_>>();
+        for (role, index) in progress_order {
+            let guard = &cluster.validators[index];
+            if let Err(error) = wait_for_height(
+                &guard.validator().rpc_addr,
+                activation_height + 2,
+                Duration::from_secs(180),
+            )
+            .await
+            {
+                let mut status = Vec::new();
+                for (peer_index, peer) in cluster.validators.iter().enumerate() {
+                    match rpc::get_status(&peer.validator().rpc_addr).await {
+                        Ok(observed) => status.push(format!("node{peer_index}={}", observed.height)),
+                        Err(peer_error) => {
+                            status.push(format!("node{peer_index}=rpc-error({peer_error:#})"))
+                        }
+                    }
+                }
+                return Err(anyhow::anyhow!(
+                    "{role} node {index} did not observe post-QUV height {}: {error:#}; status=[{}]",
+                    activation_height + 2,
+                    status.join(", ")
+                ));
+            }
+            let block = rpc::get_block_by_height_resilient(
+                &guard.validator().rpc_addr,
+                activation_height + 1,
+            )
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("QUV successor block was not observable"))?;
+            if !successor
+                .validators
+                .iter()
+                .any(|member| member.account_id == block.header.producer_account_id)
+            {
+                return Err(anyhow::anyhow!(
+                    "post-handoff block was not produced by the installed successor set"
+                ));
+            }
+        }
+
+        Ok::<(), anyhow::Error>(())
+    }
+    .await;
+    let shutdown = cluster.shutdown().await;
+    run?;
+    shutdown?;
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
