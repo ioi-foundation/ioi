@@ -3,7 +3,7 @@
 Date: 2026-09-04
 
 Status: **PASS for the post-install process-restart and operator-ceremony
-slice at commit `252e03573`; M15Q remains open.** This is local implementation
+slice at commits `252e03573` and `fc7c9b926`; M15Q remains open.** This is local implementation
 evidence, not independent review or a production/public QUV claim.
 
 ## Implemented slice
@@ -95,7 +95,11 @@ Observed results:
 
 - rollback-anchored install/recovery test: 1 passed;
 - validator compile: pass;
-- eight-process release handoff/restart test: 1 passed in 417.21 seconds;
+- eight-process release handoff/restart positive test: 1 passed in 417.21
+  seconds at `252e03573`;
+- expanded eight-process positive/negative restart matrix: 1 passed in 267.93
+  seconds at `fc7c9b926`; this includes source-signature substitution, a missing
+  state/anchor half after expiry, and retired-old-key refusal;
 - CLI library/binary compile and command-surface smoke: pass; and
 - formatting/diff check: pass.
 
@@ -106,13 +110,15 @@ sync alone does not satisfy the test.
 
 ## Remaining M15Q work
 
-This slice closes only the active-successor restart case and the basic operator
-ceremony. M15Q still requires:
+This slice closes the active-successor restart, source-substitution,
+missing-gate-after-expiry, retired-old-key, and basic operator-ceremony cases.
+M15Q still requires:
 
-- fail-closed process restarts at the other durable handoff boundaries,
-  including missing, conflicting, expired, and rolled-back gates and the
-  overlapping-root case;
-- explicit old-member retirement/observation qualification; and
+- fail-closed process restarts during the pre-install/in-flight durable
+  boundaries, explicit rollback-image restoration, and the overlapping-root
+  case;
+- any future post-retirement observer role to use separately rooted observer
+  credentials; the tested old validator key correctly regains no authority;
 - a real multiprocess executor-to-members-to-T10 atomic-resource path in which
   each relying executor performs and directly consumes its own live QUV
   continuation immediately before `Claimed`.
