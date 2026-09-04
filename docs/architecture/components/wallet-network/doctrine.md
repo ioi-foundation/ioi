@@ -926,6 +926,30 @@ the AuthFactor evidence records the WebAuthn ceremony facts. Authentication and
 recovery produce posture evidence; only the resulting `AuthorityGrant` or
 `CapabilityLease` conveys machine power (`INV-3`).
 
+### A CapabilityLease says whose it is
+
+A `CapabilityLease` records `principal_ref` and `owner_ref`: the principal the lease
+was issued to, and the tenant it was issued under. Both are taken from the
+SERVER-RESOLVED authorizing caller at the moment of issue, never from a request
+field — a request able to name its own principal could name someone else's.
+
+This exists because a lease that does not say whose it is cannot confer an acting
+principal. `INV-37` requires every mutation to record who acted; an agent drawing
+down a lease acts under authority a person delegated earlier, so the receipt must
+name the holder of that lease rather than whoever's session carried the request. A
+lease without these fields therefore confers no draw-down: it is refused by name
+(`lease_predates_principal_binding`) rather than resolved against the session, and
+leases issued before this binding existed are NOT back-filled — a principal inferred
+after the fact is a principal nobody granted.
+
+Both fields are absent rather than defaulted when the issuing route has no resolved
+caller. Absence must stay distinguishable from fabrication: an unbound lease is one
+no agent may draw on, which is a different fact from a lease bound to a guess.
+
+Authority is checked again at USE, not only at issue. A lease naming a principal who
+no longer holds the tenant is refused (`lease_principal_no_longer_authorized`):
+issuance records a past decision, it does not stand as a present guarantee.
+
 ## wallet.network Authority Surfaces
 
 wallet.network may expose web, mobile, desktop, embedded Hypervisor panels, CLI,

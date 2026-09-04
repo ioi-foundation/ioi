@@ -2974,6 +2974,9 @@ pub(crate) async fn handle_scm_publish(
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
     // An outer authority-gateway request may bind this native crossing, but it
     // may never supply the effect the PEP consumes. Compare its immutable
@@ -3475,6 +3478,9 @@ mod tests {
             authority_reason: "scm_publish_authority_required".into(),
             grant_value: json!(digest(0x55)),
             standing_draw: None,
+            // This route has no server-resolved caller identity to bind, so the lease is
+            // issued WITHOUT a principal and no agent may draw down on it.
+            principal_binding: None,
         };
         let effect = super::super::lifecycle_routes::capability_lease_effect(&request);
         let hash = super::super::governed_authority::live_effect_hash(&effect).unwrap();

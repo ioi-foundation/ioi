@@ -9578,6 +9578,23 @@ async fn handle_provider_op_internal(
                     .cloned()
                     .unwrap_or(Value::Null),
                 standing_draw: None,
+                // Bind the lease to the caller this route has already resolved SERVER-SIDE.
+                // `provider_write_caller` is the same resolution the mutation itself is gated
+                // on: it reads headers and the broker authority, never a body field, so a
+                // request cannot name its own principal. If it does not resolve, the lease is
+                // issued UNBOUND rather than bound to a guess — absence stays distinguishable
+                // from fabrication, and the resolver refuses the unbound lease by name.
+                principal_binding: provider_write_caller(
+                    data_dir,
+                    &headers,
+                    &body,
+                    broker_authority.as_ref(),
+                )
+                .ok()
+                .map(|caller| super::lifecycle_routes::LeasePrincipalBinding {
+                    principal_ref: caller.identity.principal_ref.clone(),
+                    owner_ref: caller.owner_ref.clone(),
+                }),
             };
             let standing_grant = body
                 .get("wallet_standing_approval_grant")

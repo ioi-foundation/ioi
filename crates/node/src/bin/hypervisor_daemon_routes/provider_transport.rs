@@ -1334,6 +1334,9 @@ async fn resolve_route_credential(
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
 
     match super::lifecycle_routes::authorize_capability_lease(st, &lease_request).await {

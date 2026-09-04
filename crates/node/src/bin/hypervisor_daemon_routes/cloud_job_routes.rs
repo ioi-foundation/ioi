@@ -370,6 +370,111 @@ pub(crate) async fn handle_cloud_job_create(
     (StatusCode::CREATED, Json(json!({ "ok": true, "job": record })))
 }
 
+/// A CapabilityLease draw-down, resolved to the broker authority the provider lane needs.
+///
+/// THIS IS THE ONLY DOOR from a lease to broker authority. Everything it refuses, it refuses
+/// BEFORE any provider is contacted, because a refusal that arrives after the venue has been
+/// touched is not a refusal — it is a report.
+///
+/// The acting principal is the LEASE's, never the session's. That distinction is the whole
+/// point: an agent presenting a lease is acting under authority a person delegated earlier,
+/// and INV-37 requires the receipt to name whoever actually held it. Reading the principal
+/// from the session would name a caller who did not act, which is worse than refusing —
+/// a false acting principal is evidence that reads as true.
+fn resolve_lease_drawdown(
+    data_dir: &str,
+    authority_ref: &str,
+    resource_ref: &str,
+    idempotency_key: &str,
+    session_binding: &str,
+    correlation_ref: &str,
+) -> Result<super::provider_routes::WorkloadBrokerProviderAuthority, (String, String)> {
+    let lease_id = authority_ref.trim_start_matches("capability-lease://");
+    let Some(lease) = read_record_dir(data_dir, "capability-leases")
+        .into_iter()
+        .find(|l| text(l, "lease_id") == lease_id)
+    else {
+        return Err((
+            "capability_lease_absent".into(),
+            format!("no capability lease '{lease_id}' exists"),
+        ));
+    };
+
+    // Revoked and expired come first: a lease that should not be usable at all must not get
+    // as far as being checked for scope.
+    if text(&lease, "state") == "revoked" {
+        return Err((
+            "capability_lease_revoked".into(),
+            format!("lease '{lease_id}' was revoked and confers nothing"),
+        ));
+    }
+    if text(&lease, "state") == "exhausted" {
+        return Err((
+            "capability_lease_exhausted".into(),
+            format!("lease '{lease_id}' has no remaining calls"),
+        ));
+    }
+    let expires_ms = lease.get("expires_at").and_then(Value::as_i64).unwrap_or(0);
+    let now_ms = (nanos() / 1_000_000) as i64;
+    if expires_ms > 0 && expires_ms <= now_ms {
+        return Err((
+            "capability_lease_expired".into(),
+            format!("lease '{lease_id}' expired; a lapsed lease is re-obtained, never extended here"),
+        ));
+    }
+
+    // Scope: the lease must actually be bound to the thing about to be touched. A lease for
+    // one resource is not a lease for another, however similar.
+    let in_scope = lease
+        .get("resource_refs")
+        .and_then(Value::as_array)
+        .map(|refs| refs.iter().any(|r| r.as_str() == Some(resource_ref)))
+        .unwrap_or(false);
+    if !in_scope {
+        // This is the refusal the agent lane actually meets today, so it carries the
+        // dependency rather than leaving a reader to infer it. Leases are minted as a
+        // side effect of authorized operations and scoped to [account_ref, env_ref],
+        // never to an intent — so nothing a human authorizes today leaves behind a lease
+        // an agent could later present for a JOB.
+        return Err((
+            "capability_lease_out_of_scope".into(),
+            format!(
+                "lease '{lease_id}' is not bound to {resource_ref}. A lease is scoped to the \
+                 resources it names, and widening that here would be minting authority by \
+                 interpretation. Agent draw-down requires an intent-scoped bound lease issued \
+                 under M03's delegation envelope; no caller-facing issuance exists and none is \
+                 added here"
+            ),
+        ));
+    }
+
+    // The principal the lease was issued to. Absent on every lease minted before this binding
+    // existed, and refused by name rather than substituted — the substitution is the defect.
+    let principal_ref = text(&lease, "principal_ref");
+    let owner_ref = text(&lease, "owner_ref");
+    if principal_ref.is_empty() || owner_ref.is_empty() {
+        return Err((
+            "lease_predates_principal_binding".into(),
+            format!("lease '{lease_id}' records no principal, so there is no acting principal to name (INV-37). Leases issued before principals were bound are not back-filled: a principal inferred after the fact is a principal nobody granted. Obtain a new lease"),
+        ));
+    }
+
+    super::provider_routes::WorkloadBrokerProviderAuthority::resolve(
+        data_dir,
+        principal_ref,
+        owner_ref,
+        idempotency_key,
+        session_binding,
+        correlation_ref,
+    )
+    .map_err(|_| {
+        (
+            "lease_principal_no_longer_authorized".into(),
+            format!("lease '{lease_id}' names a principal that does not currently hold {owner_ref}; authority is checked at USE, not only at issue"),
+        )
+    })
+}
+
 /// POST /v1/hypervisor/cloud-jobs/:id/execute — run an admitted job.
 ///
 /// Seams F/G/K, and none of them reimplemented here. The placement decision comes from
@@ -406,20 +511,51 @@ pub(crate) async fn handle_cloud_job_execute(
         );
     }
 
-    // ── The agent lane is NOT wired, and is refused rather than approximated. ──
-    // A brokered authority is assembled by `WorkloadBrokerProviderAuthority::resolve`
-    // from a host-only workload-broker identity record. No resolver exists that turns a
-    // CapabilityLease draw-down into that identity for a job caller. Rather than hand
-    // the agent path the human path's header-derived authority — which would let an
-    // agent execute under a person's session and make INV-37's acting principal a
-    // fiction — it refuses by name. Admission is identical for both callers; it is only
-    // EXECUTION that is human-only in this cut.
+    // ── The agent lane: a CapabilityLease draw-down, resolved BEFORE anything is touched. ──
+    //
+    // Every lease refusal happens here, ahead of placement — and placement is not a local
+    // ranking, it refreshes candidates and therefore CONTACTS PROVIDERS. A revoked or
+    // out-of-scope lease that got as far as a provider would have been reported rather than
+    // refused. This is also why the resolution is not deferred to the mutation itself.
+    let mut broker_authority = None;
     if text(&job, "caller_kind") == "agent" {
-        return (
-            StatusCode::NOT_IMPLEMENTED,
-            Json(json!({ "ok": false, "error": { "code": "agent_execution_lane_not_wired",
-                "message": "a job admitted under a CapabilityLease executes through a brokered authority that is assembled only from a host-only workload-broker identity record; no draw-down resolver exists for job callers yet. The agent path is refused rather than run under the human path's session authority, because that would record an acting principal that did not act" } })),
-        );
+        let authority_ref = job
+            .pointer("/authority/authority_ref")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        // The lease must be scoped to the intent this job is executing.
+        let resource_ref = text(&job, "intent_ref").to_string();
+        let idempotency_key = body
+            .get("idempotency_key")
+            .and_then(Value::as_str)
+            .unwrap_or(text(&job, "job_id"))
+            .to_string();
+        let session_binding = body
+            .get("proposal_session_binding")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        match resolve_lease_drawdown(
+            &st.data_dir,
+            &authority_ref,
+            &resource_ref,
+            &idempotency_key,
+            &session_binding,
+            text(&job, "job_ref"),
+        ) {
+            Ok(authority) => broker_authority = Some(authority),
+            Err((code, message)) => {
+                job["state"] = json!("refused_authority");
+                job["refusal"] = json!({ "code": code, "detail": message, "at": iso_now() });
+                let _ = persist_record(&st.data_dir, JOB_KIND, &want, &job);
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(json!({ "ok": false, "error": { "code": code, "message": message },
+                        "job": job })),
+                );
+            }
+        }
     }
 
     // ── Seam F/G: the existing placement decision, not a private one. ──
@@ -491,8 +627,25 @@ pub(crate) async fn handle_cloud_job_execute(
         "idempotency_key": body.get("idempotency_key").cloned().unwrap_or(Value::Null),
         "wallet_approval_grant": body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
     });
-    let (op_code, Json(op_result)) =
-        super::provider_routes::handle_provider_op(State(st.clone()), inbound, Json(op_body)).await;
+    // Seam K, both doors. These are two ENTRY POINTS to one handler, not two lanes: the
+    // human path presents its session, the agent path presents the authority resolved from
+    // its lease, and `handle_provider_op_internal` is the single place either reaches. What
+    // differs is how authority was obtained — never what it permits, never the placement,
+    // never the receipt shape.
+    let (op_code, Json(op_result)) = match broker_authority {
+        Some(authority) => {
+            super::provider_routes::invoke_workload_brokered_provider_operation(
+                st.clone(),
+                op_body,
+                authority,
+            )
+            .await
+        }
+        None => {
+            super::provider_routes::handle_provider_op(State(st.clone()), inbound, Json(op_body))
+                .await
+        }
+    };
 
     let succeeded = op_code.is_success();
     if let Some(r) = op_result.get("receipt") {
@@ -512,6 +665,188 @@ pub(crate) async fn handle_cloud_job_execute(
         op_code,
         Json(json!({ "ok": succeeded, "job": job, "provider_result": op_result })),
     )
+}
+
+#[cfg(test)]
+mod lease_drawdown_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    // Records are written exactly as `authorize_capability_lease` writes them — the same
+    // 14 fields plus the new binding — so these tests exercise the REAL resolver against
+    // the REAL descriptor shape. Nothing here is a test-only minter: the production
+    // minter is wallet-gated by construction (it admits only through Exact, Portable or
+    // Standing admission, each requiring real grant evidence) and cannot be called
+    // without a grant. That is a property to keep, not a gap to route around — a
+    // fabricated grant would be the forbidden test-only minter in different clothes.
+    //
+    // READ THE POSITIVE CONTROL BEFORE READING ANY REFUSAL AS A FAILURE. The resolver
+    // ends at a substrate tenancy check that a temp directory cannot satisfy, so a
+    // perfectly-formed lease cannot complete here. `a_well_formed_bound_lease_...`
+    // therefore asserts that such a lease fails LAST — at the tenant check — because its
+    // refusal CODE proves it cleared all six lease checks first. Without that control,
+    // every refusal below could be passing for the wrong reason.
+    //
+    // Still unproven in-process and waiting on M03.12: the binding WRITE on a real mint,
+    // and byte-identical receipts on a live agent execution. Both are M03's proof to run.
+    fn tmp_dir(name: &str) -> String {
+        let dir: PathBuf = std::env::temp_dir().join(format!("ioi-lease-test-{name}-{}", nanos()));
+        std::fs::create_dir_all(dir.join("capability-leases")).expect("test dir");
+        dir.to_string_lossy().into_owned()
+    }
+
+    fn write_lease(data_dir: &str, lease: Value) {
+        let id = text(&lease, "lease_id").to_string();
+        persist_record(data_dir, "capability-leases", &id, &lease).expect("persist lease");
+    }
+
+    fn base_lease(id: &str, intent: &str) -> Value {
+        json!({
+            "schema_version": "ioi.hypervisor.capability-lease.v1",
+            "lease_id": id,
+            "authority_provider_ref": "wallet.network",
+            "backing_provider": "provider:account:pacc_test",
+            "allowed_tools": ["provider.create"],
+            "resource_refs": [intent],
+            "policy_hash": "sha256:test",
+            "request_hash": "sha256:test",
+            // Far future, in epoch milliseconds, matching the production field.
+            "expires_at": 4_102_444_800_000_i64,
+            "receipt_required": true,
+            "revocation_ref": "provider-accounts/pacc_test/credential",
+            "grant_ref": "wallet.network://grant/approval/test",
+            "state": "active",
+            "issued_at": "2026-09-04T00:00:00Z",
+            "principal_ref": "user://tester",
+            "owner_ref": "org://acme",
+        })
+    }
+
+    fn resolve(data_dir: &str, lease_ref: &str, intent: &str) -> Result<(), String> {
+        resolve_lease_drawdown(
+            data_dir,
+            lease_ref,
+            intent,
+            "idem-key",
+            &format!("sha256:{}", "0".repeat(64)),
+            "cloud-job://cjob_test",
+        )
+        .map(|_| ())
+        .map_err(|(code, _)| code)
+    }
+
+    #[test]
+    fn a_lease_that_does_not_exist_confers_nothing() {
+        let dir = tmp_dir("absent");
+        assert_eq!(
+            resolve(&dir, "capability-lease://nope", "cloud-resource-intent://cri_1"),
+            Err("capability_lease_absent".into())
+        );
+    }
+
+    #[test]
+    fn revoked_and_exhausted_leases_are_refused_before_scope_is_considered() {
+        // Ordering matters: a lease that should not be usable AT ALL must not get as far
+        // as being checked for scope, or a revoked lease would be reported as merely
+        // mis-scoped and someone would "fix" it by re-scoping.
+        let dir = tmp_dir("revoked");
+        let intent = "cloud-resource-intent://cri_1";
+        let mut revoked = base_lease("lease_revoked", "cloud-resource-intent://OTHER");
+        revoked["state"] = json!("revoked");
+        write_lease(&dir, revoked);
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_revoked", intent),
+            Err("capability_lease_revoked".into())
+        );
+
+        let mut exhausted = base_lease("lease_exhausted", "cloud-resource-intent://OTHER");
+        exhausted["state"] = json!("exhausted");
+        write_lease(&dir, exhausted);
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_exhausted", intent),
+            Err("capability_lease_exhausted".into())
+        );
+    }
+
+    #[test]
+    fn an_expired_lease_is_refused() {
+        let dir = tmp_dir("expired");
+        let intent = "cloud-resource-intent://cri_1";
+        let mut lease = base_lease("lease_expired", intent);
+        lease["expires_at"] = json!(1_000_000_000_i64); // 2001
+        write_lease(&dir, lease);
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_expired", intent),
+            Err("capability_lease_expired".into())
+        );
+    }
+
+    #[test]
+    fn a_lease_for_another_resource_does_not_authorize_this_one() {
+        let dir = tmp_dir("scope");
+        write_lease(&dir, base_lease("lease_other", "cloud-resource-intent://cri_OTHER"));
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_other", "cloud-resource-intent://cri_MINE"),
+            Err("capability_lease_out_of_scope".into())
+        );
+    }
+
+    #[test]
+    fn an_account_scoped_lease_does_not_satisfy_a_job() {
+        // The shortcut that was refused by ruling: every lease issued today is scoped to
+        // [account_ref, env_ref]. If the resolver accepted an account ref, ONE lease would
+        // authorize any workload on that account.
+        let dir = tmp_dir("account");
+        let mut lease = base_lease("lease_account", "unused");
+        lease["resource_refs"] = json!(["provider-account://pacc_test", "env-default"]);
+        write_lease(&dir, lease);
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_account", "cloud-resource-intent://cri_1"),
+            Err("capability_lease_out_of_scope".into())
+        );
+    }
+
+    #[test]
+    fn a_lease_without_a_principal_is_refused_and_never_substituted() {
+        // The 2248 leases issued before the binding existed. They must refuse by NAME
+        // rather than resolve against whoever's session happened to carry the request.
+        let dir = tmp_dir("unbound");
+        let intent = "cloud-resource-intent://cri_1";
+        let mut lease = base_lease("lease_unbound", intent);
+        lease.as_object_mut().unwrap().remove("principal_ref");
+        lease.as_object_mut().unwrap().remove("owner_ref");
+        write_lease(&dir, lease);
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_unbound", intent),
+            Err("lease_predates_principal_binding".into())
+        );
+
+        // A half-bound lease is still unbound: an owner without a principal names no actor.
+        let mut half = base_lease("lease_half", intent);
+        half.as_object_mut().unwrap().remove("principal_ref");
+        write_lease(&dir, half);
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_half", intent),
+            Err("lease_predates_principal_binding".into())
+        );
+    }
+
+    #[test]
+    fn a_well_formed_bound_lease_passes_every_lease_check_and_reaches_the_tenant_check() {
+        // The positive control for the ladder. A lease that is present, active, unexpired,
+        // in scope and bound must clear all six lease checks — proven by the fact that the
+        // refusal it DOES get is the last one, which is the substrate's tenant check
+        // rather than anything this resolver owns. Without this, every refusal above
+        // could be passing for the wrong reason.
+        let dir = tmp_dir("wellformed");
+        let intent = "cloud-resource-intent://cri_1";
+        write_lease(&dir, base_lease("lease_good", intent));
+        assert_eq!(
+            resolve(&dir, "capability-lease://lease_good", intent),
+            Err("lease_principal_no_longer_authorized".into()),
+            "a well-formed bound lease must fail LAST, at the tenant check, not earlier"
+        );
+    }
 }
 
 /// GET /v1/hypervisor/cloud-jobs
