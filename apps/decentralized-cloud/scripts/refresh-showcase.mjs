@@ -49,6 +49,20 @@ const SHOWCASE = [
     label: "the daemon's own default intent",
     existing_ref: "cloud-resource-intent://cri_default",
   },
+  // Added 2026-09-04, when runpod became a second LIVE venue — and not before. A
+  // refresher that sweeps a source which cannot quote spends ~39s a cycle
+  // re-observing the same failure. This intent asks for the class runpod actually
+  // rate-cards, so the two venues can be COMPARED rather than merely both present:
+  // one venue is a price, two are a routing decision.
+  {
+    key: "gpu-24gb",
+    label: "compute.gpu_runtime · 24GB+ · priced across two venues",
+    intent: {
+      runtime_class: "compute.gpu_runtime",
+      resource_classes: ["compute.gpu_runtime"],
+      gpu: { required: true, min_gb: 24 },
+    },
+  },
 ];
 
 const log = (msg) => console.log(`${new Date().toISOString()} refresh-showcase: ${msg}`);

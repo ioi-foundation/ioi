@@ -451,11 +451,19 @@ pub(crate) async fn handle_cloud_job_execute(
     let placement_receipt = decision_body.get("receipt").cloned().unwrap_or(Value::Null);
 
     // The venue is EVIDENCE, recorded now that placement chose it — never an input.
+    //
+    // These read `decision.selected.*`, which is where the decision record actually
+    // carries the chosen venue. An earlier cut read them off the decision's top level,
+    // found nothing, and wrote nulls without complaining — the same silent-absence
+    // failure that a `.get()` on a wrong path always produces. The gate caught it by
+    // asserting the venue is present rather than that the field exists.
+    let selected = decision.get("selected").cloned().unwrap_or(Value::Null);
     job["placement"] = json!({
         "decision_ref": decision.get("decision_ref").cloned().unwrap_or(Value::Null),
-        "venue": decision.get("provider_kind").cloned().unwrap_or(Value::Null),
-        "candidate_ref": decision.get("candidate_ref").cloned().unwrap_or(Value::Null),
-        "quote_ref": decision.get("quote_ref").cloned().unwrap_or(Value::Null),
+        "venue": selected.get("provider_kind").cloned().unwrap_or(Value::Null),
+        "provider_account_ref": selected.get("provider_account_ref").cloned().unwrap_or(Value::Null),
+        "candidate_ref": decision.get("selected_candidate_ref").cloned().unwrap_or(Value::Null),
+        "quote_ref": selected.get("quote_ref").cloned().unwrap_or(Value::Null),
         "decided_at": decision.get("decided_at").cloned().unwrap_or(Value::Null),
     });
     job["receipts"] = json!([placement_receipt]);
@@ -474,7 +482,7 @@ pub(crate) async fn handle_cloud_job_execute(
     }
 
     let op_body = json!({
-        "provider_id": decision.get("provider_account_ref").cloned().unwrap_or(Value::Null),
+        "provider_id": selected.get("provider_account_ref").cloned().unwrap_or(Value::Null),
         "op": body.get("op").cloned().unwrap_or(json!("create")),
         "environment_ref": body.get("environment_ref").cloned().unwrap_or(json!("env-default")),
         "job_ref": job["job_ref"],
