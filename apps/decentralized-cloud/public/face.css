@@ -43,13 +43,32 @@ a:hover { color: #3e7f5c; }
 .mono { font-family: var(--mono); }
 
 /* ── Wordmark ─────────────────────────────────────────────────────────────
-   The single line is permitted above 400px of clear width; below
-   that the shell swaps to the narrow lockup. The drawn period is one quarter of
-   the cap height, rounded to the nearest pixel. */
+   Everything here is in EM, so the lockup is set once and holds at any size.
+
+   THE DRAWN PERIOD. IOI Display carries no U+002E — it maps to .notdef — which is
+   why the period has always had to be drawn. It was drawn ON THE BASELINE, and two
+   independent readers said the same thing about it unprompted: it does not separate
+   the words, so at small sizes the name reads as two words with a gap rather than as
+   a domain. It is now MEDIAL, per the standing spec, and cut to the face's own STEM
+   weight: 137/1000 em, measured off a 300px render rather than chosen. Its centre
+   sits at 0.35em — half the face's measured 0.700em cap — which is the optical
+   centre of a band where every letter is a cap, this face being unicase. */
 .wordmark { display: flex; align-items: baseline; font-family: var(--brand);
   font-weight: 400; letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
-.wordmark .dot { display: inline-block; border-radius: 50%; background: var(--live);
-  width: 4px; height: 4px; margin: 0 2px; }
+/* The period is INK, not green. It used to wear --live, and an independent review
+   counted that hue carrying three different meanings at once: live evidence, a GET
+   verb, and decorative punctuation in the lockup. On this surface green marks live
+   evidence and nothing else, so a green dot in the brand is chrome making a claim.
+   Position and weight carry the period; colour was never asked to. */
+.wordmark .dot { display: inline-block; border-radius: 50%; background: var(--ink);
+  width: 0.137em; height: 0.137em; margin: 0 0.10em;
+  position: relative; top: -0.2815em; }   /* raised so its centre lands at 0.35em */
+/* The overridden Z — see the note in index.html for why it exists. Its height is the
+   cap and its width follows the glyph's own advance ratio, 1065/700 of the cap: an
+   SVG box narrower than its viewBox shrinks the glyph to fit and centres it in the
+   slack, which is exactly what a first attempt did. */
+.wordmark .wm-z { height: 0.700em; width: 1.065em; vertical-align: baseline;
+  overflow: visible; flex-shrink: 0; }
 
 .lockup { display: flex; align-items: center; gap: 10px; }
 .mark { display: block; flex-shrink: 0; }
@@ -70,10 +89,23 @@ a:hover { color: #3e7f5c; }
 .freshness { display: flex; align-items: center; gap: 9px; }
 
 /* Stale-while-refresh: the previous batch stays legible while a newer read is in
-   flight, dimmed and named as the older observation rather than blanked. A page
-   that goes empty while it refetches teaches the reader that absence means
-   loading, which is the one thing absence must never mean here. */
-.stale { opacity: 0.55; }
+   flight, named as the older observation rather than blanked. A page that goes empty
+   while it refetches teaches the reader that absence means loading, which is the one
+   thing absence must never mean here.
+
+   IT USED TO BE `opacity: 0.55`, AND THAT WAS AN ACCESSIBILITY DEFECT. An independent
+   review measured the effective ratios during the refresh window: --ink fell 19.27 to
+   4.27, --label 6.01 to 2.34, --muted 3.90 to 1.95, and the live_evidence chip and its
+   dot 5.46 to 2.28. Every pair failed, so for the several seconds a re-read takes, a
+   surface whose entire claim is legible evidence became illegible — and it dimmed the
+   evidence chips hardest, which are the elements carrying the most meaning.
+
+   Staleness is now carried by a GROUND CHANGE and a rule, which cost no contrast:
+   ink on --surface still measures 18.14:1 and --label on --surface 5.40:1, both
+   computed, not estimated. The moving parts of the signal — the pulsing dot and the
+   "re-reading the daemon" chip — were already there and are what actually says a read
+   is in flight. */
+.stale { background: var(--surface); box-shadow: inset 3px 0 0 var(--border-strong); }
 .refreshing .dot { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .refreshing .dot { animation: none; } }
@@ -82,8 +114,16 @@ a:hover { color: #3e7f5c; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 32px;
   padding: 0 40px; height: 66px; border-bottom: 1px solid var(--hairline);
   position: sticky; top: 0; background: var(--paper); z-index: 2; }
-.topbar-left { display: flex; align-items: center; gap: 40px; }
-.nav { display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; }
+/* `min-width: 0` on both, because a flex item defaults to min-width:auto — it refuses
+   to shrink below its content — and that is what stops `overflow-x: auto` from ever
+   engaging on the nav. Without it the nav measured 627px inside a 390px viewport and
+   pushed the body, which is the bug the scroll container was added to prevent. */
+.topbar-left { display: flex; align-items: center; gap: 40px; min-width: 0; }
+.topbar-status { display: flex; align-items: center; gap: 14px; min-width: 0; }
+/* The gap is 16 rather than 22 to pay for the tap-target padding below: adding 6px
+   either side of seven buttons widened the bar by 84px and pushed the status block
+   20px off a 1440 viewport, which is a regression this file caused and measured. */
+.nav { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; min-width: 0; }
 .nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
   color: var(--label); cursor: pointer; white-space: nowrap; }
 /* Green marks live evidence and nothing else, so the current-surface underline is
@@ -160,8 +200,84 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-radius: 10px;
   padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
 
+/* ── Narrow widths ────────────────────────────────────────────────────────
+   There used to be one breakpoint here and it only touched .split and .trow, so the
+   TOPBAR never reflowed: a 250px lockup plus seven nowrap nav buttons plus a status
+   chip has a floor around 1376px whatever the viewport does. Measured before this
+   change: at 1180px the document was 1376px wide — 196px of horizontal BODY scroll —
+   and at 390px it was still 1376px, 986px of overflow, with the first nav button at
+   x = -352 and the wordmark at x = -557, off-screen to the left and reachable only by
+   dragging the whole page sideways. The first thing that overflow hid was the
+   "read-only surface" chip, which is the surface's own honesty label.
+
+   A comment in this file also described a narrow lockup swapped in below 400px. No
+   such rule existed. It does now.
+
+   The rule these follow: the BODY never scrolls horizontally. Anything that cannot
+   fit scrolls inside its own container. */
+
+/* Long machine-supplied values — provider-quote refs, hashes — must wrap rather than
+   clip. The review found `provider-quote://crc_18d239655` cut off mid-string with no
+   ellipsis and no scroll container, which is the one field that makes a price
+   traceable. */
+.trow > *, .srow > *, .rail, .panel { min-width: 0; }
+.mono { overflow-wrap: anywhere; }
+
+/* Tap targets. WCAG 2.2 SC 2.5.8 wants 24x24; the "API" button measured 23x29.
+   `flex-shrink: 0` because the nav is now a scroll container whose items may shrink
+   below their content: without it the seven labels squeezed on top of one another at
+   390px and rendered as overlapping text. A scroll container's children must keep
+   their size — that is the whole point of scrolling them. */
+.nav button { padding: 4px 6px; min-width: 24px; min-height: 24px; flex-shrink: 0; }
+
 @media (max-width: 1180px) {
   .split { grid-template-columns: minmax(0, 1fr); }
-  .trow { grid-template-columns: 120px minmax(0, 1fr); }
-  .trow > :nth-child(3), .trow > :nth-child(4) { grid-column: 2; }
+}
+
+/* 1330px, not 1080: the one-row bar's real floor is the lockup plus seven nav buttons
+   plus the status block, and that is what has to stop fitting — a breakpoint chosen
+   below it leaves a band of widths that overflow, which is what 1080 did at 1180. */
+@media (max-width: 1330px) {
+  /* The topbar becomes two rows: identity and status, then the surfaces. */
+  .topbar { height: auto; flex-wrap: wrap; align-items: center; padding: 10px 24px 0;
+    row-gap: 4px; column-gap: 16px; }
+  .topbar-left { flex: 1 1 100%; order: 1; gap: 0; flex-wrap: wrap; }
+  .topbar-status { order: 0; flex: 1 1 auto; justify-content: flex-end; }
+  .lockup { flex: 1 1 auto; }
+  /* The nav scrolls in ITS OWN box, so seven surfaces at any width cost the body
+     nothing. The negative margin lets the first and last button reach the page edge
+     rather than sitting inside a padding well the reader cannot see past. */
+  .nav { flex: 1 1 100%; order: 2; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; gap: 18px; margin: 0 -24px; padding: 6px 24px 0; }
+  .nav::-webkit-scrollbar { display: none; }
+  main { padding: 26px 24px 48px; }
+  .unwired-banner { padding: 14px 24px; }
+}
+
+@media (max-width: 780px) {
+  /* Four columns of evidence do not fit, and collapsing only the DATA rows left the
+     header row's four labels stacked above unlabelled values — the review's finding.
+     The header is dropped and every row becomes its own block, so nothing is orphaned.
+     The proper fix is a real table with real headers; that is markup, and it is
+     tracked separately. Until then the header is not left lying. */
+  .trow.head { display: none; }
+  .trow { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 14px 16px; }
+  .trow > :nth-child(3), .trow > :nth-child(4) { grid-column: auto; }
+  .rail { padding: 18px 16px; }
+  .panel { padding: 16px 16px; }
+  h1 { font-size: 26px; }
+}
+
+@media (max-width: 430px) {
+  .topbar { padding: 10px 16px 0; }
+  .nav { margin: 0 -16px; padding: 6px 16px 0; gap: 14px; }
+  main { padding: 22px 16px 44px; }
+  .unwired-banner { padding: 12px 16px; flex-direction: column; gap: 6px; }
+  /* The narrow lockup the old comment promised: the wordmark steps down with the
+     mark so the pair keeps its measured 1.25-1.35 ratio instead of the mark
+     shrinking alone. */
+  .wordmark { font-size: 17px !important; }
+  .mark { width: 24px; height: 24px; }
+  .lockup { gap: 8px; }
+  pre.code { padding: 14px 14px; font-size: 11px; }
 }

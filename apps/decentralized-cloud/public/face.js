@@ -568,7 +568,7 @@ function renderReceipts() {
         el("span", { class: "mono", style: "font-size: 14px;" }, kind),
         chip("shape only", "muted")),
       el("div", { class: "srow-reason" }, answers),
-      el("div", { class: "mono", style: "font-size: 12px; color: var(--muted);" }, fields));
+      el("div", { class: "mono", style: "font-size: 12px; color: var(--label);" }, fields));
 
   surface.replaceChildren(
     el("div", { class: "stack", style: "gap: 26px;" },
