@@ -213,6 +213,24 @@ console.log(
       + `\n  citing their source ramps rather than a snap to what already exists.`
 );
 
+// ── Emit the silhouettes, normalised ────────────────────────────────────────
+// `--emit` prints the three clip paths translated and scaled onto a 96-unit grid so
+// a board can draw the owner's geometry rather than an approximation of it. The
+// numbers are the source's own; nothing here redraws a curve.
+if (process.argv.includes("--emit")) {
+  const scale = 96 / (y1all - y0all);
+  const W = (x1all - x0all) * scale;
+  console.log(`\n── reserved d, normalised to 96 units tall (${W.toFixed(2)} wide) ──`);
+  console.log(`   translate by (${(-x0all).toFixed(3)}, ${(-y0all).toFixed(3)}) then scale ${scale.toFixed(5)}`);
+  for (const [i, s] of mark.items.entries()) {
+    const d = (s.clipD || s.d)
+      .replace(/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g, (_, a, b) =>
+        `${((parseFloat(a) - x0all) * scale).toFixed(2)} ${((parseFloat(b) - y0all) * scale).toFixed(2)}`);
+    console.log(`\n  shape ${i + 1} (${s.ref}):`);
+    console.log(`  ${d.trim()}`);
+  }
+}
+
 const ends = refs.map((r) => { const g = stopsOf(r); return g ? `${g.from}→${g.to}` : "?"; });
 console.log(
   [...new Set(ends)].length === 1

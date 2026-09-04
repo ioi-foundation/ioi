@@ -33,6 +33,16 @@
   --color-chocolate-brown: #541500;
   --color-pill-active: #cad7fa;
 
+  /* ---- decentralized.* family mark, flattened from the reserved d ----
+     The reserved mark is three shapes each carrying its OWN gradient on a common
+     -34.8deg axis. A flat form cannot flatten "the" gradient because there is none,
+     so each value below is the midpoint of one shape's ramp, cited.
+     Two tokens, not three: the midpoints of the second and third ramps are #4078fa
+     and #407dfa, five units apart on one channel out of 255 and indistinguishable,
+     so they share a value rather than adding a duplicate to this file. */
+  --color-family-mark-light: #41a8fa; /* midpoint of #4075fa -> #41dbf9 */
+  --color-family-mark-deep: #4078fa;  /* midpoint of #3f4dfa -> #40a3f9, and of #3f3dfa -> #41bcf9 */
+
   /* ---- Status ---- */
   --color-red-500: #fb2c36;
   --color-red-600: #e40014;
