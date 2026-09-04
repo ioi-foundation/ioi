@@ -11,6 +11,7 @@ ioi-crypto = { path = "../crypto" }
 ioi-finality = { path = "../ioi-finality" }
 ioi-types = { path = "../types" }
 serde = { version = "1", features = ["derive"] }
+serde_bytes = { workspace = true }
 serde_json = "1"
 serde_jcs = { workspace = true }
 sha2 = "0.10"

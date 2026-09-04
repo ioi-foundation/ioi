@@ -27,8 +27,22 @@ struct AtomicRegister {
 struct TestOnlineAuthorization(OnlineEffectAuthorizationBindingV1);
 
 impl ImmediateOnlineEffectAuthorizationV1 for TestOnlineAuthorization {
-    fn consume(self) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
-        Ok(self.0)
+    fn consume(self) -> Result<ConsumedOnlineEffectAuthorizationV1, ConsequenceError> {
+        let binding = self.0;
+        let protocol_evidence = b"test-only live QUV observation".to_vec();
+        Ok(ConsumedOnlineEffectAuthorizationV1 {
+            audit: OnlineEffectAuthorizationAuditV1 {
+                profile: "aft_quv_v0".into(),
+                portable_final_receipt: false,
+                binding: OnlineEffectAuthorizationAuditBindingV1::from(&binding),
+                verifier_nonce: [29; 32],
+                protocol_evidence_hash: online_authorization_audit_evidence_hash(
+                    &protocol_evidence,
+                )?,
+                protocol_evidence,
+            },
+            binding,
+        })
     }
 }
 
@@ -257,6 +271,9 @@ fn query_unanimity_effect_requires_matching_immediate_online_authorization() {
         .execute_with_online_authorization("quv", &mut resource, TestOnlineAuthorization(binding))
         .unwrap();
     assert_eq!(executed.state.phase(), ConsequencePhaseV1::Executed);
+    let audit = executed.online_authorization_audit.unwrap();
+    assert!(!audit.portable_final_receipt);
+    assert_eq!(audit.profile, "aft_quv_v0");
     assert_eq!(resource.mutations, 1);
 }
 

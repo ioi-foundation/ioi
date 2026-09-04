@@ -24,6 +24,9 @@ const RECONCILIATION_DOMAIN: &[u8] = b"ioi::aft::consequence-reconciliation::v1\
 const RECEIPT_DOMAIN: &[u8] = b"ioi::aft::consequence-receipt::v1\0";
 const AMBIGUITY_DOMAIN: &[u8] = b"ioi::aft::consequence-ambiguity::v1\0";
 const VIOLATION_DOMAIN: &[u8] = b"ioi::aft::consequence-violation::v1\0";
+const ONLINE_AUDIT_EVIDENCE_DOMAIN: &[u8] = b"ioi::aft::online-authorization-audit::v1\0";
+const ONLINE_AUDIT_MAX_BYTES: usize = 16 * 1024 * 1024;
+const QUV_PROFILE_V0: &str = "aft_quv_v0";
 
 /// Opaque binding from one Agentgres-linearized runtime-v3 effect to its
 /// exact consequence manifest and independently verified assurance vector.
@@ -109,10 +112,59 @@ pub struct OnlineEffectAuthorizationBindingV1 {
     pub policy_root: ConsequenceHash,
 }
 
+/// Durable evidence that an executor reports having observed an online
+/// authorization. It is intentionally incapable of authorizing another
+/// executor: the portable-finality bit is fixed false and Agentgres accepts
+/// this object only together with a live process-local continuation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OnlineEffectAuthorizationAuditV1 {
+    pub profile: String,
+    pub portable_final_receipt: bool,
+    pub binding: OnlineEffectAuthorizationAuditBindingV1,
+    pub verifier_nonce: ConsequenceHash,
+    #[serde(with = "serde_bytes")]
+    pub protocol_evidence: Vec<u8>,
+    pub protocol_evidence_hash: ConsequenceHash,
+}
+
+/// Serializable copy of the context binding. Keeping this distinct from the
+/// process-local binding prevents audit bytes from implementing the immediate
+/// authorization trait by accident.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OnlineEffectAuthorizationAuditBindingV1 {
+    pub mode: EffectAuthorizationModeV1,
+    pub payload_hash: ConsequenceHash,
+    pub configuration_root: ConsequenceHash,
+    pub conflict_domain_hash: ConsequenceHash,
+    pub conflict_slot: u64,
+    pub policy_root: ConsequenceHash,
+}
+
+impl From<&OnlineEffectAuthorizationBindingV1> for OnlineEffectAuthorizationAuditBindingV1 {
+    fn from(binding: &OnlineEffectAuthorizationBindingV1) -> Self {
+        Self {
+            mode: binding.mode,
+            payload_hash: binding.payload_hash,
+            configuration_root: binding.configuration_root,
+            conflict_domain_hash: binding.conflict_domain_hash,
+            conflict_slot: binding.conflict_slot,
+            policy_root: binding.policy_root,
+        }
+    }
+}
+
+/// Output consumed atomically by Agentgres at the online-to-effect boundary.
+pub struct ConsumedOnlineEffectAuthorizationV1 {
+    pub binding: OnlineEffectAuthorizationBindingV1,
+    pub audit: OnlineEffectAuthorizationAuditV1,
+}
+
 /// A single-use, process-local authorization continuation. Implementations
 /// must perform any freshness check while consuming `self`.
 pub trait ImmediateOnlineEffectAuthorizationV1 {
-    fn consume(self) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError>;
+    fn consume(self) -> Result<ConsumedOnlineEffectAuthorizationV1, ConsequenceError>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -217,6 +269,9 @@ pub struct ConsequenceReceiptV1 {
     pub manifest: EffectManifestV1,
     pub manifest_root: ConsequenceHash,
     pub achieved_guarantee_root: ConsequenceHash,
+    /// Non-authorizing record of the executor's own online operation. It is
+    /// absent before that operation and for portable-authorized effects.
+    pub online_authorization_audit: Option<OnlineEffectAuthorizationAuditV1>,
     pub state: ConsequenceStateV1,
     pub trace: Vec<ConsequenceTransitionV1>,
     pub generation: u64,
@@ -235,6 +290,7 @@ impl ConsequenceReceiptV1 {
         {
             return Err(ConsequenceError::CorruptReceipt);
         }
+        validate_online_audit_shape(self)?;
         validate_trace(&self.trace)?;
         validate_state(&self.manifest, self.achieved_guarantee_root, &self.state)?;
         if let ConsequenceStateV1::Reconciled {
@@ -498,6 +554,7 @@ impl ConsequenceStore {
             manifest,
             manifest_root,
             achieved_guarantee_root,
+            online_authorization_audit: None,
             state,
             trace: vec![ConsequenceTransitionV1 {
                 sequence: 1,
@@ -537,8 +594,12 @@ impl ConsequenceStore {
         {
             return Err(ConsequenceError::UnexpectedOnlineAuthorization);
         }
-        let binding = authorization.consume()?;
-        validate_online_authorization(&receipt, &binding)?;
+        let consumed = authorization.consume()?;
+        validate_online_authorization(&receipt, &consumed.binding)?;
+        validate_online_audit(&consumed.audit, &consumed.binding)?;
+        let mut receipt = receipt;
+        receipt.online_authorization_audit = Some(consumed.audit);
+        persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
         self.execute_after_online_authorization(effect_id, resource, true)
     }
 
@@ -813,6 +874,54 @@ fn validate_online_authorization(
         return Err(ConsequenceError::InvalidOnlineAuthorization);
     }
     Ok(())
+}
+
+/// Domain-separated commitment used by protocol implementations when they
+/// place their raw, non-authorizing online evidence into an Agentgres audit
+/// record.
+pub fn online_authorization_audit_evidence_hash(
+    evidence: &[u8],
+) -> Result<ConsequenceHash, ConsequenceError> {
+    if evidence.is_empty() || evidence.len() > ONLINE_AUDIT_MAX_BYTES {
+        return Err(ConsequenceError::InvalidOnlineAuthorization);
+    }
+    canonical_hash(ONLINE_AUDIT_EVIDENCE_DOMAIN, &evidence)
+}
+
+fn validate_online_audit(
+    audit: &OnlineEffectAuthorizationAuditV1,
+    binding: &OnlineEffectAuthorizationBindingV1,
+) -> Result<(), ConsequenceError> {
+    if audit.profile != QUV_PROFILE_V0
+        || audit.portable_final_receipt
+        || audit.verifier_nonce == [0; 32]
+        || audit.binding != OnlineEffectAuthorizationAuditBindingV1::from(binding)
+        || online_authorization_audit_evidence_hash(&audit.protocol_evidence)?
+            != audit.protocol_evidence_hash
+    {
+        return Err(ConsequenceError::InvalidOnlineAuthorization);
+    }
+    Ok(())
+}
+
+fn validate_online_audit_shape(receipt: &ConsequenceReceiptV1) -> Result<(), ConsequenceError> {
+    match (
+        receipt.manifest.authorization_mode,
+        receipt.online_authorization_audit.as_ref(),
+        receipt.state.phase(),
+    ) {
+        (EffectAuthorizationModeV1::Portable, None, _) => Ok(()),
+        (
+            EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+            None,
+            ConsequencePhaseV1::Authorized,
+        ) => Ok(()),
+        (EffectAuthorizationModeV1::OnlineQueryUnanimityV0, Some(audit), _) => {
+            let binding = online_authorization_requirement(receipt)?;
+            validate_online_audit(audit, &binding)
+        }
+        _ => Err(ConsequenceError::CorruptReceipt),
+    }
 }
 
 fn online_authorization_requirement(

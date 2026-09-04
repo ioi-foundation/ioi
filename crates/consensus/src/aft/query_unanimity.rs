@@ -9,8 +9,8 @@
 use fs2::FileExt;
 use ioi_types::app::{AccountId, SignatureSuite, ValidatorSetV1};
 pub use ioi_types::app::{
-    QuvAuthorityModeV0, QuvCandidateV0, QuvHash, QuvNonce, QuvPushQueryV0, QuvReplyV0, QuvSlotV0,
-    QUV_PROFILE_V0,
+    QuvAcceptedAuditEvidenceV0, QuvAuthorityModeV0, QuvCandidateV0, QuvHash, QuvNonce,
+    QuvPushQueryV0, QuvReplyV0, QuvSlotV0, QUV_PROFILE_V0,
 };
 use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
@@ -446,6 +446,7 @@ pub struct QuvOnlineAuthorizationV0 {
     slot: QuvSlotV0,
     verifier_nonce: QuvNonce,
     expires_at: Instant,
+    audit: agentgres::consequence::OnlineEffectAuthorizationAuditV1,
 }
 
 impl QuvOnlineAuthorizationV0 {
@@ -577,14 +578,45 @@ impl QuvOnlineOperationV0 {
             }
         }
 
+        let binding = agentgres::consequence::OnlineEffectAuthorizationBindingV1 {
+            mode: ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+            payload_hash: self.request.candidate.payload_hash,
+            configuration_root: self.request.candidate.slot.configuration_root,
+            conflict_domain_hash: self.request.candidate.slot.domain_id,
+            conflict_slot: self.request.candidate.slot.slot,
+            policy_root: self.request.candidate.slot.policy_root,
+        };
+        let audit_evidence = QuvAcceptedAuditEvidenceV0 {
+            request: self.request.clone(),
+            configured_members: self.configured_members.iter().copied().collect(),
+            valid_replies: valid,
+            decision_interval_millis: duration_millis(self.decision_interval)?,
+            observed_elapsed_millis: duration_millis(elapsed)?,
+        };
+        let protocol_evidence =
+            codec::to_bytes_canonical(&audit_evidence).map_err(QuvError::Codec)?;
+        let protocol_evidence_hash =
+            agentgres::consequence::online_authorization_audit_evidence_hash(&protocol_evidence)
+                .map_err(|error| QuvError::Audit(error.to_string()))?;
+        let audit = agentgres::consequence::OnlineEffectAuthorizationAuditV1 {
+            profile: QUV_PROFILE_V0.into(),
+            portable_final_receipt: false,
+            binding: agentgres::consequence::OnlineEffectAuthorizationAuditBindingV1::from(
+                &binding,
+            ),
+            verifier_nonce: self.request.verifier_nonce,
+            protocol_evidence,
+            protocol_evidence_hash,
+        };
         Ok(QuvOnlineAuthorizationV0 {
             candidate_hash: wanted,
-            payload_hash: self.request.candidate.payload_hash,
+            payload_hash: binding.payload_hash,
             slot: self.request.candidate.slot,
             verifier_nonce: self.request.verifier_nonce,
             expires_at: Instant::now()
                 .checked_add(self.continuation_interval)
                 .ok_or(QuvError::InvalidOperation)?,
+            audit,
         })
     }
 }
@@ -593,21 +625,30 @@ impl agentgres::consequence::ImmediateOnlineEffectAuthorizationV1 for QuvOnlineA
     fn consume(
         self,
     ) -> Result<
-        agentgres::consequence::OnlineEffectAuthorizationBindingV1,
+        agentgres::consequence::ConsumedOnlineEffectAuthorizationV1,
         agentgres::consequence::ConsequenceError,
     > {
         if Instant::now() > self.expires_at {
             return Err(agentgres::consequence::ConsequenceError::InvalidOnlineAuthorization);
         }
-        Ok(agentgres::consequence::OnlineEffectAuthorizationBindingV1 {
-            mode: ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
-            payload_hash: self.payload_hash,
-            configuration_root: self.slot.configuration_root,
-            conflict_domain_hash: self.slot.domain_id,
-            conflict_slot: self.slot.slot,
-            policy_root: self.slot.policy_root,
-        })
+        Ok(
+            agentgres::consequence::ConsumedOnlineEffectAuthorizationV1 {
+                audit: self.audit,
+                binding: agentgres::consequence::OnlineEffectAuthorizationBindingV1 {
+                    mode: ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+                    payload_hash: self.payload_hash,
+                    configuration_root: self.slot.configuration_root,
+                    conflict_domain_hash: self.slot.domain_id,
+                    conflict_slot: self.slot.slot,
+                    policy_root: self.slot.policy_root,
+                },
+            },
+        )
     }
+}
+
+fn duration_millis(duration: Duration) -> Result<u64, QuvError> {
+    u64::try_from(duration.as_millis()).map_err(|_| QuvError::InvalidOperation)
 }
 
 fn validate_reply<V: QuvCandidateValidatorV0, R: QuvReplyVerifierV0>(
@@ -643,6 +684,111 @@ fn validate_reply<V: QuvCandidateValidatorV0, R: QuvReplyVerifierV0>(
         &quv_reply_signing_bytes(reply)?,
         &reply.signature,
     )
+}
+
+/// Result of replaying the cryptographic/content portion of a QUV audit.
+/// `timing_portable` is always false: bytes cannot prove that omitted replies
+/// did not arrive or that the executor actually waited the claimed interval.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuvAuditContentAssessmentV0 {
+    pub candidate_hash: QuvHash,
+    pub valid_reply_count: usize,
+    pub timing_portable: bool,
+    pub portable_final_receipt: bool,
+}
+
+/// Reproduce the byte-checkable portion of an accepted QUV operation. This is
+/// an audit function, never an authorization function. It authenticates the
+/// included replies and recomputes the decision over those bytes, but cannot
+/// establish the live absence/timing fact required for online safety.
+pub fn verify_non_authorizing_quv_audit<V: QuvCandidateValidatorV0, R: QuvReplyVerifierV0>(
+    audit: &agentgres::consequence::OnlineEffectAuthorizationAuditV1,
+    expected_members: BTreeSet<AccountId>,
+    expected_decision_interval: Duration,
+    candidate_validator: &V,
+    reply_verifier: &R,
+) -> Result<QuvAuditContentAssessmentV0, QuvError> {
+    if audit.profile != QUV_PROFILE_V0
+        || audit.portable_final_receipt
+        || audit.verifier_nonce == [0; 32]
+        || expected_members.is_empty()
+        || expected_decision_interval.is_zero()
+        || agentgres::consequence::online_authorization_audit_evidence_hash(
+            &audit.protocol_evidence,
+        )
+        .map_err(|error| QuvError::Audit(error.to_string()))?
+            != audit.protocol_evidence_hash
+    {
+        return Err(QuvError::Audit("invalid audit envelope".into()));
+    }
+    let evidence: QuvAcceptedAuditEvidenceV0 =
+        codec::from_bytes_canonical(&audit.protocol_evidence).map_err(QuvError::Codec)?;
+    let evidence_members = evidence
+        .configured_members
+        .iter()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    if evidence.configured_members.len() != evidence_members.len()
+        || evidence_members != expected_members
+        || evidence.request.verifier_nonce != audit.verifier_nonce
+        || evidence.decision_interval_millis != duration_millis(expected_decision_interval)?
+        || evidence.observed_elapsed_millis < evidence.decision_interval_millis
+        || evidence.valid_replies.is_empty()
+    {
+        return Err(QuvError::Audit("invalid audit operation context".into()));
+    }
+    let request = &evidence.request;
+    let binding = &audit.binding;
+    if binding.mode != ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+        || binding.payload_hash != request.candidate.payload_hash
+        || binding.configuration_root != request.candidate.slot.configuration_root
+        || binding.conflict_domain_hash != request.candidate.slot.domain_id
+        || binding.conflict_slot != request.candidate.slot.slot
+        || binding.policy_root != request.candidate.slot.policy_root
+    {
+        return Err(QuvError::Audit("invalid audit effect binding".into()));
+    }
+    candidate_validator.validate_candidate(&request.candidate)?;
+    for reply in &evidence.valid_replies {
+        validate_reply(
+            reply,
+            request,
+            &expected_members,
+            candidate_validator,
+            reply_verifier,
+        )?;
+    }
+    let wanted = quv_candidate_hash(&request.candidate)?;
+    match request.candidate.slot.authority_mode {
+        QuvAuthorityModeV0::Owned => {
+            let mut union = BTreeSet::new();
+            for reply in &evidence.valid_replies {
+                for candidate in &reply.complete_snapshot {
+                    union.insert(quv_candidate_hash(candidate)?);
+                }
+            }
+            if union != BTreeSet::from([wanted]) {
+                return Err(QuvError::ConflictDisclosed);
+            }
+        }
+        QuvAuthorityModeV0::Unowned => {
+            for reply in &evidence.valid_replies {
+                let first = reply
+                    .complete_snapshot
+                    .first()
+                    .ok_or(QuvError::InvalidSnapshot)?;
+                if quv_candidate_hash(first)? != wanted {
+                    return Err(QuvError::ConflictDisclosed);
+                }
+            }
+        }
+    }
+    Ok(QuvAuditContentAssessmentV0 {
+        candidate_hash: wanted,
+        valid_reply_count: evidence.valid_replies.len(),
+        timing_portable: false,
+        portable_final_receipt: false,
+    })
 }
 
 fn validate_store(state: &QuvStoreStateV0) -> Result<(), QuvError> {
@@ -826,6 +972,8 @@ pub enum QuvError {
     Codec(String),
     #[error("QUV hash failure: {0}")]
     Hash(String),
+    #[error("QUV audit construction failed: {0}")]
+    Audit(String),
     #[error("QUV durable I/O failure: {0}")]
     Io(String),
 }
@@ -1025,22 +1173,80 @@ mod tests {
             .finish_at(Duration::from_secs(1), &AcceptCandidates, &signer)
             .unwrap();
         assert_eq!(authorization.slot().slot, 7);
-        let binding = authorization.consume().unwrap();
+        let consumed = authorization.consume().unwrap();
+        let binding = consumed.binding;
         assert_eq!(binding.payload_hash, [10; 32]);
         assert_eq!(binding.configuration_root, [1; 32]);
         assert_eq!(binding.conflict_domain_hash, [3; 32]);
         assert_eq!(binding.conflict_slot, 7);
         assert_eq!(binding.policy_root, [6; 32]);
+        assert!(!consumed.audit.portable_final_receipt);
+        let assessment = verify_non_authorizing_quv_audit(
+            &consumed.audit,
+            BTreeSet::from([account(1), account(2)]),
+            Duration::from_secs(1),
+            &AcceptCandidates,
+            &signer,
+        )
+        .unwrap();
+        assert_eq!(assessment.valid_reply_count, 1);
+        assert!(!assessment.timing_portable);
+        assert!(!assessment.portable_final_receipt);
+        let evidence: QuvAcceptedAuditEvidenceV0 =
+            codec::from_bytes_canonical(&consumed.audit.protocol_evidence).unwrap();
+        assert_eq!(
+            assessment.candidate_hash,
+            quv_candidate_hash(&evidence.request.candidate).unwrap()
+        );
+        assert_eq!(
+            consumed.audit.protocol_evidence_hash,
+            agentgres::consequence::online_authorization_audit_evidence_hash(
+                &consumed.audit.protocol_evidence
+            )
+            .unwrap()
+        );
+        assert_eq!(evidence.valid_replies.len(), 1);
+        assert_eq!(evidence.decision_interval_millis, 1_000);
+        assert_eq!(evidence.observed_elapsed_millis, 1_000);
+
+        let mut laundered = consumed.audit;
+        laundered.portable_final_receipt = true;
+        assert!(verify_non_authorizing_quv_audit(
+            &laundered,
+            BTreeSet::from([account(1), account(2)]),
+            Duration::from_secs(1),
+            &AcceptCandidates,
+            &signer,
+        )
+        .is_err());
     }
 
     #[test]
     fn expired_process_local_authorization_cannot_cross_the_effect_boundary() {
+        let evidence = b"expired test authorization".to_vec();
         let authorization = QuvOnlineAuthorizationV0 {
             candidate_hash: [1; 32],
             payload_hash: [2; 32],
             slot: slot(QuvAuthorityModeV0::Owned),
             verifier_nonce: [3; 32],
             expires_at: Instant::now() - Duration::from_millis(1),
+            audit: agentgres::consequence::OnlineEffectAuthorizationAuditV1 {
+                profile: QUV_PROFILE_V0.into(),
+                portable_final_receipt: false,
+                binding: agentgres::consequence::OnlineEffectAuthorizationAuditBindingV1 {
+                    mode: ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+                    payload_hash: [2; 32],
+                    configuration_root: [1; 32],
+                    conflict_domain_hash: [3; 32],
+                    conflict_slot: 7,
+                    policy_root: [6; 32],
+                },
+                verifier_nonce: [3; 32],
+                protocol_evidence_hash:
+                    agentgres::consequence::online_authorization_audit_evidence_hash(&evidence)
+                        .unwrap(),
+                protocol_evidence: evidence,
+            },
         };
         assert!(authorization.consume().is_err());
     }

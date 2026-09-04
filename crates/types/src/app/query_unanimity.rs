@@ -86,3 +86,20 @@ pub struct QuvReplyV0 {
     /// Member signature produced only after durable write-back.
     pub signature: Vec<u8>,
 }
+
+/// Raw evidence retained for audit after an online acceptance. The elapsed
+/// time is an executor claim and cannot be authenticated for an offline
+/// verifier, so this object is deliberately non-authorizing.
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+pub struct QuvAcceptedAuditEvidenceV0 {
+    /// Exact request executed by the relying process.
+    pub request: QuvPushQueryV0,
+    /// Exact rooted membership the process says it contacted.
+    pub configured_members: Vec<AccountId>,
+    /// All structurally and cryptographically valid replies used at decision.
+    pub valid_replies: Vec<QuvReplyV0>,
+    /// Provisioned wait interval.
+    pub decision_interval_millis: u64,
+    /// Monotonic elapsed time observed by the executor.
+    pub observed_elapsed_millis: u64,
+}
