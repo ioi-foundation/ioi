@@ -228,6 +228,24 @@ function familyL() {
             thesis: `two substantial forms in a ${rel} relation — the relation is the identity`,
             draw: () => m,
           });
+          // The two-tone sibling. Where the one-ink drawing separates its forms by
+          // knocking one out of the other, this one separates them by TONE — which is
+          // how most marks that score anywhere actually do it, and which the one-ink
+          // filter was quietly disqualifying before the owner made colour a cost.
+          // The cost is real and it is measured: printed in one ink these two forms
+          // merge into a single silhouette, and the harness reports how much.
+          if (rel !== "interlock") {
+            const idT = `${id}-tone`;
+            const s2 = rel === "nest"
+              ? big(48 + shift, 50 + shift / 2, s, -tilt)
+              : big(38 + 26 + shift / 3, 54 - 22, s, -tilt);
+            out.push({
+              id: idT, family: "L two forms, one relation (two-tone)",
+              thesis: `the same ${rel} relation separated by tone rather than by a knockout`,
+              draw: () => (rel === "nest" ? big(48, 50, S, tilt) : big(38, 54, S, tilt)) +
+                s2.replace('fill="INK"', 'fill="INK2"'),
+            });
+          }
         }
       }
     }

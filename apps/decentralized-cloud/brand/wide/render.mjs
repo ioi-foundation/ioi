@@ -21,10 +21,17 @@
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CANDIDATES, GHOSTS, GRID, INK, GROUND, svgFor } from "./families.mjs";
+// The family set is chosen at the command line so both rounds run through ONE set of
+// probes. A second copy of this file for round two would be a second source of truth
+// about what a candidate is measured against, and the first time the two drifted the
+// rounds would stop being comparable.
+const setArg = process.argv.indexOf("--set");
+const SET = setArg > -1 ? process.argv[setArg + 1] : null;
+const { CANDIDATES, GHOSTS, GRID, INK, GROUND, svgFor } =
+  await import(SET ? `./families-${SET}.mjs` : "./families.mjs");
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.join(HERE, "../.artifacts/wide");
+const OUT = path.join(HERE, "../.artifacts", SET ? `wide-${SET}` : "wide");
 // The face is inlined as a data URL rather than referenced by path: a page built
 // with setContent has no document origin, so a file:// @font-face never fetches and
 // the probe would silently compare every candidate against the FALLBACK face —
@@ -45,7 +52,29 @@ for (const f of readdirSync(OUT)) rmSync(path.join(OUT, f), { force: true });
 const PRODUCT_PX = 16;      // the size the identity has to survive
 const CHANNEL = "mean of R,G,B";
 const INK_AT = 200;         // luminance below this counts as ink, on a white ground
-const DUP_IOU = 0.90;       // two candidates this alike are one candidate
+// DEDUPE, and an honest account of what it can and cannot do.
+//
+// Round one's 0.90 kept thirteen candidates that all three readers called one shape:
+// "thirteen cells I cannot tell apart at all". The obvious fix was a coarser,
+// perceptual test — reduce the 16px raster to 8x8 and compare there — on the theory
+// that shapes agreeing at 8x8 agree at a glance. I built it, and its own positive
+// control refuted it: at 16px an 8x8 cell is 2x2 device pixels, so the reduction is
+// barely coarser than the raster and it collapses nothing the pixel test had not
+// already collapsed. The premise was wrong, not the threshold.
+//
+// The deeper reason is worth writing down, because it bounds this instrument
+// permanently: the readers did not group those thirteen by pixels. They grouped them
+// by DESCRIPTION — every one was "a square with a speck", and two drawings that
+// answer to one sentence are one drawing however their rasters differ. No cheap
+// pixel metric reaches that, and a metric that claimed to would be the round-one type
+// probe again: an assertion whose name is broader than its evidence.
+//
+// So: the threshold drops to 0.85, which is a coarser PIXEL test and is labelled as
+// nothing more. Reader-level grouping stays where it actually lives — in the readers'
+// own FINDINGS section, applied by hand between rounds.
+const DUP_IOU = 0.85;
+const COARSE_N = 8;
+const DARK_AT = 90;         // in a two-tone render, ink this dark is the FIRST tone
 const GHOST_IOU = 0.80;     // the threshold that killed the two-round incumbent
 const TYPE_IOU = 0.74;      // a mark this close to a letterform disappears into it
 const MIN_INK = 0.04;       // below this the cell is a smudge at 16px
@@ -73,9 +102,9 @@ const page = await browser.newPage({
 // composite is laid out at EXACT device pixels with no gaps, and each cell is sliced
 // back out at its own 16x16, so what is measured is byte-identical to what a lone
 // 16px render would have produced.
-async function renderSet(items, size, cols) {
+async function renderSet(items, size, cols, twoTone) {
   const cells = items
-    .map((it) => `<div style="width:${size}px;height:${size}px;">${svgFor(it.draw(), size)}</div>`)
+    .map((it) => `<div style="width:${size}px;height:${size}px;">${svgFor(it.draw(), size, twoTone)}</div>`)
     .join("");
   await page.setContent(
     `<style>body{margin:0;background:${GROUND};}` +
@@ -153,6 +182,24 @@ const iou = (a, b) => {
 // it" — is a question about shape identity, not about resolution, and 16px does not
 // carry enough of either shape to answer it. It is the only number in this file not
 // taken at product size, and that is deliberate rather than convenient.
+// Majority-ink reduction to a coarse grid — the reader-level dedupe's instrument.
+function reduce(m, size, n) {
+  const out = new Uint8Array(n * n);
+  const step = size / n;
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      let on = 0, tot = 0;
+      for (let sy = Math.floor(y * step); sy < Math.min(size, Math.ceil((y + 1) * step)); sy++)
+        for (let sx = Math.floor(x * step); sx < Math.min(size, Math.ceil((x + 1) * step)); sx++) {
+          tot += 1;
+          if (m[sy * size + sx]) on += 1;
+        }
+      if (tot && on * 2 >= tot) out[y * n + x] = 1;
+    }
+  }
+  return out;
+}
+
 const NORM_FIELD = 48;
 const NORM_FIT = 44;
 function normalise(m, size) {
@@ -327,15 +374,55 @@ const PLANT_NOT_TYPE = {
   control: true,
 };
 
-const items = [...CANDIDATES, ...GHOSTS.map((g) => ({ ...g, ghost: true })), PLANT_DUP, PLANT_TYPE, PLANT_NOT_TYPE];
+// The perceptual-dedupe plant. It is round one's actual failure, rebuilt: two shapes
+// differing only by a two-unit shift of a small detached element — the exact thing
+// thirteen readers-as-one cells differed by. Pixel IoU keeps them apart; the eye does
+// not; the coarse test has to collapse them or it is not standing in for the eye.
+const PLANT_COARSE_A = {
+  id: "__control-coarse-a", family: "control", control: true,
+  draw: () => `<polygon points="14,20 62,16 64,72 16,76" fill="INK"></polygon>` +
+    `<polygon points="74,14 88,12 90,28 76,30" fill="INK"></polygon>`,
+};
+const PLANT_COARSE_B = {
+  id: "__control-coarse-b", family: "control", control: true,
+  draw: () => `<polygon points="14,20 62,16 64,72 16,76" fill="INK"></polygon>` +
+    `<polygon points="76,16 90,14 92,30 78,32" fill="INK"></polygon>`,
+};
+
+const items = [
+  ...CANDIDATES, ...GHOSTS.map((g) => ({ ...g, ghost: true })),
+  PLANT_DUP, PLANT_TYPE, PLANT_NOT_TYPE, PLANT_COARSE_A, PLANT_COARSE_B,
+];
 const COLS = 20;
 const small = await renderSet(items, PRODUCT_PX, COLS);
 const large = await renderSet(items, 96, COLS);
+// The same set rendered in TWO TONES. Colour is a cost rather than a disqualifier
+// (owner ruling), so the question this pass answers is what the one-ink form LOSES:
+// a candidate whose two tones carry different parts of the drawing has those parts
+// merge when it is printed in one ink, and the size of that merge is the cost. It is
+// measured, printed beside the candidate, and never quietly forgiven.
+const twoTone = await renderSet(items, PRODUCT_PX, COLS, true);
 
 const measured = items.map((it, i) => {
   const m = mask(small[i].px, PRODUCT_PX);
   const big = mask(large[i].px, 96);
-  return { ...it, i, mask: m.m, ink: m.frac, norm: normalise(big.m, 96), url16: small[i].url, url96: large[i].url };
+  // In the two-tone render, the FIRST tone alone versus all ink. Where a candidate
+  // uses only one tone these are the same mask and the cost is zero, which is the
+  // honest answer for a one-ink drawing.
+  const tt = twoTone[i].px;
+  const darkOnly = new Uint8Array(PRODUCT_PX * PRODUCT_PX);
+  const anyInk = new Uint8Array(PRODUCT_PX * PRODUCT_PX);
+  for (let p = 0; p < PRODUCT_PX * PRODUCT_PX; p++) {
+    const L = lum(tt, p);
+    if (L < DARK_AT) darkOnly[p] = 1;
+    if (L < INK_AT) anyInk[p] = 1;
+  }
+  const toneCost = 1 - iou(darkOnly, anyInk);
+  return {
+    ...it, i, mask: m.m, ink: m.frac, coarse: reduce(m.m, PRODUCT_PX, COARSE_N),
+    norm: normalise(big.m, 96), toneCost,
+    url16: small[i].url, url96: large[i].url, url16tt: twoTone[i].url,
+  };
 });
 
 const { faceProof, glyphs: types } = await typeMasks(96);
@@ -425,11 +512,30 @@ for (let a = 0; a < live.length; a++) {
   if (live[a].dupOf) continue;
   for (let b = a + 1; b < live.length; b++) {
     if (live[b].dupOf) continue;
-    if (iou(live[a].mask, live[b].mask) >= DUP_IOU) live[b].dupOf = live[a].id;
+    const pixel = iou(live[a].mask, live[b].mask);
+    if (pixel >= DUP_IOU) {
+      live[b].dupOf = live[a].id;
+      live[b].dupWhy = `pixel IoU ${pixel.toFixed(3)} at ${PRODUCT_PX}px`;
+    }
   }
 }
 
 // controls report
+// The near-pair plant. It no longer claims to prove a perceptual test — there isn't
+// one — but it still earns its place: it proves the threshold collapses a pair that
+// differs only by a shift too small to see, which is the cheapest half of the problem
+// and the half a pixel metric can honestly carry.
+{
+  const a = live.find((c) => c.id === "__control-coarse-a");
+  const b = live.find((c) => c.id === "__control-coarse-b");
+  const pixel = a && b ? iou(a.mask, b.mask) : 0;
+  control("dedupe-near-pair",
+    !!b && b.dupOf === "__control-coarse-a",
+    b && b.dupOf === "__control-coarse-a"
+      ? `a pair differing by a 2-unit shift of one element collapsed as one, at pixel IoU ${pixel.toFixed(3)}`
+      : `the planted near-pair was NOT collapsed at pixel IoU ${pixel.toFixed(3)}`);
+}
+
 const dupPlant = live.find((c) => c.id === "__control-duplicate");
 control("dedupe-plant", !!dupPlant && dupPlant.dupOf === CANDIDATES[0].id,
   `planted duplicate of ${CANDIDATES[0].id} was collapsed onto ${dupPlant && dupPlant.dupOf}`);
@@ -455,7 +561,7 @@ const real = live.filter((c) => !c.control);
 for (const c of real) {
   c.killed =
     !c.presenceOk ? `ink ${c.ink.toFixed(3)} outside [${MIN_INK}, ${MAX_INK}] at ${PRODUCT_PX}px`
-    : c.dupOf ? `duplicate of ${c.dupOf} (IoU >= ${DUP_IOU})`
+    : c.dupOf ? `duplicate of ${c.dupOf} — ${c.dupWhy}`
     : c.ghostIou >= GHOST_IOU ? `IoU ${c.ghostIou.toFixed(3)} against retired ${c.ghostLike}`
     : c.typeIou >= TYPE_IOU ? `IoU ${c.typeIou.toFixed(3)} against the letter "${c.typeLike}" it will sit beside`
     : null;
@@ -524,7 +630,7 @@ writeFileSync(
       parameters: { PRODUCT_PX, CHANNEL, INK_AT, DUP_IOU, GHOST_IOU, TYPE_IOU, MIN_INK, MAX_INK },
       controls,
       generated: real.length,
-      survivors: survivors.map((c, k) => ({ n: k + 1, id: c.id, family: c.family, thesis: c.thesis, ink: +c.ink.toFixed(4), typeIou: +c.typeIou.toFixed(4), typeLike: c.typeLike, ghostIou: +c.ghostIou.toFixed(4) })),
+      survivors: survivors.map((c, k) => ({ n: k + 1, id: c.id, family: c.family, thesis: c.thesis, ink: +c.ink.toFixed(4), typeIou: +c.typeIou.toFixed(4), typeLike: c.typeLike, ghostIou: +c.ghostIou.toFixed(4), oneInkCost: +c.toneCost.toFixed(4) })),
       killed: real.filter((c) => c.killed).map((c) => ({ id: c.id, family: c.family, why: c.killed })),
     },
     null,
