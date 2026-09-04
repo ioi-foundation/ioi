@@ -80,8 +80,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "mdast-util-from-markdown": "^2.0.2",
@@ -90,7 +90,7 @@
     "typescript": "^5.3.3"
   },
   "overrides": {
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1"
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3"
   }
 }
