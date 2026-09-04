@@ -1,0 +1,16 @@
+phase	result	elapsed_seconds	command
+formal_r4	PASS	65	bash .github/scripts/run_aft_formal_checks.sh --quv-only 
+quv_core	PASS	287	cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::tests 
+pq_transport	PASS	95	cargo test -p ioi-networking --lib pq_channel 
+pq_swarm_admission	PASS	6	cargo test -p ioi-networking --lib protected_payload_routes_only_after_aead_and_type_agreement 
+consequence_t10	PASS	3	cargo test -p agentgres consequence::tests 
+terminal_seal_sim	PASS	0	cargo test -p ioi-consensus --features aft --lib adversarial_campaigns 
+terminal_seal_receipts	PASS	247	cargo test -p ioi-finality --features portable-assurance --lib portable_assurance::tests 
+quv_component_timing	PASS	106	cargo test --release -p ioi-consensus --features aft --lib m16q_profiles_mldsa_signing_and_durable_write_before_reply -- --ignored --nocapture 
+quv_single_correct_process	PASS	318	cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation -- --nocapture 
+quv_disjoint_reconfiguration	PASS	313	cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_quv_disjoint_successors_install_live_handoff_before_activation -- --nocapture 
+quv_overlap_reconfiguration	PASS	260	cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_quv_overlapping_member_installs_and_recovers_the_same_live_handoff -- --nocapture 
+pq_hash_async_process	PASS	1135	cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_pq_hash_fallback_executes_virtual_block -- --nocapture 
+pq_ordering_restart	PASS	540	cargo test -p ioi-cli --test aft_e2e --features consensus-aft\,vm-wasm\,state-iavl test_aft_pq_four_validator_timeout_quorum_and_restart -- --nocapture 
+hypervisor_web	PASS	95	npm run build --workspace=@ioi/hypervisor-app 
+hypervisor_daemon	PASS	57	cargo build --locked -p ioi-node --bin hypervisor-daemon 

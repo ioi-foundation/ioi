@@ -102,6 +102,14 @@ traces, TLC state dumps, and compiled paper outputs live under
   QUV, direct process-local continuation consumption, T10 claim-before-call,
   one durable PQ atomic mutation, and verified ML-DSA resource evidence at
   code commit `bd1e91a6d`.
+- [`evidence/m16q-quv-qualification-2026-09-04.md`](./evidence/m16q-quv-qualification-2026-09-04.md)
+  — clean 15-phase qualification summary and retained raw run for exact code
+  commit `ab8d2e58103a`, including all sole-correct placements, conflict-domain
+  isolation, bounded load timing, reconfiguration/restart, consequence, PQ
+  ordering, and Hypervisor gates.
+- [`packets/M17Q-quv-independent-review.md`](./packets/M17Q-quv-independent-review.md)
+  — exact immutable-candidate commission for the fresh automated source,
+  theorem, reproduction, and independent spec-only twin review.
 - [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
   — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)

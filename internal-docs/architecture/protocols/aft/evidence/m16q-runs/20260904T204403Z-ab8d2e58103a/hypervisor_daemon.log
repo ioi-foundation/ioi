@@ -1,0 +1,2057 @@
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+   Compiling ioi-node v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/node)
+warning: unused imports: `AdmittedRecord` and `authorized_stream`
+  --> crates/node/src/bin/hypervisor_daemon_routes/institutional_learning_boundary_routes.rs:47:5
+   |
+47 |     authorized_stream, body_object, body_str, contract_owner_ref, contract_tenant_ref,
+   |     ^^^^^^^^^^^^^^^^^
+...
+51 |     AdmittedRecord, FamilySpec, Reply, ResolvedModelRouteRights, StreamQuery,
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `remove_record`
+  --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:32:55
+   |
+32 | use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
+   |                                                       ^^^^^^^^^^^^^
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:6148:22
+     |
+6148 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+     = note: `#[warn(unused_parens)]` (part of `#[warn(unused)]`) on by default
+help: remove these parentheses
+     |
+6148 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+6148 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: unnecessary parentheses around closure body
+    --> crates/node/src/bin/hypervisor-daemon.rs:6188:22
+     |
+6188 |     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+     |                      ^                                                              ^
+     |
+help: remove these parentheses
+     |
+6188 -     .map_err(|error| (AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string())))?;
+6188 +     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+     |
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:1760:9
+     |
+1760 |     let mut record_edges =
+     |         ----^^^^^^^^^^^^
+     |         |
+     |         help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/node/src/bin/hypervisor_daemon_routes/storage_backend_routes.rs:1959:9
+     |
+1959 |     let mut fail = |reason: String, verification: Value| {
+     |         ----^^^^
+     |         |
+     |         help: remove this `mut`
+
+warning: unused variable: `inbound`
+   --> crates/node/src/bin/hypervisor_daemon_routes/decentralized_cloud_routes.rs:951:5
+    |
+951 |     inbound: axum::http::HeaderMap,
+    |     ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_inbound`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_system_routes.rs:651:9
+    |
+651 |     let mut room = json!({
+    |         ----^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable `final_count` is assigned to, but never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:166:9
+    |
+166 |     let mut final_count = 0usize;
+    |         ^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_final_count` instead
+
+warning: value assigned to `final_count` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/state_machine_routes.rs:219:13
+    |
+219 |             final_count += 1;
+    |             ^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `url`, `capability_lease_ref`, and `workspace_root` are never read
+   --> crates/node/src/bin/hypervisor-daemon.rs:357:16
+    |
+355 | pub(crate) struct PreviewServer {
+    |                   ------------- fields in this struct
+356 |     pub(crate) port: u16,
+357 |     pub(crate) url: String,
+    |                ^^^
+358 |     pub(crate) capability_lease_ref: String,
+    |                ^^^^^^^^^^^^^^^^^^^^
+359 |     pub(crate) workspace_root: String,
+    |                ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LIST_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:41:7
+   |
+41 | const LIST_MAX: usize = 128;
+   |       ^^^^^^^^
+
+warning: constant `REF_LIST_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:42:7
+   |
+42 | const REF_LIST_MAX: usize = 64;
+   |       ^^^^^^^^^^^^
+
+warning: constant `TEXT_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:44:7
+   |
+44 | const TEXT_MAX: usize = 4_000;
+   |       ^^^^^^^^
+
+warning: constant `ATTEMPT_OUTCOMES` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:47:7
+   |
+47 | const ATTEMPT_OUTCOMES: &[&str] = &[
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `ATTEMPT_STATUSES` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:55:7
+   |
+55 | const ATTEMPT_STATUSES: &[&str] = &["draft", "running", "submitted", "admitted", "superseded"];
+   |       ^^^^^^^^^^^^^^^^
+
+warning: constant `FINDING_KINDS` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:56:7
+   |
+56 | const FINDING_KINDS: &[&str] = &[
+   |       ^^^^^^^^^^^^^
+
+warning: constant `FINDING_STATUSES` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:67:7
+   |
+67 | const FINDING_STATUSES: &[&str] = &["proposed", "admitted", "superseded", "archived"];
+   |       ^^^^^^^^^^^^^^^^
+
+warning: function `classify` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:96:4
+   |
+96 | fn classify(error: VErr) -> (StatusCode, Json<Value>) {
+   |    ^^^^^^^^
+
+warning: function `ref_ok` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:149:4
+    |
+149 | fn ref_ok(value: &str, schemes: &[&str]) -> bool {
+    |    ^^^^^^
+
+warning: function `prefixed_ref_ok` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:161:4
+    |
+161 | fn prefixed_ref_ok(value: &str, prefixes: &[&str]) -> bool {
+    |    ^^^^^^^^^^^^^^^
+
+warning: constant `SENSITIVE` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:171:7
+    |
+171 | const SENSITIVE: &[&str] = &[
+    |       ^^^^^^^^^
+
+warning: function `reject_sensitive` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:181:4
+    |
+181 | fn reject_sensitive(value: &Value, path: &str) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `reject_unknown` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:214:4
+    |
+214 | fn reject_unknown(body: &Value, allowed: &[&str]) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `required_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:232:4
+    |
+232 | fn required_ref(body: &Value, field: &str, schemes: &[&str]) -> Result<String, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `optional_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:248:4
+    |
+248 | fn optional_ref(body: &Value, field: &str, schemes: &[&str]) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `ref_list` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:262:4
+    |
+262 | fn ref_list(body: &Value, field: &str, schemes: &[&str]) -> Result<Vec<String>, VErr> {
+    |    ^^^^^^^^
+
+warning: function `ref_list_with_prefixes` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:266:4
+    |
+266 | fn ref_list_with_prefixes(
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `bounded_text` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:309:4
+    |
+309 | fn bounded_text(body: &Value, field: &str, required: bool) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `expected_revision` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:324:4
+    |
+324 | fn expected_revision(body: &Value, current: u64) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `fresh_tail` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:363:4
+    |
+363 | fn fresh_tail(prefix: &str, subject_ref: &str, op: &str, revision: u64, at_ms: u64) -> String {
+    |    ^^^^^^^^^^
+
+warning: function `room_coordinate` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:814:4
+    |
+814 | fn room_coordinate(reference: &str, room: &Value) -> Value {
+    |    ^^^^^^^^^^^^^^^
+
+warning: fields `room`, `frontier`, `claim`, and `goal_run` are never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:848:5
+    |
+847 | struct AttemptDependencies {
+    |        ------------------- fields in this struct
+848 |     room: Value,
+    |     ^^^^
+849 |     frontier: Value,
+    |     ^^^^^^^^
+850 |     claim: Value,
+    |     ^^^^^
+851 |     participant: Value,
+852 |     goal_run: Value,
+    |     ^^^^^^^^
+    |
+    = note: `AttemptDependencies` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: function `resolve_attempt_dependencies` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1001:4
+     |
+1001 | fn resolve_attempt_dependencies(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `dependency_coordinates` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1008:4
+     |
+1008 | fn dependency_coordinates(declaration: &Value, dependencies: &AttemptDependencies) -> Value {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_attempt_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1041:4
+     |
+1041 | fn validate_attempt_create(body: &Value) -> Result<Value, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_attempt_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1121:4
+     |
+1121 | fn validate_attempt_transition(body: &Value, op: &str) -> Result<Value, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_finding_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1253:4
+     |
+1253 | fn validate_finding_create(body: &Value) -> Result<Value, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `seal_intent` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1440:4
+     |
+1440 | fn seal_intent(mut intent: Value, tail: &str) -> Value {
+     |    ^^^^^^^^^^^
+
+warning: function `persist_and_complete_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1601:4
+     |
+1601 | fn persist_and_complete_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `work_result_coordinate` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1717:4
+     |
+1717 | fn work_result_coordinate(result_ref: &str, result: &Value) -> Value {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `finding_coordinates` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1729:4
+     |
+1729 | fn finding_coordinates(
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: fields `room`, `attempt`, `result`, `participant`, and `supersedes` are never read
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1768:5
+     |
+1767 | struct FindingDependencies {
+     |        ------------------- fields in this struct
+1768 |     room: Value,
+     |     ^^^^
+1769 |     attempt: Value,
+     |     ^^^^^^^
+1770 |     result: Value,
+     |     ^^^^^^
+1771 |     participant: Value,
+     |     ^^^^^^^^^^^
+1772 |     supersedes: Option<Value>,
+     |     ^^^^^^^^^^
+     |
+     = note: `FindingDependencies` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: function `authorize` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1925:10
+     |
+1925 | async fn authorize(
+     |          ^^^^^^^^^
+
+warning: function `handle_attempt_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:1952:21
+     |
+1952 | pub(crate) async fn handle_attempt_create(
+     |                     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_attempt_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2113:21
+     |
+2113 | pub(crate) async fn handle_attempt_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_finding_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2366:21
+     |
+2366 | pub(crate) async fn handle_finding_create(
+     |                     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_finding_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2548:21
+     |
+2548 | pub(crate) async fn handle_finding_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_read_converged` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2751:4
+     |
+2751 | fn ensure_read_converged(data_dir: &str) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2771:10
+     |
+2771 | async fn list(
+     |          ^^^^
+
+warning: function `handle_attempt_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2828:21
+     |
+2828 | pub(crate) async fn handle_attempt_list(
+     |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_finding_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2835:21
+     |
+2835 | pub(crate) async fn handle_finding_list(
+     |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_attempt_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2842:21
+     |
+2842 | pub(crate) async fn handle_attempt_get(
+     |                     ^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_finding_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2863:21
+     |
+2863 | pub(crate) async fn handle_finding_get(
+     |                     ^^^^^^^^^^^^^^^^^^
+
+warning: function `overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2884:10
+     |
+2884 | async fn overview(state: Arc<DaemonState>, attempts: bool) -> (StatusCode, Json<Value>) {
+     |          ^^^^^^^^
+
+warning: function `handle_attempt_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2932:21
+     |
+2932 | pub(crate) async fn handle_attempt_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_finding_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/attempt_finding_routes.rs:2938:21
+     |
+2938 | pub(crate) async fn handle_finding_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `converged` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:802:8
+    |
+801 | impl V1Custody {
+    | -------------- method in this implementation
+802 |     fn converged(&self) -> bool {
+    |        ^^^^^^^^^
+
+warning: constant `CMAP_V1_SCHEMA` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:1252:7
+     |
+1252 | const CMAP_V1_SCHEMA: &str = "ioi.hypervisor.odk.connector-mapping.v1";
+     |       ^^^^^^^^^^^^^^
+
+warning: constant `CMAP_V1_CONTRACT` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:1253:7
+     |
+1253 | const CMAP_V1_CONTRACT: &str = "schema://ioi/foundations/objects/connector-mapping/v1";
+     |       ^^^^^^^^^^^^^^^^
+
+warning: constant `RECIPE_V1_SCHEMA` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:1863:7
+     |
+1863 | const RECIPE_V1_SCHEMA: &str = "ioi.hypervisor.odk.data-recipe.v1";
+     |       ^^^^^^^^^^^^^^^^
+
+warning: constant `RECIPE_V1_CONTRACT` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:1864:7
+     |
+1864 | const RECIPE_V1_CONTRACT: &str = "schema://ioi/foundations/objects/data-recipe/v1";
+     |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `RUN_V1_SCHEMA` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:2473:7
+     |
+2473 | const RUN_V1_SCHEMA: &str = "ioi.hypervisor.odk.transformation-run.v1";
+     |       ^^^^^^^^^^^^^
+
+warning: constant `RUN_V1_CONTRACT` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/data_transformation_routes.rs:2474:7
+     |
+2474 | const RUN_V1_CONTRACT: &str = "schema://ioi/foundations/objects/transformation-run/v1";
+     |       ^^^^^^^^^^^^^^^
+
+warning: fields `internal_port`, `log_path`, `started_at`, and `workspace_root` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_host.rs:25:16
+   |
+23 | pub(crate) struct EditorRuntime {
+   |                   ------------- fields in this struct
+24 |     pub(crate) child: std::process::Child,
+25 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+26 |     pub(crate) log_path: String,
+   |                ^^^^^^^^
+27 |     pub(crate) started_at: String,
+   |                ^^^^^^^^^^
+28 |     pub(crate) workspace_root: String,
+   |                ^^^^^^^^^^^^^^
+
+warning: fields `public_port`, `internal_port`, `lease_id`, `service_id`, and `join` are never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/editor_proxy.rs:20:16
+   |
+19 | pub(crate) struct EditorProxy {
+   |                   ----------- fields in this struct
+20 |     pub(crate) public_port: u16,
+   |                ^^^^^^^^^^^
+21 |     pub(crate) internal_port: u16,
+   |                ^^^^^^^^^^^^^
+22 |     pub(crate) lease_id: String,
+   |                ^^^^^^^^
+23 |     pub(crate) service_id: String,
+   |                ^^^^^^^^^^
+24 |     pub(crate) shutdown: tokio::sync::oneshot::Sender<()>,
+25 |     pub(crate) join: tokio::task::JoinHandle<()>,
+   |                ^^^^
+
+warning: methods `record` and `durable` are never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs:179:19
+    |
+178 | impl MutationOutcome {
+    | -------------------- methods in this implementation
+179 |     pub(crate) fn record(&self) -> &Value {
+    |                   ^^^^^^
+...
+189 |     pub(crate) fn durable(&self) -> bool {
+    |                   ^^^^^^^
+
+warning: multiple fields are never read
+    --> crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs:9039:5
+     |
+9038 | struct ResultPayloadCustody {
+     |        -------------------- fields in this struct
+9039 |     artifact_ref: String,
+     |     ^^^^^^^^^^^^
+9040 |     payload_ref: String,
+     |     ^^^^^^^^^^^
+9041 |     content_hash: String,
+9042 |     size_bytes: u64,
+     |     ^^^^^^^^^^
+...
+9047 |     implementation_result: Value,
+     |     ^^^^^^^^^^^^^^^^^^^^^
+9048 |     captured_output_file_facts: Value,
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+9049 |     captured_output_file_facts_hash: String,
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+9050 |     receipt_refs: Vec<String>,
+     |     ^^^^^^^^^^^^
+     |
+     = note: `ResultPayloadCustody` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: constant `SCM_PUBLICATION_AUTHORITY` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:66:18
+   |
+66 | pub(crate) const SCM_PUBLICATION_AUTHORITY: AuthorityContract = AuthorityContract {
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `final_invocation_disposition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:2135:15
+     |
+2135 | pub(crate) fn final_invocation_disposition(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decision_policy_hash` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:2302:15
+     |
+2302 | pub(crate) fn decision_policy_hash(
+     |               ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `authorize_decision_for_resolution` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/governed_authority.rs:3455:15
+     |
+3455 | pub(crate) fn authorize_decision_for_resolution(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `index_state` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/institutional_learning_boundary_routes.rs:379:16
+    |
+374 | pub(crate) struct ResolvedSourceRightsClaim {
+    |                   ------------------------- field in this struct
+...
+379 |     pub(crate) index_state: &'static str,
+    |                ^^^^^^^^^^^
+    |
+    = note: `ResolvedSourceRightsClaim` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: fields `revision_ref`, `content_hash`, and `index_state` are never read
+    --> crates/node/src/bin/hypervisor_daemon_routes/institutional_learning_boundary_routes.rs:1848:16
+     |
+1847 | pub(crate) struct ResolvedEvidenceEligibility {
+     |                   --------------------------- fields in this struct
+1848 |     pub(crate) revision_ref: String,
+     |                ^^^^^^^^^^^^
+1849 |     pub(crate) record: Value,
+1850 |     pub(crate) content_hash: String,
+     |                ^^^^^^^^^^^^
+1851 |     pub(crate) index_state: &'static str,
+     |                ^^^^^^^^^^^
+     |
+     = note: `ResolvedEvidenceEligibility` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: constant `IMPROVEMENT_STATES` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/ioi_intelligence_routes.rs:2393:7
+     |
+2393 | const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
+     |       ^^^^^^^^^^^^^^^^^^
+
+warning: function `append_persisted_events` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs:1008:4
+     |
+1008 | fn append_persisted_events(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `OWNER_LOCAL_FAMILIES` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/m048_collaboration_routes.rs:134:18
+    |
+134 | pub(crate) const OWNER_LOCAL_FAMILIES: &[&str] = &[
+    |                  ^^^^^^^^^^^^^^^^^^^^
+
+warning: field `id_field` is never read
+    --> crates/node/src/bin/hypervisor_daemon_routes/m048_collaboration_routes.rs:3668:5
+     |
+3664 | struct OfferFamily {
+     |        ----------- field in this struct
+...
+3668 |     id_field: &'static str,
+     |     ^^^^^^^^
+     |
+     = note: `OfferFamily` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: constant `ATTEMPT_REPRODUCTION_STATES` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/m048_collaboration_routes.rs:5921:7
+     |
+5921 | const ATTEMPT_REPRODUCTION_STATES: &[&str] = &[
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `nanos` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/marketplace_routes.rs:140:4
+    |
+140 | fn nanos() -> u128 {
+    |    ^^^^^
+
+warning: field `run_dir` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/microvm.rs:213:9
+    |
+210 | pub(crate) struct VmHandle {
+    |                   -------- field in this struct
+...
+213 |     pub run_dir: PathBuf,
+    |         ^^^^^^^
+
+warning: fields `owner_ref`, `admitted_head`, and `index_state` are never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/model_route_rights_routes.rs:921:16
+    |
+919 | pub(crate) struct ResolvedModelRouteRights {
+    |                   ------------------------ fields in this struct
+920 |     pub(crate) revision_ref: String,
+921 |     pub(crate) owner_ref: String,
+    |                ^^^^^^^^^
+...
+925 |     pub(crate) admitted_head: String,
+    |                ^^^^^^^^^^^^^
+926 |     pub(crate) index_state: &'static str,
+    |                ^^^^^^^^^^^
+    |
+    = note: `ResolvedModelRouteRights` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: field `descriptor_ref` is never read
+    --> crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs:3771:16
+     |
+3770 | pub(crate) struct ResolvedSurfaceDescriptor {
+     |                   ------------------------- field in this struct
+3771 |     pub(crate) descriptor_ref: String,
+     |                ^^^^^^^^^^^^^^
+     |
+     = note: `ResolvedSurfaceDescriptor` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: constant `DESCRIPTOR_SERVER_AUTHORED_FIELDS` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs:4267:7
+     |
+4267 | const DESCRIPTOR_SERVER_AUTHORED_FIELDS: &[&str] = &[
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DESCRIPTOR_CONTROL_FIELDS` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs:4286:7
+     |
+4286 | const DESCRIPTOR_CONTROL_FIELDS: &[&str] = &["idempotency_key", "expected_head"];
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DESCRIPTOR_ASSERTION_FIELDS` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/odk_routes.rs:4289:7
+     |
+4289 | const DESCRIPTOR_ASSERTION_FIELDS: &[&str] = &[
+     |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `list_rooms_exact` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:1282:4
+     |
+1282 | fn list_rooms_exact(data_dir: &str) -> Result<Vec<Value>, String> {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `predecessor_child_record_is_historically_visible` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:1515:15
+     |
+1515 | pub(crate) fn predecessor_child_record_is_historically_visible(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `retain_historical_predecessor_child_records` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:1563:15
+     |
+1563 | pub(crate) fn retain_historical_predecessor_child_records(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolve_open_room` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:1579:15
+     |
+1579 | pub(crate) fn resolve_open_room(data_dir: &str, room_ref: &str) -> Option<Value> {
+     |               ^^^^^^^^^^^^^^^^^
+
+warning: function `sorted_newest` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/outcome_room_routes.rs:2380:4
+     |
+2380 | fn sorted_newest(data_dir: &str) -> Result<Vec<Value>, String> {
+     |    ^^^^^^^^^^^^^
+
+warning: field `index_state` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/policy_bound_data_view_revision_routes.rs:378:16
+    |
+373 | pub(crate) struct ResolvedPolicyBoundDataView {
+    |                   --------------------------- field in this struct
+...
+378 |     pub(crate) index_state: &'static str,
+    |                ^^^^^^^^^^^
+    |
+    = note: `ResolvedPolicyBoundDataView` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: constant `LIST_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:59:7
+   |
+59 | const LIST_MAX: usize = 128;
+   |       ^^^^^^^^
+
+warning: constant `REF_LIST_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:60:7
+   |
+60 | const REF_LIST_MAX: usize = 64;
+   |       ^^^^^^^^^^^^
+
+warning: constant `CLASS_LIST_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:61:7
+   |
+61 | const CLASS_LIST_MAX: usize = 64;
+   |       ^^^^^^^^^^^^^^
+
+warning: constant `CLASS_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:62:7
+   |
+62 | const CLASS_MAX: usize = 160;
+   |       ^^^^^^^^^
+
+warning: function `classify` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:99:4
+   |
+99 | fn classify(error: VErr) -> (StatusCode, Json<Value>) {
+   |    ^^^^^^^^
+
+warning: function `canonical_resource_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:151:4
+    |
+151 | fn canonical_resource_ref(value: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `canonical_capability_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:156:4
+    |
+156 | fn canonical_capability_ref(value: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `canonical_match_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:161:4
+    |
+161 | fn canonical_match_ref(value: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `SENSITIVE` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:185:7
+    |
+185 | const SENSITIVE: &[&str] = &[
+    |       ^^^^^^^^^
+
+warning: function `reject_sensitive` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:194:4
+    |
+194 | fn reject_sensitive(value: &Value, path: &str) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `reject_unknown` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:226:4
+    |
+226 | fn reject_unknown(body: &Value, allowed: &[&str]) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `required_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:241:4
+    |
+241 | fn required_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<String, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `optional_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:254:4
+    |
+254 | fn optional_ref(body: &Value, key: &str, schemes: &[&str]) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `ref_list` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:264:4
+    |
+264 | fn ref_list(body: &Value, key: &str, schemes: &[&str]) -> Result<Vec<String>, VErr> {
+    |    ^^^^^^^^
+
+warning: function `string_list` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:305:4
+    |
+305 | fn string_list(body: &Value, key: &str) -> Result<Vec<String>, VErr> {
+    |    ^^^^^^^^^^^
+
+warning: function `expected_revision` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:338:4
+    |
+338 | fn expected_revision(body: &Value, current: u64) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `fresh_tail` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:370:4
+    |
+370 | fn fresh_tail(
+    |    ^^^^^^^^^^
+
+warning: function `array_strings` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:390:4
+    |
+390 | fn array_strings(value: &Value, field: &str) -> Vec<String> {
+    |    ^^^^^^^^^^^^^
+
+warning: function `union_fields` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:402:4
+    |
+402 | fn union_fields(value: &Value, fields: &[&str]) -> BTreeSet<String> {
+    |    ^^^^^^^^^^^^
+
+warning: function `load_offer` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:504:4
+    |
+504 | fn load_offer(
+    |    ^^^^^^^^^^
+
+warning: function `load_resource` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:522:4
+    |
+522 | fn load_resource(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String> {
+    |    ^^^^^^^^^^^^^
+
+warning: function `load_capability` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:531:4
+    |
+531 | fn load_capability(data_dir: &str, id_or_tail: &str) -> Result<Option<Value>, String> {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `load_match_receipt` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:580:4
+    |
+580 | fn load_match_receipt(data_dir: &str, reference: &str) -> Result<Option<Value>, String> {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `scan_match_receipts` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:602:4
+    |
+602 | fn scan_match_receipts(data_dir: &str) -> Result<Vec<Value>, String> {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `participant_strict` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:783:4
+    |
+783 | fn participant_strict(data_dir: &str, participant_ref: &str) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `resolve_open_room` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:793:4
+    |
+793 | fn resolve_open_room(data_dir: &str, room_ref: &str) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `validate_common_create` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:821:4
+    |
+821 | fn validate_common_create(body: &Value) -> Result<(String, String), VErr> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_resource_create` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:835:4
+    |
+835 | fn validate_resource_create(body: &Value) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_capability_create` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:873:4
+    |
+873 | fn validate_capability_create(body: &Value) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_resource_pool_strict` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:911:4
+    |
+911 | fn load_resource_pool_strict(data_dir: &str, pool_id: &str) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolve_resource_backing` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:963:4
+    |
+963 | fn resolve_resource_backing(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_resource_backing_snapshot` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1012:4
+     |
+1012 | fn validate_resource_backing_snapshot(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resource_offer_expired_at` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1027:4
+     |
+1027 | fn resource_offer_expired_at(offer: &Value, resolved_at_ms: u64) -> Result<bool, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify_capability_backing` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1053:4
+     |
+1053 | fn verify_capability_backing(participant: &Value, declaration: &Value) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `participant_control_hash` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1171:4
+     |
+1171 | fn participant_control_hash(participant: &Value) -> String {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `offer_control_hash` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1191:4
+     |
+1191 | fn offer_control_hash(offer: &Value) -> String {
+     |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `collect_match_coverage` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1207:4
+     |
+1207 | fn collect_match_coverage(
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `existing_match_receipt_exact` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1333:4
+     |
+1333 | fn existing_match_receipt_exact(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `seal_intent` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1394:4
+     |
+1394 | fn seal_intent(mut intent: Value, tail: &str) -> Value {
+     |    ^^^^^^^^^^^
+
+warning: function `persist_and_complete_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1513:4
+     |
+1513 | fn persist_and_complete_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_read_converged` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1835:4
+     |
+1835 | fn ensure_read_converged(data_dir: &str) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `create_offer` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:1856:10
+     |
+1856 | async fn create_offer(
+     |          ^^^^^^^^^^^^
+
+warning: function `handle_resource_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2049:21
+     |
+2049 | pub(crate) async fn handle_resource_create(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_capability_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2055:21
+     |
+2055 | pub(crate) async fn handle_capability_create(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `transition_offer_http` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2069:10
+     |
+2069 | async fn transition_offer_http(
+     |          ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_resource_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2251:21
+     |
+2251 | pub(crate) async fn handle_resource_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_capability_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2258:21
+     |
+2258 | pub(crate) async fn handle_capability_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `selected_refs` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2266:4
+     |
+2266 | fn selected_refs(body: &Value, key: &str, resource: bool) -> Result<Vec<String>, VErr> {
+     |    ^^^^^^^^^^^^^
+
+warning: function `validate_claim_ref_selection` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2307:4
+     |
+2307 | fn validate_claim_ref_selection(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `load_selected_offers` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2342:4
+     |
+2342 | fn load_selected_offers(
+     |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `offer_coordinates` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2405:4
+     |
+2405 | fn offer_coordinates(offers: &[Value], field: &str) -> Vec<Value> {
+     |    ^^^^^^^^^^^^^^^^^
+
+warning: function `handle_match_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2409:21
+     |
+2409 | pub(crate) async fn handle_match_create(
+     |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_eligibility_for_claim_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2708:15
+     |
+2708 | pub(crate) fn validate_eligibility_for_claim_locked(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reauthorize_eligibility_for_claim` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2915:21
+     |
+2915 | pub(crate) async fn reauthorize_eligibility_for_claim(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `filter_rows` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:2994:4
+     |
+2994 | fn filter_rows(mut rows: Vec<Value>, query: &HashMap<String, String>) -> Vec<Value> {
+     |    ^^^^^^^^^^^
+
+warning: function `list_offers` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3013:10
+     |
+3013 | async fn list_offers(
+     |          ^^^^^^^^^^^
+
+warning: function `handle_resource_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3068:21
+     |
+3068 | pub(crate) async fn handle_resource_list(
+     |                     ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_capability_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3074:21
+     |
+3074 | pub(crate) async fn handle_capability_list(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `get_offer` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3080:10
+     |
+3080 | async fn get_offer(
+     |          ^^^^^^^^^
+
+warning: function `handle_resource_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3105:21
+     |
+3105 | pub(crate) async fn handle_resource_get(
+     |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_capability_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3111:21
+     |
+3111 | pub(crate) async fn handle_capability_get(
+     |                     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3117:10
+     |
+3117 | async fn overview(state: Arc<DaemonState>, resource: bool) -> (StatusCode, Json<Value>) {
+     |          ^^^^^^^^
+
+warning: function `handle_resource_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3157:21
+     |
+3157 | pub(crate) async fn handle_resource_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_capability_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3162:21
+     |
+3162 | pub(crate) async fn handle_capability_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_match_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3167:21
+     |
+3167 | pub(crate) async fn handle_match_list(
+     |                     ^^^^^^^^^^^^^^^^^
+
+warning: function `handle_match_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3207:21
+     |
+3207 | pub(crate) async fn handle_match_get(
+     |                     ^^^^^^^^^^^^^^^^
+
+warning: function `handle_match_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/resource_capability_offer_routes.rs:3233:21
+     |
+3233 | pub(crate) async fn handle_match_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decision_authority_posture` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:226:4
+    |
+226 | fn decision_authority_posture() -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decision_policy_hash` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:245:4
+    |
+245 | fn decision_policy_hash(gov: Gov, room_ref: &str, required_authority: &str, op: &str) -> String {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decision_request_hash` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:248:4
+    |
+248 | fn decision_request_hash(
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: type alias `VerifiedAuthorityResolution` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:298:6
+    |
+298 | type VerifiedAuthorityResolution = governed::VerifiedAuthorityResolution;
+    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `authorize_decision_for_resolution` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:304:4
+    |
+304 | fn authorize_decision_for_resolution(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `authorize_decision` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:344:10
+    |
+344 | async fn authorize_decision(
+    |          ^^^^^^^^^^^^^^^^^^
+
+warning: constant `UNAVAILABLE_REQUEST_TRANSITIONS` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:551:7
+    |
+551 | const UNAVAILABLE_REQUEST_TRANSITIONS: &[(&str, &str)] = &[
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `UNAVAILABLE_LEASE_TRANSITIONS` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:586:7
+    |
+586 | const UNAVAILABLE_LEASE_TRANSITIONS: &[(&str, &str)] = &[
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `nanos` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:632:4
+    |
+632 | fn nanos() -> u128 {
+    |    ^^^^^
+
+warning: function `live_request_exists` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:1396:4
+     |
+1396 | fn live_request_exists(data_dir: &str, room_ref: &str, principal: &str) -> Result<bool, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `strict_room_lease_refs` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:1438:4
+     |
+1438 | fn strict_room_lease_refs(
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `live_lease_exists` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:1501:4
+     |
+1501 | fn live_lease_exists(data_dir: &str, room_ref: &str, participant: &str) -> Result<bool, VErr> {
+     |    ^^^^^^^^^^^^^^^^^
+
+warning: function `finalize_submit` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:1775:4
+     |
+1775 | fn finalize_submit(
+     |    ^^^^^^^^^^^^^^^
+
+warning: function `finalize_record_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:1899:4
+     |
+1899 | fn finalize_record_transition(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `finalize_record_transition_with_work_claim` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:1975:4
+     |
+1975 | fn finalize_record_transition_with_work_claim(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `finalize_admit` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:2116:4
+     |
+2116 | fn finalize_admit(
+     |    ^^^^^^^^^^^^^^
+
+warning: function `http_err` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3292:4
+     |
+3292 | fn http_err(status: StatusCode, (code, msg): VErr) -> (StatusCode, Json<Value>) {
+     |    ^^^^^^^^
+
+warning: function `classify` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3299:4
+     |
+3299 | fn classify(e: VErr) -> (StatusCode, Json<Value>) {
+     |    ^^^^^^^^
+
+warning: function `handle_participation_request_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3323:21
+     |
+3323 | pub(crate) async fn handle_participation_request_create(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participation_requests_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3439:21
+     |
+3439 | pub(crate) async fn handle_participation_requests_list(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participation_request_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3487:21
+     |
+3487 | pub(crate) async fn handle_participation_request_get(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participation_request_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3515:21
+     |
+3515 | pub(crate) async fn handle_participation_request_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `transition_record` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3637:4
+     |
+3637 | fn transition_record(
+     |    ^^^^^^^^^^^^^^^^^
+
+warning: struct `RecordTransitionPlan` is never constructed
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3668:8
+     |
+3668 | struct RecordTransitionPlan {
+     |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `plan_record_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3676:4
+     |
+3676 | fn plan_record_transition(
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `transition_record_with_terminal_release` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3777:4
+     |
+3777 | fn transition_record_with_terminal_release(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participation_request_admit` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:3867:21
+     |
+3867 | pub(crate) async fn handle_participation_request_admit(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participant_leases_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:4098:21
+     |
+4098 | pub(crate) async fn handle_participant_leases_list(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participant_lease_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:4146:21
+     |
+4146 | pub(crate) async fn handle_participant_lease_get(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_participant_lease_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/room_participation_routes.rs:4174:21
+     |
+4174 | pub(crate) async fn handle_participant_lease_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Opened` is never constructed
+   --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:180:5
+    |
+178 | pub(crate) enum ReviewRequestOpenOutcome {
+    |                 ------------------------ variant in this enum
+179 |     /// A review request was opened; this is its locator.
+180 |     Opened {
+    |     ^^^^^^
+    |
+    = note: `ReviewRequestOpenOutcome` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `prior_effects` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:570:16
+    |
+564 | pub(crate) struct ScmPublicationSource {
+    |                   -------------------- field in this struct
+...
+570 |     pub(crate) prior_effects: Vec<Value>,
+    |                ^^^^^^^^^^^^^
+
+warning: function `execute_scm_publication` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1762:15
+     |
+1762 | pub(crate) fn execute_scm_publication<P: ScmRemotePort>(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `observation_tail` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1963:4
+     |
+1963 | fn observation_tail(observed: &ObservedHeads, target_ref: &str) -> String {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `refusal_err` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1982:4
+     |
+1982 | fn refusal_err(verdict: ioi_types::app::scm_publication::ScmPublicationVerdict) -> VErr {
+     |    ^^^^^^^^^^^
+
+warning: function `persist_effect_graph` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/scm_publication_routes.rs:1996:4
+     |
+1996 | fn persist_effect_graph(data_dir: &str, effect: &Value, now: &str) -> Result<Vec<Value>, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `lease_binds_env` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/supervisor_routes.rs:181:4
+    |
+181 | fn lease_binds_env(data_dir: &str, lease_id: &str, env_id: &str) -> bool {
+    |    ^^^^^^^^^^^^^^^
+
+warning: field `active_profile_set` is never read
+  --> crates/node/src/bin/hypervisor_daemon_routes/system_policy_routes.rs:30:9
+   |
+24 | pub(crate) struct ActiveSystemPolicies {
+   |                   -------------------- field in this struct
+...
+30 |     pub active_profile_set: Value,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: constant `MINIMUM_TOPOLOGY_ROUTE` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/system_topology_routes.rs:45:18
+   |
+45 | pub(crate) const MINIMUM_TOPOLOGY_ROUTE: &str =
+   |                  ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `transitions` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/system_writer_routes.rs:230:9
+    |
+225 | pub(crate) struct WriterSource {
+    |                   ------------ field in this struct
+...
+230 |     pub transitions: Vec<Value>,
+    |         ^^^^^^^^^^^
+
+warning: constant `LIST_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:33:7
+   |
+33 | const LIST_MAX: usize = 128;
+   |       ^^^^^^^^
+
+warning: constant `REFS_MAX` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:35:7
+   |
+35 | const REFS_MAX: usize = 64;
+   |       ^^^^^^^^
+
+warning: constant `KINDS` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:38:7
+   |
+38 | const KINDS: &[&str] = &[
+   |       ^^^^^
+
+warning: function `classify` is never used
+  --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:87:4
+   |
+87 | fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
+   |    ^^^^^^^^
+
+warning: function `ref_ok` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:148:4
+    |
+148 | fn ref_ok(value: &str, prefixes: &[&str]) -> bool {
+    |    ^^^^^^
+
+warning: function `reject_sensitive` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:158:4
+    |
+158 | fn reject_sensitive(value: &Value, path: &str) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `reject_unknown` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:200:4
+    |
+200 | fn reject_unknown(body: &Value, allowed: &[&str]) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `required_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:218:4
+    |
+218 | fn required_ref(body: &Value, field: &str, prefixes: &[&str]) -> Result<String, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `optional_ref` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:234:4
+    |
+234 | fn optional_ref(body: &Value, field: &str, prefixes: &[&str]) -> Result<Option<String>, VErr> {
+    |    ^^^^^^^^^^^^
+
+warning: function `ref_list` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:245:4
+    |
+245 | fn ref_list(
+    |    ^^^^^^^^
+
+warning: function `expected_revision` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:291:4
+    |
+291 | fn expected_revision(body: &Value, current: u64) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `fresh_tail` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:316:4
+    |
+316 | fn fresh_tail(prefix: &str, subject: &str, op: &str, revision: u64, at_ms: u64) -> String {
+    |    ^^^^^^^^^^
+
+warning: function `seal_intent` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:463:4
+    |
+463 | fn seal_intent(mut intent: Value, tail: &str) -> Value {
+    |    ^^^^^^^^^^^
+
+warning: function `coordinate` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:696:4
+    |
+696 | fn coordinate(reference: &str, record: &Value) -> Value {
+    |    ^^^^^^^^^^
+
+warning: function `historical_attempt_coordinate` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:700:4
+    |
+700 | fn historical_attempt_coordinate(reference: &str, attempt: &Value) -> Value {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple fields are never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:710:5
+    |
+709 | struct TargetDependencies {
+    |        ------------------ fields in this struct
+710 |     room: Value,
+    |     ^^^^
+711 |     challenger: Value,
+    |     ^^^^^^^^^^
+712 |     target: Value,
+    |     ^^^^^^
+713 |     target_kind: &'static str,
+    |     ^^^^^^^^^^^
+714 |     bound_attempt_ref: String,
+    |     ^^^^^^^^^^^^^^^^^
+715 |     work_result_ref: Option<String>,
+    |     ^^^^^^^^^^^^^^^
+716 |     attempts: Vec<(String, Value)>,
+    |     ^^^^^^^^
+717 |     work_result: Option<Value>,
+    |     ^^^^^^^^^^^
+    |
+    = note: `TargetDependencies` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: function `frozen_coordinates` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:906:4
+    |
+906 | fn frozen_coordinates(declaration: &Value, dependencies: &TargetDependencies) -> Value {
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_create` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:924:4
+    |
+924 | fn validate_create(body: &Value) -> Result<Value, VErr> {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `validate_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1052:4
+     |
+1052 | fn validate_transition(body: &Value, op: &str) -> Result<Value, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `persist_and_complete_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1429:4
+     |
+1429 | fn persist_and_complete_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `authorize` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1434:10
+     |
+1434 | async fn authorize(
+     |          ^^^^^^^^^
+
+warning: function `reservation_refs` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1451:4
+     |
+1451 | fn reservation_refs(declaration: &Value, subject: &str) -> Vec<String> {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `handle_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1472:21
+     |
+1472 | pub(crate) async fn handle_create(
+     |                     ^^^^^^^^^^^^^
+
+warning: function `handle_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1640:21
+     |
+1640 | pub(crate) async fn handle_transition(
+     |                     ^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_read_converged` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1842:4
+     |
+1842 | fn ensure_read_converged(data_dir: &str) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1862:21
+     |
+1862 | pub(crate) async fn handle_list(
+     |                     ^^^^^^^^^^^
+
+warning: function `handle_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1904:21
+     |
+1904 | pub(crate) async fn handle_get(
+     |                     ^^^^^^^^^^
+
+warning: function `handle_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1928:21
+     |
+1928 | pub(crate) async fn handle_overview(
+     |                     ^^^^^^^^^^^^^^^
+
+warning: function `refuse_acceptance_if_unresolved` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/verifier_challenge_routes.rs:1972:15
+     |
+1972 | pub(crate) fn refuse_acceptance_if_unresolved(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ROOM_FRONTIER_MAX` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:110:7
+    |
+110 | const ROOM_FRONTIER_MAX: usize = 256;
+    |       ^^^^^^^^^^^^^^^^^
+
+warning: static `TEST_ACQUIRE_BARRIERS` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:141:8
+    |
+141 | static TEST_ACQUIRE_BARRIERS: OnceLock<
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `classify` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:159:4
+    |
+159 | fn classify(error: VErr) -> (StatusCode, Json<Value>) {
+    |    ^^^^^^^^
+
+warning: function `expected_revision` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:406:4
+    |
+406 | fn expected_revision(body: &Value, current: u64) -> Result<(), VErr> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `new_intent_tail` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:445:4
+    |
+445 | fn new_intent_tail(subject_ref: &str, op: &str, revision: u64, resolved_at_ms: u64) -> String {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `new_receipt_tail` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:459:4
+    |
+459 | fn new_receipt_tail(
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `seal_intent` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:875:4
+    |
+875 | fn seal_intent(mut intent: Value, tail: &str) -> Value {
+    |    ^^^^^^^^^^^
+
+warning: function `compatible_duplication` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:1213:4
+     |
+1213 | fn compatible_duplication(frontier: &Value, claim: &Value) -> bool {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `frontier_by_ref` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2103:4
+     |
+2103 | fn frontier_by_ref<'a>(records: &'a [(String, Value)], reference: &str) -> Option<&'a Value> {
+     |    ^^^^^^^^^^^^^^^
+
+warning: function `dependency_cycle` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2110:4
+     |
+2110 | fn dependency_cycle(records: &[(String, Value)], candidate: &Value, candidate_ref: &str) -> bool {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `dependencies_ready` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2159:4
+     |
+2159 | fn dependencies_ready(records: &[(String, Value)], frontier: &Value) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `persist_and_complete_intent_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2375:4
+     |
+2375 | fn persist_and_complete_intent_locked(
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `effective_live_claims` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2501:4
+     |
+2501 | fn effective_live_claims(
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `resolve_room_open_strict` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2596:4
+     |
+2596 | fn resolve_room_open_strict(data_dir: &str, room_ref: &str) -> Result<Value, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `participant_strict` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2633:4
+     |
+2633 | fn participant_strict(data_dir: &str, participant_ref: &str) -> Result<Value, VErr> {
+     |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `test_acquire_barrier` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2648:10
+     |
+2648 | async fn test_acquire_barrier(frontier_ref: &str, max_concurrency: usize) {
+     |          ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_frontier_create` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2675:21
+     |
+2675 | pub(crate) async fn handle_frontier_create(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_frontier_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:2883:21
+     |
+2883 | pub(crate) async fn handle_frontier_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_claim_acquire` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3076:21
+     |
+3076 | pub(crate) async fn handle_claim_acquire(
+     |                     ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `claim_expired_at` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3561:4
+     |
+3561 | fn claim_expired_at(claim: &Value, wallet_time_ms: u64) -> bool {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: struct `PreparedParticipantTerminalClaim` is never constructed
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3568:19
+     |
+3568 | pub(crate) struct PreparedParticipantTerminalClaim {
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `prepare_participant_terminal_claim` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3583:21
+     |
+3583 | pub(crate) async fn prepare_participant_terminal_claim(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `build_participant_terminal_claim_intent_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3713:15
+     |
+3713 | pub(crate) fn build_participant_terminal_claim_intent_locked(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `complete_embedded_intent_locked` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3902:15
+     |
+3902 | pub(crate) fn complete_embedded_intent_locked(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_claim_transition` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:3910:21
+     |
+3910 | pub(crate) async fn handle_claim_transition(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_registry_error` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4209:4
+     |
+4209 | fn read_registry_error(message: String) -> (StatusCode, Json<Value>) {
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `ensure_read_converged` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4213:4
+     |
+4213 | fn ensure_read_converged(data_dir: &str) -> Result<(), VErr> {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_frontier_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4381:21
+     |
+4381 | pub(crate) async fn handle_frontier_list(
+     |                     ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_frontier_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4445:21
+     |
+4445 | pub(crate) async fn handle_frontier_get(
+     |                     ^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_frontier_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4470:21
+     |
+4470 | pub(crate) async fn handle_frontier_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `handle_claim_list` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4519:21
+     |
+4519 | pub(crate) async fn handle_claim_list(
+     |                     ^^^^^^^^^^^^^^^^^
+
+warning: function `handle_claim_get` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4583:21
+     |
+4583 | pub(crate) async fn handle_claim_get(
+     |                     ^^^^^^^^^^^^^^^^
+
+warning: function `handle_claim_overview` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/work_frontier_claim_routes.rs:4608:21
+     |
+4608 | pub(crate) async fn handle_claim_overview(
+     |                     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `replayed`, `projection`, and `agentgres_seq` are never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs:103:16
+    |
+100 | pub(crate) struct AppendReport {
+    |                   ------------ fields in this struct
+...
+103 |     pub(crate) replayed: bool,
+    |                ^^^^^^^^
+...
+109 |     pub(crate) projection: Value,
+    |                ^^^^^^^^^^
+110 |     /// The Agentgres stream sequence for a genuine append; `None` on replay.
+111 |     pub(crate) agentgres_seq: Option<u64>,
+    |                ^^^^^^^^^^^^^
+    |
+    = note: `AppendReport` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variant `OwnerRefMissing` is never constructed
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs:146:5
+    |
+128 | pub(crate) enum WorkLifecycleStoreError {
+    |                 ----------------------- variant in this enum
+...
+146 |     OwnerRefMissing,
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `WorkLifecycleStoreError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `append` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_lifecycle_routes.rs:339:19
+    |
+234 | impl WorkLifecycleStore {
+    | ----------------------- method in this implementation
+...
+339 |     pub(crate) fn append(&self, candidate: &Value) -> StoreResult<AppendReport> {
+    |                   ^^^^^^
+
+warning: field `record` is never read
+   --> crates/node/src/bin/hypervisor_daemon_routes/work_result_routes.rs:386:9
+    |
+384 | pub(crate) struct ResolvedWorkResult {
+    |                   ------------------ field in this struct
+385 |     pub content_hash: String,
+386 |     pub record: Value,
+    |         ^^^^^^
+    |
+    = note: `ResolvedWorkResult` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: function `provider_operation_count` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs:369:4
+    |
+369 | fn provider_operation_count(data_dir: &str, provider_id: &str, environment_ref: &str) -> u64 {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `consume_guest_effect_capability` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs:416:4
+    |
+416 | fn consume_guest_effect_capability<F>(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `consume_guest_effect_proposal_bytes` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs:624:15
+    |
+624 | pub(crate) fn consume_guest_effect_proposal_bytes<F>(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `consume_guest_static_provider_operation_bytes` is never used
+   --> crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs:640:15
+    |
+640 | pub(crate) fn consume_guest_static_provider_operation_bytes(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `reconcile_guest_static_provider_operation` is never used
+    --> crates/node/src/bin/hypervisor_daemon_routes/workload_effect_boundary.rs:1045:15
+     |
+1045 | pub(crate) fn reconcile_guest_static_provider_operation(
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `ioi-node` (bin "hypervisor-daemon") generated 270 warnings (run `cargo fix --bin "hypervisor-daemon" -p ioi-node` to apply 8 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 57.16s

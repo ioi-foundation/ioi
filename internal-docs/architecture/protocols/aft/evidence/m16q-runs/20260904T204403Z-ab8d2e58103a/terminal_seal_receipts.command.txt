@@ -1,0 +1,1 @@
+[M16Q] START terminal_seal_receipts: cargo test -p ioi-finality --features portable-assurance --lib portable_assurance::tests 

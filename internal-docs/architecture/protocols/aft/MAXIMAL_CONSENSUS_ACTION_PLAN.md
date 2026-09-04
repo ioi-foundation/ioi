@@ -554,11 +554,12 @@ exercise to terminal safety.
 | M18Q | QUV public admission | Exact known-synchronous online claim admitted on an immutable release; portable finality remains false |
 
 Only one milestone may be the critical path. Exact R5 qualification closed M10
-and `AFT-M10-003`; local implementation evidence at `ce34c31a9` closes M15Q
-subject to M17Q review, and M16Q is now the critical path. Original M13-M18 remain
-blocked by M12a. M13Q-M18Q are the separately named interactive path admitted
-by M12b's independently reviewed `PASS_CONSTRUCTION`, and remain non-production
-claims until their own gates close.
+and `AFT-M10-003`; local implementation evidence closes M15Q subject to M17Q
+review; and the clean 15-phase run at code commit `ab8d2e58103a` closes M16Q.
+M17Q is now the critical path. Original M13-M18 remain blocked by M12a.
+M13Q-M18Q are the separately named interactive path admitted by M12b's
+independently reviewed `PASS_CONSTRUCTION`, and remain non-production claims
+until their own gates close.
 
 ## 7. Evidence and issue discipline
 
@@ -614,16 +615,22 @@ resume point and the minimum evidence the owner must supply.
 1. Preserve M10's closed R5 qualification and the exact M12b R4
    `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
-2. Preserve M15Q's locally complete implementation at `ce34c31a9` or its
-   evidence-only descendant. The eight-process disjoint-root fixture covers
+2. Preserve M15Q's locally complete implementation through code commit
+   `ab8d2e58103a`. The eight-process disjoint-root fixture covers
    pre-install restart, the state-durable/anchor-pending crash window, exact
    recovery, rollback restoration refusal, successor progress, ceremony, and
    executor-to-T10 consequence execution. The seven-process overlap fixture
    proves a retained member performs and recovers its own successor-scoped
    live authorization. Keep all audit evidence non-authorizing and do not
    reopen portable receipt authority.
-3. Execute M16Q against the bounded QUV scheduling architecture. Qualify Q-A3
-   and Q-A9 with load, deadline-edge, restart, rollback, flood, replay,
-   reconfiguration, mixed-domain, and externalization campaigns.
-4. Keep original M13-M18 blocked and `portable_final_receipt=false`; do not
-   admit a public QUV claim until M16Q/M17Q pass.
+3. Preserve the complete clean M16Q run at
+   `evidence/m16q-runs/20260904T204403Z-ab8d2e58103a` and its exact source and
+   artifact hashes. Do not reinterpret a passing bounded campaign as a proof
+   beyond its recorded scope.
+4. Execute M17Q against the frozen evidence-bearing candidate. Require fresh
+   source/theorem inspection, clean reproduction of the full M16Q runner, an
+   independent spec-only executable twin, an independence disclosure, and
+   stable attributable findings. Remediate critical/high findings and obtain a
+   fresh review of the replacement candidate.
+5. Keep original M13-M18 blocked and `portable_final_receipt=false`; do not
+   admit a public QUV claim until M17Q and M18Q pass.
