@@ -34,10 +34,15 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { SKELETONS, SIBLINGS, GRID, INK, GROUND, svg, scanAt } from "./skeletons.mjs";
+// `--set r2` measures the round-two skeletons. Round one stays on disk unchanged so
+// its plates and its verdicts remain the record of what was killed and why.
+const setArg = process.argv.indexOf("--set");
+const SET = setArg > -1 ? process.argv[setArg + 1] : null;
+const { SKELETONS, SIBLINGS, GRID, INK, GROUND, svg, scanAt } =
+  await import(SET ? `./skeletons-${SET}.mjs` : "./skeletons.mjs");
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.join(HERE, "../.artifacts/skeletons");
+const OUT = path.join(HERE, "../.artifacts", SET ? `skeletons-${SET}` : "skeletons");
 const SIZES = [16, 24, 96];
 const PRODUCT_SIZES = [16, 24];
 
@@ -116,6 +121,28 @@ function cueCentre(imA, imB) {
   return wt ? { x: sx / wt, y: sy / wt, wt } : null;
 }
 
+// 4 ── the top-edge profile, and how much of it survives
+// Round one's survivor died on a fault no probe here could see: both readers said
+// the taper that made it interesting flattens at 16px into a plain rectangle. That
+// is measurable, so it is now measured. For each column, find the topmost inked row;
+// the profile is that series. The RISE is the difference between its ends, in device
+// pixels, and it is cross-checked against the rise the geometry declares.
+function topProfile(im) {
+  const tops = [];
+  for (let x = 0; x < im.w; x++) {
+    let top = null;
+    for (let y = 0; y < im.h; y++) if (lum(im.d, y * im.w + x) < INK_AT) { top = y; break; }
+    if (top !== null) tops.push({ x, top });
+  }
+  if (tops.length < 3) return null;
+  // Ends are averaged over the outer eighth so one antialiased column cannot set the
+  // answer; a single-column read is what makes a 1px measurement look like a slope.
+  const k = Math.max(1, Math.round(tops.length / 8));
+  const avg = (a) => a.reduce((s, p) => s + p.top, 0) / a.length;
+  const left = avg(tops.slice(0, k)), right = avg(tops.slice(-k));
+  return { rise: left - right, left, right, cols: tops.length, k };
+}
+
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const minPairwise = (pts) => {
   let m = Infinity;
@@ -187,6 +214,24 @@ const control = (what, passed, detail) => {
   control("four runs rejected against a claim of two", s.runs.length !== 2, `${s.runs.length} runs against a claim of 2`);
 }
 
+// (f) the slant probe must find a slope that is there, and must NOT find one that
+//     is not. A flat-topped rectangle scoring a rise would make every taper look
+//     safe; a 24-unit taper going unmeasured would make every taper look doomed.
+{
+  const flat = `<svg width="16" height="16" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/>` +
+    `<rect x="8" y="30" width="80" height="40" fill="${INK}"/></svg>`;
+  const p = topProfile(await pixels(await shoot(flat, 16)));
+  control("flat top edge reported as NO rise", p !== null && Math.abs(p.rise) < 0.5, `rise ${p ? p.rise.toFixed(2) : "n/a"}px`);
+
+  const sloped = `<svg width="16" height="16" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/>` +
+    `<polygon points="8,54 88,6 88,86 8,86" fill="${INK}"/></svg>`;
+  const q = topProfile(await pixels(await shoot(sloped, 16)));
+  const want = 48 * 16 / GRID;   // a declared 48-unit rise is 8 device px at 16px
+  control("a 48-unit taper measured against its closed form",
+    q !== null && Math.abs(q.rise - want) <= Math.max(0.75, want * 0.2),
+    `measured ${q ? q.rise.toFixed(2) : "n/a"}px, closed form ${want.toFixed(2)}px`);
+}
+
 if (!controlsOk) {
   console.error("\nABORTING: a probe failed to report the defect it exists to catch. Nothing below would mean anything.");
   await browser.close();
@@ -199,7 +244,8 @@ for (const sk of SKELETONS) {
   console.log(`\n── ${sk.name}  (${sk.id}, ${sk.origin})`);
   console.log(`   ${sk.thesis}`);
 
-  const row = { id: sk.id, name: sk.name, sizes: {} };
+  if (sk.hook) console.log(`   hook: ${sk.hook}`);
+  const row = { id: sk.id, name: sk.name, hook: sk.hook || null, sizes: {} };
   let refused = false, crossCheckFailed = false;
 
   for (const size of SIZES) {
@@ -242,6 +288,32 @@ for (const sk of SKELETONS) {
 
   // cue separation + closed-form cross-check, at product sizes only
   for (const size of PRODUCT_SIZES) {
+    // An APERTURE cue does not move, it opens: the differencing centre sits in the
+    // same place for all three siblings and a position probe would report zero and
+    // call the cue dead. What varies is the width of the gap, so that is what is
+    // measured — from the same scan the separation probe uses.
+    if (sk.cueIs === "aperture") {
+      const widths = [];
+      for (const k of SIBLINGS) {
+        const im = await pixels(await shoot(svg(sk, size, k), size));
+        const s = separation(im, sk.separation.axis, scanAt(sk, k));
+        widths.push(s.gaps.length ? Math.max(...s.gaps) : 0);
+      }
+      const sorted = [...widths].sort((a, b) => a - b);
+      const measured = Math.min(...sorted.slice(1).map((v, i) => v - sorted[i]));
+      const declared = Math.min(...SIBLINGS.map((k, i) => i === 0 ? Infinity
+        : Math.abs(sk.apertures[SIBLINGS[i]] - sk.apertures[SIBLINGS[i - 1]])));
+      const expected = declared * size / GRID;
+      const agrees = Math.abs(measured - expected) <= Math.max(1, expected * 0.4);
+      if (!agrees) crossCheckFailed = true;
+      console.log(
+        `   ${String(size).padStart(2)}px  cue (aperture): gaps ${widths.join("/")}px  smallest step ${measured.toFixed(2)}px  ` +
+        `closed form ${expected.toFixed(2)}px  ${agrees ? "agree" : "DISAGREE — measurement rejected"}  ` +
+        `${measured >= MIN_VISIBLE_PX ? "DISTINGUISHABLE" : "not distinguishable"}`
+      );
+      row.sizes[size] = { ...row.sizes[size], cue: measured, cueExpected: expected, agrees, distinguishable: measured >= MIN_VISIBLE_PX };
+      continue;
+    }
     const base = await pixels(await shoot(svg(sk, size, null), size));
     const centres = [];
     for (const k of SIBLINGS) {
@@ -265,7 +337,32 @@ for (const sk of SKELETONS) {
     row.sizes[size] = { ...row.sizes[size], cue: measured, cueExpected: expected, agrees, distinguishable };
   }
 
-  row.verdict = crossCheckFailed ? "measurement-rejected" : refused ? "fails-at-product-size" : "survives-measurement";
+  // Does the silhouette's own slope survive product size? Declared in grid units by
+  // the skeleton; measured off the rendered top-ink profile; the two are compared.
+  // A rise under one device pixel is a slope nobody sees, whatever the drawing says.
+  let slantDead = false;
+  if (typeof sk.topRise === "number") {
+    for (const size of PRODUCT_SIZES) {
+      const p = topProfile(await pixels(await shoot(svg(sk, size, sk.separationOn || "cloud"), size)));
+      const expected = sk.topRise * size / GRID;
+      const measured = p ? p.rise : 0;
+      const agrees = Math.abs(measured - expected) <= Math.max(0.75, Math.abs(expected) * 0.25);
+      if (!agrees) crossCheckFailed = true;
+      const visible = Math.abs(measured) >= MIN_VISIBLE_PX;
+      if (sk.topRise !== 0 && !visible) slantDead = true;
+      console.log(
+        `   ${String(size).padStart(2)}px  top edge: measured rise ${measured.toFixed(2)}px  ` +
+        `closed form ${expected.toFixed(2)}px  ${agrees ? "agree" : "DISAGREE — measurement rejected"}  ` +
+        `${sk.topRise === 0 ? "flat by declaration" : visible ? "SLANT HOLDS" : "SLANT FLATTENS"}`
+      );
+      row.sizes[size] = { ...row.sizes[size], rise: measured, riseExpected: expected };
+    }
+  }
+
+  row.verdict = crossCheckFailed ? "measurement-rejected"
+    : refused ? "fails-at-product-size"
+    : slantDead ? "silhouette-flattens-at-product-size"
+    : "survives-measurement";
   console.log(`   → ${row.verdict}`);
   for (const h of sk.hazards) console.log(`     hazard: ${h}`);
   verdicts.push(row);
@@ -275,7 +372,16 @@ for (const sk of SKELETONS) {
 // One PNG per skeleton per product size, named by a letter rather than by the
 // concept, so the reader is shown a drawing and not a description of it.
 if (process.argv.includes("--plates")) {
-  const letters = "ABCDE";
+  // Round one's plates are A-E. A later set gets its own letters so a reader who has
+  // seen one round cannot carry a verdict across on the strength of a shared label —
+  // and so a six-skeleton set does not silently write a file called "undefined",
+  // which is what a five-letter alphabet did the first time this ran.
+  const letters = SET ? "PQRSTUVW" : "ABCDE";
+  if (SKELETONS.length > letters.length) {
+    console.error(`REFUSING to plate: ${SKELETONS.length} skeletons against ${letters.length} letters.`);
+    await browser.close();
+    process.exit(2);
+  }
   // The mark a reader is shown is a SIBLING, not the differencing base. The base is
   // an instrument — the same drawing with the cue removed so the cue can be isolated
   // — and for three of these five it is the concept with its idea taken out: the
