@@ -91,6 +91,11 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`evidence/m14q-quv-e2e-theorem-local-evidence-2026-09-03.md`](./evidence/m14q-quv-e2e-theorem-local-evidence-2026-09-03.md)
   — 16-obligation arbitrary-set ordering/consequence lift plus reproduced T10
   at-most-once resource boundary and live-handoff scope.
+- [`evidence/m15q-quv-handoff-restart-ceremony-local-evidence-2026-09-04.md`](./evidence/m15q-quv-handoff-restart-ceremony-local-evidence-2026-09-04.md)
+  — eight-process disjoint-root live handoff, exact rollback-anchored successor
+  restart, post-recovery progress, and non-authorizing operator ceremony at
+  commit `252e03573`; M15Q remains open on the remaining restart matrix and
+  real executor-to-T10 process path.
 - [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
   — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
