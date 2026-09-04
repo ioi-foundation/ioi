@@ -136,6 +136,29 @@ async function read(path) {
 
 const surface = document.getElementById("surface");
 
+// ── Which surface is the reader actually looking at? ─────────────────────────
+// Every render is async, and a slow read outlives the click that started it. A
+// 31-second Sources response landing after the reader moved to Receipts will
+// happily call replaceChildren and paint Sources' data under Receipts' heading and
+// aria-current, with no signal that it did.
+//
+// That is disqualifying on THIS surface in particular. The whole claim here is that
+// you can always tell where a number came from; a page that shows one surface's
+// data under another surface's label breaks exactly the promise it exists to make.
+//
+// So: a generation counter bumped on every navigation, captured before each await,
+// and checked before anything reaches the DOM. A late response from a superseded
+// surface returns instead of painting. Routed through one function so a render
+// cannot bypass the check by forgetting it.
+let generation = 0;
+const currentGeneration = () => generation;
+
+function paint(mine, ...nodes) {
+  if (mine !== generation) return false;
+  surface.replaceChildren(...nodes);
+  return true;
+}
+
 // Cold start renders the daemon's own default intent, which already exists and is
 // reachable by a GET. `?intent=` overrides it. Creating an intent with custom
 // constraints is a write, and this surface performs none.
@@ -146,9 +169,9 @@ const waiting = (what) =>
   el("div", { class: "stack", style: "gap: 10px;" },
     el("p", { class: "prose" }, `Asking the daemon for ${what}.`),
     el("p", { class: "prose" },
-      "A full candidate sweep has taken up to 38.8 seconds here against one live adapter, " +
-      "so this can be slow. Nothing is shown until it answers — an invented placeholder " +
-      "would be indistinguishable from a real quote."));
+      "A full candidate sweep is slow — it asks every live venue in turn. Nothing is " +
+      "shown until it answers: an invented placeholder would be indistinguishable from " +
+      "a real quote."));
 
 const failure = (r) =>
   el("div", { class: "panel fault stack", style: "gap: 8px;" },
@@ -171,7 +194,8 @@ function setRefreshChip(state) {
 }
 
 async function renderCandidates({ silent = false } = {}) {
-  if (!silent || !lastPaint) surface.replaceChildren(waiting("candidates"));
+  const mine = currentGeneration();
+  if (!silent || !lastPaint) paint(mine, waiting("candidates"));
   else {
     lastPaint.classList.add("stale");
     setRefreshChip("refreshing");
@@ -180,6 +204,7 @@ async function renderCandidates({ silent = false } = {}) {
     read(`/api/candidates?intent_ref=${encodeURIComponent(intentRef)}`),
     read("/api/face-config"),
   ]);
+  if (mine !== currentGeneration()) return; // the reader has moved on
   setRefreshChip("idle");
   if (!r.ok) {
     // A failed refresh does not erase a good earlier reading; it is shown beside it.
@@ -188,7 +213,7 @@ async function renderCandidates({ silent = false } = {}) {
       lastPaint.prepend(failure(r));
       return;
     }
-    return surface.replaceChildren(failure(r));
+    return paint(mine, failure(r));
   }
   const cadence = config.ok ? config.body?.refresh_cadence_seconds : null;
 
@@ -320,7 +345,12 @@ async function renderCandidates({ silent = false } = {}) {
               dial(observedIso, dueIso),
               el("span", { class: "meta", "data-due": dueIso }, "—"),
               el("span", { class: "meta" },
-                `· the refresher sweeps every ${Math.round(cadence / 60)} minutes and a sweep takes about 39s`))
+                // The cadence is a declared fact the face is told. The sweep DURATION
+                // was a hardcoded "about 39s" written as though measured — the review
+                // measured 31.6s. A number presented as measured must come from a
+                // measurement or not be shown, so it is gone: the cadence is stated
+                // because it is known, and the duration is not because it is not.
+                `· the refresher sweeps every ${Math.round(cadence / 60)} minutes`))
           : el("div", { class: "meta" },
               "No refresh cadence is declared to this surface, so it makes no claim about " +
               "when the next batch lands. The quote windows below are still exact."),
@@ -338,8 +368,7 @@ async function renderCandidates({ silent = false } = {}) {
         "can be traced back to. Simulator lanes are excluded from the table, from the " +
         "venue count, and from any fee."));
 
-  surface.replaceChildren(painted);
-  lastPaint = painted;
+  if (paint(mine, painted)) lastPaint = painted;
 }
 
 // The page re-reads on the same cadence the refresher sweeps on, so what is shown
@@ -355,9 +384,12 @@ setInterval(() => {
 
 // ── Sources ──────────────────────────────────────────────────────────────────
 async function renderSources() {
-  surface.replaceChildren(waiting("source health"));
+  // This is the read the reviewer's race fired on: measured at 31s, long enough for
+  // a reader to click away twice before it lands.
+  const mine = currentGeneration();
+  paint(mine, waiting("source health"));
   const r = await read("/api/candidate-sources");
-  if (!r.ok) return surface.replaceChildren(failure(r));
+  if (!r.ok) return paint(mine, failure(r));
 
   const sources = Array.isArray(r.body.sources) ? r.body.sources : [];
   const quoting = sources.filter((s) => s.state === "live_quote_source");
@@ -374,7 +406,7 @@ async function renderSources() {
       el("div", { class: "srow-reason" }, s.reason || s.coverage || s.rule || ""));
   };
 
-  surface.replaceChildren(
+  paint(mine,
     el("div", { class: "stack", style: "gap: 24px;" },
       el("div", { class: "stack", style: "gap: 10px;" },
         el("h1", {}, "Sources"),
@@ -388,12 +420,13 @@ async function renderSources() {
 
 // ── Placement advisory ───────────────────────────────────────────────────────
 async function renderPlacement() {
-  surface.replaceChildren(waiting("the placement advisory"));
+  const mine = currentGeneration();
+  paint(mine, waiting("the placement advisory"));
   const [advisory, venues] = await Promise.all([
     read(`/api/placement-advisory${intentRef ? `?intent_ref=${encodeURIComponent(intentRef)}` : ""}`),
     read("/api/venues"),
   ]);
-  if (!advisory.ok) return surface.replaceChildren(failure(advisory));
+  if (!advisory.ok) return paint(mine, failure(advisory));
 
   // This surface used to be `JSON.stringify(advisory.body)` in a <pre>. An independent
   // review measured the result: 6,518,626 characters, 153,008 lines, a document
@@ -418,7 +451,7 @@ async function renderPlacement() {
         el("span", { class: "eyebrow" }, label),
         typeof value === "string" && kind !== undefined ? chip(value, kind) : el("span", { class: "mono" }, String(value))));
 
-  surface.replaceChildren(
+  paint(mine,
     el("div", { class: "stack", style: "gap: 24px;" },
       el("h1", {}, "Placement"),
       el("p", { class: "prose" },
@@ -478,7 +511,7 @@ function renderJob() {
       el("div", { class: "field-box" }, el("span", {}, value), el("span", { class: "mono" }, "▾")),
       hint ? el("div", { class: "field-hint" }, hint) : null);
 
-  surface.replaceChildren(
+  paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 26px;" },
       el("div", { class: "panel absent stack", style: "gap: 8px;" },
         el("div", { class: "eyebrow" }, "designed, not connected"),
@@ -574,7 +607,7 @@ function renderRedundancy() {
       el("p", { class: "prose" }, whenItHelps),
       el("p", { class: "prose" }, whatItCosts));
 
-  surface.replaceChildren(
+  paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 26px;" },
       el("div", { class: "panel absent stack", style: "gap: 8px;" },
         el("div", { class: "eyebrow" }, "designed, not connected"),
@@ -629,7 +662,7 @@ function renderReceipts() {
       el("div", { class: "srow-reason" }, answers),
       el("div", { class: "mono", style: "font-size: 12px; color: var(--label);" }, fields));
 
-  surface.replaceChildren(
+  paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 26px;" },
       el("div", { class: "panel absent stack", style: "gap: 8px;" },
         el("div", { class: "eyebrow" }, "designed, not connected"),
@@ -675,7 +708,7 @@ function renderApi() {
       el("div", { class: "srow-reason mono", style: "font-size: 12px;" }, daemon),
       el("div", { class: "srow-reason" }, note));
 
-  surface.replaceChildren(
+  paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 24px;" },
       el("h1", {}, "API"),
       el("p", { class: "prose" },
@@ -711,6 +744,9 @@ const SURFACES = {
 
 for (const button of document.querySelectorAll(".nav button")) {
   button.addEventListener("click", () => {
+    // Bump FIRST: every read already in flight is now for a surface the reader has
+    // left, and must not paint. This is the line that makes the guard work.
+    generation += 1;
     for (const b of document.querySelectorAll(".nav button")) b.removeAttribute("aria-current");
     button.setAttribute("aria-current", "page");
     // Leaving candidates drops the stale-paint handle: a batch rendered before the
