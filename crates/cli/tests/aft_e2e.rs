@@ -777,6 +777,17 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             )
             .await?;
         }
+        // Retired old-root processes have no post-activation role. Stop them
+        // before measuring successor liveness so an eight-process fixture on
+        // a four-core qualification host does not turn retired busy work into
+        // an undeclared scheduler adversary. This also strengthens the
+        // handoff check: successor progress must not depend on old members.
+        for (_, index, _) in &keyed[..4] {
+            cluster.validators[*index]
+                .validator_mut()
+                .kill_orchestration()
+                .await?;
+        }
         // Only the rooted successor set is required to carry post-handoff
         // ordering. Retired members are not implicitly observers: that would
         // give their retired validator credentials an undocumented role after
