@@ -17,7 +17,11 @@ use super::lifecycle_routes::open_scm_token;
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 const HEALTH_KIND: &str = "runpod-source-health";
-const DEFAULT_ENDPOINT: &str = "https://rest.runpod.io/v1";
+/// The CATALOG lives on GraphQL. This is deliberately NOT the REST base used by the
+/// pod lifecycle in provider_routes — `POST /v1/pods` is real and stays where it is;
+/// it is only the GPU-type catalog that has no REST endpoint. Two different RunPod
+/// APIs, one key, and conflating them is what produced a 400 on every live fetch.
+const DEFAULT_ENDPOINT: &str = "https://api.runpod.io/graphql";
 
 fn text<'a>(v: &'a Value, k: &str) -> &'a str {
     v.get(k).and_then(Value::as_str).unwrap_or("")
@@ -138,7 +142,20 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
         persist_health(&st.data_dir, &health_record(&outcome));
         return outcome;
     }
-    // ── live: the real RunPod REST GPU-type catalog. Read-only; bearer in-daemon only. ──
+    // ── live: the real RunPod GPU-type catalog. Read-only; bearer in-daemon only. ──
+    //
+    // CORRECTED 2026-09-04. This path previously did `GET {rest.runpod.io/v1}/gpus`,
+    // which returned HTTP 400 because THAT ENDPOINT DOES NOT EXIST. RunPod's REST API
+    // (openapi.json) exposes pods, endpoints, templates, networkvolumes,
+    // containerregistryauth and billing — and no GPU catalog at all. The catalog and
+    // its pricing live on the GraphQL API. The adapter had been green on fixtures and
+    // simulator lanes only, so nothing ever exercised the live URL; this is the second
+    // fixture-green lane this programme has caught, and the reason a fixture lane is
+    // never evidence that a live lane works.
+    //
+    // `lowestPrice` is asked twice under aliases because the normalizer wants the
+    // secure and community lanes separately: secure-cloud on-demand is preferred, and
+    // community pricing carries an explicit interruption-risk label.
     let base = {
         let configured = text(&ep, "endpoint");
         if configured.is_empty() {
@@ -147,9 +164,13 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
             configured.trim_end_matches('/').to_string()
         }
     };
+    const CATALOG_QUERY: &str = "query { gpuTypes { id displayName memoryInGb \
+        secure: lowestPrice(input: { gpuCount: 1, secureCloud: true }) { uninterruptablePrice stockStatus } \
+        community: lowestPrice(input: { gpuCount: 1, secureCloud: false }) { uninterruptablePrice stockStatus } } }";
     let resp = reqwest::Client::new()
-        .get(format!("{base}/gpus"))
+        .post(&base)
         .bearer_auth(bearer.unwrap_or_default())
+        .json(&json!({ "query": CATALOG_QUERY }))
         .timeout(Duration::from_secs(12))
         .send()
         .await;
@@ -157,17 +178,56 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
         Ok(r) => {
             let status = r.status().as_u16();
             match r.json::<Value>().await {
-                Ok(doc) if (200..300).contains(&status) => {
-                    let offers = doc
-                        .as_array()
+                // GraphQL answers 200 even when it refuses, with the refusal in
+                // `errors`. Treating any 200 as success would turn a rejected query
+                // into an empty catalog and an empty catalog into "no supply", which
+                // is a lie of omission rather than a fetch failure.
+                Ok(doc)
+                    if (200..300).contains(&status)
+                        && doc
+                            .get("errors")
+                            .and_then(Value::as_array)
+                            .map(|e| e.is_empty())
+                            .unwrap_or(true) =>
+                {
+                    let types = doc
+                        .pointer("/data/gpuTypes")
+                        .and_then(Value::as_array)
                         .cloned()
-                        .or_else(|| doc.get("gpus").and_then(Value::as_array).cloned())
-                        .or_else(|| doc.get("data").and_then(Value::as_array).cloned())
                         .unwrap_or_default();
+                    let offers: Vec<Value> = types.iter().map(flatten_gpu_type).collect();
+                    let priced = offers
+                        .iter()
+                        .filter(|o| {
+                            o.get("securePrice").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
+                                || o.get("communityPrice").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
+                        })
+                        .count();
                     json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
                         "state": "live_quote_source", "offers": offers,
-                        "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status, "gpu_types_seen": offers.len() },
+                        "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status,
+                                      "gpu_types_seen": offers.len(), "gpu_types_priced": priced,
+                                      "query": "gpuTypes { id displayName memoryInGb secure/community lowestPrice(gpuCount:1) { uninterruptablePrice stockStatus } }" },
                         "at": fetched_at })
+                }
+                // A 200 carrying GraphQL `errors` is degraded WITH the body's own text.
+                Ok(doc) if (200..300).contains(&status) => {
+                    let detail = doc
+                        .get("errors")
+                        .and_then(Value::as_array)
+                        .map(|errs| {
+                            errs.iter()
+                                .filter_map(|e| e.get("message").and_then(Value::as_str))
+                                .collect::<Vec<_>>()
+                                .join("; ")
+                        })
+                        .unwrap_or_default();
+                    json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
+                    "state": "degraded_unreachable", "offers": [],
+                    "evidence": { "mode": "live_evidence", "endpoint": base, "http_status": status,
+                                  "error": format!("runpod graphql refused the query: {detail}"),
+                                  "note": "no fake quotes on failure" },
+                    "at": fetched_at })
                 }
                 Ok(doc) => {
                     json!({ "engaged": true, "mode": "live_evidence", "account_ref": account_ref,
@@ -192,6 +252,50 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
     };
     persist_health(&st.data_dir, &health_record(&outcome));
     outcome
+}
+
+/// A lane (secure or community) is quotable only when it carries a real price AND is
+/// not explicitly out of stock. "Out of stock" is defined NARROWLY and on purpose: a
+/// `stockStatus` that names the absence of stock. An absent or unrecognised status is
+/// UNKNOWN, not out-of-stock — it rides along as evidence and the price still counts,
+/// because inventing an availability verdict the API did not give would be the same
+/// class of error as inventing a price. A type that is out of stock is not a quote:
+/// a rate for capacity nobody can have is a number, not an offer.
+fn lane_price(node: Option<&Value>) -> (Option<f64>, Value) {
+    let Some(node) = node.filter(|n| !n.is_null()) else {
+        return (None, Value::Null);
+    };
+    let status = node.get("stockStatus").cloned().unwrap_or(Value::Null);
+    let out_of_stock = status
+        .as_str()
+        .map(|s| {
+            let s = s.trim().to_ascii_lowercase();
+            s == "none" || s == "out_of_stock" || s == "unavailable"
+        })
+        .unwrap_or(false);
+    let price = node
+        .get("uninterruptablePrice")
+        .and_then(Value::as_f64)
+        .filter(|p| *p > 0.0)
+        .filter(|_| !out_of_stock);
+    (price, status)
+}
+
+/// Flatten one GraphQL `gpuTypes` node into the shape the normalizer already reads.
+/// The normalizer is untouched by the transport fix: it wants `securePrice`,
+/// `communityPrice`, `id`, `displayName` and `memoryInGb`, so that is what it gets.
+fn flatten_gpu_type(node: &Value) -> Value {
+    let (secure, secure_stock) = lane_price(node.get("secure"));
+    let (community, community_stock) = lane_price(node.get("community"));
+    json!({
+        "id": node.get("id").cloned().unwrap_or(Value::Null),
+        "displayName": node.get("displayName").cloned().unwrap_or(Value::Null),
+        "memoryInGb": node.get("memoryInGb").cloned().unwrap_or(Value::Null),
+        "securePrice": secure,
+        "communityPrice": community,
+        "secureStockStatus": secure_stock,
+        "communityStockStatus": community_stock,
+    })
 }
 
 /// Normalize RunPod GPU-type quotes into CloudResourceCandidates. RunPod semantics preserved:
@@ -256,7 +360,18 @@ pub(crate) fn normalize_offers(
             "quote_ref": format!("provider-quote://{id}"),
             "usd_per_hour": dph,
             "currency": "USD",
-            "basis": format!("runpod {cloud_type} rate (verbatim)"),
+            // The basis names the FIELD the number came from, not just the lane, so a
+            // reader can trace a price back to the exact catalog value it is.
+            "basis": if cloud_type == "secure_cloud_on_demand" {
+                "runpod gpuTypes.lowestPrice uninterruptablePrice, secureCloud true (verbatim)"
+            } else {
+                "runpod gpuTypes.lowestPrice uninterruptablePrice, community cloud (verbatim)"
+            },
+            "stock_status": if cloud_type == "secure_cloud_on_demand" {
+                gpu.get("secureStockStatus").cloned().unwrap_or(Value::Null)
+            } else {
+                gpu.get("communityStockStatus").cloned().unwrap_or(Value::Null)
+            },
             "offer_id": type_id,
             "cloud_type": cloud_type,
             "observed_at": observed_at,

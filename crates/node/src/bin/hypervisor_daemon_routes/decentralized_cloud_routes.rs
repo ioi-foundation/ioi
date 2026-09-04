@@ -98,6 +98,14 @@ pub(crate) fn ensure_default_intent(data_dir: &str) -> Value {
     record
 }
 
+/// Seam B — a job envelope builds its one intent through the SAME builder the intents
+/// route uses, rather than assembling a parallel record that would drift. A job's
+/// intent and a directly-created intent must be the same shape, or the candidate plane
+/// is reading two different things under one name.
+pub(crate) fn intent_record_for_job(id: &str, body: &Value) -> Value {
+    intent_record(id, body)
+}
+
 fn intent_record(id: &str, body: &Value) -> Value {
     json!({
         "schema_version": "ioi.hypervisor.cloud-resource-intent.v1",

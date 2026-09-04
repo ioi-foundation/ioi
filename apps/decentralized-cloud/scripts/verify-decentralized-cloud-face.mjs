@@ -279,8 +279,19 @@ async function checkBrandGates() {
       p.on("close", (code) => resolve({ code, out }));
     });
 
+  // BUILD BEFORE MEASURING. `brand/canvas/` is a gitignored build artifact, and this
+  // gate previously measured whatever happened to be sitting there. That made the
+  // assertion only as fresh as whoever last ran the build by hand: a source edit that
+  // introduced a 585px clip in the identity sheet passed 7/7 here, because the built
+  // sheet being measured predated the edit. A fresh checkout and a working checkout
+  // could disagree, and the working checkout was the one being believed.
+  const built = await run("build-artboards.mjs");
+  ok("the brand canvas is rebuilt from src/ before it is measured",
+    built.code === 0, (built.out.match(/^brand artboards: .*$/m) || [""])[0] || built.out.slice(-160));
+  if (built.code !== 0) return;
+
   const frames = await run("measure-artboards.mjs");
-  const fitLine = (frames.out.match(/^\d+\/\d+ artboards fit their frame$/m) || [])[0] || "";
+  const fitLine = (frames.out.match(/^\d+\/\d+ artboards fit their frame.*$/m) || [])[0] || "";
   ok("every brand artboard fits its declared frame", frames.code === 0, fitLine || frames.out.slice(-160));
 
   const contrast = await run("measure-contrast.mjs");
