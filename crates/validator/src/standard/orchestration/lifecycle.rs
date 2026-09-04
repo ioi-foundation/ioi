@@ -834,10 +834,16 @@ where
                 ))
             })?;
             let quv_enabled = !self.config.aft_quv_domain_policies.is_empty();
+            // Effect-domain QUV and QUV configuration handoff share the
+            // member state machine, but only the latter changes the startup
+            // authority root and requires a signed handoff source. Treating
+            // any ordinary effect policy as a handoff made an otherwise
+            // static QUV node demand nonexistent recovery bytes at startup.
+            let quv_handoff_enabled = self.config.aft_quv_handoff_source.is_some();
             let pq_startup = super::consensus::select_aft_pq_startup_root(
                 &sets,
                 observation_height,
-                quv_enabled,
+                quv_handoff_enabled,
             )
             .map_err(|error| ValidatorError::Config(error.to_string()))?;
             // A generic admitted-state restart may recover an old-root floor
@@ -846,7 +852,9 @@ where
             // not restore authority. They may only locate the successor and
             // its rollback-anchored local install store; the store is opened
             // and exact-matched below before startup is allowed to continue.
-            let quv_recovery_envelope = if quv_enabled && pq_startup.handoff_successor.is_none() {
+            let quv_recovery_envelope = if quv_handoff_enabled
+                && pq_startup.handoff_successor.is_none()
+            {
                 let source = self
                     .config
                     .aft_quv_handoff_source
@@ -896,7 +904,7 @@ where
             let pq_rooted_set = pq_startup.rooted;
             let quv_recovery_required =
                 pq_startup.recovery_required || quv_recovery_envelope.is_some();
-            if quv_enabled {
+            if quv_handoff_enabled {
                 aft_quv_staged_successor = quv_handoff_successor.cloned();
                 aft_quv_handoff_envelope = quv_recovery_envelope.clone();
             }
@@ -924,7 +932,7 @@ where
                 )));
             }
             let mut key_records = pq_rooted_set.validators.iter().collect::<Vec<_>>();
-            if quv_enabled {
+            if quv_handoff_enabled {
                 if let Some(successor) = staged_successor {
                     key_records.extend(successor.validators.iter());
                 }
@@ -1051,7 +1059,7 @@ where
                         staged_successor,
                         identity_key_hash,
                         observation_height,
-                        quv_enabled,
+                        quv_handoff_enabled,
                     )
                     .map_err(|error| ValidatorError::Config(error.to_string()))?
                     {
@@ -1092,7 +1100,7 @@ where
                         .iter()
                         .any(|validator| validator.account_id == local_pq_account)
                 });
-                if quv_enabled && local_is_successor {
+                if quv_handoff_enabled && local_is_successor {
                     // The live-install gate is permanently scoped by the old
                     // root even after the canonical workload projection has
                     // advanced to the successor. The authenticated recovery

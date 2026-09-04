@@ -32,7 +32,7 @@ use ioi_types::{
 };
 use std::collections::HashSet;
 use std::ffi::OsString;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 static AFT_E2E_ENV_LOCK: once_cell::sync::Lazy<tokio::sync::Mutex<()>> =
     once_cell::sync::Lazy::new(|| tokio::sync::Mutex::new(()));
@@ -119,6 +119,123 @@ fn signed_system_transaction(
         signature: keypair.sign(&signing_bytes)?,
     };
     Ok(ChainTransaction::System(Box::new(transaction)))
+}
+
+fn m16q_effect_manifest(
+    effect_id: &str,
+    resource_id: &str,
+    conflict_domain_id: &str,
+    conflict_slot: u64,
+    policy_root: [u8; 32],
+    configuration_root: [u8; 32],
+    endpoint: &ioi_crypto::sign::dilithium::MldsaKeyPair,
+    discriminator: u8,
+) -> Result<EffectManifestV1> {
+    let mut manifest = EffectManifestV1 {
+        schema_version: EffectManifestVersionV1::V1,
+        effect_id: effect_id.into(),
+        resource_id: resource_id.into(),
+        conflict_domain_id: conflict_domain_id.into(),
+        conflict_slot,
+        authorization_mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+        online_authorization_policy_root: Some(policy_root),
+        read_set: vec![EffectResourceKeyV1 {
+            key: format!("m16q/read/{discriminator}"),
+            predecessor: Some([discriminator; 32]),
+        }],
+        write_set: vec![EffectResourceKeyV1 {
+            key: format!("m16q/write/{discriminator}"),
+            predecessor: None,
+        }],
+        idempotency_key: "pending".into(),
+        request_root: [discriminator.wrapping_add(1); 32],
+        predecessor_root: [discriminator.wrapping_add(2); 32],
+        intent_root: [discriminator.wrapping_add(3); 32],
+        expected_outcome_root: [discriminator.wrapping_add(4); 32],
+        resource_profile: DurablePqAtomicRegisterV1::profile_for(endpoint)?,
+        required_guarantees: GuaranteeRequirementsV1 {
+            require_consensus_pq: true,
+            require_externalization_pq: true,
+            minimum_externalization: Some(ExternalizationModeV1::IdempotencyRegister),
+            require_at_most_once: true,
+            ..Default::default()
+        },
+        fence: EffectFenceV1::ProtocolHeight {
+            configuration_hash: configuration_root,
+            minimum_height: 1,
+            maximum_height: 10_000,
+        },
+        reconciliation: ReconciliationPolicyV1::LookupByIdempotencyKey {
+            maximum_observations: 3,
+        },
+        irreversible: true,
+    };
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key()?;
+    manifest.validate()?;
+    Ok(manifest)
+}
+
+fn m16q_candidate(
+    manifest: &EffectManifestV1,
+    network_id: [u8; 32],
+    configuration_root: [u8; 32],
+    policy_root: [u8; 32],
+    domain_id: [u8; 32],
+    authorizer: AccountId,
+    endpoint: &ioi_crypto::sign::dilithium::MldsaKeyPair,
+) -> Result<QuvCandidateV0> {
+    let mut candidate = QuvCandidateV0 {
+        slot: QuvSlotV0 {
+            network_id,
+            configuration_root,
+            policy_root,
+            domain_id,
+            slot: manifest.conflict_slot,
+            predecessor: ioi_crypto::algorithms::hash::sha256(
+                b"ioi/aft/m16q/initial-predecessor/v1",
+            )?,
+            authority_mode: QuvAuthorityModeV0::Unowned,
+        },
+        payload_hash: manifest.commitment()?,
+        authorizer,
+        authority_signature: Vec::new(),
+    };
+    candidate.authority_signature = endpoint
+        .sign(&quv_candidate_authority_signing_bytes(&candidate)?)?
+        .to_bytes();
+    Ok(candidate)
+}
+
+fn require_executed_nonportable_quv_receipt(
+    response: &ioi_ipc::public::ExecuteAftQuvEffectResponse,
+) -> Result<()> {
+    if response.portable_final_receipt {
+        return Err(anyhow::anyhow!(
+            "online QUV execution mislabeled its consequence audit as portable finality"
+        ));
+    }
+    let receipt: ConsequenceReceiptV1 = serde_json::from_slice(&response.consequence_receipt_jcs)?;
+    if serde_jcs::to_vec(&receipt)? != response.consequence_receipt_jcs {
+        return Err(anyhow::anyhow!(
+            "QUV consequence receipt is not canonical JCS"
+        ));
+    }
+    receipt.validate()?;
+    if !matches!(receipt.state, ConsequenceStateV1::Executed { .. }) {
+        return Err(anyhow::anyhow!(
+            "QUV consequence did not reach the Executed phase"
+        ));
+    }
+    if receipt
+        .online_authorization_audit
+        .as_ref()
+        .is_none_or(|audit| audit.portable_final_receipt || audit.profile != "aft_quv_v0")
+    {
+        return Err(anyhow::anyhow!(
+            "executed consequence omitted its nonportable live QUV audit"
+        ));
+    }
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -1242,6 +1359,364 @@ async fn test_aft_quv_overlapping_member_installs_and_recovers_the_same_live_han
             "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set",
         )
         .await?;
+        Ok::<(), anyhow::Error>(())
+    }
+    .await;
+    let shutdown = cluster.shutdown().await;
+    run?;
+    shutdown?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -> Result<()> {
+    let _env_lock = AFT_E2E_ENV_LOCK.lock().await;
+    build_test_artifacts();
+
+    const CHAIN_ID: u32 = 0xA20;
+    const DELTA_RT_MILLIS: u64 = 5_000;
+    const CONTINUATION_MILLIS: u64 = 5_000;
+    const CONFLICT_SLOT: u64 = 1;
+    let solo_domain_ids = [
+        "domain://aft-e2e/m16q/solo-0",
+        "domain://aft-e2e/m16q/solo-1",
+        "domain://aft-e2e/m16q/solo-2",
+        "domain://aft-e2e/m16q/solo-3",
+    ];
+    let conflict_domain_id = "domain://aft-e2e/m16q/conflict";
+    let unrelated_domain_id = "domain://aft-e2e/m16q/unrelated";
+    let mut policy_domains = solo_domain_ids.iter().copied().collect::<Vec<_>>();
+    policy_domains.extend([conflict_domain_id, unrelated_domain_id]);
+    let policies = policy_domains
+        .iter()
+        .map(|domain_id| {
+            let domain_id = conflict_domain_id_commitment(domain_id).map_err(anyhow::Error::msg)?;
+            Ok(AftQuvDomainPolicyV0 {
+                domain_id,
+                authority_mode: QuvAuthorityModeV0::Unowned,
+                owner: None,
+                delta_rt_millis: DELTA_RT_MILLIS,
+                continuation_millis: CONTINUATION_MILLIS,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let _env = ScopedEnv::set(&[
+        ("IOI_TEST_BUILD_PROFILE", "release"),
+        ("IOI_TEST_VALIDATOR_LAUNCH_CONCURRENCY", "2"),
+        ("IOI_TEST_FULL_MESH_BOOTNODES", "1"),
+        ("IOI_TEST_READY_HEIGHT_LAG_MAX", "1"),
+        ("IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS", "180"),
+        ("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS", "30"),
+        ("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS", "120"),
+        ("IOI_BENCH_BLOCK_INTERVAL_MS", "500"),
+        ("IOI_AFT_BLOCK_DIRECT_RELAY", "1"),
+    ]);
+
+    let mut builder = TestCluster::builder()
+        .with_validators(4)
+        .with_consensus_type("Aft")
+        .with_aft_safety_mode(AftSafetyMode::ClassicBft)
+        .with_pq_consensus_profile()
+        .with_state_tree("IAVL")
+        .with_chain_id(CHAIN_ID)
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: CHAIN_ID,
+            grace_period_blocks: 0,
+            accept_staged_during_grace: false,
+            allowed_target_suites: vec![SignatureSuite::ML_DSA_44],
+            allow_downgrade: false,
+        }));
+    for policy in policies.iter().cloned() {
+        builder = builder.with_quv_domain_policy(policy);
+    }
+    let mut cluster = builder.build().await?;
+
+    let run = async {
+        let mut members = cluster
+            .validators
+            .iter()
+            .enumerate()
+            .map(|(process_index, guard)| {
+                let endpoint = guard
+                    .validator()
+                    .pqc_keypair
+                    .as_ref()
+                    .expect("M16Q process member must retain its ML-DSA key")
+                    .clone();
+                let account = AccountId(account_id_from_key_material(
+                    SignatureSuite::ML_DSA_44,
+                    &endpoint.public_key().to_bytes(),
+                )?);
+                Ok((account, process_index, endpoint))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        members.sort_by_key(|(account, _, _)| *account);
+        let active_set = ValidatorSetV1 {
+            effective_from_height: 1,
+            total_weight: members.len() as u128,
+            validators: members
+                .iter()
+                .map(|(account, _, _)| ValidatorV1 {
+                    account_id: *account,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ML_DSA_44,
+                        public_key_hash: account.0,
+                        since_height: 0,
+                    },
+                })
+                .collect(),
+        };
+        let configuration_root = ioi_types::app::canonical_validator_set_hash(&active_set)
+            .map_err(anyhow::Error::msg)?;
+        let network_id = ioi_crypto::algorithms::hash::sha256(cluster.genesis_content.as_bytes())?;
+
+        let mut manifests = Vec::new();
+        for (member_position, (_, process_index, endpoint)) in members.iter().enumerate() {
+            let domain_id = solo_domain_ids[member_position];
+            let domain =
+                conflict_domain_id_commitment(domain_id).map_err(anyhow::Error::msg)?;
+            let policy_root = quv_policy_root(
+                domain,
+                QuvAuthorityModeV0::Unowned,
+                None,
+                DELTA_RT_MILLIS,
+                CONTINUATION_MILLIS,
+            )?;
+            manifests.push((
+                *process_index,
+                domain,
+                policy_root,
+                m16q_effect_manifest(
+                    &format!("effect-m16q-solo-{member_position}"),
+                    &format!("resource://aft-e2e/m16q/solo-{member_position}"),
+                    domain_id,
+                    CONFLICT_SLOT,
+                    policy_root,
+                    configuration_root,
+                    endpoint,
+                    10 + member_position as u8,
+                )?,
+            ));
+        }
+        let conflict_domain =
+            conflict_domain_id_commitment(conflict_domain_id).map_err(anyhow::Error::msg)?;
+        let conflict_policy_root = quv_policy_root(
+            conflict_domain,
+            QuvAuthorityModeV0::Unowned,
+            None,
+            DELTA_RT_MILLIS,
+            CONTINUATION_MILLIS,
+        )?;
+        let conflict_a = m16q_effect_manifest(
+            "effect-m16q-conflict-a",
+            "resource://aft-e2e/m16q/conflict-a",
+            conflict_domain_id,
+            CONFLICT_SLOT,
+            conflict_policy_root,
+            configuration_root,
+            &members[0].2,
+            40,
+        )?;
+        let conflict_b = m16q_effect_manifest(
+            "effect-m16q-conflict-b",
+            "resource://aft-e2e/m16q/conflict-b",
+            conflict_domain_id,
+            CONFLICT_SLOT,
+            conflict_policy_root,
+            configuration_root,
+            &members[1].2,
+            41,
+        )?;
+        let unrelated_domain =
+            conflict_domain_id_commitment(unrelated_domain_id).map_err(anyhow::Error::msg)?;
+        let unrelated_policy_root = quv_policy_root(
+            unrelated_domain,
+            QuvAuthorityModeV0::Unowned,
+            None,
+            DELTA_RT_MILLIS,
+            CONTINUATION_MILLIS,
+        )?;
+        let unrelated = m16q_effect_manifest(
+            "effect-m16q-unrelated",
+            "resource://aft-e2e/m16q/unrelated",
+            unrelated_domain_id,
+            CONFLICT_SLOT,
+            unrelated_policy_root,
+            configuration_root,
+            &members[2].2,
+            60,
+        )?;
+
+        let registration_rpc = cluster.validators[0].validator().rpc_addr.clone();
+        let mut all_manifests = manifests
+            .iter()
+            .map(|(_, _, _, manifest)| manifest.clone())
+            .collect::<Vec<_>>();
+        all_manifests.extend([conflict_a.clone(), conflict_b.clone(), unrelated.clone()]);
+        for (nonce, manifest) in all_manifests.iter().enumerate() {
+            let registration = signed_system_transaction(
+                &cluster.validators[0].validator().keypair,
+                SystemPayload::CallService {
+                    service_id: AFT_EFFECT_REGISTRY_SERVICE_ID.into(),
+                    method: REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD.into(),
+                    params: serde_jcs::to_vec(manifest)?,
+                },
+                nonce as u64,
+                CHAIN_ID.into(),
+            )?;
+            rpc::submit_transaction(&registration_rpc, &registration).await?;
+        }
+        let admitted_height = rpc::get_status(&registration_rpc).await?.height;
+        for guard in &cluster.validators {
+            wait_for_height(
+                &guard.validator().rpc_addr,
+                admitted_height,
+                Duration::from_secs(60),
+            )
+            .await?;
+        }
+
+        let mut solo_elapsed_ms = Vec::new();
+        for (member_position, (correct_process, domain, policy_root, manifest)) in
+            manifests.iter().enumerate()
+        {
+            for process_index in 0..cluster.validators.len() {
+                if process_index != *correct_process {
+                    cluster.validators[process_index]
+                        .validator_mut()
+                        .kill_orchestration()
+                        .await?;
+                }
+            }
+            let correct_rpc = cluster.validators[*correct_process]
+                .validator()
+                .rpc_addr
+                .clone();
+            let candidate = m16q_candidate(
+                manifest,
+                network_id,
+                configuration_root,
+                *policy_root,
+                *domain,
+                members[member_position].0,
+                &members[member_position].2,
+            )?;
+            let started = Instant::now();
+            let response = tokio::time::timeout(
+                Duration::from_secs(30),
+                rpc::execute_aft_quv_effect(&correct_rpc, &manifest.effect_id, &candidate),
+            )
+            .await
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "M16Q sole-correct placement {member_position} exceeded its client timeout"
+                )
+            })??;
+            let elapsed = started.elapsed().as_millis();
+            require_executed_nonportable_quv_receipt(&response)?;
+            solo_elapsed_ms.push(elapsed);
+            println!(
+                "[M16Q-QUV] case=sole_correct member_position={member_position} process_index={correct_process} elapsed_ms={elapsed} result=executed"
+            );
+
+            for process_index in 0..cluster.validators.len() {
+                if process_index != *correct_process {
+                    cluster.validators[process_index]
+                        .validator_mut()
+                        .restart_orchestration_process()
+                        .await?;
+                }
+            }
+            let recovery_floor = rpc::get_status(&correct_rpc).await?.height.saturating_add(1);
+            wait_for_height(&correct_rpc, recovery_floor, Duration::from_secs(120)).await?;
+        }
+
+        let conflict_candidate_a = m16q_candidate(
+            &conflict_a,
+            network_id,
+            configuration_root,
+            conflict_policy_root,
+            conflict_domain,
+            members[0].0,
+            &members[0].2,
+        )?;
+        let conflict_candidate_b = m16q_candidate(
+            &conflict_b,
+            network_id,
+            configuration_root,
+            conflict_policy_root,
+            conflict_domain,
+            members[1].0,
+            &members[1].2,
+        )?;
+        let conflict_rpc_a = cluster.validators[members[0].1]
+            .validator()
+            .rpc_addr
+            .clone();
+        let conflict_rpc_b = cluster.validators[members[1].1]
+            .validator()
+            .rpc_addr
+            .clone();
+        let conflict_started = Instant::now();
+        let (result_a, result_b) = tokio::join!(
+            rpc::execute_aft_quv_effect(
+                &conflict_rpc_a,
+                &conflict_a.effect_id,
+                &conflict_candidate_a,
+            ),
+            rpc::execute_aft_quv_effect(
+                &conflict_rpc_b,
+                &conflict_b.effect_id,
+                &conflict_candidate_b,
+            )
+        );
+        let conflict_elapsed_ms = conflict_started.elapsed().as_millis();
+        let mut conflict_accepts = 0_u8;
+        for response in [result_a.as_ref().ok(), result_b.as_ref().ok()]
+            .into_iter()
+            .flatten()
+        {
+            require_executed_nonportable_quv_receipt(response)?;
+            conflict_accepts += 1;
+        }
+        if conflict_accepts > 1 {
+            return Err(anyhow::anyhow!(
+                "two conflicting online QUV effects executed for one domain and slot"
+            ));
+        }
+        println!(
+            "[M16Q-QUV] case=concurrent_valid_conflict accepts={conflict_accepts} elapsed_ms={conflict_elapsed_ms} result=safe"
+        );
+
+        let unrelated_candidate = m16q_candidate(
+            &unrelated,
+            network_id,
+            configuration_root,
+            unrelated_policy_root,
+            unrelated_domain,
+            members[2].0,
+            &members[2].2,
+        )?;
+        let unrelated_rpc = cluster.validators[members[2].1]
+            .validator()
+            .rpc_addr
+            .clone();
+        let unrelated_started = Instant::now();
+        let unrelated_response = rpc::execute_aft_quv_effect(
+            &unrelated_rpc,
+            &unrelated.effect_id,
+            &unrelated_candidate,
+        )
+        .await?;
+        let unrelated_elapsed_ms = unrelated_started.elapsed().as_millis();
+        require_executed_nonportable_quv_receipt(&unrelated_response)?;
+        println!(
+            "[M16Q-QUV] case=unrelated_after_conflict elapsed_ms={unrelated_elapsed_ms} result=executed"
+        );
+        println!(
+            "[M16Q-SUMMARY] sole_correct_elapsed_ms={solo_elapsed_ms:?} conflict_elapsed_ms={conflict_elapsed_ms} conflict_accepts={conflict_accepts} unrelated_elapsed_ms={unrelated_elapsed_ms} delta_rt_ms={DELTA_RT_MILLIS}"
+        );
         Ok::<(), anyhow::Error>(())
     }
     .await;
