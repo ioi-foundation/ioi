@@ -1,0 +1,176 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO_MED__) format("woff2"); font-weight: 500; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #818181; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .mark-word { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .swatch { height: 76px; border-radius: 6px; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px;
+      border-radius: 999px; font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace;
+      font-size: 12px; letter-spacing: 0.02em; border: 1px solid transparent; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; padding: 56px 64px 64px;">
+
+  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 24px;">
+    <div class="eyebrow">decentralized.cloud · visual system</div>
+    <div class="eyebrow">inherits the IOI design system · packages/design-system</div>
+  </div>
+  <div style="height: 1px; background: #e1e1e1; margin: 20px 0 44px;"></div>
+
+  <!-- ── Palette ───────────────────────────────────────────────────────── -->
+  <div class="eyebrow" style="margin-bottom: 16px;">Palette — inherited, not invented</div>
+  <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #0a0e19;"></div>
+      <div class="mono" style="font-size: 11px; color: #0a0e19;">onyx black</div>
+      <div class="mono" style="font-size: 11px; color: #818181;">#0a0e19 · ink</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #397554;"></div>
+      <div class="mono" style="font-size: 11px; color: #0a0e19;">link green</div>
+      <div class="mono" style="font-size: 11px; color: #818181;">#397554 · live</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #818181;"></div>
+      <div class="mono" style="font-size: 11px; color: #0a0e19;">grey 700</div>
+      <div class="mono" style="font-size: 11px; color: #818181;">#818181 · simulator</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #e40014;"></div>
+      <div class="mono" style="font-size: 11px; color: #0a0e19;">red 600</div>
+      <div class="mono" style="font-size: 11px; color: #818181;">#e40014 · unavailable</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #f9f9f9; border: 1px solid #e1e1e1; box-sizing: border-box;"></div>
+      <div class="mono" style="font-size: 11px; color: #0a0e19;">porcelain</div>
+      <div class="mono" style="font-size: 11px; color: #818181;">#f9f9f9 · surface</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #e1e1e1;"></div>
+      <div class="mono" style="font-size: 11px; color: #0a0e19;">grey 500</div>
+      <div class="mono" style="font-size: 11px; color: #818181;">#e1e1e1 · hairline</div>
+    </div>
+  </div>
+  <div class="body" style="margin-top: 14px; max-width: 92ch;">
+    Every value above is lifted from <span class="mono" style="font-size: 12px; color: #0a0e19;">packages/design-system/tokens/colors.css</span>.
+    The product adds no hue of its own. Green is reserved: it means a price
+    backed by live evidence, and it appears nowhere decorative.
+  </div>
+
+  <!-- ── Type ──────────────────────────────────────────────────────────── -->
+  <div style="height: 1px; background: #e1e1e1; margin: 44px 0;"></div>
+  <div class="eyebrow" style="margin-bottom: 20px;">Type — three faces, fixed roles</div>
+  <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px 40px; align-items: baseline;">
+    <div class="mono" style="font-size: 12px; color: #818181;">IOI Display · wordmark only</div>
+    <div class="mark-word" style="font-size: 34px;">decentralized cloud</div>
+
+    <div class="mono" style="font-size: 12px; color: #818181;">ABC Diatype · 44/31/20</div>
+    <div style="font-size: 31px; letter-spacing: -0.012em; line-height: 1.1;">Capacity, priced with its evidence</div>
+
+    <div class="mono" style="font-size: 12px; color: #818181;">ABC Diatype · 16 body</div>
+    <div style="font-size: 16px; line-height: 1.5; max-width: 62ch; color: #1f1f1f;">
+      Every quote carries the source that produced it, when it was observed, and
+      when it stops being true. A price without those three is not shown.
+    </div>
+
+    <div class="mono" style="font-size: 12px; color: #818181;">ABC Diatype Mono · 12 label</div>
+    <div class="mono" style="font-size: 12px; color: #1f1f1f;">observed_at · expires_at · evidence_mode · adapter · source</div>
+  </div>
+  <div class="body" style="margin-top: 18px; max-width: 92ch;">
+    IOI Display is unicase and carries no digits and no period, so it sets the
+    wordmark and nothing else — never a price, never a timestamp, never a
+    heading with a number in it.
+  </div>
+
+  <!-- ── Evidence chips ────────────────────────────────────────────────── -->
+  <div style="height: 1px; background: #e1e1e1; margin: 44px 0;"></div>
+  <div class="eyebrow" style="margin-bottom: 20px;">Evidence states — the one component the product cannot do without</div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #2c5c42;">
+      <span class="dot" style="background: #397554;"></span>live_evidence
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>simulated_control_plane
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>advisory_only
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #818181;">
+      <span class="dot" style="background: #cecece;"></span>candidate_source_unavailable
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #e40014; color: #b8000f;">
+      <span class="dot" style="background: #e40014;"></span>expired
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>not wired — waiting on M15.3
+    </span>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; margin-top: 26px;">
+    <div class="body">
+      <strong style="color: #0a0e19;">Green is earned.</strong> Only a candidate
+      the daemon returned with <span class="mono" style="font-size: 12px;">evidence_mode: live_evidence</span>
+      may wear it. A simulator candidate is grey, is labelled in words, and never
+      counts toward a fee.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">Absence is a state.</strong> A source with
+      no adapter or no credential says so, in the daemon's own words, in the row
+      where a price would have been. An invented price is the one unrecoverable
+      mistake this product can make.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">Unwired is visible.</strong> Write
+      surfaces designed ahead of the kernel carry the last chip and cannot be
+      submitted. A stub the reader cannot tell from truth is refused.
+    </div>
+  </div>
+
+  <!-- ── Endorsement ───────────────────────────────────────────────────── -->
+  <div style="height: 1px; background: #e1e1e1; margin: 44px 0;"></div>
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 40px;">
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div class="eyebrow">Endorsement</div>
+      <div style="display: flex; align-items: baseline;">
+        <span class="mark-word" style="font-size: 28px;">decentralized</span><span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #397554; margin: 0 3px;"></span><span class="mark-word" style="font-size: 28px;">cloud</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 22px; height: 1px; background: #cecece;"></span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #818181;">an</span>
+        <span class="mark-word" style="font-size: 13px; color: #0a0e19;">ioi</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #818181;">product</span>
+      </div>
+    </div>
+    <div class="body" style="max-width: 52ch;">
+      The endorsement sets IOI in the same face at 0.46 of the product wordmark's
+      cap, on one line, below the clear-space boundary. Brand is not owner:
+      wallet.network authorizes, Hypervisor executes, Agentgres records. The face
+      composes those four and adds none, and the endorsement line is the only
+      place the umbrella appears.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

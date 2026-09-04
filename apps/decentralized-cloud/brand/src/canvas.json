@@ -1,0 +1,28 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 940, "title": "Identity sheet" },
+    { "file": "DirectionA.dc.html", "x": 0, "y": 1080, "w": 560, "h": 720, "title": "Direction A — the expiring dot" },
+    { "file": "DirectionB.dc.html", "x": 660, "y": 1080, "w": 560, "h": 720, "title": "Direction B — the convergence" },
+    { "file": "DirectionC.dc.html", "x": 1320, "y": 1080, "w": 560, "h": 720, "title": "Direction C — the field" },
+    { "file": "System.dc.html", "x": 0, "y": 1940, "w": 1240, "h": 1260, "title": "Visual system" },
+    { "file": "Explorer.dc.html", "x": 0, "y": 3340, "w": 1440, "h": 920, "title": "Candidate explorer — reads the live daemon" },
+    { "file": "Composer.dc.html", "x": 1560, "y": 3340, "w": 1440, "h": 940, "title": "Job composer — designed, not wired" }
+  ],
+  "annotations": [
+    {
+      "id": "brief",
+      "x": 1340,
+      "y": 0,
+      "w": 420,
+      "text": "decentralized.cloud — a public face over the Hypervisor daemon.\n\nDirection A is the leading candidate and is what the identity sheet, the system and both product surfaces are built on. B and C are live alternatives, each with its own case and its own tradeoff.\n\nEvery colour and every face is inherited from packages/design-system. The product invents no hue of its own."
+    },
+    {
+      "id": "surfaces",
+      "x": 3060,
+      "y": 3340,
+      "w": 400,
+      "text": "The two surfaces are deliberately different kinds of thing.\n\nThe explorer reads the running daemon and shows exactly what it returned — including, right now, an honest empty state.\n\nThe composer is drawn to the canonical CloudJobRequest shape and submits nothing. It is labelled unwired on the surface itself, not only in a note."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

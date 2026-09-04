@@ -1,0 +1,220 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO_MED__) format("woff2"); font-weight: 500; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .mark-word { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px;
+      border-radius: 999px; font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace;
+      font-size: 11px; letter-spacing: 0.02em; border: 1px solid transparent; white-space: nowrap; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .src-row { display: grid; grid-template-columns: 168px 116px minmax(0, 1fr);
+      gap: 16px; align-items: baseline; padding: 11px 0; border-top: 1px solid #ececec; }
+    .nav { font-size: 14px; color: #636363; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box; background: #ffffff;">
+
+  <!-- ── Top bar ───────────────────────────────────────────────────────── -->
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 32px;
+              padding: 0 40px; height: 64px; border-bottom: 1px solid #e1e1e1;">
+    <div style="display: flex; align-items: center; gap: 36px;">
+      <div style="display: flex; align-items: baseline;">
+        <span class="mark-word" style="font-size: 19px;">decentralized</span><span style="display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #397554; margin: 0 2px;"></span><span class="mark-word" style="font-size: 19px;">cloud</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 26px;">
+        <span class="nav" style="color: #0a0e19; box-shadow: inset 0 -2px 0 #397554; padding-bottom: 3px;">Candidates</span>
+        <span class="nav">Sources</span>
+        <span class="nav">Placement</span>
+        <span class="nav">Receipts</span>
+        <span class="nav">API</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span class="mono" style="font-size: 12px; color: #818181;">daemon 127.0.0.1:8765</span>
+      <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+        <span class="dot" style="background: #818181;"></span>read-only surface
+      </span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 0; flex-grow: 1;">
+
+    <!-- ── Candidates ──────────────────────────────────────────────────── -->
+    <div style="padding: 36px 40px 40px; display: flex; flex-direction: column; gap: 0;">
+
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 32px;">
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <h1 style="margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400;">
+            compute.gpu_runtime · any region
+          </h1>
+          <div class="mono" style="font-size: 12px; color: #818181;">
+            intent ci_a41f0c8e · refreshed at 15:01:52Z · full sweep 15.1s
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>showing last sweep while refreshing
+          </span>
+        </div>
+      </div>
+
+      <!-- Empty state, honestly -->
+      <div style="margin-top: 28px; border: 1px solid #e1e1e1; border-radius: 10px; padding: 32px 32px 30px;
+                  background: #ffffff; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="20" height="20" viewBox="0 0 96 96" aria-hidden="true">
+            <circle cx="48" cy="48" r="44" fill="none" stroke="#cecece" stroke-width="6" stroke-dasharray="12 14"></circle>
+          </svg>
+          <div style="font-size: 20px; letter-spacing: -0.012em;">No live-evidence candidates right now</div>
+        </div>
+        <div style="font-size: 15px; line-height: 1.5; color: #636363; max-width: 74ch;">
+          One source is available and ten cannot answer. Nothing here is a price
+          we made up while waiting — the reasons are the daemon's own, and each
+          one names what would have to be true instead.
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px;">
+          <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #818181;">
+            <span class="dot" style="background: #cecece;"></span>0 live_evidence
+          </span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>1 advisory_only
+          </span>
+          <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #818181;">
+            <span class="dot" style="background: #cecece;"></span>10 candidate_source_unavailable
+          </span>
+        </div>
+      </div>
+
+      <!-- The one advisory row -->
+      <div class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+                               color: #818181; margin: 34px 0 12px;">Advisory only — never placement authority</div>
+      <div style="border: 1px solid #e1e1e1; border-radius: 10px; overflow: hidden;">
+        <div style="display: grid; grid-template-columns: 150px 1fr 128px 150px; gap: 20px;
+                    padding: 13px 20px; background: #f9f9f9; border-bottom: 1px solid #e1e1e1;">
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #818181;">source</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #818181;">shape</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #818181;">price</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #818181;">good until</div>
+        </div>
+        <div style="display: grid; grid-template-columns: 150px 1fr 128px 150px; gap: 20px;
+                    padding: 18px 20px; align-items: center; background: #ffffff;">
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <div class="mono" style="font-size: 13px; color: #1f1f1f;">sim_harness</div>
+            <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363; align-self: start;">
+              <span class="dot" style="background: #818181;"></span>simulated_control_plane
+            </span>
+          </div>
+          <div style="font-size: 14px; color: #636363; line-height: 1.45;">
+            Labelled harness lane, never live supply. Shown so the shape of a
+            candidate row is legible before any provider answers; it is excluded
+            from every count, comparison and fee.
+          </div>
+          <div class="mono" style="font-size: 14px; color: #818181;">—</div>
+          <div class="mono" style="font-size: 13px; color: #818181;">not a quote</div>
+        </div>
+      </div>
+
+      <div style="font-size: 13px; line-height: 1.55; color: #818181; margin-top: 18px; max-width: 86ch;">
+        A candidate becomes green, comparable and fee-bearing only when the
+        daemon returns it with <span class="mono" style="font-size: 12px;">evidence_mode: live_evidence</span>
+        and a live adapter behind it. Two such candidates from different sources
+        are the floor for a routing decision.
+      </div>
+    </div>
+
+    <!-- ── Sources rail ────────────────────────────────────────────────── -->
+    <div style="border-left: 1px solid #e1e1e1; padding: 36px 32px 40px; background: #fdfdfd;">
+      <div class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+                               color: #818181;">Sources · 14</div>
+      <div style="font-size: 13px; line-height: 1.5; color: #636363; margin: 12px 0 20px;">
+        Health as the daemon reports it, in its words.
+      </div>
+
+      <div class="src-row" style="border-top: none;">
+        <div class="mono" style="font-size: 13px;">customer_inventory</div>
+        <span class="chip" style="background: #ffffff; border-color: #397554; color: #2c5c42;">
+          <span class="dot" style="background: #397554;"></span>available
+        </span>
+        <div style="font-size: 12px; color: #818181; line-height: 1.45;">Capacity you already own.</div>
+      </div>
+
+      <div class="src-row">
+        <div class="mono" style="font-size: 13px;">direct_provider</div>
+        <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+          <span class="dot" style="background: #818181;"></span>preflight only
+        </span>
+        <div style="font-size: 12px; color: #818181; line-height: 1.45;">Credentials verify; no adapter quoting yet.</div>
+      </div>
+
+      <div class="src-row">
+        <div class="mono" style="font-size: 13px;">vast</div>
+        <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #818181;">
+          <span class="dot" style="background: #cecece;"></span>unavailable
+        </span>
+        <div style="font-size: 12px; color: #818181; line-height: 1.45;">
+          vast_credential_absent — no vast ProviderAccount exists; create one,
+          bind a bearer api_key, and preflight it
+        </div>
+      </div>
+
+      <div class="src-row">
+        <div class="mono" style="font-size: 13px;">managed_capacity</div>
+        <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #818181;">
+          <span class="dot" style="background: #cecece;"></span>unavailable
+        </span>
+        <div style="font-size: 12px; color: #818181; line-height: 1.45;">
+          managed_capacity_not_offered — Hypervisor-managed execution does not
+          exist yet; nothing honest to propose
+        </div>
+      </div>
+
+      <div class="src-row">
+        <div class="mono" style="font-size: 13px;">decentralized.cloud</div>
+        <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #818181;">
+          <span class="dot" style="background: #cecece;"></span>unavailable
+        </span>
+        <div style="font-size: 12px; color: #818181; line-height: 1.45;">
+          network_adapter_absent — the network engine is not live; this plane
+          realizes candidate semantics from local facts only
+        </div>
+      </div>
+
+      <div class="src-row">
+        <div class="mono" style="font-size: 13px;">storage_network</div>
+        <span class="chip" style="background: #ffffff; border-color: #397554; color: #2c5c42;">
+          <span class="dot" style="background: #397554;"></span>engaged
+        </span>
+        <div style="font-size: 12px; color: #818181; line-height: 1.45;">
+          10 verified backends. Storage availability is not restore truth.
+        </div>
+      </div>
+
+      <div class="src-row" style="grid-template-columns: 1fr;">
+        <div style="font-size: 12px; color: #818181; line-height: 1.5;">
+          aws · gcp · azure · k8s · runpod · lambda_cloud · depin_market —
+          credential absent, each with its own named reason.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

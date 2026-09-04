@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #818181; }
+    .mark-word { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; gap: 0; padding: 40px 44px; height: 100%; box-sizing: border-box;">
+  <div class="eyebrow">Direction A — the expiring dot</div>
+  <div style="height: 1px; background: #e1e1e1; margin: 16px 0 40px;"></div>
+
+  <div style="display: flex; flex-direction: column; gap: 44px; flex-grow: 1;">
+
+    <div style="display: flex; justify-content: center;">
+      <svg width="180" height="180" viewBox="0 0 96 96" role="img" aria-label="Direction A icon">
+        <rect x="0" y="0" width="96" height="96" rx="10" fill="#0a0e19"></rect>
+        <path d="M 48 20 A 28 28 0 1 1 28.2 28.2" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="3" stroke-linecap="butt"></path>
+        <circle cx="48" cy="48" r="12" fill="#397554"></circle>
+      </svg>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 18px;">
+      <div style="display: flex; align-items: baseline;">
+        <span class="mark-word" style="font-size: 34px;">decentralized</span><span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #397554; margin: 0 4px;"></span><span class="mark-word" style="font-size: 34px;">cloud</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="Direction A at 24 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 48 20 A 28 28 0 1 1 28.2 28.2" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="7" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="15" fill="#397554"></circle>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="Direction A at 16 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="12" fill="#0a0e19"></rect>
+          <circle cx="48" cy="48" r="22" fill="#397554"></circle>
+        </svg>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: auto;">
+      <div class="body">
+        <strong style="color: #0a0e19;">The case.</strong> The one character in
+        the name that IOI Display cannot set is the period — so the period
+        becomes the mark. The dot is a price; the open ring is the window it is
+        good for; the gap is that it expires. Nothing else in the product means
+        anything different by a dot.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">The tradeoff.</strong> A dot is the most
+        common shape in software. This wins on meaning and on the 16px tab, and
+        loses on standing out in a row of logos.
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

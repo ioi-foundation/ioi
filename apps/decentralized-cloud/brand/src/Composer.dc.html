@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO_MED__) format("woff2"); font-weight: 500; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .mark-word { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px;
+      border-radius: 999px; font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace;
+      font-size: 11px; letter-spacing: 0.02em; border: 1px solid transparent; white-space: nowrap; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .lbl { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 11px;
+      letter-spacing: 0.06em; text-transform: uppercase; color: #818181; }
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .input { border: 1px solid #cecece; border-radius: 7px; padding: 11px 13px; background: #f9f9f9;
+      color: #818181; font-size: 14px; min-height: 44px; box-sizing: border-box; display: flex;
+      align-items: center; justify-content: space-between; gap: 12px; }
+    .hint { font-size: 12px; line-height: 1.45; color: #818181; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 32px;
+              padding: 0 40px; height: 64px; border-bottom: 1px solid #e1e1e1;">
+    <div style="display: flex; align-items: baseline;">
+      <span class="mark-word" style="font-size: 19px;">decentralized</span><span style="display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #397554; margin: 0 2px;"></span><span class="mark-word" style="font-size: 19px;">cloud</span>
+    </div>
+    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>not wired — waiting on M15.3
+    </span>
+  </div>
+
+  <!-- ── Unwired banner ────────────────────────────────────────────────── -->
+  <div style="margin: 0; padding: 16px 40px; background: #f9f9f9; border-bottom: 1px solid #e1e1e1;
+              display: flex; align-items: baseline; gap: 14px;">
+    <span class="mono" style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #636363;">designed, not connected</span>
+    <span style="font-size: 13px; color: #636363; line-height: 1.5;">
+      This surface is drawn to the canonical <span class="mono" style="font-size: 12px; color: #0a0e19;">CloudJobRequest</span>
+      shape and submits nothing. No field on it reaches a provider, a wallet, or a budget.
+    </span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 452px; gap: 0; flex-grow: 1;">
+
+    <!-- ── Human entry point ───────────────────────────────────────────── -->
+    <div style="padding: 34px 40px 40px; display: flex; flex-direction: column; gap: 26px;">
+      <div style="display: flex; flex-direction: column; gap: 9px;">
+        <h1 style="margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400;">Submit a job</h1>
+        <div style="font-size: 15px; color: #636363; line-height: 1.5; max-width: 66ch;">
+          This much capacity, under this budget, for this long, receipt back. You
+          do not name a venue — the venue is evidence in the receipt, not an input.
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px;">
+        <div class="field">
+          <div class="lbl">intent.runtime_class</div>
+          <div class="input"><span>compute.gpu_runtime</span><span class="mono" style="font-size: 11px;">▾</span></div>
+        </div>
+        <div class="field">
+          <div class="lbl">intent.gpu</div>
+          <div class="input"><span>required · 1 device · 24 GB</span><span class="mono" style="font-size: 11px;">▾</span></div>
+        </div>
+        <div class="field">
+          <div class="lbl">deadline</div>
+          <div class="input"><span>max duration · 4 hours</span><span class="mono" style="font-size: 11px;">▾</span></div>
+        </div>
+        <div class="field">
+          <div class="lbl">budget_ref</div>
+          <div class="input"><span>select an external_spend budget</span><span class="mono" style="font-size: 11px;">▾</span></div>
+          <div class="hint">An existing budget, never an amount typed here. A request without a
+            resolvable budget is refused by name: <span class="mono" style="font-size: 11px;">budget_undiscovered_before_mutation</span>.</div>
+        </div>
+        <div class="field">
+          <div class="lbl">authority_ref</div>
+          <div class="input"><span>wallet grant · signed at submit</span><span class="mono" style="font-size: 11px;">▾</span></div>
+          <div class="hint">A wallet grant for a human, a CapabilityLease draw-down for an agent.
+            Never a provider credential — the caller never holds one.</div>
+        </div>
+        <div class="field">
+          <div class="lbl">redundancy</div>
+          <div class="input"><span>none</span><span class="mono" style="font-size: 11px;">▾</span></div>
+          <div class="hint">none · warm_standby · active_active. Declared or absent — never
+            inferred, defaulted, or applied by a fallback you did not authorize.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="lbl">receipt_requirements</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 9px;">
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">placement</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">provider-operation</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">spend</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">failover</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">offline-verifiable</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 16px; margin-top: 4px;">
+        <div style="background: #ececec; color: #a0a0a0; border-radius: 8px; padding: 0 22px;
+                    height: 46px; display: flex; align-items: center; font-size: 15px;">Submit job</div>
+        <div class="hint" style="max-width: 46ch;">
+          Disabled until the job primitive lands. The button is drawn so the shape
+          of the commitment is reviewable now, and it is inert on purpose.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Agent entry point ───────────────────────────────────────────── -->
+    <div style="border-left: 1px solid #e1e1e1; background: #fdfdfd; padding: 34px 32px 40px;
+                display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: flex; flex-direction: column; gap: 9px;">
+        <div class="lbl">the same primitive, called by an agent</div>
+        <div style="font-size: 15px; line-height: 1.5; color: #636363;">
+          A human and an agent submit one envelope and receive one set of
+          receipts. The caller kind changes the authority path, never the
+          placement and never the price.
+        </div>
+      </div>
+
+      <div style="background: #0a0e19; border-radius: 10px; padding: 20px 22px; overflow-x: auto;">
+        <pre class="mono" style="margin: 0; font-size: 12px; line-height: 1.65; color: #d8dde6; white-space: pre;">tool: cloud_job_submit
+{
+  "caller_kind": "agent",
+  "intent": {
+    "runtime_class": "compute.gpu_runtime",
+    "resource_classes": ["compute.gpu_runtime"],
+    "gpu": { "required": true, "min_vram_gb": 24 },
+    "user_placement_choice": "let_hypervisor_choose",
+    "selection_mode": "auto"
+  },
+  "authority_ref": "capability-lease://cl_...",
+  "budget_ref": "budget://external_spend/...",
+  "deadline": { "max_duration_s": 14400 },
+  "receipt_requirements": ["placement", "spend"],
+  "redundancy": { "posture": "none" }
+}</pre>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="lbl">what comes back</div>
+        <div style="font-size: 13px; line-height: 1.55; color: #636363;">
+          A receipt chain, not a status string. The job is complete only when the
+          chain is: a job whose provider vanished mid-run is complete after
+          failover or after a receipted refusal, and not before.
+        </div>
+      </div>
+
+      <div style="height: 1px; background: #e1e1e1;"></div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="lbl">what this surface never owns</div>
+        <div style="font-size: 13px; line-height: 1.55; color: #636363;">
+          No session plane, no credential vault, no provider integration, no
+          placement scorer, no receipt format of its own. wallet.network
+          authorizes, Hypervisor places and executes, Agentgres records what ran
+          and what it cost. This page composes those four and adds none.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
