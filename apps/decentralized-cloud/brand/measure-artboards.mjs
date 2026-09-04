@@ -15,8 +15,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const CANVAS = path.join(HERE, "canvas");
-const SHOTS = path.join(HERE, ".artifacts");
+// `--set <name>` measures a sibling built set (see build-artboards.mjs).
+const setArg = process.argv.indexOf("--set");
+const SET = setArg > -1 ? process.argv[setArg + 1] : null;
+const CANVAS = SET ? path.join(HERE, `${SET}-canvas`) : path.join(HERE, "canvas");
+const SHOTS = SET ? path.join(HERE, ".artifacts", SET) : path.join(HERE, ".artifacts");
 
 // Playwright lives in the primary checkout; this worktree carries no node_modules.
 const { chromium } = await import("/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs");

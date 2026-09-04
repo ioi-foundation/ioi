@@ -27,12 +27,12 @@
     .lbl { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
       letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
     .field { display: flex; flex-direction: column; gap: 8px; }
-    .input { border: 1px solid #cecece; border-radius: 7px; padding: 11px 13px; background: #ffffff;
+    .input { border: 1px solid #818181; border-radius: 7px; padding: 11px 13px; background: #ffffff;
       color: #0a0e19; font-size: 14px; min-height: 44px; box-sizing: border-box; display: flex;
       align-items: center; justify-content: space-between; gap: 12px; }
     /* An unfilled control must not look like a chosen value. Placeholders sit on the
        surface tint in label grey; a chosen value is ink on paper. */
-    .input.empty { background: #f9f9f9; color: #636363; font-style: italic; }
+    .input.empty { background: #f9f9f9; color: #636363; }
     .hint { font-size: 13px; line-height: 1.45; color: #636363; }
   </style>
 </helmet>
@@ -44,8 +44,8 @@
     <div style="display: flex; align-items: center; gap: 11px;">
       <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
         <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-        <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
-        <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+        <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+        <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
       </svg>
       <div style="display: flex; align-items: baseline;">
         <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
@@ -117,11 +117,11 @@
       <div class="field">
         <div class="lbl">receipt_requirements</div>
         <div style="display: flex; flex-wrap: wrap; gap: 9px;">
-          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">placement</span>
-          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">provider-operation</span>
-          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">spend</span>
-          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">failover</span>
-          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">offline-verifiable</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;"><span class="dot" style="background: #818181;"></span>placement</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;"><span class="dot" style="background: #818181;"></span>provider-operation</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;"><span class="dot" style="background: #818181;"></span>spend</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;"><span class="dot" style="background: #818181;"></span>failover</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;"><span class="dot" style="background: #818181;"></span>offline-verifiable</span>
         </div>
       </div>
 

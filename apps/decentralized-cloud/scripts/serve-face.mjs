@@ -39,6 +39,14 @@ const READS = new Map([
   ["/api/venues", { daemon: "/v1/hypervisor/placement/venues", query: [] }],
 ]);
 
+// The face's own configuration — not a daemon read. It carries only what the surface
+// needs in order to avoid making an unchecked claim: if an operator has declared a
+// refresh cadence, the page may say when the next batch is due; if not, it says
+// nothing about cadence rather than guessing one.
+const REFRESH_CADENCE_S = process.env.IOI_DC_REFRESH_CADENCE_S
+  ? Number(process.env.IOI_DC_REFRESH_CADENCE_S)
+  : null;
+
 const STATIC = new Map([
   ["/", { file: "index.html", type: "text/html; charset=utf-8" }],
   ["/index.html", { file: "index.html", type: "text/html; charset=utf-8" }],
@@ -114,6 +122,16 @@ const server = createServer(async (req, res) => {
     return json(res, 405, {
       state: "method_not_allowed",
       reason: "this surface is read-only; it exposes no mutating route to any caller",
+    });
+  }
+
+  if (url.pathname === "/api/face-config") {
+    return json(res, 200, {
+      refresh_cadence_seconds: REFRESH_CADENCE_S,
+      daemon_reads: [...READS.keys()],
+      note: REFRESH_CADENCE_S
+        ? "an operator process refreshes the showcase intents on this cadence; it is a separate process and is not reachable from this surface"
+        : "no refresh cadence is declared to this surface, so it makes no claim about when the next batch lands",
     });
   }
 

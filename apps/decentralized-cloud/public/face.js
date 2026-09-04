@@ -86,10 +86,29 @@ const failure = (r) =>
 // ── Candidates ───────────────────────────────────────────────────────────────
 async function renderCandidates() {
   surface.replaceChildren(waiting("candidates"));
-  const r = await read(`/api/candidates?intent_ref=${encodeURIComponent(intentRef)}`);
+  const [r, config] = await Promise.all([
+    read(`/api/candidates?intent_ref=${encodeURIComponent(intentRef)}`),
+    read("/api/face-config"),
+  ]);
   if (!r.ok) return surface.replaceChildren(failure(r));
+  const cadence = config.ok ? config.body?.refresh_cadence_seconds : null;
 
-  const candidates = Array.isArray(r.body.candidates) ? r.body.candidates : [];
+  // A long-lived intent accumulates every sweep the daemon has ever run against it,
+  // so the page reads the LATEST BATCH and says how much older evidence it set aside.
+  // Showing a fresh quote beside a fortnight-old one would make the page a place
+  // where prices go to be misread.
+  const all = Array.isArray(r.body.candidates) ? r.body.candidates : [];
+  const batches = new Map();
+  for (const c of all) {
+    const key = c.batch || "unbatched";
+    const entry = batches.get(key) || { key, observed: "", items: [] };
+    entry.items.push(c);
+    if ((c.observed_at || "") > entry.observed) entry.observed = c.observed_at || "";
+    batches.set(key, entry);
+  }
+  const latest = [...batches.values()].sort((a, b) => (a.observed < b.observed ? 1 : -1))[0]
+    || { key: "none", observed: "", items: [] };
+  const candidates = latest.items;
   const live = candidates.filter((c) => classify(c).live);
   const venues = [...new Set(live.map((c) => c.provider_kind))].sort();
   const observed = live[0]?.observed_at || r.body.at;
@@ -182,7 +201,16 @@ async function renderCandidates() {
       el("div", { class: "stack", style: "gap: 10px;" },
         el("h1", {}, r.body.intent_summary || "Candidates"),
         el("div", { class: "meta" },
-          `${intentRef} · observed ${clock(observed)} · this read took ${(r.ms / 1000).toFixed(1)}s`)),
+          `${intentRef} · batch ${latest.key} · observed ${clock(latest.observed || observed)}` +
+          ` · ${candidates.length} of ${all.length} candidates known for this intent` +
+          (cadence
+            ? ` · next batch due ${clock(new Date(Date.parse(latest.observed || observed) + cadence * 1000).toISOString())}`
+            : "")),
+        all.length > candidates.length
+          ? el("div", { class: "meta" },
+              `${all.length - candidates.length} older candidates from earlier sweeps are set aside — ` +
+              "a price is only comparable against the sweep it was taken in.")
+          : null),
       venueVerdict,
       el("div", { class: "eyebrow" }, "Evidence"),
       el("div", { class: "table" }, rows),

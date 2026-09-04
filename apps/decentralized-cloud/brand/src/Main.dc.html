@@ -37,25 +37,22 @@
   <!-- ── Primary lockup: stacked ──────────────────────────────────────── -->
   <div style="display: flex; flex-direction: column; gap: 48px;">
     <div class="eyebrow">Primary lockup</div>
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-      <div style="display: flex; align-items: baseline;">
-        <span class="w" style="font-size: 64px;">decentralized</span><span class="d" style="width: 11px; height: 11px; margin-left: 7px;"></span>
-      </div>
-      <div class="w" style="font-size: 64px;">cloud</div>
+    <div style="display: flex; align-items: baseline;">
+      <span class="w" style="font-size: 52px;">decentralized</span><span class="d" style="width: 9px; height: 9px; margin: 0 5px;"></span><span class="w" style="font-size: 52px;">cloud</span>
     </div>
   </div>
 
   <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 44px;">
     <div class="body">
-      The name breaks where the domain breaks, and the drawn dot sits at the
-      break doing the work the face cannot: IOI Display carries 33 unicase
-      glyphs and no period at all.
+      The drawn dot does the work the face cannot: IOI Display carries 33 unicase
+      glyph slots, 26 of them letters, and no period at all. Every other
+      character in the name is typed; this one is drawn, and it is the same
+      object as the mark.
     </div>
     <div class="body">
-      Stacking is not a concession to width. Set on one line the name runs
-      19.2 ems — measured off the rendered face, not estimated — which is
-      unusable at product sizes. The IOI wordmark is short; short is the family
-      cue, not length.
+      Set on one line the name runs 19.2 ems, measured off the rendered face.
+      That fixes the floor: below 400px of clear width the single line stops
+      being readable and the narrow lockup takes over.
     </div>
   </div>
 
@@ -63,14 +60,18 @@
   <div class="rule" style="margin: 48px 0 32px;"></div>
   <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;">
     <div style="display: flex; flex-direction: column; gap: 16px;">
-      <div class="eyebrow">Horizontal signature — wide chrome only</div>
-      <div style="display: flex; align-items: baseline;">
-        <span class="w" style="font-size: 40px;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin: 0 4px;"></span><span class="w" style="font-size: 40px;">cloud</span>
+      <div class="eyebrow">Narrow lockup — under 400px of width</div>
+      <div style="display: flex; flex-direction: column;">
+        <div class="w" style="font-size: 40px;">decentralized</div>
+        <div style="display: flex; align-items: baseline; margin-top: 2px;">
+          <span class="d" style="width: 7px; height: 7px; margin-right: 4px;"></span><span class="w" style="font-size: 40px;">cloud</span>
+        </div>
       </div>
     </div>
     <div class="body" style="max-width: 44ch;">
-      Permitted only where 400px of clear width exists — a top bar, a footer, a
-      letterhead. Below that the stacked lockup, which holds to 220px.
+      The dot leads the second line, because that is how a domain breaks: the
+      period belongs to what follows it. It holds to 220px wide, which puts the
+      cap at 11px. There is no third lockup.
     </div>
   </div>
 
@@ -79,61 +80,89 @@
   <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 48px;">
     <div style="display: flex; flex-direction: column; gap: 22px;">
       <div class="eyebrow">Icon — the dot and its window</div>
-      <div style="display: flex; align-items: flex-end; gap: 28px;">
+      <div style="display: flex; align-items: flex-end; gap: 26px;">
         <svg width="104" height="104" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 104 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#7bbd97"></circle>
         </svg>
         <svg width="48" height="48" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 48 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#7bbd97"></circle>
         </svg>
         <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 32 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#7bbd97"></circle>
         </svg>
         <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 24 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
         </svg>
         <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 16 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
         </svg>
       </div>
+
+      <!-- Off the tile. A mark that only works inside its app-icon container is a
+           container, so the container comes off and the mark takes the same token
+           the drawn period takes on paper. -->
+      <div style="display: flex; align-items: flex-end; gap: 26px; margin-top: 26px;
+                  border-top: 1px solid #e1e1e1; padding-top: 26px;">
+        <svg width="104" height="104" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud mark without its tile, at 104 pixels">
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#397554" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+        </svg>
+        <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud mark without its tile, at 32 pixels">
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#397554" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud mark without its tile, at 16 pixels">
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#397554" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="11" fill="#397554"></circle>
+        </svg>
+        <div class="eyebrow" style="text-transform: none; letter-spacing: 0.02em; padding-bottom: 4px;">
+          off the tile, on paper
+        </div>
+      </div>
     </div>
+
     <div class="body" style="max-width: 44ch;">
-      The dot is the price. The arc around it is the window that price is still
-      good for, and the hundred degrees of missing arc are the part of the window
-      already spent — every quote this product shows carries an
-      <span class="mono" style="font-size: 12px;">expires_at</span>, most of them
-      fifteen minutes out.
+      The dot is the price and it is the same drawn period the wordmark uses —
+      one object, one token on any given ground. The ring is the window that
+      price is good for; the slice out of it is the part already spent.
       <br><br>
-      One drawing at every size: dot radius 13, ring radius 26, gap 100°, corner
-      radius 11, all on a 96-unit grid. Only the stroke changes — 6 units at 32px
-      and above, 11 below it, so the arc survives a browser tab instead of being
-      dropped there. The arc is the half of the idea that matters; a size that
-      cannot carry it is a size this mark does not go to.
+      The ring is cut by a straight vertical, not by a sweep. Both terminals are
+      flat and parallel on one axis, which is what a measure with a piece taken
+      out looks like and what a rotating spinner never does. Geometry is fixed at
+      every size: dot 9, ring 26, cut at x=32 for a 104° gap, corner 11 on a 96-unit grid; only
+      the stroke changes, 6 units at 32px and above and 9 below, with the dot
+      opening to 11 to hold its counter. 16px is the floor. Below it the mark is
+      the period alone.
+      <br><br>
+      <strong style="color: #0a0e19;">The mark is a symbol, never an instance.</strong>
+      Its gap is canonical and fixed; it does not report a real quote and is not
+      bound to data. The product's window timeline is the instance — it quotes
+      this geometry and binds its gap to an actual
+      <span class="mono" style="font-size: 12px;">observed_at</span> and
+      <span class="mono" style="font-size: 12px;">expires_at</span>. A logo that
+      claimed a live number would be the one thing this product cannot ship.
     </div>
   </div>
 
   <!-- ── Dark variant ─────────────────────────────────────────────────── -->
   <div style="margin-top: 44px; background: #0a0e19; border-radius: 12px; padding: 40px 44px;
               display: flex; align-items: center; justify-content: space-between; gap: 48px;">
-    <div style="display: flex; flex-direction: column; gap: 3px;">
-      <div style="display: flex; align-items: baseline;">
-        <span class="w" style="font-size: 40px; color: #ffffff;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin-left: 4px; background: #7bbd97;"></span>
-      </div>
-      <div class="w" style="font-size: 40px; color: #ffffff;">cloud</div>
+    <div style="display: flex; align-items: baseline;">
+      <span class="w" style="font-size: 40px; color: #ffffff;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin: 0 4px; background: #7bbd97;"></span><span class="w" style="font-size: 40px; color: #ffffff;">cloud</span>
     </div>
     <div class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
                              color: #818181; text-align: right; line-height: 1.7;">
-      on onyx the dot takes green-on-dark<br>#7bbd97 — link green fails contrast here
+      one object, one token per ground<br>#397554 on paper · #7bbd97 on onyx
     </div>
   </div>
 
@@ -143,26 +172,29 @@
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">The dot</div>
       <div class="body">
-        One quarter of the cap height, rounded to the nearest pixel. On this
-        sheet: 11px at 64, 7px at 40, 5px at 28, 4px at 22. Cap height measures
-        0.70 em in this face — 44.8px at 64 — taken off the rendered glyph, not
-        the metrics table.
+        One quarter of the cap height, rounded to the nearest pixel: 9px at 52
+        and 7px at 40 on this sheet, 6px at 34 on the system sheet, 5px at 28 on
+        the direction boards, 4px at 22 in both product bars. Cap height measures
+        0.70 em in this face — 36.4px at 52 — taken off the rendered glyph, not
+        the metrics table. The dot and the mark are one object and take one
+        token on any ground: link-green on paper, green-on-dark on onyx, the
+        same swap the ink makes.
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">Clear space</div>
       <div class="body">
-        One cap height on every side, measured from the outermost ink — 45px
-        around the 64px lockup, which is why the eyebrow above it sits where it
-        does. Nothing enters it, the IOI endorsement line included.
+        One cap height on every side, measured from the outermost ink — 36px
+        around the 52px lockup above, and proportionally at every other size.
+        Nothing enters it, the IOI endorsement line included.
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">Minimum size</div>
       <div class="body">
-        Stacked to 220px wide, which puts the cap at 11px. Horizontal to 400px.
-        Below 220px the icon alone. Never set the wordmark in another face and
-        never track it past 0.01em.
+        Single line to 400px wide, which puts the cap at 14.6px. Narrow lockup to
+        220px, cap 11px. Below 220px the mark alone, down to a 16px floor. Never
+        set the wordmark in another face and never track it past 0.01em.
       </div>
     </div>
   </div>

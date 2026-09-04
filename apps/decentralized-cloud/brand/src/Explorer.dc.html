@@ -42,8 +42,8 @@
       <div style="display: flex; align-items: center; gap: 11px;">
         <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
         </svg>
         <div style="display: flex; align-items: baseline;">
           <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
@@ -171,15 +171,21 @@
       <div style="border: 1px solid #e1e1e1; border-radius: 10px; padding: 20px 22px;
                   display: flex; flex-direction: column; gap: 16px;">
         <div style="display: flex; align-items: center; gap: 0;">
-          <div style="flex-grow: 1; height: 4px; border-radius: 2px 0 0 2px; background: #cecece;"></div>
+          <div style="flex: 12; height: 4px; border-radius: 2px 0 0 2px; background: #cecece;"></div>
           <div style="width: 2px; height: 14px; background: #0a0e19;"></div>
-          <div style="width: 74px; height: 4px; border-radius: 0 2px 2px 0; background: #397554;"></div>
+          <div style="flex: 3; height: 4px; border-radius: 0 2px 2px 0; background: #397554;"></div>
           <div style="width: 2px; height: 14px; background: #e40014;"></div>
         </div>
-        <div style="display: flex; justify-content: space-between; gap: 16px;">
-          <div class="mono" style="font-size: 12px; color: #636363;">observed 15:11:41Z · spent</div>
-          <div class="mono" style="font-size: 12px; color: #636363;">refresh at 12 min</div>
-          <div class="mono" style="font-size: 12px; color: #e40014;">expires 15:26:41Z</div>
+        <!-- The segments carry the same 12/15 and 3/15 the labels name, and each label
+             sits against its own tick rather than being spread across the row. -->
+        <div style="display: flex; align-items: baseline;">
+          <div style="flex: 12; display: flex; justify-content: space-between; gap: 16px;">
+            <div class="mono" style="font-size: 12px; color: #636363;">observed 15:11:41Z · spent</div>
+            <div class="mono" style="font-size: 12px; color: #636363;">refresh at 12 min</div>
+          </div>
+          <div style="flex: 3; text-align: right;">
+            <div class="mono" style="font-size: 12px; color: #e40014;">expires 15:26:41Z</div>
+          </div>
         </div>
         <div style="font-size: 13px; line-height: 1.55; color: #636363;">
           Grey is the window already spent, green is what is left — the same reading

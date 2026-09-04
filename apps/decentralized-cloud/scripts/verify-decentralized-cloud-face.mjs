@@ -57,6 +57,36 @@ function checkVocabulary() {
     !/simulated_control_plane[^\n]*live\s*:\s*true/.test(js));
 }
 
+// ── 2b. The refresher is a separate process, not part of the face ───────────
+// The face's read-only claim survives only while the writer lives somewhere else.
+function checkRefresherSeparation() {
+  // Both files DISCUSS each other in their header comments — that is the point of
+  // the comments. Strip them, or the assertion fires on prose that says the very
+  // thing it is checking for.
+  const code = (rel) =>
+    readFileSync(path.join(APP, rel), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+  const serve = code("scripts/serve-face.mjs");
+  const refresher = code("scripts/refresh-showcase.mjs");
+
+  ok("the face server never imports or spawns the refresher",
+    !/refresh-showcase/.test(serve));
+  ok("the refresher never imports the face server",
+    !/serve-face/.test(refresher));
+  ok("the refresher is the only one of the two that writes to the daemon",
+    /candidates\/refresh/.test(refresher) && !/candidates\/refresh/.test(serve));
+  ok("the face's allowlist contains no refresh route",
+    !/refresh/.test((serve.match(/const READS[\s\S]*?\]\);/) || [""])[0]));
+  ok("the refresher never reaches a provider mutation",
+    !/provider-ops/.test(refresher));
+
+  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  ok("the face reads the latest batch rather than every sweep ever taken",
+    /batch/.test(js) && /batches/.test(js));
+}
+
 // ── 3. The served surface refuses everything it should ──────────────────────
 async function checkServer() {
   const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
@@ -107,6 +137,36 @@ async function checkServer() {
       ok("candidate-sources proxies the daemon's own body", false,
         `HTTP ${sources.status} ${sourcesBody.state || "no sources array"} — is the daemon running?`);
     }
+    // The face can only show a fresh batch if the daemon labels batches at all.
+    const cands = await fetch(
+      `${BASE}/api/candidates?intent_ref=${encodeURIComponent("cloud-resource-intent://cri_default")}`
+    );
+    const candsBody = await cands.json().catch(() => ({}));
+    const list = Array.isArray(candsBody.candidates) ? candsBody.candidates : [];
+    if (cands.status === 200) {
+      ok("every candidate carries the batch it was observed in",
+        list.length > 0 && list.every((c) => typeof c.batch === "string" && c.batch.length > 0),
+        `${list.length} candidates`);
+
+      const batches = new Map();
+      for (const c of list) {
+        const seen = batches.get(c.batch) || "";
+        if ((c.observed_at || "") > seen) batches.set(c.batch, c.observed_at || "");
+      }
+      const newest = [...batches.entries()].sort((a, b) => (a[1] < b[1] ? 1 : -1))[0];
+      const inNewest = list.filter((c) => c.batch === newest?.[0]);
+      const liveNow = inNewest.filter(
+        (c) => c.evidence_mode === "live_evidence" && Date.parse(c.expires_at || 0) > Date.now()
+      );
+      // Whether a live price exists right now is the weather, not the mechanism, so
+      // this reports it rather than failing on it — but the newest batch must be a
+      // real cohort, not a mix of every sweep ever taken.
+      ok("the newest batch is one cohort, not an accumulation",
+        inNewest.length > 0 && inNewest.length <= list.length,
+        `batch ${newest?.[0]} — ${inNewest.length} of ${list.length} candidates, ${liveNow.length} live right now`);
+    } else {
+      ok("every candidate carries the batch it was observed in", false, `HTTP ${cands.status}`);
+    }
   } finally {
     server.kill("SIGTERM");
   }
@@ -135,6 +195,7 @@ async function checkBrandGates() {
 async function run() {
   checkPalette();
   checkVocabulary();
+  checkRefresherSeparation();
   await checkServer();
   await checkBrandGates();
 }

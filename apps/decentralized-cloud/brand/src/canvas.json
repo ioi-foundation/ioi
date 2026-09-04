@@ -1,12 +1,12 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 1370, "title": "Identity sheet" },
-    { "file": "DirectionA.dc.html", "x": 0, "y": 1490, "w": 720, "h": 540, "title": "Direction A — the dot and its window" },
-    { "file": "DirectionB.dc.html", "x": 820, "y": 1490, "w": 720, "h": 540, "title": "Direction B — the convergence" },
-    { "file": "DirectionC.dc.html", "x": 1640, "y": 1490, "w": 720, "h": 540, "title": "Direction C — the field" },
-    { "file": "System.dc.html", "x": 0, "y": 2250, "w": 1240, "h": 1380, "title": "Visual system" },
-    { "file": "Explorer.dc.html", "x": 0, "y": 3760, "w": 1440, "h": 1100, "title": "Candidate explorer — reads the live daemon" },
-    { "file": "Composer.dc.html", "x": 1560, "y": 3760, "w": 1440, "h": 1010, "title": "Job composer — designed, not wired" }
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 1580, "title": "Identity sheet" },
+    { "file": "DirectionA.dc.html", "x": 0, "y": 1700, "w": 720, "h": 540, "title": "Direction A — the dot and its window" },
+    { "file": "DirectionB.dc.html", "x": 820, "y": 1700, "w": 720, "h": 540, "title": "Direction B — the convergence" },
+    { "file": "DirectionC.dc.html", "x": 1640, "y": 1700, "w": 720, "h": 540, "title": "Direction C — the field" },
+    { "file": "System.dc.html", "x": 0, "y": 2460, "w": 1240, "h": 1410, "title": "Visual system" },
+    { "file": "Explorer.dc.html", "x": 0, "y": 4010, "w": 1440, "h": 1100, "title": "Candidate explorer — reads the live daemon" },
+    { "file": "Composer.dc.html", "x": 1560, "y": 4010, "w": 1440, "h": 1010, "title": "Job composer — designed, not wired" }
   ],
   "annotations": [
     {
@@ -14,12 +14,12 @@
       "x": 1340,
       "y": 0,
       "w": 420,
-      "text": "decentralized.cloud — a public face over the Hypervisor daemon.\n\nDirection A is the leading candidate and is what the identity sheet, the system and both product surfaces are built on. B and C are live alternatives, each with its own case and its own tradeoff.\n\nEvery colour on these sheets is a token in packages/design-system. Two tokens were added to that file for this product — green-on-dark and red-700 — each for a contrast reason stated on the system sheet."
+      "text": "decentralized.cloud — a public face over the Hypervisor daemon.\n\nDirection A is the leading candidate and is what the identity sheet, the system and both product surfaces are built on. B and C are live alternatives, each with its own case and its own tradeoff.\n\nEvery colour on these sheets is a token in packages/design-system. Exactly one token was added to that file for this product — green-on-dark — for a contrast reason measured and stated on the system sheet."
     },
     {
       "id": "surfaces",
       "x": 3060,
-      "y": 3760,
+      "y": 4010,
       "w": 400,
       "text": "The two surfaces are deliberately different kinds of thing.\n\nThe explorer reads the running daemon. Every number on it was returned by that daemon today: 24 live quotes, all from Vast, cheapest $0.0136/hr, valid for fifteen minutes.\n\nThe composer is drawn to the canonical CloudJobRequest shape and submits nothing. It is labelled unwired on the surface itself, not only in a note."
     }

@@ -16,8 +16,13 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../..");
 const FONTS = path.join(REPO, "packages/design-system/assets/fonts");
-const SRC = path.join(HERE, "src");
-const OUT = path.join(HERE, "canvas");
+// Default is the identity canvas. `--set <name>` builds a sibling set: the mark
+// concept round lives in brand/concepts so it can be published and judged on its
+// own, without the identity sheets revealing which concept is the incumbent.
+const setArg = process.argv.indexOf("--set");
+const SET = setArg > -1 ? process.argv[setArg + 1] : null;
+const SRC = SET ? path.join(HERE, SET) : path.join(HERE, "src");
+const OUT = SET ? path.join(HERE, `${SET}-canvas`) : path.join(HERE, "canvas");
 
 const FACES = {
   __B64_IOI__: "IOI.ttf",
