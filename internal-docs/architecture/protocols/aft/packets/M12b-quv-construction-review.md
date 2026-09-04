@@ -7,7 +7,7 @@ peer review or external certification.
 ## Candidate identity
 
 ```text
-tag: aft-quv-v0-construction-candidate-2026-09-03
+tag: aft-quv-v0-construction-candidate-r4-2026-09-03
 tag_object: resolve from the annotated tag at commissioning time
 commit: resolve by dereferencing that exact tag at commissioning time
 ```
@@ -23,9 +23,11 @@ annotated tag provide the self-reference-free binding.
 - `internal-docs/architecture/protocols/aft/specs/maximal_consensus_task.md`
 - `internal-docs/architecture/protocols/aft/specs/maximal_visibility_viability.md`
 - `internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md`
-- `internal-docs/architecture/protocols/aft/formal/maximal_visibility/quv_timed_model_r3.py`
-- `internal-docs/architecture/protocols/aft/formal/maximal_visibility/quv_timed_results_r3.json`
+- `internal-docs/architecture/protocols/aft/formal/maximal_visibility/quv_timed_model_r4.py`
+- `internal-docs/architecture/protocols/aft/formal/maximal_visibility/quv_timed_results_r4.json`
 - `internal-docs/architecture/protocols/aft/evidence/m12b-quv-r3-local-evidence-2026-09-03.md`
+- `internal-docs/architecture/protocols/aft/evidence/m12b-quv-r3-daybreak-review-2026-09-03.md`
+- `internal-docs/architecture/protocols/aft/evidence/m12b-quv-r4-local-evidence-2026-09-03.md`
 - ADRs 0041, 0048, and 0049
 
 ## Required reproduction

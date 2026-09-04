@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Explicit-time bounded model for the AFT QUV candidate.
+"""R4 explicit-time and multi-correct bounded model for the AFT QUV candidate.
 
 This model is evidence for M12b/M13Q, not an arbitrary-n proof.  It exhausts
 the n=2, one-correct-member, two-verifier state space described below and
@@ -28,6 +28,11 @@ The Byzantine coalition is collapsed into one response source.  This is a
 safety over-approximation for the modeled acceptance rule because additional
 Byzantine members can add candidate evidence or remain silent, but cannot
 remove the correct member's timely response in sync mode.
+
+The model also exhausts an ordering abstraction with two and three correct
+members.  The sound mode includes every correct reply for every operation.  A
+split-witness mutation permits a different timely correct member per operation
+and must recover the cross-member opposite-order conflict.
 """
 
 import itertools
@@ -160,7 +165,6 @@ def run(authority, mode, verifier_count=2):
     valid = VALUES if authority == "unowned" else signed(authority)
     cases = 0
     conflicts = 0
-    solo_failures = 0
     first_counterexample = None
     delay_options = list(itertools.product(range(D + 1), repeat=3))
 
@@ -259,18 +263,6 @@ def run(authority, mode, verifier_count=2):
                                                         "replay_choices": replay_choices,
                                                         "accepted": accepted,
                                                     }
-                                            if (
-                                                authority == "honest"
-                                                and "X" in initial_correct
-                                                and all(
-                                                    value == "X"
-                                                    for value in candidates
-                                                )
-                                                and mode == "sync"
-                                                and len(accepted) != verifier_count
-                                            ):
-                                                solo_failures += 1
-
     return {
         "authority": authority,
         "mode": mode,
@@ -279,7 +271,133 @@ def run(authority, mode, verifier_count=2):
         "verifiers": verifier_count,
         "cases": cases,
         "conflicts": conflicts,
-        "universal_solo_liveness_failures": solo_failures,
+        "first_counterexample": first_counterexample,
+    }
+
+
+def run_solo_liveness(authority, verifier_count=2):
+    """Exhaust exactly-one-candidate schedules, including a fresh correct state."""
+    cases = 0
+    failures = 0
+    first_failure = None
+    delay_options = list(itertools.product(range(D + 1), repeat=3))
+    candidates = ("X",) * verifier_count
+    for initial_correct in [(), ("X",)]:
+        for initial_byzantine in [(), ("X",)]:
+            for starts in itertools.product(range(2), repeat=verifier_count):
+                for delays in itertools.product(delay_options, repeat=verifier_count):
+                    for skews in itertools.product(range(E + 1), repeat=verifier_count):
+                        for tie_order in itertools.permutations(range(verifier_count)):
+                            for byzantine_replies in itertools.product(
+                                [(), ("X",)], repeat=verifier_count
+                            ):
+                                cases += 1
+                                accepted = simulate(
+                                    authority,
+                                    "sync",
+                                    initial_correct,
+                                    initial_byzantine,
+                                    candidates,
+                                    starts,
+                                    delays,
+                                    skews,
+                                    byzantine_replies,
+                                    tie_order,
+                                    None,
+                                    (None,) * verifier_count,
+                                )
+                                if len(accepted) != verifier_count:
+                                    failures += 1
+                                    if first_failure is None:
+                                        first_failure = {
+                                            "initial_correct": initial_correct,
+                                            "initial_byzantine": initial_byzantine,
+                                            "starts": starts,
+                                            "delays": delays,
+                                            "skews": skews,
+                                            "tie_order": tie_order,
+                                            "byzantine_replies": byzantine_replies,
+                                            "accepted": accepted,
+                                        }
+    return {
+        "authority": authority,
+        "mode": "sync_exactly_one_candidate",
+        "n": 2,
+        "correct_members": 1,
+        "verifiers": verifier_count,
+        "cases": cases,
+        "failures": failures,
+        "includes_fresh_correct_state": True,
+        "first_failure": first_failure,
+    }
+
+
+def snapshots_for_order(candidates, order):
+    knowledge = []
+    snapshots = {}
+    for operation in order:
+        candidate = candidates[operation]
+        if candidate not in knowledge:
+            knowledge.append(candidate)
+        snapshots[operation] = tuple(knowledge)
+    return snapshots
+
+
+def run_multi_correct(authority, correct_members, split_witness=False):
+    """Enumerate independent correct-member serialization orders.
+
+    The sound case delivers every correct member's operation-bound reply.  The
+    mutation delivers one correct reply per operation, allowing the witness to
+    differ and exposing why the same-member-across-operations interpretation is
+    insufficient.
+    """
+    candidates = VALUES
+    operations = tuple(range(len(candidates)))
+    cases = 0
+    conflicts = 0
+    first_counterexample = None
+    order_options = tuple(itertools.permutations(operations))
+    for orders in itertools.product(order_options, repeat=correct_members):
+        snapshots = [
+            snapshots_for_order(candidates, order) for order in orders
+        ]
+        witness_options = (
+            itertools.product(range(correct_members), repeat=len(operations))
+            if split_witness
+            else [(None,) * len(operations)]
+        )
+        for witnesses in witness_options:
+            cases += 1
+            accepted = {}
+            for operation, candidate in enumerate(candidates):
+                selected = (
+                    [snapshots[witnesses[operation]][operation]]
+                    if split_witness
+                    else [member[operation] for member in snapshots]
+                )
+                if authority == "unowned":
+                    if all(snapshot[0] == candidate for snapshot in selected):
+                        accepted[operation] = candidate
+                else:
+                    visible = set().union(*(set(snapshot) for snapshot in selected))
+                    if visible == {candidate}:
+                        accepted[operation] = candidate
+            if len(set(accepted.values())) > 1:
+                conflicts += 1
+                if first_counterexample is None:
+                    first_counterexample = {
+                        "orders": orders,
+                        "witnesses": witnesses,
+                        "snapshots": snapshots,
+                        "accepted": accepted,
+                    }
+    return {
+        "authority": authority,
+        "mode": "split_witness_mutation" if split_witness else "all_correct_timely",
+        "correct_members": correct_members,
+        "operations": len(operations),
+        "cases": cases,
+        "conflicts": conflicts,
         "first_counterexample": first_counterexample,
     }
 
@@ -296,15 +414,44 @@ def main():
         ("dishonest", "replay_same_slot"),
     ]
     rows = [run(authority, mode) for authority, mode in plan]
+    solo_liveness_rows = [
+        run_solo_liveness(authority)
+        for authority in ("honest", "dishonest", "unowned")
+    ]
+    multi_correct_rows = [
+        run_multi_correct(authority, correct_members)
+        for correct_members in (2, 3)
+        for authority in ("dishonest", "unowned")
+    ] + [
+        run_multi_correct(authority, 2, split_witness=True)
+        for authority in ("dishonest", "unowned")
+    ]
     for row in rows:
         print(
-            "%-9s %-16s cases=%8d conflicts=%6d solo_fail=%d"
+            "%-9s %-16s cases=%8d conflicts=%6d"
             % (
                 row["authority"],
                 row["mode"],
                 row["cases"],
                 row["conflicts"],
-                row["universal_solo_liveness_failures"],
+            )
+        )
+        if row["first_counterexample"]:
+            print("  first:", row["first_counterexample"])
+    for row in solo_liveness_rows:
+        print(
+            "%-9s %-28s cases=%8d failures=%6d"
+            % (row["authority"], row["mode"], row["cases"], row["failures"])
+        )
+    for row in multi_correct_rows:
+        print(
+            "%-9s %-28s correct=%d cases=%4d conflicts=%4d"
+            % (
+                row["authority"],
+                row["mode"],
+                row["correct_members"],
+                row["cases"],
+                row["conflicts"],
             )
         )
         if row["first_counterexample"]:
@@ -315,9 +462,17 @@ def main():
             row["conflicts"] == 0 for row in rows if row["mode"] == "sync"
         ),
         "universal_solo_liveness": all(
-            row["universal_solo_liveness_failures"] == 0
-            for row in rows
-            if row["mode"] == "sync"
+            row["failures"] == 0 for row in solo_liveness_rows
+        ),
+        "all_correct_timely_multi_correct_safe": all(
+            row["conflicts"] == 0
+            for row in multi_correct_rows
+            if row["mode"] == "all_correct_timely"
+        ),
+        "split_witness_mutation_breaks": all(
+            row["conflicts"] > 0
+            for row in multi_correct_rows
+            if row["mode"] == "split_witness_mutation"
         ),
         "oneway_bound_mutation_breaks": all(
             row["conflicts"] > 0 for row in rows if row["mode"] == "oneway"
@@ -337,16 +492,18 @@ def main():
         ),
     }
     result = {
-        "model": "aft_quv_explicit_time_r3",
-        "bounded_scope": "n=2, one correct member, two verifier operations",
+        "model": "aft_quv_explicit_time_r4",
+        "bounded_scope": "explicit time: n=2/H=1/two operations; serialization abstraction: H=2..3/two operations",
         "D": D,
         "E": E,
         "DELTA_RT": DELTA_RT,
         "rows": rows,
+        "solo_liveness_rows": solo_liveness_rows,
+        "multi_correct_rows": multi_correct_rows,
         "summary": summary,
     }
     print(json.dumps(summary, indent=2))
-    with open("quv_timed_results_r3.json", "w", encoding="utf-8") as output:
+    with open("quv_timed_results_r4.json", "w", encoding="utf-8") as output:
         json.dump(result, output, indent=2)
         output.write("\n")
     success = all(summary.values())

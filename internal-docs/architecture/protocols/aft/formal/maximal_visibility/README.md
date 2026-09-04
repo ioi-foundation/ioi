@@ -33,14 +33,18 @@ These bounded models support the general L-MAX proof in
 `../../specs/maximal_visibility_viability.md`; they do not replace independent
 theorem review or establish a positive construction.
 
-`quv_timed_model_r3.py` is a separate positive-candidate and mutation model for
+`quv_timed_model_r4.py` is a separate positive-candidate and mutation model for
 the M12b interactive track created by ADR 0050. It exhausts an explicit-time
 `n=2`, one-correct-member, two-verifier space, including honest-owner,
 dishonest-owner, and unowned authority modes. Its synchronous rows must have no
 conflicting accepts or modeled solo-liveness failures. The one-way deadline,
 cross-slot/configuration replay, and reply-before-durable mutations must expose
-conflicts. The harness regenerates the JSON and compares it structurally with
-`quv_timed_results_r3.json`.
+conflicts. R4 also enumerates opposite serialization orders with two and three
+correct members; the sound rows include every correct reply, while the split-
+witness mutation must expose a conflict. Dedicated exactly-one-candidate rows
+exercise fresh-state liveness for all three authority modes. The harness
+regenerates the JSON and compares it structurally with
+`quv_timed_results_r4.json`.
 
 Focused QUV reproduction:
 

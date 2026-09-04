@@ -612,11 +612,12 @@ resume point and the minimum evidence the owner must supply.
 
 1. Close M10's independently observed cold-restart signer-startup defect and
    retest the exact PQ v1 candidate.
-2. Freeze the M12b QUV construction, explicit-time model, generated results,
-   assumptions, and review packet at an annotated candidate tag.
-3. Obtain the ADR-0049-authorized context-isolated construction review. Repair
-   and re-review every finding until the reviewer returns `PASS_CONSTRUCTION`
-   or rejects the construction.
+2. Reproduce and freeze the completed R4 repairs for M12b findings
+   QUV-M12B-001/002.
+3. Freeze the repaired construction, generated results, assumptions, and review
+   packet at a new annotated tag, then obtain an ADR-0049-authorized retest.
+   Repair and re-review until the reviewer returns `PASS_CONSTRUCTION` or
+   rejects the construction.
 4. Only after that pass, execute M13Q: arbitrary-`n` theorem, multiple-correct-
    member concurrency, admitted-load timing, liveness, lower-bound pairings,
    and mechanization.

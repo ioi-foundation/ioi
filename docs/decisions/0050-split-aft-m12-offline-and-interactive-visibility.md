@@ -64,8 +64,8 @@ Two premise changes are explicit:
    portable proof bytes alone.
 2. Known synchrony is safety-critical and covers verifier-to-member request
    delivery, admission and queueing, atomic durable processing, member-to-
-   verifier response delivery, and local-clock error for at least one correct
-   configured member.
+   verifier response delivery, and local-clock error for every correct member
+   on every operation.
 
 QUV also requires durable monotone conflict state, no rollback, every relying
 executor to perform the interaction immediately before externalization, and

@@ -169,11 +169,11 @@ run_quv_model() {
   local workdir model expected generated
 
   workdir="$(mktemp -d)"
-  model="${ROOT_DIR}/${FORMAL_DIR}/maximal_visibility/quv_timed_model_r3.py"
-  expected="${ROOT_DIR}/${FORMAL_DIR}/maximal_visibility/quv_timed_results_r3.json"
+  model="${ROOT_DIR}/${FORMAL_DIR}/maximal_visibility/quv_timed_model_r4.py"
+  expected="${ROOT_DIR}/${FORMAL_DIR}/maximal_visibility/quv_timed_results_r4.json"
   pushd "${workdir}" >/dev/null
-  python3 "${model}" | tee quv_timed_run_r3.txt
-  generated="${workdir}/quv_timed_results_r3.json"
+  python3 "${model}" | tee quv_timed_run_r4.txt
+  generated="${workdir}/quv_timed_results_r4.json"
   python3 - "${expected}" "${generated}" <<'PY'
 import json
 import sys
@@ -184,9 +184,9 @@ with open(expected_path, encoding="utf-8") as source:
 with open(generated_path, encoding="utf-8") as source:
     generated = json.load(source)
 if expected != generated:
-    print("QUV R3 FAIL: generated JSON differs from committed expectation", file=sys.stderr)
+    print("QUV R4 FAIL: generated JSON differs from committed expectation", file=sys.stderr)
     sys.exit(1)
-print("QUV R3 OK: generated JSON matches committed expectation")
+print("QUV R4 OK: generated JSON matches committed expectation")
 PY
   popd >/dev/null
   rm -rf "${workdir}"

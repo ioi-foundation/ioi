@@ -1,6 +1,6 @@
 {
-  "model": "aft_quv_explicit_time_r3",
-  "bounded_scope": "n=2, one correct member, two verifier operations",
+  "model": "aft_quv_explicit_time_r4",
+  "bounded_scope": "explicit time: n=2/H=1/two operations; serialization abstraction: H=2..3/two operations",
   "D": 1,
   "E": 1,
   "DELTA_RT": 4,
@@ -13,7 +13,6 @@
       "verifiers": 2,
       "cases": 24576,
       "conflicts": 0,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": null
     },
     {
@@ -24,7 +23,6 @@
       "verifiers": 2,
       "cases": 2281472,
       "conflicts": 0,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": null
     },
     {
@@ -35,7 +33,6 @@
       "verifiers": 2,
       "cases": 2281472,
       "conflicts": 0,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": null
     },
     {
@@ -46,7 +43,6 @@
       "verifiers": 2,
       "cases": 2281472,
       "conflicts": 33328,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": {
         "initial_correct": [],
         "initial_byzantine": ["X", "Y"],
@@ -69,7 +65,6 @@
       "verifiers": 2,
       "cases": 13688832,
       "conflicts": 47104,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": {
         "initial_correct": [],
         "initial_byzantine": ["X", "Y"],
@@ -92,7 +87,6 @@
       "verifiers": 2,
       "cases": 2281472,
       "conflicts": 172192,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": {
         "initial_correct": [],
         "initial_byzantine": ["X", "Y"],
@@ -115,7 +109,6 @@
       "verifiers": 2,
       "cases": 1283328,
       "conflicts": 16384,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": {
         "initial_correct": [],
         "initial_byzantine": ["X", "Y"],
@@ -138,13 +131,121 @@
       "verifiers": 2,
       "cases": 1283328,
       "conflicts": 0,
-      "universal_solo_liveness_failures": 0,
       "first_counterexample": null
+    }
+  ],
+  "solo_liveness_rows": [
+    {
+      "authority": "honest",
+      "mode": "sync_exactly_one_candidate",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 32768,
+      "failures": 0,
+      "includes_fresh_correct_state": true,
+      "first_failure": null
+    },
+    {
+      "authority": "dishonest",
+      "mode": "sync_exactly_one_candidate",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 32768,
+      "failures": 0,
+      "includes_fresh_correct_state": true,
+      "first_failure": null
+    },
+    {
+      "authority": "unowned",
+      "mode": "sync_exactly_one_candidate",
+      "n": 2,
+      "correct_members": 1,
+      "verifiers": 2,
+      "cases": 32768,
+      "failures": 0,
+      "includes_fresh_correct_state": true,
+      "first_failure": null
+    }
+  ],
+  "multi_correct_rows": [
+    {
+      "authority": "dishonest",
+      "mode": "all_correct_timely",
+      "correct_members": 2,
+      "operations": 2,
+      "cases": 4,
+      "conflicts": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "unowned",
+      "mode": "all_correct_timely",
+      "correct_members": 2,
+      "operations": 2,
+      "cases": 4,
+      "conflicts": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "dishonest",
+      "mode": "all_correct_timely",
+      "correct_members": 3,
+      "operations": 2,
+      "cases": 8,
+      "conflicts": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "unowned",
+      "mode": "all_correct_timely",
+      "correct_members": 3,
+      "operations": 2,
+      "cases": 8,
+      "conflicts": 0,
+      "first_counterexample": null
+    },
+    {
+      "authority": "dishonest",
+      "mode": "split_witness_mutation",
+      "correct_members": 2,
+      "operations": 2,
+      "cases": 16,
+      "conflicts": 2,
+      "first_counterexample": {
+        "orders": [[0, 1], [1, 0]],
+        "witnesses": [0, 1],
+        "snapshots": [
+          {"0": ["X"], "1": ["X", "Y"]},
+          {"1": ["Y"], "0": ["Y", "X"]}
+        ],
+        "accepted": {"0": "X", "1": "Y"}
+      }
+    },
+    {
+      "authority": "unowned",
+      "mode": "split_witness_mutation",
+      "correct_members": 2,
+      "operations": 2,
+      "cases": 16,
+      "conflicts": 2,
+      "first_counterexample": {
+        "orders": [[0, 1], [1, 0]],
+        "witnesses": [0, 1],
+        "snapshots": [
+          {"0": ["X"], "1": ["X", "Y"]},
+          {"1": ["Y"], "0": ["Y", "X"]}
+        ],
+        "accepted": {"0": "X", "1": "Y"}
+      }
     }
   ],
   "summary": {
     "sync_safe_all_authorities": true,
     "universal_solo_liveness": true,
+    "all_correct_timely_multi_correct_safe": true,
+    "split_witness_mutation_breaks": true,
     "oneway_bound_mutation_breaks": true,
     "unbound_reply_replay_mutation_breaks": true,
     "same_slot_stale_replay_is_harmless": true,

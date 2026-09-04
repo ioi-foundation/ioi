@@ -1,7 +1,7 @@
 # Query-Unanimity Verification (`aft_quv_v0`)
 
-Status: M12b local `PASS_CONSTRUCTION_CANDIDATE`; independent construction
-review pending. This document creates no production or public consensus claim.
+Status: M12b R3 independent review returned `REPAIR_REQUIRED`; R4 repairs are
+in progress. This document creates no production or public consensus claim.
 
 Date: 2026-09-03.
 
@@ -10,12 +10,12 @@ Date: 2026-09-03.
 QUV is a participant-interactive authorization primitive for a fixed rooted
 configuration. It attempts this conditional result:
 
-> With at least one reachable correct member, known end-to-end verifier/member
+> With at least one correct member, known end-to-end verifier/member
 > synchrony, and durable monotone member conflict state, no two honest executors
 > accept conflicting candidates for one conflict-domain slot; when exactly one
-> valid candidate exists, every honest executor that can reach the correct
-> member completes the online check despite permanent silence from all other
-> members.
+> valid candidate exists, every honest executor that can reach every correct
+> member within the bound completes the online check despite permanent silence
+> from all Byzantine members.
 
 This is not yet a consensus theorem. M13Q must define and prove how proposal,
 validity, member decision, ordering, and termination compose with this online
@@ -33,13 +33,13 @@ The result depends on all of the following:
 |---|---|---|
 | Q-A1 | Rooted member and authority signatures are unforgeable and domain separated | cryptographic |
 | Q-A2 | Every honest executor sends its complete request directly to every member in the rooted configuration | network |
-| Q-A3 | For at least one `c in H`, request delivery, admission/queueing, validation, atomic durable processing, response delivery, and maximum clock error complete within rooted `delta_rt` | timing and availability |
+| Q-A3 | For every honest executor operation and every `c in H`, request delivery, admission/queueing, validation, atomic durable processing, response delivery, and maximum clock error complete within rooted `delta_rt` | timing and availability |
 | Q-A4 | Each correct member linearizes requests per `(configuration, domain, slot)` and durably writes before it signs the corresponding reply | storage |
 | Q-A5 | Correct conflict knowledge is grow-only, survives restart, cannot roll back, and is retained and reachable for the authority lifetime | storage |
 | Q-A6 | Every honest executor performs QUV itself immediately before irreversible externalization and never trusts a cached assertion that another verifier waited | execution |
 | Q-A7 | Candidate validity and authority are fixed by the independently provisioned root; local arrival, timeout, and silence create no candidate authority | authorization |
 | Q-A8 | The verifier processes every valid reply delivered by its decision deadline; a Byzantine reply can disclose a valid conflict but cannot erase another reply | verifier |
-| Q-A9 | Admission control reserves enough authenticated capacity for Q-A3 despite Byzantine query traffic | resource/timing |
+| Q-A9 | Admission control reserves enough authenticated capacity for every correct member to satisfy Q-A3 despite Byzantine query traffic | resource/timing |
 | Q-A10 | The fault assignment is static for the rooted configuration and authority lifetime; the result does not tolerate a mobile adversary that later corrupts the last correct state holder | adversary |
 
 Q-A3 is a safety assumption. If the correct reply may arrive after the
@@ -48,9 +48,11 @@ asynchronous safety and not eventual-synchronous safety before an independently
 established bound is active.
 
 The construction uses no relay, external selector, TEE, DKG, majority custody,
-or trusted identity naming the correct member. It does assume direct executor
-reachability to a correct member and does not turn that timing fact into
-portable evidence.
+or trusted identity naming a correct member. It does assume direct executor
+reachability to every correct configured member within the bound and does not
+turn that timing fact into portable evidence. Requiring merely a possibly
+different timely correct member for each operation is insufficient: opposite
+serialization orders at two correct members permit conflicting accepts.
 
 ## 3. Rooted objects
 
@@ -163,7 +165,8 @@ rooted conflict-domain slot.
 Proof sketch: choose any correct member `c`. Both executor operations send their
 candidates to `c`. Correct processing at `c` is atomic and totally ordered for
 the slot. Whichever conflicting request linearizes second receives a snapshot
-containing both candidates. Q-A3 and the full-deadline rule place that signed
+containing both candidates. Q-A3 applies to the same `c` for both operations,
+and the full-deadline rule places that signed
 snapshot in the corresponding verifier's input before it decides. The owned
 union predicate rejects that operation. In the unowned mode, the durable first
 winner at `c` differs from at most one of the candidate values, so at most one
@@ -217,11 +220,16 @@ authority. This is the retained M12a boundary.
 
 ## 8. Bounded executable evidence
 
-The R3 Python model covers `n=2`, one correct member, and two verifier
-operations. It enumerates initial candidate placement, candidates, start ticks,
+The R4 Python model covers explicit time for `n=2`, one correct member, and two
+verifier operations. It enumerates initial candidate placement, candidates, start ticks,
 request/processing/response delays, clock skew, correct-member tie order,
 Byzantine reply contents, crash ticks, and replay choices. It checks honest,
 dishonest-owner, and unowned authority modes.
+
+It also enumerates independent opposite serialization orders for two and three
+correct members. Sound rows include every correct reply; the split-witness
+mutation permits a different timely correct member per operation and must
+recover conflicting accepts.
 
 The positive rows must have zero conflicting accepts. The one-way deadline,
 cross-slot/configuration replay, and reply-before-durable mutations must recover
@@ -234,6 +242,10 @@ Run:
 ```text
 bash .github/scripts/run_aft_formal_checks.sh --quv-only
 ```
+
+The liveness generator separately checks each authority mode with exactly one
+submitted candidate, includes both empty and pre-populated correct state, and
+permits only non-conflicting Byzantine replies.
 
 These checks are bounded evidence. Q-S1 and Q-L1 require independent review and
 mechanization for arbitrary `n`, multiple correct members, arbitrary operation

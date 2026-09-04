@@ -54,6 +54,13 @@ traces, TLC state dumps, and compiled paper outputs live under
   `aft_quv_v0`; no production or consensus claim is created.
 - [`evidence/m12b-quv-r3-local-evidence-2026-09-03.md`](./evidence/m12b-quv-r3-local-evidence-2026-09-03.md)
   — corrected, reproducible explicit-time enumeration and its bounded scope.
+- [`evidence/m12b-quv-r3-daybreak-review-2026-09-03.md`](./evidence/m12b-quv-r3-daybreak-review-2026-09-03.md)
+  — exact-candidate automated `REPAIR_REQUIRED` review finding the cross-
+  operation correct-witness gap and partly vacuous liveness counter.
+- [`evidence/m12b-quv-r4-local-evidence-2026-09-03.md`](./evidence/m12b-quv-r4-local-evidence-2026-09-03.md)
+  — repaired assumption boundary, non-vacuous liveness campaigns, multi-
+  correct positive rows, and split-witness countermodel awaiting independent
+  retest.
 - [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
   — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)

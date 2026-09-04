@@ -4,6 +4,10 @@ Status: local supporting evidence for `PASS_CONSTRUCTION_CANDIDATE`; not
 independent review, an arbitrary-`n` proof, production admission, or a public
 consensus claim.
 
+Historical note: this evidence is frozen at
+`aft-quv-v0-construction-candidate-2026-09-03`. Its R3 source and result paths
+were superseded by R4 after independent findings QUV-M12B-001/002.
+
 Date: 2026-09-03.
 
 ## Source-material custody
