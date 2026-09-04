@@ -28,7 +28,7 @@
 </helmet>
 
 <div style="display: flex; flex-direction: column; padding: 44px 48px 48px;">
-  <div class="eyebrow">decentralized.* · family monogram</div>
+  <div class="eyebrow">decentralized.* · family monogram · identity v0 — provisional, score 50</div>
   <div class="rule" style="margin: 16px 0 32px;"></div>
 
   <!-- ── The mark ─────────────────────────────────────────────────────── -->
@@ -176,18 +176,23 @@
           <span class="w" style="font-size: 34px;">decentralized</span><span class="d" style="width: 6px; height: 6px; margin: 0 3px;"></span><span class="w" style="font-size: 34px;">cloud</span>
         </div>
       </div>
-      <div class="cap">after — mark height = 1.439 × cap</div>
+      <div class="cap">after — mark height = 1.429 × cap</div>
     </div>
   </div>
   <div style="display: flex; margin-top: 14px;">
     <div class="body" style="max-width: 92ch;">
       <strong style="color: #0a0e19;">The ratio, and where it comes from.</strong>
-      The wordmark's cap is 0.695 em, measured off a rendered specimen rather than
-      taken from the font's declared <span class="mono" style="font-size: 12px;">sCapHeight</span>
-      of 0.700. Setting the mark to the cap makes it 69.5% of the em, and a compact
+      The wordmark's cap is <strong style="color: #0a0e19;">0.700 em</strong>,
+      measured on a rendered specimen — D, H, O, d and the full word
+      "decentralized" all ink exactly 140px at a 200px em — which agrees with the
+      font's declared <span class="mono" style="font-size: 12px;">sCapHeight</span>
+      of 0.700. An earlier cut of this board said the rendered figure was 0.695
+      against a declared 0.700 and made a point of the difference; there is no
+      difference. 0.695 is what E alone measures, and E is not the cap.
+      Setting the mark to the cap makes it 70.0% of the em, and a compact
       shape set to the cap of a long line of type reads smaller than the type it
       sits beside — the eye compares total mass, not cap heights. The proposal is
-      to set the mark's full height to the EM instead: 1.439 × cap, which is 1.000
+      to set the mark's full height to the EM instead: 1.429 × cap, which is 1.000
       em. That is not a stylistic increase but the ratio at which the two occupy
       the same vertical band, and it is stated here so it can be argued with rather
       than adopted silently.
@@ -293,16 +298,28 @@
       </g></g>
     </svg>
     <div class="body" style="max-width: 58ch;">
-      <strong style="color: #0a0e19;">A correction, and it is in this construction's
-      favour.</strong> An earlier board stated as a cost that the three blocks
-      "lose their separation entirely in one colour", making the reduction a
-      different object rather than the same drawing. That was written, not
-      measured, and it is false. Flood-filling the rendered ink and counting
-      connected regions gives THREE at 16, 24 and 32px with no gap added at all.
-      The blocks meet at only two corner points, and a point contact never renders
-      as connected ink at any resolution — so the one-ink form was never a single
-      silhouette. It is the same drawing, with the same three blocks, and it needed
-      no repair. The claim cost this construction real marks in a blind round.
+      <strong style="color: #0a0e19;">A correction, then a correction to the
+      correction.</strong> An earlier board stated as a cost that the three blocks
+      "lose their separation entirely in one colour". This board replied that
+      flood-filling the ink gives three connected regions at every size and that
+      "a point contact never renders as connected ink at any resolution". That
+      reply was wrong, and it was wrong in this construction's own favour.
+      <br><br>
+      Counted properly, the region count depends entirely on two choices the reply
+      never stated. Treating any pixel darker than paper as ink gives <strong
+      style="color: #0a0e19;">ONE</strong> region at 16, 24, 32, 64 and 256px.
+      Three appears only at a 50% alpha threshold with 4-connectivity; at 32px even
+      the 50% threshold with diagonals gives one. Antialiasing deposits coverage
+      from both shapes into the shared vertex pixel, so the blocks DO bridge — a
+      topological count was the wrong instrument for a question about what the eye
+      reads, and picking the parameters that returned the wanted answer is the
+      failure this board spent its other columns warning about.
+      <br><br>
+      What survives of the original point: over most of their boundary the blocks
+      are held apart by white counters, not by colour. What does not survive: the
+      claim that the one-ink form is three separate shapes. In one ink this is one
+      stepped silhouette. The reversed form on onyx, at right, is the exception and
+      the best reduction here — the counters open and the blocks separate optically.
     </div>
   </div>
 
@@ -392,12 +409,38 @@
         structure. That division is the decision, not an omission.
       </div>
       <div class="body">
-        <strong style="color: #0a0e19;">What is still open.</strong> The slot's
-        meaning has to be learned once before a viewer can name a sibling from the
-        mark alone — the system is legible, but it is not self-explaining, and no
-        cue at this size could be. And the mark is a d that a cold reader may not
-        read as a letter at all; whether that matters depends on whether the
-        wordmark is ever far from it.
+        <strong style="color: #0a0e19;">What is still open — the four findings this
+        board did not survive.</strong> An independent review, shown this cold,
+        scored it 50 and named four things.
+        <br><br>
+        <strong style="color: #0a0e19;">The cue is missing from every lockup.</strong>
+        Of fifteen instances of the mark on this board, ten carry the slot and five
+        do not — and the five are all four lockups and the product bar. On the
+        primary brand surface, the surface a customer actually sees, all three
+        siblings are byte-identical. The family differentiates only in the app-icon
+        form. That is the heaviest finding and it is structural, not cosmetic.
+        <br><br>
+        <strong style="color: #0a0e19;">.cloud is the weakest sibling.</strong> Its
+        slot knocks out the top block, which is the palest of the three, so the
+        flagship has the least visible cue of the family. Shown four marks at 16px
+        unlabelled, the reviewer separated .exchange and .trade and could not
+        distinguish .cloud from the uncued base at all.
+        <br><br>
+        <strong style="color: #0a0e19;">At product size it reads as a UI glyph.</strong>
+        Not as a letter, and not as a d: at 24px the nearest neighbour is the
+        duplicate-layers icon that appears in the same toolbars at the same size,
+        and in one ink the skeleton reads closer to a 2 than a d, because there is
+        no ascender. The board had already conceded a cold reader might not read a
+        letter; the sharper problem is that it reads the wrong one.
+        <br><br>
+        <strong style="color: #0a0e19;">Two more measurements did not hold</strong>
+        beyond the two corrected above: the sibling separations printed here (8px
+        at 16, 16px at 24) are threshold-dependent and are not the closest pair
+        under a plain RGB difference, and the .cloud slot sits at a depth of 9.50
+        rather than the 10.00 floor this board claims, with its block's deepest
+        point 1.9 units away. The radii cluster is reported as "roughly 5.1 and
+        16.3" where the measured values are 5.37, 15.80 and 16.94 — the large pair
+        is 7% apart and is not one value.
       </div>
     </div>
   </div>
