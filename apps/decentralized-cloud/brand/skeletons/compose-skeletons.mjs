@@ -31,7 +31,7 @@
 //
 // Usage: node apps/decentralized-cloud/brand/skeletons/compose-skeletons.mjs [--plates]
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 // `--set r2` measures the round-two skeletons. Round one stays on disk unchanged so
@@ -72,6 +72,17 @@ async function shoot(markup, size) {
   const buf = await page.locator("#stage").screenshot();
   return `data:image/png;base64,${buf.toString("base64")}`;
 }
+
+// The DIFFERENCING base. For rounds one and two the shape with no cue was simply
+// draw(null); from round three the outline event is the identity, so draw(null) is
+// the neutral SIBLING and a skeleton supplies a separate event-free base. Using the
+// neutral sibling as its own base makes that sibling difference to nothing, drops it
+// from the set, and reports a working cue as 0.00px — which is what it did.
+const baseSvg = (sk, size) => sk.baseDraw
+  ? `<svg width="${size}" height="${size}" viewBox="0 0 ${GRID} ${GRID}">` +
+    `<rect width="${GRID}" height="${GRID}" fill="${GROUND}"></rect>` +
+    sk.baseDraw().replace(/INK/g, INK) + `</svg>`
+  : svg(sk, size, null);
 
 const pixels = (dataUrl) => page.evaluate(async (u) => {
   const im = new Image(); im.src = u; await im.decode();
@@ -141,6 +152,25 @@ function topProfile(im) {
   const avg = (a) => a.reduce((s, p) => s + p.top, 0) / a.length;
   const left = avg(tops.slice(0, k)), right = avg(tops.slice(-k));
   return { rise: left - right, left, right, cols: tops.length, k };
+}
+
+// 5 ── silhouette distinctness
+// Round two produced four candidates that two readers independently called the same
+// drawing: a dark mass with one small interior subtraction, and at 16px a subtraction
+// is one to three device pixels. So the silhouettes are compared directly, with every
+// counter CLOSED. Intersection over union of the two ink masks, at 16px: 1.0 is the
+// same raster, 0 is no shared ink at all. A pair above the threshold means the two
+// marks differ only in what they contain, not in what they are.
+const IOU_AT = 0.80;
+function inkMask(im) {
+  const m = new Uint8Array(im.w * im.h);
+  for (let p = 0; p < im.w * im.h; p++) m[p] = lum(im.d, p) < INK_AT ? 1 : 0;
+  return m;
+}
+function iou(a, b) {
+  let inter = 0, union = 0;
+  for (let p = 0; p < a.length; p++) { if (a[p] && b[p]) inter++; if (a[p] || b[p]) union++; }
+  return union ? inter / union : 0;
 }
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -232,6 +262,21 @@ const control = (what, passed, detail) => {
     `measured ${q ? q.rise.toFixed(2) : "n/a"}px, closed form ${want.toFixed(2)}px`);
 }
 
+// (g) the silhouette probe must catch a pair that is the same shape, and must NOT
+//     flag a pair that is genuinely different. A probe that only fires makes every
+//     set look derivative; one that never fires makes every set look distinct.
+{
+  const disc = `<svg width="16" height="16" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/><circle cx="48" cy="48" r="40" fill="${INK}"/></svg>`;
+  const discToo = `<svg width="16" height="16" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/><circle cx="48" cy="48" r="40" fill="${INK}"/><circle cx="48" cy="48" r="7" fill="${GROUND}"/></svg>`;
+  const bar = `<svg width="16" height="16" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/><rect x="8" y="40" width="80" height="16" fill="${INK}"/></svg>`;
+  const mDisc = inkMask(await pixels(await shoot(disc, 16)));
+  const mDiscToo = inkMask(await pixels(await shoot(discToo, 16)));
+  const mBar = inkMask(await pixels(await shoot(bar, 16)));
+  const same = iou(mDisc, mDiscToo), diff = iou(mDisc, mBar);
+  control("two discs differing only by a punched counter flagged as one silhouette", same >= IOU_AT, `IoU ${same.toFixed(3)}`);
+  control("a disc and a bar NOT flagged as one silhouette", diff < IOU_AT, `IoU ${diff.toFixed(3)}`);
+}
+
 if (!controlsOk) {
   console.error("\nABORTING: a probe failed to report the defect it exists to catch. Nothing below would mean anything.");
   await browser.close();
@@ -314,7 +359,7 @@ for (const sk of SKELETONS) {
       row.sizes[size] = { ...row.sizes[size], cue: measured, cueExpected: expected, agrees, distinguishable: measured >= MIN_VISIBLE_PX };
       continue;
     }
-    const base = await pixels(await shoot(svg(sk, size, null), size));
+    const base = await pixels(await shoot(baseSvg(sk, size), size));
     const centres = [];
     for (const k of SIBLINGS) {
       const c = cueCentre(await pixels(await shoot(svg(sk, size, k), size)), base);
@@ -340,8 +385,16 @@ for (const sk of SKELETONS) {
   // Does the silhouette's own slope survive product size? Declared in grid units by
   // the skeleton; measured off the rendered top-ink profile; the two are compared.
   // A rise under one device pixel is a slope nobody sees, whatever the drawing says.
+  // `topRise: null` means the shape makes NO claim about a top edge — a curved
+  // outline has no straight rise to declare. The profile is still reported, as
+  // information, but nothing is failed against a number that was never claimed.
   let slantDead = false;
-  if (typeof sk.topRise === "number") {
+  if (sk.topRise === null) {
+    for (const size of PRODUCT_SIZES) {
+      const p = topProfile(await pixels(await shoot(svg(sk, size, sk.separationOn || "cloud"), size)));
+      console.log(`   ${String(size).padStart(2)}px  top edge: measured rise ${(p ? p.rise : 0).toFixed(2)}px  no claim declared — not checked`);
+    }
+  } else if (typeof sk.topRise === "number") {
     for (const size of PRODUCT_SIZES) {
       const p = topProfile(await pixels(await shoot(svg(sk, size, sk.separationOn || "cloud"), size)));
       const expected = sk.topRise * size / GRID;
@@ -368,6 +421,33 @@ for (const sk of SKELETONS) {
   verdicts.push(row);
 }
 
+// ── Are these five marks, or one mark five times? ───────────────────────────
+// Every silhouette, counters closed, compared with every other at 16px.
+const sils = [];
+for (const sk of SKELETONS) {
+  const markup = sk.silhouetteDraw ? sk.silhouetteDraw() : sk.draw(sk.neutral || null);
+  const body = `<svg width="16" height="16" viewBox="0 0 ${GRID} ${GRID}">` +
+    `<rect width="${GRID}" height="${GRID}" fill="${GROUND}"></rect>` +
+    markup.replace(/INK/g, INK) + `</svg>`;
+  sils.push({ sk, mask: inkMask(await pixels(await shoot(body, 16))), body });
+}
+if (sils.length > 1) {
+  console.log(`\nsilhouette distinctness — every counter closed, compared at 16px (IoU, flagged at ${IOU_AT}):`);
+  const flagged = new Set();
+  for (let i = 0; i < sils.length; i++) for (let j = i + 1; j < sils.length; j++) {
+    const v = iou(sils[i].mask, sils[j].mask);
+    const bad = v >= IOU_AT;
+    if (bad) { flagged.add(sils[i].sk.id); flagged.add(sils[j].sk.id); }
+    console.log(`  ${v.toFixed(3)}  ${sils[i].sk.name} / ${sils[j].sk.name}${bad ? "  — SAME SILHOUETTE" : ""}`);
+  }
+  for (const v of verdicts) {
+    if (flagged.has(v.id)) {
+      v.silhouette = "shared";
+      if (v.verdict === "survives-measurement") v.verdict = "silhouette-not-its-own";
+    } else v.silhouette = "distinct";
+  }
+}
+
 // ── Plates for the cold reader ──────────────────────────────────────────────
 // One PNG per skeleton per product size, named by a letter rather than by the
 // concept, so the reader is shown a drawing and not a description of it.
@@ -376,7 +456,16 @@ if (process.argv.includes("--plates")) {
   // seen one round cannot carry a verdict across on the strength of a shared label —
   // and so a six-skeleton set does not silently write a file called "undefined",
   // which is what a five-letter alphabet did the first time this ran.
-  const letters = SET ? "PQRSTUVW" : "ABCDE";
+  // Each round gets its own letters. A reader who has seen an earlier round must not
+  // be able to carry a verdict across on a shared label, and a five-letter alphabet
+  // against six skeletons silently wrote a file called "undefined" the first time.
+  const ALPHABETS = { "": "ABCDE", r2: "PQRSTUVW", r3: "GHJKLMN" };
+  const letters = ALPHABETS[SET || ""];
+  if (!letters) {
+    console.error(`REFUSING to plate: set "${SET}" has no letters of its own, and reusing another round's would let a reader carry a verdict across.`);
+    await browser.close();
+    process.exit(2);
+  }
   if (SKELETONS.length > letters.length) {
     console.error(`REFUSING to plate: ${SKELETONS.length} skeletons against ${letters.length} letters.`);
     await browser.close();
@@ -413,8 +502,55 @@ if (process.argv.includes("--plates")) {
       `<div style="display:flex;gap:24px;padding:24px;background:${GROUND};">${filled}</div>`);
     writeFileSync(path.join(OUT, `${letters[i]}-siblings-24px.png`), await page.locator("div").first().screenshot());
   }
+  // ── Lockups ───────────────────────────────────────────────────────────────
+  // A mark that passes alone and fails beside its name has not passed. The wordmark
+  // is IOI Display, unicase, with the period DRAWN and medial — there is no U+002E
+  // in the lockup. The face is inlined as a data: URI and the run REFUSES if it did
+  // not load, because a lockup measured in a fallback face is a lockup nobody drew.
+  const IOI = readFileSync(path.join(HERE, "../../public/fonts/IOI.ttf")).toString("base64");
+  const lockup = (markMarkup, markPx, typePx) => {
+    const dot = Math.max(2, Math.round(typePx * 0.7 / 4));   // a quarter of the cap
+    return `<div style="display:flex;align-items:center;gap:${Math.round(typePx * 0.45)}px;` +
+      `background:${GROUND};padding:${Math.round(typePx)}px;">` +
+      `<svg width="${markPx}" height="${markPx}" viewBox="0 0 ${GRID} ${GRID}">${markMarkup.replace(/INK/g, INK)}</svg>` +
+      `<div style="display:flex;align-items:baseline;font-family:'IOI Display';font-size:${typePx}px;` +
+      `line-height:1;letter-spacing:0.01em;white-space:nowrap;color:${INK};">` +
+      `<span>decentralized</span>` +
+      `<span style="display:inline-block;width:${dot}px;height:${dot}px;border-radius:50%;` +
+      `background:${INK};margin:0 ${Math.max(1, Math.round(dot / 2))}px;"></span>` +
+      `<span>cloud</span></div></div>`;
+  };
+  for (const [i, sk] of SKELETONS.entries()) {
+    const mark = sk.draw(PLATE_SIB).replace(/INK/g, INK);
+    // Mark enlarged against the wordmark, per the owner's ruling: 26px of mark to a
+    // 22px type size, which is 1.29 x the measured 0.700em cap — inside the
+    // 1.25-1.35 band the previous round's reviewer set.
+    const big = lockup(mark, 26, 22), small = lockup(mark, 13, 11);
+    await page.setContent(
+      `<style>@font-face{font-family:"IOI Display";src:url(data:font/ttf;base64,${IOI}) format("truetype");}` +
+      `body{margin:0;background:${GROUND};}#warm{font-family:"IOI Display";font-size:20px;position:absolute;left:-9999px;}</style>` +
+      `<div id="warm">decentralized</div>` +
+      `<div id="pair" style="display:flex;flex-direction:column;gap:18px;padding:18px;background:${GROUND};width:max-content;">${big}${small}</div>`);
+    await page.waitForFunction(() => document.fonts.ready.then(() => true));
+    await page.evaluate(() => document.fonts.load('22px "IOI Display"'));
+    await page.waitForTimeout(250);
+    if (!(await page.evaluate(() => document.fonts.check('22px "IOI Display"')))) {
+      console.error("REFUSING to plate lockups: IOI Display did not load; every lockup would show a fallback face.");
+      await browser.close();
+      process.exit(2);
+    }
+    writeFileSync(path.join(OUT, `${letters[i]}-lockup.png`), await page.locator("#pair").screenshot());
+  }
+  // The silhouettes as judged: counters closed, at 96px so a reader can see the shape
+  // the 16px comparison was actually made on.
+  for (const [i, s] of sils.entries()) {
+    await page.setContent(`<style>body{margin:0;background:${GROUND};}</style>` +
+      `<div style="padding:24px;background:${GROUND};width:max-content;">` +
+      s.body.replace('width="16" height="16"', 'width="96" height="96"') + `</div>`);
+    writeFileSync(path.join(OUT, `${letters[i]}-silhouette.png`), await page.locator("div").first().screenshot());
+  }
   writeFileSync(path.join(OUT, "measurements.json"), JSON.stringify(verdicts, null, 2));
-  console.log(`\nplates: ${path.relative(process.cwd(), OUT)}  (A–E, deliberately unnamed)`);
+  console.log(`\nplates: ${path.relative(process.cwd(), OUT)}  (${letters.slice(0, SKELETONS.length).split("").join(", ")} — deliberately unnamed)`);
 }
 
 await browser.close();
