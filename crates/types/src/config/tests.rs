@@ -373,6 +373,7 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
         owner: Some(AccountId([8; 32])),
         delta_rt_millis: 1_000,
         qualified_delta_rt_envelope_millis: 800,
+        qualified_max_configured_members: 4,
         continuation_millis: 50,
     }];
     assert!(config.validate().is_err(), "durable roots are mandatory");
@@ -386,6 +387,12 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
         "qualified deployment envelope cannot exceed rooted delta_rt"
     );
     config.aft_quv_domain_policies[0].qualified_delta_rt_envelope_millis = 800;
+    config.aft_quv_domain_policies[0].qualified_max_configured_members = 0;
+    assert!(
+        config.validate().is_err(),
+        "qualified membership envelope cannot be zero"
+    );
+    config.aft_quv_domain_policies[0].qualified_max_configured_members = 4;
     config.aft_quv_handoff_source = Some(" ".into());
     assert!(config.validate().is_err(), "handoff source cannot be blank");
     config.aft_quv_handoff_source = Some("handoff.scale".into());

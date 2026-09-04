@@ -898,7 +898,7 @@ pub struct QuvOnlineOperationV0 {
     decision_interval: Duration,
     continuation_interval: Duration,
     started: Instant,
-    replies: Vec<QuvReplyV0>,
+    replies: Vec<(QuvReplyV0, Duration)>,
 }
 
 impl QuvOnlineOperationV0 {
@@ -936,9 +936,9 @@ impl QuvOnlineOperationV0 {
         if !self
             .replies
             .iter()
-            .any(|existing| existing.member == reply.member)
+            .any(|(existing, _)| existing.member == reply.member)
         {
-            self.replies.push(reply);
+            self.replies.push((reply, self.started.elapsed()));
         }
     }
 
@@ -970,7 +970,7 @@ impl QuvOnlineOperationV0 {
         candidate_validator.validate_candidate(&self.request.candidate)?;
         let wanted = quv_candidate_hash(&self.request.candidate)?;
         let mut valid = Vec::new();
-        for reply in self.replies {
+        for (reply, reply_elapsed) in self.replies {
             if validate_reply(
                 &reply,
                 &self.request,
@@ -980,7 +980,7 @@ impl QuvOnlineOperationV0 {
             )
             .is_ok()
             {
-                valid.push(reply);
+                valid.push((reply, reply_elapsed));
             }
         }
         if valid.is_empty() {
@@ -990,7 +990,7 @@ impl QuvOnlineOperationV0 {
         match self.request.candidate.slot.authority_mode {
             QuvAuthorityModeV0::Owned => {
                 let mut union = BTreeSet::new();
-                for reply in &valid {
+                for (reply, _) in &valid {
                     for candidate in &reply.complete_snapshot {
                         union.insert(quv_candidate_hash(candidate)?);
                     }
@@ -1000,7 +1000,7 @@ impl QuvOnlineOperationV0 {
                 }
             }
             QuvAuthorityModeV0::Unowned => {
-                for reply in &valid {
+                for (reply, _) in &valid {
                     let first = quv_candidate_hash(
                         reply
                             .complete_snapshot
@@ -1022,10 +1022,17 @@ impl QuvOnlineOperationV0 {
             conflict_slot: self.request.candidate.slot.slot,
             policy_root: self.request.candidate.slot.policy_root,
         };
+        let mut valid_replies = Vec::with_capacity(valid.len());
+        let mut valid_reply_elapsed_millis = Vec::with_capacity(valid.len());
+        for (reply, reply_elapsed) in valid {
+            valid_replies.push(reply);
+            valid_reply_elapsed_millis.push(duration_millis(reply_elapsed)?);
+        }
         let audit_evidence = QuvAcceptedAuditEvidenceV0 {
             request: self.request.clone(),
             configured_members: self.configured_members.iter().copied().collect(),
-            valid_replies: valid,
+            valid_replies,
+            valid_reply_elapsed_millis,
             decision_interval_millis: duration_millis(self.decision_interval)?,
             observed_elapsed_millis: duration_millis(elapsed)?,
         };
@@ -1170,6 +1177,11 @@ pub fn verify_non_authorizing_quv_audit<V: QuvCandidateValidatorV0, R: QuvReplyV
         || evidence.decision_interval_millis != duration_millis(expected_decision_interval)?
         || evidence.observed_elapsed_millis < evidence.decision_interval_millis
         || evidence.valid_replies.is_empty()
+        || evidence.valid_reply_elapsed_millis.len() != evidence.valid_replies.len()
+        || evidence
+            .valid_reply_elapsed_millis
+            .iter()
+            .any(|elapsed| *elapsed > evidence.observed_elapsed_millis)
     {
         return Err(QuvError::Audit("invalid audit operation context".into()));
     }
@@ -1831,6 +1843,7 @@ mod tests {
             .unwrap()
         );
         assert_eq!(evidence.valid_replies.len(), 1);
+        assert_eq!(evidence.valid_reply_elapsed_millis.len(), 1);
         assert_eq!(evidence.decision_interval_millis, 1_000);
         assert_eq!(evidence.observed_elapsed_millis, 1_000);
 

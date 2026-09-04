@@ -101,6 +101,10 @@ pub struct QuvAcceptedAuditEvidenceV0 {
     pub configured_members: Vec<AccountId>,
     /// All structurally and cryptographically valid replies used at decision.
     pub valid_replies: Vec<QuvReplyV0>,
+    /// Monotonic milliseconds from operation admission to each corresponding
+    /// entry in `valid_replies`. These executor-local observations are useful
+    /// for qualification, but remain non-authorizing and non-portable.
+    pub valid_reply_elapsed_millis: Vec<u64>,
     /// Provisioned wait interval.
     pub decision_interval_millis: u64,
     /// Monotonic elapsed time observed by the executor.

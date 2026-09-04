@@ -88,6 +88,19 @@ fn provisioned_policy<'a>(
     Ok(policy)
 }
 
+fn require_qualified_membership(
+    policy: &AftQuvDomainPolicyV0,
+    membership_len: usize,
+) -> Result<()> {
+    if membership_len == 0 || membership_len > usize::from(policy.qualified_max_configured_members)
+    {
+        return Err(anyhow!(
+            "QUV rooted membership exceeds the deployment-qualified member envelope"
+        ));
+    }
+    Ok(())
+}
+
 fn provisioned_policy_root(
     policy: &AftQuvDomainPolicyV0,
 ) -> std::result::Result<[u8; 32], QuvError> {
@@ -1161,6 +1174,8 @@ where
         )
     };
 
+    require_qualified_membership(&policy, set.validators.len())?;
+
     if let Some((executed, envelope, certified)) = handoff_boundary {
         require_exact_handoff_boundary(&executed, &envelope, "old member QC-certified history")?;
         if certified.height != executed.header.height
@@ -1442,6 +1457,7 @@ where
             .as_ref()
             .ok_or_else(|| anyhow!("QUV requires a rooted all-ML-DSA membership"))?;
         let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &request)?.clone();
+        require_qualified_membership(&policy, set.validators.len())?;
         let activation_height = context
             .last_committed_block
             .as_ref()
@@ -1748,6 +1764,22 @@ mod tests {
     }
 
     #[test]
+    fn runtime_refuses_membership_above_qualified_envelope() {
+        let policy = AftQuvDomainPolicyV0 {
+            domain_id: [7; 32],
+            authority_mode: QuvAuthorityModeV0::Unowned,
+            owner: None,
+            delta_rt_millis: 1_000,
+            qualified_delta_rt_envelope_millis: 800,
+            qualified_max_configured_members: 4,
+            continuation_millis: 50,
+        };
+        require_qualified_membership(&policy, 4).expect("qualified membership is admitted");
+        assert!(require_qualified_membership(&policy, 5).is_err());
+        assert!(require_qualified_membership(&policy, 0).is_err());
+    }
+
+    #[test]
     fn handoff_source_requires_old_owner_signature_and_exact_staged_set() {
         let owner_key = MldsaScheme::new(SecurityLevel::Level2)
             .generate_keypair()
@@ -1807,6 +1839,7 @@ mod tests {
             owner: Some(owner),
             delta_rt_millis: 10,
             qualified_delta_rt_envelope_millis: 8,
+            qualified_max_configured_members: 4,
             continuation_millis: 10,
         };
         let vote_preimage = consensus_vote_signing_bytes(7, 0, &[5; 32]).unwrap();

@@ -1556,6 +1556,7 @@ impl TestClusterBuilder {
                             .div_ceil(5)
                             .max(1)
                             .min(profile.delta_rt_millis),
+                        qualified_max_configured_members: self.num_validators as u16,
                         continuation_millis: profile.continuation_millis,
                     }],
                     Some(profile.source_path.clone()),

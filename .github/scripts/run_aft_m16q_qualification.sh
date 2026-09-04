@@ -95,33 +95,55 @@ run_phase() {
   fi
 }
 
+require_tests_ran() {
+  local phase="$1"
+  local log="${OUTPUT_DIR}/${phase}.log"
+  if ! grep -Eq 'running [1-9][0-9]* tests?' "${log}"; then
+    printf '%s\tFAIL(no-tests-selected)\t0\tqualification harness assertion\n' "${phase}" >>"${SUMMARY}"
+    echo "[M16Q] FAIL ${phase}: cargo selected zero tests" >&2
+    return 1
+  fi
+}
+
 record_metadata
 
 run_phase formal_r4 bash .github/scripts/run_aft_formal_checks.sh --quv-only
 run_phase quv_core cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::tests
+require_tests_ran quv_core
 run_phase pq_transport cargo test -p ioi-networking --lib pq_channel
+require_tests_ran pq_transport
 run_phase pq_swarm_admission cargo test -p ioi-networking --lib protected_payload_routes_only_after_aead_and_type_agreement
+require_tests_ran pq_swarm_admission
 run_phase consequence_t10 cargo test -p agentgres consequence::tests
+require_tests_ran consequence_t10
 run_phase terminal_seal_sim cargo test -p ioi-consensus --features aft --lib adversarial_campaigns
-run_phase terminal_seal_receipts cargo test -p ioi-finality portable_assurance
+require_tests_ran terminal_seal_sim
+run_phase terminal_seal_receipts cargo test -p ioi-finality --features portable-assurance --lib portable_assurance::tests
+require_tests_ran terminal_seal_receipts
 run_phase quv_component_timing cargo test --release -p ioi-consensus --features aft --lib m16q_profiles_mldsa_signing_and_durable_write_before_reply -- --ignored --nocapture
+require_tests_ran quv_component_timing
 
 if [[ "${QUICK}" -ne 1 ]]; then
   run_phase quv_single_correct_process \
     cargo test -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl \
     test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation -- --nocapture
+  require_tests_ran quv_single_correct_process
   run_phase quv_disjoint_reconfiguration \
     cargo test -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl \
     test_aft_quv_disjoint_successors_install_live_handoff_before_activation -- --nocapture
+  require_tests_ran quv_disjoint_reconfiguration
   run_phase quv_overlap_reconfiguration \
     cargo test -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl \
     test_aft_quv_overlapping_member_installs_and_recovers_the_same_live_handoff -- --nocapture
+  require_tests_ran quv_overlap_reconfiguration
   run_phase pq_hash_async_process \
     cargo test -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl \
     test_aft_pq_hash_fallback_executes_virtual_block -- --nocapture
+  require_tests_ran pq_hash_async_process
   run_phase pq_ordering_restart \
     cargo test -p ioi-cli --test aft_e2e --features consensus-aft,vm-wasm,state-iavl \
     test_aft_pq_four_validator_timeout_quorum_and_restart -- --nocapture
+  require_tests_ran pq_ordering_restart
   run_phase hypervisor_web npm run build --workspace=@ioi/hypervisor-app
   run_phase hypervisor_daemon cargo build --locked -p ioi-node --bin hypervisor-daemon
 fi

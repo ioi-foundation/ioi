@@ -49,9 +49,13 @@ asynchronous safety and not eventual-synchronous safety before an independently
 established bound is active.
 
 Every production domain configuration also declares
-`qualified_delta_rt_envelope_millis`. This is a deployment-local operator
-assertion backed by retained M16Q measurements, not a portable proof that Q-A3
-holds. Startup fails closed when it is zero or exceeds rooted `delta_rt`.
+`qualified_delta_rt_envelope_millis` and
+`qualified_max_configured_members`. These are deployment-local operator
+assertions backed by retained M16Q measurements, not portable proof that Q-A3
+holds. Startup fails closed when the time envelope is zero or exceeds rooted
+`delta_rt`, or when the membership envelope is zero or exceeds the v0 protocol
+cap. The executor and member paths also refuse an active rooted configuration
+larger than the qualified membership envelope.
 Changing that assertion does not change the protocol policy root: the policy
 root commits the actual decision interval, while the deployment envelope says
 whether the current installation has measured enough room to use it.
@@ -161,6 +165,11 @@ An honest executor holding candidate `s`:
 8. externalizes only as the continuation of this operation, never from a saved
    `QUV passed` assertion.
 
+The retained non-authorizing audit aligns every valid reply with the
+executor's monotonic elapsed time at admission. This measurement permits M16Q
+to reproduce the deployed reply-arrival envelope, but it is still an
+executor-local claim and cannot make the transcript portable authority.
+
 The verifier waits through the decision deadline; an early singleton reply is
 not sufficient. Byzantine silence cannot block the operation under Q-A3.
 The first response from a Byzantine member may disclose a separately valid
@@ -230,11 +239,12 @@ authority. This is the retained M12a boundary.
   operation, a single live executor operation, and priority/reserved durable
   outbox capacity. M16Q must still establish the end-to-end timing envelope
   under load before Q-A9 is qualified.
-- A configured qualification envelope is not self-proving. Operators must bind
+- Configured qualification envelopes are not self-proving. Operators must bind
   its request, queue, durable-processing, response, scheduling, PQ-session, and
   clock-error components to the deployed topology and retain the raw run. The
-  parser only enforces the fail-closed inequality
-  `0 < qualified_delta_rt_envelope_millis <= delta_rt_millis`.
+  parser and runtime enforce the fail-closed inequalities
+  `0 < qualified_delta_rt_envelope_millis <= delta_rt_millis` and
+  `0 < |P| <= qualified_max_configured_members <= 1024`.
 - Owner equivocation may freeze future authorization. It yields attributable
   signatures but does not restore liveness or portable historical finality.
 - A cached transcript is audit evidence only; it is not a portable final

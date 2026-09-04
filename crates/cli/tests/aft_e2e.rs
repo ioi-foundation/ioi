@@ -21,10 +21,11 @@ use ioi_types::{
         account_id_from_key_material, conflict_domain_id_commitment, AccountId, ActiveKeyRecord,
         BlockTimingParams, BlockTimingRuntime, ChainTransaction, EffectAuthorizationModeV1,
         EffectFenceV1, EffectManifestV1, EffectManifestVersionV1, EffectResourceKeyV1,
-        QuvAuthorityModeV0, QuvCandidateV0, QuvConfigurationHandoffEnvelopeV0, QuvSlotV0,
-        ReconciliationPolicyV1, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
-        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
-        AFT_EFFECT_REGISTRY_SERVICE_ID, REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD,
+        QuvAcceptedAuditEvidenceV0, QuvAuthorityModeV0, QuvCandidateV0,
+        QuvConfigurationHandoffEnvelopeV0, QuvSlotV0, ReconciliationPolicyV1, SignHeader,
+        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
+        ValidatorSetsV1, ValidatorV1, AFT_EFFECT_REGISTRY_SERVICE_ID,
+        REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD,
     },
     codec,
     config::{AftQuvDomainPolicyV0, AftSafetyMode, InitialServiceConfig},
@@ -208,7 +209,7 @@ fn m16q_candidate(
 
 fn require_executed_nonportable_quv_receipt(
     response: &ioi_ipc::public::ExecuteAftQuvEffectResponse,
-) -> Result<()> {
+) -> Result<u64> {
     if response.portable_final_receipt {
         return Err(anyhow::anyhow!(
             "online QUV execution mislabeled its consequence audit as portable finality"
@@ -226,16 +227,29 @@ fn require_executed_nonportable_quv_receipt(
             "QUV consequence did not reach the Executed phase"
         ));
     }
-    if receipt
-        .online_authorization_audit
-        .as_ref()
-        .is_none_or(|audit| audit.portable_final_receipt || audit.profile != "aft_quv_v0")
-    {
+    let Some(audit) = receipt.online_authorization_audit.as_ref() else {
+        return Err(anyhow::anyhow!(
+            "executed consequence omitted its nonportable live QUV audit"
+        ));
+    };
+    if audit.portable_final_receipt || audit.profile != "aft_quv_v0" {
         return Err(anyhow::anyhow!(
             "executed consequence omitted its nonportable live QUV audit"
         ));
     }
-    Ok(())
+    let evidence: QuvAcceptedAuditEvidenceV0 =
+        codec::from_bytes_canonical(&audit.protocol_evidence).map_err(anyhow::Error::msg)?;
+    if evidence.valid_reply_elapsed_millis.len() != evidence.valid_replies.len() {
+        return Err(anyhow::anyhow!(
+            "QUV audit reply timings do not align with valid replies"
+        ));
+    }
+    evidence
+        .valid_reply_elapsed_millis
+        .iter()
+        .copied()
+        .max()
+        .ok_or_else(|| anyhow::anyhow!("QUV audit contains no valid reply timing"))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -459,6 +473,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             owner: None,
             delta_rt_millis: effect_delta_rt_millis,
             qualified_delta_rt_envelope_millis: 4_000,
+            qualified_max_configured_members: 4,
             continuation_millis: effect_continuation_millis,
         })
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -1384,9 +1399,16 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
         "domain://aft-e2e/m16q/solo-2",
         "domain://aft-e2e/m16q/solo-3",
     ];
+    let saturation_domain_ids = [
+        "domain://aft-e2e/m16q/saturation-0",
+        "domain://aft-e2e/m16q/saturation-1",
+        "domain://aft-e2e/m16q/saturation-2",
+        "domain://aft-e2e/m16q/saturation-3",
+    ];
     let conflict_domain_id = "domain://aft-e2e/m16q/conflict";
     let unrelated_domain_id = "domain://aft-e2e/m16q/unrelated";
     let mut policy_domains = solo_domain_ids.iter().copied().collect::<Vec<_>>();
+    policy_domains.extend(saturation_domain_ids.iter().copied());
     policy_domains.extend([conflict_domain_id, unrelated_domain_id]);
     let policies = policy_domains
         .iter()
@@ -1398,6 +1420,7 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
                 owner: None,
                 delta_rt_millis: DELTA_RT_MILLIS,
                 qualified_delta_rt_envelope_millis: 4_000,
+                qualified_max_configured_members: 4,
                 continuation_millis: CONTINUATION_MILLIS,
             })
         })
@@ -1501,6 +1524,34 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
                 )?,
             ));
         }
+        let mut saturation_manifests = Vec::new();
+        for (member_position, (_, process_index, endpoint)) in members.iter().enumerate() {
+            let domain_id = saturation_domain_ids[member_position];
+            let domain =
+                conflict_domain_id_commitment(domain_id).map_err(anyhow::Error::msg)?;
+            let policy_root = quv_policy_root(
+                domain,
+                QuvAuthorityModeV0::Unowned,
+                None,
+                DELTA_RT_MILLIS,
+                CONTINUATION_MILLIS,
+            )?;
+            saturation_manifests.push((
+                *process_index,
+                domain,
+                policy_root,
+                m16q_effect_manifest(
+                    &format!("effect-m16q-saturation-{member_position}"),
+                    &format!("resource://aft-e2e/m16q/saturation-{member_position}"),
+                    domain_id,
+                    CONFLICT_SLOT,
+                    policy_root,
+                    configuration_root,
+                    endpoint,
+                    20 + member_position as u8,
+                )?,
+            ));
+        }
         let conflict_domain =
             conflict_domain_id_commitment(conflict_domain_id).map_err(anyhow::Error::msg)?;
         let conflict_policy_root = quv_policy_root(
@@ -1555,6 +1606,11 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
             .iter()
             .map(|(_, _, _, manifest)| manifest.clone())
             .collect::<Vec<_>>();
+        all_manifests.extend(
+            saturation_manifests
+                .iter()
+                .map(|(_, _, _, manifest)| manifest.clone()),
+        );
         all_manifests.extend([conflict_a.clone(), conflict_b.clone(), unrelated.clone()]);
         for (nonce, manifest) in all_manifests.iter().enumerate() {
             let registration = signed_system_transaction(
@@ -1616,10 +1672,16 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
                 )
             })??;
             let elapsed = started.elapsed().as_millis();
-            require_executed_nonportable_quv_receipt(&response)?;
+            let max_valid_reply_elapsed_ms =
+                require_executed_nonportable_quv_receipt(&response)?;
+            if max_valid_reply_elapsed_ms > 4_000 {
+                return Err(anyhow::anyhow!(
+                    "M16Q sole-correct placement {member_position} exceeded its qualified 4000ms reply envelope: {max_valid_reply_elapsed_ms}ms"
+                ));
+            }
             solo_elapsed_ms.push(elapsed);
             println!(
-                "[M16Q-QUV] case=sole_correct member_position={member_position} process_index={correct_process} elapsed_ms={elapsed} result=executed"
+                "[M16Q-QUV] case=sole_correct member_position={member_position} process_index={correct_process} elapsed_ms={elapsed} max_valid_reply_elapsed_ms={max_valid_reply_elapsed_ms} qualified_envelope_ms=4000 result=executed"
             );
 
             for process_index in 0..cluster.validators.len() {
@@ -1633,6 +1695,57 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
             let recovery_floor = rpc::get_status(&correct_rpc).await?.height.saturating_add(1);
             wait_for_height(&correct_rpc, recovery_floor, Duration::from_secs(120)).await?;
         }
+
+        // Saturate every member's authenticated one-request-per-account lane:
+        // four executors concurrently push independent valid operations to all
+        // four members. Each member must serialize four durable ML-DSA replies
+        // without allowing the other three accounts to consume the fourth
+        // account's reserved admission slot or the qualified timing envelope.
+        let saturation_started = Instant::now();
+        let mut saturation_tasks = tokio::task::JoinSet::new();
+        for (member_position, (process_index, domain, policy_root, manifest)) in
+            saturation_manifests.iter().enumerate()
+        {
+            let candidate = m16q_candidate(
+                manifest,
+                network_id,
+                configuration_root,
+                *policy_root,
+                *domain,
+                members[member_position].0,
+                &members[member_position].2,
+            )?;
+            let rpc_addr = cluster.validators[*process_index]
+                .validator()
+                .rpc_addr
+                .clone();
+            let effect_id = manifest.effect_id.clone();
+            saturation_tasks.spawn(async move {
+                rpc::execute_aft_quv_effect(&rpc_addr, &effect_id, &candidate).await
+            });
+        }
+        let mut saturation_reply_elapsed_ms = Vec::new();
+        while let Some(joined) = saturation_tasks.join_next().await {
+            let response = joined.map_err(anyhow::Error::new)??;
+            let reply_elapsed = require_executed_nonportable_quv_receipt(&response)?;
+            if reply_elapsed > 4_000 {
+                return Err(anyhow::anyhow!(
+                    "M16Q authenticated saturation exceeded its qualified 4000ms reply envelope: {reply_elapsed}ms"
+                ));
+            }
+            saturation_reply_elapsed_ms.push(reply_elapsed);
+        }
+        if saturation_reply_elapsed_ms.len() != members.len() {
+            return Err(anyhow::anyhow!(
+                "M16Q authenticated saturation did not complete every executor operation"
+            ));
+        }
+        let saturation_elapsed_ms = saturation_started.elapsed().as_millis();
+        println!(
+            "[M16Q-QUV] case=authenticated_saturation operations={} elapsed_ms={saturation_elapsed_ms} max_valid_reply_elapsed_ms={:?} qualified_envelope_ms=4000 result=executed",
+            saturation_reply_elapsed_ms.len(),
+            saturation_reply_elapsed_ms.iter().max()
+        );
 
         let conflict_candidate_a = m16q_candidate(
             &conflict_a,

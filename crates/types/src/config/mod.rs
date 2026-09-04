@@ -3,7 +3,7 @@
 //! Shared configuration structures for core IOI Kernel components.
 use crate::app::{
     AccountId, ChainId, FinalityTier, GuardianProductionMode, KeyAuthorityDescriptor,
-    KeyAuthorityKind, QuvAuthorityModeV0,
+    KeyAuthorityKind, QuvAuthorityModeV0, QUV_MAX_CONFIGURED_MEMBERS_V0,
 };
 use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig};
 use serde::{Deserialize, Serialize};
@@ -1216,6 +1216,9 @@ pub struct AftQuvDomainPolicyV0 {
     /// not a portable timing proof. Startup refuses an absent/zero envelope or
     /// one larger than the rooted decision interval.
     pub qualified_delta_rt_envelope_millis: u64,
+    /// Largest rooted membership covered by the retained timing campaign.
+    /// Runtime refuses QUV when the active set exceeds this local envelope.
+    pub qualified_max_configured_members: u16,
     /// Maximum process-local delay between successful QUV and effect claim.
     pub continuation_millis: u64,
 }
@@ -1364,9 +1367,12 @@ impl OrchestrationConfig {
                     || policy.delta_rt_millis == 0
                     || policy.qualified_delta_rt_envelope_millis == 0
                     || policy.qualified_delta_rt_envelope_millis > policy.delta_rt_millis
+                    || policy.qualified_max_configured_members == 0
+                    || usize::from(policy.qualified_max_configured_members)
+                        > QUV_MAX_CONFIGURED_MEMBERS_V0
                     || policy.continuation_millis == 0
                 {
-                    return Err("Configuration Error: aft_quv_v0 policies require a nonzero domain and continuation_millis plus a nonzero qualified_delta_rt_envelope_millis no larger than delta_rt_millis.".to_string());
+                    return Err("Configuration Error: aft_quv_v0 policies require a nonzero domain and continuation_millis, a nonzero qualified_delta_rt_envelope_millis no larger than delta_rt_millis, and a qualified_max_configured_members within the protocol cap.".to_string());
                 }
                 if !domains.insert(policy.domain_id) {
                     return Err(
