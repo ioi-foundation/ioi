@@ -1,7 +1,8 @@
 # Query-Unanimity Verification (`aft_quv_v0`)
 
-Status: M12b R3 independent review returned `REPAIR_REQUIRED`; R4 repairs are
-in progress. This document creates no production or public consensus claim.
+Status: M12b R4 received an independent automated `PASS_CONSTRUCTION`; M13Q
+theorem work is open. This document creates no production or public consensus
+claim.
 
 Date: 2026-09-03.
 

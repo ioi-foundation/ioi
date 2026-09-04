@@ -59,8 +59,10 @@ traces, TLC state dumps, and compiled paper outputs live under
   operation correct-witness gap and partly vacuous liveness counter.
 - [`evidence/m12b-quv-r4-local-evidence-2026-09-03.md`](./evidence/m12b-quv-r4-local-evidence-2026-09-03.md)
   — repaired assumption boundary, non-vacuous liveness campaigns, multi-
-  correct positive rows, and split-witness countermodel awaiting independent
-  retest.
+  correct positive rows, and split-witness countermodel.
+- [`evidence/m12b-quv-r4-daybreak-review-2026-09-03.md`](./evidence/m12b-quv-r4-daybreak-review-2026-09-03.md)
+  — exact-tag automated `PASS_CONSTRUCTION`, closing both R3 findings and
+  opening M13Q without admitting a consensus or production claim.
 - [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
   — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
