@@ -3,7 +3,7 @@
 //! These bytes are transport and audit material. They are not a portable
 //! finality receipt and cannot authorize a later offline executor.
 
-use super::AccountId;
+use super::{AccountId, ValidatorSetV1};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
@@ -105,4 +105,30 @@ pub struct QuvAcceptedAuditEvidenceV0 {
     pub decision_interval_millis: u64,
     /// Monotonic elapsed time observed by the executor.
     pub observed_elapsed_millis: u64,
+}
+
+/// Complete state transferred by a live Q-EA7 old-root authorization. The
+/// successor set is embedded so activation cannot substitute membership after
+/// the online operation. These bytes remain non-authorizing without the
+/// process-local QUV continuation that installed them.
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct QuvConfigurationHandoffV0 {
+    /// Rooted network identity shared by both configurations.
+    pub network_id: QuvHash,
+    /// Exact old configuration queried by every correct successor.
+    pub old_configuration_root: QuvHash,
+    /// Complete canonical successor membership and keys.
+    pub successor_set: ValidatorSetV1,
+    /// First height at which the successor may act.
+    pub activation_height: u64,
+    /// Last height at which the old QUV authority is live.
+    pub old_authority_expiry_height: u64,
+    /// Exact prior accepted candidate in the handoff conflict domain.
+    pub predecessor_candidate_hash: QuvHash,
+    /// Final old-root state height installed by the successor.
+    pub state_height: u64,
+    /// Block identity carrying the installed state.
+    pub state_block_hash: QuvHash,
+    /// Complete application state-root bytes for that block.
+    pub state_root: Vec<u8>,
 }

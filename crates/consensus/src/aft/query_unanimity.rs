@@ -9,8 +9,9 @@
 use fs2::FileExt;
 use ioi_types::app::{AccountId, SignatureSuite, ValidatorSetV1};
 pub use ioi_types::app::{
-    QuvAcceptedAuditEvidenceV0, QuvAuthorityModeV0, QuvCandidateV0, QuvHash, QuvNonce,
-    QuvPushQueryV0, QuvReplyV0, QuvSlotV0, QUV_PROFILE_V0,
+    QuvAcceptedAuditEvidenceV0, QuvAuthorityModeV0, QuvCandidateV0, QuvConfigurationHandoffV0,
+    QuvHash, QuvNonce, QuvPushQueryV0, QuvReplyV0, QuvSlotV0, QUV_MAX_CONFIGURED_MEMBERS_V0,
+    QUV_PROFILE_V0,
 };
 use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
@@ -33,6 +34,114 @@ const SNAPSHOT_HASH_DOMAIN_V0: &[u8] = b"ioi/aft/quv-snapshot/v0";
 const REPLY_SIGNING_DOMAIN_V0: &[u8] = b"AFT-QUV-REPLY-v0";
 const STORE_HEAD_DOMAIN_V0: &[u8] = b"ioi/aft/quv-store-head/v0";
 const ANCHOR_TAG_DOMAIN_V0: &[u8] = b"ioi/aft/quv-anchor-tag/v0";
+const HANDOFF_DOMAIN_ID_V0: &[u8] = b"ioi/aft/quv-handoff-domain/v0";
+const HANDOFF_PAYLOAD_HASH_V0: &[u8] = b"ioi/aft/quv-handoff-payload/v0";
+const HANDOFF_STATE_ROOT_MAX_BYTES_V0: usize = 4 * 1024;
+const HANDOFF_STORE_MAGIC_V0: [u8; 8] = *b"AFTHOFF0";
+const HANDOFF_STORE_SCHEMA_V0: u16 = 1;
+const HANDOFF_STORE_HEAD_DOMAIN_V0: &[u8] = b"ioi/aft/quv-handoff-store-head/v0";
+const HANDOFF_ANCHOR_TAG_DOMAIN_V0: &[u8] = b"ioi/aft/quv-handoff-anchor-tag/v0";
+
+/// Derive the handoff conflict domain from both configuration roots. The
+/// candidate cannot choose a different domain while retaining validity.
+pub fn quv_handoff_domain_id(
+    network_id: QuvHash,
+    old_configuration_root: QuvHash,
+    successor_configuration_root: QuvHash,
+    activation_height: u64,
+) -> Result<QuvHash, QuvError> {
+    if network_id == [0; 32]
+        || old_configuration_root == [0; 32]
+        || successor_configuration_root == [0; 32]
+        || activation_height <= 1
+    {
+        return Err(QuvError::InvalidHandoff);
+    }
+    hash_canonical(&(
+        HANDOFF_DOMAIN_ID_V0.to_vec(),
+        network_id,
+        old_configuration_root,
+        successor_configuration_root,
+        activation_height,
+    ))
+}
+
+pub fn quv_handoff_payload_hash(handoff: &QuvConfigurationHandoffV0) -> Result<QuvHash, QuvError> {
+    validate_quv_handoff_payload(handoff)?;
+    hash_canonical(&(HANDOFF_PAYLOAD_HASH_V0.to_vec(), handoff))
+}
+
+/// Validate the complete transition payload independently of any candidate.
+pub fn validate_quv_handoff_payload(handoff: &QuvConfigurationHandoffV0) -> Result<(), QuvError> {
+    let successor_root = ioi_types::app::canonical_validator_set_hash(&handoff.successor_set)
+        .map_err(QuvError::Candidate)?;
+    let expected_expiry = handoff
+        .activation_height
+        .checked_sub(1)
+        .ok_or(QuvError::InvalidHandoff)?;
+    let total_weight = handoff
+        .successor_set
+        .validators
+        .iter()
+        .try_fold(0_u128, |sum, member| sum.checked_add(member.weight))
+        .ok_or(QuvError::InvalidHandoff)?;
+    if handoff.network_id == [0; 32]
+        || handoff.old_configuration_root == [0; 32]
+        || successor_root == [0; 32]
+        || handoff.activation_height <= 1
+        || handoff.old_authority_expiry_height != expected_expiry
+        || handoff.state_height != expected_expiry
+        || handoff.predecessor_candidate_hash == [0; 32]
+        || handoff.state_block_hash == [0; 32]
+        || handoff.state_root.is_empty()
+        || handoff.state_root.len() > HANDOFF_STATE_ROOT_MAX_BYTES_V0
+        || handoff.successor_set.effective_from_height != handoff.activation_height
+        || handoff.successor_set.validators.len() < 2
+        || handoff.successor_set.validators.len() > QUV_MAX_CONFIGURED_MEMBERS_V0
+        || handoff.successor_set.total_weight != total_weight
+        || total_weight == 0
+        || handoff
+            .successor_set
+            .validators
+            .windows(2)
+            .any(|pair| pair[0].account_id >= pair[1].account_id)
+        || handoff.successor_set.validators.iter().any(|member| {
+            member.weight == 0
+                || member.consensus_key.suite != SignatureSuite::ML_DSA_44
+                || member.consensus_key.since_height > handoff.activation_height
+        })
+    {
+        return Err(QuvError::InvalidHandoff);
+    }
+    Ok(())
+}
+
+/// Bind a generic QUV candidate to one exact canonical handoff payload.
+pub fn validate_quv_handoff_candidate(
+    candidate: &QuvCandidateV0,
+    handoff: &QuvConfigurationHandoffV0,
+) -> Result<QuvHash, QuvError> {
+    validate_quv_handoff_payload(handoff)?;
+    let successor_root = ioi_types::app::canonical_validator_set_hash(&handoff.successor_set)
+        .map_err(QuvError::Candidate)?;
+    let expected_domain = quv_handoff_domain_id(
+        handoff.network_id,
+        handoff.old_configuration_root,
+        successor_root,
+        handoff.activation_height,
+    )?;
+    let payload_hash = quv_handoff_payload_hash(handoff)?;
+    if candidate.slot.configuration_root != handoff.old_configuration_root
+        || candidate.slot.network_id != handoff.network_id
+        || candidate.slot.domain_id != expected_domain
+        || candidate.slot.slot != handoff.activation_height
+        || candidate.slot.predecessor != handoff.predecessor_candidate_hash
+        || candidate.payload_hash != payload_hash
+    {
+        return Err(QuvError::InvalidHandoff);
+    }
+    Ok(successor_root)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 struct QuvUnsignedReplyV0 {
@@ -280,6 +389,220 @@ pub struct DurableQuvMemberV0 {
     head: QuvHash,
 }
 
+#[derive(Debug, Clone, Encode, Decode)]
+struct InstalledQuvHandoffV0 {
+    local_successor: AccountId,
+    successor_configuration_root: QuvHash,
+    candidate_hash: QuvHash,
+    payload_hash: QuvHash,
+    handoff: QuvConfigurationHandoffV0,
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+struct QuvHandoffStoreStateV0 {
+    magic: [u8; 8],
+    schema: u16,
+    generation: u64,
+    previous_head: QuvHash,
+    installed: Option<InstalledQuvHandoffV0>,
+}
+
+#[derive(Debug, Clone, Encode, Decode)]
+struct QuvHandoffStoreAnchorV0 {
+    magic: [u8; 8],
+    schema: u16,
+    generation: u64,
+    head: QuvHash,
+    authentication_tag: QuvHash,
+}
+
+/// Node-local durable gate between a live old-root QUV operation and successor
+/// activation. The state file is insufficient by itself: recovery also
+/// requires the separately rooted custody-key anchor.
+pub struct DurableQuvHandoffV0 {
+    path: PathBuf,
+    anchor_path: PathBuf,
+    _lock: File,
+    custody_key: QuvHash,
+    state: QuvHandoffStoreStateV0,
+    head: QuvHash,
+}
+
+impl DurableQuvHandoffV0 {
+    pub fn open(
+        path: impl AsRef<Path>,
+        anchor_path: impl AsRef<Path>,
+        custody_key: QuvHash,
+    ) -> Result<Self, QuvError> {
+        let path = path.as_ref().to_path_buf();
+        let anchor_path = anchor_path.as_ref().to_path_buf();
+        if path == anchor_path || custody_key == [0; 32] {
+            return Err(QuvError::InvalidStoreConfiguration);
+        }
+        create_parent(&path)?;
+        create_parent(&anchor_path)?;
+        let lock_path = suffixed(&anchor_path, ".lock");
+        let lock = open_private(&lock_path, false)?;
+        lock.try_lock_exclusive().map_err(|error| {
+            if error.kind() == std::io::ErrorKind::WouldBlock {
+                QuvError::StoreBusy
+            } else {
+                QuvError::Io(error.to_string())
+            }
+        })?;
+
+        let (state, head) = match (path.exists(), anchor_path.exists()) {
+            (false, false) => {
+                let state = QuvHandoffStoreStateV0 {
+                    magic: HANDOFF_STORE_MAGIC_V0,
+                    schema: HANDOFF_STORE_SCHEMA_V0,
+                    generation: 0,
+                    previous_head: [0; 32],
+                    installed: None,
+                };
+                let head = handoff_store_head(&state)?;
+                persist_atomic(
+                    &path,
+                    &codec::to_bytes_canonical(&state).map_err(QuvError::Codec)?,
+                )?;
+                persist_handoff_anchor(&anchor_path, &custody_key, 0, head)?;
+                (state, head)
+            }
+            (true, true) => {
+                let state: QuvHandoffStoreStateV0 = read_canonical(&path)?;
+                validate_handoff_store(&state)?;
+                let head = handoff_store_head(&state)?;
+                let anchor: QuvHandoffStoreAnchorV0 = read_canonical(&anchor_path)?;
+                validate_handoff_anchor(&anchor, &custody_key)?;
+                if state.generation == anchor.generation && head == anchor.head {
+                    (state, head)
+                } else if state.generation == anchor.generation.saturating_add(1)
+                    && state.previous_head == anchor.head
+                {
+                    persist_handoff_anchor(&anchor_path, &custody_key, state.generation, head)?;
+                    (state, head)
+                } else {
+                    return Err(QuvError::RollbackOrFork);
+                }
+            }
+            _ => return Err(QuvError::IncompleteStore),
+        };
+        Ok(Self {
+            path,
+            anchor_path,
+            _lock: lock,
+            custody_key,
+            state,
+            head,
+        })
+    }
+
+    /// Consume one fresh process-local authorization and durably install the
+    /// exact state that the successor will activate from.
+    pub fn install(
+        &mut self,
+        authorization: QuvOnlineAuthorizationV0,
+        handoff: QuvConfigurationHandoffV0,
+        local_successor: AccountId,
+        observed_state_height: u64,
+        observed_state_block_hash: QuvHash,
+        observed_state_root: &[u8],
+    ) -> Result<QuvHash, QuvError> {
+        if Instant::now() > authorization.expires_at {
+            return Err(QuvError::ExpiredAuthorization);
+        }
+        validate_quv_handoff_payload(&handoff)?;
+        let successor_root = ioi_types::app::canonical_validator_set_hash(&handoff.successor_set)
+            .map_err(QuvError::Candidate)?;
+        let expected_domain = quv_handoff_domain_id(
+            handoff.network_id,
+            handoff.old_configuration_root,
+            successor_root,
+            handoff.activation_height,
+        )?;
+        if authorization.slot.configuration_root != handoff.old_configuration_root
+            || authorization.slot.network_id != handoff.network_id
+            || authorization.slot.domain_id != expected_domain
+            || authorization.slot.slot != handoff.activation_height
+            || authorization.slot.predecessor != handoff.predecessor_candidate_hash
+            || authorization.payload_hash != quv_handoff_payload_hash(&handoff)?
+            || observed_state_height != handoff.state_height
+            || observed_state_block_hash != handoff.state_block_hash
+            || observed_state_root != handoff.state_root
+            || !handoff
+                .successor_set
+                .validators
+                .iter()
+                .any(|member| member.account_id == local_successor)
+        {
+            return Err(QuvError::InvalidHandoff);
+        }
+        let installed = InstalledQuvHandoffV0 {
+            local_successor,
+            successor_configuration_root: successor_root,
+            candidate_hash: authorization.candidate_hash,
+            payload_hash: authorization.payload_hash,
+            handoff,
+        };
+        if let Some(existing) = &self.state.installed {
+            if codec::to_bytes_canonical(existing).map_err(QuvError::Codec)?
+                == codec::to_bytes_canonical(&installed).map_err(QuvError::Codec)?
+            {
+                return Ok(successor_root);
+            }
+            return Err(QuvError::ConflictingHandoffInstall);
+        }
+        let mut next = self.state.clone();
+        next.generation = next
+            .generation
+            .checked_add(1)
+            .ok_or(QuvError::GenerationExhausted)?;
+        next.previous_head = self.head;
+        next.installed = Some(installed);
+        let next_head = handoff_store_head(&next)?;
+        persist_atomic(
+            &self.path,
+            &codec::to_bytes_canonical(&next).map_err(QuvError::Codec)?,
+        )?;
+        persist_handoff_anchor(
+            &self.anchor_path,
+            &self.custody_key,
+            next.generation,
+            next_head,
+        )?;
+        self.state = next;
+        self.head = next_head;
+        Ok(successor_root)
+    }
+
+    /// Recovery-time activation predicate. It recognizes only the exact
+    /// locally installed transition; no supplied transcript can create it.
+    pub fn permits_activation(
+        &self,
+        network_id: QuvHash,
+        old_configuration_root: QuvHash,
+        successor_configuration_root: QuvHash,
+        activation_height: u64,
+        local_successor: AccountId,
+        state_block_hash: QuvHash,
+        state_root: &[u8],
+    ) -> bool {
+        self.state.installed.as_ref().is_some_and(|installed| {
+            installed.local_successor == local_successor
+                && installed.successor_configuration_root == successor_configuration_root
+                && installed.handoff.network_id == network_id
+                && installed.handoff.old_configuration_root == old_configuration_root
+                && installed.handoff.activation_height == activation_height
+                && installed.handoff.state_block_hash == state_block_hash
+                && installed.handoff.state_root == state_root
+        })
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.state.generation
+    }
+}
+
 impl DurableQuvMemberV0 {
     pub fn open(
         path: impl AsRef<Path>,
@@ -456,6 +779,10 @@ impl QuvOnlineAuthorizationV0 {
 
     pub fn slot(&self) -> &QuvSlotV0 {
         &self.slot
+    }
+
+    pub fn payload_hash(&self) -> QuvHash {
+        self.payload_hash
     }
 
     pub fn verifier_nonce(&self) -> QuvNonce {
@@ -821,12 +1148,42 @@ fn validate_store(state: &QuvStoreStateV0) -> Result<(), QuvError> {
     Ok(())
 }
 
+fn validate_handoff_store(state: &QuvHandoffStoreStateV0) -> Result<(), QuvError> {
+    if state.magic != HANDOFF_STORE_MAGIC_V0 || state.schema != HANDOFF_STORE_SCHEMA_V0 {
+        return Err(QuvError::CorruptStore);
+    }
+    if let Some(installed) = &state.installed {
+        validate_quv_handoff_payload(&installed.handoff)?;
+        let successor_root =
+            ioi_types::app::canonical_validator_set_hash(&installed.handoff.successor_set)
+                .map_err(QuvError::Candidate)?;
+        if installed.local_successor == AccountId([0; 32])
+            || installed.successor_configuration_root != successor_root
+            || installed.candidate_hash == [0; 32]
+            || installed.payload_hash != quv_handoff_payload_hash(&installed.handoff)?
+            || !installed
+                .handoff
+                .successor_set
+                .validators
+                .iter()
+                .any(|member| member.account_id == installed.local_successor)
+        {
+            return Err(QuvError::CorruptStore);
+        }
+    }
+    Ok(())
+}
+
 fn snapshot_hash(slot: &QuvSlotV0, snapshot: &[QuvCandidateV0]) -> Result<QuvHash, QuvError> {
     hash_canonical(&(SNAPSHOT_HASH_DOMAIN_V0.to_vec(), slot, snapshot))
 }
 
 fn store_head(state: &QuvStoreStateV0) -> Result<QuvHash, QuvError> {
     hash_canonical(&(STORE_HEAD_DOMAIN_V0.to_vec(), state))
+}
+
+fn handoff_store_head(state: &QuvHandoffStoreStateV0) -> Result<QuvHash, QuvError> {
+    hash_canonical(&(HANDOFF_STORE_HEAD_DOMAIN_V0.to_vec(), state))
 }
 
 fn anchor_tag(key: &QuvHash, generation: u64, head: QuvHash) -> Result<QuvHash, QuvError> {
@@ -864,6 +1221,50 @@ fn validate_anchor(anchor: &QuvStoreAnchorV0, key: &QuvHash) -> Result<(), QuvEr
         || anchor.schema != STORE_SCHEMA_V0
         || anchor.head == [0; 32]
         || anchor.authentication_tag != anchor_tag(key, anchor.generation, anchor.head)?
+    {
+        return Err(QuvError::InvalidAnchor);
+    }
+    Ok(())
+}
+
+fn handoff_anchor_tag(key: &QuvHash, generation: u64, head: QuvHash) -> Result<QuvHash, QuvError> {
+    hash_canonical(&(
+        HANDOFF_ANCHOR_TAG_DOMAIN_V0.to_vec(),
+        key,
+        HANDOFF_STORE_MAGIC_V0,
+        HANDOFF_STORE_SCHEMA_V0,
+        generation,
+        head,
+    ))
+}
+
+fn persist_handoff_anchor(
+    path: &Path,
+    key: &QuvHash,
+    generation: u64,
+    head: QuvHash,
+) -> Result<(), QuvError> {
+    let anchor = QuvHandoffStoreAnchorV0 {
+        magic: HANDOFF_STORE_MAGIC_V0,
+        schema: HANDOFF_STORE_SCHEMA_V0,
+        generation,
+        head,
+        authentication_tag: handoff_anchor_tag(key, generation, head)?,
+    };
+    persist_atomic(
+        path,
+        &codec::to_bytes_canonical(&anchor).map_err(QuvError::Codec)?,
+    )
+}
+
+fn validate_handoff_anchor(
+    anchor: &QuvHandoffStoreAnchorV0,
+    key: &QuvHash,
+) -> Result<(), QuvError> {
+    if anchor.magic != HANDOFF_STORE_MAGIC_V0
+        || anchor.schema != HANDOFF_STORE_SCHEMA_V0
+        || anchor.head == [0; 32]
+        || anchor.authentication_tag != handoff_anchor_tag(key, anchor.generation, anchor.head)?
     {
         return Err(QuvError::InvalidAnchor);
     }
@@ -975,6 +1376,12 @@ pub enum QuvError {
     WrongAuthority,
     #[error("QUV candidate is outside the exact rooted context")]
     InvalidRootedContext,
+    #[error("invalid QUV live configuration handoff")]
+    InvalidHandoff,
+    #[error("QUV process-local authorization expired before durable handoff install")]
+    ExpiredAuthorization,
+    #[error("QUV handoff store already contains a different transition")]
+    ConflictingHandoffInstall,
     #[error("QUV candidate validation failed: {0}")]
     Candidate(String),
     #[error("QUV codec failure: {0}")]
@@ -1308,6 +1715,203 @@ mod tests {
         std::fs::write(&state_path, old_state).unwrap();
         assert!(matches!(
             DurableQuvMemberV0::open(&state_path, &anchor_path, [8; 32]),
+            Err(QuvError::RollbackOrFork)
+        ));
+    }
+
+    #[test]
+    fn live_handoff_candidate_binds_both_roots_and_complete_activation_state() {
+        let successor_set = ValidatorSetV1 {
+            effective_from_height: 11,
+            total_weight: 2,
+            validators: vec![20_u8, 21_u8]
+                .into_iter()
+                .map(|byte| ValidatorV1 {
+                    account_id: account(byte),
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ML_DSA_44,
+                        public_key_hash: [byte; 32],
+                        since_height: 1,
+                    },
+                })
+                .collect(),
+        };
+        let handoff = QuvConfigurationHandoffV0 {
+            network_id: [2; 32],
+            old_configuration_root: [1; 32],
+            successor_set,
+            activation_height: 11,
+            old_authority_expiry_height: 10,
+            predecessor_candidate_hash: [4; 32],
+            state_height: 10,
+            state_block_hash: [5; 32],
+            state_root: vec![6; 32],
+        };
+        let successor_root =
+            ioi_types::app::canonical_validator_set_hash(&handoff.successor_set).unwrap();
+        let domain = quv_handoff_domain_id(
+            handoff.network_id,
+            handoff.old_configuration_root,
+            successor_root,
+            handoff.activation_height,
+        )
+        .unwrap();
+        let candidate = QuvCandidateV0 {
+            slot: QuvSlotV0 {
+                configuration_root: handoff.old_configuration_root,
+                policy_root: [7; 32],
+                network_id: handoff.network_id,
+                domain_id: domain,
+                slot: handoff.activation_height,
+                predecessor: handoff.predecessor_candidate_hash,
+                authority_mode: QuvAuthorityModeV0::Owned,
+            },
+            payload_hash: quv_handoff_payload_hash(&handoff).unwrap(),
+            authorizer: account(9),
+            authority_signature: vec![8],
+        };
+        assert_eq!(
+            validate_quv_handoff_candidate(&candidate, &handoff).unwrap(),
+            successor_root
+        );
+
+        let mut substituted = handoff.clone();
+        substituted.state_root[0] ^= 1;
+        assert!(matches!(
+            validate_quv_handoff_candidate(&candidate, &substituted),
+            Err(QuvError::InvalidHandoff)
+        ));
+        let mut premature = handoff;
+        premature.state_height = 9;
+        assert!(matches!(
+            validate_quv_handoff_payload(&premature),
+            Err(QuvError::InvalidHandoff)
+        ));
+    }
+
+    #[test]
+    fn live_authorization_is_consumed_into_rollback_anchored_successor_activation() {
+        let successor_set = ValidatorSetV1 {
+            effective_from_height: 11,
+            total_weight: 2,
+            validators: vec![20_u8, 21_u8]
+                .into_iter()
+                .map(|byte| ValidatorV1 {
+                    account_id: account(byte),
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ML_DSA_44,
+                        public_key_hash: [byte; 32],
+                        since_height: 1,
+                    },
+                })
+                .collect(),
+        };
+        let handoff = QuvConfigurationHandoffV0 {
+            network_id: [2; 32],
+            old_configuration_root: [1; 32],
+            successor_set,
+            activation_height: 11,
+            old_authority_expiry_height: 10,
+            predecessor_candidate_hash: [4; 32],
+            state_height: 10,
+            state_block_hash: [5; 32],
+            state_root: vec![6; 32],
+        };
+        let successor_root =
+            ioi_types::app::canonical_validator_set_hash(&handoff.successor_set).unwrap();
+        let request = QuvPushQueryV0 {
+            verifier_nonce: [3; 32],
+            candidate: QuvCandidateV0 {
+                slot: QuvSlotV0 {
+                    configuration_root: handoff.old_configuration_root,
+                    policy_root: [7; 32],
+                    network_id: handoff.network_id,
+                    domain_id: quv_handoff_domain_id(
+                        handoff.network_id,
+                        handoff.old_configuration_root,
+                        successor_root,
+                        handoff.activation_height,
+                    )
+                    .unwrap(),
+                    slot: handoff.activation_height,
+                    predecessor: handoff.predecessor_candidate_hash,
+                    authority_mode: QuvAuthorityModeV0::Owned,
+                },
+                payload_hash: quv_handoff_payload_hash(&handoff).unwrap(),
+                authorizer: account(9),
+                authority_signature: vec![8],
+            },
+        };
+        let temp = TempDir::new().unwrap();
+        let signer = TestMember(account(1));
+        let reply = open_member(&temp)
+            .process_push(&request, &AcceptCandidates, &signer)
+            .unwrap();
+        let mut operation = QuvOnlineOperationV0::start(
+            request,
+            BTreeSet::from([account(1)]),
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+        )
+        .unwrap();
+        operation.observe_reply(reply);
+        let authorization = operation
+            .finish_at(Duration::from_secs(1), &AcceptCandidates, &signer)
+            .unwrap();
+
+        let state_path = temp.path().join("handoff/state.scale");
+        let anchor_path = temp.path().join("handoff-anchor/state.anchor");
+        let mut store = DurableQuvHandoffV0::open(&state_path, &anchor_path, [9; 32]).unwrap();
+        let pre_install_state = std::fs::read(&state_path).unwrap();
+        assert_eq!(
+            store
+                .install(
+                    authorization,
+                    handoff.clone(),
+                    account(20),
+                    10,
+                    [5; 32],
+                    &[6; 32],
+                )
+                .unwrap(),
+            successor_root
+        );
+        assert_eq!(store.generation(), 1);
+        assert!(store.permits_activation(
+            [2; 32],
+            [1; 32],
+            successor_root,
+            11,
+            account(20),
+            [5; 32],
+            &[6; 32],
+        ));
+        drop(store);
+        let recovered = DurableQuvHandoffV0::open(&state_path, &anchor_path, [9; 32]).unwrap();
+        assert!(recovered.permits_activation(
+            [2; 32],
+            [1; 32],
+            successor_root,
+            11,
+            account(20),
+            [5; 32],
+            &[6; 32],
+        ));
+        assert!(!recovered.permits_activation(
+            [2; 32],
+            [1; 32],
+            successor_root,
+            12,
+            account(20),
+            [5; 32],
+            &[6; 32],
+        ));
+        drop(recovered);
+        std::fs::write(&state_path, pre_install_state).unwrap();
+        assert!(matches!(
+            DurableQuvHandoffV0::open(&state_path, &anchor_path, [9; 32]),
             Err(QuvError::RollbackOrFork)
         ));
     }
