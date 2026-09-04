@@ -1,7 +1,6 @@
 {
   "artboards": [
-    { "file": "Alpha.dc.html", "x": 0, "y": 0, "w": 980, "h": 1760, "title": "Candidate A" },
-    { "file": "Beta.dc.html", "x": 1080, "y": 0, "w": 980, "h": 1690, "title": "Candidate B" }
+    { "file": "Alpha.dc.html", "x": 0, "y": 0, "w": 980, "h": 1760, "title": "Candidate A" }
   ],
   "annotations": [
     {
