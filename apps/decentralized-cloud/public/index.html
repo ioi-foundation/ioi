@@ -10,20 +10,49 @@
 
   <header class="topbar">
     <div class="topbar-left">
-      <div class="wordmark" style="font-size: 22px;" aria-label="decentralized.cloud">
+      <div class="lockup">
+        <!-- The family monogram, reversed white-on-onyx — the reduction an
+             independent review rated the strongest of the drawings, because the
+             counters open up and the three blocks separate optically where on a
+             light ground they do not.
+             The mark's ink height is 22px against a 22px wordmark: one em, which
+             is 1.429 x the measured cap of 0.700 em. The tile is 31px because the
+             ink occupies 68.51 of the tile's 96 units.
+             STATUS: identity v0 — provisional, scored 50 of 100 by blind review.
+             The reviewer's remaining path is on the identity sheet at
+             brand/round4/Main.dc.html. This label belongs here and in that sheet,
+             never on the surface a visitor reads. -->
+        <svg class="mark" width="31" height="31" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
+          <defs>
+            <mask id="cloud-cue" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+              <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+              <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect>
+            </mask>
+          </defs>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <g mask="url(#cloud-cue)"><g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#ffffff"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#ffffff"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#ffffff"></path>
+          </g></g>
+        </svg>
+        <div class="wordmark" style="font-size: 22px;" aria-hidden="true">
           <span>decentralized</span><span class="dot"></span><span>cloud</span>
         </div>
+      </div>
       <nav class="nav" aria-label="Surfaces">
         <button type="button" data-surface="candidates" aria-current="page">Candidates</button>
         <button type="button" data-surface="sources">Sources</button>
         <button type="button" data-surface="placement">Placement</button>
         <button type="button" data-surface="job">Submit a job</button>
+        <button type="button" data-surface="redundancy">Redundancy</button>
+        <button type="button" data-surface="receipts">Receipts</button>
         <button type="button" data-surface="api">API</button>
       </nav>
     </div>
     <div style="display: flex; align-items: center; gap: 14px;">
       <span class="meta" id="daemon-label">daemon —</span>
-      <span class="chip muted"><span class="dot"></span>read-only surface</span>
+      <span class="chip muted" id="refresh-chip"><span class="dot"></span>read-only surface</span>
     </div>
   </header>
 

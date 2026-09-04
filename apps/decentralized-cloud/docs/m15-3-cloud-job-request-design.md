@@ -207,6 +207,46 @@ The submit control stays inert until the daemon route exists. The page states
 that in words on the surface — "designed, not connected" — because a stub a
 reader cannot tell apart from truth is refused.
 
+### 5a. What the face draws today, and what asserts it
+
+The M15.2 polish drew the rest of this shape. Three surfaces are labelled unwired,
+and each claim below is checked by `scripts/verify-decentralized-cloud-face.mjs`
+rather than left to prose:
+
+| Surface | Canon shape | What the gate checks |
+|---|---|---|
+| Submit a job | `CloudJobRequest` | labelled *designed, not connected*; names the shape; control inert |
+| Redundancy | `RedundancyPosture` | the same three, plus that only `none` is offered as accepted |
+| Receipts | the five receipt kinds | the same three; no receipt is ever displayed, because none exists |
+
+**Both doors are compared field by field.** §3's claim that the human and agent
+paths are one primitive differing only in how authority was obtained is drawn as
+two literal request bodies side by side, and the gate parses both and asserts:
+exactly one field differs, that field is `authority_ref`, the human's is a
+`wallet-grant://` and the agent's a `capability-lease://`, neither names a venue,
+and neither carries anything matching a credential. If the two ever drift the gate
+fails — which is the point, because a drift means one caller is being offered a
+privilege the other is not.
+
+**`redundancy` is labelled as §8.3 rules it, not as a menu.** `warm_standby` and
+`active_active` are drawn, because the shape of the choice is worth reviewing
+before it is built, but each is chipped *refused by name until M15.9* rather than
+*available*. A surface that offered them would be promising something the envelope
+will reject. The refusal is a refusal, never a silent downgrade to `none`.
+
+**Freshness is derived, not decorative.** Every quote carries a dial that is the
+fraction of its own `observed_at → expires_at` window still unspent, repainted from
+those two timestamps once a second. The gate runs the real function against windows
+whose answers are known — already past reads empty, just opened reads full, half
+spent reads half, no window drives no dial — and separately asserts that no CSS
+animation drives the sweep, because a dial with a duration of its own would look
+identical to one bound to a quote and would be a lie the moment the two disagreed.
+
+**Stale-while-refresh.** A refresh leaves the previous batch on screen, dimmed and
+named as the older observation; a failed refresh shows the fault beside the good
+earlier reading rather than erasing it. The rule this protects: on this surface an
+empty table means *no live price*, and it must never also come to mean *loading*.
+
 ---
 
 ## 6. Reuse points — the eleven seams

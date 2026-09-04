@@ -51,14 +51,41 @@ a:hover { color: #3e7f5c; }
 .wordmark .dot { display: inline-block; border-radius: 50%; background: var(--live);
   width: 4px; height: 4px; margin: 0 2px; }
 
+.lockup { display: flex; align-items: center; gap: 10px; }
+.mark { display: block; flex-shrink: 0; }
+
+/* ── Freshness ────────────────────────────────────────────────────────────
+   A quote is only worth what its window says. The dial is the fraction of the
+   observed_at→expires_at window still unspent, drawn from those two timestamps
+   and nothing else — there is no animation that runs independently of them, so
+   a dial that looks full is a window that is full.
+
+   The track clears the 3:1 non-text floor on its own (grey-700 on white is
+   3.90:1) because the empty portion carries meaning too: it is time spent. */
+.dial { display: block; flex-shrink: 0; }
+.dial .track { stroke: var(--muted); stroke-width: 2.5; fill: none; opacity: 0.35; }
+.dial .sweep { stroke: var(--live); stroke-width: 2.5; fill: none; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 50% 50%; }
+.dial.spent .sweep { stroke: var(--expired); }
+.freshness { display: flex; align-items: center; gap: 9px; }
+
+/* Stale-while-refresh: the previous batch stays legible while a newer read is in
+   flight, dimmed and named as the older observation rather than blanked. A page
+   that goes empty while it refetches teaches the reader that absence means
+   loading, which is the one thing absence must never mean here. */
+.stale { opacity: 0.55; }
+.refreshing .dot { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .refreshing .dot { animation: none; } }
+
 /* ── Chrome ───────────────────────────────────────────────────────────────── */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 32px;
   padding: 0 40px; height: 66px; border-bottom: 1px solid var(--hairline);
   position: sticky; top: 0; background: var(--paper); z-index: 2; }
 .topbar-left { display: flex; align-items: center; gap: 40px; }
-.nav { display: flex; align-items: center; gap: 26px; }
+.nav { display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; }
 .nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
-  color: var(--label); cursor: pointer; }
+  color: var(--label); cursor: pointer; white-space: nowrap; }
 /* Green marks live evidence and nothing else, so the current-surface underline is
    ink. A selection colour that is also the evidence colour makes chrome look like
    a claim. */
@@ -100,7 +127,7 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .panel.fault { border-left: 3px solid var(--expired); }
 
 .table { border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
-.trow { display: grid; grid-template-columns: 148px minmax(0, 1fr) 132px 148px; gap: 20px;
+.trow { display: grid; grid-template-columns: 148px minmax(0, 1fr) 132px 168px; gap: 20px;
   padding: 16px 20px; align-items: center; border-top: 1px solid var(--hairline-soft); }
 .trow.head { padding: 12px 20px; background: var(--surface); border-top: 0;
   border-bottom: 1px solid var(--hairline); }

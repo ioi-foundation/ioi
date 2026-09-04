@@ -87,6 +87,97 @@ function checkRefresherSeparation() {
     /batch/.test(js) && /batches/.test(js));
 }
 
+// ── 2c. Freshness is derived, never decorative ──────────────────────────────
+// A dial animating on a timer of its own would look identical to one bound to a
+// quote's window, and would be a lie the moment the two disagreed. So the sweep must
+// be computed from observed_at and expires_at, and the real function is exercised on
+// windows whose answers are known rather than read out of the source.
+function checkFreshnessIsDerived() {
+  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  const css = readFileSync(path.join(APP, "public/face.css"), "utf8");
+  ok("the dial's fraction comes from observed_at and expires_at",
+    /function dialFraction\([\s\S]{0,300}Date\.parse\(observedAt\)[\s\S]{0,300}Date\.parse\(expiresAt\)/.test(js));
+  ok("no animation drives the dial's sweep",
+    !/\.dial[^{]*\{[^}]*animation|\.sweep[^{]*\{[^}]*animation/.test(css));
+
+  const src = js.slice(js.indexOf("function dialFraction"), js.indexOf("function dial("));
+  const dialFraction = new Function(`${src}; return dialFraction;`)();
+  const now = Date.now();
+  const iso = (ms) => new Date(ms).toISOString();
+  const expired = dialFraction(iso(now - 20 * 60_000), iso(now - 5 * 60_000));
+  const fresh = dialFraction(iso(now - 1_000), iso(now + 15 * 60_000));
+  const half = dialFraction(iso(now - 5 * 60_000), iso(now + 5 * 60_000));
+  ok("a window already past reads empty", expired === 0, `fraction ${expired}`);
+  ok("a window just opened reads full", fresh > 0.99, `fraction ${fresh.toFixed(4)}`);
+  ok("a window half spent reads about half", Math.abs(half - 0.5) < 0.01, `fraction ${half.toFixed(4)}`);
+  ok("a candidate with no window drives no dial",
+    dialFraction(undefined, undefined) === null && dialFraction("2026-01-01T00:00:00Z", "bad") === null);
+}
+
+// ── 2d. The unwired write surfaces say so, and stay unwired ─────────────────
+function checkUnwiredSurfaces() {
+  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  for (const [surface, shape] of [
+    ["renderJob", "CloudJobRequest"],
+    ["renderRedundancy", "RedundancyPosture"],
+    ["renderReceipts", "receipt kinds"],
+  ]) {
+    // Bound the slice at the NEXT function, not at a fixed character count. A fixed
+    // window ran past renderRedundancy into renderReceipts, so removing
+    // renderRedundancy's own label still passed — it was finding the next
+    // function's. A mutation caught that; the fixed window was the defect.
+    const start = js.indexOf(`function ${surface}`);
+    const next = js.indexOf("\nfunction ", start + 1);
+    const body = js.slice(start, next === -1 ? js.length : next);
+    ok(`${surface} is labelled designed, not connected`, /designed, not connected/.test(body));
+    ok(`${surface} names the canonical shape it draws`, body.includes(shape), shape);
+  }
+  ok("every control drawn on a write surface is inert",
+    (js.match(/class:\s*"button-inert",\s*type:\s*"button",\s*disabled:\s*true/g) || []).length >= 2);
+  ok("the face declares no mutating fetch anywhere",
+    !/method:\s*["'](POST|PUT|PATCH|DELETE)["']/i.test(js));
+}
+
+// ── 2e. One primitive, two doors ────────────────────────────────────────────
+// The face claims a human's request and an agent's are the same CloudJobRequest
+// differing in exactly one field. That is a claim about two literals, so they are
+// compared field by field rather than trusted.
+function checkBothDoorsAreOnePrimitive() {
+  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  const bodies = [...js.matchAll(/JSON\.stringify\((\{[\s\S]*?receipt_requirements:[^\]]*\],\s*\n\s*\}), null, 2\)/g)];
+  ok("both doors are drawn from an object literal, not prose", bodies.length === 2, `${bodies.length} found`);
+  if (bodies.length !== 2) return;
+  const parse = (s) => new Function(`return ${s};`)();
+  const human = parse(bodies[0][1]);
+  const agent = parse(bodies[1][1]);
+  const keys = [...new Set([...Object.keys(human), ...Object.keys(agent)])];
+  const differing = keys.filter((k) => JSON.stringify(human[k]) !== JSON.stringify(agent[k]));
+  ok("the two doors differ in exactly one field", differing.length === 1, differing.join(", ") || "none");
+  ok("the field they differ in is the authority", differing[0] === "authority_ref", differing[0] || "—");
+  ok("the human door carries a wallet grant", String(human.authority_ref).startsWith("wallet-grant://"));
+  ok("the agent door carries a capability lease", String(agent.authority_ref).startsWith("capability-lease://"));
+  ok("neither door names a venue",
+    !("venue" in human) && !("venue" in agent) &&
+    !/provider_kind|venue/.test(JSON.stringify({ human, agent })));
+  ok("neither door carries a provider credential",
+    !/credential|api[_-]?key|secret|token/i.test(JSON.stringify({ human, agent })));
+}
+
+// ── 2f. The identity's provisional score never reaches the reader ───────────
+// The mark is identity v0, scored 50 by blind review. That belongs in the source and
+// on the identity sheet and nowhere a visitor can read it: a public surface that
+// grades its own logo is reporting its confidence rather than its product.
+function checkScoreIsNotOnTheSurface() {
+  const html = readFileSync(path.join(APP, "public/index.html"), "utf8");
+  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  ok("the provisional status is recorded in the shell's source",
+    /identity v0 — provisional/.test(html));
+  const visible = html.replace(/<!--[\s\S]*?-->/g, "") +
+    js.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok("no rendered text mentions the identity score",
+    !/identity v0|provisional, score|scored? 50/i.test(visible));
+}
+
 // ── 3. The served surface refuses everything it should ──────────────────────
 async function checkServer() {
   const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
@@ -196,6 +287,10 @@ async function run() {
   checkPalette();
   checkVocabulary();
   checkRefresherSeparation();
+  checkFreshnessIsDerived();
+  checkUnwiredSurfaces();
+  checkBothDoorsAreOnePrimitive();
+  checkScoreIsNotOnTheSurface();
   await checkServer();
   await checkBrandGates();
 }

@@ -12,7 +12,11 @@ const el = (tag, attrs = {}, ...children) => {
   for (const [k, v] of Object.entries(attrs)) {
     if (k === "class") node.className = v;
     else if (k === "style") node.setAttribute("style", v);
-    else if (k.startsWith("aria-") || k === "type" || k === "role") node.setAttribute(k, v);
+    // data-* and aria-* must go through setAttribute: assigning them as properties
+    // silently creates a JS field and leaves the DOM without the attribute, which
+    // would make the ticker's querySelectorAll find nothing and every countdown
+    // freeze at its first value.
+    else if (k.startsWith("aria-") || k.startsWith("data-") || k === "type" || k === "role") node.setAttribute(k, v);
     else node[k] = v;
   }
   for (const c of children.flat()) {
@@ -35,6 +39,74 @@ const minutesLeft = (iso) => {
   if (!Number.isFinite(t)) return null;
   return Math.round((t - Date.now()) / 60000);
 };
+
+const svgEl = (tag, attrs = {}, ...children) => {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  for (const c of children.flat()) if (c) node.append(c);
+  return node;
+};
+
+// ── The freshness dial ───────────────────────────────────────────────────────
+// The fraction of a quote's own observed_at → expires_at window that is still
+// unspent. Both endpoints come from the daemon's record of that candidate; the
+// dial has no duration of its own and no animation that runs independently of
+// them, so it cannot show a full window for an empty one. It is re-read from the
+// same two timestamps every second by the ticker below.
+const DIAL_R = 8;
+const DIAL_C = 2 * Math.PI * DIAL_R;
+
+function dialFraction(observedAt, expiresAt) {
+  const o = Date.parse(observedAt), e = Date.parse(expiresAt);
+  if (!Number.isFinite(o) || !Number.isFinite(e) || e <= o) return null;
+  return Math.max(0.25, Math.min(1, (e - Date.now()) / (e - o)));
+}
+
+function dial(observedAt, expiresAt) {
+  const node = svgEl("svg", {
+    class: "dial", width: 20, height: 20, viewBox: "0 0 20 20",
+    "data-observed": observedAt || "", "data-expires": expiresAt || "",
+    role: "img",
+  },
+    svgEl("circle", { class: "track", cx: 10, cy: 10, r: DIAL_R }),
+    svgEl("circle", { class: "sweep", cx: 10, cy: 10, r: DIAL_R,
+      "stroke-dasharray": `0 ${DIAL_C.toFixed(2)}` }));
+  paintDial(node);
+  return node;
+}
+
+function paintDial(node) {
+  const frac = dialFraction(node.getAttribute("data-observed"), node.getAttribute("data-expires"));
+  const sweep = node.querySelector(".sweep");
+  if (frac === null) {
+    node.classList.add("spent");
+    sweep.setAttribute("stroke-dasharray", `0 ${DIAL_C.toFixed(2)}`);
+    node.setAttribute("aria-label", "no observation window");
+    return;
+  }
+  node.classList.toggle("spent", frac <= 0);
+  sweep.setAttribute("stroke-dasharray", `${(frac * DIAL_C).toFixed(2)} ${DIAL_C.toFixed(2)}`);
+  node.setAttribute("aria-label", `${Math.round(frac * 100)}% of the quote window remaining`);
+}
+
+// Anything carrying data-expires is re-read from its own timestamps once a second.
+// Countdown text is written from the same source as the dial beside it, so the two
+// can never disagree.
+setInterval(() => {
+  for (const node of document.querySelectorAll("svg.dial")) paintDial(node);
+  for (const node of document.querySelectorAll("[data-countdown]")) {
+    const mins = minutesLeft(node.getAttribute("data-countdown"));
+    node.textContent = mins === null ? "—" : mins > 0 ? `${mins} min left` : "expired";
+  }
+  for (const node of document.querySelectorAll("[data-due]")) {
+    const secs = Math.round((Date.parse(node.getAttribute("data-due")) - Date.now()) / 1000);
+    node.textContent = !Number.isFinite(secs)
+      ? "—"
+      : secs > 0
+        ? `next batch due in ${Math.floor(secs / 60)}m ${String(secs % 60).padStart(2, "0")}s`
+        : "next batch overdue";
+  }
+}, 1000);
 
 // ── The live rule ────────────────────────────────────────────────────────────
 function classify(c) {
@@ -84,13 +156,40 @@ const failure = (r) =>
     el("p", { class: "prose" }, r.body?.reason || "The read failed and the daemon gave no reason."));
 
 // ── Candidates ───────────────────────────────────────────────────────────────
-async function renderCandidates() {
-  surface.replaceChildren(waiting("candidates"));
+// Stale-while-refresh. The first paint has nothing to be stale FROM, so it says
+// so; every later refresh leaves the previous batch on screen, dimmed and named as
+// the older observation, while the new read is in flight. A page that blanks
+// itself to refetch teaches its reader that an empty table means "loading", and on
+// this surface an empty table has to keep meaning "no live price".
+let lastPaint = null;
+
+function setRefreshChip(state) {
+  const chipEl = document.getElementById("refresh-chip");
+  if (!chipEl) return;
+  chipEl.className = state === "refreshing" ? "chip muted refreshing" : "chip muted";
+  chipEl.lastChild.textContent = state === "refreshing" ? "re-reading the daemon" : "read-only surface";
+}
+
+async function renderCandidates({ silent = false } = {}) {
+  if (!silent || !lastPaint) surface.replaceChildren(waiting("candidates"));
+  else {
+    lastPaint.classList.add("stale");
+    setRefreshChip("refreshing");
+  }
   const [r, config] = await Promise.all([
     read(`/api/candidates?intent_ref=${encodeURIComponent(intentRef)}`),
     read("/api/face-config"),
   ]);
-  if (!r.ok) return surface.replaceChildren(failure(r));
+  setRefreshChip("idle");
+  if (!r.ok) {
+    // A failed refresh does not erase a good earlier reading; it is shown beside it.
+    if (silent && lastPaint) {
+      lastPaint.classList.remove("stale");
+      lastPaint.prepend(failure(r));
+      return;
+    }
+    return surface.replaceChildren(failure(r));
+  }
   const cadence = config.ok ? config.body?.refresh_cadence_seconds : null;
 
   // A long-lived intent accumulates every sweep the daemon has ever run against it,
@@ -140,7 +239,6 @@ async function renderCandidates() {
   ];
 
   if (cheapest) {
-    const mins = minutesLeft(cheapest.expires_at);
     rows.push(el("div", { class: "trow" },
       el("div", { class: "stack", style: "gap: 7px;" },
         el("div", { class: "mono", style: "font-size: 14px;" }, cheapest.provider_kind || "—"),
@@ -148,12 +246,18 @@ async function renderCandidates() {
       el("div", { class: "mono", style: "font-size: 13px; color: var(--label); line-height: 1.5;" },
         cheapest.quote.basis,
         el("br"),
-        cheapest.quote.quote_ref || ""),
+        cheapest.quote.quote_ref || "",
+        el("br"),
+        `observed ${clock(cheapest.observed_at)}`),
       el("div", { class: "mono", style: "font-size: 16px;" }, `$${cheapest.quote.usd_per_hour.toFixed(4)}`),
-      el("div", { class: "stack", style: "gap: 5px;" },
-        el("div", { class: "mono", style: "font-size: 13px;" }, clock(cheapest.expires_at)),
-        el("div", { class: "mono", style: "font-size: 12px; color: var(--label);" },
-          mins > 0 ? `${mins} min left` : "expired"))));
+      el("div", { class: "freshness" },
+        dial(cheapest.observed_at, cheapest.expires_at),
+        el("div", { class: "stack", style: "gap: 4px;" },
+          el("div", { class: "mono", style: "font-size: 13px;" }, clock(cheapest.expires_at)),
+          el("div", {
+            class: "mono", style: "font-size: 12px; color: var(--label);",
+            "data-countdown": cheapest.expires_at || "",
+          }, "—")))));
   }
 
   const remainder = live.filter((c) => c !== cheapest);
@@ -196,16 +300,30 @@ async function renderCandidates() {
       el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—")));
   }
 
-  surface.replaceChildren(
-    el("div", { class: "stack", style: "gap: 26px;" },
+  const observedIso = latest.observed || observed;
+  const dueIso = cadence && Date.parse(observedIso)
+    ? new Date(Date.parse(observedIso) + cadence * 1000).toISOString()
+    : null;
+
+  const painted = el("div", { class: "stack", style: "gap: 26px;" },
       el("div", { class: "stack", style: "gap: 10px;" },
         el("h1", {}, r.body.intent_summary || "Candidates"),
         el("div", { class: "meta" },
-          `${intentRef} · batch ${latest.key} · observed ${clock(latest.observed || observed)}` +
-          ` · ${candidates.length} of ${all.length} candidates known for this intent` +
-          (cadence
-            ? ` · next batch due ${clock(new Date(Date.parse(latest.observed || observed) + cadence * 1000).toISOString())}`
-            : "")),
+          `${intentRef} · batch ${latest.key} · observed ${clock(observedIso)}` +
+          ` · ${candidates.length} of ${all.length} candidates known for this intent`),
+        // The dial is drawn only when there is a real window to draw. With no
+        // cadence declared, this surface does not know when the next batch lands
+        // and says so — an empty dial beside "no cadence" would be a measurement
+        // of nothing dressed as one.
+        dueIso
+          ? el("div", { class: "freshness" },
+              dial(observedIso, dueIso),
+              el("span", { class: "meta", "data-due": dueIso }, "—"),
+              el("span", { class: "meta" },
+                `· the refresher sweeps every ${Math.round(cadence / 60)} minutes and a sweep takes about 39s`))
+          : el("div", { class: "meta" },
+              "No refresh cadence is declared to this surface, so it makes no claim about " +
+              "when the next batch lands. The quote windows below are still exact."),
         all.length > candidates.length
           ? el("div", { class: "meta" },
               `${all.length - candidates.length} older candidates from earlier sweeps are set aside — ` +
@@ -218,8 +336,22 @@ async function renderCandidates() {
         "A price appears in this table only when the daemon returned it as live_evidence " +
         "with an observed_at, an expires_at still in the future, and a quote reference it " +
         "can be traced back to. Simulator lanes are excluded from the table, from the " +
-        "venue count, and from any fee.")));
+        "venue count, and from any fee."));
+
+  surface.replaceChildren(painted);
+  lastPaint = painted;
 }
+
+// The page re-reads on the same cadence the refresher sweeps on, so what is shown
+// is never more than one sweep behind what the daemon holds. It refreshes in place:
+// see renderCandidates' silent branch.
+const POLL_MS = 30_000;
+setInterval(() => {
+  const current = document.querySelector('.nav button[aria-current="page"]');
+  if (current?.dataset.surface === "candidates" && document.visibilityState === "visible") {
+    renderCandidates({ silent: true });
+  }
+}, POLL_MS);
 
 // ── Sources ──────────────────────────────────────────────────────────────────
 async function renderSources() {
@@ -320,7 +452,158 @@ function renderJob() {
         el("span", { class: "field-hint", style: "max-width: 48ch;" },
           "Disabled until the job primitive lands. The button is drawn so the shape of the " +
           "commitment is reviewable now, and it is inert on purpose."),
-        chip("not wired — job api not live", "muted"))));
+        chip("not wired — job api not live", "muted")),
+
+      // ── The same primitive, from both doors ────────────────────────────────
+      // A human fills the form above; an agent posts the body below. They are not
+      // two APIs with a shared name — they are one CloudJobRequest, and the only
+      // field that differs is how authority was obtained: a wallet grant a person
+      // signs, or a CapabilityLease an agent draws down. If these two ever drift
+      // apart, one of the two callers is being offered a privilege the other is
+      // not, which is how a second spine starts.
+      el("div", { class: "stack", style: "gap: 14px; margin-top: 6px;" },
+        el("div", { class: "eyebrow" }, "The same primitive, from both doors"),
+        el("p", { class: "prose" },
+          "The form above and the request below are the same CloudJobRequest. Neither " +
+          "door names a venue, neither carries a provider credential, and neither can " +
+          "widen what its authority already permits — a lease draw-down is a narrowing " +
+          "of a grant a human made earlier, never a new grant an agent made for itself."),
+        el("div", { style: "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;" },
+          el("div", { class: "stack", style: "gap: 9px;" },
+            el("div", { class: "meta" }, "human · wallet grant signed at submit"),
+            el("pre", { class: "code" }, JSON.stringify({
+              schema_version: "ioi.cloud.job-request.v1",
+              intent: { runtime_class: "compute.gpu_runtime", gpu: { required: true, devices: 1, min_gb: 24 } },
+              deadline: { max_duration_hours: 4 },
+              budget_ref: "external-spend-budget://esb_…",
+              authority_ref: "wallet-grant://wg_…",
+              redundancy: "none",
+              receipt_requirements: ["placement", "provider-operation", "spend"],
+            }, null, 2))),
+          el("div", { class: "stack", style: "gap: 9px;" },
+            el("div", { class: "meta" }, "agent · CapabilityLease draw-down"),
+            el("pre", { class: "code" }, JSON.stringify({
+              schema_version: "ioi.cloud.job-request.v1",
+              intent: { runtime_class: "compute.gpu_runtime", gpu: { required: true, devices: 1, min_gb: 24 } },
+              deadline: { max_duration_hours: 4 },
+              budget_ref: "external-spend-budget://esb_…",
+              authority_ref: "capability-lease://cl_…",
+              redundancy: "none",
+              receipt_requirements: ["placement", "provider-operation", "spend"],
+            }, null, 2)))),
+        el("p", { class: "prose" },
+          "One field differs. That is the whole difference between a person and an " +
+          "agent on this surface, and it is deliberate: the agent path is not a " +
+          "lighter-weight API, it is the same request under an authority that was " +
+          "delegated and can be revoked."))));
+}
+
+// ── Redundancy posture: designed, not connected ──────────────────────────────
+function renderRedundancy() {
+  // The job primitive's design document says the envelope accepts this field,
+  // validates it, and REFUSES anything but `none` by name until the replica work
+  // lands — replica placement, a per-replica exposure set and a switch policy do not
+  // exist yet. So the two unbuilt postures are labelled as refused rather than as
+  // available: a surface that offers what the primitive behind it will reject is
+  // making a promise on someone else's behalf.
+  const posture = (name, cost, whenItHelps, whatItCosts, chosen) =>
+    el("div", { class: `panel stack ${chosen ? "flag" : "absent"}`, style: "gap: 10px;" },
+      el("div", { style: "display: flex; align-items: center; justify-content: space-between; gap: 12px;" },
+        el("h2", {}, name),
+        chip(chosen ? "the only accepted value" : "refused by name until M15.9", "muted")),
+      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, cost),
+      el("p", { class: "prose" }, whenItHelps),
+      el("p", { class: "prose" }, whatItCosts));
+
+  surface.replaceChildren(
+    el("div", { class: "stack", style: "gap: 26px;" },
+      el("div", { class: "panel absent stack", style: "gap: 8px;" },
+        el("div", { class: "eyebrow" }, "designed, not connected"),
+        el("p", { class: "prose" },
+          "Drawn to the canonical RedundancyPosture shape and selects nothing. No " +
+          "posture here is in force, because this surface performs no writes and a " +
+          "posture is a property of a running job.")),
+      el("div", { class: "stack", style: "gap: 9px;" },
+        el("h1", {}, "Redundancy"),
+        el("p", { class: "prose", style: "font-size: 16px;" },
+          "What should happen when a venue fails underneath your work. This is declared " +
+          "in the request or it is absent — it is never inferred from your budget, never " +
+          "defaulted to something safer than you asked for, and never applied by a " +
+          "fallback you did not authorize.")),
+      el("div", { style: "display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;" },
+        posture("none", "1× spend",
+          "The job runs in one place. If that venue fails, the job fails and the receipt says which venue and when.",
+          "Nothing is held in reserve, so recovery means resubmitting — and the second placement is priced at whatever the market is then, not at your original quote.",
+          true),
+        posture("warm_standby", "1× spend + reserved capacity",
+          "A second venue holds capacity but does not execute. On failure the work moves there without waiting for a fresh placement round.",
+          "You pay to reserve what you are not using, and the standby's quote has its own expiry — a reservation older than its window is not a reservation."),
+        posture("active_active", "2× spend",
+          "The work runs in two venues at once. A single venue failure costs nothing but the failed half.",
+          "Everything is paid for twice, and any work with side effects has to be idempotent or the duplicate execution is a defect rather than a safeguard.")),
+      el("div", { class: "stack", style: "gap: 12px;" },
+        el("div", { class: "eyebrow" }, "What a posture cannot do"),
+        el("p", { class: "prose" },
+          "A posture never authorizes spend. warm_standby and active_active both cost " +
+          "more than the budget a single placement was checked against, so choosing one " +
+          "re-checks the budget and is refused by name — budget_undiscovered_before_mutation " +
+          "— if the larger figure does not fit. A redundancy setting that could quietly " +
+          "double a bill would be an authority this surface has no business holding."),
+        el("p", { class: "prose" },
+          "Today only `none` is accepted. The other two are drawn because the shape of the " +
+          "choice is worth reviewing before it is built — but replica placement, per-replica " +
+          "exposure and a switch policy do not exist yet, and until they do a request naming " +
+          "either one is refused by name rather than quietly downgraded to `none`. A surface " +
+          "that offered them would be promising something the primitive behind it rejects."),
+        el("div", { style: "display: flex; align-items: center; gap: 16px;" },
+          el("button", { class: "button-inert", type: "button", disabled: true }, "Apply posture"),
+          chip("not wired — no running job to apply it to", "muted")))));
+}
+
+// ── Receipts: designed, not connected ────────────────────────────────────────
+function renderReceipts() {
+  const receipt = (kind, answers, fields) =>
+    el("div", { class: "srow" },
+      el("div", { class: "srow-head" },
+        el("span", { class: "mono", style: "font-size: 14px;" }, kind),
+        chip("shape only", "muted")),
+      el("div", { class: "srow-reason" }, answers),
+      el("div", { class: "mono", style: "font-size: 12px; color: var(--muted);" }, fields));
+
+  surface.replaceChildren(
+    el("div", { class: "stack", style: "gap: 26px;" },
+      el("div", { class: "panel absent stack", style: "gap: 8px;" },
+        el("div", { class: "eyebrow" }, "designed, not connected"),
+        el("p", { class: "prose" },
+          "These are the receipt kinds a completed job returns, drawn to their canonical " +
+          "shape. This surface has never run a job, so it holds no receipts and shows " +
+          "none — the list below is a contract, not a history.")),
+      el("div", { class: "stack", style: "gap: 9px;" },
+        el("h1", {}, "Receipts"),
+        el("p", { class: "prose", style: "font-size: 16px;" },
+          "A receipt is how you find out what actually happened, from a party that is not " +
+          "the one that did it. Each kind below answers one question that would otherwise " +
+          "have to be taken on trust.")),
+      el("div", { class: "rail" },
+        receipt("placement",
+          "Which venue was chosen, against which candidates, on what evidence, and at what quoted price — including the candidates that were not chosen.",
+          "venue · candidate_ref[] · quote_ref · observed_at · decided_at"),
+        receipt("provider-operation",
+          "What was actually asked of the provider and what it answered, so a failure can be attributed to the venue rather than to the platform.",
+          "operation · provider_kind · request_digest · response_digest · at"),
+        receipt("spend",
+          "What it cost, measured against the provider's own billing rather than against the quote — a quote is a prediction and a receipt is not.",
+          "budget_ref · quoted_usd · billed_usd · variance · settled_at"),
+        receipt("failover",
+          "Whether the declared posture was exercised, when, and what the second placement cost. Absent when nothing failed.",
+          "from_venue · to_venue · posture · triggered_at · second_quote_ref"),
+        receipt("offline-verifiable",
+          "The bundle that lets someone outside this system check the four above without asking this system anything.",
+          "chain · signatures · checkpoint_ref · verifier_version")),
+      el("p", { class: "prose" },
+        "decentralized.cloud does not define these formats and does not sign them. " +
+        "Agentgres records what ran and what it cost, and the wallet plane holds the " +
+        "authority the operation drew on. This surface would show them and own none of them.")));
 }
 
 // ── API ──────────────────────────────────────────────────────────────────────
@@ -362,6 +645,8 @@ const SURFACES = {
   sources: renderSources,
   placement: renderPlacement,
   job: renderJob,
+  redundancy: renderRedundancy,
+  receipts: renderReceipts,
   api: renderApi,
 };
 
@@ -369,6 +654,11 @@ for (const button of document.querySelectorAll(".nav button")) {
   button.addEventListener("click", () => {
     for (const b of document.querySelectorAll(".nav button")) b.removeAttribute("aria-current");
     button.setAttribute("aria-current", "page");
+    // Leaving candidates drops the stale-paint handle: a batch rendered before the
+    // reader navigated away must not reappear under a later refresh as though it
+    // had just been read.
+    lastPaint = null;
+    setRefreshChip("idle");
     SURFACES[button.dataset.surface]();
   });
 }
