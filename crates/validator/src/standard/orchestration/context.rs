@@ -181,6 +181,12 @@ where
     /// evidence, not final successor authority; the live operation remains
     /// mandatory.
     pub aft_quv_certified_handoff: Option<QuorumCertificate>,
+    /// Immutable locally executed block certified by
+    /// `aft_quv_certified_handoff`. Keeping the exact historical boundary in
+    /// memory lets overlapping old/new members validate late PUSHQUERY
+    /// traffic after the live tip has advanced, without granting network
+    /// handlers an ambient chain-read capability.
+    pub aft_quv_certified_handoff_block: Option<Block<ChainTransaction>>,
     /// Rollback-anchored process-local install gate for a local staged
     /// successor. Absent on old-only members.
     pub aft_quv_handoff_store: Option<Arc<Mutex<DurableQuvHandoffV0>>>,

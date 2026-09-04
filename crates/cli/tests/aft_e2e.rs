@@ -72,6 +72,25 @@ async fn aft_hash_async_metrics(metrics_addr: &str) -> Result<String> {
     Ok(response.error_for_status()?.text().await?)
 }
 
+async fn observed_block_tip(rpc_addr: &str, floor: u64) -> Result<u64> {
+    let mut tip = floor;
+    // Queries are substantially faster than the one-second test cadence, so
+    // the first missing successor is a stable snapshot for this restart gate.
+    // The cap keeps a malformed server from making the diagnostic unbounded.
+    for height in floor.saturating_add(1)..=floor.saturating_add(1_000) {
+        if rpc::get_block_by_height_resilient(rpc_addr, height)
+            .await?
+            .is_none()
+        {
+            return Ok(tip);
+        }
+        tip = height;
+    }
+    Err(anyhow::anyhow!(
+        "could not bound the observed block tip above height {floor}"
+    ))
+}
+
 fn signed_system_transaction(
     keypair: &libp2p::identity::Keypair,
     payload: SystemPayload,
@@ -293,6 +312,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
         // shared-tip predicate is inapplicable here.
         ("IOI_TEST_SKIP_SHARED_TIP_WAIT", "1"),
         ("IOI_TEST_READY_HEIGHT_LAG_MAX", "1"),
+        ("IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS", "180"),
         ("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS", "30"),
         ("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS", "120"),
         ("IOI_BENCH_BLOCK_INTERVAL_MS", "1000"),
@@ -447,6 +467,58 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             ));
         }
         validate_quv_handoff_candidate(&envelope.candidate, &envelope.handoff)?;
+
+        // Restart one successor before any signed source or local install
+        // exists. Its next attempt is armed to exit in the precise recoverable
+        // window after the new handoff state is durable but before the
+        // separately rooted anchor advances.
+        let interrupted_index = keyed[7].1;
+        let interrupted_account = keyed[7].0;
+        let interrupted_state = cluster.validators[interrupted_index]
+            .validator()
+            .state_dir()
+            .join("aft-pq-outbox")
+            .join(hex::encode(old_root))
+            .join(hex::encode(interrupted_account.as_ref()))
+            .join("quv-handoff-v0.scale");
+        let preinstall_state = wait_for(
+            "the interrupted successor's empty durable handoff state",
+            Duration::from_millis(50),
+            Duration::from_secs(30),
+            || {
+                let path = interrupted_state.clone();
+                async move { Ok(std::fs::read(path).ok()) }
+            },
+        )
+        .await?;
+        let crash_marker = fixture.path().join("handoff-state-durable.marker");
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .set_orchestration_restart_env(
+                "IOI_TESTING_AFT_QUV_HANDOFF_CRASH_AFTER_STATE_MARKER",
+                crash_marker.to_string_lossy().as_ref(),
+            )?;
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        wait_for(
+            "the pre-install successor restart to expose its RPC without authority",
+            Duration::from_millis(100),
+            Duration::from_secs(30),
+            || {
+                let rpc_addr = cluster.validators[interrupted_index]
+                    .validator()
+                    .rpc_addr
+                    .clone();
+                async move { Ok(rpc::get_status(&rpc_addr).await.ok().map(|_| ())) }
+            },
+        )
+        .await?;
         let owner_key_path = cluster.validators[keyed[0].1]
             .validator()
             .state_dir()
@@ -472,6 +544,28 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             &source_path,
             false,
         )?;
+
+        wait_for(
+            "the QUV handoff state-durable/anchor-pending crash marker",
+            Duration::from_millis(25),
+            Duration::from_secs(90),
+            || {
+                let marker = crash_marker.clone();
+                async move { Ok(marker.is_file().then_some(())) }
+            },
+        )
+        .await?;
+        // Clear the exited child handle, then restart from the state that is
+        // exactly one generation ahead of its valid old anchor. Recovery may
+        // complete only that transition.
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
 
         let first_successor_rpc = cluster.validators[keyed[4].1].validator().rpc_addr.clone();
         let synchronized_boundary = wait_for(
@@ -542,16 +636,21 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             assert_log_contains(
                 &format!("QUV successor node {index}"),
                 log,
-                "Activated successor from its local live old-root QUV install",
+                if *index == interrupted_index {
+                    "Recovered QUV successor authority from its durable local install gate"
+                } else {
+                    "Activated successor from its local live old-root QUV install"
+                },
             )
             .await?;
         }
-        let progress_order = keyed[4..]
-            .iter()
-            .map(|(_, index, _)| ("successor", *index))
-            .chain(keyed[..4].iter().map(|(_, index, _)| ("retired-old", *index)))
-            .collect::<Vec<_>>();
-        for (role, index) in progress_order {
+        // Only the rooted successor set is required to carry post-handoff
+        // ordering. Retired members are not implicitly observers: that would
+        // give their retired validator credentials an undocumented role after
+        // the network is reconfigured. Their fail-closed restart behavior is
+        // asserted below; a future observer role needs separate credentials.
+        for (_, index, _) in &keyed[4..] {
+            let index = *index;
             let guard = &cluster.validators[index];
             if let Err(error) = wait_for_height(
                 &guard.validator().rpc_addr,
@@ -570,7 +669,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
                     }
                 }
                 return Err(anyhow::anyhow!(
-                    "{role} node {index} did not observe post-QUV height {}: {error:#}; status=[{}]",
+                    "successor node {index} did not observe post-QUV height {}: {error:#}; status=[{}]",
                     activation_height + 2,
                     status.join(", ")
                 ));
@@ -601,7 +700,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             .validator()
             .rpc_addr
             .clone();
-        let before_restart = rpc::get_status(&restarted_rpc).await?.height;
+        let before_restart = observed_block_tip(&restarted_rpc, activation_height + 2).await?;
         let (mut restarted_log, _, _) = cluster.validators[restarted_index]
             .validator()
             .subscribe_logs();
@@ -619,10 +718,17 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             "Recovered QUV successor authority from its durable local install gate",
         )
         .await?;
-        wait_for_height(
-            &restarted_rpc,
-            before_restart.saturating_add(2),
+        let post_restart_height = before_restart.saturating_add(2);
+        wait_for(
+            "two new canonical QUV blocks after successor restart",
+            Duration::from_millis(250),
             Duration::from_secs(240),
+            || {
+                let rpc_addr = restarted_rpc.clone();
+                async move {
+                    rpc::get_block_by_height_resilient(&rpc_addr, post_restart_height).await
+                }
+            },
         )
         .await?;
 
@@ -837,6 +943,28 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
         )
         .await?;
 
+        // Restoring the captured generation-zero state while retaining the
+        // current external anchor is an explicit rollback image, not a crash
+        // window. Restart must reject it rather than recreate the live gate.
+        let (mut rollback_log, _, _) = cluster.validators[interrupted_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        std::fs::write(&interrupted_state, &preinstall_state)?;
+        cluster.validators[interrupted_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("rollback-image QUV successor node {interrupted_index}"),
+            &mut rollback_log,
+            "QUV store rollback or fork detected",
+        )
+        .await?;
+
         // A retired old-root process has no successor vote or proposal
         // identity after restart. Until a separately rooted observer profile
         // exists, it must stop rather than infer membership from its old key.
@@ -859,6 +987,261 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
         )
         .await?;
 
+        Ok::<(), anyhow::Error>(())
+    }
+    .await;
+    let shutdown = cluster.shutdown().await;
+    run?;
+    shutdown?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn test_aft_quv_overlapping_member_installs_and_recovers_the_same_live_handoff() -> Result<()>
+{
+    let _env_lock = AFT_E2E_ENV_LOCK.lock().await;
+    build_test_artifacts();
+    let fixture = tempfile::tempdir()?;
+    let source_path = fixture.path().join("overlap-handoff.scale");
+    let draft_path = fixture.path().join("overlap-handoff.scale.draft");
+    let activation_height = 3;
+    let delta_rt_millis = 30_000;
+    let continuation_millis = 5_000;
+    let _env = ScopedEnv::set(&[
+        ("IOI_TEST_BUILD_PROFILE", "release"),
+        ("IOI_TEST_VALIDATOR_LAUNCH_CONCURRENCY", "2"),
+        ("IOI_TEST_FULL_MESH_BOOTNODES", "1"),
+        ("IOI_TEST_SKIP_SHARED_TIP_WAIT", "1"),
+        ("IOI_TEST_READY_HEIGHT_LAG_MAX", "1"),
+        ("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS", "30"),
+        ("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS", "120"),
+        ("IOI_BENCH_BLOCK_INTERVAL_MS", "1000"),
+        ("IOI_AFT_BLOCK_DIRECT_RELAY", "1"),
+    ]);
+
+    // Four old members, one of which remains, plus three new members. Both
+    // configurations therefore retain n=4 and the same ordering geometry.
+    let mut cluster = TestCluster::builder()
+        .with_validators(7)
+        .with_consensus_type("Aft")
+        .with_aft_safety_mode(AftSafetyMode::ClassicBft)
+        .with_state_tree("IAVL")
+        .with_chain_id(0xA1A)
+        .with_quv_handoff_profile(
+            4,
+            activation_height,
+            delta_rt_millis,
+            continuation_millis,
+            source_path.to_string_lossy(),
+        )
+        .with_quv_handoff_overlap_count(1)
+        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
+            chain_id: 0xA1A,
+            grace_period_blocks: 0,
+            accept_staged_during_grace: false,
+            allowed_target_suites: vec![SignatureSuite::ML_DSA_44],
+            allow_downgrade: false,
+        }))
+        .build()
+        .await?;
+
+    let run = async {
+        let mut keyed = cluster
+            .validators
+            .iter()
+            .enumerate()
+            .map(|(index, guard)| {
+                let key = guard
+                    .validator()
+                    .pqc_keypair
+                    .as_ref()
+                    .expect("overlap fixture requires ML-DSA identities");
+                let public = key.public_key().to_bytes();
+                let account = AccountId(account_id_from_key_material(
+                    SignatureSuite::ML_DSA_44,
+                    &public,
+                )?);
+                Ok((account, index))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        keyed.sort_by_key(|(account, _)| *account);
+
+        let member = |(account, _): &(AccountId, usize), since_height| ValidatorV1 {
+            account_id: *account,
+            weight: 1,
+            consensus_key: ActiveKeyRecord {
+                suite: SignatureSuite::ML_DSA_44,
+                public_key_hash: account.0,
+                since_height,
+            },
+        };
+        let old = ValidatorSetV1 {
+            effective_from_height: 1,
+            total_weight: 4,
+            validators: keyed[..4].iter().map(|entry| member(entry, 0)).collect(),
+        };
+        let mut successor_members = vec![member(&keyed[0], 0)];
+        successor_members.extend(
+            keyed[4..]
+                .iter()
+                .map(|entry| member(entry, activation_height)),
+        );
+        successor_members.sort_by_key(|entry| entry.account_id);
+        let successor = ValidatorSetV1 {
+            effective_from_height: activation_height,
+            total_weight: 4,
+            validators: successor_members,
+        };
+        let old_root = ioi_types::app::canonical_validator_set_hash(&old)
+            .map_err(anyhow::Error::msg)?;
+        let successor_root = ioi_types::app::canonical_validator_set_hash(&successor)
+            .map_err(anyhow::Error::msg)?;
+        let network_id = ioi_crypto::algorithms::hash::sha256(cluster.genesis_content.as_bytes())?;
+        let domain_id =
+            quv_handoff_domain_id(network_id, old_root, successor_root, activation_height)?;
+        let policy_root = quv_policy_root(
+            domain_id,
+            QuvAuthorityModeV0::Owned,
+            Some(keyed[0].0),
+            delta_rt_millis,
+            continuation_millis,
+        )?;
+
+        let mut successor_logs = successor
+            .validators
+            .iter()
+            .map(|member| {
+                let index = keyed
+                    .iter()
+                    .find(|(account, _)| account == &member.account_id)
+                    .expect("successor process exists")
+                    .1;
+                let (log, _, _) = cluster.validators[index].validator().subscribe_logs();
+                (index, log)
+            })
+            .collect::<Vec<_>>();
+        let envelope = wait_for(
+            "the overlapping QUV handoff draft",
+            Duration::from_millis(250),
+            Duration::from_secs(90),
+            || {
+                let path = draft_path.clone();
+                async move {
+                    let Ok(bytes) = std::fs::read(path) else {
+                        return Ok(None);
+                    };
+                    Ok(
+                        codec::from_bytes_canonical::<QuvConfigurationHandoffEnvelopeV0>(&bytes)
+                            .ok(),
+                    )
+                }
+            },
+        )
+        .await?;
+        if envelope.handoff.old_configuration_root != old_root
+            || ioi_types::app::canonical_validator_set_hash(&envelope.handoff.successor_set)
+                .map_err(anyhow::Error::msg)?
+                != successor_root
+            || envelope.candidate.slot.domain_id != domain_id
+            || envelope.candidate.slot.policy_root != policy_root
+            || envelope.candidate.authorizer != keyed[0].0
+        {
+            return Err(anyhow::anyhow!(
+                "overlapping QUV draft differs from its rooted configuration"
+            ));
+        }
+        validate_quv_handoff_candidate(&envelope.candidate, &envelope.handoff)?;
+        let owner_key_path = cluster.validators[keyed[0].1]
+            .validator()
+            .state_dir()
+            .join("pqc_key.json");
+        let signed_path = source_path.with_extension("signed.scale");
+        sign_handoff_draft(
+            &draft_path,
+            &owner_key_path,
+            &signed_path,
+            false,
+        )?;
+        install_signed_handoff(
+            &signed_path,
+            &owner_key_path,
+            &source_path,
+            false,
+        )?;
+
+        for (index, log) in &mut successor_logs {
+            assert_log_contains(
+                &format!("overlapping QUV successor node {index}"),
+                log,
+                "Activated successor from its local live old-root QUV install",
+            )
+            .await?;
+            wait_for_height(
+                &cluster.validators[*index].validator().rpc_addr,
+                activation_height + 2,
+                Duration::from_secs(180),
+            )
+            .await?;
+        }
+
+        // The member common to both roots must have traversed the same live
+        // install gate as every new member. Its old membership cannot stand in
+        // for QUV, and restart must recover the exact successor-scoped gate.
+        let overlap_index = keyed[0].1;
+        let overlap_rpc = cluster.validators[overlap_index]
+            .validator()
+            .rpc_addr
+            .clone();
+        let before_restart = observed_block_tip(&overlap_rpc, activation_height + 2).await?;
+        let (mut overlap_log, _, _) = cluster.validators[overlap_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[overlap_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[overlap_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("restarted overlapping QUV member {overlap_index}"),
+            &mut overlap_log,
+            "Recovered QUV successor authority from its durable local install gate",
+        )
+        .await?;
+        let post_restart_height = before_restart.saturating_add(2);
+        wait_for(
+            "two new canonical overlapping-root blocks after restart",
+            Duration::from_millis(250),
+            Duration::from_secs(180),
+            || {
+                let rpc_addr = overlap_rpc.clone();
+                async move {
+                    rpc::get_block_by_height_resilient(&rpc_addr, post_restart_height).await
+                }
+            },
+        )
+        .await?;
+
+        let retired_index = keyed[1].1;
+        let (mut retired_log, _, _) = cluster.validators[retired_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[retired_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[retired_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("retired non-overlapping member {retired_index}"),
+            &mut retired_log,
+            "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set",
+        )
+        .await?;
         Ok::<(), anyhow::Error>(())
     }
     .await;

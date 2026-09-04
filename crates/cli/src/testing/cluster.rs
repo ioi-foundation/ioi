@@ -460,6 +460,7 @@ pub struct TestClusterBuilder {
 #[derive(Clone)]
 struct TestQuvHandoffProfile {
     old_member_count: usize,
+    overlap_count: usize,
     activation_height: u64,
     delta_rt_millis: u64,
     continuation_millis: u64,
@@ -981,11 +982,23 @@ impl TestClusterBuilder {
         self.pq_consensus_profile = true;
         self.quv_handoff_profile = Some(TestQuvHandoffProfile {
             old_member_count,
+            overlap_count: 0,
             activation_height,
             delta_rt_millis,
             continuation_millis,
             source_path: source_path.into(),
         });
+        self
+    }
+
+    /// Retain the first `overlap_count` canonical old members in the staged
+    /// successor set with the same PQ identities. New successor members remain
+    /// the canonical suffix after `old_member_count`.
+    pub fn with_quv_handoff_overlap_count(mut self, overlap_count: usize) -> Self {
+        self.quv_handoff_profile
+            .as_mut()
+            .expect("configure the QUV handoff profile before its overlap")
+            .overlap_count = overlap_count;
         self
     }
 
@@ -1445,9 +1458,12 @@ impl TestClusterBuilder {
             let pq_keys = validator_pq_keys.as_ref().ok_or_else(|| {
                 anyhow!("QUV handoff fixture requires generated ML-DSA validator keys")
             })?;
-            if profile.old_member_count == 0 || profile.old_member_count >= pq_keys.len() {
+            if profile.old_member_count == 0
+                || profile.old_member_count >= pq_keys.len()
+                || profile.overlap_count > profile.old_member_count
+            {
                 return Err(anyhow!(
-                    "QUV handoff fixture requires nonempty disjoint old and successor partitions"
+                    "QUV handoff fixture requires a nonempty old set, at least one new successor, and overlap no larger than the old set"
                 ));
             }
             let mut validators = pq_keys
@@ -1467,14 +1483,18 @@ impl TestClusterBuilder {
                 })
                 .collect::<Result<Vec<_>>>()?;
             validators.sort_by_key(|validator| validator.account_id);
-            let mut successor_members = validators.split_off(profile.old_member_count);
-            for member in &mut successor_members {
+            let old_members = validators[..profile.old_member_count].to_vec();
+            let mut successor_members = old_members[..profile.overlap_count].to_vec();
+            let mut new_successor_members = validators[profile.old_member_count..].to_vec();
+            for member in &mut new_successor_members {
                 member.consensus_key.since_height = profile.activation_height;
             }
+            successor_members.extend(new_successor_members);
+            successor_members.sort_by_key(|validator| validator.account_id);
             let old = ValidatorSetV1 {
                 effective_from_height: 1,
-                total_weight: validators.iter().map(|member| member.weight).sum(),
-                validators,
+                total_weight: old_members.iter().map(|member| member.weight).sum(),
+                validators: old_members,
             };
             let successor = ValidatorSetV1 {
                 effective_from_height: profile.activation_height,

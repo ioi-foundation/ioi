@@ -506,6 +506,19 @@ impl TestValidator {
             .await
     }
 
+    /// Add one environment binding to subsequent local orchestration-process
+    /// restarts. This is deliberately unavailable to the Docker backend and is
+    /// used only by process-boundary fault tests.
+    pub fn set_orchestration_restart_env(&mut self, key: &str, value: &str) -> Result<()> {
+        let backend = self
+            .backend
+            .as_any_mut()
+            .downcast_mut::<ProcessBackend>()
+            .ok_or_else(|| anyhow!("orchestration restart environment requires ProcessBackend"))?;
+        backend.set_orchestration_restart_env(key, value);
+        Ok(())
+    }
+
     pub async fn kill_workload(&mut self) -> Result<()> {
         self.backend.kill_workload_process().await
     }

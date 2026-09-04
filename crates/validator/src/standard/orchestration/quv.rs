@@ -13,6 +13,9 @@ use ioi_api::{
     crypto::{SerializableKey, SigningKeyPair},
     state::{StateManager, Verifier},
 };
+use ioi_consensus::aft::authenticated_quorum::{
+    pq_optimistic_quorum_geometry, verify_quorum_certificate,
+};
 use ioi_consensus::aft::query_unanimity::{
     quv_handoff_domain_id, quv_handoff_initial_predecessor, quv_handoff_payload_hash,
     quv_policy_root, validate_quv_handoff_candidate, QuvCandidateValidatorV0, QuvError,
@@ -174,6 +177,7 @@ fn validate_handoff_source(
     keys: &ioi_consensus::aft::authenticated_quorum::ValidatorKeyRegistry,
     policies: &[AftQuvDomainPolicyV0],
     network_id: [u8; 32],
+    safety_mode: AftSafetyMode,
 ) -> Result<()> {
     let old_root = canonical_validator_set_hash(old_set).map_err(anyhow::Error::msg)?;
     if envelope.handoff.network_id != network_id
@@ -186,6 +190,14 @@ fn validate_handoff_source(
         ));
     }
     validate_quv_handoff_candidate(&envelope.candidate, &envelope.handoff)?;
+    let threshold = pq_optimistic_quorum_geometry(old_set)?.q as usize;
+    verify_quorum_certificate(
+        &envelope.handoff.boundary_qc,
+        old_set,
+        keys,
+        safety_mode,
+        threshold,
+    )?;
     let query = QuvPushQueryV0 {
         verifier_nonce: [1; 32],
         candidate: envelope.candidate.clone(),
@@ -252,7 +264,7 @@ where
         + Encode
         + Decode,
 {
-    let (path, old_set, staged, keys, policies, network_id) = {
+    let (path, old_set, staged, keys, policies, network_id, safety_mode) = {
         let context = context_arc.lock().await;
         let path = context
             .config
@@ -276,12 +288,21 @@ where
             keys.clone(),
             context.config.aft_quv_domain_policies.clone(),
             context.genesis_hash,
+            context.config.aft_safety_mode,
         )
     };
     let envelope = tokio::task::spawn_blocking(move || read_handoff_source(&path))
         .await
         .map_err(|error| anyhow!("QUV handoff source task failed: {error}"))??;
-    validate_handoff_source(&envelope, &old_set, &staged, &keys, &policies, network_id)?;
+    validate_handoff_source(
+        &envelope,
+        &old_set,
+        &staged,
+        &keys,
+        &policies,
+        network_id,
+        safety_mode,
+    )?;
     context_arc.lock().await.aft_quv_handoff_envelope = Some(envelope.clone());
     Ok(envelope)
 }
@@ -455,6 +476,8 @@ where
             .map(|(successor, block)| (block.clone(), successor.effective_from_height));
         if candidate.is_some() {
             context.aft_quv_certified_handoff = Some(qc.clone());
+            context.aft_quv_certified_handoff_block =
+                candidate.as_ref().map(|(block, _)| block.clone());
         }
         candidate
     }) else {
@@ -505,7 +528,7 @@ where
         + Debug,
 {
     let envelope = refresh_handoff_source(context_arc).await?;
-    let (store, local_successor, observed_height, observed_hash, observed_root) = {
+    let (store, local_successor, workload) = {
         let context = context_arc.lock().await;
         let store = context
             .aft_quv_handoff_store
@@ -515,31 +538,31 @@ where
         let local_successor = context
             .aft_pq_local_account_id
             .ok_or_else(|| anyhow!("local process has no PQ successor identity"))?;
-        // The successor's copy is data, not authority. It may be only locally
-        // executed here because requiring it to import an Agentgres admission
-        // for the final old-root block would require a successor-produced
-        // descendant before the successor can activate. The fresh QUV
-        // operation below supplies authority: every correct old member now
-        // refuses to reply unless this exact block is its committed boundary.
-        let block = context
-            .last_executed_block
-            .as_ref()
-            .ok_or_else(|| anyhow!("QUV handoff has no locally executed state block"))?;
-        require_exact_handoff_boundary(block, &envelope, "local executed state")?;
-        let observed_hash: [u8; 32] = block
-            .header
-            .hash()
-            .map_err(|error| anyhow!(error.to_string()))?
-            .try_into()
-            .map_err(|_| anyhow!("committed QUV handoff block hash is not 32 bytes"))?;
         (
             store,
             local_successor,
-            block.header.height,
-            observed_hash,
-            block.header.state_root.0.clone(),
+            context.view_resolver.workload_client().clone(),
         )
     };
+    // The boundary is immutable historical data once its old-root QC has been
+    // checked. Read it by exact height rather than requiring it to remain the
+    // local tip: an overlapping successor may observe new-root descendants
+    // before its own known-synchronous QUV operation finishes. Those
+    // descendants are not authority for this install; the fresh QUV operation
+    // below remains mandatory.
+    let block = workload
+        .get_block_by_height(envelope.handoff.state_height)
+        .await?
+        .ok_or_else(|| anyhow!("QUV handoff boundary block is unavailable"))?;
+    require_exact_handoff_boundary(&block, &envelope, "local historical executed state")?;
+    let observed_height = block.header.height;
+    let observed_hash: [u8; 32] = block
+        .header
+        .hash()
+        .map_err(|error| anyhow!(error.to_string()))?
+        .try_into()
+        .map_err(|_| anyhow!("committed QUV handoff block hash is not 32 bytes"))?;
+    let observed_root = block.header.state_root.0.clone();
     // Keep the explicit values bound into the durable install even though the
     // exact-boundary helper above already checked them.
     let successor_root = canonical_validator_set_hash(&envelope.handoff.successor_set)
@@ -980,15 +1003,13 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
                             tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Recovered QUV successor authority from its durable local install gate");
                             return;
                         }
-                        Err(error) if observed_height > target_height => {
-                            tracing::error!(target: "quv", observed_height, target_height, %error, "QUV successor crossed the live-install boundary without a recoverable local gate; authority remains disabled");
-                            return;
-                        }
                         Err(_) => {
-                            // At the exact boundary an uninstalled successor
-                            // still has one chance to execute its own live old-
-                            // root operation. A recovered installed successor
-                            // took the branch above and never re-queries.
+                            // An uninstalled live process may still execute its
+                            // own old-root operation after observing successor
+                            // descendants. This is required for overlapping
+                            // roots, where other successors can form an
+                            // ordering quorum first. Post-restart recovery took
+                            // the branch above and never re-queries.
                         }
                     }
                 }
@@ -1052,7 +1073,17 @@ where
         + Encode
         + Decode,
 {
-    let (member_store, set, keys, signer, member, network_id, activation_height, policy) = {
+    let (
+        member_store,
+        set,
+        keys,
+        signer,
+        member,
+        network_id,
+        activation_height,
+        policy,
+        handoff_boundary,
+    ) = {
         let context = context_arc.lock().await;
         let (set, keys) = context
             .aft_async_membership
@@ -1081,29 +1112,28 @@ where
                 "QUV requester is neither an old member nor a source-bound staged successor"
             ));
         }
-        if staged_handoff_requester {
-            let envelope = context.aft_quv_handoff_envelope.as_ref().ok_or_else(|| {
-                anyhow!("QUV staged-successor request has no canonical handoff source")
-            })?;
+        let handoff_boundary = if staged_handoff_requester {
+            let envelope = context
+                .aft_quv_handoff_envelope
+                .as_ref()
+                .ok_or_else(|| {
+                    anyhow!("QUV staged-successor request has no canonical handoff source")
+                })?
+                .clone();
             let certified = context
                 .aft_quv_certified_handoff
                 .as_ref()
-                .ok_or_else(|| anyhow!("QUV old member has no certified handoff boundary"))?;
-            let executed = context
-                .last_executed_block
+                .ok_or_else(|| anyhow!("QUV old member has no certified handoff boundary"))?
+                .clone();
+            let boundary = context
+                .aft_quv_certified_handoff_block
                 .as_ref()
-                .ok_or_else(|| anyhow!("QUV old member has no executed handoff boundary"))?;
-            require_exact_handoff_boundary(executed, envelope, "old member QC-certified state")?;
-            if certified.height != executed.header.height
-                || certified.view != executed.header.view
-                || certified.block_hash != envelope.handoff.state_block_hash
-                || certified != &envelope.handoff.boundary_qc
-            {
-                return Err(anyhow!(
-                    "QUV old member's verified QC does not certify the source-bound handoff state"
-                ));
-            }
-        }
+                .ok_or_else(|| anyhow!("QUV old member has no certified handoff block"))?
+                .clone();
+            Some((boundary, envelope, certified))
+        } else {
+            None
+        };
         let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &query)?.clone();
         (
             context
@@ -1127,8 +1157,26 @@ where
                 .map(|block| block.header.height.max(1))
                 .unwrap_or(1),
             policy,
+            handoff_boundary,
         )
     };
+
+    if let Some((executed, envelope, certified)) = handoff_boundary {
+        require_exact_handoff_boundary(&executed, &envelope, "old member QC-certified history")?;
+        if certified.height != executed.header.height
+            || certified.view != executed.header.view
+            || certified.block_hash != envelope.handoff.state_block_hash
+        {
+            return Err(anyhow!(
+                "QUV old member's verified QC does not certify the source-bound handoff state"
+            ));
+        }
+        // Different old members may retain different valid aggregate QCs for
+        // the same height/view/block. Certificate bytes are not the boundary
+        // identity: both QCs have already been verified under the old root,
+        // and height + view + block hash bind them to the same immutable
+        // transition block.
+    }
 
     // Tokio's mutex grants the single durable serializer in FIFO lock-request
     // order. Combined with one admitted request per authenticated account,
@@ -1677,6 +1725,7 @@ async fn finish_operation<CS, ST, CE, V>(
 mod tests {
     use super::*;
     use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+    use ioi_consensus::aft::authenticated_quorum::consensus_vote_signing_bytes;
     use ioi_consensus::aft::query_unanimity::{
         quv_candidate_authority_signing_bytes, quv_handoff_domain_id, quv_handoff_payload_hash,
     };
@@ -1707,10 +1756,27 @@ mod tests {
         let owner_hash =
             account_id_from_key_material(SignatureSuite::ML_DSA_44, &owner_public).unwrap();
         let owner = AccountId(owner_hash);
+        let other_old_keys = (0..3)
+            .map(|_| {
+                MldsaScheme::new(SecurityLevel::Level2)
+                    .generate_keypair()
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let mut old_members = vec![member(owner_hash, 1)];
+        old_members.extend(other_old_keys.iter().map(|key| {
+            let hash = account_id_from_key_material(
+                SignatureSuite::ML_DSA_44,
+                &key.public_key().to_bytes(),
+            )
+            .unwrap();
+            member(hash, 1)
+        }));
+        old_members.sort_by_key(|member| member.account_id);
         let old = ValidatorSetV1 {
             effective_from_height: 1,
-            total_weight: 1,
-            validators: vec![member(owner_hash, 1)],
+            total_weight: 4,
+            validators: old_members,
         };
         let mut successor_members = (0..2)
             .map(|_| {
@@ -1742,6 +1808,16 @@ mod tests {
             delta_rt_millis: 10,
             continuation_millis: 10,
         };
+        let vote_preimage = consensus_vote_signing_bytes(7, 0, &[5; 32]).unwrap();
+        let mut boundary_signatures =
+            vec![(owner, owner_key.sign(&vote_preimage).unwrap().to_bytes())];
+        boundary_signatures.extend(other_old_keys.iter().take(2).map(|key| {
+            let public = key.public_key().to_bytes();
+            let account = AccountId(
+                account_id_from_key_material(SignatureSuite::ML_DSA_44, &public).unwrap(),
+            );
+            (account, key.sign(&vote_preimage).unwrap().to_bytes())
+        }));
         let handoff = QuvConfigurationHandoffV0 {
             network_id: network,
             old_configuration_root: old_root,
@@ -1759,7 +1835,7 @@ mod tests {
                 height: 7,
                 view: 0,
                 block_hash: [5; 32],
-                signatures: vec![(owner, vec![1])],
+                signatures: boundary_signatures,
                 aggregated_signature: vec![],
                 signers_bitfield: vec![],
             },
@@ -1786,13 +1862,50 @@ mod tests {
         let mut keys = ioi_consensus::aft::authenticated_quorum::ValidatorKeyRegistry::new();
         keys.learn_raw_public_key(SignatureSuite::ML_DSA_44, &owner_public)
             .unwrap();
-        validate_handoff_source(&envelope, &old, &successor, &keys, &[policy], network)
-            .expect("exact rooted source validates");
+        for key in &other_old_keys {
+            keys.learn_raw_public_key(SignatureSuite::ML_DSA_44, &key.public_key().to_bytes())
+                .unwrap();
+        }
+        validate_handoff_source(
+            &envelope,
+            &old,
+            &successor,
+            &keys,
+            std::slice::from_ref(&policy),
+            network,
+            AftSafetyMode::ClassicBft,
+        )
+        .expect("exact rooted source validates");
+
+        let mut forged_qc = envelope.clone();
+        forged_qc.handoff.boundary_qc.signatures[0].1[0] ^= 1;
+        forged_qc.candidate.payload_hash = quv_handoff_payload_hash(&forged_qc.handoff).unwrap();
+        forged_qc.candidate.authority_signature = owner_key
+            .sign(&quv_candidate_authority_signing_bytes(&forged_qc.candidate).unwrap())
+            .unwrap()
+            .to_bytes();
+        assert!(validate_handoff_source(
+            &forged_qc,
+            &old,
+            &successor,
+            &keys,
+            std::slice::from_ref(&policy),
+            network,
+            AftSafetyMode::ClassicBft,
+        )
+        .is_err());
 
         let mut substituted = successor;
         substituted.validators.swap(0, 1);
-        assert!(
-            validate_handoff_source(&envelope, &old, &substituted, &keys, &[], network,).is_err()
-        );
+        assert!(validate_handoff_source(
+            &envelope,
+            &old,
+            &substituted,
+            &keys,
+            &[],
+            network,
+            AftSafetyMode::ClassicBft,
+        )
+        .is_err());
     }
 }

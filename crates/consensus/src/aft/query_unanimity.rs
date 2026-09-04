@@ -611,6 +611,21 @@ impl DurableQuvHandoffV0 {
             &self.path,
             &codec::to_bytes_canonical(&next).map_err(QuvError::Codec)?,
         )?;
+        // Process-test seam for the only recoverable two-file install window:
+        // the new state is durable while the separately rooted anchor still
+        // names its predecessor. `open` must finish this exact one-generation
+        // advance after restart; no other mismatch is recoverable. The marker
+        // makes the injection one-shot and the `IOI_TESTING_` name keeps it
+        // outside every production configuration surface.
+        if let Some(marker) =
+            std::env::var_os("IOI_TESTING_AFT_QUV_HANDOFF_CRASH_AFTER_STATE_MARKER")
+        {
+            let marker = PathBuf::from(marker);
+            if !marker.exists() {
+                persist_atomic(&marker, b"handoff state durable; anchor pending\n")?;
+                std::process::exit(86);
+            }
+        }
         persist_handoff_anchor(
             &self.anchor_path,
             &self.custody_key,

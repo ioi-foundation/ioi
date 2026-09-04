@@ -155,6 +155,17 @@ impl ProcessBackend {
             .collect();
     }
 
+    pub(crate) fn set_orchestration_restart_env(
+        &mut self,
+        key: impl Into<OsString>,
+        value: impl Into<OsString>,
+    ) {
+        let key = key.into();
+        self.orchestration_env
+            .retain(|(existing, _)| existing != &key);
+        self.orchestration_env.push((key, Some(value.into())));
+    }
+
     async fn wait_for_workload_genesis_ready(
         &mut self,
         log_rx: &mut broadcast::Receiver<String>,
