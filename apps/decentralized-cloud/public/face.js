@@ -95,8 +95,20 @@ function paintDial(node) {
 setInterval(() => {
   for (const node of document.querySelectorAll("svg.dial")) paintDial(node);
   for (const node of document.querySelectorAll("[data-countdown]")) {
-    const mins = minutesLeft(node.getAttribute("data-countdown"));
-    node.textContent = mins === null ? "—" : mins > 0 ? `${mins} min left` : "expired";
+    // SECONDS below a minute, not "expired". `minutesLeft` rounds, so for the last
+    // ~30 seconds of every quote window this printed "expired" beside a dial reading
+    // "2% of the quote window remaining" — measured at 21:46:27Z against an expiry of
+    // 21:46:48Z, twenty-one seconds in the future. The comment above claims the two
+    // "can never disagree"; they disagreed on every quote, once per window, because
+    // the dial reads the timestamps and the text read a rounded minute count.
+    // A live quote labelled expired is the same failure as a stale quote labelled
+    // live, in the other direction.
+    const iso = node.getAttribute("data-countdown");
+    const ms = Date.parse(iso) - Date.now();
+    node.textContent = !Number.isFinite(ms) ? "—"
+      : ms <= 0 ? "expired"
+      : ms < 60000 ? `${Math.ceil(ms / 1000)}s left`
+      : `${Math.round(ms / 60000)} min left`;
   }
   for (const node of document.querySelectorAll("[data-due]")) {
     const secs = Math.round((Date.parse(node.getAttribute("data-due")) - Date.now()) / 1000);
@@ -543,11 +555,20 @@ async function renderPlacement() {
           `with the ${Array.isArray(candidates) ? candidates.length.toLocaleString() : "0"}-entry candidate list omitted`),
         el("pre", { class: "code" }, trimmed)),
 
+      // The venues body is the LARGER of the two and it used to be the unlabelled one:
+      // a review measured 8,709,126 characters behind a summary reading only "Venues
+      // as returned", sitting beside a sibling that carefully announced its own 3,771.
+      // "The disclosure that announces its thrift holds 0.04% of the payload; the
+      // silent one holds the rest." Both now state their size, and neither is opened
+      // by default.
       venues.ok
-        ? el("details", {},
-            el("summary", { class: "eyebrow", style: "cursor: pointer; padding: 6px 0;" },
-              "Venues as returned"),
-            el("pre", { class: "code" }, JSON.stringify(venues.body, null, 2)))
+        ? (() => {
+            const vText = JSON.stringify(venues.body, null, 2);
+            return el("details", {},
+              el("summary", { class: "eyebrow", style: "cursor: pointer; padding: 6px 0;" },
+                `Venues as returned — ${vText.length.toLocaleString()} characters`),
+              el("pre", { class: "code" }, vText));
+          })()
         : failure(venues)));
 }
 
@@ -572,7 +593,7 @@ function renderJob() {
         el("p", { class: "prose", style: "font-size: 16px;" },
           "This much capacity, under this budget, for this long, receipt back. You do not " +
           "name a venue — the venue is evidence in the receipt, not an input to the request.")),
-      el("div", { style: "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; max-width: 900px;" },
+      el("div", { class: "cols cols-2", style: "gap: 20px 24px; max-width: 900px;" },
         field("intent.runtime_class", "compute.gpu_runtime"),
         field("intent.gpu", "required · 1 device · 24 GB"),
         field("deadline", "max duration · 4 hours"),
@@ -608,7 +629,7 @@ function renderJob() {
           "door names a venue, neither carries a provider credential, and neither can " +
           "widen what its authority already permits — a lease draw-down is a narrowing " +
           "of a grant a human made earlier, never a new grant an agent made for itself."),
-        el("div", { style: "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;" },
+        el("div", { class: "cols cols-2", style: "gap: 20px;" },
           el("div", { class: "stack", style: "gap: 9px;" },
             el("div", { class: "meta" }, "human · wallet grant signed at submit"),
             el("pre", { class: "code" }, JSON.stringify({
@@ -670,7 +691,7 @@ function renderRedundancy() {
           "in the request or it is absent — it is never inferred from your budget, never " +
           "defaulted to something safer than you asked for, and never applied by a " +
           "fallback you did not authorize.")),
-      el("div", { style: "display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;" },
+      el("div", { class: "cols cols-3", style: "gap: 20px;" },
         posture("none", "1× spend",
           "The job runs in one place. If that venue fails, the job fails and the receipt says which venue and when.",
           "Nothing is held in reserve, so recovery means resubmitting — and the second placement is priced at whatever the market is then, not at your original quote.",
@@ -759,8 +780,13 @@ function renderApi() {
   paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 24px;" },
       el("h1", {}, "API"),
+      // "Four reads" was FALSE: GET /api/face-config answers 200 and appeared on
+      // neither this list nor the 404's allowlist. A review found it and was right to
+      // call the sentence false as written — on a surface whose entire claim is that
+      // it does not overstate itself, an undercount of its own attack surface is the
+      // worst possible sentence to get wrong. Five, and the fifth is listed.
       el("p", { class: "prose" },
-        "Four reads, exact-match and GET-only. A path that is not on this list is refused " +
+        "Five reads, exact-match and GET-only. A path that is not on this list is refused " +
         "by name rather than passed through, so no mutating daemon call is reachable from " +
         "this surface even by accident. Responses are the daemon's own, unaltered — the " +
         "evidence fields you see here are the evidence fields it returned."),
@@ -772,7 +798,11 @@ function renderApi() {
         route("/api/placement-advisory?intent_ref=…", "/v1/hypervisor/cloud-candidates/placement-advisory",
           "Advisory only — evidence, never authority."),
         route("/api/venues", "/v1/hypervisor/placement/venues",
-          "The venue set the placement plane knows about.")),
+          "The venue set the placement plane knows about."),
+        route("/api/face-config", "— served locally, no daemon call",
+          "This surface's own configuration. It reaches no daemon and carries no evidence; " +
+          "it is listed because it answers 200 and a list of reachable paths that omits a " +
+          "reachable path is not a list of reachable paths.")),
       el("p", { class: "prose" },
         "What this surface never owns: no session plane, no credential vault, no provider " +
         "integration, no placement scorer, no receipt format. decentralized.cloud proposes " +

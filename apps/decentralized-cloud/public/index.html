@@ -93,7 +93,12 @@
        surface itself is an ordinary landmark again. -->
   <p id="surface-status" class="sr-only" role="status" aria-live="polite"></p>
 
-  <main id="surface">
+  <!-- `tabindex="-1"` because the skip link above is inert without it: a browser will
+       not move focus to an element that cannot receive it, so pressing Enter on the
+       link left activeElement on BODY and the reader walked the same seven nav stops
+       again. A review found the mitigation broken while the comment explaining why it
+       existed sat directly above it. -->
+  <main id="surface" tabindex="-1">
     <p class="prose">Asking the daemon.</p>
   </main>
 

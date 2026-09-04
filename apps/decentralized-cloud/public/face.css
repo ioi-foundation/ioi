@@ -314,6 +314,34 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .unwired-banner { padding: 14px 24px; }
 }
 
+/* Multi-column blocks inside a surface. These used to be INLINE grid styles with a
+   fixed column count, which is why they never reflowed however many breakpoints this
+   file grew: a media query cannot reach an inline style. A second review found the
+   result — at 390px the Redundancy postures held about 55px of text width, one word
+   per line, with four measured text-on-text collisions up to 117x25px, and the Job
+   surface's two JSON panes clipped mid-token so the one field that differs between
+   them was unreadable. */
+.cols { display: grid; }
+.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 1000px) { .cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media (max-width: 700px) {
+  /* One column, every surface. The first responsive pass measured overflow and
+     collisions on the LANDING surface only and reported the layout fixed; four of the
+     seven were never opened at 390px. */
+  .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* A chip is `white-space: nowrap` so a state name never breaks mid-token, and that is
+   right for "live_evidence" and wrong for "refused by name until M15.9" — measured at
+   213px and 299px wide, which is most of a phone. Below the single-column breakpoint a
+   long chip wraps; the dot stays put because it is a flex item that does not shrink. */
+@media (max-width: 700px) {
+  .chip { white-space: normal; max-width: 100%; }
+}
+
 @media (max-width: 780px) {
   /* The table is NOT restyled here. An earlier version hid the header row and turned
      each row into a block, which fixed the orphaned-labels complaint and would have

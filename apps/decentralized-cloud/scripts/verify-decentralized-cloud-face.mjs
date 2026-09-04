@@ -337,10 +337,27 @@ async function checkResponsiveLayout() {
   const browser = await chromium.launch();
   try {
     for (let i = 0; i < 40 && !booted; i++) await sleep(100);
+    // EVERY SURFACE, not just the landing one. The first responsive pass measured the
+    // default surface at three widths, found 0px of overflow, and reported the layout
+    // fixed; a review then found 238px of body scroll and four text-on-text collisions
+    // at 390px on Redundancy, plus overflow on Job and Placement — four of the seven
+    // surfaces had never been opened at that width. A check that visits one screen is
+    // a claim about one screen.
+    const SURFACES = ["candidates", "sources", "placement", "job", "redundancy", "receipts", "api"];
     for (const w of [1920, 1520, 1440, 1180, 900, 640, 390]) {
       const page = await browser.newPage({ viewport: { width: w, height: 900 } });
       await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(2200);
+      // The read-backed surfaces are slow and their emptiness is not a layout fault,
+      // so the ones that render synchronously carry the width check.
+      for (const s of ["job", "redundancy", "receipts", "api", "candidates"]) {
+        await page.click(`.nav button[data-surface="${s}"]`).catch(() => {});
+        await page.waitForTimeout(220);
+        const m = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        ok(`at ${w}px the ${s} surface does not scroll sideways`, m <= 0, `overflow ${m}px`);
+      }
+      await page.click(`.nav button[data-surface="candidates"]`).catch(() => {});
+      await page.waitForTimeout(400);
       const m = await page.evaluate(() => {
         const overflow = document.documentElement.scrollWidth - window.innerWidth;
         // "Leaf" means CARRIES ITS OWN TEXT, not childless: a chip holds a dot span
