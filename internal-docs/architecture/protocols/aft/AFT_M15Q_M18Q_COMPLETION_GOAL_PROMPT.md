@@ -20,7 +20,9 @@ evidence requires reopening them: M9-M11 are complete; M12a remains the proved
 and independently upheld lower bound for portable byte-only authorization;
 M12b is PASS_CONSTRUCTION for interactive QUV under its exact known-synchrony
 assumptions; M13Q and M14Q are locally proved/mechanized and await M17Q review.
-Original M13-M18 remain blocked by M12a. M15Q is the sole critical path.
+Original M13-M18 remain blocked by M12a. M15Q is complete locally at code
+commit `ce34c31a9` plus executor/T10 commit `bd1e91a6d`, subject to M17Q
+review. M16Q is the sole critical path.
 
 This is an implementation, qualification, review, and admission goal—not a
 request for another plan. Continue autonomously through every safe executable
@@ -29,7 +31,7 @@ reproducible evidence, and advance a gate only when its stated acceptance
 criteria are genuinely met. Reopen any nominally complete gate contradicted by
 process evidence.
 
-Complete M15Q end to end:
+Preserve the completed M15Q implementation and its evidence:
 
 1. Preserve and extend the proven Q-EA7 release-process handoff at e8ec2dc44:
    disjoint old/successor roots, old-root QC-certified exact boundary,
@@ -60,9 +62,10 @@ Complete M15Q end to end:
    restore BLS, VDF, classic_bft, legacy, or fallback authority into the QUV
    theorem path.
 
-Do not close M15Q until real multiprocess tests exercise both the complete
-handoff/restart path and executor-to-members-to-durable-effect path through the
-production implementation.
+M15Q is locally closed because real multiprocess tests exercise both the
+complete disjoint/overlap handoff/restart path and the
+executor-to-members-to-durable-effect path through the production
+implementation. Reopen it if later evidence contradicts either result.
 
 Then execute M16Q. Build reproducible adversarial and performance campaigns for
 every correct-member placement at f=n-1; silence; valid conflicts; Byzantine

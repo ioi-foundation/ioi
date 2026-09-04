@@ -2,9 +2,11 @@
 
 Date: 2026-09-04
 
-Status: **PASS for the post-install process-restart and operator-ceremony
-slice at commits `252e03573` and `fc7c9b926`; M15Q remains open.** This is local implementation
-evidence, not independent review or a production/public QUV claim.
+Status: **PASS for the complete production handoff/restart/ceremony slice at
+code commit `ce34c31a9`; together with executor/T10 commit `bd1e91a6d`, M15Q
+is COMPLETE LOCALLY and M17Q review remains required.** This is local
+implementation evidence, not independent review or a production/public QUV
+claim.
 
 ## Implemented slice
 
@@ -54,6 +56,34 @@ AFT status remains collapse-demoted and is not used as raw execution state.
 The internal cursor has no finality meaning and cannot authorize a block or
 effect.
 
+The completed matrix additionally covers the two durable install files and
+both membership geometries:
+
+- a successor is restarted before any signed source or installed authority
+  exists and remains inactive;
+- a process-test seam exits after the next handoff state has been atomically
+  persisted but before its separately rooted rollback anchor advances;
+- `DurableQuvHandoffV0::open` recovers only that exact one-generation
+  state-ahead/anchor-behind window;
+- restoring the captured generation-zero state against the advanced anchor is
+  refused as rollback/fork rather than treated as a crash window;
+- a four-old/four-successor disjoint-root fixture activates all successors,
+  restarts one from its exact durable gate, executes the real QUV-to-T10 path,
+  and refuses retired credentials; and
+- a four-old/four-successor fixture with one member in both roots proves that
+  the retained member performs its own live QUV operation, can finish after
+  other successors have already produced descendants, and later recovers the
+  same successor-scoped gate.
+
+Late overlapping-root authorization uses the immutable handoff boundary block
+cached when the old member observes its verified QC. The boundary is validation
+context, not authority. The source QC is independently verified against the
+old rooted ML-DSA set and threshold. Different valid aggregate QCs for the same
+height/view/block are not required to have identical serialized bytes. A
+focused negative test mutates a QC and then recomputes the owner's outer
+signature; the invalid QC is still refused, so owner authority cannot launder
+forged ordering evidence.
+
 ## Failures found during the process drill
 
 The process test found and preserved three fail-closed integration defects
@@ -78,29 +108,44 @@ cargo test -p ioi-consensus --features aft \
   live_authorization_is_consumed_into_rollback_anchored_successor_activation \
   --lib
 
-cargo check -p ioi-validator \
-  --features consensus-aft,vm-wasm,state-iavl
+cargo test -p ioi-validator --features consensus-aft \
+  handoff_source_requires_old_owner_signature_and_exact_staged_set --lib
 
 RUST_TEST_THREADS=1 cargo test -p ioi-cli --test aft_e2e \
   --features consensus-aft,vm-wasm,state-iavl \
   test_aft_quv_disjoint_successors_install_live_handoff_before_activation \
   -- --nocapture
 
+RUST_TEST_THREADS=1 cargo test -p ioi-cli --test aft_e2e \
+  --features consensus-aft,vm-wasm,state-iavl \
+  test_aft_quv_overlapping_member_installs_and_recovers_the_same_live_handoff \
+  -- --nocapture
+
 cargo check -p ioi-cli --lib --bin cli
 cargo run -q -p ioi-cli --bin cli -- aft quv-handoff --help
+cargo build --locked -p ioi-node --bin hypervisor-daemon
+cargo tree -p ioi-node --edges normal | \
+  rg '^ioi-(consensus|validator) v'
 git diff --check
 ```
 
 Observed results:
 
 - rollback-anchored install/recovery test: 1 passed;
-- validator compile: pass;
+- rooted source/QC validation test: 1 passed in 8.06 seconds;
 - eight-process release handoff/restart positive test: 1 passed in 417.21
   seconds at `252e03573`;
 - expanded eight-process positive/negative restart matrix: 1 passed in 267.93
   seconds at `fc7c9b926`; this includes source-signature substitution, a missing
   state/anchor half after expiry, and retired-old-key refusal;
+- final eight-process disjoint-root crash/recovery/QUV-to-T10 matrix: 1 passed
+  in 355.49 seconds at `ce34c31a9`;
+- seven-process one-member-overlap handoff/restart matrix: 1 passed in 426.76
+  seconds at `ce34c31a9`;
 - CLI library/binary compile and command-surface smoke: pass; and
+- default-feature Hypervisor daemon build: pass in 209.43 seconds with peak RSS
+  5,467,988 KiB; its resolved normal dependency tree contains no
+  `ioi-consensus` or `ioi-validator` package; and
 - formatting/diff check: pass.
 
 The process assertion requires both the explicit
@@ -108,21 +153,17 @@ The process assertion requires both the explicit
 and at least two further heights after restart. Process survival or workload
 sync alone does not satisfy the test.
 
-## Remaining M15Q work
+## Gate disposition
 
-This slice closes the active-successor restart, source-substitution,
-missing-gate-after-expiry, retired-old-key, and basic operator-ceremony cases.
-M15Q still requires:
+This slice closes the active-successor restart, pre-install restart,
+state-before-anchor crash recovery, explicit rollback restoration,
+source-substitution, missing-gate-after-expiry, retired-old-key,
+operator-ceremony, and overlapping/disjoint-root obligations. Any future
+post-retirement observer role still requires separately rooted observer
+credentials; the tested old validator key correctly regains no authority.
 
-- fail-closed process restarts during the pre-install/in-flight durable
-  boundaries, explicit rollback-image restoration, and the overlapping-root
-  case;
-- any future post-retirement observer role to use separately rooted observer
-  credentials; the tested old validator key correctly regains no authority.
-
-The executor-to-members-to-T10 obligation was subsequently closed by code
-commit `bd1e91a6d`; see
-`m15q-quv-executor-t10-local-evidence-2026-09-04.md`.
-
-M16Q and fresh M17Q review have not begun. `portable_final_receipt=false`
-remains mandatory.
+The executor-to-members-to-T10 obligation is closed by code commit
+`bd1e91a6d`; see `m15q-quv-executor-t10-local-evidence-2026-09-04.md`.
+Accordingly M15Q is complete locally and M16Q becomes the sole critical path.
+Fresh M17Q review has not begun. `portable_final_receipt=false` remains
+mandatory.

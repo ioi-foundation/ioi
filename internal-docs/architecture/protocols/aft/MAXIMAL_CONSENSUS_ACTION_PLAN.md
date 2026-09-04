@@ -554,7 +554,8 @@ exercise to terminal safety.
 | M18Q | QUV public admission | Exact known-synchronous online claim admitted on an immutable release; portable finality remains false |
 
 Only one milestone may be the critical path. Exact R5 qualification closed M10
-and `AFT-M10-003`; M15Q is now the critical path. Original M13-M18 remain
+and `AFT-M10-003`; local implementation evidence at `ce34c31a9` closes M15Q
+subject to M17Q review, and M16Q is now the critical path. Original M13-M18 remain
 blocked by M12a. M13Q-M18Q are the separately named interactive path admitted
 by M12b's independently reviewed `PASS_CONSTRUCTION`, and remain non-production
 claims until their own gates close.
@@ -613,18 +614,14 @@ resume point and the minimum evidence the owner must supply.
 1. Preserve M10's closed R5 qualification and the exact M12b R4
    `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
-2. Finish M15Q from commit `bd1e91a6d` or its descendant. The eight-process
-   disjoint-root Q-EA7 release fixture now passes through successor progress,
-   operator ceremony, exact-gate orchestration restart, and post-recovery
-   progress without QUV or historical-QC replay, and refuses substituted
-   source bytes, a missing expired gate, and a retired old key. Complete the
-   executor-to-members-to-T10 path now also binds a finalized workload manifest
-   through Agentgres, consumes the executor's own fresh live QUV continuation,
-   performs the T10 claim-before-call transition, and verifies the resulting
-   PQ atomic-resource evidence. Complete the in-flight/rollback-image and
-   overlapping-root restart matrix. Retain
-   complete non-authorizing audit evidence without relabeling an existing
-   certificate class.
+2. Preserve M15Q's locally complete implementation at `ce34c31a9` or its
+   evidence-only descendant. The eight-process disjoint-root fixture covers
+   pre-install restart, the state-durable/anchor-pending crash window, exact
+   recovery, rollback restoration refusal, successor progress, ceremony, and
+   executor-to-T10 consequence execution. The seven-process overlap fixture
+   proves a retained member performs and recovers its own successor-scoped
+   live authorization. Keep all audit evidence non-authorizing and do not
+   reopen portable receipt authority.
 3. Execute M16Q against the bounded QUV scheduling architecture. Qualify Q-A3
    and Q-A9 with load, deadline-edge, restart, rollback, flood, replay,
    reconfiguration, mixed-domain, and externalization campaigns.

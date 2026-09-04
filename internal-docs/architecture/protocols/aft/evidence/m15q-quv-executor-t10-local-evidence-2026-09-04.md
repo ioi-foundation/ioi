@@ -3,7 +3,8 @@
 Date: 2026-09-04
 
 Status: **PASS for the real-process executor-to-members-to-T10 slice at code
-commit `bd1e91a6d`; M15Q remains open on the remaining handoff restart matrix.**
+commit `bd1e91a6d`; the remaining handoff restart matrix passed at `ce34c31a9`,
+so M15Q is COMPLETE LOCALLY and awaits M17Q review.**
 This is local implementation evidence, not M16Q qualification, independent
 review, or a public production claim.
 

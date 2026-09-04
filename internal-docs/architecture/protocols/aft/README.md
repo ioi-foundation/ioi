@@ -92,10 +92,11 @@ traces, TLC state dumps, and compiled paper outputs live under
   — 16-obligation arbitrary-set ordering/consequence lift plus reproduced T10
   at-most-once resource boundary and live-handoff scope.
 - [`evidence/m15q-quv-handoff-restart-ceremony-local-evidence-2026-09-04.md`](./evidence/m15q-quv-handoff-restart-ceremony-local-evidence-2026-09-04.md)
-  — eight-process disjoint-root live handoff, exact rollback-anchored successor
-  restart, post-recovery progress, and non-authorizing operator ceremony at
-  commits `252e03573` and `fc7c9b926`; M15Q remains open on the remaining
-  restart matrix.
+  — complete disjoint/overlapping-root process matrix, including pre-install
+  restart, state-before-anchor crash recovery, rollback refusal, exact-gate
+  restart, post-recovery progress, independently verified boundary QCs, and
+  non-authorizing operator ceremony at code commit `ce34c31a9`; with the T10
+  evidence below, M15Q is complete locally and awaits M17Q review.
 - [`evidence/m15q-quv-executor-t10-local-evidence-2026-09-04.md`](./evidence/m15q-quv-executor-t10-local-evidence-2026-09-04.md)
   — finalized workload manifest through Agentgres, fresh executor-side live
   QUV, direct process-local continuation consumption, T10 claim-before-call,
