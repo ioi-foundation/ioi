@@ -7,6 +7,7 @@
   "scripts": {
     "serve": "node scripts/serve-face.mjs",
     "check:decentralized-cloud-face": "node scripts/verify-decentralized-cloud-face.mjs",
+    "check:decentralized-cloud-job-primitive": "node scripts/verify-decentralized-cloud-job-primitive.mjs",
     "brand:build": "node brand/build-artboards.mjs",
     "brand:measure": "node brand/measure-artboards.mjs"
   }

@@ -3604,6 +3604,10 @@ async fn async_main() -> anyhow::Result<()> {
             get(cloud_job_routes::handle_cloud_job_get),
         )
         .route(
+            "/v1/hypervisor/cloud-jobs/:id/execute",
+            post(cloud_job_routes::handle_cloud_job_execute),
+        )
+        .route(
             "/v1/hypervisor/cloud-candidates/intents",
             post(decentralized_cloud_routes::handle_intent_create),
         )

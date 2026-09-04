@@ -370,6 +370,142 @@ pub(crate) async fn handle_cloud_job_create(
     (StatusCode::CREATED, Json(json!({ "ok": true, "job": record })))
 }
 
+/// POST /v1/hypervisor/cloud-jobs/:id/execute — run an admitted job.
+///
+/// Seams F/G/K, and none of them reimplemented here. The placement decision comes from
+/// the EXISTING decide handler, so the job is ranked and recorded by the same scorer
+/// that ranks everything else — a job that scored candidates its own way would be a
+/// second placement plane wearing the first one's receipts. The mutation goes through
+/// `handle_provider_op`, the same entry the rest of the system uses; there is no second
+/// mutation lane and this function opens none.
+pub(crate) async fn handle_cloud_job_execute(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    inbound: axum::http::HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let want = id.trim_start_matches("cloud-job://").to_string();
+    let Some(mut job) = read_record_dir(&st.data_dir, JOB_KIND)
+        .into_iter()
+        .find(|j| text(j, "job_id") == want)
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": { "code": "cloud_job_absent",
+                "message": format!("no job '{want}' exists") } })),
+        );
+    };
+
+    // A job executes once. Re-running an executed job would mint a second set of
+    // receipts against one authorization, which is how one approval becomes two spends.
+    if text(&job, "state") != "admitted_proposal" {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "error": { "code": "cloud_job_not_admitted",
+                "message": format!("job '{want}' is in state '{}'; only an admitted_proposal executes, and it executes once", text(&job, "state")) } })),
+        );
+    }
+
+    // ── The agent lane is NOT wired, and is refused rather than approximated. ──
+    // A brokered authority is assembled by `WorkloadBrokerProviderAuthority::resolve`
+    // from a host-only workload-broker identity record. No resolver exists that turns a
+    // CapabilityLease draw-down into that identity for a job caller. Rather than hand
+    // the agent path the human path's header-derived authority — which would let an
+    // agent execute under a person's session and make INV-37's acting principal a
+    // fiction — it refuses by name. Admission is identical for both callers; it is only
+    // EXECUTION that is human-only in this cut.
+    if text(&job, "caller_kind") == "agent" {
+        return (
+            StatusCode::NOT_IMPLEMENTED,
+            Json(json!({ "ok": false, "error": { "code": "agent_execution_lane_not_wired",
+                "message": "a job admitted under a CapabilityLease executes through a brokered authority that is assembled only from a host-only workload-broker identity record; no draw-down resolver exists for job callers yet. The agent path is refused rather than run under the human path's session authority, because that would record an acting principal that did not act" } })),
+        );
+    }
+
+    // ── Seam F/G: the existing placement decision, not a private one. ──
+    let (decide_code, Json(decision_body)) = super::placement_failover_routes::handle_placement_decide(
+        State(st.clone()),
+        inbound.clone(),
+        Json(json!({ "intent_ref": job["intent_ref"] })),
+    )
+    .await;
+    if decide_code != StatusCode::OK {
+        // A job whose venue vanished between admission and execution fails HERE, with the
+        // decision plane's own reason, and is recorded as refused rather than left open.
+        job["state"] = json!("refused_no_placement");
+        job["refusal"] = json!({
+            "code": decision_body.get("reason").cloned().unwrap_or(json!("placement_refused")),
+            "detail": decision_body.get("detail").cloned().unwrap_or(Value::Null),
+            "at": iso_now(),
+        });
+        let _ = persist_record(&st.data_dir, JOB_KIND, &want, &job);
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "ok": false, "error": { "code": "cloud_job_no_placement",
+                "message": "no placement-eligible candidate exists for this job's intent; the job is recorded as refused rather than retried silently" },
+                "placement": decision_body, "job": job })),
+        );
+    }
+
+    let decision = decision_body.get("decision").cloned().unwrap_or(Value::Null);
+    let placement_receipt = decision_body.get("receipt").cloned().unwrap_or(Value::Null);
+
+    // The venue is EVIDENCE, recorded now that placement chose it — never an input.
+    job["placement"] = json!({
+        "decision_ref": decision.get("decision_ref").cloned().unwrap_or(Value::Null),
+        "venue": decision.get("provider_kind").cloned().unwrap_or(Value::Null),
+        "candidate_ref": decision.get("candidate_ref").cloned().unwrap_or(Value::Null),
+        "quote_ref": decision.get("quote_ref").cloned().unwrap_or(Value::Null),
+        "decided_at": decision.get("decided_at").cloned().unwrap_or(Value::Null),
+    });
+    job["receipts"] = json!([placement_receipt]);
+    job["state"] = json!("placed");
+    let _ = persist_record(&st.data_dir, JOB_KIND, &want, &job);
+
+    // ── Seam K: the single mutation lane. ──
+    // `dry_run` stops here with the placement receipt and touches no provider, which is
+    // what the gate uses: the whole ladder is exercised and nothing is ever spent.
+    if body.get("dry_run").and_then(Value::as_bool) == Some(true) {
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "job": job, "dry_run": true,
+                "note": "placement decided and receipted; no provider was contacted" })),
+        );
+    }
+
+    let op_body = json!({
+        "provider_id": decision.get("provider_account_ref").cloned().unwrap_or(Value::Null),
+        "op": body.get("op").cloned().unwrap_or(json!("create")),
+        "environment_ref": body.get("environment_ref").cloned().unwrap_or(json!("env-default")),
+        "job_ref": job["job_ref"],
+        "budget_ref": job["budget_ref"],
+        "owner_ref": body.get("owner_ref").cloned().unwrap_or(Value::Null),
+        "idempotency_key": body.get("idempotency_key").cloned().unwrap_or(Value::Null),
+        "wallet_approval_grant": body.get("wallet_approval_grant").cloned().unwrap_or(Value::Null),
+    });
+    let (op_code, Json(op_result)) =
+        super::provider_routes::handle_provider_op(State(st.clone()), inbound, Json(op_body)).await;
+
+    let succeeded = op_code.is_success();
+    if let Some(r) = op_result.get("receipt") {
+        if let Some(arr) = job["receipts"].as_array_mut() {
+            arr.push(r.clone());
+        }
+    }
+    job["state"] = json!(if succeeded { "executed" } else { "refused_provider_operation" });
+    job["provider_operation"] = json!({
+        "http_status": op_code.as_u16(),
+        "ok": succeeded,
+        "at": iso_now(),
+    });
+    let _ = persist_record(&st.data_dir, JOB_KIND, &want, &job);
+
+    (
+        op_code,
+        Json(json!({ "ok": succeeded, "job": job, "provider_result": op_result })),
+    )
+}
+
 /// GET /v1/hypervisor/cloud-jobs
 pub(crate) async fn handle_cloud_jobs_list(
     State(st): State<Arc<DaemonState>>,
