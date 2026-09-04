@@ -35,7 +35,12 @@
 
   /* ---- decentralized.* family mark, flattened from the reserved d ----
      The reserved mark is three shapes each carrying its OWN gradient on a common
-     -34.8deg axis. A flat form cannot flatten "the" gradient because there is none,
+     -34.75deg axis. That angle is a property of the SOURCE vector, where all three
+     gradients are userSpaceOnUse with conformal rotation matrices of the same
+     angle; it is NOT the angle you get by letting a gradient run each shape's
+     bounding-box diagonal, which would be 42.5, 42.8 and 20.6deg. Any redraw that
+     wants this property has to declare userSpaceOnUse to keep it.
+     A flat form cannot flatten "the" gradient because there is none,
      so each value below is the midpoint of one shape's ramp, cited.
      Two tokens, not three: the midpoints of the second and third ramps are #4078fa
      and #407dfa, five units apart on one channel out of 255 and indistinguishable,
