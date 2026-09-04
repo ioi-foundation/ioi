@@ -100,18 +100,13 @@ const x1 = Math.max(...items.map((p) => p.box.maxX));
 const y1 = Math.max(...items.map((p) => p.box.maxY));
 const W = x1 - x0, H = y1 - y0;
 
-console.log(`\nthe mark alone: ${items.length} shapes in a ${W.toFixed(2)} x ${H.toFixed(2)} box (aspect ${(W / H).toFixed(3)})`);
-console.log(`normalised to a 96-unit grid on the taller axis:\n`);
-const k = 96 / Math.max(W, H);
-for (const [i, p] of items.entries()) {
-  const b = p.box;
-  console.log(
-    `  shape ${i + 1}: x ${((b.minX - x0) * k).toFixed(1)}..${((b.maxX - x0) * k).toFixed(1)}` +
-    `  y ${((b.minY - y0) * k).toFixed(1)}..${((b.maxY - y0) * k).toFixed(1)}` +
-    `  ${(b.w * k).toFixed(1)} x ${(b.h * k).toFixed(1)}` +
-    `  ${p.curves} curve segments  fill ${p.fill || "gradient"}`
-  );
-}
+console.log(`\nthe mark alone: ${items.length} gradient-filled shapes`);
+console.log(`\nNOTE: the boxes of these paths are the PAINT, not the mark. Each gradient quad`);
+console.log(`is deliberately oversized and cut down by a rounded clipPath, so its box`);
+console.log(`describes something larger than anything visible on the page. Per-shape visible`);
+console.log(`geometry and corner radii are reported by parse-shapes.mjs, which follows the`);
+console.log(`clip; this script deliberately does not print a second set of numbers for the`);
+console.log(`same shapes.`);
 
 // ── Gradient stops ──────────────────────────────────────────────────────────
 const stops = [...svg.matchAll(/<stop[^>]*offset="([^"]+)"[^>]*stop-color="([^"]+)"/g)]
@@ -137,7 +132,5 @@ if (angles.length) {
   console.log(`  axis angles present: ${uniq.join("°, ")}°`);
 }
 
-console.log(`\nNOT determined here: exact corner radii — curve control points are inside the`);
-console.log(`boxes above but are not separated out — and whether the shapes share one`);
-console.log(`gradient or carry one each. Both need a per-path parse or the .ai to state,`);
-console.log(`and neither is guessed at.`);
+console.log(`\nBoth of the questions this script once left open — corner radii, and whether`);
+console.log(`the shapes share one gradient — are answered by parse-shapes.mjs.`);
