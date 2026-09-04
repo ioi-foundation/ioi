@@ -553,11 +553,11 @@ exercise to terminal safety.
 | M17Q | Independent QUV review | Fresh security/theorem review, twin, and all finding remediation complete |
 | M18Q | QUV public admission | Exact known-synchronous online claim admitted on an immutable release; portable finality remains false |
 
-Only one milestone may be the critical path. M10 remains the current release
-critical path until its independent-review defect is closed. Research may
-continue on M12b without mislabeling it as release-critical. Original M13-M18
-remain blocked by M12a. M13Q-M18Q do not exist as production claims unless
-M12b closes with an independently reviewed `PASS_CONSTRUCTION`.
+Only one milestone may be the critical path. Exact R5 qualification closed M10
+and `AFT-M10-003`; M15Q is now the critical path. Original M13-M18 remain
+blocked by M12a. M13Q-M18Q are the separately named interactive path admitted
+by M12b's independently reviewed `PASS_CONSTRUCTION`, and remain non-production
+claims until their own gates close.
 
 ## 7. Evidence and issue discipline
 

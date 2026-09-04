@@ -4,7 +4,7 @@ Status: internal protocol corpus index.
 Authority: `docs/architecture/` and accepted ADRs are canonical; this file is private protocol corpus navigation only.
 Migrated from: `docs/architecture/consensus/aft/` and `docs/consensus/aft/` standalone documentation roots.
 Superseded by: canonical architecture docs or ADRs when conflicts arise.
-Last alignment pass: 2026-09-03 (ADR 0048 clean break).
+Last alignment pass: 2026-09-04 (M10 R5 qualification).
 
 This directory holds Asymptote Fault Tolerance protocol material that is large
 enough to remain as its own private corpus. The formal source and specs are
@@ -54,6 +54,10 @@ traces, TLC state dumps, and compiled paper outputs live under
   — exact R4 owner-side reproduction passed under resource isolation; retained
   beside the adverse independent result as evidence of harness sensitivity,
   not as an independent gate pass.
+- [`evidence/m10-r5-daybreak-qualification-2026-09-04.md`](./evidence/m10-r5-daybreak-qualification-2026-09-04.md)
+  — exact R5 automated independent qualification: all eight signer starts,
+  fallback, metrics, cold restart, recovered H4, authenticated H6, and H7
+  passed; closes AFT-M10-003 and M10 with explicit automated-review limits.
 - [`evidence/m12-r3-daybreak-retest-2026-09-03.md`](./evidence/m12-r3-daybreak-retest-2026-09-03.md)
   — exact-candidate `UPHELD` retest closing byte-portable M12a as
   `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; automated, not human peer review and

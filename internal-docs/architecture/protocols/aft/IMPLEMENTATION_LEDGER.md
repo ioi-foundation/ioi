@@ -14,16 +14,16 @@ or reproducible command. Only one milestone may be marked **CRITICAL PATH**.
 | Milestone | State | Evidence / next required proof |
 |---|---|---|
 | M0 claim and schema freeze | **COMPLETE** | Canonical `GuaranteeVectorV1`, conservative legacy/profile census, accepted claim ADR, assumption census, and fail-closed transform boundary; current 459-test authoritative types-library run passes |
-| M1 PQ cryptographic substrate | **IN PROGRESS** | SLH-DSA seal custody, ML-DSA live/header signatures, strict rotating PQ swarm records, durable ACK outbox, independent-implementation interop, stateful-seal fuzzing, and the strict four-validator timeout/restart drill pass; independent cryptographic review remains release-blocking |
+| M1 PQ cryptographic substrate | **COMPLETE** | SLH-DSA seal custody, ML-DSA live/header signatures, strict rotating PQ swarm records, durable ACK outbox, independent-implementation interop, stateful-seal fuzzing, and the strict four-validator timeout/restart drill pass; the owner-authorized automated M10 review has no open finding, subject to its explicit provider/side-channel/adaptive-corruption limits |
 | M2 PQ optimistic live core | **COMPLETE** | Exact unit-weight 3f+1 / 2f+1 PQ geometry, guardian-independent authority, versioned scoped timeout votes/certificates, strict-PQ relay, canonical D2 trigger, and crash-safe restart are implemented; full optimistic/fallback composition belongs to M3 |
 | M3 hash-only asynchronous fallback | **COMPLETE** | R10 D1–D4, hash-only RBC/RA/ASKS/gather/VABA/ACS, durable PQ transport/storage, exact-q certificates, canonical execution/admission, cross-path fencing, bounded formal composition, adversarial/mutation/crash/race campaigns, n=130 benchmark evidence, and the strengthened four-validator cold-restart drill pass under the declared static-adversary model |
 | M4 no-laundering theorem/runtime | **COMPLETE** | Exact certificate-derived meet, opaque policy input, exhaustive default-deny transform registry, T6/L-M paper/formal proof, runtime-v3 recomputation, and laundering mutation corpus |
 | M5 consequence externalization | **COMPLETE** | Agentgres-bound EffectManifestV1, exact atomic-resource profile, durable claim-before-call executor, lookup-only reconciliation, T10/L-X, formal/crash/mutation evidence |
 | M6 economic assurance | **COMPLETE** | Exact native-asset floor from objective evidence and distinct bond snapshots; T8 stays open |
 | M7 portable receipts | **COMPLETE** | Canonical ML-DSA envelope, payload-scoped PQ channel/seal/endpoint proofs, offline library/CLI, full constituent/transform report, golden vectors, validly re-enveloped negative corpus and independent RustCrypto/fips205/Python reproduction |
-| M8 integrated release | **IN PROGRESS** | All local implementation, mixed-domain demonstration, proof, receipt, clean-room, authorization-census and affected-workspace gates pass in one retained integrated process; M9 freezes the review candidate and M10 owns independent review/release admission |
+| M8 integrated release | **COMPLETE** | All local implementation, mixed-domain demonstration, proof, receipt, clean-room, authorization-census and affected-workspace gates pass in retained evidence; M9 froze the candidate and exact R5 M10 qualification closed the sole remaining integrated-restart finding |
 | M9 immutable PQ v1 candidate | **COMPLETE** | T5d/T8 reconciled; all local M8/static/formal/affected-workspace gates reproduced; exact contents bound by annotated tag `aft-pq-v1-review-candidate-2026-09-03`; see `evidence/m9-pq-v1-candidate-freeze-2026-09-03.md` |
-| M10 independent PQ v1 review and release | **R5 DIAGNOSTIC REMEDIATION — CRITICAL PATH** | The exact R4 Daybreak retest confirms all eight signer starts, height-5 fallback, metrics, and cold-restart shared-tip sync, but the restarted cluster did not reach height 7 within 240 seconds. An exact owner-side rerun then passed under resource isolation (585.49s fixture time), establishing nondeterminism/resource sensitivity without overriding the adverse review. AFT-M10-003 remains open (medium); R5 adds bounded post-restart per-node logs and height/block probes before a fresh isolated independent retest |
+| M10 independent PQ v1 review and release | **COMPLETE — AUTOMATED REVIEW** | Exact annotated R5 tag object `3149d3404193864df992b482363625fe031f2f22` received an owner-authorized Daybreak `PASS`: the unchanged four-validator fixture passed all eight signer starts, H5 fallback/metrics, cold restart, recovered H4, authenticated H6, and H7. `AFT-M10-003` is closed; no M10 finding remains open. This is automated review, not human/institutional certification |
 | M11 exact maximal task/model | **COMPLETE** | R3 fixes non-vacuous internal/external agreement, conflict-qualified effect liveness with explicit solo-input progress, durability, setup, verifier/freshness semantics, support partitioning, all communication profiles, role switching, and exact `f=n-1` cases |
 | M12a byte-portable visibility | **PROVED IMPOSSIBLE UNDER CONSTRAINTS** | Exact R3 tag `aft-maximal-visibility-lower-bound-candidate-r3-2026-09-03` was retested `UPHELD_WITHIN_SCOPE`. It proves the M11 byte-function verifier cannot combine portable non-conflict and solo non-`Abort` progress at `f=n-1`; ADR 0050 forbids generalizing that result to interactive verifiers |
 | M12b interactive visibility | **COMPLETE — PASS CONSTRUCTION** | Exact R4 tag `aft-quv-v0-construction-candidate-r4-2026-09-03` received an ADR-0049-authorized independent automated `PASS_CONSTRUCTION` with no open findings. Q-A3 requires every correct member timely for every operation; `H=2..3` opposite-order rows remain safe, the weaker split-witness mutation conflicts, and non-vacuous liveness campaigns pass for every authority mode. This opens M13Q only |
@@ -35,7 +35,7 @@ or reproducible command. Only one milestone may be marked **CRITICAL PATH**.
 | M18 public admission and release | **BLOCKED BY PROVED IMPOSSIBILITY** | The target headline is unauthorized. Public material may report the lower bound and strongest admitted profile only |
 | M13Q online QUV theorem | **COMPLETE LOCALLY; M17Q REVIEW REQUIRED** | The exact theorem surface distinguishes conflict-qualified accepted-value agreement from classical exact-decision BA, pairs each dependency with a mutation/lower bound, and gives bounded typed termination and singleton-candidate liveness. `QueryUnanimityProof.tla` discharges 75 arbitrary-set TLAPS obligations; the R4 operational model supplies the timing/mutation bridge. Independent theorem review remains M17Q work |
 | M14Q online end-to-end theorem lift | **COMPLETE LOCALLY; M17Q REVIEW REQUIRED** | The theorem composes M13Q with next-slot predecessor admission, durable non-rollback heads, executor-side QUV, T10 stable-key atomic externalization, and online live-overlap handoff. `QueryUnanimityCompositionProof.tla` discharges 16 arbitrary-set obligations; T10's 66-state/42-distinct kernel reproduces. Long-range bootstrap still requires an independently provisioned current root |
-| M15Q QUV production implementation | **IN PROGRESS** | Implement a named profile, never a relabel or timeout fallback; every mutation owner must perform the online check. Persist complete conflict state and replies before exposure, implement live handoff, and keep `portable_final_receipt=false` |
+| M15Q QUV production implementation | **IN PROGRESS — CRITICAL PATH** | Implement a named profile, never a relabel or timeout fallback; every mutation owner must perform the online check. Persist complete conflict state and replies before exposure, implement fair authenticated admission and live handoff, and keep `portable_final_receipt=false` |
 | M16Q QUV adversarial/performance qualification | **NOT STARTED** | Requires process-level timing/load, query flood, restart/rollback, cross-context replay, conflict, reconfiguration, mixed-domain, and externalization campaigns |
 | M17Q independent QUV review | **NOT STARTED** | Requires a fresh immutable implementation/theorem review, spec-only twin, and complete remediation; M12b construction review does not satisfy this later gate |
 | M18Q online public admission and release | **NOT STARTED** | Exact online known-synchronous claim only; `portable_final_receipt=false` remains mandatory and the protocol cannot be called Byzantine consensus unless M13Q proves that task |
@@ -130,9 +130,10 @@ Evidence paths:
 - Legacy lattice:
   `crates/types/src/app/consensus/collapse/assumptions.rs`
 
-## In-progress slice: M1 PQ cryptographic substrate
+## Completed slice: M1 PQ cryptographic substrate
 
-Implemented, but not yet milestone-complete:
+Implemented and admitted by the exact R5 automated M10 review, subject to the
+review's explicit limits:
 
 - Accepted ADR 0042 selects FIPS 205 SLH-DSA-SHA2-128s for terminal
   shares, pins the provider version and keeps production authorization blocked
@@ -242,12 +243,12 @@ Implemented, but not yet milestone-complete:
   The static test configuration has an explicitly gated test-only historical
   hydration lane; it cannot be cited as proof of production rotation recovery.
 
-Open M1 gates:
+M1 review boundary:
 
-- Obtain the required independent cryptographic review of the selected
-  providers, custody discipline, authenticated-channel construction and
-  implementation. The independent implementations used as interoperability
-  oracles are explicitly not substitutes for this release-blocking review.
+- The owner-authorized independent automated M10 review is complete and has no
+  open finding. It is not human peer review or provider, side-channel, or
+  adaptive-corruption certification. The independent implementations remain
+  interoperability and differential oracles, not certifications.
 
 M1 evidence commands run so far:
 
@@ -1143,7 +1144,7 @@ M7 evidence paths:
 - `docs/decisions/0046-adopt-portable-aft-assurance-receipts.md`
 - `docs/decisions/0047-require-payload-scoped-pq-path-evidence.md`
 
-## In-progress slice: M8 integrated demonstration and release
+## Completed slice: M8 integrated demonstration and release
 
 Implemented local evidence:
 
@@ -1184,8 +1185,8 @@ Implemented local evidence:
   passed in 61.94 seconds, the five-test portable corpus passed in 196.03
   seconds, the consequence corpus passed 12 / 12, both independent PQ oracles
   passed, all 1,015 TLAPS obligations discharged, every TLC model completed,
-  and the generated Rust trace replay matched. Release authorization remains
-  blocked only on the independent review listed below and in the M8 gate audit.
+  and the generated Rust trace replay matched. Exact R5 M10 qualification later
+  closed the sole remaining independent integrated-restart finding.
 - ADR 0048 adopts a clean-genesis AFT PQ v1 boundary: production admits only
   classic-BFT plus the mandatory hash-only asynchronous path; the unused BLS
   aggregation placeholder, scalar-to-vector promotion, and portable CLI's
@@ -1240,13 +1241,12 @@ found 66,846,976 distinct states to depth 39 and drained its queue without an
 invariant violation; `MembershipTransition` generated 21,764,161 states and
 found 1,254,528 distinct states to depth 22.
 
-M8 remains release-blocked. The portable complete-path PQ evidence, independent
-offline decision reproduction, estate-wide AFT externalization-authorization
-census, affected-workspace CI and retained integrated mixed-workload process
-exit are locally closed. The required independent cryptographic/provider/
-custody/channel review has not occurred. Local tests,
-interop, fuzzing, duplicate implementations and formal work do not substitute
-for that review.
+M8 is complete for the admitted automated-review standard. The portable
+complete-path PQ evidence, independent offline decision reproduction,
+estate-wide AFT externalization-authorization census, affected-workspace CI,
+retained integrated mixed-workload process, and exact R5 restart qualification
+are closed. The M10 report's human-review, provider-correctness, side-channel,
+adaptive-corruption, and snapshot-custody exclusions remain in force.
 
 ## Claims currently permitted
 
@@ -1289,14 +1289,17 @@ for that review.
   progress outside its declared channel/fault model.
 - AFT has no setup; the intended future claim is only “no private threshold
   setup or DKG.”
-- Current v2 seal shares are production-authorized or independently reviewed.
-- The PQ channel implementation or startup slice is independently reviewed or
-  sufficient by itself to set `channel_pq=true`; only the complete
+- Current v2 seal shares are human-certified, provider-certified, or secure
+  outside their stated custody and rollback assumptions.
+- The PQ channel implementation or startup slice is sufficient by itself to
+  set `channel_pq=true`; only the complete
   payload-scoped ADR 0047 evidence verifier may derive that coordinate locally.
 - ML-DSA vote support alone makes the live or header path end-to-end PQ.
 - Arbitrary HTTP or physical effects are at-most-once.
 - Slashable collateral is a general cost-to-violate or closes T8.
-- M1, M8, or the final release is complete.
+- The M10 automated pass is human peer review, institutional certification, or
+  proof of provider correctness, side-channel resistance, or adaptive security.
+- M15Q-M18Q or the interactive QUV release is complete.
 
 ## Unresolved risks
 
