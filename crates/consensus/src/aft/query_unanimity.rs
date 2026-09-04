@@ -1547,6 +1547,41 @@ mod tests {
         }
     }
 
+    struct MldsaTestMember {
+        account: AccountId,
+        keypair: ioi_crypto::sign::dilithium::MldsaKeyPair,
+    }
+
+    impl QuvMemberSignerV0 for MldsaTestMember {
+        fn member(&self) -> &AccountId {
+            &self.account
+        }
+
+        fn sign_reply(&self, signing_bytes: &[u8]) -> Result<Vec<u8>, QuvError> {
+            self.keypair
+                .sign(signing_bytes)
+                .map(|signature| signature.to_bytes())
+                .map_err(|error| QuvError::Signing(error.to_string()))
+        }
+    }
+
+    fn percentile_micros(sorted: &[u128], percentile: usize) -> u128 {
+        let index = (sorted.len().saturating_sub(1) * percentile).div_ceil(100);
+        sorted[index.min(sorted.len().saturating_sub(1))]
+    }
+
+    fn timing_summary(mut samples: Vec<u128>) -> [u128; 6] {
+        samples.sort_unstable();
+        [
+            samples.len() as u128,
+            samples.first().copied().unwrap_or_default(),
+            percentile_micros(&samples, 50),
+            percentile_micros(&samples, 95),
+            percentile_micros(&samples, 99),
+            samples.last().copied().unwrap_or_default(),
+        ]
+    }
+
     fn account(byte: u8) -> AccountId {
         AccountId([byte; 32])
     }
@@ -1612,6 +1647,78 @@ mod tests {
             .unwrap();
         assert_eq!(reply_y.complete_snapshot, vec![x, y]);
         assert_eq!(restarted.generation(), 2);
+    }
+
+    #[test]
+    #[ignore = "M16Q qualification benchmark; run explicitly and retain stdout"]
+    fn m16q_profiles_mldsa_signing_and_durable_write_before_reply() {
+        const SAMPLES: usize = 256;
+        let scheme = MldsaScheme::new(SecurityLevel::Level2);
+        let keypair = scheme.generate_keypair().unwrap();
+        let public = keypair.public_key().to_bytes();
+        let mldsa_account =
+            AccountId(account_id_from_key_material(SignatureSuite::ML_DSA_44, &public).unwrap());
+        let mldsa_signer = MldsaTestMember {
+            account: mldsa_account,
+            keypair,
+        };
+        let hash_signer = TestMember(account(1));
+
+        let signing_bytes = vec![0xA5; 4096];
+        let mut signing_samples = Vec::with_capacity(SAMPLES);
+        for _ in 0..SAMPLES {
+            let started = std::time::Instant::now();
+            let signature = mldsa_signer.sign_reply(&signing_bytes).unwrap();
+            assert!(!signature.is_empty());
+            signing_samples.push(started.elapsed().as_micros());
+        }
+
+        let hash_temp = TempDir::new().unwrap();
+        let mut hash_member = open_member(&hash_temp);
+        let mut durable_hash_samples = Vec::with_capacity(SAMPLES);
+        for sample in 0..SAMPLES {
+            let mut item = candidate(QuvAuthorityModeV0::Unowned, sample as u8);
+            item.slot.slot = sample as u64 + 1;
+            item.slot.domain_id[0..8].copy_from_slice(&(sample as u64).to_le_bytes());
+            let mut verifier_nonce = [1_u8; 32];
+            verifier_nonce[0..8].copy_from_slice(&(sample as u64 + 1).to_le_bytes());
+            let request = QuvPushQueryV0 {
+                verifier_nonce,
+                candidate: item,
+            };
+            let started = std::time::Instant::now();
+            hash_member
+                .process_push(&request, &AcceptCandidates, &hash_signer)
+                .unwrap();
+            durable_hash_samples.push(started.elapsed().as_micros());
+        }
+
+        let mldsa_temp = TempDir::new().unwrap();
+        let mut mldsa_member = open_member(&mldsa_temp);
+        let mut durable_mldsa_samples = Vec::with_capacity(SAMPLES);
+        for sample in 0..SAMPLES {
+            let mut item = candidate(QuvAuthorityModeV0::Unowned, sample as u8);
+            item.slot.slot = sample as u64 + 1;
+            item.slot.domain_id[0..8].copy_from_slice(&(sample as u64).to_le_bytes());
+            let mut verifier_nonce = [2_u8; 32];
+            verifier_nonce[0..8].copy_from_slice(&(sample as u64 + 1).to_le_bytes());
+            let request = QuvPushQueryV0 {
+                verifier_nonce,
+                candidate: item,
+            };
+            let started = std::time::Instant::now();
+            mldsa_member
+                .process_push(&request, &AcceptCandidates, &mldsa_signer)
+                .unwrap();
+            durable_mldsa_samples.push(started.elapsed().as_micros());
+        }
+
+        let sign = timing_summary(signing_samples);
+        let durable_hash = timing_summary(durable_hash_samples);
+        let durable_mldsa = timing_summary(durable_mldsa_samples);
+        println!(
+            "[M16Q-COMPONENTS] schema=ioi.aft.m16q.component-timing.v1 fields=samples,min_us,p50_us,p95_us,p99_us,max_us mldsa44_sign_4096b={sign:?} durable_write_before_reply_hash_signer={durable_hash:?} durable_write_before_reply_mldsa44={durable_mldsa:?} durability=file_sync_all+atomic_rename+parent_directory_sync+separately_anchored_second_atomic_persist"
+        );
     }
 
     #[test]
