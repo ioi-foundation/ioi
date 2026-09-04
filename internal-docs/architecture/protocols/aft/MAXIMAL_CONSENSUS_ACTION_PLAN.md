@@ -614,8 +614,10 @@ resume point and the minimum evidence the owner must supply.
    `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
 2. Finish M15Q from its locally passing runtime foundation: prove the
-   process-level executor path, implement the Q-EA7 live-overlap handoff, and
-   retain complete non-authorizing audit evidence without relabeling an
+   process-level executor path and complete the Q-EA7 live-overlap coordinator
+   over the implemented typed/rollback-anchored handoff gate. Ordinary QUV
+   validator-set promotion now refuses until that live authorization exists.
+   Retain complete non-authorizing audit evidence without relabeling an
    existing certificate class.
 3. Execute M16Q against the bounded QUV scheduling architecture. Qualify Q-A3
    and Q-A9 with load, deadline-edge, restart, rollback, flood, replay,

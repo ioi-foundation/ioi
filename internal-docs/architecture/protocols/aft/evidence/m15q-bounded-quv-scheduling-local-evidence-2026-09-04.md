@@ -66,8 +66,11 @@ warnings; no new error or test failure remained.
 
 1. Build a real multi-process executor-to-members-to-Agentgres scenario and
    demonstrate that no irreversible call begins from a cached transcript.
-2. Implement and exercise Q-EA7 live-overlap reconfiguration before old-root
-   expiry.
+2. Complete and exercise Q-EA7 live-overlap reconfiguration before old-root
+   expiry. The typed handoff, rollback-anchored local install, and fail-closed
+   rotation gate are recorded separately in
+   `m15q-quv-live-handoff-foundation-2026-09-04.md`; cross-configuration
+   transport and pre-authority successor orchestration remain.
 3. Run M16Q saturation and adversarial timing campaigns. Measure the oldest
    normal request already in flight, PQ handshake/session readiness, durable
    storage latency, scheduler delay, response delivery, and clock skew inside

@@ -517,6 +517,27 @@ struct PqRotationSnapshot<CE> {
     peer_accounts_ref: Arc<Mutex<std::collections::HashMap<libp2p::PeerId, AccountId>>>,
     consensus_engine_ref: Arc<Mutex<CE>>,
     aft_safety_mode: AftSafetyMode,
+    quv_enabled: bool,
+}
+
+/// Until the positive Q-EA7 coordinator consumes a live old-root QUV
+/// authorization into the rollback-anchored successor store, changing the
+/// effective configuration of a QUV node is forbidden. This guard is applied
+/// once before header authority/durability and again immediately before swarm
+/// manager replacement so neither seam can silently treat ordinary validator
+/// set promotion as a live handoff.
+pub(super) fn reject_unqualified_quv_rotation(
+    quv_enabled: bool,
+    current_hash: Option<[u8; 32]>,
+    desired_hash: [u8; 32],
+    next_height: u64,
+) -> Result<()> {
+    if quv_enabled && current_hash != Some(desired_hash) {
+        return Err(anyhow!(
+            "refusing aft_quv_v0 validator-set rotation at height {next_height} without a live Q-EA7 handoff authorization"
+        ));
+    }
+    Ok(())
 }
 
 async fn rotate_pq_channels_for_next_height<CS, ST, CE, V>(
@@ -562,6 +583,7 @@ where
         peer_accounts_ref,
         consensus_engine_ref,
         aft_safety_mode,
+        quv_enabled,
     } = snapshot;
     let peers = peer_accounts_ref.lock().await.clone();
     let encoded_sets = workload_client
@@ -587,6 +609,7 @@ where
         return Ok(());
     };
     let desired_hash = desired.local.configuration_hash;
+    reject_unqualified_quv_rotation(quv_enabled, current_hash, desired_hash, next_height)?;
     if current_hash == Some(desired_hash) {
         return Ok(());
     }
@@ -764,6 +787,7 @@ where
             peer_accounts_ref: ctx.peer_accounts_ref.clone(),
             consensus_engine_ref: ctx.consensus_engine_ref.clone(),
             aft_safety_mode: ctx.config.aft_safety_mode,
+            quv_enabled: !ctx.config.aft_quv_domain_policies.is_empty(),
         });
         (
             ctx.config.aft_safety_mode,
@@ -779,11 +803,22 @@ where
     // strict-to-classical downgrade cannot strand a committed header between
     // incompatible network epochs.
     if matches!(consensus_type, ioi_types::config::ConsensusType::Aft) {
-        let (workload_client, was_strict, network_id, peer_id, pq_signer, outbox_root) = {
+        let (
+            workload_client,
+            current_hash,
+            was_strict,
+            quv_enabled,
+            network_id,
+            peer_id,
+            pq_signer,
+            outbox_root,
+        ) = {
             let context = context_arc.lock().await;
             (
                 context.view_resolver.workload_client().clone(),
+                context.aft_pq_configuration_hash,
                 context.aft_pq_peer_keys.is_some(),
+                !context.config.aft_quv_domain_policies.is_empty(),
                 context.genesis_hash,
                 context.local_keypair.public().to_peer_id(),
                 context.pqc_signer.clone(),
@@ -808,6 +843,14 @@ where
             return Err(anyhow!(
                 "refusing silent downgrade from strict PQ AFT channels at height {next_height} before header publication"
             ));
+        }
+        if let Some(desired) = desired.as_ref() {
+            reject_unqualified_quv_rotation(
+                quv_enabled,
+                current_hash,
+                desired.local.configuration_hash,
+                next_height,
+            )?;
         }
     }
     if matches!(aft_mode, AftSafetyMode::Asymptote) {

@@ -28,7 +28,9 @@
 // declares only the single name that is not already in scope and fully
 // qualifies everything else.
 
-use super::post_commit::durably_update_header_then_publish_committed;
+use super::post_commit::{
+    durably_update_header_then_publish_committed, reject_unqualified_quv_rotation,
+};
 
 type CommitPathReceiptMap = Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>;
 type CommitPathStatusCache =
@@ -504,6 +506,12 @@ fn classic_pq_header_authority_is_rooted_and_guardian_independent() {
 
 #[test]
 fn pq_rotation_is_preflighted_before_header_authority_or_durability() {
+    POST_COMMIT_SOURCE
+        .find("refusing aft_quv_v0 validator-set rotation at height {next_height} without a live Q-EA7 handoff authorization")
+        .expect("the Q-EA7 rotation refusal must remain present");
+    let quv_preflight = POST_COMMIT_SOURCE
+        .rfind("reject_unqualified_quv_rotation(")
+        .expect("the Q-EA7 rotation refusal must run in the pre-publication path");
     let preflight = POST_COMMIT_SOURCE
         .find("refusing silent downgrade from strict PQ AFT channels at height {next_height} before header publication")
         .expect("the strict PQ rotation preflight must remain present");
@@ -520,11 +528,23 @@ fn pq_rotation_is_preflighted_before_header_authority_or_durability() {
         .find("Self-Voted for block")
         .expect("current-height self-vote must remain present");
 
+    assert!(quv_preflight < authority && quv_preflight < durability);
     assert!(preflight < authority && preflight < durability);
     assert!(
         self_vote < activation,
         "old-configuration vote/QC traffic must be emitted before manager replacement"
     );
+}
+
+#[test]
+fn quv_rotation_refuses_every_unqualified_configuration_change() {
+    let current = [3; 32];
+    let successor = [4; 32];
+
+    assert!(reject_unqualified_quv_rotation(true, Some(current), current, 11).is_ok());
+    assert!(reject_unqualified_quv_rotation(false, Some(current), successor, 11).is_ok());
+    assert!(reject_unqualified_quv_rotation(true, Some(current), successor, 11).is_err());
+    assert!(reject_unqualified_quv_rotation(true, None, successor, 11).is_err());
 }
 
 #[test]
