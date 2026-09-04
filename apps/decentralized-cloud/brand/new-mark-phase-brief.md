@@ -21,7 +21,7 @@ the three things a replacement has to beat:
 3. **The one-ink form is one silhouette.** Not three blocks. See the struck control
    below.
 
-## Owner reference for the new direction
+## Concept one — the routed graph
 
 A **graph mark**: three or four circular nodes joined by straight edges — a horizontal
 edge between two end nodes, with nodes above and below on the right side joined
@@ -37,9 +37,9 @@ hypothesis fails unless the lit route is visible **in the lockup**, not only in 
 icon. That is the exact failure mode that cost the monogram its derivability score, so
 it is the first thing to test, not the last.
 
-## Hazards to state on the board BEFORE any drawing
+### Hazards to state on its board before any drawing
 
-These are not review findings to be discovered later; they are known now and the board
+These are not review findings to be discovered later; they are known now, and the board
 names them itself.
 
 1. **It is structurally the Android/Material "share" glyph.** Three nodes joined by two
@@ -53,6 +53,37 @@ names them itself.
    the reversed white-on-onyx form handle the colour half. **Geometry must handle the
    rest** — a token swap on a Google-shaped mark is still a Google-shaped mark.
 
+## Concept two — capacity as blocks
+
+Two flat **isometric blocks** in two-tone blue: a longer stepped slab (lighter top
+face, darker front and side faces) and a smaller cube to its right, sitting slightly
+lower. White ground, no tile.
+
+**Concept:** capacity as blocks — infrastructure that stacks. The pair reads as one
+large and one small placement.
+
+**Possible family continuity:** it rhymes with the reserved d's offset-block
+language. If that continuity is real, this concept inherits a visual relationship
+with the mark being replaced rather than discarding it — worth testing, not worth
+assuming.
+
+**Family-cue hypothesis to test first:** *which block is lit*, or *which face is
+open*, names the sibling — and as with concept one, it must be visible **in the
+lockup**, not only in the app icon.
+
+### Hazards to state on its board before any drawing
+
+1. **It is Google Cloud's isometric product-icon language nearly verbatim.** Two-tone
+   blue isometric slabs is Compute Engine and Cloud Build. Same trap as concept one's
+   second hazard, and colour tokens will not solve it: geometry must.
+2. **Isometric geometry collapses at 16px** — the size at which every concept in this
+   programme has died. So the first test is 16px in one ink: two blocks with legible
+   depth, or a smudge. Nothing else about this concept is worth measuring until that
+   is answered.
+3. **"Cube = compute" is the default hosting-logo shape.** Distinctiveness has to come
+   from construction, and the board names the category in one line and says why this
+   is not simply another of them.
+
 ## Process, as ruled: small-size-first
 
 The monogram phase spent its effort on craft and boards before establishing that the
@@ -62,8 +93,10 @@ of true circles — on a shape that reads as a toolbar icon. That order is inver
 **Every concept exists at 16px, 24px and in one ink BEFORE any board or polish.** At that
 stage each skeleton faces:
 
-- **the share-icon / control test** — shown cold at 16 and 24px, does a reader name it as
-  a control? If yes, the skeleton is dead; it does not proceed to craft.
+- **the control test** — shown cold at 16 and 24px, does a reader name it as a control or
+  a stock category shape? Concept one has to escape the share glyph, concept two the
+  isometric compute cube. If a reader names either, the skeleton is dead and does not
+  proceed to craft.
 - **the one-drawing test** — is the reduction the same drawing in fewer inks, or a
   different object? The monogram passed this and the reserved d failed it.
 - **the lockup-cue test** — is the sibling cue visible in the lockup at product size, not
