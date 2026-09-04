@@ -187,12 +187,75 @@ async function run() {
       `HTTP ${again.status} ${errCode(again)}`);
   }
 
-  // ── 5. The agent execution lane is refused BY NAME, not silently absent. ──
+  // ── 5. The agent execution lane: the lease is the authority, and it is checked. ──
+  //
+  // Every refusal below must land BEFORE any provider is contacted. Placement is not a
+  // local ranking — it refreshes candidates and reaches venues — so a lease that got as
+  // far as placement would have been reported rather than refused.
   if (agent.status === 201) {
-    const r = await call("POST", `/v1/hypervisor/cloud-jobs/${agent.body.job.job_id}/execute`, { dry_run: true });
-    ok("an agent job's execution is refused by name rather than run under a human's authority",
-      r.status === 501 && errCode(r) === "agent_execution_lane_not_wired",
-      `HTTP ${r.status} ${errCode(r)}`);
+    const agentJob = agent.body.job.job_id;
+    const r = await call("POST", `/v1/hypervisor/cloud-jobs/${agentJob}/execute`, { dry_run: true });
+
+    // The gate accepts EITHER a working draw-down or a NAMED refusal, because both are
+    // honest — what it refuses to accept is an agent executing under someone else's
+    // authority, or a silent failure with no name on it.
+    const named = [
+      "capability_lease_absent",
+      "capability_lease_revoked",
+      "capability_lease_exhausted",
+      "capability_lease_expired",
+      "capability_lease_out_of_scope",
+      "lease_predates_principal_binding",
+      "lease_principal_no_longer_authorized",
+    ];
+    const code = errCode(r);
+    ok("an agent job either draws down its lease or is refused by a NAMED lease reason",
+      r.status === 200 || (r.status === 403 && named.includes(code)),
+      `HTTP ${r.status} ${code}`);
+
+    // A refusal must be recorded on the job, not merely returned — an authority refusal
+    // that leaves no trace is one nobody can audit afterwards.
+    if (r.status === 403) {
+      const reread = await call("GET", `/v1/hypervisor/cloud-jobs/${agentJob}`);
+      ok("an authority refusal is persisted on the job with its reason",
+        reread.body?.job?.state === "refused_authority" && !!reread.body?.job?.refusal?.code,
+        `${reread.body?.job?.state} / ${reread.body?.job?.refusal?.code}`);
+      ok("the refusal happened before any provider was touched — no placement was recorded",
+        !reread.body?.job?.placement, JSON.stringify(reread.body?.job?.placement || null));
+    }
+
+    // A lease this system never issued must never resolve to authority.
+    const forged = await call("POST", "/v1/hypervisor/cloud-jobs",
+      baseEnvelope({ budget_ref: budgetRef, caller_kind: "agent",
+        authority_ref: "capability-lease://lease_forged_does_not_exist" }));
+    if (forged.status === 201) {
+      const f = await call("POST", `/v1/hypervisor/cloud-jobs/${forged.body.job.job_id}/execute`, { dry_run: true });
+      ok("a lease that does not exist confers nothing",
+        f.status === 403 && errCode(f) === "capability_lease_absent",
+        `HTTP ${f.status} ${errCode(f)}`);
+    }
+
+    // ── The invariant the whole design rests on. ──
+    // A human and an agent submit the same envelope; the records they produce may differ
+    // ONLY in identity and in how authority was obtained. If an execution outcome ever
+    // differs beyond that, one caller is being offered something the other is not.
+    if (human.status === 201 && r.status === 200) {
+      const h = await call("GET", `/v1/hypervisor/cloud-jobs/${human.body.job.job_id}`);
+      const a = await call("GET", `/v1/hypervisor/cloud-jobs/${agentJob}`);
+      const shape = (j) => {
+        const { job_id, job_ref, intent_ref, created_at, caller_kind, authority, receipts,
+                placement, ...rest } = j || {};
+        return {
+          rest,
+          receiptKinds: (receipts || []).map((x) => x?.schema_version || x?.kind || null),
+          placementKeys: placement ? Object.keys(placement).sort() : null,
+        };
+      };
+      const hs = JSON.stringify(shape(h.body?.job));
+      const as = JSON.stringify(shape(a.body?.job));
+      ok("the two doors produce byte-identical execution records apart from identity and authority",
+        hs === as, hs === as ? "identical" : `human ${hs.slice(0, 90)} vs agent ${as.slice(0, 90)}`);
+    }
   }
 }
 

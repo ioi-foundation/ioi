@@ -1406,6 +1406,9 @@ async fn storage_lease(
         authority_reason: "storage_archive_authority_required".to_string(),
         grant_value,
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
     match authorize_capability_lease(st, &lease_req).await {
         Ok(lease) => Ok((lease.descriptor.clone(), lease.grant_ref.clone())),
