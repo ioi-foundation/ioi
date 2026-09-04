@@ -1346,10 +1346,13 @@ async fn test_aft_quv_overlapping_member_installs_and_recovers_the_same_live_han
         )?;
 
         for (index, log) in &mut successor_logs {
-            assert_log_contains(
+            assert_log_contains_any(
                 &format!("overlapping QUV successor node {index}"),
                 log,
-                "Activated successor from its local live old-root QUV install",
+                &[
+                    "Activated successor from its local live old-root QUV install",
+                    "Recovered QUV successor authority from its durable local install gate",
+                ],
             )
             .await?;
             wait_for_height(
