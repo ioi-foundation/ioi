@@ -238,6 +238,12 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    this surface's hairlines. */
 :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 3px; }
 
+/* Available to a screen reader, absent from the page. Deliberately NOT display:none,
+   which removes an element from the accessibility tree too and would silence the live
+   region this class exists to carry. */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
 /* A skip link, because the first seven tab stops are the surface nav on every page. */
 .skip { position: absolute; left: -9999px; top: 0; z-index: 3; }
 .skip:focus { left: 8px; top: 8px; background: var(--paper); color: var(--ink);

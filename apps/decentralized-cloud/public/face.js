@@ -153,9 +153,23 @@ const surface = document.getElementById("surface");
 let generation = 0;
 const currentGeneration = () => generation;
 
+const statusRegion = document.getElementById("surface-status");
+
 function paint(mine, ...nodes) {
   if (mine !== generation) return false;
   surface.replaceChildren(...nodes);
+  // Announce WHAT CHANGED, not the document. `aria-live` used to sit on <main>, so
+  // every surface swap re-announced the whole page — and on Placement that was
+  // 13.66 MB of text before that surface was rewritten. Shrinking Placement removed
+  // the magnitude but not the fault: a live region that reads the document is a live
+  // region nobody leaves switched on. This says the surface's own heading and the
+  // machine-readable line under it — what a sighted reader takes from the top of the
+  // page — and nothing else.
+  if (statusRegion) {
+    const heading = surface.querySelector("h1")?.textContent?.trim() || "";
+    const meta = surface.querySelector(".meta")?.textContent?.trim() || "";
+    statusRegion.textContent = [heading, meta].filter(Boolean).join(" — ").slice(0, 200);
+  }
   return true;
 }
 
