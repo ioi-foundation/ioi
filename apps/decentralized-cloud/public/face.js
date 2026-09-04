@@ -258,24 +258,31 @@ async function renderCandidates({ silent = false } = {}) {
               "this surface does not perform — so an intent nobody has refreshed lately shows " +
               "its evidence expired rather than a price it cannot stand behind.")));
 
-  const rows = [
-    el("div", { class: "trow head" },
-      el("div", {}, "venue"), el("div", {}, "evidence"), el("div", {}, "per hour"), el("div", {}, "good until")),
-  ];
+  // A REAL TABLE. This was four <div>s per row with a grid layout, and a review found
+  // `document.querySelectorAll("table").length = 0` and `th = 0` on all five static
+  // surfaces: "$0.0136" had no programmatic association with "PER HOUR" or with the
+  // `vast` row it belonged to. That is the single most important datum on the surface,
+  // and to a screen reader it was a loose number in a stack of loose numbers.
+  //
+  // The header stays a header at every width. Narrow screens scroll the table inside
+  // its own container rather than restyling it into blocks, because changing `display`
+  // on table elements strips their implicit roles — the fix would have removed the
+  // semantics it was added to provide.
+  const rows = [];
 
   if (cheapest) {
-    rows.push(el("div", { class: "trow" },
-      el("div", { class: "stack", style: "gap: 7px;" },
+    rows.push(el("tr", { class: "trow" },
+      el("th", { class: "stack", scope: "row", style: "gap: 7px;" },
         el("div", { class: "mono", style: "font-size: 14px;" }, cheapest.provider_kind || "—"),
         chip("live_evidence", "live")),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label); line-height: 1.5;" },
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label); line-height: 1.5;" },
         cheapest.quote.basis,
         el("br"),
         cheapest.quote.quote_ref || "",
         el("br"),
         `observed ${clock(cheapest.observed_at)}`),
-      el("div", { class: "mono", style: "font-size: 16px;" }, `$${cheapest.quote.usd_per_hour.toFixed(4)}`),
-      el("div", { class: "freshness" },
+      el("td", { class: "mono", style: "font-size: 16px;" }, `$${cheapest.quote.usd_per_hour.toFixed(4)}`),
+      el("td", { class: "freshness" },
         dial(cheapest.observed_at, cheapest.expires_at),
         el("div", { class: "stack", style: "gap: 4px;" },
           el("div", { class: "mono", style: "font-size: 13px;" }, clock(cheapest.expires_at)),
@@ -288,16 +295,16 @@ async function renderCandidates({ silent = false } = {}) {
   const remainder = live.filter((c) => c !== cheapest);
   if (remainder.length) {
     const kinds = [...new Set(remainder.map((c) => c.provider_kind))];
-    rows.push(el("div", { class: "trow" },
-      el("div", { class: "mono", style: "font-size: 14px; color: var(--label);" }, kinds.join(", ")),
-      el("div", { class: "prose" },
+    rows.push(el("tr", { class: "trow" },
+      el("th", { class: "mono", scope: "row", style: "font-size: 14px; color: var(--label);" }, kinds.join(", ")),
+      el("td", { class: "prose" },
         `${remainder.length} further live quotes` +
         (kinds.length === 1 && kinds[0] === cheapest?.provider_kind
           ? " from the same venue — priced and comparable to each other, but they add no venue diversity."
           : ".")),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" },
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" },
         `$${Math.min(...remainder.map((c) => c.quote.usd_per_hour)).toFixed(4)} up`),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "same window")));
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "same window")));
   }
 
   // Everything that is not live is summarised by the reason it is not, rather than
@@ -314,15 +321,15 @@ async function renderCandidates({ silent = false } = {}) {
   }
 
   for (const [reason, entry] of [...notLive.entries()].sort((a, b) => b[1].count - a[1].count)) {
-    rows.push(el("div", { class: "trow" },
-      el("div", { class: "stack", style: "gap: 7px;" },
+    rows.push(el("tr", { class: "trow" },
+      el("th", { class: "stack", scope: "row", style: "gap: 7px;" },
         el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" },
           [...entry.kinds].sort().join(", ")),
         chip(reason === "expired" ? "expired" : "not a price", reason === "expired" ? "expired" : "")),
-      el("div", { class: "prose" },
+      el("td", { class: "prose" },
         `${entry.count} candidate${entry.count === 1 ? "" : "s"} — ${reason}.`),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—"),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—")));
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—"),
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—")));
   }
 
   const observedIso = latest.observed || observed;
@@ -361,7 +368,13 @@ async function renderCandidates({ silent = false } = {}) {
           : null),
       venueVerdict,
       el("div", { class: "eyebrow" }, "Evidence"),
-      el("div", { class: "table" }, rows),
+      el("div", { class: "table-scroll" },
+        el("table", { class: "table" },
+          el("thead", {},
+            el("tr", { class: "trow head" },
+              el("th", { scope: "col" }, "venue"), el("th", { scope: "col" }, "evidence"),
+              el("th", { scope: "col" }, "per hour"), el("th", { scope: "col" }, "good until"))),
+          el("tbody", {}, rows))),
       el("p", { class: "prose" },
         "A price appears in this table only when the daemon returned it as live_evidence " +
         "with an observed_at, an expires_at still in the future, and a quote reference it " +

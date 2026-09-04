@@ -175,13 +175,27 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .panel.absent { border-left: 3px solid var(--border-strong); }
 .panel.fault { border-left: 3px solid var(--expired); }
 
-.table { border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
-.trow { display: grid; grid-template-columns: 148px minmax(0, 1fr) 132px 168px; gap: 20px;
-  padding: 16px 20px; align-items: center; border-top: 1px solid var(--hairline-soft); }
-.trow.head { padding: 12px 20px; background: var(--surface); border-top: 0;
-  border-bottom: 1px solid var(--hairline); }
-.trow.head > * { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+/* A REAL TABLE. This was a grid of <div>s: 0 <table>, 0 <th> on every surface, so the
+   price had no programmatic association with its column or its row. The layout below
+   deliberately does NOT restyle table elements to block or grid at any width —
+   changing `display` on a table strips its implicit roles, which would remove the
+   semantics this change exists to add. Narrow screens scroll it instead. */
+.table-scroll { border: 1px solid var(--hairline); border-radius: 10px; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed;
+  /* Below this the columns would crush rather than scroll. */
+  min-width: 620px; }
+.trow > th, .trow > td { padding: 16px 20px; vertical-align: middle; text-align: left;
+  font-weight: 400; border-top: 1px solid var(--hairline-soft); }
+.table thead .trow > th { padding: 12px 20px; background: var(--surface); border-top: 0;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--label); }
+.table tbody .trow:first-child > th, .table tbody .trow:first-child > td { border-top: 0; }
+.trow > :nth-child(1) { width: 168px; }
+.trow > :nth-child(3) { width: 132px; }
+.trow > :nth-child(4) { width: 178px; }
+/* A row header carries a chip and a name stacked, so it needs the stack's own flow. */
+.trow > th.stack { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
 
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 40px; align-items: start; }
 .stack { display: flex; flex-direction: column; }
@@ -295,14 +309,12 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 }
 
 @media (max-width: 780px) {
-  /* Four columns of evidence do not fit, and collapsing only the DATA rows left the
-     header row's four labels stacked above unlabelled values — the review's finding.
-     The header is dropped and every row becomes its own block, so nothing is orphaned.
-     The proper fix is a real table with real headers; that is markup, and it is
-     tracked separately. Until then the header is not left lying. */
-  .trow.head { display: none; }
-  .trow { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 14px 16px; }
-  .trow > :nth-child(3), .trow > :nth-child(4) { grid-column: auto; }
+  /* The table is NOT restyled here. An earlier version hid the header row and turned
+     each row into a block, which fixed the orphaned-labels complaint and would have
+     destroyed the table semantics added in the same pass. It scrolls in its own
+     container instead: the header stays a header, every cell keeps its column, and
+     the body still does not scroll. */
+  .trow > th, .trow > td { padding: 14px 16px; }
   .rail { padding: 18px 16px; }
   .panel { padding: 16px 16px; }
   h1 { font-size: 26px; }
