@@ -34,6 +34,8 @@ pub enum PqConsensusPayloadV1 {
     Echo(Vec<u8>),
     Panic(Vec<u8>),
     Confidence(Vec<u8>),
+    QuvPushQuery(Vec<u8>),
+    QuvReply(Vec<u8>),
 }
 
 impl PqConsensusPayloadV1 {
@@ -48,6 +50,9 @@ impl PqConsensusPayloadV1 {
             Self::AftAsyncOrdering(_) => PqChannelContentTypeV1::AsynchronousConsensus,
             Self::Echo(_) | Self::Panic(_) | Self::Confidence(_) => {
                 PqChannelContentTypeV1::FallbackControl
+            }
+            Self::QuvPushQuery(_) | Self::QuvReply(_) => {
+                PqChannelContentTypeV1::OnlineAuthorization
             }
         }
     }

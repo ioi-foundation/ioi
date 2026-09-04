@@ -13,6 +13,7 @@ use ioi_api::{
 use ioi_consensus::aft::{
     authenticated_quorum::ValidatorKeyRegistry,
     hash_async::{DurableCrossPathSigningFence, HashAsyncSession},
+    query_unanimity::DurableQuvMemberV0,
 };
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
@@ -21,7 +22,7 @@ use ioi_networking::traits::NodeState;
 use ioi_types::app::KernelEvent; // [NEW]
 use ioi_types::app::{
     AccountId, AftAsyncExecutedBlockCertificateV1, AftAsyncOrderingCertificateV1,
-    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation, TxHash,
+    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation, QuvNonce, TxHash,
     ValidatorSetV1,
 };
 use libp2p::{identity, PeerId};
@@ -155,6 +156,16 @@ where
     /// Single persistent signing fence shared by optimistic and fallback
     /// decision signers.
     pub aft_cross_path_signing_fence: Option<Arc<std::sync::Mutex<DurableCrossPathSigningFence>>>,
+    /// Durable write-before-reply conflict state for the separately named
+    /// online QUV profile. Absent when no QUV domain is provisioned.
+    pub aft_quv_member: Option<Arc<Mutex<DurableQuvMemberV0>>>,
+    /// At most one durable PUSHQUERY from each authenticated account may wait
+    /// for the member-state serializer. This bounds Byzantine queue occupancy
+    /// to the rooted membership size instead of accepting an unbounded flood.
+    pub(super) aft_quv_push_inflight: HashSet<AccountId>,
+    /// Live nonce-bound verifier operations. Entries exist only through their
+    /// rooted decision interval and never become portable authorization.
+    pub(super) aft_quv_operations: HashMap<QuvNonce, super::quv::PendingQuvOperationV0>,
     /// Active per-height hash-only fallback sessions.
     pub aft_async_sessions: BTreeMap<u64, HashAsyncSession>,
     /// Verified exact-q asynchronous certificates awaiting or completing the

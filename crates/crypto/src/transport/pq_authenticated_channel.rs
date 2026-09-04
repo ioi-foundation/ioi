@@ -139,6 +139,8 @@ pub enum PqChannelContentTypeV1 {
     FallbackControl,
     AsynchronousConsensus,
     ChannelControl,
+    /// Interactive, non-portable effect authorization traffic.
+    OnlineAuthorization,
 }
 
 /// One canonical AEAD-protected application record.

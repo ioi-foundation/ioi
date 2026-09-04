@@ -6825,6 +6825,7 @@ dependencies = [
 name = "ioi-consensus"
 version = "0.1.0"
 dependencies = [
+ "agentgres",
  "anyhow",
  "async-trait",
  "bs58 0.4.0",

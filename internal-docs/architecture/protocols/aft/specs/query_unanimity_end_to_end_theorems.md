@@ -11,7 +11,7 @@ The M13Q assumptions remain visible. The lift adds:
 
 | ID | Assumption | Purpose |
 |---|---|---|
-| Q-EA1 | Every ordered candidate binds its rooted configuration, domain, slot number, exact predecessor candidate hash, authority mode, and payload/manifest hash | prevents cross-history substitution |
+| Q-EA1 | Every ordered candidate binds its rooted configuration, independently provisioned policy root (including authority and timing), domain, slot number, exact predecessor candidate hash, authority mode, and payload/manifest hash | prevents cross-history substitution and candidate-nominated authority |
 | Q-EA2 | A correct runtime appends only the unique M13Q-accepted candidate for its next slot and durably commits the candidate, predecessor, and new head before exposing it | prefix and restart safety |
 | Q-EA3 | Correct recovery begins from that durable head, never truncates or rewrites it, and replays no effect mutation from chain state alone | crash safety |
 | Q-EA4 | Every irreversible executor performs its own QUV operation against the active rooted membership immediately before entering T10's durable `Claimed` state | consequence authorization |

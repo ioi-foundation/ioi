@@ -9,8 +9,8 @@ use crate::recognized_effect::CommittedRecognizedEffect;
 use fs2::FileExt;
 use ioi_types::app::consensus::VerifiedGuaranteeV1;
 use ioi_types::app::{
-    ConsequenceHash, EffectFenceV1, EffectManifestV1, ExternalResourceProfileV1,
-    ExternalResourceRecordV1, ReconciliationPolicyV1,
+    ConsequenceHash, EffectAuthorizationModeV1, EffectFenceV1, EffectManifestV1,
+    ExternalResourceProfileV1, ExternalResourceRecordV1, ReconciliationPolicyV1,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -94,6 +94,25 @@ impl AcceptedEffectAuthorizationV1 {
             authorization_receipt_root,
         })
     }
+}
+
+/// Process-local result of an online authorization operation. This is not a
+/// portable finality receipt. The implementation producing it is responsible
+/// for freshness and for consuming its own non-replayable session state.
+#[derive(Debug, PartialEq, Eq)]
+pub struct OnlineEffectAuthorizationBindingV1 {
+    pub mode: EffectAuthorizationModeV1,
+    pub payload_hash: ConsequenceHash,
+    pub configuration_root: ConsequenceHash,
+    pub conflict_domain_hash: ConsequenceHash,
+    pub conflict_slot: u64,
+    pub policy_root: ConsequenceHash,
+}
+
+/// A single-use, process-local authorization continuation. Implementations
+/// must perform any freshness check while consuming `self`.
+pub trait ImmediateOnlineEffectAuthorizationV1 {
+    fn consume(self) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -338,6 +357,9 @@ pub enum ConsequenceError {
     FenceExpired,
     ReplayConflict,
     UnsafeResourceContract,
+    OnlineAuthorizationRequired,
+    UnexpectedOnlineAuthorization,
+    InvalidOnlineAuthorization,
     WrongState(ConsequencePhaseV1),
     Ambiguous,
     ReconciliationExhausted,
@@ -499,7 +521,58 @@ impl ConsequenceStore {
         effect_id: &str,
         resource: &mut dyn ExternalResourceV1,
     ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
+        self.execute_after_online_authorization(effect_id, resource, false)
+    }
+
+    /// Execute an `online_query_unanimity_v0` effect only as the immediate
+    /// continuation of the executor's own online authorization operation.
+    pub fn execute_with_online_authorization<A: ImmediateOnlineEffectAuthorizationV1>(
+        &mut self,
+        effect_id: &str,
+        resource: &mut dyn ExternalResourceV1,
+        authorization: A,
+    ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
+        let receipt = self.load(effect_id)?;
+        if receipt.manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+        {
+            return Err(ConsequenceError::UnexpectedOnlineAuthorization);
+        }
+        let binding = authorization.consume()?;
+        validate_online_authorization(&receipt, &binding)?;
+        self.execute_after_online_authorization(effect_id, resource, true)
+    }
+
+    /// Return the exact online binding an executor must satisfy before it
+    /// starts a network operation. This is a requirement, never evidence that
+    /// the operation happened, and grants no authority by itself.
+    pub fn online_authorization_requirement(
+        &self,
+        effect_id: &str,
+    ) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
+        let receipt = self.load(effect_id)?;
+        if receipt.manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+        {
+            return Err(ConsequenceError::UnexpectedOnlineAuthorization);
+        }
+        online_authorization_requirement(&receipt)
+    }
+
+    fn execute_after_online_authorization(
+        &mut self,
+        effect_id: &str,
+        resource: &mut dyn ExternalResourceV1,
+        online_authorized: bool,
+    ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
         let mut receipt = self.load(effect_id)?;
+        match (receipt.manifest.authorization_mode, online_authorized) {
+            (EffectAuthorizationModeV1::OnlineQueryUnanimityV0, false) => {
+                return Err(ConsequenceError::OnlineAuthorizationRequired)
+            }
+            (EffectAuthorizationModeV1::Portable, true) => {
+                return Err(ConsequenceError::UnexpectedOnlineAuthorization)
+            }
+            _ => {}
+        }
         if resource.profile() != &receipt.manifest.resource_profile {
             return Err(ConsequenceError::ProfileMismatch);
         }
@@ -730,6 +803,42 @@ fn validate_fence(
     } else {
         Err(ConsequenceError::FenceExpired)
     }
+}
+
+fn validate_online_authorization(
+    receipt: &ConsequenceReceiptV1,
+    binding: &OnlineEffectAuthorizationBindingV1,
+) -> Result<(), ConsequenceError> {
+    if *binding != online_authorization_requirement(receipt)? {
+        return Err(ConsequenceError::InvalidOnlineAuthorization);
+    }
+    Ok(())
+}
+
+fn online_authorization_requirement(
+    receipt: &ConsequenceReceiptV1,
+) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
+    let manifest = &receipt.manifest;
+    let expected_configuration = match manifest.fence {
+        EffectFenceV1::ProtocolHeight {
+            configuration_hash, ..
+        } => configuration_hash,
+        EffectFenceV1::AuthorityEpoch { .. } => manifest
+            .required_guarantees
+            .configuration_hash
+            .ok_or(ConsequenceError::InvalidOnlineAuthorization)?,
+    };
+    let domain = manifest.conflict_domain_commitment().map_err(type_error)?;
+    Ok(OnlineEffectAuthorizationBindingV1 {
+        mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+        payload_hash: receipt.manifest_root,
+        configuration_root: expected_configuration,
+        conflict_domain_hash: domain,
+        conflict_slot: manifest.conflict_slot,
+        policy_root: manifest
+            .online_authorization_policy_root
+            .ok_or(ConsequenceError::InvalidOnlineAuthorization)?,
+    })
 }
 
 fn claim_root(receipt: &ConsequenceReceiptV1) -> Result<ConsequenceHash, ConsequenceError> {

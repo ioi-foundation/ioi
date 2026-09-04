@@ -4,11 +4,11 @@ use ioi_crypto::transport::pq_authenticated_channel::{
     start_pq_channel, PqChannelScopeV1,
 };
 use ioi_types::app::{
-    CollateralBondV1, EconomicAssuranceVersionV1, EffectFenceV1, EffectManifestVersionV1,
-    EffectResourceKeyV1, ExternalResourceContractV1, ExternalResourceProfileV1,
-    ReconciliationPolicyV1, SealKeyBindingV1, SealKeyManifestEntryV1, SealKeyScopeV1,
-    SlashableBehaviorV1, SlashableCollateralRequirementV1, AFT_SEAL_KEY_MANIFEST_SCHEMA_V1,
-    AFT_SEAL_PROTOCOL_VERSION_V2, AFT_SEAL_SHARE_SCHEMA_V2,
+    CollateralBondV1, EconomicAssuranceVersionV1, EffectAuthorizationModeV1, EffectFenceV1,
+    EffectManifestVersionV1, EffectResourceKeyV1, ExternalResourceContractV1,
+    ExternalResourceProfileV1, ReconciliationPolicyV1, SealKeyBindingV1, SealKeyManifestEntryV1,
+    SealKeyScopeV1, SlashableBehaviorV1, SlashableCollateralRequirementV1,
+    AFT_SEAL_KEY_MANIFEST_SCHEMA_V1, AFT_SEAL_PROTOCOL_VERSION_V2, AFT_SEAL_SHARE_SCHEMA_V2,
 };
 use slh_dsa::signature::Signer;
 use slh_dsa::{Sha2_128s, SigningKey as SlhDsaSigningKey};
@@ -243,6 +243,9 @@ fn build_fixture() -> PortableAssuranceReceiptV1 {
         effect_id: "effect://portable/1".into(),
         resource_id: "resource://portable/register".into(),
         conflict_domain_id: conflict_domain_id.into(),
+        conflict_slot: 1,
+        authorization_mode: EffectAuthorizationModeV1::Portable,
+        online_authorization_policy_root: None,
         read_set: vec![EffectResourceKeyV1 {
             key: "balance/source".into(),
             predecessor: Some([21; 32]),

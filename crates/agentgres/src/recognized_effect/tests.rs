@@ -13,10 +13,10 @@ use ioi_finality::{
 };
 use ioi_types::app::{
     account_id_from_key_material, canonical_transactions_root, AccountId, ApplicationTransaction,
-    Block, BlockHeader, ChainTransaction, EffectFenceV1, EffectManifestV1, EffectManifestVersionV1,
-    EffectResourceKeyV1, ExternalResourceContractV1, ExternalResourceProfileV1,
-    GuaranteeRequirementsV1, QuorumCertificate, ReconciliationPolicyV1, SignHeader, SignatureProof,
-    SignatureSuite, StateRoot,
+    Block, BlockHeader, ChainTransaction, EffectAuthorizationModeV1, EffectFenceV1,
+    EffectManifestV1, EffectManifestVersionV1, EffectResourceKeyV1, ExternalResourceContractV1,
+    ExternalResourceProfileV1, GuaranteeRequirementsV1, QuorumCertificate, ReconciliationPolicyV1,
+    SignHeader, SignatureProof, SignatureSuite, StateRoot,
 };
 use ioi_types::codec::to_bytes_canonical;
 use ioi_types::config::RuntimeFinalityProfile;
@@ -39,6 +39,9 @@ fn consequence_manifest(effect_id: &str) -> EffectManifestV1 {
         effect_id: effect_id.into(),
         resource_id: "resource://acme/test".into(),
         conflict_domain_id: "domain://acme/test".into(),
+        conflict_slot: 1,
+        authorization_mode: EffectAuthorizationModeV1::Portable,
+        online_authorization_policy_root: None,
         read_set: Vec::new(),
         write_set: vec![EffectResourceKeyV1 {
             key: "result".into(),

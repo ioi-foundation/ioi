@@ -31,6 +31,17 @@ pub enum EffectManifestVersionV1 {
     V1,
 }
 
+/// The final authorization operation required immediately before an effect is
+/// claimed. Online QUV is deliberately not representable as a portable proof.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectAuthorizationModeV1 {
+    /// Existing portable assurance is sufficient for this effect.
+    Portable,
+    /// The executor must run `aft_quv_v0` itself before entering `Claimed`.
+    OnlineQueryUnanimityV0,
+}
+
 /// One key in the complete declared read or write footprint.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -175,6 +186,14 @@ pub struct EffectManifestV1 {
     pub resource_id: String,
     /// Independent conflict-domain identity.
     pub conflict_domain_id: String,
+    /// Monotone slot inside the conflict domain.
+    pub conflict_slot: u64,
+    /// Required final authorization operation. There is no timeout downgrade
+    /// from online QUV to portable authorization.
+    pub authorization_mode: EffectAuthorizationModeV1,
+    /// Exact independently provisioned online policy. Present only for QUV;
+    /// it commits authority and complete timing/continuation bounds.
+    pub online_authorization_policy_root: Option<ConsequenceHash>,
     /// Complete declared resource read footprint.
     pub read_set: Vec<EffectResourceKeyV1>,
     /// Complete declared resource write footprint.
@@ -207,6 +226,9 @@ impl EffectManifestV1 {
         validate_token("effect_id", &self.effect_id)?;
         validate_token("resource_id", &self.resource_id)?;
         validate_token("conflict_domain_id", &self.conflict_domain_id)?;
+        if self.conflict_slot == 0 {
+            return Err(ConsequenceTypeError::InvalidConflictSlot);
+        }
         validate_token("idempotency_key", &self.idempotency_key)?;
         self.resource_profile.validate()?;
         validate_resource_set("read_set", &self.read_set, true)?;
@@ -223,6 +245,19 @@ impl EffectManifestV1 {
             if required != self.conflict_domain_commitment()? {
                 return Err(ConsequenceTypeError::RequiredConflictDomainMismatch);
             }
+        }
+        if self.authorization_mode == EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+            && self.idempotency_key != self.query_unanimity_idempotency_key()?
+        {
+            return Err(ConsequenceTypeError::InvalidQueryUnanimityIdempotencyKey);
+        }
+        match (
+            self.authorization_mode,
+            self.online_authorization_policy_root,
+        ) {
+            (EffectAuthorizationModeV1::OnlineQueryUnanimityV0, Some(root)) if root != [0; 32] => {}
+            (EffectAuthorizationModeV1::Portable, None) => {}
+            _ => return Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy),
         }
         match self.fence {
             EffectFenceV1::ProtocolHeight {
@@ -259,6 +294,20 @@ impl EffectManifestV1 {
             return Err(ConsequenceTypeError::InvalidReconciliationPolicy);
         }
         Ok(())
+    }
+
+    /// Stable QUV resource key. It binds the conflict domain and slot, never
+    /// the candidate payload, so duplicate/conflicting delivery cannot mint a
+    /// second external-resource key.
+    pub fn query_unanimity_idempotency_key(&self) -> Result<String, ConsequenceTypeError> {
+        let domain = self.conflict_domain_commitment()?;
+        let mut encoded = String::with_capacity(64);
+        for byte in domain {
+            use std::fmt::Write as _;
+            write!(&mut encoded, "{byte:02x}")
+                .map_err(|error| ConsequenceTypeError::CanonicalEncoding(error.to_string()))?;
+        }
+        Ok(format!("aft-quv-v0:{encoded}:{}", self.conflict_slot))
     }
 
     /// Encode the manifest as RFC 8785/JCS bytes.
@@ -350,6 +399,15 @@ pub enum ConsequenceTypeError {
     /// One identity field is empty, non-canonical, or too long.
     #[error("{0} is not a canonical non-empty token")]
     InvalidToken(&'static str),
+    /// Conflict-domain slots are one-based.
+    #[error("effect conflict slot must be nonzero")]
+    InvalidConflictSlot,
+    /// QUV must use the domain/slot-derived idempotency key.
+    #[error("online QUV idempotency key does not match the conflict domain and slot")]
+    InvalidQueryUnanimityIdempotencyKey,
+    /// QUV requires one nonzero policy root; portable mode forbids one.
+    #[error("online authorization policy root does not match the authorization mode")]
+    InvalidOnlineAuthorizationPolicy,
     /// A read/write set is not strictly sorted.
     #[error("{0} is not sorted and duplicate-free")]
     NonCanonicalResourceSet(&'static str),
@@ -449,6 +507,9 @@ mod tests {
             effect_id: "effect-1".into(),
             resource_id: "resource://ledger/account-a".into(),
             conflict_domain_id: "domain://account-a".into(),
+            conflict_slot: 1,
+            authorization_mode: EffectAuthorizationModeV1::Portable,
+            online_authorization_policy_root: None,
             read_set: vec![EffectResourceKeyV1 {
                 key: "balance/source".into(),
                 predecessor: Some([1; 32]),
@@ -532,6 +593,24 @@ mod tests {
         assert_eq!(
             manifest.validate(),
             Err(ConsequenceTypeError::InvalidReconciliationPolicy)
+        );
+    }
+
+    #[test]
+    fn online_mode_requires_a_nonzero_policy_root_and_portable_mode_forbids_it() {
+        let mut manifest = manifest(ExternalResourceContractV1::AtomicPutIfAbsent);
+        manifest.authorization_mode = EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+        assert_eq!(
+            manifest.validate(),
+            Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy)
+        );
+        manifest.online_authorization_policy_root = Some([7; 32]);
+        manifest.validate().unwrap();
+        manifest.authorization_mode = EffectAuthorizationModeV1::Portable;
+        assert_eq!(
+            manifest.validate(),
+            Err(ConsequenceTypeError::InvalidOnlineAuthorizationPolicy)
         );
     }
 

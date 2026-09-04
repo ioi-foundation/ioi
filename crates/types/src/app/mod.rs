@@ -52,6 +52,8 @@ pub mod media;
 pub mod model_registry;
 /// Data structures for reporting and penalizing misbehavior.
 pub mod penalties;
+/// Wire objects for online Query-Unanimity Verification.
+pub mod query_unanimity;
 pub mod ring_membership;
 /// Unified agent runtime substrate and cognitive-loop contracts.
 pub mod runtime;
@@ -103,6 +105,7 @@ pub use inference::*;
 pub use media::*;
 pub use model_registry::*;
 pub use penalties::*;
+pub use query_unanimity::*;
 pub use ring_membership::*;
 pub use runtime_contracts::*;
 pub use settlement::*;

@@ -4,6 +4,7 @@ pub mod boundary_ring_trace;
 pub mod experimental;
 pub mod guardian_majority;
 pub mod hash_async;
+pub mod query_unanimity;
 pub mod ring_membership_sim;
 
 use crate::{ConsensusDecision, ConsensusEngine, PenaltyEngine, PenaltyMechanism};

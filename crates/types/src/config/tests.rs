@@ -1,9 +1,10 @@
 use super::{
-    default_service_policies, AftSafetyMode, CommitmentSchemeType, ConsensusType, InferenceConfig,
-    McpMode, OrchestrationConfig, RuntimeFinalityProfile, StateTreeType, VmFuelCosts,
-    WorkloadConfig, ZkConfig, WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE,
+    default_service_policies, AftQuvDomainPolicyV0, AftSafetyMode, CommitmentSchemeType,
+    ConsensusType, InferenceConfig, McpMode, OrchestrationConfig, RuntimeFinalityProfile,
+    StateTreeType, VmFuelCosts, WorkloadConfig, ZkConfig, WALLET_EFFECT_V2_CONFIG_MIGRATION_CODE,
     WALLET_STANDING_AUTHORITY_CONFIG_MIGRATION_CODE,
 };
+use crate::app::{AccountId, QuvAuthorityModeV0};
 use crate::service_configs::MethodPermission;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -359,4 +360,35 @@ fn runtime_profile_engine_and_aft_safety_substitutions_refuse() {
         .validate()
         .expect_err("guardian majority is not peer-BFT evidence");
     assert!(error.contains("requires classic_bft safety"));
+}
+
+#[test]
+fn quv_policy_requires_exact_authority_and_durable_roots() {
+    let mut config: OrchestrationConfig =
+        toml::from_str("consensus_type = \"Aft\"\nrpc_listen_address = \"127.0.0.1:0\"\n")
+            .expect("AFT config parses");
+    config.aft_quv_domain_policies = vec![AftQuvDomainPolicyV0 {
+        domain_id: [7; 32],
+        authority_mode: QuvAuthorityModeV0::Owned,
+        owner: Some(AccountId([8; 32])),
+        delta_rt_millis: 1_000,
+        continuation_millis: 50,
+    }];
+    assert!(config.validate().is_err(), "durable roots are mandatory");
+
+    config.aft_pq_outbox_dir = Some("state".into());
+    config.aft_external_anchor_dir = Some("external-anchor".into());
+    config.validate().expect("complete QUV policy validates");
+
+    config.aft_quv_domain_policies[0].owner = None;
+    assert!(
+        config.validate().is_err(),
+        "owned policy may not infer its owner from the candidate"
+    );
+    config.aft_quv_domain_policies[0].authority_mode = QuvAuthorityModeV0::Unowned;
+    config.validate().expect("unowned policy forbids an owner");
+    config
+        .aft_quv_domain_policies
+        .push(config.aft_quv_domain_policies[0].clone());
+    assert!(config.validate().is_err(), "domain policies are unique");
 }

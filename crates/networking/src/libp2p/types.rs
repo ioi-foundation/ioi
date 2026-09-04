@@ -13,6 +13,7 @@ use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 // [FIX] Removed unused SyncRequest import
 use crate::libp2p::pq_channel::{PqChannelLocalConfig, PqPeerEnrollment};
 use crate::libp2p::sync::SyncResponse;
+use ioi_types::app::{QuvPushQueryV0, QuvReplyV0};
 
 #[derive(Debug)]
 pub enum SwarmCommand {
@@ -52,6 +53,16 @@ pub enum SwarmCommand {
     /// certification; unrelated and control-plane evidence remains queued.
     RetireAftAsyncOrdering {
         instance_hash: [u8; 32],
+    },
+    /// Durably sends one online QUV request to one rooted member.
+    QueueQuvPushQuery {
+        recipient: AccountId,
+        data: Vec<u8>,
+    },
+    /// Durably sends one online QUV reply to the requesting executor.
+    QueueQuvReply {
+        recipient: AccountId,
+        data: Vec<u8>,
     },
     /// Enables strict PQ consensus transport. Once configured, classical
     /// vote/QC/view-change gossip and relay paths are refused.
@@ -149,6 +160,16 @@ pub enum NetworkEvent {
         authenticated_account: AccountId,
         from: PeerId,
     },
+    QuvPushQueryReceived {
+        query: QuvPushQueryV0,
+        authenticated_account: AccountId,
+        from: PeerId,
+    },
+    QuvReplyReceived {
+        reply: QuvReplyV0,
+        authenticated_account: AccountId,
+        from: PeerId,
+    },
 
     // Protocol Apex Events
     EchoReceived {
@@ -224,6 +245,8 @@ pub enum SwarmInternalEvent {
     AftTimeoutCertificateReceived(Vec<u8>, PeerId),
     FallbackStartReceived(Vec<u8>, PeerId),
     AftAsyncOrderingReceived(Vec<u8>, AccountId, PeerId),
+    QuvPushQueryReceived(Vec<u8>, AccountId, PeerId),
+    QuvReplyReceived(Vec<u8>, AccountId, PeerId),
 
     EchoReceived(Vec<u8>, PeerId),
     PanicReceived(Vec<u8>, PeerId),

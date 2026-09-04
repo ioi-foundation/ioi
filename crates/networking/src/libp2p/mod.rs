@@ -17,7 +17,7 @@ use ioi_tx::unified::UnifiedTransactionModel;
 // [FIX] Removed unused Block and ChainTransaction imports
 use ioi_types::app::{
     AftAsyncCarrierV1, ConfidenceVote, ConsensusVote, EchoMessage, FallbackStartCertificateV1,
-    OracleAttestation, PanicMessage, TimeoutCertificate,
+    OracleAttestation, PanicMessage, QuvPushQueryV0, QuvReplyV0, TimeoutCertificate,
 };
 use ioi_types::codec;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -251,6 +251,26 @@ impl Libp2pSync {
                             authenticated_account,
                             from: source,
                         }),
+                    SwarmInternalEvent::QuvPushQueryReceived(
+                        data,
+                        authenticated_account,
+                        source,
+                    ) => codec::from_bytes_canonical::<QuvPushQueryV0>(&data)
+                        .ok()
+                        .map(|query| NetworkEvent::QuvPushQueryReceived {
+                            query,
+                            authenticated_account,
+                            from: source,
+                        }),
+                    SwarmInternalEvent::QuvReplyReceived(data, authenticated_account, source) => {
+                        codec::from_bytes_canonical::<QuvReplyV0>(&data)
+                            .ok()
+                            .map(|reply| NetworkEvent::QuvReplyReceived {
+                                reply,
+                                authenticated_account,
+                                from: source,
+                            })
+                    }
                     SwarmInternalEvent::EchoReceived(data, source) => {
                         codec::from_bytes_canonical::<EchoMessage>(&data)
                             .ok()

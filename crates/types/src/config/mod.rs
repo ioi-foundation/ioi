@@ -2,7 +2,8 @@
 
 //! Shared configuration structures for core IOI Kernel components.
 use crate::app::{
-    ChainId, FinalityTier, GuardianProductionMode, KeyAuthorityDescriptor, KeyAuthorityKind,
+    AccountId, ChainId, FinalityTier, GuardianProductionMode, KeyAuthorityDescriptor,
+    KeyAuthorityKind, QuvAuthorityModeV0,
 };
 use crate::service_configs::{GovernanceParams, MethodPermission, MigrationConfig};
 use serde::{Deserialize, Serialize};
@@ -1184,6 +1185,23 @@ impl Default for RpcHardeningConfig {
 }
 
 /// Configuration for the Orchestration container (`orchestration.toml`).
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AftQuvDomainPolicyV0 {
+    /// Independently provisioned conflict-domain commitment.
+    pub domain_id: [u8; 32],
+    /// Candidate-authority rule for the complete domain.
+    pub authority_mode: QuvAuthorityModeV0,
+    /// Exact rooted owner in owned mode; absent in unowned mode.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<AccountId>,
+    /// Complete request, durable-processing, response, and clock-error bound.
+    pub delta_rt_millis: u64,
+    /// Maximum process-local delay between successful QUV and effect claim.
+    pub continuation_millis: u64,
+}
+
+/// Configuration for the Orchestration container (`orchestration.toml`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OrchestrationConfig {
     /// The unique identifier for the blockchain instance.
@@ -1216,6 +1234,11 @@ pub struct OrchestrationConfig {
     /// `aft_pq_outbox_dir`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aft_external_anchor_dir: Option<String>,
+    /// Independently provisioned online QUV domain policies. An empty set
+    /// disables the named `aft_quv_v0` profile. These policies are never
+    /// inferred from an incoming candidate.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aft_quv_domain_policies: Vec<AftQuvDomainPolicyV0>,
     /// Guardianized signing / deployment profile.
     #[serde(default)]
     pub guardian_production_mode: GuardianProductionMode,
@@ -1293,6 +1316,47 @@ impl OrchestrationConfig {
             );
         }
         self.resolved_finality_profile()?;
+        if !self.aft_quv_domain_policies.is_empty() {
+            if self.consensus_type != ConsensusType::Aft {
+                return Err(
+                    "Configuration Error: aft_quv_v0 requires the AFT consensus engine."
+                        .to_string(),
+                );
+            }
+            if self
+                .aft_pq_outbox_dir
+                .as_deref()
+                .is_none_or(|path| path.trim().is_empty())
+                || self
+                    .aft_external_anchor_dir
+                    .as_deref()
+                    .is_none_or(|path| path.trim().is_empty())
+            {
+                return Err("Configuration Error: aft_quv_v0 requires disjoint aft_pq_outbox_dir and aft_external_anchor_dir roots.".to_string());
+            }
+            let mut domains = std::collections::BTreeSet::new();
+            for policy in &self.aft_quv_domain_policies {
+                if policy.domain_id == [0; 32]
+                    || policy.delta_rt_millis == 0
+                    || policy.continuation_millis == 0
+                {
+                    return Err("Configuration Error: aft_quv_v0 policies require a nonzero domain, delta_rt_millis, and continuation_millis.".to_string());
+                }
+                if !domains.insert(policy.domain_id) {
+                    return Err(
+                        "Configuration Error: aft_quv_v0 domain policies must be unique."
+                            .to_string(),
+                    );
+                }
+                match (policy.authority_mode, policy.owner) {
+                    (QuvAuthorityModeV0::Owned, None)
+                    | (QuvAuthorityModeV0::Unowned, Some(_)) => {
+                        return Err("Configuration Error: aft_quv_v0 owned policies require exactly one owner and unowned policies forbid one.".to_string())
+                    }
+                    _ => {}
+                }
+            }
+        }
         Ok(())
     }
 }

@@ -2,6 +2,7 @@ use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
 use super::*;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
+use std::collections::HashSet;
 use std::time::Instant;
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -742,6 +743,7 @@ where
         let mut aft_async_membership = None;
         let mut aft_async_custody_key = None;
         let mut aft_cross_path_signing_fence = None;
+        let mut aft_quv_member = None;
         if matches!(
             self.config.consensus_type,
             ioi_types::config::ConsensusType::Aft
@@ -867,6 +869,11 @@ where
                 .validators
                 .iter()
                 .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
+            if !self.config.aft_quv_domain_policies.is_empty() && !all_ml_dsa {
+                return Err(ValidatorError::Config(
+                    "aft_quv_v0 requires every effective member to use ML-DSA-44".into(),
+                ));
+            }
             if all_ml_dsa {
                 let pq_identity = self.pqc_signer.clone().ok_or_else(|| {
                     ValidatorError::Config(
@@ -924,6 +931,15 @@ where
                         &custody_key,
                     )
                     .map_err(ValidatorError::Config)?;
+                if !self.config.aft_quv_domain_policies.is_empty() {
+                    let member = ioi_consensus::aft::query_unanimity::DurableQuvMemberV0::open(
+                        &async_paths.quv_member_state,
+                        &async_paths.quv_member_anchor,
+                        *custody_key,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    aft_quv_member = Some(Arc::new(Mutex::new(member)));
+                }
                 aft_async_membership = Some((effective.clone(), validator_key_registry));
                 aft_async_custody_key = Some(custody_key);
                 aft_cross_path_signing_fence = Some(Arc::new(std::sync::Mutex::new(signing_fence)));
@@ -1105,6 +1121,9 @@ where
             aft_async_membership,
             aft_async_custody_key,
             aft_cross_path_signing_fence,
+            aft_quv_member,
+            aft_quv_push_inflight: HashSet::new(),
+            aft_quv_operations: HashMap::new(),
             aft_async_sessions: BTreeMap::new(),
             aft_async_finalized: BTreeMap::new(),
             aft_async_finalized_batches: BTreeMap::new(),

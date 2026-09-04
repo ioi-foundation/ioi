@@ -62,6 +62,8 @@ Every candidate `s` binds:
 ```text
 protocol = "aft_quv_v0"
 configuration_root
+policy_root = H(domain_id, authority_mode, rooted_owner, delta_rt,
+                continuation_bound)
 network_id
 domain_id
 slot
@@ -121,9 +123,11 @@ Sign_p(
 )
 ```
 
-Binding the configuration, domain, slot, predecessor, authority mode, and
-candidate is load-bearing. A fresh nonce is retained for session integrity and
-replay hygiene even though the R3 same-slot monotonicity check did not make it
+Binding the configuration, independently provisioned policy root, domain,
+slot, predecessor, authority mode, and candidate is load-bearing. The policy
+root commits the owner and complete round-trip bound; neither is inferred from
+candidate bytes. A fresh nonce is retained for session integrity and replay
+hygiene even though the R3 same-slot monotonicity check did not make it
 load-bearing for two-operation conflict safety.
 
 The complete snapshot is intentionally expensive. Compression or an
@@ -205,9 +209,9 @@ authority. This is the retained M12a boundary.
   degrade to a weaker certificate.
 - Reply-before-durable, rollback, split snapshot/write, or premature garbage
   collection invalidates safety.
-- Cross-configuration, cross-domain, cross-slot, cross-predecessor, or
-  cross-authority-mode reply replay invalidates safety unless exact binding is
-  verified.
+- Cross-configuration, cross-policy, cross-domain, cross-slot,
+  cross-predecessor, or cross-authority-mode reply replay invalidates safety
+  unless exact binding is verified.
 - Query flooding invalidates Q-A3 unless Q-A9 is implemented and measured.
 - Owner equivocation may freeze future authorization. It yields attributable
   signatures but does not restore liveness or portable historical finality.

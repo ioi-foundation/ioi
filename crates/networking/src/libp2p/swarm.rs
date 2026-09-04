@@ -316,6 +316,12 @@ async fn deliver_pq_record(
         PqConsensusPayloadV1::Confidence(data) => {
             SwarmInternalEvent::ConfidenceVoteReceived(data, peer)
         }
+        PqConsensusPayloadV1::QuvPushQuery(data) => {
+            SwarmInternalEvent::QuvPushQueryReceived(data, authenticated_account, peer)
+        }
+        PqConsensusPayloadV1::QuvReply(data) => {
+            SwarmInternalEvent::QuvReplyReceived(data, authenticated_account, peer)
+        }
     };
     event_sender
         .send(event)
@@ -1254,6 +1260,34 @@ pub async fn run_swarm_loop(
                             }
                         }
                     }
+                    SwarmCommand::QueueQuvPushQuery { recipient, data } => {
+                        if let Some(manager) = pq_channels.as_mut() {
+                            queue_pq_consensus_for_account(
+                                &mut swarm,
+                                manager,
+                                &mut inflight_pq_handshakes,
+                                &mut inflight_pq_consensus,
+                                recipient,
+                                PqConsensusPayloadV1::QuvPushQuery(data),
+                            );
+                        } else {
+                            tracing::warn!(target: "network", event = "aft_quv_query_refused", ?recipient, "QUV requires configured strict PQ channels");
+                        }
+                    }
+                    SwarmCommand::QueueQuvReply { recipient, data } => {
+                        if let Some(manager) = pq_channels.as_mut() {
+                            queue_pq_consensus_for_account(
+                                &mut swarm,
+                                manager,
+                                &mut inflight_pq_handshakes,
+                                &mut inflight_pq_consensus,
+                                recipient,
+                                PqConsensusPayloadV1::QuvReply(data),
+                            );
+                        } else {
+                            tracing::warn!(target: "network", event = "aft_quv_reply_refused", ?recipient, "QUV requires configured strict PQ channels");
+                        }
+                    }
                     SwarmCommand::ConfigurePqChannels { config, enrollments, response } => {
                         // Reconfiguration is a fail-closed authority boundary.
                         // Retire the old manager and every session before
@@ -1586,6 +1620,42 @@ mod tests {
                 if data == b"private-channel ASKS share" && peer == initiator_peer
                     && account == responder.remote_account(&initiator_peer).unwrap()
         ));
+
+        for (payload, expected_request) in [
+            (
+                PqConsensusPayloadV1::QuvPushQuery(b"quv push".to_vec()),
+                true,
+            ),
+            (PqConsensusPayloadV1::QuvReply(b"quv reply".to_vec()), false),
+        ] {
+            let plaintext = codec::to_bytes_canonical(&payload).unwrap();
+            let record = initiator
+                .seal(
+                    &responder_peer,
+                    PqChannelContentTypeV1::OnlineAuthorization,
+                    &plaintext,
+                )
+                .unwrap();
+            deliver_pq_record(&event_sender, &mut responder, initiator_peer, record)
+                .await
+                .unwrap();
+            let event = event_receiver.recv().await;
+            if expected_request {
+                assert!(matches!(
+                    event,
+                    Some(SwarmInternalEvent::QuvPushQueryReceived(data, account, peer))
+                        if data == b"quv push" && peer == initiator_peer
+                            && account == responder.remote_account(&initiator_peer).unwrap()
+                ));
+            } else {
+                assert!(matches!(
+                    event,
+                    Some(SwarmInternalEvent::QuvReplyReceived(data, account, peer))
+                        if data == b"quv reply" && peer == initiator_peer
+                            && account == responder.remote_account(&initiator_peer).unwrap()
+                ));
+            }
+        }
 
         // Even a valid AEAD record cannot launder one payload class into
         // another authenticated content type.

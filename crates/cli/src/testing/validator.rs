@@ -782,6 +782,7 @@ impl TestValidator {
                     .to_string_lossy()
                     .into_owned(),
             ),
+            aft_quv_domain_policies: Vec::new(),
             guardian_production_mode: Default::default(),
             key_authority: None,
             rpc_listen_address: if use_docker {

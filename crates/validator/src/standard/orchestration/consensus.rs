@@ -204,6 +204,8 @@ pub(crate) struct AftAsyncStoragePaths {
     pub(crate) node_anchor: PathBuf,
     pub(crate) signing_fence_state: PathBuf,
     pub(crate) signing_fence_anchor: PathBuf,
+    pub(crate) quv_member_state: PathBuf,
+    pub(crate) quv_member_anchor: PathBuf,
 }
 
 /// Resolves disjoint snapshot-state and externally controlled anchor paths.
@@ -256,6 +258,8 @@ pub(crate) fn aft_async_storage_paths(
             .join(format!("{height}.anchor")),
         signing_fence_state: state_scope.join("cross-path-signing-fence.scale"),
         signing_fence_anchor: anchor_scope.join("cross-path-signing-fence.anchor"),
+        quv_member_state: state_scope.join("quv-member-v0.scale"),
+        quv_member_anchor: anchor_scope.join("quv-member-v0.anchor"),
     })
 }
 

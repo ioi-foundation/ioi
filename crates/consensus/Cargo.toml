@@ -16,6 +16,7 @@ ioi-client = { path = "../client" }
 ioi-state = { path = "../state" }
 ioi-system = { path = "../system" }
 ioi-crypto = { path = "../crypto" }
+agentgres = { path = "../agentgres" }
 log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, optional = true }

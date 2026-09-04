@@ -31,8 +31,9 @@ use ioi_networking::BlockSync;
 use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction,
+        account_id_from_key_material, AccountId, ChainTransaction, GuardianReport, QuvCandidateV0,
+        QuvPushQueryV0, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction,
     },
     codec,
     error::ValidatorError,
@@ -40,7 +41,7 @@ use ioi_types::{
 use libp2p::identity;
 use lru::LruCache;
 use parity_scale_codec::{Decode, Encode};
-use rand::seq::SliceRandom;
+use rand::{rngs::OsRng, seq::SliceRandom, RngCore};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
@@ -82,6 +83,7 @@ pub mod mempool;
 pub mod operator_tasks;
 mod oracle;
 mod peer_management;
+mod quv;
 mod remote_state_view;
 mod sync;
 /// Verifier selection logic.
@@ -365,6 +367,61 @@ where
             event_broadcaster: deps.event_broadcaster,
             runtime_finality_root: deps.runtime_finality_root,
         })
+    }
+
+    /// Execute an online-QUV effect through the sole Agentgres mutation
+    /// boundary. The candidate is checked against the durable effect manifest
+    /// before it is written to members, and the process-local authorization is
+    /// consumed immediately before Agentgres enters `Claimed`.
+    ///
+    /// A transcript or cached success indication cannot call this path: only
+    /// the non-serializable token returned by this process's live operation is
+    /// accepted by `ConsequenceStore`.
+    pub async fn execute_query_unanimity_effect(
+        &self,
+        consequence_store: &mut agentgres::consequence::ConsequenceStore,
+        effect_id: &str,
+        resource: &mut dyn agentgres::consequence::ExternalResourceV1,
+        candidate: QuvCandidateV0,
+    ) -> Result<agentgres::consequence::ConsequenceReceiptV1> {
+        let requirement = consequence_store
+            .online_authorization_requirement(effect_id)
+            .map_err(anyhow::Error::new)?;
+        if candidate.payload_hash != requirement.payload_hash
+            || candidate.slot.configuration_root != requirement.configuration_root
+            || candidate.slot.policy_root != requirement.policy_root
+            || candidate.slot.domain_id != requirement.conflict_domain_hash
+            || candidate.slot.slot != requirement.conflict_slot
+        {
+            return Err(anyhow!(
+                "QUV candidate does not match the durable effect manifest"
+            ));
+        }
+
+        let context = self
+            .main_loop_context
+            .lock()
+            .await
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| anyhow!("orchestrator is not running"))?;
+        let mut verifier_nonce = [0_u8; 32];
+        OsRng.fill_bytes(&mut verifier_nonce);
+        let receiver = quv::begin_online_authorization(
+            &context,
+            QuvPushQueryV0 {
+                verifier_nonce,
+                candidate,
+            },
+        )
+        .await?;
+        let authorization = receiver
+            .await
+            .map_err(|_| anyhow!("QUV online operation terminated without a decision"))?
+            .map_err(anyhow::Error::msg)?;
+        consequence_store
+            .execute_with_online_authorization(effect_id, resource, authorization)
+            .map_err(anyhow::Error::new)
     }
 
     /// Sets the `Chain` and `WorkloadClient` references initialized after container creation.

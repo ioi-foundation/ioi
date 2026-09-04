@@ -24,6 +24,14 @@ struct AtomicRegister {
     forced_conflict: Option<ExternalResourceRecordV1>,
 }
 
+struct TestOnlineAuthorization(OnlineEffectAuthorizationBindingV1);
+
+impl ImmediateOnlineEffectAuthorizationV1 for TestOnlineAuthorization {
+    fn consume(self) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
+        Ok(self.0)
+    }
+}
+
 impl AtomicRegister {
     fn new(profile: ExternalResourceProfileV1) -> Self {
         Self {
@@ -118,6 +126,9 @@ fn manifest(effect_id: impl Into<String>, profile: ExternalResourceProfileV1) ->
         schema_version: EffectManifestVersionV1::V1,
         resource_id: "resource://test/register".into(),
         conflict_domain_id: "domain://test/register".into(),
+        conflict_slot: 1,
+        authorization_mode: ioi_types::app::EffectAuthorizationModeV1::Portable,
+        online_authorization_policy_root: None,
         read_set: vec![EffectResourceKeyV1 {
             key: "account/source".into(),
             predecessor: Some([1; 32]),
@@ -203,6 +214,50 @@ fn clear_execution_and_duplicate_delivery_mutate_the_resource_once() {
     assert_eq!(resource.invocations, 1);
     assert_eq!(resource.mutations, 1);
     assert_eq!(store.reconcile("clear", &mut resource).unwrap(), reconciled);
+}
+
+#[test]
+fn query_unanimity_effect_requires_matching_immediate_online_authorization() {
+    let temp = TempDir::new().unwrap();
+    let profile = profile(ExternalResourceContractV1::AtomicPutIfAbsent);
+    let mut manifest = manifest("quv", profile.clone());
+    manifest.authorization_mode = ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
+    manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+    let manifest_root = manifest.commitment().unwrap();
+    let configuration_root = match manifest.fence {
+        EffectFenceV1::ProtocolHeight {
+            configuration_hash, ..
+        } => configuration_hash,
+        _ => unreachable!(),
+    };
+    let conflict_domain_hash = manifest.conflict_domain_commitment().unwrap();
+    let conflict_slot = manifest.conflict_slot;
+    let mut resource = AtomicRegister::new(profile);
+    let mut store = ConsequenceStore::open(temp.path()).unwrap();
+    authorize(&mut store, manifest);
+
+    assert!(matches!(
+        store.execute("quv", &mut resource),
+        Err(ConsequenceError::OnlineAuthorizationRequired)
+    ));
+    let binding = OnlineEffectAuthorizationBindingV1 {
+        mode: ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+        payload_hash: manifest_root,
+        configuration_root,
+        conflict_domain_hash,
+        conflict_slot,
+        policy_root: [19; 32],
+    };
+    assert_eq!(
+        store.online_authorization_requirement("quv").unwrap(),
+        binding
+    );
+    let executed = store
+        .execute_with_online_authorization("quv", &mut resource, TestOnlineAuthorization(binding))
+        .unwrap();
+    assert_eq!(executed.state.phase(), ConsequencePhaseV1::Executed);
+    assert_eq!(resource.mutations, 1);
 }
 
 #[test]
