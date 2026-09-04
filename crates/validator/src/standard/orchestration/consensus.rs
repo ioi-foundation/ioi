@@ -175,6 +175,57 @@ pub(crate) enum AftPqLocalRole {
     HandoffOnlySuccessor(AccountId),
 }
 
+pub(crate) struct AftPqStartupRoot<'a> {
+    pub(crate) rooted: &'a ValidatorSetV1,
+    pub(crate) handoff_successor: Option<&'a ValidatorSetV1>,
+    pub(crate) recovery_required: bool,
+}
+
+/// Resolve the PQ transport/authority root used at process startup. A QUV
+/// transition deliberately remains rooted in `current` even after `next`
+/// becomes effective: restart must recover the local live-install gate before
+/// it can acquire successor authority.
+pub(crate) fn select_aft_pq_startup_root(
+    sets: &ioi_types::app::ValidatorSetsV1,
+    observation_height: u64,
+    quv_enabled: bool,
+) -> Result<AftPqStartupRoot<'_>> {
+    let effective = ioi_types::app::effective_set_for_height(sets, observation_height);
+    if !quv_enabled {
+        return Ok(AftPqStartupRoot {
+            rooted: effective,
+            handoff_successor: None,
+            recovery_required: false,
+        });
+    }
+    let old_root =
+        ioi_types::app::canonical_validator_set_hash(&sets.current).map_err(anyhow::Error::msg)?;
+    let handoff_successor = sets
+        .next
+        .as_ref()
+        .filter(|next| !next.validators.is_empty() && next.total_weight > 0)
+        .filter(|next| {
+            ioi_types::app::canonical_validator_set_hash(next)
+                .map(|root| root != old_root)
+                .unwrap_or(true)
+        });
+    let Some(successor) = handoff_successor else {
+        return Ok(AftPqStartupRoot {
+            rooted: effective,
+            handoff_successor: None,
+            recovery_required: false,
+        });
+    };
+    // Surface malformed successors as configuration errors rather than
+    // accidentally classifying them as a transition.
+    ioi_types::app::canonical_validator_set_hash(successor).map_err(anyhow::Error::msg)?;
+    Ok(AftPqStartupRoot {
+        rooted: &sets.current,
+        handoff_successor: Some(successor),
+        recovery_required: observation_height >= successor.effective_from_height,
+    })
+}
+
 /// Classify one local ML-DSA identity without letting successor enrollment
 /// imply current consensus authority. An active match always wins for an
 /// overlapping handoff; a successor-only match is available only to QUV.
@@ -270,6 +321,8 @@ pub(crate) struct AftAsyncStoragePaths {
     pub(crate) signing_fence_anchor: PathBuf,
     pub(crate) quv_member_state: PathBuf,
     pub(crate) quv_member_anchor: PathBuf,
+    pub(crate) quv_handoff_state: PathBuf,
+    pub(crate) quv_handoff_anchor: PathBuf,
 }
 
 /// Resolves disjoint snapshot-state and externally controlled anchor paths.
@@ -324,6 +377,8 @@ pub(crate) fn aft_async_storage_paths(
         signing_fence_anchor: anchor_scope.join("cross-path-signing-fence.anchor"),
         quv_member_state: state_scope.join("quv-member-v0.scale"),
         quv_member_anchor: anchor_scope.join("quv-member-v0.anchor"),
+        quv_handoff_state: state_scope.join("quv-handoff-v0.scale"),
+        quv_handoff_anchor: anchor_scope.join("quv-handoff-v0.anchor"),
     })
 }
 
@@ -342,6 +397,30 @@ pub(crate) fn derive_aft_async_custody_key(
         network_id,
         configuration_hash,
         account_id,
+    ))
+    .map_err(anyhow::Error::msg)?;
+    let derived = ioi_crypto::algorithms::hash::sha256(&material)?;
+    private_key.zeroize();
+    material.zeroize();
+    Ok(Zeroizing::new(derived))
+}
+
+/// Derive a purpose-separated rollback-anchor key for the successor's Q-EA7
+/// install gate. This key authenticates local monotone state; it grants no
+/// old-root signing or consensus authority.
+pub(crate) fn derive_aft_quv_handoff_custody_key(
+    signer: &MldsaKeyPair,
+    network_id: [u8; 32],
+    old_configuration_hash: [u8; 32],
+    successor_account: AccountId,
+) -> Result<Zeroizing<[u8; 32]>> {
+    let mut private_key = signer.private_key().to_bytes();
+    let mut material = codec::to_bytes_canonical(&(
+        b"ioi/aft/quv-handoff-runtime-custody/v0".to_vec(),
+        &private_key,
+        network_id,
+        old_configuration_hash,
+        successor_account,
     ))
     .map_err(anyhow::Error::msg)?;
     let derived = ioi_crypto::algorithms::hash::sha256(&material)?;

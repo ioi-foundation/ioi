@@ -863,6 +863,7 @@ where
         genesis_hash,
         aft_safety_mode,
         configured_aft_pq_hash,
+        quv_enabled,
     ) = {
         let ctx = context_arc.lock().await;
         (
@@ -883,6 +884,7 @@ where
             ctx.genesis_hash,
             ctx.config.aft_safety_mode,
             ctx.aft_pq_configuration_hash,
+            !ctx.config.aft_quv_domain_policies.is_empty(),
         )
     };
 
@@ -1351,6 +1353,15 @@ where
         let all_ml_dsa = effective_set.validators.iter().all(|validator| {
             validator.consensus_key.suite == ioi_types::app::SignatureSuite::ML_DSA_44
         });
+        if quv_enabled && all_ml_dsa {
+            let actual_hash = ioi_types::app::canonical_validator_set_hash(effective_set)
+                .map_err(anyhow::Error::msg)?;
+            if configured_aft_pq_hash != Some(actual_hash) {
+                return Err(anyhow!(
+                    "aft_quv_v0 successor authority is disabled until the local live handoff install activates its exact configuration"
+                ));
+            }
+        }
         let timeout_scope = if matches!(aft_safety_mode, AftSafetyMode::ClassicBft) && all_ml_dsa {
             let actual_hash = ioi_types::app::canonical_validator_set_hash(effective_set)
                 .map_err(anyhow::Error::msg)?;

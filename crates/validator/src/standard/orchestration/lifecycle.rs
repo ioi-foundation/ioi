@@ -790,10 +790,13 @@ where
         let mut local_validator_account_id: Option<AccountId> = None;
         let mut aft_pq_local_account_id: Option<AccountId> = None;
         let mut aft_pq_handoff_only_accounts = HashSet::new();
+        let mut aft_quv_staged_successor = None;
         let mut aft_async_membership = None;
         let mut aft_async_custody_key = None;
         let mut aft_cross_path_signing_fence = None;
         let mut aft_quv_member = None;
+        let aft_quv_handoff_envelope = None;
+        let mut aft_quv_handoff_store = None;
         if matches!(
             self.config.consensus_type,
             ioi_types::config::ConsensusType::Aft
@@ -830,20 +833,33 @@ where
                     "failed to decode canonical AFT validator sets at startup: {error}"
                 ))
             })?;
-            let effective = ioi_types::app::effective_set_for_height(&sets, observation_height);
-            let staged_successor = sets.next.as_ref().filter(|next| {
-                observation_height < next.effective_from_height
-                    && !next.validators.is_empty()
-                    && next.total_weight > 0
-            });
             let quv_enabled = !self.config.aft_quv_domain_policies.is_empty();
-            if effective.validators.is_empty() {
+            let pq_startup = super::consensus::select_aft_pq_startup_root(
+                &sets,
+                observation_height,
+                quv_enabled,
+            )
+            .map_err(|error| ValidatorError::Config(error.to_string()))?;
+            let quv_handoff_successor = pq_startup.handoff_successor;
+            let staged_successor = quv_handoff_successor;
+            // A QUV transition retains the old set in `current` and the
+            // successor in `next`. Even after the activation height, startup
+            // must initially root transport and verification in the old set;
+            // only the recovered process-local install gate may activate the
+            // successor. Treating `effective_set_for_height` as sufficient
+            // here would turn restart into an authority bypass.
+            let pq_rooted_set = pq_startup.rooted;
+            let quv_recovery_required = pq_startup.recovery_required;
+            if quv_enabled {
+                aft_quv_staged_successor = quv_handoff_successor.cloned();
+            }
+            if pq_rooted_set.validators.is_empty() {
                 return Err(ValidatorError::Other(format!(
                     "canonical AFT validator set is empty at height {observation_height}"
                 )));
             }
             if !self.config.aft_quv_domain_policies.is_empty()
-                && effective.validators.len() > ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+                && pq_rooted_set.validators.len() > ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
             {
                 return Err(ValidatorError::Config(format!(
                     "aft_quv_v0 supports at most {} configured members so its isolated request/reply lane remains bounded",
@@ -860,7 +876,7 @@ where
                     ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
                 )));
             }
-            let mut key_records = effective.validators.iter().collect::<Vec<_>>();
+            let mut key_records = pq_rooted_set.validators.iter().collect::<Vec<_>>();
             if quv_enabled {
                 if let Some(successor) = staged_successor {
                     key_records.extend(successor.validators.iter());
@@ -957,7 +973,7 @@ where
                 }
             }
 
-            let all_ml_dsa = effective
+            let all_ml_dsa = pq_rooted_set
                 .validators
                 .iter()
                 .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
@@ -984,7 +1000,7 @@ where
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
                 let (local_pq_account, handoff_only) =
                     match super::consensus::select_aft_pq_local_role(
-                        effective,
+                        pq_rooted_set,
                         staged_successor,
                         identity_key_hash,
                         observation_height,
@@ -997,15 +1013,17 @@ where
                             (account, true)
                         }
                     };
+                let handoff_only = handoff_only || quv_recovery_required;
                 aft_pq_local_account_id = Some(local_pq_account);
                 if !handoff_only {
                     local_validator_account_id = Some(local_pq_account);
                 }
-                let configuration_hash = ioi_types::app::canonical_validator_set_hash(effective)
-                    .map_err(ValidatorError::Config)?;
+                let configuration_hash =
+                    ioi_types::app::canonical_validator_set_hash(pq_rooted_set)
+                        .map_err(ValidatorError::Config)?;
                 let mut validator_key_registry =
                     ioi_consensus::aft::authenticated_quorum::ValidatorKeyRegistry::new();
-                for validator in &effective.validators {
+                for validator in &pq_rooted_set.validators {
                     let public_key =
                         canonical_keys.get(&validator.account_id).ok_or_else(|| {
                             ValidatorError::Config("canonical AFT validator key disappeared".into())
@@ -1014,13 +1032,45 @@ where
                         .learn_raw_public_key(SignatureSuite::ML_DSA_44, public_key)
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
                 }
-                aft_async_membership = Some((effective.clone(), validator_key_registry));
+                aft_async_membership = Some((pq_rooted_set.clone(), validator_key_registry));
                 let outbox_path = super::consensus::aft_pq_outbox_path(
                     self.config.aft_pq_outbox_dir.as_deref(),
                     configuration_hash,
                     local_pq_account,
                 )
                 .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                let local_is_successor = staged_successor.is_some_and(|successor| {
+                    successor
+                        .validators
+                        .iter()
+                        .any(|validator| validator.account_id == local_pq_account)
+                });
+                if quv_enabled && local_is_successor {
+                    let custody_key = super::consensus::derive_aft_quv_handoff_custody_key(
+                        &pq_identity,
+                        self.genesis_hash,
+                        configuration_hash,
+                        local_pq_account,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let paths = super::consensus::aft_async_storage_paths(
+                        self.config.aft_pq_outbox_dir.as_deref(),
+                        self.config.aft_external_anchor_dir.as_deref(),
+                        configuration_hash,
+                        local_pq_account,
+                        staged_successor
+                            .expect("local successor implies a staged successor")
+                            .effective_from_height,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let store = ioi_consensus::aft::query_unanimity::DurableQuvHandoffV0::open(
+                        &paths.quv_handoff_state,
+                        &paths.quv_handoff_anchor,
+                        *custody_key,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    aft_quv_handoff_store = Some(Arc::new(Mutex::new(store)));
+                }
                 if !handoff_only {
                     let custody_key = super::consensus::derive_aft_async_custody_key(
                         &pq_identity,
@@ -1044,7 +1094,7 @@ where
                             ioi_types::app::AftFallbackScopeV1 {
                                 network_id: self.genesis_hash,
                                 configuration_hash,
-                                epoch: effective.effective_from_height,
+                                epoch: pq_rooted_set.effective_from_height,
                             },
                             local_pq_account,
                             &custody_key,
@@ -1075,7 +1125,7 @@ where
                                 ioi_types::app::AftFallbackScopeV1 {
                                     network_id: self.genesis_hash,
                                     configuration_hash,
-                                    epoch: effective.effective_from_height,
+                                    epoch: pq_rooted_set.effective_from_height,
                                 },
                                 &fallback_journal_path,
                             )
@@ -1091,7 +1141,7 @@ where
                         config: PqChannelLocalConfig {
                             network_id: self.genesis_hash,
                             configuration_hash,
-                            epoch: effective.effective_from_height,
+                            epoch: pq_rooted_set.effective_from_height,
                             account_id: local_pq_account,
                             peer_id: self.syncer.get_local_peer_id(),
                             identity: pq_identity,
@@ -1121,12 +1171,12 @@ where
                             "strict AFT PQ channel configuration was refused: {error}"
                         ))
                     })?;
-                let active_accounts = effective
+                let active_accounts = pq_rooted_set
                     .validators
                     .iter()
                     .map(|validator| validator.account_id)
                     .collect::<HashSet<_>>();
-                let mut peer_keys = effective
+                let mut peer_keys = pq_rooted_set
                     .validators
                     .iter()
                     .map(|validator| {
@@ -1252,11 +1302,14 @@ where
             peer_accounts_ref,
             aft_pq_peer_keys,
             aft_pq_handoff_only_accounts,
+            aft_quv_staged_successor,
             aft_pq_configuration_hash,
             aft_async_membership,
             aft_async_custody_key,
             aft_cross_path_signing_fence,
             aft_quv_member,
+            aft_quv_handoff_envelope,
+            aft_quv_handoff_store,
             aft_quv_push_inflight: HashSet::new(),
             aft_quv_starting: false,
             aft_quv_operations: HashMap::new(),
@@ -1355,6 +1408,10 @@ where
             quv_receiver,
             shutdown_rx.clone(),
             context_arc.clone(),
+        )));
+        handles.push(tokio::spawn(super::quv::run_handoff_coordinator(
+            context_arc.clone(),
+            shutdown_rx.clone(),
         )));
         handles.push(tokio::spawn(Self::run_main_loop(
             receiver,

@@ -10,7 +10,7 @@ use ioi_crypto::sign::dilithium::{MldsaScheme, MldsaSignature};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ActiveKeyRecord, ChainId, ChainTransaction,
     SignHeader, SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
-    ValidatorV1,
+    ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::config::ConsensusType;
 
@@ -295,6 +295,63 @@ fn staged_pq_identity_has_transport_without_old_root_authority() {
             .unwrap(),
         super::super::AftPqLocalRole::ActiveMember(active_account)
     );
+}
+
+#[test]
+fn quv_post_activation_restart_stays_on_old_root_until_local_gate_recovers() {
+    let member = |account, key, since| ValidatorV1 {
+        account_id: AccountId([account; 32]),
+        weight: 1,
+        consensus_key: ActiveKeyRecord {
+            suite: SignatureSuite::ML_DSA_44,
+            public_key_hash: [key; 32],
+            since_height: since,
+        },
+    };
+    let old = ValidatorSetV1 {
+        effective_from_height: 1,
+        total_weight: 1,
+        validators: vec![member(1, 11, 1)],
+    };
+    let successor = ValidatorSetV1 {
+        effective_from_height: 8,
+        total_weight: 1,
+        validators: vec![member(2, 12, 8)],
+    };
+    let sets = ValidatorSetsV1 {
+        current: old.clone(),
+        next: Some(successor.clone()),
+    };
+
+    let before = super::super::select_aft_pq_startup_root(&sets, 7, true).unwrap();
+    assert_eq!(
+        ioi_types::app::canonical_validator_set_hash(before.rooted).unwrap(),
+        ioi_types::app::canonical_validator_set_hash(&old).unwrap()
+    );
+    assert!(before.handoff_successor.is_some_and(|set| {
+        ioi_types::app::canonical_validator_set_hash(set).unwrap()
+            == ioi_types::app::canonical_validator_set_hash(&successor).unwrap()
+    }));
+    assert!(!before.recovery_required);
+
+    let after = super::super::select_aft_pq_startup_root(&sets, 9, true).unwrap();
+    assert_eq!(
+        ioi_types::app::canonical_validator_set_hash(after.rooted).unwrap(),
+        ioi_types::app::canonical_validator_set_hash(&old).unwrap()
+    );
+    assert!(after.handoff_successor.is_some_and(|set| {
+        ioi_types::app::canonical_validator_set_hash(set).unwrap()
+            == ioi_types::app::canonical_validator_set_hash(&successor).unwrap()
+    }));
+    assert!(after.recovery_required);
+
+    let ordinary = super::super::select_aft_pq_startup_root(&sets, 9, false).unwrap();
+    assert_eq!(
+        ioi_types::app::canonical_validator_set_hash(ordinary.rooted).unwrap(),
+        ioi_types::app::canonical_validator_set_hash(&successor).unwrap()
+    );
+    assert!(ordinary.handoff_successor.is_none());
+    assert!(!ordinary.recovery_required);
 }
 
 fn system_tx(account_id: AccountId, nonce: u64) -> ChainTransaction {

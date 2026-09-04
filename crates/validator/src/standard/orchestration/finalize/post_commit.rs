@@ -592,6 +592,20 @@ where
         .ok_or_else(|| anyhow!("AFT validator sets missing after committed state transition"))?;
     let sets = read_validator_sets(&encoded_sets)?;
     let effective = effective_set_for_height(&sets, next_height);
+    if quv_enabled
+        && effective
+            .validators
+            .iter()
+            .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+    {
+        let desired_hash =
+            ioi_types::app::canonical_validator_set_hash(effective).map_err(anyhow::Error::msg)?;
+        if current_hash != Some(desired_hash) {
+            // Q-EA7 successors activate themselves from their process-local
+            // live install. The old-root finalizer retains old member service.
+            return Ok(());
+        }
+    }
     let desired = build_aft_pq_channel_configuration(
         effective,
         next_height,
@@ -832,15 +846,35 @@ where
             .ok_or_else(|| anyhow!("AFT validator sets missing after state transition"))?;
         let sets = read_validator_sets(&encoded_sets)?;
         let next_height = block_height.saturating_add(1);
-        let desired = build_aft_pq_channel_configuration(
-            effective_set_for_height(&sets, next_height),
-            next_height,
-            network_id,
-            peer_id,
-            pq_signer.as_ref(),
-            outbox_root.as_deref(),
-        )?;
-        if was_strict && desired.is_none() {
+        let effective_next = effective_set_for_height(&sets, next_height);
+        let quv_pq_preflight = quv_enabled
+            && effective_next
+                .validators
+                .iter()
+                .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
+        let desired = if quv_pq_preflight {
+            let desired_hash = ioi_types::app::canonical_validator_set_hash(effective_next)
+                .map_err(anyhow::Error::msg)?;
+            if current_hash != Some(desired_hash) {
+                super::super::quv::require_handoff_source_for_block(
+                    context_arc,
+                    &final_block,
+                    next_height,
+                )
+                .await?;
+            }
+            None
+        } else {
+            build_aft_pq_channel_configuration(
+                effective_next,
+                next_height,
+                network_id,
+                peer_id,
+                pq_signer.as_ref(),
+                outbox_root.as_deref(),
+            )?
+        };
+        if !quv_pq_preflight && was_strict && desired.is_none() {
             return Err(anyhow!(
                 "refusing silent downgrade from strict PQ AFT channels at height {next_height} before header publication"
             ));

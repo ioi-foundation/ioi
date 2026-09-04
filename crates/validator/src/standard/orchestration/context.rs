@@ -13,7 +13,7 @@ use ioi_api::{
 use ioi_consensus::aft::{
     authenticated_quorum::ValidatorKeyRegistry,
     hash_async::{DurableCrossPathSigningFence, HashAsyncSession},
-    query_unanimity::DurableQuvMemberV0,
+    query_unanimity::{DurableQuvHandoffV0, DurableQuvMemberV0},
 };
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 use ioi_ipc::public::TxStatus;
@@ -22,8 +22,8 @@ use ioi_networking::traits::NodeState;
 use ioi_types::app::KernelEvent; // [NEW]
 use ioi_types::app::{
     AccountId, AftAsyncExecutedBlockCertificateV1, AftAsyncOrderingCertificateV1,
-    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation, QuvNonce, TxHash,
-    ValidatorSetV1,
+    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation,
+    QuvConfigurationHandoffEnvelopeV0, QuvNonce, TxHash, ValidatorSetV1,
 };
 use libp2p::{identity, PeerId};
 use lru::LruCache;
@@ -155,6 +155,10 @@ where
     /// old-root sessions carry handoff PUSHQUERY/reply traffic and no
     /// consensus authority.
     pub aft_pq_handoff_only_accounts: HashSet<AccountId>,
+    /// Canonical future set observed beside the active old root. It is input
+    /// to Q-EA7 validation only and does not become active authority by being
+    /// present here.
+    pub aft_quv_staged_successor: Option<ValidatorSetV1>,
     /// Effective-set commitment currently installed in the strict swarm.
     pub aft_pq_configuration_hash: Option<[u8; 32]>,
     /// Rooted membership and raw PQ verification keys for the active
@@ -169,6 +173,12 @@ where
     /// Durable write-before-reply conflict state for the separately named
     /// online QUV profile. Absent when no QUV domain is provisioned.
     pub aft_quv_member: Option<Arc<Mutex<DurableQuvMemberV0>>>,
+    /// Owner-signed typed source currently admitted for the staged handoff.
+    /// These bytes are candidate input only and never portable authorization.
+    pub aft_quv_handoff_envelope: Option<QuvConfigurationHandoffEnvelopeV0>,
+    /// Rollback-anchored process-local install gate for a local staged
+    /// successor. Absent on old-only members.
+    pub aft_quv_handoff_store: Option<Arc<Mutex<DurableQuvHandoffV0>>>,
     /// At most one durable PUSHQUERY from each authenticated account may wait
     /// for the member-state serializer. This bounds Byzantine queue occupancy
     /// to the rooted membership size instead of accepting an unbounded flood.

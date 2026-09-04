@@ -2,9 +2,10 @@
 
 Date: 2026-09-04
 
-Status: local implementation evidence only. Q-EA7, M15Q, and M16Q remain
-open. This artifact does not authorize configuration rotation or a production
-claim.
+Status: local implementation evidence only. The live Q-EA7 coordinator is now
+implemented, but process-level reconfiguration qualification, the complete
+effect path, M15Q, and M16Q remain open. This artifact does not authorize a
+production claim.
 
 ## Implemented boundary
 
@@ -65,8 +66,32 @@ The runtime configuration also names an optional
 `aft_quv_handoff_source`: one canonical SCALE-encoded, owner-signed typed
 handoff envelope. Configuration validation requires a nonblank source and an
 independently provisioned QUV policy. The source bytes are explicitly not an
-authorization receipt. Loading, old-root validation, live execution, and
-durable installation remain open in the next slice.
+authorization receipt.
+
+The runtime now loads that source from a bounded regular file, verifies its
+canonical encoding, exact old and staged roots, provisioned policy, handoff
+shape, and old-owner ML-DSA signature, and admits a staged request only when
+its candidate equals the authenticated source. Before the final old-root
+header is published, the source must also bind that exact block height, hash,
+and state root. This check makes the source an authenticated candidate input;
+it does not create authorization.
+
+Each local successor runs its own nonce-fresh online QUV operation at the
+source-bound state boundary, consumes the process-local result directly into
+its rollback-anchored handoff store, reconstructs and verifies every successor
+key from canonical state, and only then replaces the PQ manager, consensus
+membership, signing fence, and durable QUV member service. The producer refuses
+successor blocks until its locally installed PQ configuration equals the exact
+effective root. Old-only finalizers retain old-root member service instead of
+rotating on behalf of a successor.
+
+Restart after installation is also fail-closed: a QUV transition remains
+transport-rooted in `ValidatorSetsV1.current` even after `next` is effective,
+and successor authority remains absent until the durable local gate is checked
+against the canonical historical boundary block. If the tip has advanced, the
+coordinator may recover an existing install but may not create a retroactive
+online authorization. A missing, rolled-back, or mismatched gate therefore
+cannot acquire authority by restarting.
 
 ## Reproduced checks
 
@@ -75,6 +100,8 @@ cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::tests
 cargo test -p ioi-networking handoff_only_successor_is_cryptographically_connected_but_authority_isolated -- --nocapture
 cargo test -p ioi-networking --lib
 cargo test -p ioi-validator staged_pq_identity_has_transport_without_old_root_authority -- --nocapture
+cargo test -p ioi-validator quv_post_activation_restart_stays_on_old_root_until_local_gate_recovers -- --nocapture
+cargo test -p ioi-validator handoff_source_requires_old_owner_signature_and_exact_staged_set -- --nocapture
 cargo test -p ioi-types quv_policy_requires_exact_authority_and_durable_roots -- --nocapture
 cargo test -p ioi-validator quv_rotation_refuses_every_unqualified_configuration_change -- --nocapture
 cargo test -p ioi-validator pq_rotation_is_preflighted_before_header_authority_or_durability -- --nocapture
@@ -86,21 +113,22 @@ binding, process-local authorization consumption, restart recovery, and
 external-anchor rollback detection. The networking library passed 16 tests,
 including the handoff-only endpoint-capability matrix.
 
-## Remaining Q-EA7 obligations
+The validator library also passed all 251 tests after the coordinator was
+added. Compiler output contained only the repository's existing warnings.
 
-1. Define and implement the canonical source of the owner-signed handoff
-   candidate; it may not be synthesized from silence or inferred from a
-   validator-set update.
-2. Derive and enroll successor identities into the implemented handoff-only
-   strict-PQ capability from canonical staged membership.
-3. Let successor-only processes query every old member and self-deliver only
-   when they also belong to the old set.
-4. Keep old-root member service reachable through the complete rooted
+## Remaining Q-EA7 qualification obligations
+
+1. Demonstrate source preparation and distribution before the exact final
+   old-root header in the real multi-process fixture; the current file input is
+   authenticated but operator-provisioned.
+2. Demonstrate disjoint and overlapping successors executing their own live
+   operation against all old members, including self-delivery for overlap.
+3. Keep old-root member service reachable through the complete rooted
    request/durable-processing/response/clock interval and refuse activation if
    that interval or old-root expiry cannot be met.
-5. Install the complete state and predecessor before enabling any successor
-   vote, proposal, QUV reply, or irreversible effect authority.
-6. Exercise overlapping and disjoint sets, opposite-order conflicting
+4. Exercise restart before source load, during the online operation, after
+   durable install, after manager replacement, and after the tip advances.
+5. Exercise overlapping and disjoint sets, opposite-order conflicting
    handoffs, member restart, rollback, expiry edges, request flood, executor
    crash windows, and mixed-domain isolation in real processes.
 
