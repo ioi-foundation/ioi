@@ -395,6 +395,29 @@ async function renderPlacement() {
   ]);
   if (!advisory.ok) return surface.replaceChildren(failure(advisory));
 
+  // This surface used to be `JSON.stringify(advisory.body)` in a <pre>. An independent
+  // review measured the result: 6,518,626 characters, 153,008 lines, a document
+  // 6,063,630px tall that Chromium could not screenshot. Almost all of it is the
+  // `candidates` array — 1,572 entries the reader did not ask for — while the fields
+  // that answer the question, `recommendation` and its `reason_codes`, were buried
+  // inside it. The advisory is now READ rather than dumped, and the body stays
+  // reachable behind a disclosure with its bulk named and the candidate list left out,
+  // because a raw body is evidence and hiding it would be the opposite of this
+  // surface's point.
+  const b = advisory.body || {};
+  const rec = b.recommendation || null;
+  const codes = Array.isArray(rec?.reason_codes) ? rec.reason_codes : [];
+  // The candidate array is what makes the body unreadable, so the disclosure shows the
+  // body WITHOUT it and says so, rather than silently printing something else.
+  const { candidates, ...bodyWithoutCandidates } = b;
+  const trimmed = JSON.stringify(bodyWithoutCandidates, null, 2);
+
+  const fact = (label, value, kind) =>
+    el("div", { class: "srow" },
+      el("div", { class: "srow-head" },
+        el("span", { class: "eyebrow" }, label),
+        typeof value === "string" && kind !== undefined ? chip(value, kind) : el("span", { class: "mono" }, String(value))));
+
   surface.replaceChildren(
     el("div", { class: "stack", style: "gap: 24px;" },
       el("h1", {}, "Placement"),
@@ -402,11 +425,47 @@ async function renderPlacement() {
         "An advisory is evidence, not authority. A placement decision cannot provision " +
         "anything: provider mutation still requires a wallet capability grant, and this " +
         "surface holds none and asks for none."),
-      el("div", { class: "eyebrow" }, "Advisory, as returned"),
-      el("pre", { class: "code" }, JSON.stringify(advisory.body, null, 2)),
+
+      rec
+        ? el("div", { class: "panel flag" },
+            el("div", { class: "eyebrow" }, "Recommended"),
+            el("h2", { style: "margin-top: 8px;" }, rec.display_name || rec.candidate_ref || "—"),
+            el("div", { class: "mono", style: "font-size: 12px; color: var(--label); margin-top: 6px;" },
+              [rec.venue, rec.candidate_ref].filter(Boolean).join(" · ")),
+            codes.length
+              ? el("div", { style: "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;" },
+                  codes.map((c) => chip(c, "muted")))
+              : el("p", { class: "prose", style: "margin-top: 12px;" },
+                  "The advisory returned no reason codes for this recommendation."))
+        : el("div", { class: "panel absent" },
+            el("div", { class: "eyebrow" }, "No recommendation"),
+            el("p", { class: "prose", style: "margin-top: 8px;" },
+              b.no_eligible_candidate
+                ? String(b.no_eligible_candidate)
+                : "The advisory returned no recommendation and named no reason for its absence.")),
+
+      el("div", { class: "rail" },
+        fact("Considered", b.considered ?? "—"),
+        fact("Eligible", b.eligible ?? "—"),
+        fact("Effective venue", b.effective_venue ?? "—"),
+        fact("Routing fee basis", b.routing_fee_basis ?? "—"),
+        fact("Fee object minted", String(b.fee_object_minted) === "true" ? "minted" : "not minted",
+          String(b.fee_object_minted) === "true" ? "live" : "muted"),
+        fact("Advisory", b.advisory_ref ?? "—"),
+        fact("Observed", clock(b.at))),
+
+      b.authority_note ? el("p", { class: "prose" }, b.authority_note) : null,
+
+      el("details", {},
+        el("summary", { class: "eyebrow", style: "cursor: pointer; padding: 6px 0;" },
+          `Advisory body as returned — ${trimmed.length.toLocaleString()} characters, ` +
+          `with the ${Array.isArray(candidates) ? candidates.length.toLocaleString() : "0"}-entry candidate list omitted`),
+        el("pre", { class: "code" }, trimmed)),
+
       venues.ok
-        ? el("div", { class: "stack", style: "gap: 12px;" },
-            el("div", { class: "eyebrow" }, "Venues, as returned"),
+        ? el("details", {},
+            el("summary", { class: "eyebrow", style: "cursor: pointer; padding: 6px 0;" },
+              "Venues as returned"),
             el("pre", { class: "code" }, JSON.stringify(venues.body, null, 2)))
         : failure(venues)));
 }

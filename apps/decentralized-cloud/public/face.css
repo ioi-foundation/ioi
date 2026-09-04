@@ -190,9 +190,35 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--label); }
-.field-box { border: 1px solid var(--muted); border-radius: 7px; padding: 11px 13px;
+/* AN INERT CONTROL MUST NOT LOOK OPERABLE. These six were drawn as dropdowns with a
+   solid border, a full-contrast value and a caret, and measured focusable:false,
+   cursor:auto, opacity:1, aria-disabled:null — so a reader could click one, get
+   nothing, and have no way to tell whether the product or their click was broken. The
+   page-level "designed, not connected" banner named the surface; nothing named the
+   control. The Submit button on the same screen was already done correctly, which made
+   the inconsistency worse rather than better.
+   A DASHED border is the affordance: it is the one border treatment nothing on this
+   surface uses for a working control, it survives one ink and greyscale, and it does
+   not rely on colour. `cursor: not-allowed` matches the Submit button's own state.
+   These are not focusable on purpose — a keyboard user should not be sent to a stop
+   that does nothing. They are specimens of controls, not disabled controls. */
+.field-box { border: 1px dashed var(--muted); border-radius: 7px; padding: 11px 13px;
   background: var(--surface); color: var(--label); font-size: 14px; min-height: 44px;
+  cursor: not-allowed;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.field-box::after { content: "not wired"; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--label);
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 8px;
+  white-space: nowrap; flex-shrink: 0; }
+
+/* Focus was the user-agent default — visible, but undesigned and easily lost against
+   this surface's hairlines. */
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 3px; }
+
+/* A skip link, because the first seven tab stops are the surface nav on every page. */
+.skip { position: absolute; left: -9999px; top: 0; z-index: 3; }
+.skip:focus { left: 8px; top: 8px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--ink); border-radius: 6px; padding: 10px 14px; font-size: 14px; }
 .field-hint { font-size: 13px; line-height: 1.45; color: var(--label); }
 .button-inert { background: var(--hairline-soft); color: var(--muted); border: 0; border-radius: 8px;
   padding: 0 22px; height: 46px; display: inline-flex; align-items: center; font: inherit;
@@ -234,10 +260,15 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .split { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* 1330px, not 1080: the one-row bar's real floor is the lockup plus seven nav buttons
-   plus the status block, and that is what has to stop fitting — a breakpoint chosen
-   below it leaves a band of widths that overflow, which is what 1080 did at 1180. */
-@media (max-width: 1330px) {
+/* 1500px, arrived at by measurement twice over.
+   1080 was the first guess and left 1180 overflowing by 196px. 1330 fixed the
+   overflow and was still wrong: at 1440 the status block and the last nav button
+   OVERLAPPED — "API" sitting under "daemon 127.0.0.1:4182", 25x29px of shared area —
+   inside a viewport reporting zero horizontal scroll. No overflow measurement can see
+   a collision, which is why the brand harness has had a pairwise collision check
+   since the artboard round and why the face now gets the same one. Measured clean at
+   1920, 1520, 1180, 900 and 390; the collision band was 1330 to roughly 1500. */
+@media (max-width: 1500px) {
   /* The topbar becomes two rows: identity and status, then the surfaces. */
   .topbar { height: auto; flex-wrap: wrap; align-items: center; padding: 10px 24px 0;
     row-gap: 4px; column-gap: 16px; }
