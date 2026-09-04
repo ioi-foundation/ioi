@@ -45,7 +45,7 @@ use lru::LruCache;
 use parity_scale_codec::{Decode, Encode};
 use rand::{rngs::OsRng, seq::SliceRandom, RngCore};
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::panic::AssertUnwindSafe;
 use std::sync::{

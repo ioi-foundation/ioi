@@ -486,6 +486,7 @@ where
         aft_pq_outbox_dir: None,
         aft_external_anchor_dir: None,
         aft_quv_domain_policies: Vec::new(),
+        aft_quv_handoff_source: None,
         guardian_production_mode: Default::default(),
         key_authority: None,
         rpc_listen_address: String::new(),

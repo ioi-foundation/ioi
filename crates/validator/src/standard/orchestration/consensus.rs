@@ -169,6 +169,70 @@ pub(crate) struct AftPqChannelConfiguration {
     pub(crate) peer_keys: HashMap<AccountId, [u8; 32]>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AftPqLocalRole {
+    ActiveMember(AccountId),
+    HandoffOnlySuccessor(AccountId),
+}
+
+/// Classify one local ML-DSA identity without letting successor enrollment
+/// imply current consensus authority. An active match always wins for an
+/// overlapping handoff; a successor-only match is available only to QUV.
+pub(crate) fn select_aft_pq_local_role(
+    effective: &ValidatorSetV1,
+    staged_successor: Option<&ValidatorSetV1>,
+    identity_key_hash: [u8; 32],
+    observation_height: u64,
+    quv_enabled: bool,
+) -> Result<AftPqLocalRole> {
+    let active = effective
+        .validators
+        .iter()
+        .filter(|validator| {
+            validator.consensus_key.public_key_hash == identity_key_hash
+                && validator.consensus_key.since_height <= observation_height
+        })
+        .map(|validator| validator.account_id)
+        .collect::<Vec<_>>();
+    match active.as_slice() {
+        [account] => return Ok(AftPqLocalRole::ActiveMember(*account)),
+        [] => {}
+        _ => {
+            return Err(anyhow!(
+                "local ML-DSA signer is ambiguously enrolled in the effective AFT set"
+            ))
+        }
+    }
+    if !quv_enabled {
+        return Err(anyhow!(
+            "local ML-DSA signer is not enrolled in the effective AFT set"
+        ));
+    }
+    let staged = staged_successor
+        .into_iter()
+        .flat_map(|successor| {
+            successor
+                .validators
+                .iter()
+                .map(move |validator| (successor, validator))
+        })
+        .filter(|(successor, validator)| {
+            validator.consensus_key.public_key_hash == identity_key_hash
+                && validator.consensus_key.since_height <= successor.effective_from_height
+        })
+        .map(|(_, validator)| validator.account_id)
+        .collect::<Vec<_>>();
+    match staged.as_slice() {
+        [account] => Ok(AftPqLocalRole::HandoffOnlySuccessor(*account)),
+        [] => Err(anyhow!(
+            "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set"
+        )),
+        _ => Err(anyhow!(
+            "local ML-DSA signer is ambiguously enrolled in the staged QUV successor set"
+        )),
+    }
+}
+
 pub(crate) fn aft_pq_outbox_path(
     root: Option<&str>,
     configuration_hash: [u8; 32],

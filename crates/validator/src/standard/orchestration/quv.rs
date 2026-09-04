@@ -381,7 +381,7 @@ where
     V: Send + Sync + 'static,
 {
     let nonce = request.verifier_nonce;
-    let (members, local_member, policy, commander) = {
+    let (members, local_endpoint, self_delivers, policy, commander) = {
         let mut context = context_arc.lock().await;
         if context.aft_quv_operations.contains_key(&nonce) {
             return Err(anyhow!("QUV verifier nonce is already live"));
@@ -415,16 +415,15 @@ where
             .iter()
             .map(|member| member.account_id)
             .collect::<BTreeSet<_>>();
-        let local_member = context
-            .local_validator_account_id
-            .ok_or_else(|| anyhow!("QUV local rooted member is unavailable"))?;
-        if !members.contains(&local_member) {
-            return Err(anyhow!("QUV local signer is outside rooted membership"));
-        }
+        let local_endpoint = context
+            .aft_pq_local_account_id
+            .ok_or_else(|| anyhow!("QUV local PQ endpoint is unavailable"))?;
+        let self_delivers = members.contains(&local_endpoint);
         context.aft_quv_starting = true;
         (
             members,
-            local_member,
+            local_endpoint,
+            self_delivers,
             policy,
             context.quv_swarm_commander.clone(),
         )
@@ -496,7 +495,10 @@ where
             return Ok(receiver);
         }
     };
-    for recipient in members.into_iter().filter(|member| *member != local_member) {
+    for recipient in members
+        .into_iter()
+        .filter(|member| *member != local_endpoint)
+    {
         let (queued, queue_result) = oneshot::channel();
         if let Err(error) = commander
             .send(SwarmCommand::QueueQuvPushQuery {
@@ -527,19 +529,22 @@ where
         }
     }
 
-    // Self-delivery traverses the same durable member state machine after all
-    // remote requests have been admitted to their durable PQ queues. It does
-    // not depend on the swarm finding a loopback peer mapping.
-    match process_push(context_arc, local_member, request.clone()).await {
-        Ok((_, reply)) => {
-            let mut context = context_arc.lock().await;
-            if let Some(pending) = context.aft_quv_operations.get_mut(&nonce) {
-                pending.operation.observe_reply(reply);
+    if self_delivers {
+        // An overlapping successor traverses the same local durable member
+        // state machine after remote admission. A successor-only endpoint has
+        // no old-root member state and therefore never manufactures a
+        // loopback reply.
+        match process_push(context_arc, local_endpoint, request.clone()).await {
+            Ok((_, reply)) => {
+                let mut context = context_arc.lock().await;
+                if let Some(pending) = context.aft_quv_operations.get_mut(&nonce) {
+                    pending.operation.observe_reply(reply);
+                }
             }
-        }
-        Err(error) => {
-            abort_operation(context_arc, nonce, error.to_string()).await;
-            return Ok(receiver);
+            Err(error) => {
+                abort_operation(context_arc, nonce, error.to_string()).await;
+                return Ok(receiver);
+            }
         }
     }
 

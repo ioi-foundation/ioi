@@ -56,6 +56,7 @@ pub fn run(args: ConfigCmdArgs) -> Result<()> {
                 aft_pq_outbox_dir: Some("./data/aft-pq-outbox".to_string()),
                 aft_external_anchor_dir: None,
                 aft_quv_domain_policies: Vec::new(),
+                aft_quv_handoff_source: None,
                 guardian_production_mode: Default::default(),
                 key_authority: None,
                 rpc_listen_address: "127.0.0.1:8545".into(),

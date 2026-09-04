@@ -1239,6 +1239,11 @@ pub struct OrchestrationConfig {
     /// inferred from an incoming candidate.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aft_quv_domain_policies: Vec<AftQuvDomainPolicyV0>,
+    /// Path to one canonical SCALE-encoded, owner-signed Q-EA7 handoff
+    /// envelope. The file is an independently provisioned candidate source;
+    /// it is never an authorization receipt and cannot replace live QUV.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aft_quv_handoff_source: Option<String>,
     /// Guardianized signing / deployment profile.
     #[serde(default)]
     pub guardian_production_mode: GuardianProductionMode,
@@ -1356,6 +1361,16 @@ impl OrchestrationConfig {
                     _ => {}
                 }
             }
+        }
+        if self
+            .aft_quv_handoff_source
+            .as_deref()
+            .is_some_and(|path| path.trim().is_empty())
+        {
+            return Err("Configuration Error: aft_quv_handoff_source cannot be empty.".to_string());
+        }
+        if self.aft_quv_handoff_source.is_some() && self.aft_quv_domain_policies.is_empty() {
+            return Err("Configuration Error: aft_quv_handoff_source requires an independently provisioned aft_quv_v0 domain policy.".to_string());
         }
         Ok(())
     }

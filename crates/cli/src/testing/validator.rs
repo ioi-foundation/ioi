@@ -783,6 +783,7 @@ impl TestValidator {
                     .into_owned(),
             ),
             aft_quv_domain_policies: Vec::new(),
+            aft_quv_handoff_source: None,
             guardian_production_mode: Default::default(),
             key_authority: None,
             rpc_listen_address: if use_docker {

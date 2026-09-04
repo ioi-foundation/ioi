@@ -245,6 +245,58 @@ fn mixed_or_unenrolled_pq_channel_configuration_fails_closed() {
     .is_none());
 }
 
+#[test]
+fn staged_pq_identity_has_transport_without_old_root_authority() {
+    let active_account = AccountId([0x51; 32]);
+    let successor_account = AccountId([0x52; 32]);
+    let active_hash = [0x61; 32];
+    let successor_hash = [0x62; 32];
+    let member = |account_id, public_key_hash, since_height| ValidatorV1 {
+        account_id,
+        weight: 1,
+        consensus_key: ActiveKeyRecord {
+            suite: SignatureSuite::ML_DSA_44,
+            public_key_hash,
+            since_height,
+        },
+    };
+    let active = ValidatorSetV1 {
+        effective_from_height: 1,
+        total_weight: 1,
+        validators: vec![member(active_account, active_hash, 1)],
+    };
+    let successor = ValidatorSetV1 {
+        effective_from_height: 8,
+        total_weight: 1,
+        validators: vec![member(successor_account, successor_hash, 8)],
+    };
+
+    assert_eq!(
+        super::super::select_aft_pq_local_role(&active, Some(&successor), successor_hash, 7, true,)
+            .unwrap(),
+        super::super::AftPqLocalRole::HandoffOnlySuccessor(successor_account)
+    );
+    assert!(super::super::select_aft_pq_local_role(
+        &active,
+        Some(&successor),
+        successor_hash,
+        7,
+        false,
+    )
+    .is_err());
+
+    let overlapping = ValidatorSetV1 {
+        effective_from_height: 8,
+        total_weight: 1,
+        validators: vec![member(active_account, active_hash, 1)],
+    };
+    assert_eq!(
+        super::super::select_aft_pq_local_role(&active, Some(&overlapping), active_hash, 7, true,)
+            .unwrap(),
+        super::super::AftPqLocalRole::ActiveMember(active_account)
+    );
+}
+
 fn system_tx(account_id: AccountId, nonce: u64) -> ChainTransaction {
     ChainTransaction::System(Box::new(SystemTransaction {
         header: SignHeader {

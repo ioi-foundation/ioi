@@ -281,15 +281,18 @@ pub async fn handle_status_request<CS, ST, CE, V>(
         .genesis_root()
         .await
         .unwrap_or_default();
-    let validator_account_id = context.local_validator_account_id.or_else(|| {
-        Some(AccountId(
-            account_id_from_key_material(
-                SignatureSuite::ED25519,
-                &context.local_keypair.public().encode_protobuf(),
-            )
-            .unwrap_or_default(),
-        ))
-    });
+    let validator_account_id = context
+        .aft_pq_local_account_id
+        .or(context.local_validator_account_id)
+        .or_else(|| {
+            Some(AccountId(
+                account_id_from_key_material(
+                    SignatureSuite::ED25519,
+                    &context.local_keypair.public().encode_protobuf(),
+                )
+                .unwrap_or_default(),
+            ))
+        });
     tracing::info!(
         target: "sync",
         %_peer,
@@ -461,14 +464,17 @@ pub async fn handle_status_response<CS, ST, CE, V>(
             .and_then(|keys| keys.get(&account_id))
             .copied()
         {
-            let _ = context
-                .swarm_commander
-                .send(SwarmCommand::EnrollPqPeer(PqPeerEnrollment {
-                    peer_id: peer,
-                    account_id,
-                    identity_key_hash,
-                }))
-                .await;
+            let enrollment = PqPeerEnrollment {
+                peer_id: peer,
+                account_id,
+                identity_key_hash,
+            };
+            let command = if context.aft_pq_handoff_only_accounts.contains(&account_id) {
+                SwarmCommand::EnrollPqHandoffPeer(enrollment)
+            } else {
+                SwarmCommand::EnrollPqPeer(enrollment)
+            };
+            let _ = context.swarm_commander.send(command).await;
         }
     }
 

@@ -139,6 +139,10 @@ where
     /// Stable validator account authorized by the effective rooted set. This
     /// is deliberately distinct from either rotating consensus-key hash.
     pub local_validator_account_id: Option<AccountId>,
+    /// Local ML-DSA transport identity. For an active member this equals
+    /// `local_validator_account_id`; for a pre-active Q-EA7 successor it is
+    /// present while consensus authority deliberately remains absent.
+    pub aft_pq_local_account_id: Option<AccountId>,
     /// Set of currently connected and known peers.
     pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
     /// Mapping from connected peer IDs to validator account IDs learned during status handshakes.
@@ -147,6 +151,10 @@ where
     /// configuration. `None` means the swarm remains in the explicitly
     /// classical compatibility profile.
     pub aft_pq_peer_keys: Option<HashMap<AccountId, [u8; 32]>>,
+    /// Accounts present only in the canonically staged successor set. Their
+    /// old-root sessions carry handoff PUSHQUERY/reply traffic and no
+    /// consensus authority.
+    pub aft_pq_handoff_only_accounts: HashSet<AccountId>,
     /// Effective-set commitment currently installed in the strict swarm.
     pub aft_pq_configuration_hash: Option<[u8; 32]>,
     /// Rooted membership and raw PQ verification keys for the active

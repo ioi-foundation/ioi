@@ -379,6 +379,13 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
     config.aft_pq_outbox_dir = Some("state".into());
     config.aft_external_anchor_dir = Some("external-anchor".into());
     config.validate().expect("complete QUV policy validates");
+    config.aft_quv_handoff_source = Some(" ".into());
+    assert!(config.validate().is_err(), "handoff source cannot be blank");
+    config.aft_quv_handoff_source = Some("handoff.scale".into());
+    config
+        .validate()
+        .expect("an explicit handoff source composes with the policy");
+    config.aft_quv_handoff_source = None;
 
     config.aft_quv_domain_policies[0].owner = None;
     assert!(
@@ -391,4 +398,11 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
         .aft_quv_domain_policies
         .push(config.aft_quv_domain_policies[0].clone());
     assert!(config.validate().is_err(), "domain policies are unique");
+
+    config.aft_quv_domain_policies.clear();
+    config.aft_quv_handoff_source = Some("handoff.scale".into());
+    assert!(
+        config.validate().is_err(),
+        "handoff bytes cannot nominate their own policy"
+    );
 }

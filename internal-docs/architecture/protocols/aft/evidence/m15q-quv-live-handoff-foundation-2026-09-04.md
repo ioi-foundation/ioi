@@ -49,12 +49,33 @@ refused after authenticated decryption and before dispatch. Reclassifying an
 enrollment tears down its live session. This is transport confinement only;
 canonical successor derivation and runtime orchestration remain required.
 
+Startup now derives a pre-active successor role only from the canonical
+`ValidatorSetsV1.next` value while the old set is still effective. The local
+PQ endpoint account is separate from `local_validator_account_id`: a
+successor-only process advertises and authenticates its staged ML-DSA account,
+but has no local validator account, signing fence, hash-asynchronous journal,
+QUV member store, vote, or proposal authority. Old members classify accounts
+that exist only in the staged set as handoff-only; successors classify old
+members as configured reply sources. An overlapping unchanged-key member stays
+an old active member. An overlapping account whose key changes is refused
+because the current account-key registry cannot authenticate both keys without
+substitution risk.
+
+The runtime configuration also names an optional
+`aft_quv_handoff_source`: one canonical SCALE-encoded, owner-signed typed
+handoff envelope. Configuration validation requires a nonblank source and an
+independently provisioned QUV policy. The source bytes are explicitly not an
+authorization receipt. Loading, old-root validation, live execution, and
+durable installation remain open in the next slice.
+
 ## Reproduced checks
 
 ```text
 cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::tests
 cargo test -p ioi-networking handoff_only_successor_is_cryptographically_connected_but_authority_isolated -- --nocapture
 cargo test -p ioi-networking --lib
+cargo test -p ioi-validator staged_pq_identity_has_transport_without_old_root_authority -- --nocapture
+cargo test -p ioi-types quv_policy_requires_exact_authority_and_durable_roots -- --nocapture
 cargo test -p ioi-validator quv_rotation_refuses_every_unqualified_configuration_change -- --nocapture
 cargo test -p ioi-validator pq_rotation_is_preflighted_before_header_authority_or_durability -- --nocapture
 cargo check -p ioi-validator

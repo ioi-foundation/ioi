@@ -2,7 +2,7 @@ use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
 use super::*;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 impl<CS, ST, CE, V> Orchestrator<CS, ST, CE, V>
@@ -788,6 +788,8 @@ where
         let mut aft_pq_peer_keys: Option<HashMap<AccountId, [u8; 32]>> = None;
         let mut aft_pq_configuration_hash: Option<[u8; 32]> = None;
         let mut local_validator_account_id: Option<AccountId> = None;
+        let mut aft_pq_local_account_id: Option<AccountId> = None;
+        let mut aft_pq_handoff_only_accounts = HashSet::new();
         let mut aft_async_membership = None;
         let mut aft_async_custody_key = None;
         let mut aft_cross_path_signing_fence = None;
@@ -829,6 +831,12 @@ where
                 ))
             })?;
             let effective = ioi_types::app::effective_set_for_height(&sets, observation_height);
+            let staged_successor = sets.next.as_ref().filter(|next| {
+                observation_height < next.effective_from_height
+                    && !next.validators.is_empty()
+                    && next.total_weight > 0
+            });
+            let quv_enabled = !self.config.aft_quv_domain_policies.is_empty();
             if effective.validators.is_empty() {
                 return Err(ValidatorError::Other(format!(
                     "canonical AFT validator set is empty at height {observation_height}"
@@ -842,8 +850,24 @@ where
                     ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
                 )));
             }
-            let mut canonical_keys = Vec::with_capacity(effective.validators.len());
-            for validator in &effective.validators {
+            if !self.config.aft_quv_domain_policies.is_empty()
+                && staged_successor.is_some_and(|successor| {
+                    successor.validators.len() > ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+                })
+            {
+                return Err(ValidatorError::Config(format!(
+                    "aft_quv_v0 supports at most {} staged successor members",
+                    ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+                )));
+            }
+            let mut key_records = effective.validators.iter().collect::<Vec<_>>();
+            if quv_enabled {
+                if let Some(successor) = staged_successor {
+                    key_records.extend(successor.validators.iter());
+                }
+            }
+            let mut canonical_keys = HashMap::<AccountId, Vec<u8>>::new();
+            for validator in key_records {
                 if !matches!(
                     validator.consensus_key.suite,
                     SignatureSuite::ED25519 | SignatureSuite::ML_DSA_44
@@ -853,6 +877,18 @@ where
                         hex::encode(validator.account_id.as_ref()),
                         validator.consensus_key.suite
                     )));
+                }
+                if let Some(existing) = canonical_keys.get(&validator.account_id) {
+                    let derived =
+                        account_id_from_key_material(validator.consensus_key.suite, existing)
+                            .map_err(|error| ValidatorError::Other(error.to_string()))?;
+                    if derived != validator.consensus_key.public_key_hash {
+                        return Err(ValidatorError::Config(format!(
+                            "AFT overlapping validator {} changes its consensus key across the live QUV handoff; dual-key overlap is not supported",
+                            hex::encode(validator.account_id.as_ref())
+                        )));
+                    }
+                    continue;
                 }
                 let key = [
                     ioi_types::keys::ACCOUNT_ID_TO_PUBKEY_PREFIX,
@@ -885,11 +921,11 @@ where
                         hex::encode(derived)
                     )));
                 }
-                canonical_keys.push(public_key);
+                canonical_keys.insert(validator.account_id, public_key);
             }
             {
                 let mut engine = self.consensus_engine.lock().await;
-                for public_key in &canonical_keys {
+                for public_key in canonical_keys.values() {
                     if !engine.observe_validator_public_key(public_key) {
                         return Err(ValidatorError::Other(
                             "consensus engine refused a canonical AFT validator key".into(),
@@ -925,9 +961,15 @@ where
                 .validators
                 .iter()
                 .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
-            if !self.config.aft_quv_domain_policies.is_empty() && !all_ml_dsa {
+            let successor_all_ml_dsa = staged_successor.is_none_or(|successor| {
+                successor
+                    .validators
+                    .iter()
+                    .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+            });
+            if quv_enabled && (!all_ml_dsa || !successor_all_ml_dsa) {
                 return Err(ValidatorError::Config(
-                    "aft_quv_v0 requires every effective member to use ML-DSA-44".into(),
+                    "aft_quv_v0 requires every effective and staged successor member to use ML-DSA-44".into(),
                 ));
             }
             if all_ml_dsa {
@@ -940,92 +982,108 @@ where
                 let identity_key_hash =
                     account_id_from_key_material(SignatureSuite::ML_DSA_44, &pq_public)
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
-                let local_validator = effective
-                    .validators
-                    .iter()
-                    .find(|validator| validator.consensus_key.public_key_hash == identity_key_hash)
-                    .ok_or_else(|| {
-                        ValidatorError::Config(
-                            "local ML-DSA signer is not enrolled in the effective AFT set".into(),
-                        )
-                    })?;
-                local_validator_account_id = Some(local_validator.account_id);
+                let (local_pq_account, handoff_only) =
+                    match super::consensus::select_aft_pq_local_role(
+                        effective,
+                        staged_successor,
+                        identity_key_hash,
+                        observation_height,
+                        quv_enabled,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?
+                    {
+                        super::consensus::AftPqLocalRole::ActiveMember(account) => (account, false),
+                        super::consensus::AftPqLocalRole::HandoffOnlySuccessor(account) => {
+                            (account, true)
+                        }
+                    };
+                aft_pq_local_account_id = Some(local_pq_account);
+                if !handoff_only {
+                    local_validator_account_id = Some(local_pq_account);
+                }
                 let configuration_hash = ioi_types::app::canonical_validator_set_hash(effective)
                     .map_err(ValidatorError::Config)?;
                 let mut validator_key_registry =
                     ioi_consensus::aft::authenticated_quorum::ValidatorKeyRegistry::new();
-                for public_key in &canonical_keys {
+                for validator in &effective.validators {
+                    let public_key =
+                        canonical_keys.get(&validator.account_id).ok_or_else(|| {
+                            ValidatorError::Config("canonical AFT validator key disappeared".into())
+                        })?;
                     validator_key_registry
                         .learn_raw_public_key(SignatureSuite::ML_DSA_44, public_key)
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
                 }
-                let custody_key = super::consensus::derive_aft_async_custody_key(
-                    &pq_identity,
-                    self.genesis_hash,
-                    configuration_hash,
-                    local_validator.account_id,
-                )
-                .map_err(|error| ValidatorError::Config(error.to_string()))?;
-                let async_paths = super::consensus::aft_async_storage_paths(
-                    self.config.aft_pq_outbox_dir.as_deref(),
-                    self.config.aft_external_anchor_dir.as_deref(),
-                    configuration_hash,
-                    local_validator.account_id,
-                    observation_height.max(1),
-                )
-                .map_err(|error| ValidatorError::Config(error.to_string()))?;
-                let signing_fence =
-                    ioi_consensus::aft::hash_async::DurableCrossPathSigningFence::open(
-                        &async_paths.signing_fence_state,
-                        &async_paths.signing_fence_anchor,
-                        ioi_types::app::AftFallbackScopeV1 {
-                            network_id: self.genesis_hash,
-                            configuration_hash,
-                            epoch: effective.effective_from_height,
-                        },
-                        local_validator.account_id,
-                        &custody_key,
-                    )
-                    .map_err(ValidatorError::Config)?;
-                if !self.config.aft_quv_domain_policies.is_empty() {
-                    let member = ioi_consensus::aft::query_unanimity::DurableQuvMemberV0::open(
-                        &async_paths.quv_member_state,
-                        &async_paths.quv_member_anchor,
-                        *custody_key,
-                    )
-                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
-                    aft_quv_member = Some(Arc::new(Mutex::new(member)));
-                }
                 aft_async_membership = Some((effective.clone(), validator_key_registry));
-                aft_async_custody_key = Some(custody_key);
-                aft_cross_path_signing_fence = Some(Arc::new(std::sync::Mutex::new(signing_fence)));
                 let outbox_path = super::consensus::aft_pq_outbox_path(
                     self.config.aft_pq_outbox_dir.as_deref(),
                     configuration_hash,
-                    local_validator.account_id,
+                    local_pq_account,
                 )
                 .map_err(|error| ValidatorError::Config(error.to_string()))?;
-                let fallback_journal_path = super::consensus::aft_fallback_journal_path(
-                    self.config.aft_pq_outbox_dir.as_deref(),
-                    configuration_hash,
-                    local_validator.account_id,
-                )
-                .map_err(|error| ValidatorError::Config(error.to_string()))?;
-                if matches!(
-                    self.config.aft_safety_mode,
-                    ioi_types::config::AftSafetyMode::ClassicBft
-                ) {
-                    let mut engine = self.consensus_engine.lock().await;
-                    engine
-                        .configure_fallback_journal(
+                if !handoff_only {
+                    let custody_key = super::consensus::derive_aft_async_custody_key(
+                        &pq_identity,
+                        self.genesis_hash,
+                        configuration_hash,
+                        local_pq_account,
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let async_paths = super::consensus::aft_async_storage_paths(
+                        self.config.aft_pq_outbox_dir.as_deref(),
+                        self.config.aft_external_anchor_dir.as_deref(),
+                        configuration_hash,
+                        local_pq_account,
+                        observation_height.max(1),
+                    )
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    let signing_fence =
+                        ioi_consensus::aft::hash_async::DurableCrossPathSigningFence::open(
+                            &async_paths.signing_fence_state,
+                            &async_paths.signing_fence_anchor,
                             ioi_types::app::AftFallbackScopeV1 {
                                 network_id: self.genesis_hash,
                                 configuration_hash,
                                 epoch: effective.effective_from_height,
                             },
-                            &fallback_journal_path,
+                            local_pq_account,
+                            &custody_key,
+                        )
+                        .map_err(ValidatorError::Config)?;
+                    if quv_enabled {
+                        let member = ioi_consensus::aft::query_unanimity::DurableQuvMemberV0::open(
+                            &async_paths.quv_member_state,
+                            &async_paths.quv_member_anchor,
+                            *custody_key,
                         )
                         .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                        aft_quv_member = Some(Arc::new(Mutex::new(member)));
+                    }
+                    if matches!(
+                        self.config.aft_safety_mode,
+                        ioi_types::config::AftSafetyMode::ClassicBft
+                    ) {
+                        let fallback_journal_path = super::consensus::aft_fallback_journal_path(
+                            self.config.aft_pq_outbox_dir.as_deref(),
+                            configuration_hash,
+                            local_pq_account,
+                        )
+                        .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                        let mut engine = self.consensus_engine.lock().await;
+                        engine
+                            .configure_fallback_journal(
+                                ioi_types::app::AftFallbackScopeV1 {
+                                    network_id: self.genesis_hash,
+                                    configuration_hash,
+                                    epoch: effective.effective_from_height,
+                                },
+                                &fallback_journal_path,
+                            )
+                            .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    }
+                    aft_async_custody_key = Some(custody_key);
+                    aft_cross_path_signing_fence =
+                        Some(Arc::new(std::sync::Mutex::new(signing_fence)));
                 }
                 let (pq_configured_tx, pq_configured_rx) = tokio::sync::oneshot::channel();
                 self.swarm_command_sender
@@ -1034,14 +1092,14 @@ where
                             network_id: self.genesis_hash,
                             configuration_hash,
                             epoch: effective.effective_from_height,
-                            account_id: local_validator.account_id,
+                            account_id: local_pq_account,
                             peer_id: self.syncer.get_local_peer_id(),
                             identity: pq_identity,
                             identity_key_hash,
                             outbox_path,
                         },
                         enrollments: Vec::new(),
-                        handoff_only: false,
+                        handoff_only,
                         response: pq_configured_tx,
                     })
                     .await
@@ -1063,18 +1121,35 @@ where
                             "strict AFT PQ channel configuration was refused: {error}"
                         ))
                     })?;
-                aft_pq_peer_keys = Some(
-                    effective
-                        .validators
-                        .iter()
-                        .map(|validator| {
-                            (
+                let active_accounts = effective
+                    .validators
+                    .iter()
+                    .map(|validator| validator.account_id)
+                    .collect::<HashSet<_>>();
+                let mut peer_keys = effective
+                    .validators
+                    .iter()
+                    .map(|validator| {
+                        (
+                            validator.account_id,
+                            validator.consensus_key.public_key_hash,
+                        )
+                    })
+                    .collect::<HashMap<_, _>>();
+                if quv_enabled {
+                    if let Some(successor) = staged_successor {
+                        for validator in &successor.validators {
+                            peer_keys.insert(
                                 validator.account_id,
                                 validator.consensus_key.public_key_hash,
-                            )
-                        })
-                        .collect(),
-                );
+                            );
+                            if !active_accounts.contains(&validator.account_id) {
+                                aft_pq_handoff_only_accounts.insert(validator.account_id);
+                            }
+                        }
+                    }
+                }
+                aft_pq_peer_keys = Some(peer_keys);
                 aft_pq_configuration_hash = Some(configuration_hash);
             }
         }
@@ -1172,9 +1247,11 @@ where
             local_keypair: self.local_keypair.clone(),
             pqc_signer: self.pqc_signer.clone(),
             local_validator_account_id,
+            aft_pq_local_account_id,
             known_peers_ref: self.syncer.get_known_peers(),
             peer_accounts_ref,
             aft_pq_peer_keys,
+            aft_pq_handoff_only_accounts,
             aft_pq_configuration_hash,
             aft_async_membership,
             aft_async_custody_key,

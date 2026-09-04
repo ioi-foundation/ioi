@@ -132,3 +132,15 @@ pub struct QuvConfigurationHandoffV0 {
     /// Complete application state-root bytes for that block.
     pub state_root: Vec<u8>,
 }
+
+/// Independently provisioned Q-EA7 source object. The candidate carries the
+/// old-member authority signature; the payload supplies the exact successor
+/// and state bytes committed by that signature. Loading this object grants no
+/// authority until a local online QUV operation accepts and installs it.
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct QuvConfigurationHandoffEnvelopeV0 {
+    /// Exact successor/state payload committed by `candidate.payload_hash`.
+    pub handoff: QuvConfigurationHandoffV0,
+    /// Old-root owner-signed candidate that must be pushed online.
+    pub candidate: QuvCandidateV0,
+}
