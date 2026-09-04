@@ -396,14 +396,35 @@ async function renderSources() {
   const absent = sources.filter((s) => s.state === "candidate_source_unavailable");
   const answering = sources.filter((s) => !quoting.includes(s) && !absent.includes(s));
 
+  // The row used to render `s.reason || s.coverage || s.rule` and stop there, so the
+  // evidence the daemon had ALREADY sent was dropped on the floor: vast came back
+  // with http_status 200 and offers_seen 24, runpod with an http_status and a named
+  // API error, and neither reached the screen — under a subtitle promising that "a
+  // source without an adapter or without a credential says so in the row where a
+  // price would have been." A reviewer asked whose fault runpod's absence was and
+  // could not tell; the daemon had already said.
+  //
+  // `state` is last-persisted and can lag a fixed adapter, so the row shows the
+  // observation's own timestamp beside it rather than implying the state is current.
+  const EVIDENCE_KEYS = ["http_status", "offers_seen", "gpu_types_priced", "gpu_types_seen",
+    "endpoint", "mode", "verified_ssh_accounts", "connected_cloud_accounts", "archive_objects"];
   const row = (s) => {
     const kind = s.state === "live_quote_source" || s.state === "available" || s.state === "storage_backends_engaged"
-      ? "live" : s.state === "candidate_source_unavailable" ? "" : "muted";
+      ? "live" : s.state === "candidate_source_unavailable" ? "absent" : "muted";
+    const ev = s.evidence && typeof s.evidence === "object" ? s.evidence : {};
+    const detail = EVIDENCE_KEYS.filter((k) => ev[k] !== undefined && ev[k] !== null)
+      .map((k) => `${k} ${ev[k]}`);
     return el("div", { class: "srow" },
       el("div", { class: "srow-head" },
         el("span", { class: "mono", style: "font-size: 14px;" }, s.source),
         chip(s.state, kind)),
-      el("div", { class: "srow-reason" }, s.reason || s.coverage || s.rule || ""));
+      el("div", { class: "srow-reason" }, s.reason || s.coverage || s.rule || ""),
+      ev.error ? el("div", { class: "srow-reason mono", style: "color: var(--expired);" }, String(ev.error)) : null,
+      detail.length || s.at
+        ? el("div", { class: "mono", style: "font-size: 12px; color: var(--label);" },
+            [...detail, s.at ? `observed ${clock(s.at)}` : null].filter(Boolean).join(" · "))
+        : null,
+      ev.basis ? el("div", { class: "meta" }, `basis: ${ev.basis}`) : null);
   };
 
   paint(mine,
