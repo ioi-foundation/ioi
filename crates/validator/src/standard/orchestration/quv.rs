@@ -45,7 +45,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     sync::Arc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::sync::{oneshot, Mutex};
 
@@ -468,9 +468,15 @@ where
         + Debug
         + Encode
         + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
-    let Some((block, next_height)) = ({
-        let mut context = context_arc.lock().await;
+    let Some((block, next_height, workload)) = ({
+        let context = context_arc.lock().await;
         let candidate = context
             .aft_quv_staged_successor
             .as_ref()
@@ -486,16 +492,43 @@ where
                         .and_then(|hash| <[u8; 32]>::try_from(hash).ok())
                         == Some(qc.block_hash)
             })
-            .map(|(successor, block)| (block.clone(), successor.effective_from_height));
-        if candidate.is_some() {
-            context.aft_quv_certified_handoff = Some(qc.clone());
-            context.aft_quv_certified_handoff_block =
-                candidate.as_ref().map(|(block, _)| block.clone());
-        }
+            .map(|(successor, block)| {
+                (
+                    block.clone(),
+                    successor.effective_from_height,
+                    context.view_resolver.workload_client().clone(),
+                )
+            });
         candidate
     }) else {
         return Ok(());
     };
+    let parent_height = block.header.height.checked_sub(1).ok_or_else(|| {
+        anyhow!("QUV handoff boundary cannot use the height-zero block as a transition")
+    })?;
+    let parent = workload
+        .get_block_by_height(parent_height)
+        .await?
+        .ok_or_else(|| anyhow!("QUV handoff boundary predecessor is unavailable"))?;
+    let parent_hash: [u8; 32] = parent
+        .header
+        .hash()
+        .map_err(|error| anyhow!(error.to_string()))?
+        .try_into()
+        .map_err(|_| anyhow!("QUV handoff predecessor hash is not 32 bytes"))?;
+    if parent_hash != block.header.parent_hash
+        || parent.header.state_root.0 != block.header.parent_state_root.0
+    {
+        return Err(anyhow!(
+            "QUV handoff boundary does not extend its locally retained predecessor"
+        ));
+    }
+    {
+        let mut context = context_arc.lock().await;
+        context.aft_quv_certified_handoff = Some(qc.clone());
+        context.aft_quv_certified_handoff_block = Some(block.clone());
+        context.aft_quv_certified_handoff_parent_block = Some(parent);
+    }
     let draft_path = publish_handoff_draft_for_block(context_arc, &block, qc, next_height).await?;
     tracing::info!(
         target: "quv",
@@ -661,22 +694,11 @@ where
         engine,
         safety_mode,
         store,
-        current_height,
     ) = {
         let context = context_arc.lock().await;
         let local_account = context
             .aft_pq_local_account_id
             .ok_or_else(|| anyhow!("QUV successor has no local PQ identity"))?;
-        let current_height = context
-            .last_executed_block
-            .as_ref()
-            .map(|block| block.header.height)
-            .ok_or_else(|| anyhow!("QUV successor activation has no executed boundary"))?;
-        if current_height < envelope.handoff.old_authority_expiry_height {
-            return Err(anyhow!(
-                "QUV successor activation has not reached the old-root expiry boundary"
-            ));
-        }
         let peers = context.peer_accounts_ref.lock().await.clone();
         (
             context.view_resolver.workload_client().clone(),
@@ -697,9 +719,19 @@ where
                 .as_ref()
                 .cloned()
                 .ok_or_else(|| anyhow!("QUV successor has no durable handoff gate"))?,
-            current_height,
         )
     };
+    // The public/collapse status and orchestration cursor can intentionally
+    // trail the workload's bounded projection. The raw execution cursor is a
+    // readiness signal only; authority still requires the exact boundary
+    // bytes, old-root QC, and process-local QUV install gate below.
+    let current_height = workload.get_execution_status().await?.height;
+    if current_height < envelope.handoff.old_authority_expiry_height {
+        return Err(anyhow!(
+            "QUV successor activation has not reached the old-root expiry boundary: executed {current_height}, required {}",
+            envelope.handoff.old_authority_expiry_height
+        ));
+    }
     let boundary = workload
         .get_block_by_height(envelope.handoff.old_authority_expiry_height)
         .await?
@@ -714,6 +746,8 @@ where
     if boundary.header.height != envelope.handoff.state_height
         || observed_hash != envelope.handoff.state_block_hash
         || observed_root != envelope.handoff.state_root
+        || boundary.header.parent_qc.height.saturating_add(1) != boundary.header.height
+        || boundary.header.parent_qc.block_hash != boundary.header.parent_hash
         || current_height.saturating_add(1) < envelope.handoff.activation_height
     {
         return Err(anyhow!(
@@ -729,6 +763,82 @@ where
         return Err(anyhow!(
             "QUV successor activation lacks the exact local live-install gate"
         ));
+    }
+
+    {
+        let mut context = context_arc.lock().await;
+        if context
+            .last_executed_block
+            .as_ref()
+            .map(|block| block.header.height < boundary.header.height)
+            .unwrap_or(true)
+        {
+            context.last_executed_block = Some(boundary.clone());
+        }
+    }
+
+    if !recovery_from_gate {
+        // Authenticate the old-root boundary before using its rooted execution
+        // journal to close the local consequence gap. Workload synchronization
+        // supplies bytes, never admission authority.
+        let mut engine = engine.lock().await;
+        if !engine.observe_committed_block(&boundary.header, None) {
+            return Err(anyhow!(
+                "consensus engine refused the QUV boundary header continuity hint"
+            ));
+        }
+        engine
+            .handle_quorum_certificate(envelope.handoff.boundary_qc.clone())
+            .await
+            .map_err(|error| anyhow!(error.to_string()))?;
+    }
+
+    {
+        // A successor is not allowed to install new ordering authority while
+        // its consequence spine is behind the native finality floor of the
+        // exact QUV boundary. The boundary QC commits its predecessor under
+        // the two-chain rule; QUV separately binds the exact boundary that the
+        // successor must extend. Recovery is capped at that predecessor so a
+        // successor-certified descendant cannot be interpreted under the
+        // retiring configuration.
+        let required_admitted_height = envelope.handoff.state_height.saturating_sub(1);
+        let mut context = context_arc.lock().await;
+        super::runtime_finality::recover_workload_gap_through(
+            &mut context,
+            required_admitted_height,
+        )
+        .await?;
+        let admitted = context
+            .runtime_finality
+            .lock()
+            .await
+            .last_admitted_block()?;
+        let admitted_height = admitted
+            .as_ref()
+            .map(|block| block.header.height)
+            .unwrap_or(0);
+        if admitted_height < required_admitted_height {
+            return Err(anyhow!(
+                "Agentgres consequence spine has not admitted the QUV boundary predecessor"
+            ));
+        }
+        if admitted_height == required_admitted_height && required_admitted_height > 0 {
+            let admitted_hash = admitted
+                .as_ref()
+                .ok_or_else(|| anyhow!("QUV predecessor admission lost its staged block"))?
+                .header
+                .hash()
+                .map_err(|error| anyhow!(error.to_string()))?;
+            if admitted_hash.as_slice() != boundary.header.parent_hash {
+                return Err(anyhow!(
+                    "Agentgres consequence spine admitted a different QUV boundary predecessor"
+                ));
+            }
+        } else if admitted_height == 0 && boundary.header.parent_hash != [0_u8; 32] {
+            return Err(anyhow!(
+                "genesis QUV boundary does not extend the Agentgres genesis head"
+            ));
+        }
     }
 
     let successor = &envelope.handoff.successor_set;
@@ -805,28 +915,6 @@ where
     )?;
     {
         let mut engine = engine.lock().await;
-        if !recovery_from_gate {
-            // During the live ceremony the engine still retains the old key
-            // epoch, so it independently authenticates the exact boundary QC
-            // before successor activation. A post-handoff restart can be
-            // rooted with only the successor epoch; replaying the old QC into
-            // that deliberately pruned registry would compare it with the
-            // successor activation heights. In that case the rollback-
-            // anchored install gate above is the durable record that this
-            // process already completed the live validation and QUV. Recovery
-            // therefore rechecks the canonical boundary and exact gate, but
-            // never invents unavailable historical key state or reruns QUV.
-            if !engine.observe_committed_block(&boundary.header, None) {
-                return Err(anyhow!(
-                    "consensus engine refused the QUV boundary header continuity hint"
-                ));
-            }
-            engine
-                .handle_quorum_certificate(envelope.handoff.boundary_qc.clone())
-                .await
-                .map_err(|error| anyhow!(error.to_string()))?;
-        }
-
         // Hydrate the successor set before opening its scoped fallback
         // journal. Journal admission deliberately validates the requested
         // scope against the latest rooted effective set; doing these in the
@@ -955,27 +1043,26 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
     }
     // A restart that already exact-matched a rollback-anchored local install
     // gate must consume only that gate. It never refreshes source bytes and
-    // never re-runs QUV against an expired old root, even if activation fails.
-    if let Some(envelope) = recovered_envelope {
-        let successor_root = match canonical_validator_set_hash(&envelope.handoff.successor_set) {
-            Ok(root) => root,
-            Err(error) => {
-                tracing::error!(target: "quv", %error, "Recovered QUV successor root is invalid; authority remains disabled");
-                return;
-            }
-        };
-        match activate_installed_handoff(&context_arc, &envelope, successor_root, true).await {
-            Ok(()) => {
-                tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Recovered QUV successor authority from its durable local install gate");
-            }
-            Err(error) => {
-                tracing::error!(target: "quv", %error, "Recovered QUV successor gate could not activate; authority remains disabled");
-            }
+    // never re-runs QUV against an expired old root. Activation is retried,
+    // however, because the process may have restarted before the exact
+    // boundary bytes reached its workload.
+    let recovered = match recovered_envelope {
+        Some(envelope) => {
+            let successor_root = match canonical_validator_set_hash(&envelope.handoff.successor_set)
+            {
+                Ok(root) => root,
+                Err(error) => {
+                    tracing::error!(target: "quv", %error, "Recovered QUV successor root is invalid; authority remains disabled");
+                    return;
+                }
+            };
+            Some((envelope, successor_root))
         }
-        return;
-    }
+        None => None,
+    };
     let mut interval = tokio::time::interval(Duration::from_millis(250));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut boundary_pull_not_before = Instant::now();
     loop {
         tokio::select! {
             _ = shutdown.changed() => {
@@ -984,24 +1071,89 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
                 }
             }
             _ = interval.tick() => {
-                let envelope = match refresh_handoff_source(&context_arc).await {
-                    Ok(source) => source,
-                    Err(_) => continue,
+                let (envelope, successor_root, recovery_from_gate) = if let Some((envelope, successor_root)) = recovered.as_ref() {
+                    (envelope.clone(), *successor_root, true)
+                } else {
+                    let envelope = match refresh_handoff_source(&context_arc).await {
+                        Ok(source) => source,
+                        Err(_) => continue,
+                    };
+                    let successor_root = match canonical_validator_set_hash(&envelope.handoff.successor_set) {
+                        Ok(root) => root,
+                        Err(error) => {
+                            tracing::error!(target: "quv", %error, "Canonical QUV successor became invalid; authority remains disabled");
+                            return;
+                        }
+                    };
+                    (envelope, successor_root, false)
                 };
                 let target_height = envelope.handoff.state_height;
-                let successor_root = match canonical_validator_set_hash(&envelope.handoff.successor_set) {
-                    Ok(root) => root,
-                    Err(error) => {
-                        tracing::error!(target: "quv", %error, "Canonical QUV successor became invalid; authority remains disabled");
-                        return;
-                    }
-                };
-                let observed_height = {
+                let (tracked_height, sync_floor, commander, peer_accounts, workload) = {
                     let context = context_arc.lock().await;
-                    context.last_executed_block.as_ref().map(|block| block.header.height).unwrap_or(0)
+                    (
+                        context.last_executed_block.as_ref().map(|block| block.header.height).unwrap_or(0),
+                        super::sync::agentgres_sync_floor(&context).await,
+                        context.swarm_commander.clone(),
+                        Arc::clone(&context.peer_accounts_ref),
+                        context.view_resolver.workload_client().clone(),
+                    )
                 };
+                let observed_height = workload
+                    .get_execution_status()
+                    .await
+                    .map(|status| status.height)
+                    .unwrap_or(tracked_height)
+                    .max(tracked_height);
                 if observed_height < target_height {
+                    // Ordinary status is deliberately demoted to the
+                    // Agentgres-admitted floor. A pre-authority successor that
+                    // missed the boundary relay must therefore pull the exact
+                    // QUV target explicitly instead of waiting for a peer to
+                    // advertise not-yet-two-chain-final workload height. The
+                    // response still grants no authority: activation below
+                    // checks the exact source hash/root, old-root QC, local
+                    // QUV gate, and consequence predecessor independently.
+                    if Instant::now() >= boundary_pull_not_before {
+                        boundary_pull_not_before = Instant::now() + Duration::from_secs(1);
+                        let Some(sync_floor) = sync_floor else {
+                            continue;
+                        };
+                        let peers = peer_accounts.lock().await.keys().copied().collect::<Vec<_>>();
+                        let max_blocks = target_height
+                            .saturating_sub(sync_floor)
+                            .min(u64::from(super::sync::sync_batch_max_blocks()))
+                            as u32;
+                        for peer in peers {
+                            let _ = commander
+                                .send(SwarmCommand::SendBlocksRequest {
+                                    peer,
+                                    since: sync_floor,
+                                    max_blocks,
+                                    max_bytes: super::sync::sync_batch_max_bytes(),
+                                })
+                                .await;
+                        }
+                    }
                     continue;
+                }
+                if recovery_from_gate {
+                    match activate_installed_handoff(
+                        &context_arc,
+                        &envelope,
+                        successor_root,
+                        true,
+                    )
+                    .await
+                    {
+                        Ok(()) => {
+                            tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Recovered QUV successor authority from its durable local install gate");
+                            return;
+                        }
+                        Err(error) => {
+                            tracing::warn!(target: "quv", %error, "Recovered QUV successor gate is not yet activatable; authority remains disabled");
+                            continue;
+                        }
+                    }
                 }
                 if observed_height >= target_height {
                     match activate_installed_handoff(

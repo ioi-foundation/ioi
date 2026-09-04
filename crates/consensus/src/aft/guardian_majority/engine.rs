@@ -561,6 +561,28 @@ impl GuardianMajorityEngine {
         }
     }
 
+    /// Promotes commits whose native two-chain guard has elapsed when the
+    /// selected safety mode has no additional collapse-surface gate.
+    ///
+    /// The ordinary production loop performs the same promotion from
+    /// `decide`. A pre-active QUV successor deliberately cannot enter that
+    /// loop yet, however, and must still be able to recover the old-root
+    /// predecessor consequence after authenticating the exact boundary QC.
+    /// Draining native evidence is therefore also a progress point for the
+    /// Classic-BFT profile. Asymptote remains excluded because its ready
+    /// commit additionally needs an anchored collapse view.
+    pub(super) fn promote_ready_ungated_finality(&mut self) {
+        if !matches!(self.safety_mode, AftSafetyMode::ClassicBft) {
+            return;
+        }
+        while self.safety.next_ready_commit().is_some() {
+            let Some(finalized_qc) = self.safety.accept_next_ready_commit() else {
+                break;
+            };
+            self.queue_finalized_quorum_event(&finalized_qc);
+        }
+    }
+
     /// Reconciles an authenticated Classic-BFT certificate after its exact
     /// header becomes locally known. QC and block gossip are independent, so
     /// either may arrive first; the safety queue must eventually see the pair

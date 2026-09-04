@@ -154,6 +154,21 @@ pub struct AftBranchRollbackTransaction<ST: StateManager> {
 
 const MAX_AFT_SPECULATIVE_PROJECTIONS: u64 = 2;
 
+fn aft_projection_parent_hash_matches(
+    projected_height: u64,
+    projected_parent_hash: &[u8],
+    canonical_parent_hash: &[u8],
+) -> bool {
+    if projected_height == 1 {
+        // Height one is the protocol-defined genesis transition. It extends
+        // the configured genesis state root but uses the zero block-parent
+        // sentinel because no ordinary predecessor block has been admitted.
+        projected_parent_hash == [0_u8; 32]
+    } else {
+        projected_parent_hash == canonical_parent_hash
+    }
+}
+
 fn aft_branch_rollback_count(
     live_height: u64,
     expected_live_height: u64,
@@ -646,20 +661,34 @@ where
                 .header
                 .hash()
                 .map_err(|error| ChainError::Transaction(error.to_string()))?;
-            if snapshot.projected_height != projected_height
-                || snapshot.projected_parent_state_root != projected.header.parent_state_root.0
-                || snapshot.projected_state_root != projected.header.state_root.0
-                || snapshot.projected_transactions_root != projected.header.transactions_root
-                || snapshot.status.height.saturating_add(1) != projected_height
-                || codec::to_bytes_canonical(snapshot_parent).map_err(ChainError::Transaction)?
-                    != codec::to_bytes_canonical(projected_parent)
-                        .map_err(ChainError::Transaction)?
-                || projected.header.parent_hash.as_slice() != projected_parent_hash.as_slice()
-                || projected.header.parent_state_root != projected_parent.header.state_root
+            let height_matches = snapshot.projected_height == projected_height;
+            let parent_root_matches =
+                snapshot.projected_parent_state_root == projected.header.parent_state_root.0;
+            let state_root_matches = snapshot.projected_state_root == projected.header.state_root.0;
+            let transactions_root_matches =
+                snapshot.projected_transactions_root == projected.header.transactions_root;
+            let status_matches = snapshot.status.height.saturating_add(1) == projected_height;
+            let parent_bytes_match = codec::to_bytes_canonical(snapshot_parent)
+                .map_err(ChainError::Transaction)?
+                == codec::to_bytes_canonical(projected_parent).map_err(ChainError::Transaction)?;
+            let parent_hash_matches = aft_projection_parent_hash_matches(
+                projected_height,
+                projected.header.parent_hash.as_slice(),
+                projected_parent_hash.as_slice(),
+            );
+            let projected_parent_root_matches =
+                projected.header.parent_state_root == projected_parent.header.state_root;
+            if !height_matches
+                || !parent_root_matches
+                || !state_root_matches
+                || !transactions_root_matches
+                || !status_matches
+                || !parent_bytes_match
+                || !parent_hash_matches
+                || !projected_parent_root_matches
             {
                 return Err(ChainError::Transaction(format!(
-                    "AFT rollback snapshot does not bind projected height {}",
-                    projected_height
+                    "AFT rollback snapshot does not bind projected height {projected_height}: height={height_matches}, parent_root={parent_root_matches}, state_root={state_root_matches}, transactions_root={transactions_root_matches}, status={status_matches}, parent_bytes={parent_bytes_match}, parent_hash={parent_hash_matches}, projected_parent_root={projected_parent_root_matches}"
                 )));
             }
             let snapshot_root = snapshot.state_tree.root_commitment().as_ref().to_vec();

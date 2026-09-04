@@ -106,6 +106,61 @@ pub async fn assert_log_contains(
     }
 }
 
+pub async fn assert_log_contains_any(
+    label: &str,
+    log_stream: &mut broadcast::Receiver<String>,
+    patterns: &[&str],
+) -> Result<()> {
+    if patterns.is_empty() {
+        return Err(anyhow!("log assertion requires at least one pattern"));
+    }
+    let start = Instant::now();
+    let mut received_lines = Vec::new();
+
+    loop {
+        if start.elapsed() > LOG_ASSERT_TIMEOUT {
+            let combined_logs = received_lines.join("\n");
+            return Err(anyhow!(
+                "[{}] Timeout waiting for any pattern {:?}.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                label,
+                patterns,
+                combined_logs
+            ));
+        }
+        match timeout(Duration::from_millis(500), log_stream.recv()).await {
+            Ok(Ok(line)) => {
+                if live_process_log_echo_enabled() {
+                    println!("[LOGS-{}] {}", label, line);
+                }
+                record_received_log_line(&mut received_lines, line.clone());
+                if patterns.iter().any(|pattern| line.contains(pattern)) {
+                    return Ok(());
+                }
+            }
+            Ok(Err(broadcast::error::RecvError::Lagged(count))) => {
+                let msg = format!(
+                    "[WARN] Log assertion for '{}' may have missed {} lines.",
+                    label, count
+                );
+                if !benchmark_harness_mode_enabled() {
+                    println!("{}", &msg);
+                }
+                record_received_log_line(&mut received_lines, msg);
+            }
+            Ok(Err(broadcast::error::RecvError::Closed)) => {
+                let combined_logs = received_lines.join("\n");
+                return Err(anyhow!(
+                    "Log stream for '{}' ended before any pattern {:?} was found.\n--- Received Logs ---\n{}\n--- End Logs ---",
+                    label,
+                    patterns,
+                    combined_logs
+                ));
+            }
+            Err(_) => continue,
+        }
+    }
+}
+
 pub async fn assert_log_contains_and_return_line(
     label: &str,
     log_stream: &mut broadcast::Receiver<String>,

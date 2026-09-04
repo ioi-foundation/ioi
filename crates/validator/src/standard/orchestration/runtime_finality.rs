@@ -893,20 +893,60 @@ where
         + Decode,
     <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
 {
-    let admitted_height = context
-        .last_committed_block
-        .as_ref()
-        .map(|block| block.header.height)
-        .unwrap_or(0);
+    recover_workload_gap_through(context, u64::MAX).await
+}
+
+/// Reconstructs and admits the rooted workload prefix through `max_height`.
+///
+/// The recovery floor is deliberately read from the Agentgres consequence
+/// spine itself. `last_committed_block` is an orchestration/network cursor and
+/// may already name a synchronized handoff boundary whose consequences have
+/// not yet been admitted locally. Treating that cursor as the admission floor
+/// would skip the exact prefix that a pre-authority QUV successor must recover.
+pub(crate) async fn recover_workload_gap_through<CS, ST, CE, V>(
+    context: &mut MainLoopContext<CS, ST, CE, V>,
+    max_height: u64,
+) -> Result<Vec<u64>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: serde::Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let admitted_height = agentgres_admitted_height(context).await?;
     let workload = context.view_resolver.workload_client().clone();
     // Public AFT status is intentionally demoted to the latest
     // collapse-backed height. Restart reconciliation instead needs the raw
     // execution cursor; the latter still carries no finality authority.
-    let workload_height = workload.get_execution_status().await?.height;
-    if workload_height < admitted_height {
+    let raw_workload_height = workload.get_execution_status().await?.height;
+    if raw_workload_height < admitted_height {
         return Err(anyhow!(
-            "workload height {workload_height} is behind Agentgres-admitted height {admitted_height}"
+            "workload height {raw_workload_height} is behind Agentgres-admitted height {admitted_height}"
         ));
+    }
+    let workload_height = raw_workload_height.min(max_height);
+    if workload_height <= admitted_height {
+        return Ok(Vec::new());
     }
     let mut recovered = Vec::new();
     for height in admitted_height.saturating_add(1)..=workload_height {
@@ -926,11 +966,33 @@ where
             .validate_against(&block)
             .map_err(|error| anyhow!(error.to_string()))?;
         stage_runtime_block(context, block.clone(), journal.receipts).await?;
-        context.last_executed_block = Some(block.clone());
+        // Consequence recovery can intentionally walk a prefix below the
+        // already synchronized execution boundary (notably H1 beneath a QUV
+        // handoff at H2). It may enrich the same height or advance an older
+        // cursor, but must never roll the production parent backward.
+        if context
+            .last_executed_block
+            .as_ref()
+            .map(|current| current.header.height <= block.header.height)
+            .unwrap_or(true)
+        {
+            context.last_executed_block = Some(block.clone());
+        }
 
         if context.runtime_finality.lock().await.active_profile()?
             == RuntimeFinalityProfile::BftConsensusAftV1
         {
+            // A restart or QUV handoff can install descendant-QC evidence
+            // before replay stages the finalized predecessor. Drain that
+            // already-authenticated evidence now that its exact workload
+            // execution is available. Observing/resetting the live chain
+            // first would discard the pending finalization and leave the
+            // Agentgres consequence spine permanently behind.
+            admit_available(context, Some(&block)).await?;
+            if agentgres_admitted_height(context).await? >= height {
+                recovered.push(height);
+                continue;
+            }
             let observed = super::aft_collapse::observe_live_committed_chain_through_block(
                 &context.consensus_engine_ref,
                 context.config.consensus_type,

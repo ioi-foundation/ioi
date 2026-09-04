@@ -187,6 +187,11 @@ where
     /// traffic after the live tip has advanced, without granting network
     /// handlers an ambient chain-read capability.
     pub aft_quv_certified_handoff_block: Option<Block<ChainTransaction>>,
+    /// Exact predecessor of `aft_quv_certified_handoff_block`. The workload
+    /// may retain a different unadmitted projection at this height, so late
+    /// successors must receive this QC-boundary parent rather than pairing
+    /// the boundary with an unrelated local branch.
+    pub aft_quv_certified_handoff_parent_block: Option<Block<ChainTransaction>>,
     /// Rollback-anchored process-local install gate for a local staged
     /// successor. Absent on old-only members.
     pub aft_quv_handoff_store: Option<Arc<Mutex<DurableQuvHandoffV0>>>,

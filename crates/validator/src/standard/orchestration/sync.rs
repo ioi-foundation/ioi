@@ -67,7 +67,7 @@ fn sync_response_entry_is_committed(
 /// it waits for descendant-QC finality. Starting a catch-up request from that
 /// unadmitted height omits the canonical competing block and makes the next
 /// peer block impossible to execute against the local parent state.
-async fn agentgres_sync_floor<CS, ST, CE, V>(
+pub(super) async fn agentgres_sync_floor<CS, ST, CE, V>(
     context: &MainLoopContext<CS, ST, CE, V>,
 ) -> Option<u64>
 where
@@ -158,6 +158,17 @@ fn sync_cursor_when_peer_is_ahead(
 
 fn effective_executed_height(reported_height: u64, tracked_height: u64) -> u64 {
     reported_height.max(tracked_height)
+}
+
+fn opportunistic_response_reaches_live_projection(
+    speculative_height: u64,
+    response_tip: u64,
+) -> bool {
+    // An unsolicited response may reconcile the current projected height or
+    // advance it, but a peer carrying only a shorter prefix must never roll a
+    // node back. Canonical replacement at the same height remains subject to
+    // the exact Agentgres floor, byte fences, and execution checks below.
+    response_tip >= speculative_height
 }
 
 pub async fn start_catchup_to_peer<CS, ST, CE, V>(
@@ -364,11 +375,17 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         + Debug,
 {
     let expose_test_projection = crate::standard::testing_trivial_aft_restart_anchor_enabled();
-    let certified_handoff_tip = context
+    let certified_handoff_history = context
         .aft_quv_certified_handoff
         .as_ref()
-        .zip(context.last_executed_block.as_ref())
-        .filter(|(qc, block)| {
+        .zip(context.aft_quv_certified_handoff_block.as_ref())
+        .zip(context.aft_quv_certified_handoff_parent_block.as_ref())
+        .filter(|((qc, block), parent)| {
+            let parent_hash = parent
+                .header
+                .hash()
+                .ok()
+                .and_then(|hash| <[u8; 32]>::try_from(hash).ok());
             qc.height == block.header.height
                 && qc.view == block.header.view
                 && block
@@ -377,8 +394,14 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
                     .ok()
                     .and_then(|hash| <[u8; 32]>::try_from(hash).ok())
                     == Some(qc.block_hash)
+                && parent.header.height.saturating_add(1) == block.header.height
+                && parent_hash == Some(block.header.parent_hash)
+                && parent.header.state_root.0 == block.header.parent_state_root.0
         })
-        .map(|(_, block)| block);
+        .map(|((_, block), parent)| vec![parent.clone(), block.clone()]);
+    let certified_handoff_tip = certified_handoff_history
+        .as_ref()
+        .and_then(|history| history.last());
     let committed_tip = if expose_test_projection {
         context.last_executed_block.as_ref()
     } else {
@@ -398,6 +421,32 @@ pub async fn handle_blocks_request<CS, ST, CE, V>(
         .get_blocks_range(since + 1, max_blocks, max_bytes)
         .await
         .unwrap_or_default();
+    if let Some(history) = certified_handoff_history {
+        let request_end = since.saturating_add(u64::from(max_blocks));
+        for certified in history {
+            if certified.header.height <= since || certified.header.height > request_end {
+                continue;
+            }
+            if let Some(existing) = blocks
+                .iter_mut()
+                .find(|block| block.header.height == certified.header.height)
+            {
+                *existing = certified;
+            } else {
+                blocks.push(certified);
+            }
+        }
+        blocks.sort_by_key(|block| block.header.height);
+        blocks.truncate(max_blocks as usize);
+        while codec::to_bytes_canonical(&blocks)
+            .map(|bytes| bytes.len() > max_bytes as usize)
+            .unwrap_or(true)
+        {
+            if blocks.pop().is_none() {
+                break;
+            }
+        }
+    }
     let fetched_blocks = blocks.len();
     blocks.retain(|block| {
         let candidate_hash = (block.header.height == committed_height)
@@ -609,6 +658,17 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
         let Some(local_height) = agentgres_sync_floor(context).await else {
             return;
         };
+        let tracked_height = context
+            .last_executed_block
+            .as_ref()
+            .map(|block| block.header.height)
+            .unwrap_or(0);
+        let reported_height = workload_client
+            .get_execution_status()
+            .await
+            .map(|status| status.height)
+            .unwrap_or(0);
+        let speculative_height = effective_executed_height(reported_height, tracked_height);
         let first_new_index = blocks
             .iter()
             .position(|block| block.header.height > local_height);
@@ -624,7 +684,10 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             .map(|block| block.header.height)
             .unwrap_or(0);
 
-        if !sequential_blocks.is_empty() && first_height == local_height + 1 {
+        if !sequential_blocks.is_empty()
+            && first_height == local_height + 1
+            && opportunistic_response_reaches_live_projection(speculative_height, bootstrap_tip)
+        {
             tracing::info!(
                 target: "sync",
                 %peer,
@@ -665,12 +728,45 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     let Some(canonical_height) = agentgres_sync_floor(context).await else {
         return;
     };
+    let speculative_height = context
+        .last_executed_block
+        .as_ref()
+        .map(|block| block.header.height)
+        .unwrap_or(0);
+    let mut force_canonical_replacement_at = None;
     {
         let Some(progress) = context.sync_progress.as_mut() else {
             return;
         };
         if progress.target != Some(peer) {
-            return;
+            // Explicit boundary recovery can ask several authenticated peers
+            // for the same canonical range. The first responder may supply
+            // only a prefix (for example genesis H1), while a different old
+            // member retains the exact QC-certified QUV boundary H2. Permit
+            // that second response to take over only when it demonstrably
+            // carries the next consecutive height. The ordinary block,
+            // signature, QC, execution, and finality checks below still run
+            // before any state is admitted; empty, stale, or gapped replies
+            // cannot retarget sync.
+            let next_height = progress.next.saturating_add(1);
+            let advances = blocks
+                .iter()
+                .find(|block| block.header.height >= next_height)
+                .is_some_and(|block| {
+                    block.header.height == next_height && block.header.height <= progress.tip
+                });
+            if !advances {
+                return;
+            }
+            tracing::info!(
+                target: "sync",
+                %peer,
+                previous_target = ?progress.target,
+                next = progress.next,
+                tip = progress.tip,
+                "Retargeting sync to an authenticated peer carrying the next consecutive block."
+            );
+            progress.target = Some(peer);
         }
         progress.inflight = false;
         if canonical_height > progress.next {
@@ -683,6 +779,37 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
                 "Advancing sync cursor to the Agentgres-admitted height before applying batch."
             );
             progress.next = canonical_height;
+        } else if canonical_height < progress.next
+            && blocks
+                .iter()
+                .any(|block| block.header.height == canonical_height.saturating_add(1))
+        {
+            // `progress.next` can include a speculative workload projection
+            // that Agentgres has not admitted. A certified peer may supply a
+            // different execution of that same height as the parent of the
+            // next canonical block. When the response carries the complete
+            // consecutive suffix from canonical truth, rewind the cursor so
+            // the atomic AFT replacement path below reconciles that parent
+            // before applying its child. Never rewind on a gapped response.
+            tracing::info!(
+                target: "sync",
+                %peer,
+                canonical_height,
+                previous_next = progress.next,
+                tip = progress.tip,
+                "Rewinding sync cursor to reconcile an unadmitted workload projection."
+            );
+            progress.next = canonical_height;
+            force_canonical_replacement_at = Some(canonical_height.saturating_add(1));
+        }
+        if force_canonical_replacement_at.is_none()
+            && progress.next == canonical_height
+            && speculative_height > canonical_height
+            && blocks
+                .iter()
+                .any(|block| block.header.height == canonical_height.saturating_add(1))
+        {
+            force_canonical_replacement_at = Some(canonical_height.saturating_add(1));
         }
     }
 
@@ -766,7 +893,7 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
     for block in blocks {
         let applying_height = block.header.height;
         let reported_height = workload_client
-            .get_status()
+            .get_execution_status()
             .await
             .map(|status| status.height)
             .unwrap_or(0);
@@ -775,19 +902,30 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
             .as_ref()
             .map(|candidate| candidate.header.height)
             .unwrap_or(0);
-        // AFT status is intentionally collapse/Agentgres-backed. It may lag
-        // the speculative workload tip by the descendant-QC finality depth,
-        // so it must never make sync replay an already executed height as if
-        // it were a new state transition.
+        // Replacement fencing needs the workload's raw execution cursor, not
+        // its collapse/Agentgres-backed public status. The raw cursor grants
+        // no ordering or finality authority: the exact target and live-tip
+        // bytes, Agentgres floor, and two-projection limit remain mandatory
+        // below. It only prevents a valid rollback request from presenting a
+        // stale live-tip fence while the workload is speculatively ahead of
+        // orchestration's in-memory tracking.
         let workload_height = effective_executed_height(reported_height, tracked_height);
 
         let (processed_block, replaces_live_tip) = if workload_height >= applying_height {
-            match super::runtime_finality::stage_execution_equivalent_candidate(
-                context,
-                block.clone(),
-            )
-            .await
-            {
+            let execution_equivalent = if force_canonical_replacement_at == Some(applying_height) {
+                // Header equality cannot prove that the workload's current
+                // state tree is the certified branch. A cursor rewind from
+                // Agentgres truth must run the rollback-and-reexecute path so
+                // the next block observes the exact parent state root.
+                Ok(false)
+            } else {
+                super::runtime_finality::stage_execution_equivalent_candidate(
+                    context,
+                    block.clone(),
+                )
+                .await
+            };
+            match execution_equivalent {
                 Ok(true) => {
                     if let Err(error) = workload_client.update_block_header(block.clone()).await {
                         tracing::warn!(
@@ -1393,8 +1531,9 @@ async fn trigger_catchup_vote<CS, ST, CE, V>(
 #[cfg(test)]
 mod tests {
     use super::{
-        effective_executed_height, sync_cursor_when_peer_is_ahead,
-        sync_response_entry_is_committed, within_aft_sync_replacement_window,
+        effective_executed_height, opportunistic_response_reaches_live_projection,
+        sync_cursor_when_peer_is_ahead, sync_response_entry_is_committed,
+        within_aft_sync_replacement_window,
     };
 
     #[test]
@@ -1460,5 +1599,12 @@ mod tests {
     fn collapse_backed_status_cannot_downgrade_the_tracked_execution_tip() {
         assert_eq!(effective_executed_height(10, 12), 12);
         assert_eq!(effective_executed_height(12, 10), 12);
+    }
+
+    #[test]
+    fn opportunistic_sync_never_lowers_the_live_projection_tip() {
+        assert!(!opportunistic_response_reaches_live_projection(2, 1));
+        assert!(opportunistic_response_reaches_live_projection(2, 2));
+        assert!(opportunistic_response_reaches_live_projection(2, 3));
     }
 }

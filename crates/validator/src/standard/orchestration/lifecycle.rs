@@ -1100,6 +1100,12 @@ where
                         .iter()
                         .any(|validator| validator.account_id == local_pq_account)
                 });
+                if quv_recovery_required && !local_is_successor {
+                    return Err(ValidatorError::Config(
+                        "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set"
+                            .into(),
+                    ));
+                }
                 if quv_handoff_enabled && local_is_successor {
                     // The live-install gate is permanently scoped by the old
                     // root even after the canonical workload projection has
@@ -1334,19 +1340,21 @@ where
         .map_err(|error| {
             ValidatorError::Other(format!("runtime finality startup refusal: {error}"))
         })?;
-        let last_admitted_block = runtime_finality
-            .last_admitted_block()
-            .map_err(|error| {
-                ValidatorError::Other(format!(
-                    "runtime finality canonical-tip recovery refusal: {error}"
-                ))
-            })?
-            .or_else(|| initial_block.clone());
+        let agentgres_admitted_block = runtime_finality.last_admitted_block().map_err(|error| {
+            ValidatorError::Other(format!(
+                "runtime finality canonical-tip recovery refusal: {error}"
+            ))
+        })?;
         if matches!(
             self.config.consensus_type,
             ioi_types::config::ConsensusType::Aft
         ) {
-            let admitted_height = last_admitted_block
+            // Only an Agentgres commit advances the safety gadget's admitted
+            // floor. A pre-active QUV successor can have a synchronized
+            // workload cursor while its fresh consequence spine still names
+            // the zero genesis head. Treating that cursor as admitted lets a
+            // later child QC skip the missing predecessor consequence.
+            let admitted_height = agentgres_admitted_block
                 .as_ref()
                 .map(|block| block.header.height)
                 .unwrap_or(0);
@@ -1361,6 +1369,7 @@ where
                 )));
             }
         }
+        let last_admitted_block = agentgres_admitted_block.or_else(|| initial_block.clone());
         let runtime_finality = Arc::new(Mutex::new(runtime_finality));
 
         let mut context = MainLoopContext::<CS, ST, CE, V> {
@@ -1388,6 +1397,7 @@ where
             aft_quv_handoff_envelope,
             aft_quv_certified_handoff: None,
             aft_quv_certified_handoff_block: None,
+            aft_quv_certified_handoff_parent_block: None,
             aft_quv_handoff_store,
             aft_quv_push_inflight: HashSet::new(),
             aft_quv_starting: false,

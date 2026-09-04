@@ -18,10 +18,10 @@ pub mod signing_oracle;
 
 // Re-export public items
 pub use assert::{
-    assert_log_contains, assert_log_contains_and_return_line, confirm_proposal_passed_state,
-    wait_for, wait_for_contract_deployment, wait_for_evidence, wait_for_height,
-    wait_for_oracle_data, wait_for_pending_oracle_request, wait_for_quarantine_status,
-    wait_for_stake_to_be, wait_until,
+    assert_log_contains, assert_log_contains_and_return_line, assert_log_contains_any,
+    confirm_proposal_passed_state, wait_for, wait_for_contract_deployment, wait_for_evidence,
+    wait_for_height, wait_for_oracle_data, wait_for_pending_oracle_request,
+    wait_for_quarantine_status, wait_for_stake_to_be, wait_until,
 };
 pub use build::{build_mock_verifier_artifact, build_test_artifacts};
 pub use cluster::{TestCluster, TestClusterBuilder, CLUSTER_STATE_DIR_ENV};

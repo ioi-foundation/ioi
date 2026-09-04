@@ -1501,6 +1501,7 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
     }
 
     fn drain_finalized_native_quorums(&mut self) -> Vec<NativeAftFinalizedEvidence> {
+        self.promote_ready_ungated_finality();
         self.take_finalized_quorum_events()
             .into_iter()
             .map(Into::into)

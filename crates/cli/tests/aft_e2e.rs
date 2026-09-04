@@ -9,7 +9,8 @@ use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_cli::aft_quv_ceremony::{install_signed_handoff, sign_handoff_draft};
 use ioi_cli::testing::backend::ProcessBackend;
 use ioi_cli::testing::{
-    assert_log_contains, build_test_artifacts, rpc, wait_for, wait_for_height, TestCluster,
+    assert_log_contains, assert_log_contains_any, build_test_artifacts, rpc, wait_for,
+    wait_for_height, TestCluster,
 };
 use ioi_consensus::aft::query_unanimity::{
     quv_candidate_authority_signing_bytes, quv_handoff_domain_id, quv_policy_root,
@@ -554,11 +555,34 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             continuation_millis,
         )?;
 
-        let mut successor_logs = keyed[4..]
+        let interrupted_index = keyed[7].1;
+        let interrupted_account = keyed[7].0;
+        // Drain every successor's broadcast receiver from the moment the
+        // ceremony begins. Waiting on these receivers sequentially after the
+        // handoff can lose a one-time activation record to broadcast lag even
+        // though that process is already producing successor blocks.
+        let successor_activation_waiters = keyed[4..]
             .iter()
             .map(|(_, index, _)| {
-                let (orchestration, _, _) = cluster.validators[*index].validator().subscribe_logs();
-                (*index, orchestration)
+                let index = *index;
+                let (mut orchestration, _, _) =
+                    cluster.validators[index].validator().subscribe_logs();
+                let expected = if index == interrupted_index {
+                    vec!["Recovered QUV successor authority from its durable local install gate"]
+                } else {
+                    vec![
+                        "Activated successor from its local live old-root QUV install",
+                        "Recovered QUV successor authority from its durable local install gate",
+                    ]
+                };
+                tokio::spawn(async move {
+                    assert_log_contains_any(
+                        &format!("QUV successor node {index}"),
+                        &mut orchestration,
+                        &expected,
+                    )
+                    .await
+                })
             })
             .collect::<Vec<_>>();
         let envelope = wait_for(
@@ -605,8 +629,6 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
         // exists. Its next attempt is armed to exit in the precise recoverable
         // window after the new handoff state is durable but before the
         // separately rooted anchor advances.
-        let interrupted_index = keyed[7].1;
-        let interrupted_account = keyed[7].0;
         let interrupted_state = cluster.validators[interrupted_index]
             .validator()
             .state_dir()
@@ -765,17 +787,10 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             ));
         }
 
-        for (index, log) in &mut successor_logs {
-            assert_log_contains(
-                &format!("QUV successor node {index}"),
-                log,
-                if *index == interrupted_index {
-                    "Recovered QUV successor authority from its durable local install gate"
-                } else {
-                    "Activated successor from its local live old-root QUV install"
-                },
-            )
-            .await?;
+        for waiter in successor_activation_waiters {
+            waiter
+                .await
+                .map_err(|error| anyhow::anyhow!("QUV activation log waiter failed: {error}"))??;
         }
         // Retired old-root processes have no post-activation role. Stop them
         // before measuring successor liveness so an eight-process fixture on
@@ -787,6 +802,23 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
                 .validator_mut()
                 .kill_orchestration()
                 .await?;
+        }
+        for (_, index, _) in &keyed[4..] {
+            let index = *index;
+            let (mut log, _, _) = cluster.validators[index].validator().subscribe_logs();
+            tokio::spawn(async move {
+                while let Ok(line) = log.recv().await {
+                    let normalized = line.to_ascii_lowercase();
+                    if normalized.contains("activated successor")
+                        || normalized.contains("recovered quv successor")
+                        || normalized.contains("canonical head is stale")
+                        || normalized.contains("node frozen")
+                        || normalized.contains("refusing timeout-certificate transition")
+                    {
+                        println!("[M16Q-HANDOFF][node{index}] {line}");
+                    }
+                }
+            });
         }
         // Only the rooted successor set is required to carry post-handoff
         // ordering. Retired members are not implicitly observers: that would
