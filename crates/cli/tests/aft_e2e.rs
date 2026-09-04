@@ -675,11 +675,28 @@ async fn test_aft_pq_hash_fallback_executes_virtual_block() -> Result<()> {
     // the typed async-parent proof, and continue without reopening agreement or
     // manufacturing a native QC for the virtual block.
     let resumed = build_cluster().build().await?;
+    let resumed_log_tails =
+        std::sync::Arc::new(std::sync::Mutex::new(vec![
+            Vec::<String>::new();
+            resumed.validators.len()
+        ]));
     for (index, guard) in resumed.validators.iter().enumerate() {
         let (mut orchestration, _, _) = guard.validator().subscribe_logs();
         let terminal_errors = terminal_errors.clone();
+        let resumed_log_tails = resumed_log_tails.clone();
         tokio::spawn(async move {
             while let Ok(line) = orchestration.recv().await {
+                {
+                    const MAX_DIAGNOSTIC_LINES: usize = 256;
+                    let mut tails = resumed_log_tails
+                        .lock()
+                        .expect("restart diagnostic log lock poisoned");
+                    let tail = &mut tails[index];
+                    tail.push(line.clone());
+                    if tail.len() > MAX_DIAGNOSTIC_LINES {
+                        tail.remove(0);
+                    }
+                }
                 let normalized = line.to_ascii_lowercase();
                 if normalized.contains("terminal runtime finality")
                     || normalized.contains("node frozen")
@@ -694,7 +711,50 @@ async fn test_aft_pq_hash_fallback_executes_virtual_block() -> Result<()> {
     }
     let resumed_rpc = resumed.validators[0].validator().rpc_addr.clone();
     let resumed_run = async {
-        wait_for_height(&resumed_rpc, 7, Duration::from_secs(240)).await?;
+        if let Err(wait_error) = wait_for_height(&resumed_rpc, 7, Duration::from_secs(240)).await {
+            let mut diagnostics = vec![format!("observer wait failed: {wait_error:#}")];
+            for (index, guard) in resumed.validators.iter().enumerate() {
+                let rpc_addr = &guard.validator().rpc_addr;
+                let height = rpc::get_chain_height(rpc_addr)
+                    .await
+                    .map(|height| height.to_string())
+                    .unwrap_or_else(|error| format!("rpc-error({error:#})"));
+                let mut available = Vec::new();
+                for height_to_probe in 4..=7 {
+                    match rpc::get_block_by_height_resilient(rpc_addr, height_to_probe).await {
+                        Ok(Some(block)) => available.push(format!(
+                            "H{}:view{}:sig{}",
+                            height_to_probe,
+                            block.header.view,
+                            block.header.signature.len()
+                        )),
+                        Ok(None) => available.push(format!("H{height_to_probe}:missing")),
+                        Err(error) => {
+                            available.push(format!("H{height_to_probe}:rpc-error({error:#})"))
+                        }
+                    }
+                }
+                diagnostics.push(format!(
+                    "node {index}: reported_height={height}; {}",
+                    available.join(", ")
+                ));
+            }
+            let tails = resumed_log_tails
+                .lock()
+                .expect("restart diagnostic log lock poisoned")
+                .clone();
+            for (index, tail) in tails.iter().enumerate() {
+                diagnostics.push(format!(
+                    "node {index} orchestration tail ({} lines):\n{}",
+                    tail.len(),
+                    tail.join("\n")
+                ));
+            }
+            return Err(anyhow::anyhow!(
+                "post-restart PQ AFT progress diagnostics:\n{}",
+                diagnostics.join("\n")
+            ));
+        }
         let recovered_virtual = rpc::get_block_by_height_resilient(&resumed_rpc, 4)
             .await?
             .ok_or_else(|| anyhow::anyhow!("restart omitted hash-fallback block 4"))?;

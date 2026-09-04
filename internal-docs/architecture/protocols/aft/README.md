@@ -47,6 +47,13 @@ traces, TLC state dumps, and compiled paper outputs live under
   height-5/restart/height-7 reproduction.
 - [`packets/M10-r4-remediation-retest.md`](./packets/M10-r4-remediation-retest.md)
   — exact-tag independent retest commission for closing AFT-M10-003.
+- [`evidence/m10-r4-daybreak-retest-2026-09-03.md`](./evidence/m10-r4-daybreak-retest-2026-09-03.md)
+  — R4 automated independent retest: signer readiness passed, but post-restart
+  height 7 did not complete within 240 seconds; AFT-M10-003 remains open.
+- [`evidence/m10-r4-resource-isolated-reproduction-2026-09-04.md`](./evidence/m10-r4-resource-isolated-reproduction-2026-09-04.md)
+  — exact R4 owner-side reproduction passed under resource isolation; retained
+  beside the adverse independent result as evidence of harness sensitivity,
+  not as an independent gate pass.
 - [`evidence/m12-r3-daybreak-retest-2026-09-03.md`](./evidence/m12-r3-daybreak-retest-2026-09-03.md)
   — exact-candidate `UPHELD` retest closing byte-portable M12a as
   `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; automated, not human peer review and
