@@ -24,7 +24,12 @@ const REPO = path.resolve(HERE, "../../..");
 const { chromium } = await import("/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs");
 const b64 = readFileSync(path.join(REPO, "packages/design-system/assets/fonts/IOI.ttf")).toString("base64");
 
-const FONT = Number(process.argv[2] || 62);
+// The glyph is sized to fill the tile: a review found the mark occupying 45% of the
+// tile height, which is the root cause of a faint period and a sub-pixel tick. The
+// limit is horizontal — a letter-plus-period lockup is about 1.77:1 and the tile is
+// square — so this is the largest size that still leaves a margin, and the resulting
+// fill ratio is printed rather than left implicit.
+const FONT = Number(process.argv[2] || 71);
 const GRID = 96;
 const SIZES = [16, 24, 32];
 
@@ -94,6 +99,7 @@ const periodCy = baselineY - periodD / 2;      // sits ON the baseline
 
 console.log(`  composed ${totalW.toFixed(2)} wide, ${((GRID - totalW) / 2).toFixed(2)} margin each side`);
 console.log(`  baseline y ${baselineY.toFixed(2)}   period d ${periodD.toFixed(2)} at (${periodCx.toFixed(2)}, ${periodCy.toFixed(2)})`);
+console.log(`  fill: cap ${(cap / GRID * 100).toFixed(1)}% of tile height, composed mark ${(totalW / GRID * 100).toFixed(1)}% of its width`);
 
 // ── The per-sibling cue ─────────────────────────────────────────────────────
 // The counter is the only spare room in the mark, and a cue there must survive 16px
@@ -109,7 +115,7 @@ const counterCy = baselineY - cap + cap * 0.497;
 // separate three states; measured, the three landed 0.36px apart. Varying along the
 // long axis has nearly twice the room, so the cue is an upright tick whose
 // horizontal position names the sibling.
-const barW = stroke * 0.75;
+const barW = stroke;                            // the board's own weight rule: the tick is a stroke
 const barH = counterH * 0.62;
 const CUES = { cloud: -1, exchange: 0, trade: 1 };  // left, centre, right
 const cueBar = (which) => {
@@ -195,45 +201,47 @@ await page.setContent(`<style>
 @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,${b64}) format("truetype"); font-weight: 400; }
 body { margin: 0; background: #fff; display: flex; gap: 20px; padding: 16px; }
 #warm { font-family: "IOI Display"; font-size: 20px; position: absolute; left: -9999px; }
-</style><div id="warm">d</div>${SIZES.flatMap((s) => Object.keys(CUES).map((k) => svgFor(s, "#7bbd97", "#0a0e19", k))).join("")}`);
+</style><div id="warm">d</div>${SIZES.flatMap((s) => Object.keys(CUES).map((k) => svgFor(s, "#7bbd97", "#0a0e19", k))).join("")}${SIZES.map((s) => svgFor(s, "#7bbd97", "#0a0e19")).join("")}`);
 await page.waitForFunction(() => document.fonts.ready.then(() => true));
 await page.evaluate((f) => document.fonts.load(`${f}px "IOI Display"`), FONT);
 await page.waitForTimeout(250);
 
-console.log(`\nper-sibling cue — the bar's centre of mass inside the counter:`);
+let crossCheckFailed = false;
+console.log(`\nper-sibling cue — tick isolated by differencing against the tickless base:`);
 for (const [sizeIdx, cueSize] of SIZES.entries()) {
 const centres = [];
 for (const [j, key] of Object.keys(CUES).entries()) {
   const i = sizeIdx * Object.keys(CUES).length + j;
   const shot = await page.locator("svg").nth(i).screenshot();
-  const c = await page.evaluate(async ({ dataUrl, cyFrac, x0Frac, x1Frac }) => {
-    const im = new Image(); im.src = dataUrl; await im.decode();
-    const cv = document.createElement("canvas");
-    cv.width = im.width; cv.height = im.height;
-    const x = cv.getContext("2d");
-    x.drawImage(im, 0, 0);
-    const d = x.getImageData(0, 0, im.width, im.height).data;
-    // The cue is INK inside a counter that is ground, and it now varies HORIZONTALLY,
-    // so the weighted centre is taken across the counter's own column span — bounded
-    // to the counter so the letter's stem and the period cannot drag the average.
-    const row0 = Math.max(0, Math.round((cyFrac - 0.06) * im.height));
-    const row1 = Math.min(im.height - 1, Math.round((cyFrac + 0.06) * im.height));
-    const col0 = Math.max(0, Math.floor(x0Frac * im.width));
-    const col1 = Math.min(im.width - 1, Math.ceil(x1Frac * im.width));
+  // DIFFERENCE the sibling against the tickless base. Measuring the centre of mass
+  // across the counter's columns pulls in the letter's inner stroke edges, which
+  // dominate the average and compress the three siblings toward each other — that is
+  // how this probe once reported 0.54px where the geometry says 2.19px, and a ruling
+  // was made on the wrong number. Only the tick differs between the two renders, so
+  // differencing isolates exactly it.
+  const c = await page.evaluate(async ({ dataUrl, baseUrl }) => {
+    const load = async (u) => { const im = new Image(); im.src = u; await im.decode(); return im; };
+    const [a, b] = await Promise.all([load(dataUrl), load(baseUrl)]);
+    const grab = (im) => {
+      const cv = document.createElement("canvas");
+      cv.width = im.width; cv.height = im.height;
+      const x = cv.getContext("2d");
+      x.drawImage(im, 0, 0);
+      return x.getImageData(0, 0, im.width, im.height).data;
+    };
+    const da = grab(a), db = grab(b);
     let sum = 0, wt = 0;
-    for (let py = row0; py <= row1; py++) {
-      for (let px = col0; px <= col1; px++) {
-        const p = (py * im.width + px) * 4;
-        const g = Math.max(0, d[p + 1] - 40);
-        sum += px * g; wt += g;
+    for (let px = 0; px < a.width; px++) {
+      for (let py = 0; py < a.height; py++) {
+        const p = (py * a.width + px) * 4;
+        const diff = Math.abs(da[p + 1] - db[p + 1]);
+        if (diff > 8) { sum += px * diff; wt += diff; }
       }
     }
     return wt ? sum / wt : null;
   }, {
     dataUrl: `data:image/png;base64,${shot.toString("base64")}`,
-    cyFrac: counterCy / GRID,
-    x0Frac: (counterCx - counterW / 2) / GRID,
-    x1Frac: (counterCx + counterW / 2) / GRID,
+    baseUrl: `data:image/png;base64,${(await page.locator("svg").nth(SIZES.length * Object.keys(CUES).length + sizeIdx).screenshot()).toString("base64")}`,
   });
   centres.push({ key, c });
 }
@@ -242,15 +250,44 @@ const minSep = spread.length > 1 ? Math.min(...spread.slice(1).map((v, i) => v -
 // One device pixel is the floor: a difference smaller than a pixel is a difference
 // nobody can see, whatever the arithmetic says.
 const cueWorks = spread.length === Object.keys(CUES).length && minSep >= 1;
+
+// CLOSED-FORM CROSS-CHECK. The tick's step is a constant in this file, so the
+// separation at any size is arithmetic. A measurement that disagrees with the
+// arithmetic already in the source is a broken measurement, and the run fails rather
+// than printing a plausible number — which is precisely what happened before.
+const slotStep = (counterW / 2 - barW / 2) * 0.66;
+const expected = slotStep * cueSize / GRID;
+const agrees = Math.abs(minSep - expected) <= Math.max(0.25, expected * 0.15);
+if (!agrees) crossCheckFailed = true;
 console.log(
-  `  ${String(cueSize).padStart(2)}px  ` +
-  centres.map((x) => `${x.key} ${x.c === null ? "none" : x.c.toFixed(2)}`).join("  ") +
-  `  → closest pair ${minSep.toFixed(2)}px  ${cueWorks ? "DISTINGUISHABLE" : "not distinguishable"}`
+  `  ${String(cueSize).padStart(2)}px  measured ${minSep.toFixed(2)}px  closed form ${expected.toFixed(2)}px  ` +
+  `${agrees ? "agree" : "DISAGREE — measurement rejected"}  ` +
+  `${cueWorks ? "DISTINGUISHABLE" : "not distinguishable"}`
 );
 }
 
+// ── 5. Emit the geometry the board should use ───────────────────────────────
+// Every number on the board has been hand-copied from this output at least once, and
+// at least once it was copied wrong. `--emit` prints the constants and the tick
+// offsets so the board can be written from the tool rather than from a transcription.
+if (process.argv.includes("--emit")) {
+  console.log(`\n── board geometry (96-unit grid, font-size ${FONT}) ──`);
+  console.log(`  text        x="${penX.toFixed(2)}" y="${baselineY.toFixed(2)}" font-size="${FONT}"`);
+  console.log(`  period      cx="${periodCx.toFixed(2)}" cy="${periodCy.toFixed(2)}" r="${(periodD / 2).toFixed(2)}"`);
+  console.log(`  tick        y="${(counterCy - barH / 2).toFixed(2)}" width="${barW.toFixed(2)}" height="${barH.toFixed(2)}" rx="${(barW / 2).toFixed(2)}"`);
+  for (const [k, v] of Object.entries(CUES)) {
+    const slot = v * (counterW / 2 - barW / 2) * 0.66;
+    console.log(`  tick x ${k.padEnd(9)} "${(counterCx + slot - barW / 2).toFixed(2)}"`);
+  }
+  console.log(`  bearings    letter→period ${sideBearing.toFixed(2)} (cap/9), tile margin ${((GRID - totalW) / 2).toFixed(2)}`);
+  console.log(`  fill        cap ${(cap / GRID * 100).toFixed(1)}% of height, mark ${(totalW / GRID * 100).toFixed(1)}% of width`);
+}
+
 await browser.close();
+console.log(crossCheckFailed
+  ? `\nCROSS-CHECK FAILED: a measured separation disagrees with the arithmetic in this file.`
+  : `\nCross-check passed: every measured separation agrees with its closed form.`);
 console.log(refused
   ? `\nREFUSED at font-size ${FONT}: the period fuses with the letter at one or more sizes.`
   : `\nAccepted at font-size ${FONT}: letter and period stay separate at every size tested.`);
-process.exit(refused ? 1 : 0);
+process.exit(refused || crossCheckFailed ? 1 : 0);
