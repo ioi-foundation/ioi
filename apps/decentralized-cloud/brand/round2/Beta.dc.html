@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
+    .nav { font-size: 14px; color: #636363; }
+    .rule { height: 1px; background: #e1e1e1; }
+    .glyph { font-family: "IOI Display", sans-serif; font-weight: 400; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; padding: 44px 48px 48px;">
+  <div class="eyebrow">Candidate B</div>
+  <div class="rule" style="margin: 16px 0 36px;"></div>
+
+  <div style="display: flex; align-items: flex-start; gap: 40px;">
+    <!-- Monogram on its tile -->
+    <svg width="150" height="150" viewBox="0 0 96 96" role="img" aria-label="Candidate B monogram on its tile">
+      <defs>
+        <mask id="bm1">
+          <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+          <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+      <rect x="0" y="0" width="96" height="96" fill="#7bbd97" mask="url(#bm1)"></rect>
+      <circle cx="47" cy="56" r="6.2" fill="#7bbd97"></circle>
+    </svg>
+
+    <!-- Monogram on paper -->
+    <svg width="150" height="150" viewBox="0 0 96 96" role="img" aria-label="Candidate B monogram on paper">
+      <defs>
+        <mask id="bm2">
+          <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+          <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" fill="#0a0e19" mask="url(#bm2)"></rect>
+      <circle cx="47" cy="56" r="6.2" fill="#397554"></circle>
+    </svg>
+
+    <div style="display: flex; flex-direction: column; gap: 22px; flex-grow: 1;">
+      <div style="display: flex; align-items: baseline;">
+        <span class="w" style="font-size: 34px;">decentralized</span><span class="d" style="width: 6px; height: 6px; margin: 0 3px;"></span><span class="w" style="font-size: 34px;">cloud</span>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <div class="w" style="font-size: 26px;">decentralized</div>
+        <div style="display: flex; align-items: baseline; margin-top: 2px;">
+          <span class="d" style="width: 5px; height: 5px; margin-right: 2px;"></span><span class="w" style="font-size: 26px;">cloud</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="Candidate B at 24 pixels">
+          <defs>
+            <mask id="bm3">
+              <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+              <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+          </defs>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <rect x="0" y="0" width="96" height="96" fill="#7bbd97" mask="url(#bm3)"></rect>
+          <circle cx="47" cy="56" r="6.2" fill="#7bbd97"></circle>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="Candidate B at 16 pixels">
+          <defs>
+            <mask id="bm4">
+              <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+              <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+          </defs>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <rect x="0" y="0" width="96" height="96" fill="#7bbd97" mask="url(#bm4)"></rect>
+          <circle cx="47" cy="56" r="6.2" fill="#7bbd97"></circle>
+        </svg>
+        <span class="eyebrow" style="text-transform: none; letter-spacing: 0.02em;">24px · 16px, true scale</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Monochrome, stamp, and dark ground ───────────────────────────── -->
+  <div class="eyebrow" style="margin: 34px 0 14px;">One colour · stamp · dark ground</div>
+  <div style="display: flex; align-items: center; gap: 30px;">
+    <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="Candidate B in one ink">
+      <defs>
+        <mask id="bm5">
+          <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+          <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" fill="#0a0e19" mask="url(#bm5)"></rect>
+      <circle cx="47" cy="56" r="6.2" fill="#0a0e19"></circle>
+    </svg>
+    <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="Candidate B as a stamp, one ink in a tile">
+      <defs>
+        <mask id="bm6">
+          <rect x="0" y="0" width="96" height="96" fill="white"></rect>
+          <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="black">d</text>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19" mask="url(#bm6)"></rect>
+      <circle cx="47" cy="56" r="6.2" fill="#0a0e19"></circle>
+    </svg>
+    <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="Candidate B on a dark ground with no tile">
+      <defs>
+        <mask id="bm7">
+          <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+          <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" fill="#1f1f1f"></rect>
+      <rect x="0" y="0" width="96" height="96" fill="#ffffff" mask="url(#bm7)"></rect>
+      <circle cx="47" cy="56" r="6.2" fill="#ffffff"></circle>
+    </svg>
+    <div class="body" style="max-width: 52ch;">
+      One ink on paper, knocked out of a tile as a stamp, and reversed on a dark
+      ground with no tile at all. The period is ink in every one of them and the
+      counter is always ground, so the reduction is the same drawing rather than
+      a redraw — and on a dark
+      dock or tab strip the mark does not depend on its tile being visible.
+    </div>
+  </div>
+
+  <!-- ── In the product bar ───────────────────────────────────────────── -->
+  <div class="eyebrow" style="margin: 30px 0 12px;">In the product bar</div>
+  <div style="border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px;
+                padding: 0 20px; height: 58px; border-bottom: 1px solid #e1e1e1;">
+      <div style="display: flex; align-items: center; gap: 28px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="22" height="22" viewBox="0 0 96 96" role="img" aria-label="Candidate B in the product bar">
+            <defs>
+              <mask id="bm8">
+                <rect x="0" y="0" width="96" height="96" fill="black"></rect>
+                <text x="48" y="73" text-anchor="middle" class="glyph" font-size="71" fill="white">d</text>
+        </mask>
+            </defs>
+            <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+            <rect x="0" y="0" width="96" height="96" fill="#7bbd97" mask="url(#bm8)"></rect>
+            <circle cx="47" cy="56" r="6.2" fill="#7bbd97"></circle>
+          </svg>
+          <div style="display: flex; align-items: baseline;">
+            <span class="w" style="font-size: 20px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 20px;">cloud</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 22px;">
+          <span class="nav" style="color: #0a0e19; box-shadow: inset 0 -2px 0 #0a0e19; padding-bottom: 4px;">Candidates</span>
+          <span class="nav">Sources</span>
+        </div>
+      </div>
+      <span class="mono" style="font-size: 12px; color: #636363; white-space: nowrap;">24 live · 1 venue</span>
+    </div>
+    <div style="padding: 18px 20px; display: flex; align-items: baseline; gap: 14px;">
+      <span class="mono" style="font-size: 16px; color: #0a0e19;">$0.0136</span>
+      <span class="mono" style="font-size: 12px; color: #636363;">vast · good until 15:26:41Z</span>
+    </div>
+  </div>
+
+  <!-- ── The argument ─────────────────────────────────────────────────── -->
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 36px; margin-top: 30px;">
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="body">
+        <strong style="color: #0a0e19;">The construction.</strong> The name's own
+        first letter, cut from the brand face, with the drawn period seated in
+        its counter. Measured off a rendered specimen: the counter is 0.324 of
+        the cap wide, the period is 0.250 of the cap, so it seats with 0.037 cap
+        of clearance on each side. The face made room for it — the mark is not
+        composed, it is found.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">Against the category.</strong> Dropbox's
+        early glyph, Discord's rounded shapes and the general letter-in-a-tile
+        app icon all set a letter and stop. This one is a letter with a hole
+        punched in it, and the hole is the other half of the wordmark — the same
+        period that ends the name, in the only place the letter has room for it.
+        Take the period out and it is just a "d"; that is the test it has to keep
+        passing.
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="body">
+        <strong style="color: #0a0e19;">At size.</strong> It has structure at
+        16px — a stem, a bowl and a counter — where a bare disc has none, and it
+        cannot be read as an indicator light because a light is not letter-shaped.
+        One ink, knocked out, reversed: three reductions, one drawing.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">The cost, stated.</strong> A single
+        letter in a rounded tile is the most common app-icon form there is, and
+        this one is doing nothing structurally that a hundred others do not. Its
+        distinctiveness rests entirely on the face being unusual and on the
+        counter being narrow enough to make the seated period look deliberate; if
+        a reader does not register the period as the wordmark's period, all that
+        is left is a lowercase d. And at 16px the counter is roughly one device
+        pixel of clearance on each side of the hole, which is the edge of what
+        will hold.
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

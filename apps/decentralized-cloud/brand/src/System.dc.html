@@ -109,7 +109,7 @@
   <div style="display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 18px 40px; align-items: baseline;">
     <div class="mono" style="font-size: 12px; color: #636363;">IOI Display · wordmark only</div>
     <div style="display: flex; align-items: baseline;">
-      <span class="w" style="font-size: 40px;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin: 0 4px;"></span><span class="w" style="font-size: 40px;">cloud</span>
+      <span class="w" style="font-size: 40px;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin: 0 3px;"></span><span class="w" style="font-size: 40px;">cloud</span>
     </div>
 
     <div class="mono" style="font-size: 12px; color: #636363;">ABC Diatype · 31 section head</div>
@@ -218,11 +218,12 @@
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <div class="body">
         <strong style="color: #0a0e19;">The binding, written where the component is.</strong>
-        The drawn arc is the window still good; the grey it sits on is the window
-        already spent. The fraction is
-        <span class="mono" style="font-size: 12px;">(now − observed_at) / (expires_at − observed_at)</span>,
-        taken from the candidate the daemon returned — never from a timer this
-        surface started. At
+        The drawn arc is the window still good — its sweep is the fraction remaining,
+        <span class="mono" style="font-size: 12px;">1 − (now − observed_at) / (expires_at − observed_at)</span>,
+        — and the grey it sits on is the window already spent. Both come from the
+        candidate the daemon returned, never from a timer this surface started.
+        Below 40px the dial reads as present-or-expired only and the text beside
+        it carries the number; it does not claim a precision it cannot draw. At
         <span class="mono" style="font-size: 12px;">expires_at</span> the arc is
         gone, the centre turns red, and the row stops being a price.
       </div>
@@ -250,7 +251,7 @@
       <div class="eyebrow">Endorsement</div>
       <div style="display: flex; flex-direction: column; gap: 2px;">
         <div class="w" style="font-size: 28px;">decentralized</div>
-        <div style="display: flex; align-items: baseline;"><span class="d" style="width: 5px; height: 5px; margin-right: 3px;"></span><span class="w" style="font-size: 28px;">cloud</span></div>
+        <div style="display: flex; align-items: baseline;"><span class="d" style="width: 5px; height: 5px; margin-right: 2px;"></span><span class="w" style="font-size: 28px;">cloud</span></div>
       </div>
       <div style="display: flex; align-items: center; gap: 9px;">
         <span style="width: 22px; height: 1px; background: #cecece;"></span>
