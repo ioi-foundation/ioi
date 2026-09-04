@@ -1,5 +1,6 @@
 // Path: crates/cli/src/commands/mod.rs
 
+pub mod aft;
 pub mod agent;
 pub mod agent_event_stream;
 pub mod agent_lifecycle;

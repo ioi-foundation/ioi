@@ -891,7 +891,10 @@ where
         .map(|block| block.header.height)
         .unwrap_or(0);
     let workload = context.view_resolver.workload_client().clone();
-    let workload_height = workload.get_status().await?.height;
+    // Public AFT status is intentionally demoted to the latest
+    // collapse-backed height. Restart reconciliation instead needs the raw
+    // execution cursor; the latter still carries no finality authority.
+    let workload_height = workload.get_execution_status().await?.height;
     if workload_height < admitted_height {
         return Err(anyhow!(
             "workload height {workload_height} is behind Agentgres-admitted height {admitted_height}"

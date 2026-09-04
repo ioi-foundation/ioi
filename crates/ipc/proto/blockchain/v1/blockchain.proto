@@ -28,6 +28,11 @@ service ChainControl {
 
   // Gets the current chain status (height, timestamp, etc.).
   rpc GetStatus (GetStatusRequest) returns (GetStatusResponse);
+
+  // Internal raw execution status. Unlike public AFT status, this is not
+  // demoted to the latest collapse-backed height and carries no finality
+  // meaning.
+  rpc GetExecutionStatus (GetStatusRequest) returns (GetStatusResponse);
 }
 
 // Services for state queries and transaction pre-checks

@@ -500,8 +500,18 @@ impl TestValidator {
             .await
     }
 
+    pub async fn restart_orchestration_process(&mut self) -> Result<()> {
+        self.backend
+            .restart_orchestration_process(self.orch_log_tx.clone(), self.log_drain_handles.clone())
+            .await
+    }
+
     pub async fn kill_workload(&mut self) -> Result<()> {
         self.backend.kill_workload_process().await
+    }
+
+    pub async fn kill_orchestration(&mut self) -> Result<()> {
+        self.backend.kill_orchestration_process().await
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1083,6 +1093,7 @@ impl TestValidator {
                     format!("http://{}", guardian_grpc_addr),
                 );
             }
+            pb.remember_orchestration_command(&orch_cmd);
             pb.orchestration_process = Some(orch_cmd.spawn()?);
 
             Box::new(pb)

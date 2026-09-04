@@ -149,7 +149,7 @@ fn persist_handoff_draft(
     Ok(path)
 }
 
-fn read_handoff_source(path: &str) -> Result<QuvConfigurationHandoffEnvelopeV0> {
+pub(crate) fn read_handoff_source(path: &str) -> Result<QuvConfigurationHandoffEnvelopeV0> {
     let metadata = std::fs::metadata(path)
         .map_err(|error| anyhow!("failed to stat QUV handoff source: {error}"))?;
     if !metadata.is_file()
@@ -544,11 +544,8 @@ where
     // exact-boundary helper above already checked them.
     let successor_root = canonical_validator_set_hash(&envelope.handoff.successor_set)
         .map_err(anyhow::Error::msg)?;
-    if store.lock().await.permits_activation(
-        envelope.handoff.network_id,
-        envelope.handoff.old_configuration_root,
-        successor_root,
-        envelope.handoff.activation_height,
+    if store.lock().await.permits_exact_activation(
+        &envelope,
         local_successor,
         observed_hash,
         &observed_root,
@@ -588,6 +585,7 @@ async fn activate_installed_handoff<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     envelope: &QuvConfigurationHandoffEnvelopeV0,
     successor_root: [u8; 32],
+    recovery_from_gate: bool,
 ) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
@@ -686,11 +684,8 @@ where
             "canonical QUV handoff boundary differs from the locally installed source"
         ));
     }
-    if !store.lock().await.permits_activation(
-        envelope.handoff.network_id,
-        envelope.handoff.old_configuration_root,
-        successor_root,
-        envelope.handoff.activation_height,
+    if !store.lock().await.permits_exact_activation(
+        envelope,
         local_account,
         observed_hash,
         &observed_root,
@@ -774,22 +769,27 @@ where
     )?;
     {
         let mut engine = engine.lock().await;
-        // Rehydrate the exact old-root ordering certificate while height 2
-        // (or the configured boundary) still resolves to the old membership.
-        // Pre-active processes may have observed this QC before they synced
-        // its header, in which case the engine correctly ignored it as a
-        // future unknown certificate. The owner-bound handoff carries the
-        // same QC every correct old member checked, so activation can replay
-        // and independently authenticate it after importing the block.
-        if !engine.observe_committed_block(&boundary.header, None) {
-            return Err(anyhow!(
-                "consensus engine refused the QUV boundary header continuity hint"
-            ));
+        if !recovery_from_gate {
+            // During the live ceremony the engine still retains the old key
+            // epoch, so it independently authenticates the exact boundary QC
+            // before successor activation. A post-handoff restart can be
+            // rooted with only the successor epoch; replaying the old QC into
+            // that deliberately pruned registry would compare it with the
+            // successor activation heights. In that case the rollback-
+            // anchored install gate above is the durable record that this
+            // process already completed the live validation and QUV. Recovery
+            // therefore rechecks the canonical boundary and exact gate, but
+            // never invents unavailable historical key state or reruns QUV.
+            if !engine.observe_committed_block(&boundary.header, None) {
+                return Err(anyhow!(
+                    "consensus engine refused the QUV boundary header continuity hint"
+                ));
+            }
+            engine
+                .handle_quorum_certificate(envelope.handoff.boundary_qc.clone())
+                .await
+                .map_err(|error| anyhow!(error.to_string()))?;
         }
-        engine
-            .handle_quorum_certificate(envelope.handoff.boundary_qc.clone())
-            .await
-            .map_err(|error| anyhow!(error.to_string()))?;
 
         // Hydrate the successor set before opening its scoped fallback
         // journal. Journal admission deliberately validates the requested
@@ -906,11 +906,36 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
         + 'static
         + Debug,
 {
-    let enabled = {
+    let (enabled, recovered_envelope) = {
         let context = context_arc.lock().await;
-        context.aft_quv_handoff_store.is_some() && context.config.aft_quv_handoff_source.is_some()
+        (
+            context.aft_quv_handoff_store.is_some()
+                && context.config.aft_quv_handoff_source.is_some(),
+            context.aft_quv_handoff_envelope.clone(),
+        )
     };
     if !enabled {
+        return;
+    }
+    // A restart that already exact-matched a rollback-anchored local install
+    // gate must consume only that gate. It never refreshes source bytes and
+    // never re-runs QUV against an expired old root, even if activation fails.
+    if let Some(envelope) = recovered_envelope {
+        let successor_root = match canonical_validator_set_hash(&envelope.handoff.successor_set) {
+            Ok(root) => root,
+            Err(error) => {
+                tracing::error!(target: "quv", %error, "Recovered QUV successor root is invalid; authority remains disabled");
+                return;
+            }
+        };
+        match activate_installed_handoff(&context_arc, &envelope, successor_root, true).await {
+            Ok(()) => {
+                tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Recovered QUV successor authority from its durable local install gate");
+            }
+            Err(error) => {
+                tracing::error!(target: "quv", %error, "Recovered QUV successor gate could not activate; authority remains disabled");
+            }
+        }
         return;
     }
     let mut interval = tokio::time::interval(Duration::from_millis(250));
@@ -942,16 +967,30 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
                 if observed_height < target_height {
                     continue;
                 }
-                if observed_height > target_height {
-                    match activate_installed_handoff(&context_arc, &envelope, successor_root).await {
+                if observed_height >= target_height {
+                    match activate_installed_handoff(
+                        &context_arc,
+                        &envelope,
+                        successor_root,
+                        false,
+                    )
+                    .await
+                    {
                         Ok(()) => {
                             tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Recovered QUV successor authority from its durable local install gate");
+                            return;
                         }
-                        Err(error) => {
+                        Err(error) if observed_height > target_height => {
                             tracing::error!(target: "quv", observed_height, target_height, %error, "QUV successor crossed the live-install boundary without a recoverable local gate; authority remains disabled");
+                            return;
+                        }
+                        Err(_) => {
+                            // At the exact boundary an uninstalled successor
+                            // still has one chance to execute its own live old-
+                            // root operation. A recovered installed successor
+                            // took the branch above and never re-queries.
                         }
                     }
-                    return;
                 }
                 match authorize_and_install_handoff(&context_arc).await {
                     Ok(installed_root) => {
@@ -959,7 +998,14 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
                             tracing::error!(target: "quv", "Installed QUV handoff root differs from the canonical successor; authority remains disabled");
                             return;
                         }
-                        match activate_installed_handoff(&context_arc, &envelope, successor_root).await {
+                        match activate_installed_handoff(
+                            &context_arc,
+                            &envelope,
+                            successor_root,
+                            false,
+                        )
+                        .await
+                        {
                             Ok(()) => {
                                 tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Activated successor from its local live old-root QUV install");
                                 return;

@@ -59,6 +59,10 @@ enum Commands {
     /// Manage cryptographic keys and identities (Classical & PQC).
     Keys(keys::KeysArgs),
 
+    /// Prepare and audit AFT protocol inputs. These commands never perform
+    /// online QUV authorization.
+    Aft(aft::AftArgs),
+
     /// Generate and validate node configurations.
     Config(config::ConfigCmdArgs),
 
@@ -140,6 +144,7 @@ async fn main() -> Result<()> {
 
         // --- Keys ---
         Commands::Keys(args) => keys::run(args),
+        Commands::Aft(args) => aft::run(args),
 
         // --- Config ---
         Commands::Config(args) => config::run(args),

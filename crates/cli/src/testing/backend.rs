@@ -20,6 +20,7 @@ use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::Multiaddr;
 use std::any::Any;
 use std::collections::VecDeque;
+use std::ffi::OsString;
 use std::io;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -59,8 +60,18 @@ pub trait TestBackend: Send {
         log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     ) -> Result<()>;
 
+    /// Restarts the orchestration process. Only implemented for `ProcessBackend`.
+    async fn restart_orchestration_process(
+        &mut self,
+        log_tx: broadcast::Sender<String>,
+        log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    ) -> Result<()>;
+
     /// Kills the workload process. Only implemented for `ProcessBackend`.
     async fn kill_workload_process(&mut self) -> Result<()>;
+
+    /// Kills the orchestration process. Only implemented for `ProcessBackend`.
+    async fn kill_orchestration_process(&mut self) -> Result<()>;
 
     /// Provides access to the concrete backend type for downcasting.
     fn as_any(&self) -> &dyn Any;
@@ -85,6 +96,9 @@ pub struct ProcessBackend {
     pub workload_ipc_addr: String,
     pub certs_dir_path: PathBuf,
     pub shmem_id: String,
+    orchestration_program: Option<OsString>,
+    orchestration_args: Vec<OsString>,
+    orchestration_env: Vec<(OsString, Option<OsString>)>,
 }
 
 impl ProcessBackend {
@@ -125,7 +139,20 @@ impl ProcessBackend {
             workload_ipc_addr,
             certs_dir_path,
             shmem_id,
+            orchestration_program: None,
+            orchestration_args: Vec::new(),
+            orchestration_env: Vec::new(),
         }
+    }
+
+    pub(crate) fn remember_orchestration_command(&mut self, command: &TokioCommand) {
+        let command = command.as_std();
+        self.orchestration_program = Some(command.get_program().to_os_string());
+        self.orchestration_args = command.get_args().map(|arg| arg.to_os_string()).collect();
+        self.orchestration_env = command
+            .get_envs()
+            .map(|(key, value)| (key.to_os_string(), value.map(|value| value.to_os_string())))
+            .collect();
     }
 
     async fn wait_for_workload_genesis_ready(
@@ -220,6 +247,70 @@ impl ProcessBackend {
 #[async_trait]
 impl TestBackend for ProcessBackend {
     async fn launch(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn restart_orchestration_process(
+        &mut self,
+        log_tx: broadcast::Sender<String>,
+        log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    ) -> Result<()> {
+        if self.orchestration_process.is_some() {
+            return Err(anyhow!("Orchestration process is already running."));
+        }
+        let program = self
+            .orchestration_program
+            .as_ref()
+            .ok_or_else(|| anyhow!("No orchestration restart command was recorded"))?;
+        let mut command = TokioCommand::new(program);
+        command.args(&self.orchestration_args);
+        for (key, value) in &self.orchestration_env {
+            match value {
+                Some(value) => {
+                    command.env(key, value);
+                }
+                None => {
+                    command.env_remove(key);
+                }
+            }
+        }
+        command.stderr(Stdio::piped()).kill_on_drop(true);
+        let mut child = command.spawn()?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Failed to take stderr from restarted orchestration"))?;
+        let restart_events = self
+            .certs_dir_path
+            .parent()
+            .map(|parent| parent.join("orchestration-restart-events.log"));
+        if let Some(path) = restart_events.as_ref() {
+            std::fs::write(path, [])?;
+        }
+        let handle = tokio::spawn(async move {
+            let mut lines = tokio::io::BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(path) = restart_events.as_ref() {
+                    if line.contains("\"target\":\"quv\"")
+                        || line.contains("authority remains disabled")
+                        || line.starts_with("Error:")
+                    {
+                        use std::io::Write as _;
+                        if let Ok(mut file) = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(path)
+                        {
+                            let _ = writeln!(file, "{line}");
+                            let _ = file.sync_data();
+                        }
+                    }
+                }
+                let _ = log_tx.send(line);
+            }
+        });
+        log_handles.lock().await.push(handle);
+        self.orchestration_process = Some(child);
         Ok(())
     }
 
@@ -380,6 +471,17 @@ impl TestBackend for ProcessBackend {
             }
         } else {
             tracing::warn!(target: "cli", "kill_workload_process called but no process handle found.");
+        }
+        Ok(())
+    }
+
+    async fn kill_orchestration_process(&mut self) -> Result<()> {
+        if let Some(mut child) = self.orchestration_process.take() {
+            tracing::info!(target: "cli", "Killing orchestration process (handle-based)...");
+            if child.try_wait()?.is_none() {
+                child.start_kill()?;
+                child.wait().await?;
+            }
         }
         Ok(())
     }
@@ -695,7 +797,23 @@ impl TestBackend for DockerBackend {
         ))
     }
 
+    async fn restart_orchestration_process(
+        &mut self,
+        _log_tx: broadcast::Sender<String>,
+        _log_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    ) -> Result<()> {
+        Err(anyhow!(
+            "Restarting a single container is not supported in the Docker backend"
+        ))
+    }
+
     async fn kill_workload_process(&mut self) -> Result<()> {
+        Err(anyhow!(
+            "Killing single container not supported in the Docker backend"
+        ))
+    }
+
+    async fn kill_orchestration_process(&mut self) -> Result<()> {
         Err(anyhow!(
             "Killing single container not supported in the Docker backend"
         ))

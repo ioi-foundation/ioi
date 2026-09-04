@@ -345,6 +345,28 @@ impl WorkloadClient {
         })
     }
 
+    /// Returns the data plane's raw executed cursor. This is an internal
+    /// restart/reconciliation signal, not a finality statement.
+    pub async fn get_execution_status(&self) -> Result<ChainStatus> {
+        let mut client = self.clone_chain_client().await;
+        let resp = timeout(
+            workload_grpc_request_timeout(),
+            client.get_execution_status(GetStatusRequest {}),
+        )
+        .await
+        .map_err(|_| workload_timeout_anyhow("get_execution_status"))?
+        .map_err(|e| anyhow!("gRPC get_execution_status failed: {}", e))?
+        .into_inner();
+
+        Ok(ChainStatus {
+            height: resp.height,
+            latest_timestamp: resp.latest_timestamp,
+            total_transactions: resp.total_transactions,
+            is_running: resp.is_running,
+            latest_timestamp_ms: resp.latest_timestamp.saturating_mul(1000),
+        })
+    }
+
     pub async fn get_genesis_status_details(
         &self,
     ) -> Result<ioi_ipc::blockchain::GetGenesisStatusResponse> {
@@ -1041,6 +1063,12 @@ impl WorkloadClientApi for WorkloadClient {
     async fn get_status(&self) -> std::result::Result<ChainStatus, ChainError> {
         // We use the inherent method on the struct
         self.get_status()
+            .await
+            .map_err(|e| ChainError::Transaction(e.to_string()))
+    }
+
+    async fn get_execution_status(&self) -> std::result::Result<ChainStatus, ChainError> {
+        self.get_execution_status()
             .await
             .map_err(|e| ChainError::Transaction(e.to_string()))
     }

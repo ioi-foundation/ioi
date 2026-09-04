@@ -3,13 +3,13 @@
 
 use anyhow::Result;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_cli::aft_quv_ceremony::{install_signed_handoff, sign_handoff_draft};
 use ioi_cli::testing::backend::ProcessBackend;
 use ioi_cli::testing::{
     assert_log_contains, build_test_artifacts, rpc, wait_for, wait_for_height, TestCluster,
 };
 use ioi_consensus::aft::query_unanimity::{
-    quv_candidate_authority_signing_bytes, quv_handoff_domain_id, quv_policy_root,
-    validate_quv_handoff_candidate,
+    quv_handoff_domain_id, quv_policy_root, validate_quv_handoff_candidate,
 };
 use ioi_types::{
     app::{
@@ -255,7 +255,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
         ("IOI_AFT_BLOCK_DIRECT_RELAY", "1"),
     ]);
 
-    let cluster = TestCluster::builder()
+    let mut cluster = TestCluster::builder()
         // Both the old live-ordering configuration and its fully disjoint
         // successor retain the normative n=3f+1 geometry. QUV changes the
         // effect-authorization/handoff theorem; it does not launder an
@@ -357,7 +357,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
                 (*index, orchestration)
             })
             .collect::<Vec<_>>();
-        let mut envelope = wait_for(
+        let envelope = wait_for(
             "the exact unsigned QUV handoff owner-ceremony draft",
             Duration::from_millis(250),
             Duration::from_secs(90),
@@ -396,18 +396,31 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             ));
         }
         validate_quv_handoff_candidate(&envelope.candidate, &envelope.handoff)?;
-        let owner_key = cluster.validators[keyed[0].1]
+        let owner_key_path = cluster.validators[keyed[0].1]
             .validator()
-            .pqc_keypair
-            .as_ref()
-            .expect("old rooted owner key must be available");
-        envelope.candidate.authority_signature = owner_key
-            .sign(&quv_candidate_authority_signing_bytes(&envelope.candidate)?)?
-            .to_bytes();
-        let encoded = codec::to_bytes_canonical(&envelope).map_err(anyhow::Error::msg)?;
-        let staged_path = source_path.with_extension("scale.tmp");
-        std::fs::write(&staged_path, encoded)?;
-        std::fs::rename(&staged_path, &source_path)?;
+            .state_dir()
+            .join("pqc_key.json");
+        let signed_path = source_path.with_extension("signed.scale");
+        let signed_audit = sign_handoff_draft(
+            &draft_path,
+            &owner_key_path,
+            &signed_path,
+            false,
+        )?;
+        if signed_audit.portable_final_receipt
+            || signed_audit.process_local_authorization_present
+            || !signed_audit.owner_signature_present
+        {
+            return Err(anyhow::anyhow!(
+                "operator ceremony mislabeled replayable handoff input as online authority"
+            ));
+        }
+        install_signed_handoff(
+            &signed_path,
+            &owner_key_path,
+            &source_path,
+            false,
+        )?;
 
         let first_successor_rpc = cluster.validators[keyed[4].1].validator().rpc_addr.clone();
         let synchronized_boundary = wait_for(
@@ -527,6 +540,40 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
                 ));
             }
         }
+
+        // Restart a live successor authority process while leaving its
+        // workload/state process intact. Recovery must consume the existing
+        // rollback-anchored install gate; it may not re-run QUV against an
+        // expired old root or infer authority from the source bytes.
+        let restarted_index = keyed[4].1;
+        let restarted_rpc = cluster.validators[restarted_index]
+            .validator()
+            .rpc_addr
+            .clone();
+        let before_restart = rpc::get_status(&restarted_rpc).await?.height;
+        let (mut restarted_log, _, _) = cluster.validators[restarted_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[restarted_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[restarted_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("restarted QUV successor node {restarted_index}"),
+            &mut restarted_log,
+            "Recovered QUV successor authority from its durable local install gate",
+        )
+        .await?;
+        wait_for_height(
+            &restarted_rpc,
+            before_restart.saturating_add(2),
+            Duration::from_secs(240),
+        )
+        .await?;
 
         Ok::<(), anyhow::Error>(())
     }

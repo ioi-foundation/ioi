@@ -795,7 +795,7 @@ where
         let mut aft_async_custody_key = None;
         let mut aft_cross_path_signing_fence = None;
         let mut aft_quv_member = None;
-        let aft_quv_handoff_envelope = None;
+        let mut aft_quv_handoff_envelope = None;
         let mut aft_quv_handoff_store = None;
         if matches!(
             self.config.consensus_type,
@@ -840,7 +840,52 @@ where
                 quv_enabled,
             )
             .map_err(|error| ValidatorError::Config(error.to_string()))?;
-            let quv_handoff_successor = pq_startup.handoff_successor;
+            // A generic admitted-state restart may recover an old-root floor
+            // whose `next` field has already been consumed in the live
+            // workload projection. In that case source bytes alone still may
+            // not restore authority. They may only locate the successor and
+            // its rollback-anchored local install store; the store is opened
+            // and exact-matched below before startup is allowed to continue.
+            let quv_recovery_envelope = if quv_enabled && pq_startup.handoff_successor.is_none() {
+                let source = self
+                    .config
+                    .aft_quv_handoff_source
+                    .as_deref()
+                    .ok_or_else(|| {
+                        ValidatorError::Config(
+                            "QUV restart recovery has no configured handoff source".into(),
+                        )
+                    })?;
+                let envelope = super::quv::read_handoff_source(source)
+                    .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                ioi_consensus::aft::query_unanimity::validate_quv_handoff_candidate(
+                    &envelope.candidate,
+                    &envelope.handoff,
+                )
+                .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                let current_root = ioi_types::app::canonical_validator_set_hash(&sets.current)
+                    .map_err(ValidatorError::Config)?;
+                let successor_root =
+                    ioi_types::app::canonical_validator_set_hash(&envelope.handoff.successor_set)
+                        .map_err(ValidatorError::Config)?;
+                if envelope.handoff.network_id != self.genesis_hash
+                    || (envelope.handoff.old_configuration_root != current_root
+                        && successor_root != current_root)
+                {
+                    return Err(ValidatorError::Config(
+                        "QUV recovery source names neither the rooted startup configuration nor its exact successor"
+                            .into(),
+                    ));
+                }
+                Some(envelope)
+            } else {
+                None
+            };
+            let quv_handoff_successor = pq_startup.handoff_successor.or_else(|| {
+                quv_recovery_envelope
+                    .as_ref()
+                    .map(|envelope| &envelope.handoff.successor_set)
+            });
             let staged_successor = quv_handoff_successor;
             // A QUV transition retains the old set in `current` and the
             // successor in `next`. Even after the activation height, startup
@@ -849,9 +894,11 @@ where
             // successor. Treating `effective_set_for_height` as sufficient
             // here would turn restart into an authority bypass.
             let pq_rooted_set = pq_startup.rooted;
-            let quv_recovery_required = pq_startup.recovery_required;
+            let quv_recovery_required =
+                pq_startup.recovery_required || quv_recovery_envelope.is_some();
             if quv_enabled {
                 aft_quv_staged_successor = quv_handoff_successor.cloned();
+                aft_quv_handoff_envelope = quv_recovery_envelope.clone();
             }
             if pq_rooted_set.validators.is_empty() {
                 return Err(ValidatorError::Other(format!(
@@ -1046,17 +1093,26 @@ where
                         .any(|validator| validator.account_id == local_pq_account)
                 });
                 if quv_enabled && local_is_successor {
+                    // The live-install gate is permanently scoped by the old
+                    // root even after the canonical workload projection has
+                    // advanced to the successor. The authenticated recovery
+                    // envelope locates that old-root store; it cannot create
+                    // or modify the separately anchored gate.
+                    let handoff_configuration_hash = quv_recovery_envelope
+                        .as_ref()
+                        .map(|envelope| envelope.handoff.old_configuration_root)
+                        .unwrap_or(configuration_hash);
                     let custody_key = super::consensus::derive_aft_quv_handoff_custody_key(
                         &pq_identity,
                         self.genesis_hash,
-                        configuration_hash,
+                        handoff_configuration_hash,
                         local_pq_account,
                     )
                     .map_err(|error| ValidatorError::Config(error.to_string()))?;
                     let paths = super::consensus::aft_async_storage_paths(
                         self.config.aft_pq_outbox_dir.as_deref(),
                         self.config.aft_external_anchor_dir.as_deref(),
-                        configuration_hash,
+                        handoff_configuration_hash,
                         local_pq_account,
                         staged_successor
                             .expect("local successor implies a staged successor")
@@ -1069,6 +1125,19 @@ where
                         *custody_key,
                     )
                     .map_err(|error| ValidatorError::Config(error.to_string()))?;
+                    if let Some(envelope) = quv_recovery_envelope.as_ref() {
+                        if !store.permits_exact_activation(
+                            envelope,
+                            local_pq_account,
+                            envelope.handoff.state_block_hash,
+                            &envelope.handoff.state_root,
+                        ) {
+                            return Err(ValidatorError::Config(
+                                "QUV recovery source has no exact rollback-anchored local install gate"
+                                    .into(),
+                            ));
+                        }
+                    }
                     aft_quv_handoff_store = Some(Arc::new(Mutex::new(store)));
                 }
                 if !handoff_only {

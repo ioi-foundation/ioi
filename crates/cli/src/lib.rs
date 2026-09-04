@@ -54,6 +54,7 @@
 //! - `builder`: (Future) Builder patterns for constructing nodes, chains, and sovereign domains in test environments.
 //! - `client`: (Future) A lightweight client for interacting with a running node's RPC.
 
+pub mod aft_quv_ceremony;
 pub mod testing;
 
 // Re-export core testing primitives for ergonomic top-level access.

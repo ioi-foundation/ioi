@@ -9,9 +9,9 @@
 use fs2::FileExt;
 use ioi_types::app::{AccountId, SignatureSuite, ValidatorSetV1};
 pub use ioi_types::app::{
-    QuvAcceptedAuditEvidenceV0, QuvAuthorityModeV0, QuvCandidateV0, QuvConfigurationHandoffV0,
-    QuvHash, QuvNonce, QuvPushQueryV0, QuvReplyV0, QuvSlotV0, QUV_MAX_CONFIGURED_MEMBERS_V0,
-    QUV_PROFILE_V0,
+    QuvAcceptedAuditEvidenceV0, QuvAuthorityModeV0, QuvCandidateV0,
+    QuvConfigurationHandoffEnvelopeV0, QuvConfigurationHandoffV0, QuvHash, QuvNonce,
+    QuvPushQueryV0, QuvReplyV0, QuvSlotV0, QUV_MAX_CONFIGURED_MEMBERS_V0, QUV_PROFILE_V0,
 };
 use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
@@ -640,6 +640,44 @@ impl DurableQuvHandoffV0 {
                 && installed.handoff.network_id == network_id
                 && installed.handoff.old_configuration_root == old_configuration_root
                 && installed.handoff.activation_height == activation_height
+                && installed.handoff.state_block_hash == state_block_hash
+                && installed.handoff.state_root == state_root
+        })
+    }
+
+    /// Recovery-time predicate over the complete owner-provisioned envelope.
+    /// This prevents source replacement from borrowing an install gate that
+    /// was created for different candidate bytes or boundary evidence, even
+    /// when the replacement happens to name the same successor and height.
+    pub fn permits_exact_activation(
+        &self,
+        envelope: &QuvConfigurationHandoffEnvelopeV0,
+        local_successor: AccountId,
+        state_block_hash: QuvHash,
+        state_root: &[u8],
+    ) -> bool {
+        let Ok(successor_configuration_root) =
+            ioi_types::app::canonical_validator_set_hash(&envelope.handoff.successor_set)
+        else {
+            return false;
+        };
+        let Ok(candidate_hash) = quv_candidate_hash(&envelope.candidate) else {
+            return false;
+        };
+        let Ok(payload_hash) = quv_handoff_payload_hash(&envelope.handoff) else {
+            return false;
+        };
+        let Ok(envelope_handoff_bytes) = codec::to_bytes_canonical(&envelope.handoff) else {
+            return false;
+        };
+        self.state.installed.as_ref().is_some_and(|installed| {
+            installed.local_successor == local_successor
+                && installed.successor_configuration_root == successor_configuration_root
+                && installed.candidate_hash == candidate_hash
+                && installed.payload_hash == payload_hash
+                && codec::to_bytes_canonical(&installed.handoff)
+                    .is_ok_and(|bytes| bytes == envelope_handoff_bytes)
+                && envelope.candidate.payload_hash == payload_hash
                 && installed.handoff.state_block_hash == state_block_hash
                 && installed.handoff.state_root == state_root
         })
@@ -1927,6 +1965,10 @@ mod tests {
                 authority_signature: vec![8],
             },
         };
+        let installed_envelope = QuvConfigurationHandoffEnvelopeV0 {
+            handoff: handoff.clone(),
+            candidate: request.candidate.clone(),
+        };
         let temp = TempDir::new().unwrap();
         let signer = TestMember(account(1));
         let reply = open_member(&temp)
@@ -1962,6 +2004,20 @@ mod tests {
             successor_root
         );
         assert_eq!(store.generation(), 1);
+        assert!(store.permits_exact_activation(
+            &installed_envelope,
+            account(20),
+            [5; 32],
+            &[6; 32],
+        ));
+        let mut substituted_source = installed_envelope.clone();
+        substituted_source.candidate.authority_signature = vec![9];
+        assert!(!store.permits_exact_activation(
+            &substituted_source,
+            account(20),
+            [5; 32],
+            &[6; 32],
+        ));
         assert!(store.permits_activation(
             [2; 32],
             [1; 32],

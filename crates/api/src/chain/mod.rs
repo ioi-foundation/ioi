@@ -141,6 +141,13 @@ pub trait WorkloadClientApi: Send + Sync + Debug {
     // [NEW] Added for Public API access via trait object
     async fn get_status(&self) -> Result<ChainStatus, ChainError>;
 
+    /// Returns the workload's raw executed height without assigning finality
+    /// to it. Implementations that do not separate execution from public
+    /// finality may use `get_status`.
+    async fn get_execution_status(&self) -> Result<ChainStatus, ChainError> {
+        self.get_status().await
+    }
+
     /// Returns the client as a type-erased `Any` trait object.
     fn as_any(&self) -> &dyn Any;
 }

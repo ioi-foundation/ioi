@@ -534,6 +534,19 @@ where
             is_running: durable_status.is_running,
         }))
     }
+
+    async fn get_execution_status(
+        &self,
+        _request: Request<GetStatusRequest>,
+    ) -> Result<Response<GetStatusResponse>, Status> {
+        let status = self.ctx.machine.lock().await.status().clone();
+        Ok(Response::new(GetStatusResponse {
+            height: status.height,
+            latest_timestamp: status.latest_timestamp,
+            total_transactions: status.total_transactions,
+            is_running: status.is_running,
+        }))
+    }
 }
 
 #[cfg(test)]

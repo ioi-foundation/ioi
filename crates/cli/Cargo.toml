@@ -38,6 +38,7 @@ ioi-tx = { path = "../tx" }
 ioi-ipc = { path = "../ipc" }
 ioi-services = { path = "../services" }
 ioi-networking = { path = "../networking" }
+ioi-consensus = { path = "../consensus", features = ["aft"] }
 ioi-pii = { path = "../pii" }
 ioi-drivers = { path = "../drivers" }
 
@@ -87,8 +88,6 @@ ssz_rs = { version = "0.9", optional = true }
 [dev-dependencies]
 ioi-relayer = { path = "../plugins/relayer" } # [FIX] Updated path to plugins/relayer
 ioi-execution = { path = "../execution" }
-# [NEW] Add ioi-consensus for E2E tests verification logic
-ioi-consensus = { path = "../consensus", features = ["aft"] }
 ioi-memory = { path = "../memory" }
 
 once_cell = { workspace = true }
