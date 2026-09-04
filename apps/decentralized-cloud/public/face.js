@@ -199,10 +199,26 @@ const waiting = (what) =>
       "shown until it answers: an invented placeholder would be indistinguishable from " +
       "a real quote."));
 
-const failure = (r) =>
-  el("div", { class: "panel fault stack", style: "gap: 8px;" },
-    el("div", { class: "eyebrow" }, r.body?.state || `http ${r.status}`),
-    el("p", { class: "prose" }, r.body?.reason || "The read failed and the daemon gave no reason."));
+// A refusal arrives in one of two shapes and this renderer used to read only one.
+// The face's own proxy answers `{ state, reason }`; the daemon answers a refusal as
+// `{ ok: false, error: { code, message } }`. Reading only the first meant every
+// daemon-shaped refusal — every 422 the job primitive raises, every named
+// provider-plane code — rendered as "http 422" over "the daemon gave no reason",
+// while the body sitting in front of us carried both the name and the sentence.
+//
+// Saying "no reason was given" when a reason WAS given is the worst thing this
+// surface can do: it is the one page whose entire claim is that you can always see
+// where a number, or a refusal, came from. Both shapes are read now, and the
+// fallback fires only when the body genuinely carries neither.
+const failure = (r) => {
+  const err = r.body?.error;
+  const code = err?.code || r.body?.state || r.body?.code || `http ${r.status}`;
+  const detail = err?.message || r.body?.reason || r.body?.detail || null;
+  return el("div", { class: "panel fault stack", style: "gap: 8px;" },
+    el("div", { class: "eyebrow" }, code),
+    el("p", { class: "prose" },
+      detail || "The read failed and the response carried no reason — which is itself worth reporting."));
+};
 
 // ── Candidates ───────────────────────────────────────────────────────────────
 // Stale-while-refresh. The first paint has nothing to be stale FROM, so it says
@@ -422,13 +438,50 @@ setInterval(() => {
 }, POLL_MS);
 
 // ── Sources ──────────────────────────────────────────────────────────────────
+// The last successful source read, kept so a revisit shows the previous answer
+// immediately instead of an empty page for a minute. Sources reads were measured at
+// 56s, 61s, 60s and one 504 at 75.003s — long enough that a reader who clicks away
+// and back would otherwise pay the whole cost twice and stare at nothing meanwhile.
+// This is the SAME rule Candidates already follows: an empty surface on this page
+// must keep meaning "no live price", so it can never also come to mean "loading".
+let lastSources = null;
+
 async function renderSources() {
-  // This is the read the reviewer's race fired on: measured at 31s, long enough for
-  // a reader to click away twice before it lands.
+  // This is the read the reviewer's race fired on: measured at 31s and later at 60s,
+  // long enough for a reader to click away twice before it lands.
   const mine = currentGeneration();
-  paint(mine, waiting("source health"));
+
+  // Stale-while-refresh: show the previous answer at once, dimmed and dated, while
+  // the new read runs. Nothing here is invented — it is the last thing the daemon
+  // actually said, labelled with when it said it.
+  if (lastSources) {
+    const stale = sourcesView(lastSources.body, lastSources.ms, lastSources.at);
+    stale.classList.add("stale");
+    paint(mine, stale);
+    setRefreshChip("refreshing");
+  } else {
+    paint(mine, waiting("source health"));
+  }
+
   const r = await read("/api/candidate-sources");
-  if (!r.ok) return paint(mine, failure(r));
+  if (mine !== currentGeneration()) return; // the reader has moved on
+  setRefreshChip("idle");
+  if (!r.ok) {
+    // A failed refresh does not erase a good earlier reading; it is shown above it,
+    // because "the last answer, and why we could not get a newer one" is more useful
+    // than either alone.
+    if (lastSources) {
+      const kept = sourcesView(lastSources.body, lastSources.ms, lastSources.at);
+      return paint(mine, failure(r), kept);
+    }
+    return paint(mine, failure(r));
+  }
+  lastSources = { body: r.body, ms: r.ms, at: new Date().toISOString() };
+  return paint(mine, sourcesView(r.body, r.ms, lastSources.at));
+}
+
+function sourcesView(body, ms, at) {
+  const r = { body, ms };
 
   const sources = Array.isArray(r.body.sources) ? r.body.sources : [];
   const quoting = sources.filter((s) => s.state === "live_quote_source");
@@ -466,16 +519,23 @@ async function renderSources() {
       ev.basis ? el("div", { class: "meta" }, `basis: ${ev.basis}`) : null);
   };
 
-  paint(mine,
-    el("div", { class: "stack", style: "gap: 24px;" },
+  // Returns the node rather than painting it, so the caller decides whether this is
+  // the fresh answer or the kept one being shown while a new read runs.
+  return el("div", { class: "stack", style: "gap: 24px;" },
       el("div", { class: "stack", style: "gap: 10px;" },
         el("h1", {}, "Sources"),
         el("div", { class: "meta" },
-          `${sources.length} sources · ${quoting.length} quoting · ${answering.length} answering · ${absent.length} absent · read took ${(r.ms / 1000).toFixed(1)}s`)),
+          `${sources.length} sources · ${quoting.length} quoting · ${answering.length} answering · ` +
+          `${absent.length} absent · read took ${(r.ms / 1000).toFixed(1)}s` +
+          (at ? ` · observed ${clock(at)}` : "")),
+        el("div", { class: "meta" },
+          "Each row's state is the daemon's LAST PERSISTED fetch for that source, not a " +
+          "probe taken just now — a source fixed since then reads stale until something " +
+          "refreshes it, which is why the row carries its own timestamp.")),
       el("p", { class: "prose" },
         "Health as the daemon reports it, in its own words. A source without an adapter " +
         "or without a credential says so in the row where a price would have been."),
-      el("div", { class: "rail" }, sources.map(row))));
+      el("div", { class: "rail" }, sources.map(row)));
 }
 
 // ── Placement advisory ───────────────────────────────────────────────────────
@@ -820,21 +880,51 @@ const SURFACES = {
   api: renderApi,
 };
 
-for (const button of document.querySelectorAll(".nav button")) {
-  button.addEventListener("click", () => {
-    // Bump FIRST: every read already in flight is now for a surface the reader has
-    // left, and must not paint. This is the line that makes the guard work.
-    generation += 1;
-    for (const b of document.querySelectorAll(".nav button")) b.removeAttribute("aria-current");
-    button.setAttribute("aria-current", "page");
-    // Leaving candidates drops the stale-paint handle: a batch rendered before the
-    // reader navigated away must not reappear under a later refresh as though it
-    // had just been read.
-    lastPaint = null;
-    setRefreshChip("idle");
-    SURFACES[button.dataset.surface]();
-  });
+// ── Routing ──────────────────────────────────────────────────────────────────
+// Every surface is a URL. Without this the page had one address for seven views:
+// you could not link anyone to Sources, Back left the app entirely rather than
+// returning to the previous surface, and a reload always landed on Candidates —
+// re-paying a read measured at up to 60 seconds to get back where you were.
+//
+// The hash is used rather than pushState because this surface is served as static
+// files with no server-side routing: a deep path would 404 on reload, which would
+// turn "linkable" into "linkable once". The hash always resolves to the same shell.
+const DEFAULT_SURFACE = "candidates";
+const surfaceFromHash = () => {
+  const name = location.hash.replace(/^#\/?/, "");
+  return Object.prototype.hasOwnProperty.call(SURFACES, name) ? name : DEFAULT_SURFACE;
+};
+
+// One place that changes what is on screen, whoever asked — a click, a Back, a
+// paste of a link, a reload. Routing through one function is what keeps the
+// generation guard and the button state from drifting apart.
+function showSurface(name, { pushHistory = true } = {}) {
+  const surface = Object.prototype.hasOwnProperty.call(SURFACES, name) ? name : DEFAULT_SURFACE;
+  // Bump FIRST: every read already in flight is now for a surface the reader has
+  // left, and must not paint. This is the line that makes the guard work.
+  generation += 1;
+  for (const b of document.querySelectorAll(".nav button")) {
+    b.toggleAttribute("aria-current", false);
+    if (b.dataset.surface === surface) b.setAttribute("aria-current", "page");
+  }
+  // Leaving candidates drops the stale-paint handle: a batch rendered before the
+  // reader navigated away must not reappear under a later refresh as though it had
+  // just been read.
+  lastPaint = null;
+  setRefreshChip("idle");
+  if (pushHistory && surfaceFromHash() !== surface) location.hash = `#/${surface}`;
+  SURFACES[surface]();
 }
 
+for (const button of document.querySelectorAll(".nav button")) {
+  button.addEventListener("click", () => showSurface(button.dataset.surface));
+}
+
+// Back and Forward move between surfaces rather than out of the app. `hashchange`
+// fires for both, and for someone pasting a link into an already-open tab.
+window.addEventListener("hashchange", () => showSurface(surfaceFromHash(), { pushHistory: false }));
+
 document.getElementById("daemon-label").textContent = `daemon ${location.host}`;
-renderCandidates();
+// Open on whatever the URL asks for, so a reload and a shared link both land where
+// the reader expected rather than back at the start.
+showSurface(surfaceFromHash(), { pushHistory: false });
