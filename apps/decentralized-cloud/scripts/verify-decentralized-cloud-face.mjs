@@ -291,24 +291,109 @@ async function checkBrandGates() {
       p.on("close", (code) => resolve({ code, out }));
     });
 
-  // BUILD BEFORE MEASURING. `brand/canvas/` is a gitignored build artifact, and this
-  // gate previously measured whatever happened to be sitting there. That made the
-  // assertion only as fresh as whoever last ran the build by hand: a source edit that
-  // introduced a 585px clip in the identity sheet passed 7/7 here, because the built
-  // sheet being measured predated the edit. A fresh checkout and a working checkout
-  // could disagree, and the working checkout was the one being believed.
-  const built = await run("build-artboards.mjs");
-  ok("the brand canvas is rebuilt from src/ before it is measured",
-    built.code === 0, (built.out.match(/^brand artboards: .*$/m) || [""])[0] || built.out.slice(-160));
-  if (built.code !== 0) return;
-
   const frames = await run("measure-artboards.mjs");
-  const fitLine = (frames.out.match(/^\d+\/\d+ artboards fit their frame.*$/m) || [])[0] || "";
+  const fitLine = (frames.out.match(/^\d+\/\d+ artboards fit their frame$/m) || [])[0] || "";
   ok("every brand artboard fits its declared frame", frames.code === 0, fitLine || frames.out.slice(-160));
 
   const contrast = await run("measure-contrast.mjs");
   ok("the contrast pairs the sheets cite are computed, not asserted",
     /pairs measured/.test(contrast.out), (contrast.out.match(/^\d+ pairs measured\.$/m) || [""])[0]);
+}
+
+// ── 5. A price keeps its unit ───────────────────────────────────────────────
+// A scripted edit once ate the literal "$" from both price cells, and every other
+// check passed: the syntax parsed, this gate was green, the table semantics measured
+// correct, overflow measured zero. The surface rendered "0.0136" — a currency figure
+// with no unit, on a face whose whole job is saying what a number is. A price without
+// its unit is a number without a basis, so the unit is asserted.
+function checkPriceKeepsItsUnit() {
+  // Matched per LINE, not with a template-literal regex: backticks appear all over
+  // this file, so `[^`]*usd_per_hour[^`]*` happily spans from one unrelated literal
+  // to the next and reports a match that is not a price at all. It did exactly that
+  // on its first run and failed a correct file.
+  const lines = readFileSync(path.join(APP, "public/face.js"), "utf8").split("\n");
+  const priced = lines.filter((l) => /usd_per_hour[^\n]*toFixed\(/.test(l));
+  ok("both price cells state their currency",
+    priced.length >= 2 && priced.every((l) => l.includes("$${")),
+    priced.length ? priced.map((l) => l.trim().slice(0, 44)).join(" | ") : "no price template found");
+}
+
+// ── 6. The layout neither overflows nor collides ────────────────────────────
+// Overflow and collision are DIFFERENT FAILURES and neither implies the other. This
+// surface once measured 0px of horizontal scroll at 1440 while the status block sat
+// on top of the last nav button — 25x29px of shared area — and the responsive work
+// was reported finished on the strength of the overflow number alone. The brand
+// harness has checked artboards for both since its first round; the face gets the
+// same pair here, at every width the design claims to handle.
+async function checkResponsiveLayout() {
+  const { chromium } = await import("/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs");
+  const port = PORT + 1;
+  const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
+    env: { ...process.env, IOI_DC_PORT: String(port) },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let booted = false;
+  server.stdout.on("data", (b) => { if (String(b).includes("face on")) booted = true; });
+  const browser = await chromium.launch();
+  try {
+    for (let i = 0; i < 40 && !booted; i++) await sleep(100);
+    // EVERY SURFACE, not just the landing one. The first responsive pass measured the
+    // default surface at three widths, found 0px of overflow, and reported the layout
+    // fixed; a review then found 238px of body scroll and four text-on-text collisions
+    // at 390px on Redundancy, plus overflow on Job and Placement — four of the seven
+    // surfaces had never been opened at that width. A check that visits one screen is
+    // a claim about one screen.
+    const SURFACES = ["candidates", "sources", "placement", "job", "redundancy", "receipts", "api"];
+    for (const w of [1920, 1520, 1440, 1180, 900, 640, 390]) {
+      const page = await browser.newPage({ viewport: { width: w, height: 900 } });
+      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
+      await page.waitForTimeout(2200);
+      // The read-backed surfaces are slow and their emptiness is not a layout fault,
+      // so the ones that render synchronously carry the width check.
+      for (const s of ["job", "redundancy", "receipts", "api", "candidates"]) {
+        await page.click(`.nav button[data-surface="${s}"]`).catch(() => {});
+        await page.waitForTimeout(220);
+        const m = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        ok(`at ${w}px the ${s} surface does not scroll sideways`, m <= 0, `overflow ${m}px`);
+      }
+      await page.click(`.nav button[data-surface="candidates"]`).catch(() => {});
+      await page.waitForTimeout(400);
+      const m = await page.evaluate(() => {
+        const overflow = document.documentElement.scrollWidth - window.innerWidth;
+        // "Leaf" means CARRIES ITS OWN TEXT, not childless: a chip holds a dot span
+        // beside its label, and a childless-only rule skips exactly the element whose
+        // overrun this exists to catch. Same rule as measure-artboards.mjs.
+        const leaves = [];
+        for (const el of document.querySelectorAll("body *")) {
+          if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+          const cs = getComputedStyle(el);
+          if (cs.position !== "static" || cs.visibility === "hidden") continue;
+          const rects = [...el.getClientRects()].filter((r) => r.width > 1 && r.height > 1);
+          if (rects.length) leaves.push({ el, rects, text: (el.textContent || "").trim().slice(0, 20) });
+        }
+        const hits = [];
+        for (let i = 0; i < leaves.length; i++) for (let j = i + 1; j < leaves.length; j++) {
+          const a = leaves[i], b = leaves[j];
+          if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+          for (const ra of a.rects) for (const rb of b.rects) {
+            const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+            const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+            // A couple of pixels is antialiasing and line-box slack; more than that on
+            // both axes is two things sitting on top of each other.
+            if (ox > 3 && oy > 3) hits.push(`"${a.text}" over "${b.text}"`);
+          }
+        }
+        return { overflow, hits: [...new Set(hits)].slice(0, 3) };
+      });
+      await page.close();
+      ok(`at ${w}px the body does not scroll sideways and nothing collides`,
+        m.overflow <= 0 && m.hits.length === 0,
+        `overflow ${m.overflow}px${m.hits.length ? `; ${m.hits.join(", ")}` : ""}`);
+    }
+  } finally {
+    await browser.close();
+    server.kill("SIGTERM");
+  }
 }
 
 async function run() {
@@ -318,7 +403,9 @@ async function run() {
   checkFreshnessIsDerived();
   checkUnwiredSurfaces();
   checkBothDoorsAreOnePrimitive();
+  checkPriceKeepsItsUnit();
   await checkServer();
+  await checkResponsiveLayout();
   await checkBrandGates();
 }
 

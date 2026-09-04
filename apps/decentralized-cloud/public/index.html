@@ -8,6 +8,10 @@
 </head>
 <body>
 
+  <!-- The first seven tab stops on every surface are the nav, so a keyboard reader
+       walks them again on each one. -->
+  <a class="skip" href="#surface">Skip to the surface</a>
+
   <header class="topbar">
     <div class="topbar-left">
       <div class="lockup">
@@ -38,8 +42,31 @@
             <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#ffffff"></path>
           </g></g>
         </svg>
+        <!-- The Z is DRAWN, and only here.
+             IOI Display's own Z (gid 30, U+005A and U+007A — the face is unicase)
+             has a curved upper-left terminal and reads as a numeral 2: three
+             reviewers who could not see each other's work read this wordmark as
+             "DECENTRALI2ED", at both sizes, on the live surface and in every
+             lockup. The brand's own name was being misspelled by its own typeface.
+             This is NOT an edit to IOI.ttf. That file is the estate's brand face
+             and other products set their wordmarks in it; whether the same misread
+             exists there is the owner's call. One glyph is overridden, in one
+             wordmark, and the font is untouched.
+             Drawn to the face's own measurements, taken off a 300px render rather
+             than assumed: cap 700 units, bar 140, stem 137, advance 1065, side
+             bearings 32 and 1033 — the face's own Z bearings, so the fitting does
+             not change. What differs from the face's Z, and what makes it a Z:
+             square terminals on both bars, and a bottom bar that runs the full
+             width. The diagonal is cut 1.35x the bar horizontally, because a
+             diagonal at a horizontal's numeric weight reads lighter.
+             Owner-reversible; recorded in brand/identity-status.md.
+             The face carries no U+002E either, which is why the period has always
+             had to be drawn. -->
         <div class="wordmark" style="font-size: 22px;" aria-hidden="true">
-          <span>decentralized</span><span class="dot"></span><span>cloud</span>
+          <span>decentrali</span><svg class="wm-z" viewBox="0 -700 1065 700" aria-hidden="true"
+            focusable="false"><g transform="scale(1,-1)"><path
+            d="M 32 700 L 1033 700 L 1033 560 L 221 140 L 1033 140 L 1033 0 L 32 0 L 32 140 L 844 560 L 32 560 Z"
+            fill="currentColor"></path></g></svg><span>ed</span><span class="dot"></span><span>cloud</span>
         </div>
       </div>
       <nav class="nav" aria-label="Surfaces">
@@ -52,13 +79,26 @@
         <button type="button" data-surface="api">API</button>
       </nav>
     </div>
-    <div style="display: flex; align-items: center; gap: 14px;">
+    <div class="topbar-status">
       <span class="meta" id="daemon-label">daemon —</span>
       <span class="chip muted" id="refresh-chip"><span class="dot"></span>read-only surface</span>
     </div>
   </header>
 
-  <main id="surface" aria-live="polite">
+  <!-- `aria-live` used to sit on <main> itself, so every surface swap re-announced
+       the entire page — and on Placement that was 13.66 MB of text. Shrinking
+       Placement to 890 characters removed the magnitude but not the fault: a live
+       region should announce WHAT CHANGED, not read the document. The region is now
+       a one-line status that names the surface and its headline count, and the
+       surface itself is an ordinary landmark again. -->
+  <p id="surface-status" class="sr-only" role="status" aria-live="polite"></p>
+
+  <!-- `tabindex="-1"` because the skip link above is inert without it: a browser will
+       not move focus to an element that cannot receive it, so pressing Enter on the
+       link left activeElement on BODY and the reader walked the same seven nav stops
+       again. A review found the mitigation broken while the comment explaining why it
+       existed sat directly above it. -->
+  <main id="surface" tabindex="-1">
     <p class="prose">Asking the daemon.</p>
   </main>
 

@@ -43,13 +43,32 @@ a:hover { color: #3e7f5c; }
 .mono { font-family: var(--mono); }
 
 /* ── Wordmark ─────────────────────────────────────────────────────────────
-   The single line is permitted above 400px of clear width; below
-   that the shell swaps to the narrow lockup. The drawn period is one quarter of
-   the cap height, rounded to the nearest pixel. */
+   Everything here is in EM, so the lockup is set once and holds at any size.
+
+   THE DRAWN PERIOD. IOI Display carries no U+002E — it maps to .notdef — which is
+   why the period has always had to be drawn. It was drawn ON THE BASELINE, and two
+   independent readers said the same thing about it unprompted: it does not separate
+   the words, so at small sizes the name reads as two words with a gap rather than as
+   a domain. It is now MEDIAL, per the standing spec, and cut to the face's own STEM
+   weight: 137/1000 em, measured off a 300px render rather than chosen. Its centre
+   sits at 0.35em — half the face's measured 0.700em cap — which is the optical
+   centre of a band where every letter is a cap, this face being unicase. */
 .wordmark { display: flex; align-items: baseline; font-family: var(--brand);
   font-weight: 400; letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
-.wordmark .dot { display: inline-block; border-radius: 50%; background: var(--live);
-  width: 4px; height: 4px; margin: 0 2px; }
+/* The period is INK, not green. It used to wear --live, and an independent review
+   counted that hue carrying three different meanings at once: live evidence, a GET
+   verb, and decorative punctuation in the lockup. On this surface green marks live
+   evidence and nothing else, so a green dot in the brand is chrome making a claim.
+   Position and weight carry the period; colour was never asked to. */
+.wordmark .dot { display: inline-block; border-radius: 50%; background: var(--ink);
+  width: 0.137em; height: 0.137em; margin: 0 0.10em;
+  position: relative; top: -0.2815em; }   /* raised so its centre lands at 0.35em */
+/* The overridden Z — see the note in index.html for why it exists. Its height is the
+   cap and its width follows the glyph's own advance ratio, 1065/700 of the cap: an
+   SVG box narrower than its viewBox shrinks the glyph to fit and centres it in the
+   slack, which is exactly what a first attempt did. */
+.wordmark .wm-z { height: 0.700em; width: 1.065em; vertical-align: baseline;
+  overflow: visible; flex-shrink: 0; }
 
 .lockup { display: flex; align-items: center; gap: 10px; }
 .mark { display: block; flex-shrink: 0; }
@@ -70,10 +89,23 @@ a:hover { color: #3e7f5c; }
 .freshness { display: flex; align-items: center; gap: 9px; }
 
 /* Stale-while-refresh: the previous batch stays legible while a newer read is in
-   flight, dimmed and named as the older observation rather than blanked. A page
-   that goes empty while it refetches teaches the reader that absence means
-   loading, which is the one thing absence must never mean here. */
-.stale { opacity: 0.55; }
+   flight, named as the older observation rather than blanked. A page that goes empty
+   while it refetches teaches the reader that absence means loading, which is the one
+   thing absence must never mean here.
+
+   IT USED TO BE `opacity: 0.55`, AND THAT WAS AN ACCESSIBILITY DEFECT. An independent
+   review measured the effective ratios during the refresh window: --ink fell 19.27 to
+   4.27, --label 6.01 to 2.34, --muted 3.90 to 1.95, and the live_evidence chip and its
+   dot 5.46 to 2.28. Every pair failed, so for the several seconds a re-read takes, a
+   surface whose entire claim is legible evidence became illegible — and it dimmed the
+   evidence chips hardest, which are the elements carrying the most meaning.
+
+   Staleness is now carried by a GROUND CHANGE and a rule, which cost no contrast:
+   ink on --surface still measures 18.14:1 and --label on --surface 5.40:1, both
+   computed, not estimated. The moving parts of the signal — the pulsing dot and the
+   "re-reading the daemon" chip — were already there and are what actually says a read
+   is in flight. */
+.stale { background: var(--surface); box-shadow: inset 3px 0 0 var(--border-strong); }
 .refreshing .dot { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .refreshing .dot { animation: none; } }
@@ -82,8 +114,16 @@ a:hover { color: #3e7f5c; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 32px;
   padding: 0 40px; height: 66px; border-bottom: 1px solid var(--hairline);
   position: sticky; top: 0; background: var(--paper); z-index: 2; }
-.topbar-left { display: flex; align-items: center; gap: 40px; }
-.nav { display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; }
+/* `min-width: 0` on both, because a flex item defaults to min-width:auto — it refuses
+   to shrink below its content — and that is what stops `overflow-x: auto` from ever
+   engaging on the nav. Without it the nav measured 627px inside a 390px viewport and
+   pushed the body, which is the bug the scroll container was added to prevent. */
+.topbar-left { display: flex; align-items: center; gap: 40px; min-width: 0; }
+.topbar-status { display: flex; align-items: center; gap: 14px; min-width: 0; }
+/* The gap is 16 rather than 22 to pay for the tap-target padding below: adding 6px
+   either side of seven buttons widened the bar by 84px and pushed the status block
+   20px off a 1440 viewport, which is a regression this file caused and measured. */
+.nav { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; min-width: 0; }
 .nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
   color: var(--label); cursor: pointer; white-space: nowrap; }
 /* Green marks live evidence and nothing else, so the current-surface underline is
@@ -135,13 +175,27 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .panel.absent { border-left: 3px solid var(--border-strong); }
 .panel.fault { border-left: 3px solid var(--expired); }
 
-.table { border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
-.trow { display: grid; grid-template-columns: 148px minmax(0, 1fr) 132px 168px; gap: 20px;
-  padding: 16px 20px; align-items: center; border-top: 1px solid var(--hairline-soft); }
-.trow.head { padding: 12px 20px; background: var(--surface); border-top: 0;
-  border-bottom: 1px solid var(--hairline); }
-.trow.head > * { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+/* A REAL TABLE. This was a grid of <div>s: 0 <table>, 0 <th> on every surface, so the
+   price had no programmatic association with its column or its row. The layout below
+   deliberately does NOT restyle table elements to block or grid at any width —
+   changing `display` on a table strips its implicit roles, which would remove the
+   semantics this change exists to add. Narrow screens scroll it instead. */
+.table-scroll { border: 1px solid var(--hairline); border-radius: 10px; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed;
+  /* Below this the columns would crush rather than scroll. */
+  min-width: 620px; }
+.trow > th, .trow > td { padding: 16px 20px; vertical-align: middle; text-align: left;
+  font-weight: 400; border-top: 1px solid var(--hairline-soft); }
+.table thead .trow > th { padding: 12px 20px; background: var(--surface); border-top: 0;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--label); }
+.table tbody .trow:first-child > th, .table tbody .trow:first-child > td { border-top: 0; }
+.trow > :nth-child(1) { width: 168px; }
+.trow > :nth-child(3) { width: 132px; }
+.trow > :nth-child(4) { width: 178px; }
+/* A row header carries a chip and a name stacked, so it needs the stack's own flow. */
+.trow > th.stack { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
 
 .split { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 40px; align-items: start; }
 .stack { display: flex; flex-direction: column; }
@@ -159,9 +213,41 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--label); }
-.field-box { border: 1px solid var(--muted); border-radius: 7px; padding: 11px 13px;
+/* AN INERT CONTROL MUST NOT LOOK OPERABLE. These six were drawn as dropdowns with a
+   solid border, a full-contrast value and a caret, and measured focusable:false,
+   cursor:auto, opacity:1, aria-disabled:null — so a reader could click one, get
+   nothing, and have no way to tell whether the product or their click was broken. The
+   page-level "designed, not connected" banner named the surface; nothing named the
+   control. The Submit button on the same screen was already done correctly, which made
+   the inconsistency worse rather than better.
+   A DASHED border is the affordance: it is the one border treatment nothing on this
+   surface uses for a working control, it survives one ink and greyscale, and it does
+   not rely on colour. `cursor: not-allowed` matches the Submit button's own state.
+   These are not focusable on purpose — a keyboard user should not be sent to a stop
+   that does nothing. They are specimens of controls, not disabled controls. */
+.field-box { border: 1px dashed var(--muted); border-radius: 7px; padding: 11px 13px;
   background: var(--surface); color: var(--label); font-size: 14px; min-height: 44px;
+  cursor: not-allowed;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.field-box::after { content: "not wired"; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--label);
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 8px;
+  white-space: nowrap; flex-shrink: 0; }
+
+/* Focus was the user-agent default — visible, but undesigned and easily lost against
+   this surface's hairlines. */
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 3px; }
+
+/* Available to a screen reader, absent from the page. Deliberately NOT display:none,
+   which removes an element from the accessibility tree too and would silence the live
+   region this class exists to carry. */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* A skip link, because the first seven tab stops are the surface nav on every page. */
+.skip { position: absolute; left: -9999px; top: 0; z-index: 3; }
+.skip:focus { left: 8px; top: 8px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--ink); border-radius: 6px; padding: 10px 14px; font-size: 14px; }
 .field-hint { font-size: 13px; line-height: 1.45; color: var(--label); }
 .button-inert { background: var(--hairline-soft); color: var(--muted); border: 0; border-radius: 8px;
   padding: 0 22px; height: 46px; display: inline-flex; align-items: center; font: inherit;
@@ -169,8 +255,115 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-radius: 10px;
   padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
 
+/* ── Narrow widths ────────────────────────────────────────────────────────
+   There used to be one breakpoint here and it only touched .split and .trow, so the
+   TOPBAR never reflowed: a 250px lockup plus seven nowrap nav buttons plus a status
+   chip has a floor around 1376px whatever the viewport does. Measured before this
+   change: at 1180px the document was 1376px wide — 196px of horizontal BODY scroll —
+   and at 390px it was still 1376px, 986px of overflow, with the first nav button at
+   x = -352 and the wordmark at x = -557, off-screen to the left and reachable only by
+   dragging the whole page sideways. The first thing that overflow hid was the
+   "read-only surface" chip, which is the surface's own honesty label.
+
+   A comment in this file also described a narrow lockup swapped in below 400px. No
+   such rule existed. It does now.
+
+   The rule these follow: the BODY never scrolls horizontally. Anything that cannot
+   fit scrolls inside its own container. */
+
+/* Long machine-supplied values — provider-quote refs, hashes — must wrap rather than
+   clip. The review found `provider-quote://crc_18d239655` cut off mid-string with no
+   ellipsis and no scroll container, which is the one field that makes a price
+   traceable. */
+.trow > *, .srow > *, .rail, .panel { min-width: 0; }
+.mono { overflow-wrap: anywhere; }
+
+/* Tap targets. WCAG 2.2 SC 2.5.8 wants 24x24; the "API" button measured 23x29.
+   `flex-shrink: 0` because the nav is now a scroll container whose items may shrink
+   below their content: without it the seven labels squeezed on top of one another at
+   390px and rendered as overlapping text. A scroll container's children must keep
+   their size — that is the whole point of scrolling them. */
+.nav button { padding: 4px 6px; min-width: 24px; min-height: 24px; flex-shrink: 0; }
+
 @media (max-width: 1180px) {
   .split { grid-template-columns: minmax(0, 1fr); }
-  .trow { grid-template-columns: 120px minmax(0, 1fr); }
-  .trow > :nth-child(3), .trow > :nth-child(4) { grid-column: 2; }
+}
+
+/* 1500px, arrived at by measurement twice over.
+   1080 was the first guess and left 1180 overflowing by 196px. 1330 fixed the
+   overflow and was still wrong: at 1440 the status block and the last nav button
+   OVERLAPPED — "API" sitting under "daemon 127.0.0.1:4182", 25x29px of shared area —
+   inside a viewport reporting zero horizontal scroll. No overflow measurement can see
+   a collision, which is why the brand harness has had a pairwise collision check
+   since the artboard round and why the face now gets the same one. Measured clean at
+   1920, 1520, 1180, 900 and 390; the collision band was 1330 to roughly 1500. */
+@media (max-width: 1500px) {
+  /* The topbar becomes two rows: identity and status, then the surfaces. */
+  .topbar { height: auto; flex-wrap: wrap; align-items: center; padding: 10px 24px 0;
+    row-gap: 4px; column-gap: 16px; }
+  .topbar-left { flex: 1 1 100%; order: 1; gap: 0; flex-wrap: wrap; }
+  .topbar-status { order: 0; flex: 1 1 auto; justify-content: flex-end; }
+  .lockup { flex: 1 1 auto; }
+  /* The nav scrolls in ITS OWN box, so seven surfaces at any width cost the body
+     nothing. The negative margin lets the first and last button reach the page edge
+     rather than sitting inside a padding well the reader cannot see past. */
+  .nav { flex: 1 1 100%; order: 2; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; gap: 18px; margin: 0 -24px; padding: 6px 24px 0; }
+  .nav::-webkit-scrollbar { display: none; }
+  main { padding: 26px 24px 48px; }
+  .unwired-banner { padding: 14px 24px; }
+}
+
+/* Multi-column blocks inside a surface. These used to be INLINE grid styles with a
+   fixed column count, which is why they never reflowed however many breakpoints this
+   file grew: a media query cannot reach an inline style. A second review found the
+   result — at 390px the Redundancy postures held about 55px of text width, one word
+   per line, with four measured text-on-text collisions up to 117x25px, and the Job
+   surface's two JSON panes clipped mid-token so the one field that differs between
+   them was unreadable. */
+.cols { display: grid; }
+.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 1000px) { .cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media (max-width: 700px) {
+  /* One column, every surface. The first responsive pass measured overflow and
+     collisions on the LANDING surface only and reported the layout fixed; four of the
+     seven were never opened at 390px. */
+  .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* A chip is `white-space: nowrap` so a state name never breaks mid-token, and that is
+   right for "live_evidence" and wrong for "refused by name until M15.9" — measured at
+   213px and 299px wide, which is most of a phone. Below the single-column breakpoint a
+   long chip wraps; the dot stays put because it is a flex item that does not shrink. */
+@media (max-width: 700px) {
+  .chip { white-space: normal; max-width: 100%; }
+}
+
+@media (max-width: 780px) {
+  /* The table is NOT restyled here. An earlier version hid the header row and turned
+     each row into a block, which fixed the orphaned-labels complaint and would have
+     destroyed the table semantics added in the same pass. It scrolls in its own
+     container instead: the header stays a header, every cell keeps its column, and
+     the body still does not scroll. */
+  .trow > th, .trow > td { padding: 14px 16px; }
+  .rail { padding: 18px 16px; }
+  .panel { padding: 16px 16px; }
+  h1 { font-size: 26px; }
+}
+
+@media (max-width: 430px) {
+  .topbar { padding: 10px 16px 0; }
+  .nav { margin: 0 -16px; padding: 6px 16px 0; gap: 14px; }
+  main { padding: 22px 16px 44px; }
+  .unwired-banner { padding: 12px 16px; flex-direction: column; gap: 6px; }
+  /* The narrow lockup the old comment promised: the wordmark steps down with the
+     mark so the pair keeps its measured 1.25-1.35 ratio instead of the mark
+     shrinking alone. */
+  .wordmark { font-size: 17px !important; }
+  .mark { width: 24px; height: 24px; }
+  .lockup { gap: 8px; }
+  pre.code { padding: 14px 14px; font-size: 11px; }
 }

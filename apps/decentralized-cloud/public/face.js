@@ -95,8 +95,20 @@ function paintDial(node) {
 setInterval(() => {
   for (const node of document.querySelectorAll("svg.dial")) paintDial(node);
   for (const node of document.querySelectorAll("[data-countdown]")) {
-    const mins = minutesLeft(node.getAttribute("data-countdown"));
-    node.textContent = mins === null ? "—" : mins > 0 ? `${mins} min left` : "expired";
+    // SECONDS below a minute, not "expired". `minutesLeft` rounds, so for the last
+    // ~30 seconds of every quote window this printed "expired" beside a dial reading
+    // "2% of the quote window remaining" — measured at 21:46:27Z against an expiry of
+    // 21:46:48Z, twenty-one seconds in the future. The comment above claims the two
+    // "can never disagree"; they disagreed on every quote, once per window, because
+    // the dial reads the timestamps and the text read a rounded minute count.
+    // A live quote labelled expired is the same failure as a stale quote labelled
+    // live, in the other direction.
+    const iso = node.getAttribute("data-countdown");
+    const ms = Date.parse(iso) - Date.now();
+    node.textContent = !Number.isFinite(ms) ? "—"
+      : ms <= 0 ? "expired"
+      : ms < 60000 ? `${Math.ceil(ms / 1000)}s left`
+      : `${Math.round(ms / 60000)} min left`;
   }
   for (const node of document.querySelectorAll("[data-due]")) {
     const secs = Math.round((Date.parse(node.getAttribute("data-due")) - Date.now()) / 1000);
@@ -153,9 +165,23 @@ const surface = document.getElementById("surface");
 let generation = 0;
 const currentGeneration = () => generation;
 
+const statusRegion = document.getElementById("surface-status");
+
 function paint(mine, ...nodes) {
   if (mine !== generation) return false;
   surface.replaceChildren(...nodes);
+  // Announce WHAT CHANGED, not the document. `aria-live` used to sit on <main>, so
+  // every surface swap re-announced the whole page — and on Placement that was
+  // 13.66 MB of text before that surface was rewritten. Shrinking Placement removed
+  // the magnitude but not the fault: a live region that reads the document is a live
+  // region nobody leaves switched on. This says the surface's own heading and the
+  // machine-readable line under it — what a sighted reader takes from the top of the
+  // page — and nothing else.
+  if (statusRegion) {
+    const heading = surface.querySelector("h1")?.textContent?.trim() || "";
+    const meta = surface.querySelector(".meta")?.textContent?.trim() || "";
+    statusRegion.textContent = [heading, meta].filter(Boolean).join(" — ").slice(0, 200);
+  }
   return true;
 }
 
@@ -258,24 +284,31 @@ async function renderCandidates({ silent = false } = {}) {
               "this surface does not perform — so an intent nobody has refreshed lately shows " +
               "its evidence expired rather than a price it cannot stand behind.")));
 
-  const rows = [
-    el("div", { class: "trow head" },
-      el("div", {}, "venue"), el("div", {}, "evidence"), el("div", {}, "per hour"), el("div", {}, "good until")),
-  ];
+  // A REAL TABLE. This was four <div>s per row with a grid layout, and a review found
+  // `document.querySelectorAll("table").length = 0` and `th = 0` on all five static
+  // surfaces: "$0.0136" had no programmatic association with "PER HOUR" or with the
+  // `vast` row it belonged to. That is the single most important datum on the surface,
+  // and to a screen reader it was a loose number in a stack of loose numbers.
+  //
+  // The header stays a header at every width. Narrow screens scroll the table inside
+  // its own container rather than restyling it into blocks, because changing `display`
+  // on table elements strips their implicit roles — the fix would have removed the
+  // semantics it was added to provide.
+  const rows = [];
 
   if (cheapest) {
-    rows.push(el("div", { class: "trow" },
-      el("div", { class: "stack", style: "gap: 7px;" },
+    rows.push(el("tr", { class: "trow" },
+      el("th", { class: "stack", scope: "row", style: "gap: 7px;" },
         el("div", { class: "mono", style: "font-size: 14px;" }, cheapest.provider_kind || "—"),
         chip("live_evidence", "live")),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label); line-height: 1.5;" },
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label); line-height: 1.5;" },
         cheapest.quote.basis,
         el("br"),
         cheapest.quote.quote_ref || "",
         el("br"),
         `observed ${clock(cheapest.observed_at)}`),
-      el("div", { class: "mono", style: "font-size: 16px;" }, `$${cheapest.quote.usd_per_hour.toFixed(4)}`),
-      el("div", { class: "freshness" },
+      el("td", { class: "mono", style: "font-size: 16px;" }, `$${cheapest.quote.usd_per_hour.toFixed(4)}`),
+      el("td", { class: "freshness" },
         dial(cheapest.observed_at, cheapest.expires_at),
         el("div", { class: "stack", style: "gap: 4px;" },
           el("div", { class: "mono", style: "font-size: 13px;" }, clock(cheapest.expires_at)),
@@ -288,16 +321,16 @@ async function renderCandidates({ silent = false } = {}) {
   const remainder = live.filter((c) => c !== cheapest);
   if (remainder.length) {
     const kinds = [...new Set(remainder.map((c) => c.provider_kind))];
-    rows.push(el("div", { class: "trow" },
-      el("div", { class: "mono", style: "font-size: 14px; color: var(--label);" }, kinds.join(", ")),
-      el("div", { class: "prose" },
+    rows.push(el("tr", { class: "trow" },
+      el("th", { class: "mono", scope: "row", style: "font-size: 14px; color: var(--label);" }, kinds.join(", ")),
+      el("td", { class: "prose" },
         `${remainder.length} further live quotes` +
         (kinds.length === 1 && kinds[0] === cheapest?.provider_kind
           ? " from the same venue — priced and comparable to each other, but they add no venue diversity."
           : ".")),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" },
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" },
         `$${Math.min(...remainder.map((c) => c.quote.usd_per_hour)).toFixed(4)} up`),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "same window")));
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "same window")));
   }
 
   // Everything that is not live is summarised by the reason it is not, rather than
@@ -314,15 +347,15 @@ async function renderCandidates({ silent = false } = {}) {
   }
 
   for (const [reason, entry] of [...notLive.entries()].sort((a, b) => b[1].count - a[1].count)) {
-    rows.push(el("div", { class: "trow" },
-      el("div", { class: "stack", style: "gap: 7px;" },
+    rows.push(el("tr", { class: "trow" },
+      el("th", { class: "stack", scope: "row", style: "gap: 7px;" },
         el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" },
           [...entry.kinds].sort().join(", ")),
         chip(reason === "expired" ? "expired" : "not a price", reason === "expired" ? "expired" : "")),
-      el("div", { class: "prose" },
+      el("td", { class: "prose" },
         `${entry.count} candidate${entry.count === 1 ? "" : "s"} — ${reason}.`),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—"),
-      el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—")));
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—"),
+      el("td", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—")));
   }
 
   const observedIso = latest.observed || observed;
@@ -361,7 +394,13 @@ async function renderCandidates({ silent = false } = {}) {
           : null),
       venueVerdict,
       el("div", { class: "eyebrow" }, "Evidence"),
-      el("div", { class: "table" }, rows),
+      el("div", { class: "table-scroll" },
+        el("table", { class: "table" },
+          el("thead", {},
+            el("tr", { class: "trow head" },
+              el("th", { scope: "col" }, "venue"), el("th", { scope: "col" }, "evidence"),
+              el("th", { scope: "col" }, "per hour"), el("th", { scope: "col" }, "good until"))),
+          el("tbody", {}, rows))),
       el("p", { class: "prose" },
         "A price appears in this table only when the daemon returned it as live_evidence " +
         "with an observed_at, an expires_at still in the future, and a quote reference it " +
@@ -449,6 +488,29 @@ async function renderPlacement() {
   ]);
   if (!advisory.ok) return paint(mine, failure(advisory));
 
+  // This surface used to be `JSON.stringify(advisory.body)` in a <pre>. An independent
+  // review measured the result: 6,518,626 characters, 153,008 lines, a document
+  // 6,063,630px tall that Chromium could not screenshot. Almost all of it is the
+  // `candidates` array — 1,572 entries the reader did not ask for — while the fields
+  // that answer the question, `recommendation` and its `reason_codes`, were buried
+  // inside it. The advisory is now READ rather than dumped, and the body stays
+  // reachable behind a disclosure with its bulk named and the candidate list left out,
+  // because a raw body is evidence and hiding it would be the opposite of this
+  // surface's point.
+  const b = advisory.body || {};
+  const rec = b.recommendation || null;
+  const codes = Array.isArray(rec?.reason_codes) ? rec.reason_codes : [];
+  // The candidate array is what makes the body unreadable, so the disclosure shows the
+  // body WITHOUT it and says so, rather than silently printing something else.
+  const { candidates, ...bodyWithoutCandidates } = b;
+  const trimmed = JSON.stringify(bodyWithoutCandidates, null, 2);
+
+  const fact = (label, value, kind) =>
+    el("div", { class: "srow" },
+      el("div", { class: "srow-head" },
+        el("span", { class: "eyebrow" }, label),
+        typeof value === "string" && kind !== undefined ? chip(value, kind) : el("span", { class: "mono" }, String(value))));
+
   paint(mine,
     el("div", { class: "stack", style: "gap: 24px;" },
       el("h1", {}, "Placement"),
@@ -456,12 +518,57 @@ async function renderPlacement() {
         "An advisory is evidence, not authority. A placement decision cannot provision " +
         "anything: provider mutation still requires a wallet capability grant, and this " +
         "surface holds none and asks for none."),
-      el("div", { class: "eyebrow" }, "Advisory, as returned"),
-      el("pre", { class: "code" }, JSON.stringify(advisory.body, null, 2)),
+
+      rec
+        ? el("div", { class: "panel flag" },
+            el("div", { class: "eyebrow" }, "Recommended"),
+            el("h2", { style: "margin-top: 8px;" }, rec.display_name || rec.candidate_ref || "—"),
+            el("div", { class: "mono", style: "font-size: 12px; color: var(--label); margin-top: 6px;" },
+              [rec.venue, rec.candidate_ref].filter(Boolean).join(" · ")),
+            codes.length
+              ? el("div", { style: "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px;" },
+                  codes.map((c) => chip(c, "muted")))
+              : el("p", { class: "prose", style: "margin-top: 12px;" },
+                  "The advisory returned no reason codes for this recommendation."))
+        : el("div", { class: "panel absent" },
+            el("div", { class: "eyebrow" }, "No recommendation"),
+            el("p", { class: "prose", style: "margin-top: 8px;" },
+              b.no_eligible_candidate
+                ? String(b.no_eligible_candidate)
+                : "The advisory returned no recommendation and named no reason for its absence.")),
+
+      el("div", { class: "rail" },
+        fact("Considered", b.considered ?? "—"),
+        fact("Eligible", b.eligible ?? "—"),
+        fact("Effective venue", b.effective_venue ?? "—"),
+        fact("Routing fee basis", b.routing_fee_basis ?? "—"),
+        fact("Fee object minted", String(b.fee_object_minted) === "true" ? "minted" : "not minted",
+          String(b.fee_object_minted) === "true" ? "live" : "muted"),
+        fact("Advisory", b.advisory_ref ?? "—"),
+        fact("Observed", clock(b.at))),
+
+      b.authority_note ? el("p", { class: "prose" }, b.authority_note) : null,
+
+      el("details", {},
+        el("summary", { class: "eyebrow", style: "cursor: pointer; padding: 6px 0;" },
+          `Advisory body as returned — ${trimmed.length.toLocaleString()} characters, ` +
+          `with the ${Array.isArray(candidates) ? candidates.length.toLocaleString() : "0"}-entry candidate list omitted`),
+        el("pre", { class: "code" }, trimmed)),
+
+      // The venues body is the LARGER of the two and it used to be the unlabelled one:
+      // a review measured 8,709,126 characters behind a summary reading only "Venues
+      // as returned", sitting beside a sibling that carefully announced its own 3,771.
+      // "The disclosure that announces its thrift holds 0.04% of the payload; the
+      // silent one holds the rest." Both now state their size, and neither is opened
+      // by default.
       venues.ok
-        ? el("div", { class: "stack", style: "gap: 12px;" },
-            el("div", { class: "eyebrow" }, "Venues, as returned"),
-            el("pre", { class: "code" }, JSON.stringify(venues.body, null, 2)))
+        ? (() => {
+            const vText = JSON.stringify(venues.body, null, 2);
+            return el("details", {},
+              el("summary", { class: "eyebrow", style: "cursor: pointer; padding: 6px 0;" },
+                `Venues as returned — ${vText.length.toLocaleString()} characters`),
+              el("pre", { class: "code" }, vText));
+          })()
         : failure(venues)));
 }
 
@@ -486,7 +593,7 @@ function renderJob() {
         el("p", { class: "prose", style: "font-size: 16px;" },
           "This much capacity, under this budget, for this long, receipt back. You do not " +
           "name a venue — the venue is evidence in the receipt, not an input to the request.")),
-      el("div", { style: "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; max-width: 900px;" },
+      el("div", { class: "cols cols-2", style: "gap: 20px 24px; max-width: 900px;" },
         field("intent.runtime_class", "compute.gpu_runtime"),
         field("intent.gpu", "required · 1 device · 24 GB"),
         field("deadline", "max duration · 4 hours"),
@@ -522,7 +629,7 @@ function renderJob() {
           "door names a venue, neither carries a provider credential, and neither can " +
           "widen what its authority already permits — a lease draw-down is a narrowing " +
           "of a grant a human made earlier, never a new grant an agent made for itself."),
-        el("div", { style: "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px;" },
+        el("div", { class: "cols cols-2", style: "gap: 20px;" },
           el("div", { class: "stack", style: "gap: 9px;" },
             el("div", { class: "meta" }, "human · wallet grant signed at submit"),
             el("pre", { class: "code" }, JSON.stringify({
@@ -584,7 +691,7 @@ function renderRedundancy() {
           "in the request or it is absent — it is never inferred from your budget, never " +
           "defaulted to something safer than you asked for, and never applied by a " +
           "fallback you did not authorize.")),
-      el("div", { style: "display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;" },
+      el("div", { class: "cols cols-3", style: "gap: 20px;" },
         posture("none", "1× spend",
           "The job runs in one place. If that venue fails, the job fails and the receipt says which venue and when.",
           "Nothing is held in reserve, so recovery means resubmitting — and the second placement is priced at whatever the market is then, not at your original quote.",
@@ -622,7 +729,7 @@ function renderReceipts() {
         el("span", { class: "mono", style: "font-size: 14px;" }, kind),
         chip("shape only", "muted")),
       el("div", { class: "srow-reason" }, answers),
-      el("div", { class: "mono", style: "font-size: 12px; color: var(--muted);" }, fields));
+      el("div", { class: "mono", style: "font-size: 12px; color: var(--label);" }, fields));
 
   paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 26px;" },
@@ -673,8 +780,13 @@ function renderApi() {
   paint(currentGeneration(),
     el("div", { class: "stack", style: "gap: 24px;" },
       el("h1", {}, "API"),
+      // "Four reads" was FALSE: GET /api/face-config answers 200 and appeared on
+      // neither this list nor the 404's allowlist. A review found it and was right to
+      // call the sentence false as written — on a surface whose entire claim is that
+      // it does not overstate itself, an undercount of its own attack surface is the
+      // worst possible sentence to get wrong. Five, and the fifth is listed.
       el("p", { class: "prose" },
-        "Four reads, exact-match and GET-only. A path that is not on this list is refused " +
+        "Five reads, exact-match and GET-only. A path that is not on this list is refused " +
         "by name rather than passed through, so no mutating daemon call is reachable from " +
         "this surface even by accident. Responses are the daemon's own, unaltered — the " +
         "evidence fields you see here are the evidence fields it returned."),
@@ -686,7 +798,11 @@ function renderApi() {
         route("/api/placement-advisory?intent_ref=…", "/v1/hypervisor/cloud-candidates/placement-advisory",
           "Advisory only — evidence, never authority."),
         route("/api/venues", "/v1/hypervisor/placement/venues",
-          "The venue set the placement plane knows about.")),
+          "The venue set the placement plane knows about."),
+        route("/api/face-config", "— served locally, no daemon call",
+          "This surface's own configuration. It reaches no daemon and carries no evidence; " +
+          "it is listed because it answers 200 and a list of reachable paths that omits a " +
+          "reachable path is not a list of reachable paths.")),
       el("p", { class: "prose" },
         "What this surface never owns: no session plane, no credential vault, no provider " +
         "integration, no placement scorer, no receipt format. decentralized.cloud proposes " +

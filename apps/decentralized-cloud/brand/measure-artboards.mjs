@@ -11,6 +11,7 @@
 // Usage: node apps/decentralized-cloud/brand/measure-artboards.mjs
 
 import { readFileSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,6 +21,16 @@ const setArg = process.argv.indexOf("--set");
 const SET = setArg > -1 ? process.argv[setArg + 1] : null;
 const CANVAS = SET ? path.join(HERE, `${SET}-canvas`) : path.join(HERE, "canvas");
 const SHOTS = SET ? path.join(HERE, ".artifacts", SET) : path.join(HERE, ".artifacts");
+
+// BUILD FIRST. The built canvas is a gitignored artifact, so a working checkout and
+// a fresh one can hold different bytes for the same source, and this measurement is
+// only as fresh as whoever last ran the build. That is not hypothetical: the identity
+// sheet passed this check at 1240x1840 for as long as the artifact predated the
+// section that pushed its content to 2425, a 585px clip that measuring a stale build
+// cannot see. Rebuilding here costs milliseconds and removes the whole class.
+execFileSync(process.execPath,
+  [path.join(HERE, "build-artboards.mjs"), ...(SET ? ["--set", SET] : [])],
+  { stdio: "inherit" });
 
 // Playwright lives in the primary checkout; this worktree carries no node_modules.
 const { chromium } = await import("/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs");
