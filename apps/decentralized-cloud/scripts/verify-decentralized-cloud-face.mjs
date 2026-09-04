@@ -212,6 +212,31 @@ async function checkServer() {
       leaked.length === 0,
       leaked.length ? `leaked in ${leaked.join(", ")}` : `${servedAssets.length} assets scanned raw`);
 
+    // ── The wordmark has ONE source, and this is what makes that true. ──
+    //
+    // brand/wordmark/wordmark.mjs has said since it was written that the shipped
+    // markup "is checked against it mechanically rather than by comment", and that
+    // THIS gate "asserts the shipped markup carries exactly the values below". No
+    // such assertion existed. Nothing under scripts/ or public/ imported the module
+    // at all. It was a convention that read as a guarantee, enforced nowhere and
+    // relied on everywhere — which is precisely how the Z once came to be fixed on
+    // the surface and not in the harness, voiding a round of lockups.
+    //
+    // The assertion reads the BYTES THE SERVER SENDS and compares them against the
+    // module's own exported constant. Not the source file on disk, which is a copy
+    // the server may or may not be sending. Not a regex for something Z-shaped,
+    // which any well-formed path would satisfy. The exact string, from the one
+    // source, in the response a visitor receives.
+    const wm = await import(path.join(APP, "brand/wordmark/wordmark.mjs"));
+    const shell = await (await fetch(`${BASE}/`)).text();
+    const carriesZ = shell.includes(`d="${wm.Z_PATH}"`);
+    ok("the served wordmark carries the Z path from its one source",
+      carriesZ,
+      carriesZ
+        ? "the served shell carries wordmark.mjs's Z_PATH verbatim"
+        : "the served shell does NOT carry the module's Z_PATH — the surface and its " +
+          "one source have drifted, which is the whole state this gate exists to catch");
+
     const unknown = await fetch(`${BASE}/api/not-a-real-read`);
     const unknownBody = await unknown.json().catch(() => ({}));
     ok("a path off the allowlist is refused BY NAME",

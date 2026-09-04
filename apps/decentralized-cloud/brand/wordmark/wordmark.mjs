@@ -39,9 +39,38 @@ export const FACE_HAS_NO_PERIOD = true;
 // both bars, and a bottom bar that runs the full width. The diagonal is cut 1.35x
 // the bar horizontally, because a diagonal at a horizontal's numeric weight reads
 // lighter. Owner-reversible; IOI.ttf is untouched.
+//
+// REVISED 2026-09-04 by a swept round rather than by a redraw. Twenty Z variants —
+// the face's own, the override above, and eighteen generated across bar weight,
+// diagonal weight and elbow inset — were shown to three fresh readers as the cluster
+// "alized" ALONE, at a true 13px and 16px, magnified by a whole number with
+// nearest-neighbour on plates narrow enough that nothing resampled before the reader
+// saw them. (That last clause is not decoration: the previous round's plates were
+// wide enough to be downsampled in delivery, and the blur it added is what made three
+// readers report a Z fault that the narrow plates do not reproduce. My instrument
+// manufactured part of the defect it was measuring.)
+//
+// Every reader typed a DIGIT for exactly one variant, and it was the face's own Z:
+// "ALI2ED", three times out of three. Every other variant, this override included,
+// read as Z.
+//
+// The three agreed on the mechanism, independently, and it is not what this file
+// assumed. It is not the terminals and not the bottom bar's width. Reader G: "the top
+// bar does not stop and turn down into the diagonal at a hard right angle — it bends
+// ... It is a bend versus a corner, and at 13px the bend wins." Reader H: "the
+// difference between 'corner' and 'one pixel of rounding at the corner' is the whole
+// identity of the letter."
+//
+// The path below is the ONLY variant all three readers placed in their best group —
+// the group where no alternative reading ever crossed their mind. It differs from the
+// previous override in exactly one number: the diagonal is cut 1.7x the bar rather
+// than 1.35x. The elbow stays FLUSH with the corners, because every inset-elbow
+// variant was flagged by two readers as "the darkest spot in the word" — the inset
+// makes the junction heavy, and a heavy junction is the bend again.
+export const Z_DIAGONAL_CUT_MULTIPLE = 1.7;   // of BAR, cut horizontally
 export const Z_PATH =
-  "M 32 700 L 1033 700 L 1033 560 L 221 140 L 1033 140 L 1033 0 " +
-  "L 32 0 L 32 140 L 844 560 L 32 560 Z";
+  "M 32 700 L 1033 700 L 1033 560 L 270 140 L 1033 140 L 1033 0 " +
+  "L 32 0 L 32 140 L 795 560 L 32 560 Z";
 
 // ── The drawn period ────────────────────────────────────────────────────────
 // MEDIAL, per the standing spec it had drifted from, and cut to the face's stem.
