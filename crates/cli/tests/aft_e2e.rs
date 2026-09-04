@@ -575,6 +575,95 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
         )
         .await?;
 
+        // Source bytes are still replayable input after a successful live
+        // install. Replacing even the owner signature cannot borrow the
+        // process-local gate created for the original envelope.
+        let substituted_index = keyed[5].1;
+        let source_bytes = std::fs::read(&source_path)?;
+        let mut substituted: QuvConfigurationHandoffEnvelopeV0 =
+            codec::from_bytes_canonical(&source_bytes).map_err(anyhow::Error::msg)?;
+        substituted.candidate.authority_signature[0] ^= 0x01;
+        std::fs::write(
+            &source_path,
+            codec::to_bytes_canonical(&substituted).map_err(anyhow::Error::msg)?,
+        )?;
+        let (mut substituted_log, _, _) = cluster.validators[substituted_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[substituted_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[substituted_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("source-substituted QUV successor node {substituted_index}"),
+            &mut substituted_log,
+            "QUV recovery source has no exact rollback-anchored local install gate",
+        )
+        .await?;
+        std::fs::write(&source_path, source_bytes)?;
+
+        // Once old authority has expired, loss of either side of the durable
+        // install pair fails closed. Startup may not rerun QUV retroactively.
+        let missing_gate_index = keyed[6].1;
+        let missing_gate_account = keyed[6].0;
+        let missing_gate_state = cluster.validators[missing_gate_index]
+            .validator()
+            .state_dir()
+            .join("aft-pq-outbox")
+            .join(hex::encode(old_root))
+            .join(hex::encode(missing_gate_account.as_ref()))
+            .join("quv-handoff-v0.scale");
+        if !missing_gate_state.is_file() {
+            return Err(anyhow::anyhow!(
+                "expected installed QUV handoff state at {}",
+                missing_gate_state.display()
+            ));
+        }
+        let (mut missing_gate_log, _, _) = cluster.validators[missing_gate_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[missing_gate_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        std::fs::remove_file(&missing_gate_state)?;
+        cluster.validators[missing_gate_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("missing-gate QUV successor node {missing_gate_index}"),
+            &mut missing_gate_log,
+            "QUV store and rollback anchor are incomplete",
+        )
+        .await?;
+
+        // A retired old-root process has no successor vote or proposal
+        // identity after restart. Until a separately rooted observer profile
+        // exists, it must stop rather than infer membership from its old key.
+        let retired_index = keyed[0].1;
+        let (mut retired_log, _, _) = cluster.validators[retired_index]
+            .validator()
+            .subscribe_logs();
+        cluster.validators[retired_index]
+            .validator_mut()
+            .kill_orchestration()
+            .await?;
+        cluster.validators[retired_index]
+            .validator_mut()
+            .restart_orchestration_process()
+            .await?;
+        assert_log_contains(
+            &format!("retired old-root QUV node {retired_index}"),
+            &mut retired_log,
+            "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set",
+        )
+        .await?;
+
         Ok::<(), anyhow::Error>(())
     }
     .await;
