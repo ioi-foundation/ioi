@@ -274,7 +274,12 @@ run()
       "vanished-provider path: that rides the failover lane's existing proof and ACC-21\n" +
       "clause 6 on a live or simulator lifecycle. The admission-time no-candidate case IS\n" +
       "proven, recorded as refused_no_placement with the decision plane's own reason.\n" +
-      "M15.3 is PARTIAL while the agent execution lane is unwired."
+      "M15.3 is PARTIAL: the agent execution lane is BUILT but UNREACHABLE. The resolver and\n" +
+      "its named refusal ladder are live — an agent job now refuses by lease reason rather than\n" +
+      "by 'not wired' — but agent draw-down needs an intent-scoped bound lease issued under\n" +
+      "M03's delegation envelope (M03.12 mint), and no caller-facing issuance exists. Leases are\n" +
+      "minted as a side effect of authorized operations, scoped to [account_ref, env_ref], never\n" +
+      "to an intent. The happy path is proven in-process by the resolver's own tests, not here."
     );
     console.log(`decentralized.cloud job primitive: ${fail ? "FAIL" : "OK"}`);
     process.exit(fail ? 1 : 0);
