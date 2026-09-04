@@ -130,11 +130,24 @@ const N = () => {
 // they kept rejecting replaced. No two edges parallel, no edge on 0, 45 or 90
 // degrees, and one side bowed so the outline is not all-straight either.
 const O = () => {
-  const P = [[10, 30], [72, 8], [90, 62], [34, 88]];   // no two sides parallel
+  // THE TILT NEEDED AN ANCHOR. This mark was the only one in four rounds that both
+  // readers passed on its own, and both then failed it in lockup for the same reason:
+  // "everything else on the line is dead horizontal, so the mark looks knocked askew,
+  // like a misaligned asset rather than a decision." A cant with nothing level in it
+  // is indistinguishable from a mistake.
+  //
+  // So the container stays canted — that is the fingerprint, and it is the thing that
+  // survives downscaling where a notch does not — and the mark is given ONE TRUE
+  // HORIZONTAL for the eye to sit on: the bottom edge runs flat, level with the
+  // type's baseline. Everything above it leans. A shape that is level where it meets
+  // the line and canted everywhere else reads as drawn that way on purpose.
+  const BASE_Y = 88;
+  const P = [[10, 30], [72, 8], [90, 62], [26, BASE_Y]];
   const slots = { cloud: [40, 40], exchange: [52, 50], trade: [46, 64] };
   const CR = 14;
   const body = `M ${P[0][0]} ${P[0][1]} L ${P[1][0]} ${P[1][1]} L ${P[2][0]} ${P[2][1]} ` +
-               `Q ${P[2][0] - 18} ${P[2][1] + 22} ${P[3][0]} ${P[3][1]} Z`;   // one bowed side
+               `Q ${P[2][0] - 8} ${BASE_Y} ${72} ${BASE_Y} ` +   // curve down to the flat
+               `L ${P[3][0]} ${BASE_Y} Z`;                        // the one true horizontal
   return {
     id: "canted-counter", name: "The counter in a canted quad",
     origin: "mine, round four — the device three rounds of readers kept choosing, in a container they have not rejected",

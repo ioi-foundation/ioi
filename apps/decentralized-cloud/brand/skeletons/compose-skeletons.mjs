@@ -514,49 +514,46 @@ if (process.argv.includes("--plates")) {
   // in the lockup. The face is inlined as a data: URI and the run REFUSES if it did
   // not load, because a lockup measured in a fallback face is a lockup nobody drew.
   const IOI = readFileSync(path.join(HERE, "../../public/fonts/IOI.ttf")).toString("base64");
-  // THE Z OVERRIDE AND THE MEDIAL PERIOD, matching public/index.html and face.css.
+  const WM = await import("../wordmark/wordmark.mjs");
+  // The wordmark comes from brand/wordmark/wordmark.mjs and from nowhere else. A
+  // previous version of this file carried its own copy of the Z path and the period's
+  // metrics "matching index.html" — and that is exactly the arrangement that let the
+  // shipped Z be fixed while the plated one stayed broken, voiding a round's lockup
+  // half. Two copies and a comment saying they must agree is not one source.
   //
-  // This plater set the wordmark as plain live text in IOI Display, and a round-four
-  // reader read the result as "DECENTRALI2ED" — the same misread three earlier
-  // reviewers had found, which had ALREADY been fixed on the shipped surface. The fix
-  // went to the product and not to the harness that plates the lockups readers judge,
-  // so a corrected wordmark was tested in its broken form and the whole lockup half of
-  // that round was run against a name that misspells itself. Two places set this
-  // wordmark; both have to agree, or the test is not testing what shipped.
-  const Z_PATH = "M 32 700 L 1033 700 L 1033 560 L 221 140 L 1033 140 L 1033 0 " +
-                 "L 32 0 L 32 140 L 844 560 L 32 560 Z";
-  const wordmark = (typePx) => {
-    const cap = typePx * 0.700;                        // the face's measured cap
-    const dotD = typePx * 0.137;                       // the face's measured stem
-    return `<div style="display:flex;align-items:baseline;font-family:'IOI Display';` +
-      `font-size:${typePx}px;line-height:1;letter-spacing:0.01em;white-space:nowrap;color:${INK};">` +
-      `<span>decentrali</span>` +
-      `<svg width="${(cap * 1065 / 700).toFixed(3)}" height="${cap.toFixed(3)}" ` +
-      `viewBox="0 -700 1065 700" style="vertical-align:baseline;overflow:visible;flex-shrink:0;">` +
-      `<g transform="scale(1,-1)"><path d="${Z_PATH}" fill="${INK}"></path></g></svg>` +
-      `<span>ed</span>` +
-      `<span style="display:inline-block;width:${dotD.toFixed(2)}px;height:${dotD.toFixed(2)}px;` +
-      `border-radius:50%;background:${INK};margin:0 ${(typePx * 0.10).toFixed(2)}px;` +
-      `position:relative;top:-${(typePx * 0.2815).toFixed(2)}px;"></span>` +
-      `<span>cloud</span></div>`;
+  // Two lockup forms are plated, per ioi-e1's ruling. The single line sets the mark
+  // at one EM as a floor rather than at 1.25-1.35 of the cap, because two rounds of
+  // readers independently worked out that a cap-locked mark against an 18-letter name
+  // is arithmetically ~5% of the lockup — "you could double every one of these marks
+  // and they'd still read as a bullet point". The STACKED form breaks the name over
+  // two lines with the period LEADING line two, and stands the mark at the full
+  // two-line height.
+  const lockupSingle = (markMarkup, typePx) => {
+    const markPx = typePx * WM.SINGLE_LINE_MARK_EM;
+    return `<div class="lk" style="display:flex;align-items:center;gap:${Math.round(typePx * 0.45)}px;` +
+      `background:${GROUND};padding:${Math.round(typePx)}px;width:max-content;">` +
+      `<svg class="lk-mark" width="${markPx}" height="${markPx}" viewBox="0 0 ${GRID} ${GRID}">${markMarkup.replace(/INK/g, INK)}</svg>` +
+      `<div class="lk-word">${WM.wordmarkSingle(typePx, INK)}</div></div>`;
   };
-  const lockup = (markMarkup, markPx, typePx) =>
-    `<div style="display:flex;align-items:center;gap:${Math.round(typePx * 0.45)}px;` +
-    `background:${GROUND};padding:${Math.round(typePx)}px;">` +
-    `<svg width="${markPx}" height="${markPx}" viewBox="0 0 ${GRID} ${GRID}">${markMarkup.replace(/INK/g, INK)}</svg>` +
-    wordmark(typePx) + `</div>`;
+  const lockupStacked = (markMarkup, typePx) => {
+    // Two lines of cap plus the leading between them.
+    const markPx = typePx * (WM.CAP / WM.UPM) * 2 + typePx * 0.14;
+    return `<div class="lk" style="display:flex;align-items:center;gap:${Math.round(typePx * 0.45)}px;` +
+      `background:${GROUND};padding:${Math.round(typePx)}px;width:max-content;">` +
+      `<svg class="lk-mark" width="${markPx.toFixed(2)}" height="${markPx.toFixed(2)}" viewBox="0 0 ${GRID} ${GRID}">${markMarkup.replace(/INK/g, INK)}</svg>` +
+      `<div class="lk-word">${WM.wordmarkStacked(typePx, INK)}</div></div>`;
+  };
   for (const [i, sk] of SKELETONS.entries()) {
     if (sk.ghost) continue;
     const mark = sk.draw(PLATE_SIB).replace(/INK/g, INK);
-    // Mark enlarged against the wordmark, per the owner's ruling: 26px of mark to a
-    // 22px type size, which is 1.29 x the measured 0.700em cap — inside the
-    // 1.25-1.35 band the previous round's reviewer set.
-    const big = lockup(mark, 26, 22), small = lockup(mark, 13, 11);
+    const rows =
+      lockupSingle(mark, 22) + lockupSingle(mark, 11) +
+      lockupStacked(mark, 22) + lockupStacked(mark, 11);
     await page.setContent(
       `<style>@font-face{font-family:"IOI Display";src:url(data:font/ttf;base64,${IOI}) format("truetype");}` +
       `body{margin:0;background:${GROUND};}#warm{font-family:"IOI Display";font-size:20px;position:absolute;left:-9999px;}</style>` +
       `<div id="warm">decentralized</div>` +
-      `<div id="pair" style="display:flex;flex-direction:column;gap:18px;padding:18px;background:${GROUND};width:max-content;">${big}${small}</div>`);
+      `<div id="pair" style="display:flex;flex-direction:column;gap:14px;padding:18px;background:${GROUND};width:max-content;">${rows}</div>`);
     await page.waitForFunction(() => document.fonts.ready.then(() => true));
     await page.evaluate(() => document.fonts.load('22px "IOI Display"'));
     await page.waitForTimeout(250);
@@ -566,6 +563,29 @@ if (process.argv.includes("--plates")) {
       process.exit(2);
     }
     writeFileSync(path.join(OUT, `${letters[i]}-lockup.png`), await page.locator("#pair").screenshot());
+
+    // BALANCE BY MASS, not by cap ratio. The cap rule said 1.29x and readers said the
+    // mark was a speck; a ratio against the CAP says nothing about a name 19 caps
+    // long. This measures the ink each side actually puts on the page, by screenshot,
+    // so "the mark holds its own" becomes a number rather than an opinion.
+    const inkArea = async (sel) => {
+      const buf = await page.locator(sel).first().screenshot();
+      const im = await pixels(`data:image/png;base64,${buf.toString("base64")}`);
+      let on = 0;
+      for (let p = 0; p < im.w * im.h; p++) if (lum(im.d, p) < INK_AT) on += 1;
+      return on;
+    };
+    const massOf = async (form) => {
+      const idx = form === "single" ? 0 : 2;   // rows: single 22, single 11, stacked 22, stacked 11
+      const markInk = await inkArea(`.lk:nth-of-type(${idx + 1}) .lk-mark`);
+      const wordInk = await inkArea(`.lk:nth-of-type(${idx + 1}) .lk-word`);
+      return { markInk, wordInk, share: wordInk ? markInk / (markInk + wordInk) : 0 };
+    };
+    const single = await massOf("single"), stacked = await massOf("stacked");
+    console.log(
+      `   lockup mass at 22px — single: mark ${single.markInk} px of ink vs word ${single.wordInk}, ` +
+      `mark is ${(single.share * 100).toFixed(1)}% of the pair · ` +
+      `stacked: ${(stacked.share * 100).toFixed(1)}%`);
   }
   // The silhouettes as judged: counters closed, at 96px so a reader can see the shape
   // the 16px comparison was actually made on.

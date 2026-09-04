@@ -85,7 +85,15 @@
     </div>
   </header>
 
-  <main id="surface" aria-live="polite">
+  <!-- `aria-live` used to sit on <main> itself, so every surface swap re-announced
+       the entire page — and on Placement that was 13.66 MB of text. Shrinking
+       Placement to 890 characters removed the magnitude but not the fault: a live
+       region should announce WHAT CHANGED, not read the document. The region is now
+       a one-line status that names the surface and its headline count, and the
+       surface itself is an ordinary landmark again. -->
+  <p id="surface-status" class="sr-only" role="status" aria-live="polite"></p>
+
+  <main id="surface">
     <p class="prose">Asking the daemon.</p>
   </main>
 
