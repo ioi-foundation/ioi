@@ -58,12 +58,26 @@ pub enum SwarmCommand {
     QueueQuvPushQuery {
         recipient: AccountId,
         data: Vec<u8>,
+        response: tokio::sync::oneshot::Sender<Result<(), String>>,
     },
     /// Durably sends one online QUV reply to the requesting executor.
     QueueQuvReply {
         recipient: AccountId,
         data: Vec<u8>,
     },
+    /// Releases the one timing-lane ingress slot held by an authenticated
+    /// requester after its durable PUSHQUERY has completed or failed closed.
+    CompleteQuvPush {
+        requester: AccountId,
+    },
+    /// Opens a fresh, process-local verifier admission epoch. Replies are
+    /// admitted at most once per authenticated member until completion.
+    BeginQuvOperation {
+        response: tokio::sync::oneshot::Sender<()>,
+    },
+    /// Closes the current verifier admission epoch and discards its reply
+    /// admission set. QUV transcripts remain non-authorizing audit material.
+    CompleteQuvOperation,
     /// Enables strict PQ consensus transport. Once configured, classical
     /// vote/QC/view-change gossip and relay paths are refused.
     ConfigurePqChannels {
@@ -160,17 +174,6 @@ pub enum NetworkEvent {
         authenticated_account: AccountId,
         from: PeerId,
     },
-    QuvPushQueryReceived {
-        query: QuvPushQueryV0,
-        authenticated_account: AccountId,
-        from: PeerId,
-    },
-    QuvReplyReceived {
-        reply: QuvReplyV0,
-        authenticated_account: AccountId,
-        from: PeerId,
-    },
-
     // Protocol Apex Events
     EchoReceived {
         echo: EchoMessage,
@@ -227,6 +230,23 @@ pub enum NetworkEvent {
         peer: PeerId,
         indices: Vec<u32>,
         channel: ResponseChannel<SyncResponse>,
+    },
+}
+
+/// Timing-critical online-authorization traffic. This has a dedicated channel
+/// and validator task so unrelated block, transaction, and operator traffic
+/// cannot occupy the queue ahead of a rooted QUV request or reply.
+#[derive(Debug)]
+pub enum QuvNetworkEvent {
+    PushQueryReceived {
+        query: QuvPushQueryV0,
+        authenticated_account: AccountId,
+        from: PeerId,
+    },
+    ReplyReceived {
+        reply: QuvReplyV0,
+        authenticated_account: AccountId,
+        from: PeerId,
     },
 }
 

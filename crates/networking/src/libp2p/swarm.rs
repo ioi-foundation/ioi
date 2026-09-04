@@ -256,24 +256,26 @@ fn queue_pq_consensus_for_account(
     inflight: &mut HashMap<libp2p::PeerId, InflightPqRequest>,
     recipient: ioi_types::app::AccountId,
     payload: PqConsensusPayloadV1,
-) {
-    if let Err(error) = manager.enqueue_for_account(recipient, payload) {
-        tracing::error!(target: "network", event = "pq_consensus_durable_enqueue_failed", ?recipient, %error);
-        return;
-    }
+) -> anyhow::Result<()> {
+    manager.enqueue_for_account(recipient, payload)?;
     let Some(peer) = manager.peer_for_account(recipient) else {
         tracing::debug!(target: "network", event = "pq_consensus_waiting_for_enrollment", ?recipient);
-        return;
+        return Ok(());
     };
     if manager.is_established(&peer) {
         flush_pq_peer(swarm, manager, inflight, peer);
     } else {
         start_pq_handshake(swarm, manager, handshakes, peer);
     }
+    Ok(())
 }
 
 async fn deliver_pq_record(
     event_sender: &mpsc::Sender<SwarmInternalEvent>,
+    quv_event_sender: &mpsc::Sender<SwarmInternalEvent>,
+    quv_push_inflight: &mut HashSet<ioi_types::app::AccountId>,
+    quv_reply_inflight: &mut HashSet<ioi_types::app::AccountId>,
+    quv_operation_active: bool,
     manager: &mut PqChannelSessionManager,
     peer: libp2p::PeerId,
     record: ioi_crypto::transport::pq_authenticated_channel::PqChannelRecordV1,
@@ -288,6 +290,31 @@ async fn deliver_pq_record(
     if payload.content_type() != declared_type {
         anyhow::bail!("protected consensus payload type does not match authenticated record type");
     }
+    let admitted_quv_push = matches!(&payload, PqConsensusPayloadV1::QuvPushQuery(_));
+    if admitted_quv_push && !quv_push_inflight.insert(authenticated_account) {
+        tracing::warn!(
+            target: "quv",
+            ?authenticated_account,
+            "Dropped QUV PUSHQUERY because this authenticated account already occupies its timing-lane slot"
+        );
+        return Ok(());
+    }
+    let admitted_quv_reply = matches!(&payload, PqConsensusPayloadV1::QuvReply(_));
+    if admitted_quv_reply
+        && (!quv_operation_active || !quv_reply_inflight.insert(authenticated_account))
+    {
+        tracing::warn!(
+            target: "quv",
+            ?authenticated_account,
+            active_operation = quv_operation_active,
+            "Dropped QUV reply outside the live operation or after this member's first admitted response"
+        );
+        return Ok(());
+    }
+    let is_quv = matches!(
+        &payload,
+        PqConsensusPayloadV1::QuvPushQuery(_) | PqConsensusPayloadV1::QuvReply(_)
+    );
     let event = match payload {
         PqConsensusPayloadV1::Vote(data) => SwarmInternalEvent::ConsensusVoteReceived(data, peer),
         PqConsensusPayloadV1::QuorumCertificate(data) => {
@@ -323,10 +350,88 @@ async fn deliver_pq_record(
             SwarmInternalEvent::QuvReplyReceived(data, authenticated_account, peer)
         }
     };
-    event_sender
+    let sender = if is_quv {
+        quv_event_sender
+    } else {
+        event_sender
+    };
+    let sent = sender
         .send(event)
         .await
-        .map_err(|_| anyhow::anyhow!("network event receiver closed"))
+        .map_err(|_| anyhow::anyhow!("network event receiver closed"));
+    if sent.is_err() && admitted_quv_push {
+        quv_push_inflight.remove(&authenticated_account);
+    }
+    if sent.is_err() && admitted_quv_reply {
+        quv_reply_inflight.remove(&authenticated_account);
+    }
+    sent
+}
+
+async fn handle_quv_command(
+    command: SwarmCommand,
+    swarm: &mut Swarm<SyncBehaviour>,
+    pq_channels: &mut Option<PqChannelSessionManager>,
+    inflight_pq_handshakes: &mut HashMap<libp2p::PeerId, InflightPqHandshake>,
+    inflight_pq_consensus: &mut HashMap<libp2p::PeerId, InflightPqRequest>,
+    quv_push_inflight: &mut HashSet<ioi_types::app::AccountId>,
+    quv_reply_inflight: &mut HashSet<ioi_types::app::AccountId>,
+    quv_operation_active: &mut bool,
+) {
+    match command {
+        SwarmCommand::BeginQuvOperation { response } => {
+            quv_reply_inflight.clear();
+            *quv_operation_active = true;
+            let _ = response.send(());
+        }
+        SwarmCommand::QueueQuvPushQuery {
+            recipient,
+            data,
+            response,
+        } => {
+            let result = if let Some(manager) = pq_channels.as_mut() {
+                queue_pq_consensus_for_account(
+                    swarm,
+                    manager,
+                    inflight_pq_handshakes,
+                    inflight_pq_consensus,
+                    recipient,
+                    PqConsensusPayloadV1::QuvPushQuery(data),
+                )
+                .map_err(|error| error.to_string())
+            } else {
+                tracing::warn!(target: "network", event = "aft_quv_query_refused", ?recipient, "QUV requires configured strict PQ channels");
+                Err("QUV requires configured strict PQ channels".to_string())
+            };
+            let _ = response.send(result);
+        }
+        SwarmCommand::QueueQuvReply { recipient, data } => {
+            if let Some(manager) = pq_channels.as_mut() {
+                if let Err(error) = queue_pq_consensus_for_account(
+                    swarm,
+                    manager,
+                    inflight_pq_handshakes,
+                    inflight_pq_consensus,
+                    recipient,
+                    PqConsensusPayloadV1::QuvReply(data),
+                ) {
+                    tracing::error!(target: "network", event = "aft_quv_reply_enqueue_failed", ?recipient, %error);
+                }
+            } else {
+                tracing::warn!(target: "network", event = "aft_quv_reply_refused", ?recipient, "QUV requires configured strict PQ channels");
+            }
+        }
+        SwarmCommand::CompleteQuvPush { requester } => {
+            quv_push_inflight.remove(&requester);
+        }
+        SwarmCommand::CompleteQuvOperation => {
+            *quv_operation_active = false;
+            quv_reply_inflight.clear();
+        }
+        _ => {
+            tracing::error!(target: "quv", "Non-QUV swarm command was sent through the isolated QUV lane");
+        }
+    }
 }
 
 /// Enqueues a block for later gossiping, dropping the oldest if the outbox is full.
@@ -439,7 +544,9 @@ fn drain_pending_txs(
 pub async fn run_swarm_loop(
     mut swarm: Swarm<SyncBehaviour>,
     mut command_receiver: mpsc::Receiver<SwarmCommand>,
+    mut quv_command_receiver: mpsc::Receiver<SwarmCommand>,
     event_sender: mpsc::Sender<SwarmInternalEvent>,
+    quv_event_sender: mpsc::Sender<SwarmInternalEvent>,
     mut shutdown_receiver: watch::Receiver<bool>,
 ) {
     eprintln!("[Network] Swarm loop started.");
@@ -468,6 +575,9 @@ pub async fn run_swarm_loop(
     let mut legacy_consensus_transport_allowed = true;
     let mut inflight_pq_handshakes: HashMap<libp2p::PeerId, InflightPqHandshake> = HashMap::new();
     let mut inflight_pq_consensus: HashMap<libp2p::PeerId, InflightPqRequest> = HashMap::new();
+    let mut quv_push_inflight: HashSet<ioi_types::app::AccountId> = HashSet::new();
+    let mut quv_reply_inflight: HashSet<ioi_types::app::AccountId> = HashSet::new();
+    let mut quv_operation_active = false;
     let mut dialing_peers: HashSet<PeerId> = HashSet::new();
 
     let mut retry_interval = interval(Duration::from_millis(500));
@@ -494,6 +604,19 @@ pub async fn run_swarm_loop(
 
     loop {
         tokio::select! {
+            biased;
+            Some(command) = quv_command_receiver.recv() => {
+                handle_quv_command(
+                    command,
+                    &mut swarm,
+                    &mut pq_channels,
+                    &mut inflight_pq_handshakes,
+                    &mut inflight_pq_consensus,
+                    &mut quv_push_inflight,
+                    &mut quv_reply_inflight,
+                    &mut quv_operation_active,
+                ).await;
+            },
             _ = retry_interval.tick() => {
                 drain_pending_blocks(&mut pending_blocks, &mut swarm.behaviour_mut().gossipsub, &block_topic_a, &block_topic_b);
                 drain_pending_txs(&mut pending_txs, &mut swarm.behaviour_mut().gossipsub, &tx_topic);
@@ -741,7 +864,16 @@ pub async fn run_swarm_loop(
                                 }
                                 SyncRequest::PqChannelRecord(record) => {
                                     let result = match pq_channels.as_mut() {
-                                        Some(manager) => deliver_pq_record(&event_sender, manager, peer, record).await,
+                                        Some(manager) => deliver_pq_record(
+                                            &event_sender,
+                                            &quv_event_sender,
+                                            &mut quv_push_inflight,
+                                            &mut quv_reply_inflight,
+                                            quv_operation_active,
+                                            manager,
+                                            peer,
+                                            record,
+                                        ).await,
                                         None => Err(anyhow::anyhow!("strict PQ channels are not configured")),
                                     };
                                     match result {
@@ -1220,14 +1352,16 @@ pub async fn run_swarm_loop(
                     }
                     SwarmCommand::QueueAftAsyncOrdering { recipient, data } => {
                         if let Some(manager) = pq_channels.as_mut() {
-                            queue_pq_consensus_for_account(
+                            if let Err(error) = queue_pq_consensus_for_account(
                                 &mut swarm,
                                 manager,
                                 &mut inflight_pq_handshakes,
                                 &mut inflight_pq_consensus,
                                 recipient,
                                 PqConsensusPayloadV1::AftAsyncOrdering(data),
-                            );
+                            ) {
+                                tracing::error!(target: "network", event = "pq_consensus_durable_enqueue_failed", ?recipient, %error);
+                            }
                         } else {
                             tracing::warn!(target: "network", event = "aft_async_account_queue_refused", ?recipient, "Account-addressed asynchronous traffic requires configured strict PQ channels");
                         }
@@ -1260,33 +1394,12 @@ pub async fn run_swarm_loop(
                             }
                         }
                     }
-                    SwarmCommand::QueueQuvPushQuery { recipient, data } => {
-                        if let Some(manager) = pq_channels.as_mut() {
-                            queue_pq_consensus_for_account(
-                                &mut swarm,
-                                manager,
-                                &mut inflight_pq_handshakes,
-                                &mut inflight_pq_consensus,
-                                recipient,
-                                PqConsensusPayloadV1::QuvPushQuery(data),
-                            );
-                        } else {
-                            tracing::warn!(target: "network", event = "aft_quv_query_refused", ?recipient, "QUV requires configured strict PQ channels");
-                        }
-                    }
-                    SwarmCommand::QueueQuvReply { recipient, data } => {
-                        if let Some(manager) = pq_channels.as_mut() {
-                            queue_pq_consensus_for_account(
-                                &mut swarm,
-                                manager,
-                                &mut inflight_pq_handshakes,
-                                &mut inflight_pq_consensus,
-                                recipient,
-                                PqConsensusPayloadV1::QuvReply(data),
-                            );
-                        } else {
-                            tracing::warn!(target: "network", event = "aft_quv_reply_refused", ?recipient, "QUV requires configured strict PQ channels");
-                        }
+                    SwarmCommand::QueueQuvPushQuery { .. }
+                    | SwarmCommand::QueueQuvReply { .. }
+                    | SwarmCommand::CompleteQuvPush { .. }
+                    | SwarmCommand::BeginQuvOperation { .. }
+                    | SwarmCommand::CompleteQuvOperation => {
+                        tracing::error!(target: "quv", "QUV command was sent through the general swarm lane and refused");
                     }
                     SwarmCommand::ConfigurePqChannels { config, enrollments, response } => {
                         // Reconfiguration is a fail-closed authority boundary.
@@ -1300,6 +1413,9 @@ pub async fn run_swarm_loop(
                         pending_votes.clear();
                         inflight_pq_handshakes.clear();
                         inflight_pq_consensus.clear();
+                        quv_push_inflight.clear();
+                        quv_reply_inflight.clear();
+                        quv_operation_active = false;
                         if config.peer_id != *swarm.local_peer_id() {
                             let error = format!(
                                 "configured carrier identity {} does not match running swarm {}",
@@ -1539,6 +1655,9 @@ mod tests {
         let (_temp, mut initiator, initiator_peer, mut responder, responder_peer) =
             established_managers();
         let (event_sender, mut event_receiver) = mpsc::channel(4);
+        let (quv_event_sender, mut quv_event_receiver) = mpsc::channel(4);
+        let mut quv_push_inflight = HashSet::new();
+        let mut quv_reply_inflight = HashSet::new();
 
         let vote_payload = PqConsensusPayloadV1::Vote(b"canonical vote".to_vec());
         let vote_plaintext = codec::to_bytes_canonical(&vote_payload).unwrap();
@@ -1549,9 +1668,18 @@ mod tests {
                 &vote_plaintext,
             )
             .unwrap();
-        deliver_pq_record(&event_sender, &mut responder, initiator_peer, vote_record)
-            .await
-            .unwrap();
+        deliver_pq_record(
+            &event_sender,
+            &quv_event_sender,
+            &mut quv_push_inflight,
+            &mut quv_reply_inflight,
+            true,
+            &mut responder,
+            initiator_peer,
+            vote_record,
+        )
+        .await
+        .unwrap();
         assert!(matches!(
             event_receiver.recv().await,
             Some(SwarmInternalEvent::ConsensusVoteReceived(data, peer))
@@ -1570,6 +1698,10 @@ mod tests {
             .unwrap();
         deliver_pq_record(
             &event_sender,
+            &quv_event_sender,
+            &mut quv_push_inflight,
+            &mut quv_reply_inflight,
+            true,
             &mut responder,
             initiator_peer,
             fallback_record,
@@ -1592,9 +1724,18 @@ mod tests {
                 &scoped_plaintext,
             )
             .unwrap();
-        deliver_pq_record(&event_sender, &mut responder, initiator_peer, scoped_record)
-            .await
-            .unwrap();
+        deliver_pq_record(
+            &event_sender,
+            &quv_event_sender,
+            &mut quv_push_inflight,
+            &mut quv_reply_inflight,
+            true,
+            &mut responder,
+            initiator_peer,
+            scoped_record,
+        )
+        .await
+        .unwrap();
         assert!(matches!(
             event_receiver.recv().await,
             Some(SwarmInternalEvent::AftTimeoutCertificateReceived(data, peer))
@@ -1611,9 +1752,18 @@ mod tests {
                 &async_plaintext,
             )
             .unwrap();
-        deliver_pq_record(&event_sender, &mut responder, initiator_peer, async_record)
-            .await
-            .unwrap();
+        deliver_pq_record(
+            &event_sender,
+            &quv_event_sender,
+            &mut quv_push_inflight,
+            &mut quv_reply_inflight,
+            true,
+            &mut responder,
+            initiator_peer,
+            async_record,
+        )
+        .await
+        .unwrap();
         assert!(matches!(
             event_receiver.recv().await,
             Some(SwarmInternalEvent::AftAsyncOrderingReceived(data, account, peer))
@@ -1636,10 +1786,19 @@ mod tests {
                     &plaintext,
                 )
                 .unwrap();
-            deliver_pq_record(&event_sender, &mut responder, initiator_peer, record)
-                .await
-                .unwrap();
-            let event = event_receiver.recv().await;
+            deliver_pq_record(
+                &event_sender,
+                &quv_event_sender,
+                &mut quv_push_inflight,
+                &mut quv_reply_inflight,
+                true,
+                &mut responder,
+                initiator_peer,
+                record,
+            )
+            .await
+            .unwrap();
+            let event = quv_event_receiver.recv().await;
             if expected_request {
                 assert!(matches!(
                     event,
@@ -1647,6 +1806,29 @@ mod tests {
                         if data == b"quv push" && peer == initiator_peer
                             && account == responder.remote_account(&initiator_peer).unwrap()
                 ));
+                let duplicate_payload =
+                    PqConsensusPayloadV1::QuvPushQuery(b"duplicate quv push".to_vec());
+                let duplicate_plaintext = codec::to_bytes_canonical(&duplicate_payload).unwrap();
+                let duplicate_record = initiator
+                    .seal(
+                        &responder_peer,
+                        PqChannelContentTypeV1::OnlineAuthorization,
+                        &duplicate_plaintext,
+                    )
+                    .unwrap();
+                deliver_pq_record(
+                    &event_sender,
+                    &quv_event_sender,
+                    &mut quv_push_inflight,
+                    &mut quv_reply_inflight,
+                    true,
+                    &mut responder,
+                    initiator_peer,
+                    duplicate_record,
+                )
+                .await
+                .unwrap();
+                assert!(quv_event_receiver.try_recv().is_err());
             } else {
                 assert!(matches!(
                     event,
@@ -1654,6 +1836,29 @@ mod tests {
                         if data == b"quv reply" && peer == initiator_peer
                             && account == responder.remote_account(&initiator_peer).unwrap()
                 ));
+                let duplicate_payload =
+                    PqConsensusPayloadV1::QuvReply(b"duplicate quv reply".to_vec());
+                let duplicate_plaintext = codec::to_bytes_canonical(&duplicate_payload).unwrap();
+                let duplicate_record = initiator
+                    .seal(
+                        &responder_peer,
+                        PqChannelContentTypeV1::OnlineAuthorization,
+                        &duplicate_plaintext,
+                    )
+                    .unwrap();
+                deliver_pq_record(
+                    &event_sender,
+                    &quv_event_sender,
+                    &mut quv_push_inflight,
+                    &mut quv_reply_inflight,
+                    true,
+                    &mut responder,
+                    initiator_peer,
+                    duplicate_record,
+                )
+                .await
+                .unwrap();
+                assert!(quv_event_receiver.try_recv().is_err());
             }
         }
 
@@ -1670,6 +1875,10 @@ mod tests {
             .unwrap();
         assert!(deliver_pq_record(
             &event_sender,
+            &quv_event_sender,
+            &mut quv_push_inflight,
+            &mut quv_reply_inflight,
+            true,
             &mut responder,
             initiator_peer,
             mismatched_record,
@@ -1677,5 +1886,6 @@ mod tests {
         .await
         .is_err());
         assert!(event_receiver.try_recv().is_err());
+        assert!(quv_event_receiver.try_recv().is_err());
     }
 }

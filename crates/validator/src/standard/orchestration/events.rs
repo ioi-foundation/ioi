@@ -555,22 +555,6 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             }
         }
 
-        NetworkEvent::QuvPushQueryReceived {
-            query,
-            authenticated_account,
-            from,
-        } => {
-            super::quv::dispatch_push_query(context_arc, authenticated_account, from, query).await;
-        }
-
-        NetworkEvent::QuvReplyReceived {
-            reply,
-            authenticated_account,
-            from,
-        } => {
-            super::quv::handle_reply(context_arc, authenticated_account, from, reply).await;
-        }
-
         NetworkEvent::PanicReceived { panic, from } => {
             tracing::warn!(
                 target: "orchestration",

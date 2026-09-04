@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 
 /// Stable profile identifier.
 pub const QUV_PROFILE_V0: &str = "aft_quv_v0";
+/// Production v0 admission bound. The isolated runtime lane reserves two
+/// events per configured member: one request and one reply.
+pub const QUV_MAX_CONFIGURED_MEMBERS_V0: usize = 1_024;
 /// Canonical SHA-256 commitment.
 pub type QuvHash = [u8; 32];
 /// Fresh verifier session nonce.

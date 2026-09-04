@@ -488,6 +488,54 @@ where
         }
     }
 
+    /// Drain timing-critical QUV traffic independently of the general node
+    /// event loop. Expensive block, transaction, sync, or operator handling
+    /// therefore cannot occupy the scheduler queue ahead of an online
+    /// authorization request or its nonce-bound reply.
+    async fn run_quv_loop(
+        mut receiver: mpsc::Receiver<ioi_networking::libp2p::QuvNetworkEvent>,
+        mut shutdown_receiver: watch::Receiver<bool>,
+        context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    ) {
+        loop {
+            tokio::select! {
+                biased;
+                _ = shutdown_receiver.changed() => {
+                    if *shutdown_receiver.borrow() {
+                        break;
+                    }
+                }
+                event = receiver.recv() => match event {
+                    Some(ioi_networking::libp2p::QuvNetworkEvent::PushQueryReceived {
+                        query,
+                        authenticated_account,
+                        from,
+                    }) => {
+                        super::quv::dispatch_push_query(
+                            &context_arc,
+                            authenticated_account,
+                            from,
+                            query,
+                        ).await;
+                    }
+                    Some(ioi_networking::libp2p::QuvNetworkEvent::ReplyReceived {
+                        reply,
+                        authenticated_account,
+                        from,
+                    }) => {
+                        super::quv::handle_reply(
+                            &context_arc,
+                            authenticated_account,
+                            from,
+                            reply,
+                        ).await;
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+
     pub(crate) async fn start_internal(&self, _listen_addr: &str) -> Result<(), ValidatorError> {
         if self.is_running.load(Ordering::SeqCst) {
             return Err(ValidatorError::AlreadyRunning("orchestration".to_string()));
@@ -784,6 +832,14 @@ where
             if effective.validators.is_empty() {
                 return Err(ValidatorError::Other(format!(
                     "canonical AFT validator set is empty at height {observation_height}"
+                )));
+            }
+            if !self.config.aft_quv_domain_policies.is_empty()
+                && effective.validators.len() > ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
+            {
+                return Err(ValidatorError::Config(format!(
+                    "aft_quv_v0 supports at most {} configured members so its isolated request/reply lane remains bounded",
+                    ioi_types::app::QUV_MAX_CONFIGURED_MEMBERS_V0
                 )));
             }
             let mut canonical_keys = Vec::with_capacity(effective.validators.len());
@@ -1109,6 +1165,7 @@ where
             tx_pool_ref: self.tx_pool.clone(),
             view_resolver,
             swarm_commander: self.swarm_command_sender.clone(),
+            quv_swarm_commander: self.quv_swarm_command_sender.clone(),
             consensus_engine_ref: self.consensus_engine.clone(),
             node_state: self.syncer.get_node_state(),
             local_keypair: self.local_keypair.clone(),
@@ -1123,6 +1180,7 @@ where
             aft_cross_path_signing_fence,
             aft_quv_member,
             aft_quv_push_inflight: HashSet::new(),
+            aft_quv_starting: false,
             aft_quv_operations: HashMap::new(),
             aft_async_sessions: BTreeMap::new(),
             aft_async_finalized: BTreeMap::new(),
@@ -1181,6 +1239,10 @@ where
         let receiver = receiver_opt.take().ok_or(ValidatorError::Other(
             "Network event receiver already taken".to_string(),
         ))?;
+        let mut quv_receiver_opt = self.quv_network_event_receiver.lock().await;
+        let quv_receiver = quv_receiver_opt.take().ok_or(ValidatorError::Other(
+            "QUV network event receiver already taken".to_string(),
+        ))?;
 
         let context_arc = Arc::new(Mutex::new(context));
         *self.main_loop_context.lock().await = Some(context_arc.clone());
@@ -1211,6 +1273,11 @@ where
                 shutdown_rx.clone(),
             ),
         ));
+        handles.push(tokio::spawn(Self::run_quv_loop(
+            quv_receiver,
+            shutdown_rx.clone(),
+            context_arc.clone(),
+        )));
         handles.push(tokio::spawn(Self::run_main_loop(
             receiver,
             shutdown_rx,

@@ -754,8 +754,17 @@ async fn async_main() -> Result<()> {
 
     let (swarm_commander, mut swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
     tokio::spawn(async move { while let Some(_) = swarm_rx.recv().await {} });
+    let (quv_swarm_commander, mut quv_swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
+    tokio::spawn(async move {
+        while let Some(command) = quv_swarm_rx.recv().await {
+            if let SwarmCommand::BeginQuvOperation { response } = command {
+                let _ = response.send(());
+            }
+        }
+    });
 
     let (_dummy_tx, network_events) = tokio::sync::mpsc::channel(100);
+    let (_dummy_quv_tx, quv_network_events) = tokio::sync::mpsc::channel(100);
 
     let (consensus_label, consensus_engine) = if cfg!(feature = "consensus-poa") {
         #[cfg(feature = "consensus-poa")]
@@ -827,7 +836,9 @@ async fn async_main() -> Result<()> {
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,
+        quv_network_event_receiver: quv_network_events,
         swarm_command_sender: swarm_commander,
+        quv_swarm_command_sender: quv_swarm_commander,
         consensus_engine,
         local_keypair: local_key.clone(),
         pqc_keypair: None,

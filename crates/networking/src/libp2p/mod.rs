@@ -18,6 +18,7 @@ use ioi_tx::unified::UnifiedTransactionModel;
 use ioi_types::app::{
     AftAsyncCarrierV1, ConfidenceVote, ConsensusVote, EchoMessage, FallbackStartCertificateV1,
     OracleAttestation, PanicMessage, QuvPushQueryV0, QuvReplyV0, TimeoutCertificate,
+    QUV_MAX_CONFIGURED_MEMBERS_V0,
 };
 use ioi_types::codec;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -31,11 +32,15 @@ use tokio::{
 const SWARM_COMMAND_CHANNEL_CAPACITY: usize = 16_384;
 const INTERNAL_EVENT_CHANNEL_CAPACITY: usize = 16_384;
 const NETWORK_EVENT_CHANNEL_CAPACITY: usize = 16_384;
+const QUV_EVENT_CHANNEL_CAPACITY: usize = 2 * QUV_MAX_CONFIGURED_MEMBERS_V0;
+// One outbound query per member, plus one reply and one push-completion per
+// concurrently admitted requester, plus begin/end control.
+const QUV_COMMAND_CHANNEL_CAPACITY: usize = 3 * QUV_MAX_CONFIGURED_MEMBERS_V0 + 2;
 
 // Re-export specific types
 pub use self::behaviour::{SyncBehaviour, SyncBehaviourEvent};
 pub use self::sync::{SyncCodec, SyncRequest, SyncResponse};
-pub use self::types::{NetworkEvent, SwarmCommand, SwarmInternalEvent};
+pub use self::types::{NetworkEvent, QuvNetworkEvent, SwarmCommand, SwarmInternalEvent};
 
 // Import ViewChangeVote for use in forwarder
 use ioi_types::app::QuorumCertificate;
@@ -61,15 +66,23 @@ impl Libp2pSync {
     ) -> anyhow::Result<(
         Arc<Self>,
         mpsc::Sender<SwarmCommand>,
+        mpsc::Sender<SwarmCommand>,
         mpsc::Receiver<NetworkEvent>,
+        mpsc::Receiver<QuvNetworkEvent>,
     )> {
         let (shutdown_sender, _) = watch::channel(false);
         let (swarm_command_sender, swarm_command_receiver) =
             mpsc::channel(SWARM_COMMAND_CHANNEL_CAPACITY);
+        let (quv_command_sender, quv_command_receiver) =
+            mpsc::channel(QUV_COMMAND_CHANNEL_CAPACITY);
         let (internal_event_sender, mut internal_event_receiver) =
             mpsc::channel(INTERNAL_EVENT_CHANNEL_CAPACITY);
+        let (quv_internal_event_sender, mut quv_internal_event_receiver) =
+            mpsc::channel(QUV_EVENT_CHANNEL_CAPACITY);
         let (network_event_sender, network_event_receiver) =
             mpsc::channel(NETWORK_EVENT_CHANNEL_CAPACITY);
+        let (quv_network_event_sender, quv_network_event_receiver) =
+            mpsc::channel(QUV_EVENT_CHANNEL_CAPACITY);
 
         let local_peer_id = local_key.public().to_peer_id();
         let node_state = Arc::new(Mutex::new(NodeState::Initializing));
@@ -81,7 +94,9 @@ impl Libp2pSync {
         let swarm_task = tokio::spawn(self::swarm::run_swarm_loop(
             swarm,
             swarm_command_receiver,
+            quv_command_receiver,
             internal_event_sender,
+            quv_internal_event_sender,
             shutdown_sender.subscribe(),
         ));
 
@@ -251,26 +266,9 @@ impl Libp2pSync {
                             authenticated_account,
                             from: source,
                         }),
-                    SwarmInternalEvent::QuvPushQueryReceived(
-                        data,
-                        authenticated_account,
-                        source,
-                    ) => codec::from_bytes_canonical::<QuvPushQueryV0>(&data)
-                        .ok()
-                        .map(|query| NetworkEvent::QuvPushQueryReceived {
-                            query,
-                            authenticated_account,
-                            from: source,
-                        }),
-                    SwarmInternalEvent::QuvReplyReceived(data, authenticated_account, source) => {
-                        codec::from_bytes_canonical::<QuvReplyV0>(&data)
-                            .ok()
-                            .map(|reply| NetworkEvent::QuvReplyReceived {
-                                reply,
-                                authenticated_account,
-                                from: source,
-                            })
-                    }
+                    // QUV is routed through its isolated timing-critical lane.
+                    SwarmInternalEvent::QuvPushQueryReceived(..)
+                    | SwarmInternalEvent::QuvReplyReceived(..) => None,
                     SwarmInternalEvent::EchoReceived(data, source) => {
                         codec::from_bytes_canonical::<EchoMessage>(&data)
                             .ok()
@@ -324,6 +322,39 @@ impl Libp2pSync {
 
                 if let Some(ev) = translated_event {
                     if network_event_sender.send(ev).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+
+        let quv_event_forwarder_task = tokio::spawn(async move {
+            while let Some(event) = quv_internal_event_receiver.recv().await {
+                let translated = match event {
+                    SwarmInternalEvent::QuvPushQueryReceived(
+                        data,
+                        authenticated_account,
+                        source,
+                    ) => codec::from_bytes_canonical::<QuvPushQueryV0>(&data)
+                        .ok()
+                        .map(|query| QuvNetworkEvent::PushQueryReceived {
+                            query,
+                            authenticated_account,
+                            from: source,
+                        }),
+                    SwarmInternalEvent::QuvReplyReceived(data, authenticated_account, source) => {
+                        codec::from_bytes_canonical::<QuvReplyV0>(&data)
+                            .ok()
+                            .map(|reply| QuvNetworkEvent::ReplyReceived {
+                                reply,
+                                authenticated_account,
+                                from: source,
+                            })
+                    }
+                    _ => None,
+                };
+                if let Some(event) = translated {
+                    if quv_network_event_sender.send(event).await.is_err() {
                         break;
                     }
                 }
@@ -390,6 +421,7 @@ impl Libp2pSync {
             task_handles: Arc::new(Mutex::new(vec![
                 swarm_task,
                 event_forwarder_task,
+                quv_event_forwarder_task,
                 initial_cmds_task,
                 bootstrap_redial_task,
             ])),
@@ -399,7 +431,13 @@ impl Libp2pSync {
             bootstrap_peer_count,
         });
 
-        Ok((sync_service, swarm_command_sender, network_event_receiver))
+        Ok((
+            sync_service,
+            swarm_command_sender,
+            quv_command_sender,
+            network_event_receiver,
+            quv_network_event_receiver,
+        ))
     }
 
     pub fn bootstrap_peer_count(&self) -> usize {

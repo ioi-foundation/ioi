@@ -126,6 +126,8 @@ where
 
     /// Channel for sending commands to the network swarm.
     pub swarm_commander: mpsc::Sender<SwarmCommand>,
+    /// Dedicated bounded command lane for online QUV traffic.
+    pub quv_swarm_commander: mpsc::Sender<SwarmCommand>,
     /// Reference to the consensus engine.
     pub consensus_engine_ref: Arc<Mutex<CE>>,
     /// Current high-level state of the node (Syncing, Synced, etc.).
@@ -163,6 +165,9 @@ where
     /// for the member-state serializer. This bounds Byzantine queue occupancy
     /// to the rooted membership size instead of accepting an unbounded flood.
     pub(super) aft_quv_push_inflight: HashSet<AccountId>,
+    /// Reserves the single executor operation while its isolated network
+    /// admission epoch is being opened.
+    pub(super) aft_quv_starting: bool,
     /// Live nonce-bound verifier operations. Entries exist only through their
     /// rooted decision interval and never become portable authorization.
     pub(super) aft_quv_operations: HashMap<QuvNonce, super::quv::PendingQuvOperationV0>,

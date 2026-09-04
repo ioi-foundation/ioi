@@ -203,25 +203,34 @@ pub(super) async fn dispatch_push_query<CS, ST, CE, V>(
         + Decode,
     V: Send + Sync + 'static,
 {
+    let (rooted_requester, commander) = {
+        let context = context_arc.lock().await;
+        (
+            context
+                .aft_async_membership
+                .as_ref()
+                .is_some_and(|(set, _)| {
+                    set.validators
+                        .iter()
+                        .any(|member| member.account_id == requester)
+                }),
+            context.quv_swarm_commander.clone(),
+        )
+    };
+    if !rooted_requester {
+        tracing::warn!(
+            target: "quv",
+            %from,
+            requester = %hex::encode(requester.as_ref()),
+            "Dropped QUV PUSHQUERY from an authenticated account outside rooted membership"
+        );
+        let _ = commander
+            .send(SwarmCommand::CompleteQuvPush { requester })
+            .await;
+        return;
+    }
     {
         let mut context = context_arc.lock().await;
-        let rooted_requester = context
-            .aft_async_membership
-            .as_ref()
-            .is_some_and(|(set, _)| {
-                set.validators
-                    .iter()
-                    .any(|member| member.account_id == requester)
-            });
-        if !rooted_requester {
-            tracing::warn!(
-                target: "quv",
-                %from,
-                requester = %hex::encode(requester.as_ref()),
-                "Dropped QUV PUSHQUERY from an authenticated account outside rooted membership"
-            );
-            return;
-        }
         if !context.aft_quv_push_inflight.insert(requester) {
             tracing::warn!(
                 target: "quv",
@@ -235,11 +244,14 @@ pub(super) async fn dispatch_push_query<CS, ST, CE, V>(
     let context = Arc::clone(context_arc);
     tokio::spawn(async move {
         handle_push_query(&context, requester, from, query).await;
-        context
-            .lock()
-            .await
-            .aft_quv_push_inflight
-            .remove(&requester);
+        let commander = {
+            let mut locked = context.lock().await;
+            locked.aft_quv_push_inflight.remove(&requester);
+            locked.quv_swarm_commander.clone()
+        };
+        let _ = commander
+            .send(SwarmCommand::CompleteQuvPush { requester })
+            .await;
     });
 }
 
@@ -274,7 +286,7 @@ async fn handle_push_query<CS, ST, CE, V>(
     match process_push(context_arc, requester, query).await {
         Ok((recipient, reply)) => match codec::to_bytes_canonical(&reply) {
             Ok(data) => {
-                let commander = context_arc.lock().await.swarm_commander.clone();
+                let commander = context_arc.lock().await.quv_swarm_commander.clone();
                 if let Err(error) = commander
                     .send(SwarmCommand::QueueQuvReply { recipient, data })
                     .await
@@ -370,9 +382,14 @@ where
 {
     let nonce = request.verifier_nonce;
     let (members, local_member, policy, commander) = {
-        let context = context_arc.lock().await;
+        let mut context = context_arc.lock().await;
         if context.aft_quv_operations.contains_key(&nonce) {
             return Err(anyhow!("QUV verifier nonce is already live"));
+        }
+        if context.aft_quv_starting || !context.aft_quv_operations.is_empty() {
+            return Err(anyhow!(
+                "aft_quv_v0 permits one live executor operation per process"
+            ));
         }
         let (set, keys) = context
             .aft_async_membership
@@ -393,43 +410,78 @@ where
             policy.owner,
         )?
         .validate_candidate(&request.candidate)?;
+        let members = set
+            .validators
+            .iter()
+            .map(|member| member.account_id)
+            .collect::<BTreeSet<_>>();
+        let local_member = context
+            .local_validator_account_id
+            .ok_or_else(|| anyhow!("QUV local rooted member is unavailable"))?;
+        if !members.contains(&local_member) {
+            return Err(anyhow!("QUV local signer is outside rooted membership"));
+        }
+        context.aft_quv_starting = true;
         (
-            set.validators
-                .iter()
-                .map(|member| member.account_id)
-                .collect::<BTreeSet<_>>(),
-            context
-                .local_validator_account_id
-                .ok_or_else(|| anyhow!("QUV local rooted member is unavailable"))?,
+            members,
+            local_member,
             policy,
-            context.swarm_commander.clone(),
+            context.quv_swarm_commander.clone(),
         )
     };
-    if !members.contains(&local_member) {
-        return Err(anyhow!("QUV local signer is outside rooted membership"));
+
+    // The verifier interval starts only after the isolated swarm lane has
+    // opened a fresh reply-admission epoch. This prevents stale traffic or a
+    // general-command backlog from consuming any part of Delta_rt.
+    let (admission_ready, ready) = oneshot::channel();
+    if let Err(error) = commander
+        .send(SwarmCommand::BeginQuvOperation {
+            response: admission_ready,
+        })
+        .await
+    {
+        context_arc.lock().await.aft_quv_starting = false;
+        return Err(anyhow!("QUV command lane is unavailable: {error}"));
+    }
+    if ready.await.is_err() {
+        context_arc.lock().await.aft_quv_starting = false;
+        return Err(anyhow!(
+            "QUV command lane closed before admission was ready"
+        ));
     }
 
     let decision_interval = Duration::from_millis(policy.delta_rt_millis);
-    let operation = QuvOnlineOperationV0::start(
+    let operation = match QuvOnlineOperationV0::start(
         request.clone(),
         members.clone(),
         decision_interval,
         Duration::from_millis(policy.continuation_millis),
-    )?;
+    ) {
+        Ok(operation) => operation,
+        Err(error) => {
+            context_arc.lock().await.aft_quv_starting = false;
+            let _ = commander.send(SwarmCommand::CompleteQuvOperation).await;
+            return Err(error.into());
+        }
+    };
     let (completion, receiver) = oneshot::channel();
-    {
+    let inserted = {
         let mut context = context_arc.lock().await;
+        context.aft_quv_starting = false;
         match context.aft_quv_operations.entry(nonce) {
             std::collections::hash_map::Entry::Vacant(entry) => {
                 entry.insert(PendingQuvOperationV0 {
                     operation,
                     completion,
                 });
+                true
             }
-            std::collections::hash_map::Entry::Occupied(_) => {
-                return Err(anyhow!("QUV verifier nonce raced another operation"));
-            }
+            std::collections::hash_map::Entry::Occupied(_) => false,
         }
+    };
+    if !inserted {
+        let _ = commander.send(SwarmCommand::CompleteQuvOperation).await;
+        return Err(anyhow!("QUV verifier nonce raced another operation"));
     }
     let context_for_deadline = Arc::clone(context_arc);
     tokio::spawn(async move {
@@ -445,15 +497,33 @@ where
         }
     };
     for recipient in members.into_iter().filter(|member| *member != local_member) {
+        let (queued, queue_result) = oneshot::channel();
         if let Err(error) = commander
             .send(SwarmCommand::QueueQuvPushQuery {
                 recipient,
                 data: data.clone(),
+                response: queued,
             })
             .await
         {
             abort_operation(context_arc, nonce, error.to_string()).await;
             return Ok(receiver);
+        }
+        match queue_result.await {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                abort_operation(context_arc, nonce, error).await;
+                return Ok(receiver);
+            }
+            Err(_) => {
+                abort_operation(
+                    context_arc,
+                    nonce,
+                    "QUV command lane closed before durable request admission".to_string(),
+                )
+                .await;
+                return Ok(receiver);
+            }
         }
     }
 
@@ -500,7 +570,17 @@ async fn abort_operation<CS, ST, CE, V>(
         + Encode
         + Decode,
 {
-    if let Some(pending) = context_arc.lock().await.aft_quv_operations.remove(&nonce) {
+    let (pending, commander) = {
+        let mut context = context_arc.lock().await;
+        (
+            context.aft_quv_operations.remove(&nonce),
+            context.quv_swarm_commander.clone(),
+        )
+    };
+    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvOperation) {
+        tracing::error!(target: "quv", %error, "QUV completion exceeded its reserved command-lane capacity");
+    }
+    if let Some(pending) = pending {
         let _ = pending.completion.send(Err(error));
     }
 }
@@ -528,32 +608,21 @@ async fn finish_operation<CS, ST, CE, V>(
         + Encode
         + Decode,
 {
-    let (pending, set, keys, activation_height, network_id, policy) = {
+    let (pending, rooted, activation_height, network_id, policy, commander) = {
         let mut context = context_arc.lock().await;
         let Some(pending) = context.aft_quv_operations.remove(&nonce) else {
             return;
         };
-        let Some((set, keys)) = context.aft_async_membership.as_ref() else {
-            let _ = pending
-                .completion
-                .send(Err("QUV rooted membership disappeared".into()));
-            return;
-        };
+        let rooted = context.aft_async_membership.clone();
         let policy = provisioned_policy(
             &context.config.aft_quv_domain_policies,
             pending.operation.request(),
         )
-        .cloned();
-        let Ok(policy) = policy else {
-            let _ = pending
-                .completion
-                .send(Err("QUV provisioned policy disappeared".into()));
-            return;
-        };
+        .cloned()
+        .ok();
         (
             pending,
-            set.clone(),
-            keys.clone(),
+            rooted,
             context
                 .last_committed_block
                 .as_ref()
@@ -561,12 +630,24 @@ async fn finish_operation<CS, ST, CE, V>(
                 .unwrap_or(1),
             context.genesis_hash,
             policy,
+            context.quv_swarm_commander.clone(),
         )
     };
+    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvOperation) {
+        tracing::error!(target: "quv", %error, "QUV completion exceeded its reserved command-lane capacity");
+    }
     let PendingQuvOperationV0 {
         operation,
         completion,
     } = pending;
+    let Some((set, keys)) = rooted else {
+        let _ = completion.send(Err("QUV rooted membership disappeared".into()));
+        return;
+    };
+    let Some(policy) = policy else {
+        let _ = completion.send(Err("QUV provisioned policy disappeared".into()));
+        return;
+    };
     let outcome = provisioned_policy_root(&policy)
         .map_err(|error| error.to_string())
         .and_then(|policy_root| {

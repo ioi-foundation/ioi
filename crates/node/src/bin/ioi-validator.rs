@@ -263,7 +263,7 @@ async fn main() -> Result<()> {
     );
 
     // Full P2P Sync
-    let (syncer, swarm_commander, network_events) =
+    let (syncer, swarm_commander, quv_swarm_commander, network_events, quv_network_events) =
         Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode))?;
 
     // Aft deterministic Consensus
@@ -282,7 +282,9 @@ async fn main() -> Result<()> {
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,
+        quv_network_event_receiver: quv_network_events,
         swarm_command_sender: swarm_commander,
+        quv_swarm_command_sender: quv_swarm_commander,
         consensus_engine,
         local_keypair: local_key.clone(),
         pqc_keypair: None,

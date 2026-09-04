@@ -610,12 +610,15 @@ resume point and the minimum evidence the owner must supply.
 
 ## 9. Immediate next actions
 
-1. Freeze M10's locally passing finite signer-startup repair and independently
-   retest the exact height-5/cold-restart/height-7 PQ v1 candidate.
-2. Preserve the exact M12b R4 `PASS_CONSTRUCTION` report and immutable
+1. Preserve M10's closed R5 qualification and the exact M12b R4
+   `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
-3. Execute M15Q: implement the locally proved M13Q/M14Q profile, durable
-   member state, online executor operation, and live handoff without relabeling
-   an existing certificate class.
+2. Finish M15Q from its locally passing runtime foundation: prove the
+   process-level executor path, implement the Q-EA7 live-overlap handoff, and
+   retain complete non-authorizing audit evidence without relabeling an
+   existing certificate class.
+3. Execute M16Q against the bounded QUV scheduling architecture. Qualify Q-A3
+   and Q-A9 with load, deadline-edge, restart, rollback, flood, replay,
+   reconfiguration, mixed-domain, and externalization campaigns.
 4. Keep original M13-M18 blocked and `portable_final_receipt=false`; do not
    admit a public QUV claim until M16Q/M17Q pass.

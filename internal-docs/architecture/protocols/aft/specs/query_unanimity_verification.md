@@ -1,8 +1,8 @@
 # Query-Unanimity Verification (`aft_quv_v0`)
 
-Status: M12b R4 received an independent automated `PASS_CONSTRUCTION`; M13Q is
-locally proved/mechanized and awaits M17Q independent review. This document
-creates no production or public consensus claim.
+Status: M12b R4 received an independent automated `PASS_CONSTRUCTION`; M13Q and
+M14Q are locally proved/mechanized and await M17Q independent review. M15Q is
+in progress. This document creates no production or public consensus claim.
 
 Date: 2026-09-03.
 
@@ -39,7 +39,7 @@ The result depends on all of the following:
 | Q-A5 | Correct conflict knowledge is grow-only, survives restart, cannot roll back, and is retained and reachable for the authority lifetime | storage |
 | Q-A6 | Every honest executor performs QUV itself immediately before irreversible externalization and never trusts a cached assertion that another verifier waited | execution |
 | Q-A7 | Candidate validity and authority are fixed by the independently provisioned root; local arrival, timeout, and silence create no candidate authority | authorization |
-| Q-A8 | The verifier processes every valid reply delivered by its decision deadline; a Byzantine reply can disclose a valid conflict but cannot erase another reply | verifier |
+| Q-A8 | During one live operation, the verifier admits at most the first authenticated response from each rooted member, then validates its exact binding and signature; a correct member emits exactly one valid response, while later Byzantine duplicates are irrelevant to Q-S1 | verifier |
 | Q-A9 | Admission control reserves enough authenticated capacity for every correct member to satisfy Q-A3 despite Byzantine query traffic | resource/timing |
 | Q-A10 | The fault assignment is static for the rooted configuration and authority lifetime; the result does not tolerate a mobile adversary that later corrupts the last correct state holder | adversary |
 
@@ -141,9 +141,10 @@ An honest executor holding candidate `s`:
 
 1. samples a fresh nonce;
 2. sends the same complete `PUSHQUERY` to every rooted member;
-3. starts the rooted `delta_rt` decision interval;
-4. accumulates every syntactically valid, correctly bound member reply received
-   by the deadline;
+3. opens a fresh operation-scoped reply-admission epoch and only then starts
+   the rooted `delta_rt` decision interval;
+4. retains the first authenticated response from each rooted member received
+   by the deadline and validates its syntax, signature, and exact binding;
 5. rejects if no valid reply arrived;
 6. for an owned slot, accepts only if the union of all valid candidates in all
    valid snapshots is exactly `{s}`;
@@ -154,8 +155,11 @@ An honest executor holding candidate `s`:
 
 The verifier waits through the decision deadline; an early singleton reply is
 not sufficient. Byzantine silence cannot block the operation under Q-A3.
-Byzantine disclosure of a separately valid conflict may turn acceptance into
-rejection, but invalid or forged material is ignored.
+The first response from a Byzantine member may disclose a separately valid
+conflict and turn acceptance into rejection; invalid or forged material is
+ignored. A later duplicate from that same Byzantine identity is not
+theorem-bearing because Q-S1's unavoidable intersection is the first valid
+response from each correct member, and a correct member emits exactly one.
 
 ## 6. Candidate theorems
 
@@ -212,7 +216,12 @@ authority. This is the retained M12a boundary.
 - Cross-configuration, cross-policy, cross-domain, cross-slot,
   cross-predecessor, or cross-authority-mode reply replay invalidates safety
   unless exact binding is verified.
-- Query flooding invalidates Q-A3 unless Q-A9 is implemented and measured.
+- Query flooding invalidates Q-A3 unless Q-A9 is implemented and measured. The
+  local M15Q runtime now has separate bounded command/event lanes, one admitted
+  push per authenticated requester, one admitted reply per member per live
+  operation, a single live executor operation, and priority/reserved durable
+  outbox capacity. M16Q must still establish the end-to-end timing envelope
+  under load before Q-A9 is qualified.
 - Owner equivocation may freeze future authorization. It yields attributable
   signatures but does not restore liveness or portable historical finality.
 - A cached transcript is audit evidence only; it is not a portable final

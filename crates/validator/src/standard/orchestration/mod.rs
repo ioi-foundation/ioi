@@ -25,7 +25,9 @@ use ioi_api::{
 use ioi_client::WorkloadClient;
 use ioi_crypto::sign::dilithium::MldsaKeyPair;
 // [FIX] Removed unused Libp2pSync import
-use ioi_networking::libp2p::{pq_channel::PqChannelLocalConfig, NetworkEvent, SwarmCommand};
+use ioi_networking::libp2p::{
+    pq_channel::PqChannelLocalConfig, NetworkEvent, QuvNetworkEvent, SwarmCommand,
+};
 use ioi_networking::traits::NodeState;
 use ioi_networking::BlockSync;
 use ioi_tx::unified::UnifiedTransactionModel;
@@ -142,8 +144,12 @@ pub struct OrchestrationDependencies<CE, V> {
     pub syncer: Arc<dyn BlockSync>,
     /// The receiver for incoming network events.
     pub network_event_receiver: mpsc::Receiver<NetworkEvent>,
+    /// Isolated timing-critical QUV request/reply lane.
+    pub quv_network_event_receiver: mpsc::Receiver<QuvNetworkEvent>,
     /// The sender for commands to the network swarm.
     pub swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    /// Isolated timing-critical QUV command lane.
+    pub quv_swarm_command_sender: mpsc::Sender<SwarmCommand>,
     /// The consensus engine instance.
     pub consensus_engine: CE,
     /// The node's primary cryptographic identity.
@@ -176,6 +182,7 @@ pub struct OrchestrationDependencies<CE, V> {
 
 type ProofCache = Arc<Mutex<LruCache<(Vec<u8>, Vec<u8>), Option<Vec<u8>>>>>;
 type NetworkEventReceiver = Mutex<Option<mpsc::Receiver<NetworkEvent>>>;
+type QuvNetworkEventReceiver = Mutex<Option<mpsc::Receiver<QuvNetworkEvent>>>;
 type ConsensusKickReceiver = Mutex<Option<mpsc::UnboundedReceiver<()>>>;
 
 // Wrapper for inference runtime to implement correct trait
@@ -253,7 +260,9 @@ where
     pub tx_pool: Arc<Mempool>,
     syncer: Arc<dyn BlockSync>,
     swarm_command_sender: mpsc::Sender<SwarmCommand>,
+    quv_swarm_command_sender: mpsc::Sender<SwarmCommand>,
     network_event_receiver: NetworkEventReceiver,
+    quv_network_event_receiver: QuvNetworkEventReceiver,
     consensus_engine: Arc<Mutex<CE>>,
     local_keypair: identity::Keypair,
     pqc_signer: Option<MldsaKeyPair>,
@@ -340,7 +349,9 @@ where
             tx_pool: Arc::new(Mempool::new()),
             syncer: deps.syncer,
             swarm_command_sender: deps.swarm_command_sender,
+            quv_swarm_command_sender: deps.quv_swarm_command_sender,
             network_event_receiver: Mutex::new(Some(deps.network_event_receiver)),
+            quv_network_event_receiver: Mutex::new(Some(deps.quv_network_event_receiver)),
             consensus_engine: Arc::new(Mutex::new(deps.consensus_engine)),
             local_keypair: deps.local_keypair,
             pqc_signer: deps.pqc_keypair,

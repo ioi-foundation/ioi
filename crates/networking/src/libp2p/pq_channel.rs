@@ -27,7 +27,17 @@ use super::sync::PqConsensusPayloadV1;
 const PQ_OUTBOX_PROTOCOL_VERSION: u16 = 1;
 const PQ_OUTBOX_SCHEMA_VERSION: u16 = 2;
 const PQ_OUTBOX_MESSAGE_ID_DOMAIN: &[u8] = b"ioi/aft/pq-outbox-message/v2";
-const PQ_OUTBOX_PER_RECIPIENT_MAX: usize = 1_024;
+const PQ_OUTBOX_NORMAL_PER_RECIPIENT_MAX: usize = 1_024;
+const PQ_OUTBOX_QUV_RESERVED_PER_RECIPIENT: usize = 2;
+const PQ_OUTBOX_PER_RECIPIENT_MAX: usize =
+    PQ_OUTBOX_NORMAL_PER_RECIPIENT_MAX + PQ_OUTBOX_QUV_RESERVED_PER_RECIPIENT;
+
+fn is_quv_payload(payload: &PqConsensusPayloadV1) -> bool {
+    matches!(
+        payload,
+        PqConsensusPayloadV1::QuvPushQuery(_) | PqConsensusPayloadV1::QuvReply(_)
+    )
+}
 
 #[derive(Clone)]
 pub struct PqChannelLocalConfig {
@@ -203,6 +213,7 @@ impl PqDurableOutbox {
     fn validate_entries(&self) -> Result<()> {
         let mut seen = std::collections::BTreeSet::new();
         let mut per_recipient: HashMap<AccountId, usize> = HashMap::new();
+        let mut normal_per_recipient: HashMap<AccountId, usize> = HashMap::new();
         for entry in &self.state.entries {
             if entry.recipient_account_id == self.state.local_account_id {
                 return Err(anyhow!("PQ outbox contains a message to the local account"));
@@ -219,6 +230,17 @@ impl PqDurableOutbox {
             *count += 1;
             if *count > PQ_OUTBOX_PER_RECIPIENT_MAX {
                 return Err(anyhow!("PQ outbox exceeds the per-recipient durable limit"));
+            }
+            if !is_quv_payload(&entry.payload) {
+                let normal = normal_per_recipient
+                    .entry(entry.recipient_account_id)
+                    .or_default();
+                *normal += 1;
+                if *normal > PQ_OUTBOX_NORMAL_PER_RECIPIENT_MAX {
+                    return Err(anyhow!(
+                        "PQ outbox exceeds the normal-traffic per-recipient durable limit"
+                    ));
+                }
             }
         }
         Ok(())
@@ -251,13 +273,23 @@ impl PqDurableOutbox {
         {
             return Ok(message_id);
         }
-        if self
+        let total_for_recipient = self
             .state
             .entries
             .iter()
             .filter(|entry| entry.recipient_account_id == recipient)
-            .count()
-            >= PQ_OUTBOX_PER_RECIPIENT_MAX
+            .count();
+        let normal_for_recipient = self
+            .state
+            .entries
+            .iter()
+            .filter(|entry| {
+                entry.recipient_account_id == recipient && !is_quv_payload(&entry.payload)
+            })
+            .count();
+        if total_for_recipient >= PQ_OUTBOX_PER_RECIPIENT_MAX
+            || (!is_quv_payload(&payload)
+                && normal_for_recipient >= PQ_OUTBOX_NORMAL_PER_RECIPIENT_MAX)
         {
             return Err(anyhow!(
                 "PQ durable outbox is full for recipient; refusing to discard protected consensus evidence"
@@ -278,7 +310,13 @@ impl PqDurableOutbox {
         self.state
             .entries
             .iter()
-            .find(|entry| entry.recipient_account_id == recipient)
+            .find(|entry| entry.recipient_account_id == recipient && is_quv_payload(&entry.payload))
+            .or_else(|| {
+                self.state
+                    .entries
+                    .iter()
+                    .find(|entry| entry.recipient_account_id == recipient)
+            })
             .map(|entry| (entry.message_id, entry.payload.clone()))
     }
 
@@ -1126,6 +1164,31 @@ mod tests {
 
         let reopened = PqChannelSessionManager::new(reopened_config).unwrap();
         assert_eq!(reopened.outbox.state.entries.len(), 2);
+    }
+
+    #[test]
+    fn quv_uses_reserved_priority_ahead_of_normal_consensus_outbox() {
+        let temp = tempfile::tempdir().unwrap();
+        let config = local_config(62, temp.path().join("quv-priority.outbox"));
+        let remote = local_config(63, temp.path().join("remote-quv-priority.outbox"));
+        let enrollment = PqPeerEnrollment {
+            peer_id: remote.peer_id,
+            account_id: remote.account_id,
+            identity_key_hash: remote.identity_key_hash,
+        };
+        let normal = PqConsensusPayloadV1::Vote(b"older normal vote".to_vec());
+        let quv = PqConsensusPayloadV1::QuvPushQuery(b"deadline-bound query".to_vec());
+
+        let mut manager = PqChannelSessionManager::new(config).unwrap();
+        manager.enroll_peer(enrollment).unwrap();
+        let normal_id = manager.enqueue(remote.peer_id, normal.clone()).unwrap();
+        let quv_id = manager.enqueue(remote.peer_id, quv.clone()).unwrap();
+        assert_eq!(manager.pending_front(&remote.peer_id), Some((quv_id, quv)));
+        manager.acknowledge(&remote.peer_id, quv_id).unwrap();
+        assert_eq!(
+            manager.pending_front(&remote.peer_id),
+            Some((normal_id, normal))
+        );
     }
 
     #[test]

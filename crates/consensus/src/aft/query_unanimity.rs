@@ -503,7 +503,16 @@ impl QuvOnlineOperationV0 {
     }
 
     pub fn observe_reply(&mut self, reply: QuvReplyV0) {
-        self.replies.push(reply);
+        // A correct member emits exactly one reply for an operation. Retain at
+        // most the first authenticated member response so a Byzantine member
+        // cannot consume unbounded verifier memory or timing-lane capacity.
+        if !self
+            .replies
+            .iter()
+            .any(|existing| existing.member == reply.member)
+        {
+            self.replies.push(reply);
+        }
     }
 
     pub fn remaining(&self) -> Duration {

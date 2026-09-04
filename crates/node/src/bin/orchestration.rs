@@ -292,14 +292,19 @@ where
         }
     }
 
-    let (syncer, real_swarm_commander, network_event_receiver) =
-        match Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode)) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("ORCHESTRATION_FATAL: Libp2p init failed: {e}");
-                return Err(anyhow!("Libp2p init failed: {}", e));
-            }
-        };
+    let (
+        syncer,
+        real_swarm_commander,
+        quv_swarm_commander,
+        network_event_receiver,
+        quv_network_event_receiver,
+    ) = match Libp2pSync::new(local_key.clone(), opts.listen_address, Some(&opts.bootnode)) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("ORCHESTRATION_FATAL: Libp2p init failed: {e}");
+            return Err(anyhow!("Libp2p init failed: {}", e));
+        }
+    };
 
     let pqc_keypair: Option<MldsaKeyPair> = if let Some(path) = opts.pqc_key_file.as_ref() {
         let content = fs::read_to_string(path)?;
@@ -427,7 +432,9 @@ where
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver,
+        quv_network_event_receiver,
         swarm_command_sender: real_swarm_commander.clone(),
+        quv_swarm_command_sender: quv_swarm_commander,
         consensus_engine: consensus_engine.clone(),
         local_keypair: local_key.clone(),
         pqc_keypair,

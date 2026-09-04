@@ -237,11 +237,12 @@ async fn main() -> Result<()> {
     );
 
     // Full P2P for Provider (to receive Job Tickets)
-    let (syncer, swarm_commander, network_events) = Libp2pSync::new(
-        local_key.clone(),
-        "/ip4/0.0.0.0/tcp/9000".parse()?, // Listen for jobs
-        None,
-    )?;
+    let (syncer, swarm_commander, quv_swarm_commander, network_events, quv_network_events) =
+        Libp2pSync::new(
+            local_key.clone(),
+            "/ip4/0.0.0.0/tcp/9000".parse()?, // Listen for jobs
+            None,
+        )?;
 
     let consensus_engine = engine_from_config(&config)?;
     let verifier = create_default_verifier(None);
@@ -277,7 +278,9 @@ async fn main() -> Result<()> {
     let deps = OrchestrationDependencies {
         syncer,
         network_event_receiver: network_events,
+        quv_network_event_receiver: quv_network_events,
         swarm_command_sender: swarm_commander,
+        quv_swarm_command_sender: quv_swarm_commander,
         consensus_engine,
         local_keypair: local_key.clone(),
         pqc_keypair: None,
