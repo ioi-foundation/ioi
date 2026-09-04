@@ -164,6 +164,15 @@ pub(crate) async fn fetch_offers(st: &Arc<DaemonState>) -> Value {
             configured.trim_end_matches('/').to_string()
         }
     };
+    // ── TWO RUNPOD APIs, ONE KEY. Do not re-conflate them. ──────────────────
+    //   CATALOG  (here)                     POST https://api.runpod.io/graphql
+    //     GPU types and their prices. GraphQL only. There is no REST equivalent.
+    //   LIFECYCLE (provider_routes.rs)      POST/GET https://rest.runpod.io/v1/pods
+    //     Creating, reading and tearing down pods. REST, and genuinely exists.
+    // The same bearer authenticates both. This file previously used the REST base
+    // for the catalog and got HTTP 400 on every live fetch for months of fixture-
+    // green runs. If you are changing one of these bases, check which API you are
+    // actually talking to first.
     const CATALOG_QUERY: &str = "query { gpuTypes { id displayName memoryInGb \
         secure: lowestPrice(input: { gpuCount: 1, secureCloud: true }) { uninterruptablePrice stockStatus } \
         community: lowestPrice(input: { gpuCount: 1, secureCloud: false }) { uninterruptablePrice stockStatus } } }";
