@@ -59,7 +59,7 @@ const DIAL_C = 2 * Math.PI * DIAL_R;
 function dialFraction(observedAt, expiresAt) {
   const o = Date.parse(observedAt), e = Date.parse(expiresAt);
   if (!Number.isFinite(o) || !Number.isFinite(e) || e <= o) return null;
-  return Math.max(0.25, Math.min(1, (e - Date.now()) / (e - o)));
+  return Math.max(0, Math.min(1, (e - Date.now()) / (e - o)));
 }
 
 function dial(observedAt, expiresAt) {

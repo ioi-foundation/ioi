@@ -122,13 +122,18 @@ function checkUnwiredSurfaces() {
     ["renderRedundancy", "RedundancyPosture"],
     ["renderReceipts", "receipt kinds"],
   ]) {
-    // Bound the slice at the NEXT function, not at a fixed character count. A fixed
-    // window ran past renderRedundancy into renderReceipts, so removing
-    // renderRedundancy's own label still passed — it was finding the next
-    // function's. A mutation caught that; the fixed window was the defect.
+    // Two defects were found here by mutation, one after the other.
+    // First: the slice was a fixed 7000 characters and ran past renderRedundancy
+    // into renderReceipts, so removing renderRedundancy's own label still passed.
+    // Bounding at the next function did not fix it, because the slice then ended at
+    // renderReceipts' SECTION COMMENT — which also reads "designed, not connected".
+    // The assertion is about what the surface SAYS, so comments cannot satisfy it:
+    // they are stripped before the test.
     const start = js.indexOf(`function ${surface}`);
     const next = js.indexOf("\nfunction ", start + 1);
-    const body = js.slice(start, next === -1 ? js.length : next);
+    const body = js.slice(start, next === -1 ? js.length : next)
+      .replace(/\/\/[^\n]*/g, "")
+      .replace(/\/\*[\s\S]*?\*\//g, "");
     ok(`${surface} is labelled designed, not connected`, /designed, not connected/.test(body));
     ok(`${surface} names the canonical shape it draws`, body.includes(shape), shape);
   }
