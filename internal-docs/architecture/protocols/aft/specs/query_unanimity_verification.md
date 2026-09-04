@@ -48,6 +48,14 @@ deadline, two conflicting accepts are possible. The claim is therefore not
 asynchronous safety and not eventual-synchronous safety before an independently
 established bound is active.
 
+Every production domain configuration also declares
+`qualified_delta_rt_envelope_millis`. This is a deployment-local operator
+assertion backed by retained M16Q measurements, not a portable proof that Q-A3
+holds. Startup fails closed when it is zero or exceeds rooted `delta_rt`.
+Changing that assertion does not change the protocol policy root: the policy
+root commits the actual decision interval, while the deployment envelope says
+whether the current installation has measured enough room to use it.
+
 The construction uses no relay, external selector, TEE, DKG, majority custody,
 or trusted identity naming a correct member. It does assume direct executor
 reachability to every correct configured member within the bound and does not
@@ -222,6 +230,11 @@ authority. This is the retained M12a boundary.
   operation, a single live executor operation, and priority/reserved durable
   outbox capacity. M16Q must still establish the end-to-end timing envelope
   under load before Q-A9 is qualified.
+- A configured qualification envelope is not self-proving. Operators must bind
+  its request, queue, durable-processing, response, scheduling, PQ-session, and
+  clock-error components to the deployed topology and retain the raw run. The
+  parser only enforces the fail-closed inequality
+  `0 < qualified_delta_rt_envelope_millis <= delta_rt_millis`.
 - Owner equivocation may freeze future authorization. It yields attributable
   signatures but does not restore liveness or portable historical finality.
 - A cached transcript is audit evidence only; it is not a portable final

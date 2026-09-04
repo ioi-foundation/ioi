@@ -458,6 +458,7 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             authority_mode: QuvAuthorityModeV0::Unowned,
             owner: None,
             delta_rt_millis: effect_delta_rt_millis,
+            qualified_delta_rt_envelope_millis: 4_000,
             continuation_millis: effect_continuation_millis,
         })
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
@@ -1396,6 +1397,7 @@ async fn test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation() -
                 authority_mode: QuvAuthorityModeV0::Unowned,
                 owner: None,
                 delta_rt_millis: DELTA_RT_MILLIS,
+                qualified_delta_rt_envelope_millis: 4_000,
                 continuation_millis: CONTINUATION_MILLIS,
             })
         })

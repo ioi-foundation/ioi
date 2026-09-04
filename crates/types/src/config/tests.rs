@@ -372,6 +372,7 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
         authority_mode: QuvAuthorityModeV0::Owned,
         owner: Some(AccountId([8; 32])),
         delta_rt_millis: 1_000,
+        qualified_delta_rt_envelope_millis: 800,
         continuation_millis: 50,
     }];
     assert!(config.validate().is_err(), "durable roots are mandatory");
@@ -379,6 +380,12 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
     config.aft_pq_outbox_dir = Some("state".into());
     config.aft_external_anchor_dir = Some("external-anchor".into());
     config.validate().expect("complete QUV policy validates");
+    config.aft_quv_domain_policies[0].qualified_delta_rt_envelope_millis = 1_001;
+    assert!(
+        config.validate().is_err(),
+        "qualified deployment envelope cannot exceed rooted delta_rt"
+    );
+    config.aft_quv_domain_policies[0].qualified_delta_rt_envelope_millis = 800;
     config.aft_quv_handoff_source = Some(" ".into());
     assert!(config.validate().is_err(), "handoff source cannot be blank");
     config.aft_quv_handoff_source = Some("handoff.scale".into());

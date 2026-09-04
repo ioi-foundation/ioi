@@ -1806,6 +1806,7 @@ mod tests {
             authority_mode: QuvAuthorityModeV0::Owned,
             owner: Some(owner),
             delta_rt_millis: 10,
+            qualified_delta_rt_envelope_millis: 8,
             continuation_millis: 10,
         };
         let vote_preimage = consensus_vote_signing_bytes(7, 0, &[5; 32]).unwrap();

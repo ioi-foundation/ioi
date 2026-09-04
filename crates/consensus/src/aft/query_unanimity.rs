@@ -1877,29 +1877,62 @@ mod tests {
     }
 
     #[test]
-    fn exact_context_binding_rejects_cross_slot_reply() {
-        let temp = TempDir::new().unwrap();
+    fn exact_context_binding_rejects_valid_cross_context_and_stale_nonce_replies() {
         let signer = TestMember(account(1));
         let request = QuvPushQueryV0 {
             verifier_nonce: [3; 32],
             candidate: candidate(QuvAuthorityModeV0::Owned, 10),
         };
-        let mut reply = open_member(&temp)
-            .process_push(&request, &AcceptCandidates, &signer)
+        let mut mutations = Vec::new();
+        let mut stale_nonce = request.clone();
+        stale_nonce.verifier_nonce = [4; 32];
+        mutations.push(("verifier_nonce", stale_nonce));
+        let mut cross_network = request.clone();
+        cross_network.candidate.slot.network_id[0] ^= 1;
+        mutations.push(("network", cross_network));
+        let mut cross_configuration = request.clone();
+        cross_configuration.candidate.slot.configuration_root[0] ^= 1;
+        mutations.push(("configuration", cross_configuration));
+        let mut cross_policy = request.clone();
+        cross_policy.candidate.slot.policy_root[0] ^= 1;
+        mutations.push(("policy", cross_policy));
+        let mut cross_domain = request.clone();
+        cross_domain.candidate.slot.domain_id[0] ^= 1;
+        mutations.push(("domain", cross_domain));
+        let mut cross_slot = request.clone();
+        cross_slot.candidate.slot.slot += 1;
+        mutations.push(("slot", cross_slot));
+        let mut cross_predecessor = request.clone();
+        cross_predecessor.candidate.slot.predecessor[0] ^= 1;
+        mutations.push(("predecessor", cross_predecessor));
+        let mut cross_authority_mode = request.clone();
+        cross_authority_mode.candidate.slot.authority_mode = QuvAuthorityModeV0::Unowned;
+        mutations.push(("authority_mode", cross_authority_mode));
+
+        for (field, mutated_request) in mutations {
+            let temp = TempDir::new().unwrap();
+            // This reply is validly signed over the mutated request. It is a
+            // replay from another exact context, not a signature-corruption
+            // surrogate.
+            let reply = open_member(&temp)
+                .process_push(&mutated_request, &AcceptCandidates, &signer)
+                .unwrap();
+            let mut operation = QuvOnlineOperationV0::start(
+                request.clone(),
+                BTreeSet::from([account(1)]),
+                Duration::from_secs(1),
+                Duration::from_secs(1),
+            )
             .unwrap();
-        reply.slot.slot += 1;
-        let mut operation = QuvOnlineOperationV0::start(
-            request,
-            BTreeSet::from([account(1)]),
-            Duration::from_secs(1),
-            Duration::from_secs(1),
-        )
-        .unwrap();
-        operation.observe_reply(reply);
-        assert!(matches!(
-            operation.finish_at(Duration::from_secs(1), &AcceptCandidates, &signer),
-            Err(QuvError::NoValidReplies)
-        ));
+            operation.observe_reply(reply);
+            assert!(
+                matches!(
+                    operation.finish_at(Duration::from_secs(1), &AcceptCandidates, &signer),
+                    Err(QuvError::NoValidReplies)
+                ),
+                "valid reply replay crossed the {field} binding"
+            );
+        }
     }
 
     #[test]

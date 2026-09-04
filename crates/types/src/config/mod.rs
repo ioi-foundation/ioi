@@ -1210,6 +1210,12 @@ pub struct AftQuvDomainPolicyV0 {
     pub owner: Option<AccountId>,
     /// Complete request, durable-processing, response, and clock-error bound.
     pub delta_rt_millis: u64,
+    /// Deployment-qualified upper envelope for that complete round trip.
+    ///
+    /// This is an operator assertion backed by local qualification evidence,
+    /// not a portable timing proof. Startup refuses an absent/zero envelope or
+    /// one larger than the rooted decision interval.
+    pub qualified_delta_rt_envelope_millis: u64,
     /// Maximum process-local delay between successful QUV and effect claim.
     pub continuation_millis: u64,
 }
@@ -1356,9 +1362,11 @@ impl OrchestrationConfig {
             for policy in &self.aft_quv_domain_policies {
                 if policy.domain_id == [0; 32]
                     || policy.delta_rt_millis == 0
+                    || policy.qualified_delta_rt_envelope_millis == 0
+                    || policy.qualified_delta_rt_envelope_millis > policy.delta_rt_millis
                     || policy.continuation_millis == 0
                 {
-                    return Err("Configuration Error: aft_quv_v0 policies require a nonzero domain, delta_rt_millis, and continuation_millis.".to_string());
+                    return Err("Configuration Error: aft_quv_v0 policies require a nonzero domain and continuation_millis plus a nonzero qualified_delta_rt_envelope_millis no larger than delta_rt_millis.".to_string());
                 }
                 if !domains.insert(policy.domain_id) {
                     return Err(

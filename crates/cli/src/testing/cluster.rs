@@ -1550,6 +1550,12 @@ impl TestClusterBuilder {
                         authority_mode: QuvAuthorityModeV0::Owned,
                         owner: Some(*owner),
                         delta_rt_millis: profile.delta_rt_millis,
+                        qualified_delta_rt_envelope_millis: profile
+                            .delta_rt_millis
+                            .saturating_mul(4)
+                            .div_ceil(5)
+                            .max(1)
+                            .min(profile.delta_rt_millis),
                         continuation_millis: profile.continuation_millis,
                     }],
                     Some(profile.source_path.clone()),
