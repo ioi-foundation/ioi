@@ -162,6 +162,57 @@ for (const [i, r] of refs.entries()) {
     ? `  shape ${i + 1}: ${r} — ${g.n} stops, ${g.from} → ${g.to}, axis ${g.angle.toFixed(1)}°`
     : `  shape ${i + 1}: ${r} — could not read its stops`);
 }
+// ── Flat-token derivation ───────────────────────────────────────────────────
+// A flat form cannot flatten "the" gradient, because there is no single ramp. Each
+// shape gets the midpoint of its OWN ramp, and the sweep survives as three steps.
+// Whether those midpoints already exist as tokens is a fact, not a preference.
+const tokensCss = readFileSync(
+  path.join(HERE, "../../../..", "packages/design-system/tokens/colors.css"), "utf8"
+);
+const tokens = [...tokensCss.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})/g)]
+  .map((m) => ({ name: m[1], hex: m[2].toLowerCase() }));
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const mid = (a, b) => {
+  const [ra, ga, ba] = rgb(a), [rb, gb, bb] = rgb(b);
+  return "#" + [(ra + rb) / 2, (ga + gb) / 2, (ba + bb) / 2]
+    .map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+};
+const nearest = (hex) => {
+  const [r, g, b] = rgb(hex);
+  let best = null;
+  for (const t of tokens) {
+    const [tr, tg, tb] = rgb(t.hex);
+    const d = Math.hypot(r - tr, g - tg, b - tb);
+    if (!best || d < best.d) best = { ...t, d };
+  }
+  return best;
+};
+
+console.log(`\nflat-token derivation — midpoint of each shape's own ramp:`);
+const snaps = [];
+for (const [i, r] of refs.entries()) {
+  const g = stopsOf(r);
+  if (!g) continue;
+  const m = mid(g.from, g.to);
+  const n = nearest(m);
+  snaps.push(n.name);
+  console.log(
+    `  shape ${i + 1}: ${g.from} → ${g.to}  midpoint ${m}  ` +
+    `nearest token ${n.name} ${n.hex} at distance ${n.d.toFixed(0)}/441` +
+    `${n.d > 60 ? "  — TOO FAR; this needs a named token, not a snap" : "  — close enough to snap"}`
+  );
+}
+// Snapping is only viable if the three stay three. If two shapes land on one token
+// the sweep collapses, and the flat form stops carrying the thing it exists to carry.
+const distinct = new Set(snaps).size;
+console.log(
+  distinct === snaps.length
+    ? `\n  snapping keeps ${distinct} distinct steps — viable.`
+    : `\n  snapping collapses ${snaps.length} shapes onto ${distinct} token${distinct === 1 ? "" : "s"}: the`
+      + `\n  three-step sweep would become ${distinct}, so the flat form needs three NAMED tokens`
+      + `\n  citing their source ramps rather than a snap to what already exists.`
+);
+
 const ends = refs.map((r) => { const g = stopsOf(r); return g ? `${g.from}→${g.to}` : "?"; });
 console.log(
   [...new Set(ends)].length === 1
