@@ -630,7 +630,7 @@ writeFileSync(
       parameters: { PRODUCT_PX, CHANNEL, INK_AT, DUP_IOU, GHOST_IOU, TYPE_IOU, MIN_INK, MAX_INK },
       controls,
       generated: real.length,
-      survivors: survivors.map((c, k) => ({ n: k + 1, id: c.id, family: c.family, thesis: c.thesis, ink: +c.ink.toFixed(4), typeIou: +c.typeIou.toFixed(4), typeLike: c.typeLike, ghostIou: +c.ghostIou.toFixed(4), oneInkCost: +c.toneCost.toFixed(4) })),
+      survivors: survivors.map((c, k) => ({ n: k + 1, id: c.id, family: c.family, thesis: c.thesis, intent: c.intent, ink: +c.ink.toFixed(4), typeIou: +c.typeIou.toFixed(4), typeLike: c.typeLike, ghostIou: +c.ghostIou.toFixed(4), oneInkCost: +c.toneCost.toFixed(4) })),
       killed: real.filter((c) => c.killed).map((c) => ({ id: c.id, family: c.family, why: c.killed })),
     },
     null,
