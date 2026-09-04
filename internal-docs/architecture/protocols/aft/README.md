@@ -52,6 +52,12 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`specs/query_unanimity_verification.md`](./specs/query_unanimity_verification.md)
   — normative research specification and exact assumption boundary for
   `aft_quv_v0`; no production or consensus claim is created.
+- [`specs/query_unanimity_theorems.md`](./specs/query_unanimity_theorems.md)
+  — M13Q arbitrary-set theorem surface, matching lower bounds, and explicit
+  distinction from classical exact-decision Byzantine agreement.
+- [`specs/query_unanimity_end_to_end_theorems.md`](./specs/query_unanimity_end_to_end_theorems.md)
+  — M14Q predecessor-bound ordering, durable/live-handoff recovery, and T10
+  consequence-composition theorem surface.
 - [`evidence/m12b-quv-r3-local-evidence-2026-09-03.md`](./evidence/m12b-quv-r3-local-evidence-2026-09-03.md)
   — corrected, reproducible explicit-time enumeration and its bounded scope.
 - [`evidence/m12b-quv-r3-daybreak-review-2026-09-03.md`](./evidence/m12b-quv-r3-daybreak-review-2026-09-03.md)
@@ -63,6 +69,12 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`evidence/m12b-quv-r4-daybreak-review-2026-09-03.md`](./evidence/m12b-quv-r4-daybreak-review-2026-09-03.md)
   — exact-tag automated `PASS_CONSTRUCTION`, closing both R3 findings and
   opening M13Q without admitting a consensus or production claim.
+- [`evidence/m13q-quv-theorem-local-evidence-2026-09-03.md`](./evidence/m13q-quv-theorem-local-evidence-2026-09-03.md)
+  — arbitrary-set TLAPS proof (75 obligations), theorem/lower-bound pairing,
+  and the explicit non-classical task boundary that opens M14Q.
+- [`evidence/m14q-quv-e2e-theorem-local-evidence-2026-09-03.md`](./evidence/m14q-quv-e2e-theorem-local-evidence-2026-09-03.md)
+  — 16-obligation arbitrary-set ordering/consequence lift plus reproduced T10
+  at-most-once resource boundary and live-handoff scope.
 - [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
   — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)

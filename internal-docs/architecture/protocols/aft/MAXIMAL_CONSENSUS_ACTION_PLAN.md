@@ -614,8 +614,8 @@ resume point and the minimum evidence the owner must supply.
    retest the exact PQ v1 candidate.
 2. Preserve the exact M12b R4 `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
-3. Execute M13Q: arbitrary-`n` theorem, multiple-correct-
-   member concurrency, admitted-load timing, liveness, lower-bound pairings,
-   and mechanization.
+3. Execute M15Q: implement the locally proved M13Q/M14Q profile, durable
+   member state, online executor operation, and live handoff without relabeling
+   an existing certificate class.
 4. Keep original M13-M18 blocked and `portable_final_receipt=false`; do not
-   start QUV production implementation until M13Q passes.
+   admit a public QUV claim until M16Q/M17Q pass.

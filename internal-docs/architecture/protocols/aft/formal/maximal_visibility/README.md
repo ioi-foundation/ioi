@@ -56,6 +56,22 @@ This is bounded executable evidence, not the arbitrary-`n` M13Q theorem. It
 does not model reconfiguration, unbounded operation counts, production queue
 contention, or the end-to-end effect path.
 
+`QueryUnanimityProof.tla` is the M13Q arbitrary-set proof kernel. It proves
+owned and unowned accepted-value non-conflict, external validity, and singleton-
+candidate progress from the complete-correct-snapshot abstraction. Its
+serialization-disclosure premise is the exact relational consequence of
+atomic grow-only write-before-reply processing; Q-A3 is what guarantees every
+honest operation receives those snapshots before deciding. The proof also
+makes `Abort` coexistence explicit: it proves agreement among non-`Abort`
+outcomes, not classical exact agreement between an earlier acceptance and a
+later conflict rejection.
+
+`QueryUnanimityCompositionProof.tla` consumes M13Q accepted uniqueness as an
+explicit premise and lifts it to arbitrary-set prefix compatibility for every
+correct durable history and non-conflicting mutation candidates for one rooted
+slot. Physical duplicate suppression and crash recovery remain the separately
+modeled T10 resource boundary.
+
 The mechanized support-set abstraction deliberately does not model a
 linearizable first-writer service, trusted clock, external chain, or other
 non-member selector. Adding one would trivially supply an ordering bit while

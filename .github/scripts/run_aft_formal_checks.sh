@@ -24,6 +24,8 @@ PROOFS=(
   "common_boundary/MembershipTransitionProof.tla"
   "common_boundary/ForensicAccountabilityProof.tla"
   "common_boundary/SuccessionClockProof.tla"
+  "maximal_visibility/QueryUnanimityProof.tla"
+  "maximal_visibility/QueryUnanimityCompositionProof.tla"
 )
 
 # Every TLC model the harness checks, as "cfg|tla", relative to FORMAL_DIR.
@@ -350,6 +352,12 @@ run_trace() {
 if [[ "${1:-}" == "--smoke" ]]; then
   run_proof "${FORMAL_DIR}" "AsymptoteProof.tla"
   run_model "${FORMAL_DIR}" "Asymptote.cfg" "Asymptote.tla"
+  exit 0
+fi
+
+if [[ "${1:-}" == "--quv-theorem-only" ]]; then
+  run_proof "${FORMAL_DIR}/maximal_visibility" "QueryUnanimityProof.tla"
+  run_proof "${FORMAL_DIR}/maximal_visibility" "QueryUnanimityCompositionProof.tla"
   exit 0
 fi
 
