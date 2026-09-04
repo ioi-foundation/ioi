@@ -657,6 +657,7 @@ where
         .send(SwarmCommand::ConfigurePqChannels {
             config: desired.local,
             enrollments,
+            handoff_only: false,
             response: configured_tx,
         })
         .await

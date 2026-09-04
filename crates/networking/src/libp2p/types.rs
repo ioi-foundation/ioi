@@ -83,9 +83,15 @@ pub enum SwarmCommand {
     ConfigurePqChannels {
         config: PqChannelLocalConfig,
         enrollments: Vec<PqPeerEnrollment>,
+        /// True only for a pre-active Q-EA7 successor. Such a local endpoint
+        /// can send PUSHQUERY and receive replies but has no consensus lane.
+        handoff_only: bool,
         response: tokio::sync::oneshot::Sender<Result<(), String>>,
     },
     EnrollPqPeer(PqPeerEnrollment),
+    /// Admit a staged successor on an old-root channel without granting it
+    /// any old-root payload class except QUV PUSHQUERY.
+    EnrollPqHandoffPeer(PqPeerEnrollment),
     EstablishPqChannel(PeerId),
 
     // Protocol Apex Commands

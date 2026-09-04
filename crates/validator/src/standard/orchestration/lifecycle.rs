@@ -1041,6 +1041,7 @@ where
                             outbox_path,
                         },
                         enrollments: Vec::new(),
+                        handoff_only: false,
                         response: pq_configured_tx,
                     })
                     .await

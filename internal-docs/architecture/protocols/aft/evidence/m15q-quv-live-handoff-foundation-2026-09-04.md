@@ -40,10 +40,21 @@ non-QUV profiles retain their existing rotation behavior. This is a temporary
 fail-closed admission gate until the positive live-overlap coordinator is
 implemented and qualified.
 
+The strict-PQ session manager now also has a distinct handoff-only successor
+capability. A receiver rooted in the old set admits only `QUV PUSHQUERY` from
+such an identity; a pre-active successor admits only `QUV REPLY` from an old
+configured member. Successor-to-successor records and every consensus,
+fallback, ordinary effect, or reply sent by a successor-only endpoint are
+refused after authenticated decryption and before dispatch. Reclassifying an
+enrollment tears down its live session. This is transport confinement only;
+canonical successor derivation and runtime orchestration remain required.
+
 ## Reproduced checks
 
 ```text
 cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::tests
+cargo test -p ioi-networking handoff_only_successor_is_cryptographically_connected_but_authority_isolated -- --nocapture
+cargo test -p ioi-networking --lib
 cargo test -p ioi-validator quv_rotation_refuses_every_unqualified_configuration_change -- --nocapture
 cargo test -p ioi-validator pq_rotation_is_preflighted_before_header_authority_or_durability -- --nocapture
 cargo check -p ioi-validator
@@ -51,15 +62,16 @@ cargo check -p ioi-validator
 
 Observed QUV protocol result: 10 passed, including exact two-root/state
 binding, process-local authorization consumption, restart recovery, and
-external-anchor rollback detection.
+external-anchor rollback detection. The networking library passed 16 tests,
+including the handoff-only endpoint-capability matrix.
 
 ## Remaining Q-EA7 obligations
 
 1. Define and implement the canonical source of the owner-signed handoff
    candidate; it may not be synthesized from silence or inferred from a
    validator-set update.
-2. Enroll successor identities into a handoff-only strict-PQ scope under the
-   old root without granting them old-root consensus authority.
+2. Derive and enroll successor identities into the implemented handoff-only
+   strict-PQ capability from canonical staged membership.
 3. Let successor-only processes query every old member and self-deliver only
    when they also belong to the old set.
 4. Keep old-root member service reachable through the complete rooted

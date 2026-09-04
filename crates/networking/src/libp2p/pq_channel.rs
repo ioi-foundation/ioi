@@ -39,6 +39,19 @@ fn is_quv_payload(payload: &PqConsensusPayloadV1) -> bool {
     )
 }
 
+/// Transport capability rooted by the local validator-set view. This does not
+/// create consensus authority: it only constrains which already-authenticated
+/// payload classes may cross one PQ session.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PqChannelCapabilityV1 {
+    /// Account belongs to the configuration named by `configuration_hash`.
+    ConfiguredMember,
+    /// Account belongs only to the canonically staged successor set. It may
+    /// push a Q-EA7 handoff candidate to old members and receive their replies,
+    /// but it cannot carry old-root consensus or ordinary effect traffic.
+    HandoffOnlySuccessor,
+}
+
 #[derive(Clone)]
 pub struct PqChannelLocalConfig {
     pub network_id: [u8; 32],
@@ -78,6 +91,7 @@ pub struct PqPeerEnrollment {
 
 struct EstablishedSession {
     remote_account_id: AccountId,
+    remote_capability: PqChannelCapabilityV1,
     transcript_hash: [u8; 32],
     application_ready: bool,
     completed_client_hello: Option<PqChannelClientHelloV1>,
@@ -381,7 +395,9 @@ impl PqDurableOutbox {
 
 pub struct PqChannelSessionManager {
     local: PqChannelLocalConfig,
+    local_capability: PqChannelCapabilityV1,
     enrollments: HashMap<PeerId, PqPeerEnrollment>,
+    peer_capabilities: HashMap<PeerId, PqChannelCapabilityV1>,
     pending_initiators: HashMap<PeerId, PqChannelInitiatorState>,
     pending_responders: HashMap<PeerId, PqChannelResponderState>,
     sessions: HashMap<PeerId, EstablishedSession>,
@@ -395,13 +411,28 @@ fn transport_binding(peer: &PeerId) -> Result<[u8; 32]> {
 
 impl PqChannelSessionManager {
     pub fn new(local: PqChannelLocalConfig) -> Result<Self> {
+        Self::new_with_capability(local, PqChannelCapabilityV1::ConfiguredMember)
+    }
+
+    /// Construct a transport endpoint for a canonically staged successor that
+    /// has no authority in the configuration naming this channel scope.
+    pub fn new_handoff_only(local: PqChannelLocalConfig) -> Result<Self> {
+        Self::new_with_capability(local, PqChannelCapabilityV1::HandoffOnlySuccessor)
+    }
+
+    fn new_with_capability(
+        local: PqChannelLocalConfig,
+        local_capability: PqChannelCapabilityV1,
+    ) -> Result<Self> {
         if local.configuration_hash == [0; 32] {
             return Err(anyhow!("PQ channel configuration hash is absent"));
         }
         let outbox = PqDurableOutbox::open(&local)?;
         Ok(Self {
             local,
+            local_capability,
             enrollments: HashMap::new(),
+            peer_capabilities: HashMap::new(),
             pending_initiators: HashMap::new(),
             pending_responders: HashMap::new(),
             sessions: HashMap::new(),
@@ -412,6 +443,20 @@ impl PqChannelSessionManager {
     /// Installs one rooted peer enrollment. Changing it tears down all state
     /// for that carrier before the new key can be used.
     pub fn enroll_peer(&mut self, enrollment: PqPeerEnrollment) -> Result<()> {
+        self.enroll_peer_with_capability(enrollment, PqChannelCapabilityV1::ConfiguredMember)
+    }
+
+    /// Admit a canonically staged successor for handoff traffic only. The
+    /// caller must derive this classification from the rooted successor set.
+    pub fn enroll_handoff_peer(&mut self, enrollment: PqPeerEnrollment) -> Result<()> {
+        self.enroll_peer_with_capability(enrollment, PqChannelCapabilityV1::HandoffOnlySuccessor)
+    }
+
+    fn enroll_peer_with_capability(
+        &mut self,
+        enrollment: PqPeerEnrollment,
+        capability: PqChannelCapabilityV1,
+    ) -> Result<()> {
         if enrollment.peer_id == self.local.peer_id
             || enrollment.account_id == self.local.account_id
         {
@@ -421,7 +466,9 @@ impl PqChannelSessionManager {
         // Treat an identical refresh as idempotent: tearing down an established
         // or in-flight session here can indefinitely suppress strict-PQ traffic
         // while status responses continue to arrive.
-        if self.enrollments.get(&enrollment.peer_id) == Some(&enrollment) {
+        if self.enrollments.get(&enrollment.peer_id) == Some(&enrollment)
+            && self.peer_capabilities.get(&enrollment.peer_id) == Some(&capability)
+        {
             return Ok(());
         }
         if self.enrollments.iter().any(|(peer, existing)| {
@@ -432,6 +479,8 @@ impl PqChannelSessionManager {
             ));
         }
         self.disconnect(&enrollment.peer_id);
+        self.peer_capabilities
+            .insert(enrollment.peer_id, capability);
         self.enrollments.insert(enrollment.peer_id, enrollment);
         Ok(())
     }
@@ -555,6 +604,11 @@ impl PqChannelSessionManager {
             peer,
             EstablishedSession {
                 remote_account_id: remote.account_id,
+                remote_capability: self
+                    .peer_capabilities
+                    .get(&peer)
+                    .copied()
+                    .ok_or_else(|| anyhow!("peer has no rooted PQ capability"))?,
                 transcript_hash,
                 application_ready: false,
                 completed_client_hello: None,
@@ -600,6 +654,11 @@ impl PqChannelSessionManager {
             peer,
             EstablishedSession {
                 remote_account_id: remote.account_id,
+                remote_capability: self
+                    .peer_capabilities
+                    .get(&peer)
+                    .copied()
+                    .ok_or_else(|| anyhow!("peer has no rooted PQ capability"))?,
                 transcript_hash,
                 application_ready: true,
                 completed_client_hello: Some(completed_client_hello),
@@ -655,6 +714,32 @@ impl PqChannelSessionManager {
             .map(|session| session.remote_account_id)
     }
 
+    /// Enforce the receiver's independently rooted view of both endpoint
+    /// capabilities after AEAD and identity authentication, before decoding
+    /// can reach any consensus or QUV handler.
+    pub fn permits_received_payload(&self, peer: &PeerId, payload: &PqConsensusPayloadV1) -> bool {
+        let Some(session) = self.sessions.get(peer) else {
+            return false;
+        };
+        match (self.local_capability, session.remote_capability) {
+            (PqChannelCapabilityV1::ConfiguredMember, PqChannelCapabilityV1::ConfiguredMember) => {
+                true
+            }
+            (
+                PqChannelCapabilityV1::ConfiguredMember,
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+            ) => matches!(payload, PqConsensusPayloadV1::QuvPushQuery(_)),
+            (
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+                PqChannelCapabilityV1::ConfiguredMember,
+            ) => matches!(payload, PqConsensusPayloadV1::QuvReply(_)),
+            (
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+                PqChannelCapabilityV1::HandoffOnlySuccessor,
+            ) => false,
+        }
+    }
+
     pub fn peer_for_account(&self, account: AccountId) -> Option<PeerId> {
         self.enrollments
             .iter()
@@ -668,6 +753,13 @@ impl PqChannelSessionManager {
         recipient: AccountId,
         payload: PqConsensusPayloadV1,
     ) -> Result<[u8; 32]> {
+        if self.local_capability == PqChannelCapabilityV1::HandoffOnlySuccessor
+            && !matches!(payload, PqConsensusPayloadV1::QuvPushQuery(_))
+        {
+            return Err(anyhow!(
+                "handoff-only PQ endpoint may send only QUV PUSHQUERY traffic"
+            ));
+        }
         self.outbox.enqueue(recipient, payload)
     }
 
@@ -812,6 +904,58 @@ mod tests {
             .unwrap();
         assert_eq!(b.open(&a_peer, &record).unwrap(), b"signed vote");
         assert!(b.open(&a_peer, &record).is_err());
+    }
+
+    #[test]
+    fn handoff_only_successor_is_cryptographically_connected_but_authority_isolated() {
+        let temp = tempfile::tempdir().unwrap();
+        let old_config = local_config(70, temp.path().join("old-member.outbox"));
+        let successor_config = local_config(71, temp.path().join("successor-only.outbox"));
+        let old_peer = old_config.peer_id;
+        let successor_peer = successor_config.peer_id;
+        let old_account = old_config.account_id;
+        let successor_account = successor_config.account_id;
+        let old_enrollment = PqPeerEnrollment {
+            peer_id: old_peer,
+            account_id: old_account,
+            identity_key_hash: old_config.identity_key_hash,
+        };
+        let successor_enrollment = PqPeerEnrollment {
+            peer_id: successor_peer,
+            account_id: successor_account,
+            identity_key_hash: successor_config.identity_key_hash,
+        };
+        let mut old = PqChannelSessionManager::new(old_config).unwrap();
+        let mut successor = PqChannelSessionManager::new_handoff_only(successor_config).unwrap();
+        old.enroll_handoff_peer(successor_enrollment).unwrap();
+        successor.enroll_peer(old_enrollment).unwrap();
+
+        if old.should_initiate(&successor_peer) {
+            let hello = old.start(successor_peer).unwrap();
+            let server = successor.accept(old_peer, hello).unwrap();
+            let finish = old.finish(successor_peer, server).unwrap();
+            successor.complete(old_peer, finish).unwrap();
+            old.confirm_application_ready(&successor_peer).unwrap();
+        } else {
+            let hello = successor.start(old_peer).unwrap();
+            let server = old.accept(successor_peer, hello).unwrap();
+            let finish = successor.finish(old_peer, server).unwrap();
+            old.complete(successor_peer, finish).unwrap();
+            successor.confirm_application_ready(&old_peer).unwrap();
+        }
+
+        let push = PqConsensusPayloadV1::QuvPushQuery(vec![1]);
+        let reply = PqConsensusPayloadV1::QuvReply(vec![2]);
+        let vote = PqConsensusPayloadV1::Vote(vec![3]);
+        assert!(old.permits_received_payload(&successor_peer, &push));
+        assert!(!old.permits_received_payload(&successor_peer, &reply));
+        assert!(!old.permits_received_payload(&successor_peer, &vote));
+        assert!(successor.permits_received_payload(&old_peer, &reply));
+        assert!(!successor.permits_received_payload(&old_peer, &push));
+        assert!(!successor.permits_received_payload(&old_peer, &vote));
+        assert!(successor.enqueue_for_account(old_account, push).is_ok());
+        assert!(successor.enqueue_for_account(old_account, reply).is_err());
+        assert!(successor.enqueue_for_account(old_account, vote).is_err());
     }
 
     #[test]

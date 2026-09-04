@@ -88,13 +88,18 @@ fn replace_pq_channel_manager(
     current: &mut Option<PqChannelSessionManager>,
     config: PqChannelLocalConfig,
     enrollments: Vec<PqPeerEnrollment>,
+    handoff_only: bool,
 ) -> Result<(), String> {
     // The old configuration must become unusable before any fallible work on
     // the replacement. A construction or enrollment failure therefore leaves
     // strict transport disabled, never silently active under stale authority.
     *current = None;
-    let mut replacement =
-        PqChannelSessionManager::new(config).map_err(|error| error.to_string())?;
+    let mut replacement = if handoff_only {
+        PqChannelSessionManager::new_handoff_only(config)
+    } else {
+        PqChannelSessionManager::new(config)
+    }
+    .map_err(|error| error.to_string())?;
     for enrollment in enrollments {
         replacement
             .enroll_peer(enrollment)
@@ -289,6 +294,9 @@ async fn deliver_pq_record(
         .map_err(anyhow::Error::msg)?;
     if payload.content_type() != declared_type {
         anyhow::bail!("protected consensus payload type does not match authenticated record type");
+    }
+    if !manager.permits_received_payload(&peer, &payload) {
+        anyhow::bail!("protected consensus payload exceeds the rooted PQ endpoint capability");
     }
     let admitted_quv_push = matches!(&payload, PqConsensusPayloadV1::QuvPushQuery(_));
     if admitted_quv_push && !quv_push_inflight.insert(authenticated_account) {
@@ -1401,7 +1409,7 @@ pub async fn run_swarm_loop(
                     | SwarmCommand::CompleteQuvOperation => {
                         tracing::error!(target: "quv", "QUV command was sent through the general swarm lane and refused");
                     }
-                    SwarmCommand::ConfigurePqChannels { config, enrollments, response } => {
+                    SwarmCommand::ConfigurePqChannels { config, enrollments, handoff_only, response } => {
                         // Reconfiguration is a fail-closed authority boundary.
                         // Retire the old manager and every session before
                         // validating replacement custody so a failed rotation
@@ -1431,7 +1439,7 @@ pub async fn run_swarm_loop(
                             );
                             let _ = response.send(Err(error));
                         } else {
-                            match replace_pq_channel_manager(&mut pq_channels, config, enrollments) {
+                            match replace_pq_channel_manager(&mut pq_channels, config, enrollments, handoff_only) {
                                 Ok(()) => {
                                     tracing::info!(target: "network", event = "pq_channel_strict_mode_enabled");
                                     let _ = response.send(Ok(()));
@@ -1456,6 +1464,21 @@ pub async fn run_swarm_loop(
                                 Err(error) => tracing::warn!(target: "network", event = "pq_peer_enrollment_refused", %peer, %error),
                             },
                             None => tracing::warn!(target: "network", event = "pq_peer_enrollment_refused", %peer, "strict PQ channels are not configured"),
+                        }
+                    }
+                    SwarmCommand::EnrollPqHandoffPeer(enrollment) => {
+                        let peer = enrollment.peer_id;
+                        match pq_channels.as_mut() {
+                            Some(manager) => match manager.enroll_handoff_peer(enrollment) {
+                                Ok(()) => start_pq_handshake(
+                                    &mut swarm,
+                                    manager,
+                                    &mut inflight_pq_handshakes,
+                                    peer,
+                                ),
+                                Err(error) => tracing::warn!(target: "network", event = "pq_handoff_peer_enrollment_refused", %peer, %error),
+                            },
+                            None => tracing::warn!(target: "network", event = "pq_handoff_peer_enrollment_refused", %peer, "strict PQ channels are not configured"),
                         }
                     }
                     SwarmCommand::EstablishPqChannel(peer) => {
@@ -1570,7 +1593,10 @@ mod tests {
 
         let mut invalid_replacement = local_config(2, temp.path().join("invalid.outbox"));
         invalid_replacement.configuration_hash = [0; 32];
-        assert!(replace_pq_channel_manager(&mut active, invalid_replacement, Vec::new()).is_err());
+        assert!(
+            replace_pq_channel_manager(&mut active, invalid_replacement, Vec::new(), false)
+                .is_err()
+        );
         assert!(
             active.is_none(),
             "failed construction must retire the old manager"
@@ -1582,10 +1608,13 @@ mod tests {
             account_id: replacement.account_id,
             identity_key_hash: replacement.identity_key_hash,
         };
-        assert!(
-            replace_pq_channel_manager(&mut active, replacement, vec![aliases_local_endpoint],)
-                .is_err()
-        );
+        assert!(replace_pq_channel_manager(
+            &mut active,
+            replacement,
+            vec![aliases_local_endpoint],
+            false,
+        )
+        .is_err());
         assert!(
             active.is_none(),
             "failed enrollment must leave strict transport disabled"
