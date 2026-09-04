@@ -196,6 +196,16 @@ Hypervisor still owns provider account binding, environment lifecycle, VM/runtim
 provisioning, snapshot, restore, teardown, and receipts. Direct connected
 infrastructure must continue to work without routing through `decentralized.cloud`.
 
+Under ADR 0051, optimized placement also sees **local capacity** — the
+requesting machine, LAN hosts, customer clusters, HypervisorOS nodes — as a
+candidate source, so contention on local resources is a placement input rather
+than an exception path; and the same optimized-placement lane may be exposed
+to outside callers under the `decentralized.cloud` brand as a
+`CloudJobRequest`. Neither changes who owns placement admission, provider
+accounts, lifecycle, or receipts: Hypervisor does. IOI managed capacity, when
+it exists, appears in `Pick a cloud` as one venue among the others and wins or
+loses placement on the same evidence.
+
 Examples:
 
 ```text
