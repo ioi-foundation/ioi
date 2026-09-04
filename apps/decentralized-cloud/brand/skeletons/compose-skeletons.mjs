@@ -1,0 +1,320 @@
+#!/usr/bin/env node
+// Skeleton-stage harness for the new-mark phase.
+//
+// Renders every skeleton in `skeletons.mjs` at 16px, 24px and a 96px reference, in
+// ONE INK on white, and measures three things about each. It writes the plates a
+// cold reader is shown, and it refuses rather than printing a plausible number.
+//
+// What it measures, and why each exists:
+//
+//   1. INK PRESENCE (fail-closed). A render with no ink, or with the whole frame
+//      inked, is not a measurement of a drawing — it is a broken render. Every
+//      other number below would be describing nothing, so the run refuses.
+//   2. SEPARATION. Each skeleton claims its parts stay apart at product size. The
+//      probe scans one true-device-pixel line, at a coordinate DERIVED FROM THE
+//      SKELETON'S OWN GEOMETRY rather than guessed at a fraction of the tile, and
+//      counts runs of ink. Parameters — the ink threshold, the channel, the scan
+//      axis and the scan line — are printed with the result, not implied by this
+//      source.
+//   3. CUE SEPARATION. A sibling is isolated by DIFFERENCING it against the same
+//      skeleton drawn without any cue, because measuring the whole drawing pulls
+//      in ink that is identical between siblings and compresses them together.
+//      The measured minimum separation is then cross-checked against the closed
+//      form implied by `cueCentres` in `skeletons.mjs`. A measurement that
+//      disagrees with the arithmetic in the file is rejected as broken.
+//
+// The connected-region count is STRUCK by the phase brief and is not used here.
+//
+// Three positive controls run first. A probe that cannot fail on its own finding
+// is not a probe, so each is handed exactly the defect it exists to catch and the
+// run aborts unless the probe reports it.
+//
+// Usage: node apps/decentralized-cloud/brand/skeletons/compose-skeletons.mjs [--plates]
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { SKELETONS, SIBLINGS, GRID, INK, GROUND, svg, scanAt } from "./skeletons.mjs";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const OUT = path.join(HERE, "../.artifacts/skeletons");
+const SIZES = [16, 24, 96];
+const PRODUCT_SIZES = [16, 24];
+
+// ── Stated parameters ───────────────────────────────────────────────────────
+// Printed beside every result. The monogram phase's struck control chose its
+// threshold after seeing which value returned the wanted answer; these are fixed
+// here, once, and every number below is reported against them.
+const CHANNEL = "mean of R,G,B";
+const INK_AT = 200;        // luminance below this is ink present, on a white ground
+const SOLID = 14;          // the ink's own luminance, for reporting coverage
+const DIFF_AT = 8;         // per-pixel channel difference that counts as "changed"
+const MIN_VISIBLE_PX = 1;  // a separation below one device pixel is one nobody sees
+
+const { chromium } = await import("/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs");
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1200, height: 800 }, deviceScaleFactor: 1 });
+mkdirSync(OUT, { recursive: true });
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+// Each drawing is rendered alone on a white page so nothing bleeds in from a
+// neighbour, and screenshotted at true device pixels.
+async function shoot(markup, size) {
+  await page.setContent(
+    `<style>body{margin:0;background:${GROUND};}</style>` +
+    `<div id="stage" style="width:${size}px;height:${size}px;">${markup}</div>`
+  );
+  const buf = await page.locator("#stage").screenshot();
+  return `data:image/png;base64,${buf.toString("base64")}`;
+}
+
+const pixels = (dataUrl) => page.evaluate(async (u) => {
+  const im = new Image(); im.src = u; await im.decode();
+  const c = document.createElement("canvas");
+  c.width = im.width; c.height = im.height;
+  c.getContext("2d").drawImage(im, 0, 0);
+  return { w: im.width, h: im.height, d: [...c.getContext("2d").getImageData(0, 0, im.width, im.height).data] };
+}, dataUrl);
+
+const lum = (d, p) => (d[p * 4] + d[p * 4 + 1] + d[p * 4 + 2]) / 3;
+
+// 1 ── ink presence, fail-closed
+function presence(im) {
+  let on = 0;
+  for (let p = 0; p < im.w * im.h; p++) if (lum(im.d, p) < INK_AT) on += 1;
+  const frac = on / (im.w * im.h);
+  return { on, frac, ok: on > 0 && frac < 0.98 };
+}
+
+// 2 ── separation along one scanned line
+function separation(im, axis, atFrac) {
+  const across = axis === "x" ? im.w : im.h;
+  const line = Math.min((axis === "x" ? im.h : im.w) - 1,
+                        Math.max(0, Math.round(atFrac * (axis === "x" ? im.h : im.w))));
+  const runs = []; let run = null;
+  for (let i = 0; i < across; i++) {
+    const p = axis === "x" ? line * im.w + i : i * im.w + line;
+    const L = lum(im.d, p);
+    if (L < INK_AT) {
+      const cov = Math.round(((255 - L) / (255 - SOLID)) * 100);
+      if (!run) run = { a: i, b: i, peak: cov }; else { run.b = i; run.peak = Math.max(run.peak, cov); }
+    } else if (run) { runs.push(run); run = null; }
+  }
+  if (run) runs.push(run);
+  const gaps = runs.slice(1).map((r, k) => r.a - runs[k].b - 1);
+  return { line, runs, gaps };
+}
+
+// 3 ── cue centre, isolated by differencing against the cue-less base
+function cueCentre(imA, imB) {
+  let sx = 0, sy = 0, wt = 0;
+  for (let y = 0; y < imA.h; y++) for (let x = 0; x < imA.w; x++) {
+    const p = y * imA.w + x;
+    const diff = Math.abs(lum(imA.d, p) - lum(imB.d, p));
+    if (diff > DIFF_AT) { sx += x * diff; sy += y * diff; wt += diff; }
+  }
+  return wt ? { x: sx / wt, y: sy / wt, wt } : null;
+}
+
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const minPairwise = (pts) => {
+  let m = Infinity;
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) m = Math.min(m, dist(pts[i], pts[j]));
+  return m;
+};
+
+// ── Positive controls ───────────────────────────────────────────────────────
+// Each probe is handed the exact defect it exists to catch. If it reports the
+// drawing as sound, the probe is not a probe and this run is worthless.
+console.log(`parameters: channel ${CHANNEL}; ink at luminance < ${INK_AT}; solid ink ${SOLID};`);
+console.log(`            diff threshold ${DIFF_AT}; visible-separation floor ${MIN_VISIBLE_PX}px; deviceScaleFactor 1\n`);
+console.log("positive controls — each probe is given the defect it exists to catch:");
+
+let controlsOk = true;
+const control = (what, passed, detail) => {
+  if (!passed) controlsOk = false;
+  console.log(`  ${passed ? "CAUGHT " : "MISSED "} ${what}${detail ? `  (${detail})` : ""}`);
+};
+
+// (a) fail-closed: an empty frame must be refused, not measured.
+{
+  const im = await pixels(await shoot(`<svg width="24" height="24"><rect width="24" height="24" fill="${GROUND}"/></svg>`, 24));
+  const p = presence(im);
+  control("empty frame refused by the presence probe", !p.ok, `${p.on} ink px`);
+}
+// (b) fusion: three bars drawn with NO gap must read as one run, not three.
+{
+  const fused = `<svg width="24" height="24" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/>` +
+    [0, 1, 2].map((i) => `<rect x="10" y="${12 + i * 16}" width="46" height="16" fill="${INK}"/>`).join("") + `</svg>`;
+  const s = separation(await pixels(await shoot(fused, 24)), "y", 18 / GRID);
+  control("gapless bars reported as ONE run by the separation probe", s.runs.length === 1, `${s.runs.length} runs`);
+}
+// (c) a cue that does not move: three "siblings" drawn identically must measure
+//     zero separation and be reported not distinguishable.
+{
+  const same = `<svg width="24" height="24" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/>` +
+    `<circle cx="48" cy="48" r="20" fill="${INK}"/></svg>`;
+  const base = `<svg width="24" height="24" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/></svg>`;
+  const b = await pixels(await shoot(base, 24));
+  const cs = [];
+  for (let i = 0; i < 3; i++) cs.push(cueCentre(await pixels(await shoot(same, 24)), b));
+  const sep = minPairwise(cs);
+  control("identical siblings reported as NOT distinguishable", sep < MIN_VISIBLE_PX, `min separation ${sep.toFixed(2)}px`);
+}
+
+// (d) faintness: a wall thin enough that antialiasing spreads it across less than
+//     half a device pixel row must be reported as FAINT, not counted as a sound run.
+//     At 16px one grid unit is 1/6 of a device pixel, so a 2.4-unit wall covers 0.4
+//     of a row and should measure ~40% — inside the faint band by construction.
+//     (A 0.9-unit wall was tried first and measured as ABSENT, not faint: the probe
+//     found no runs at all. That is a stronger refusal but a different one, and a
+//     control has to plant the defect it names.)
+{
+  const hairline = `<svg width="16" height="16" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/>` +
+    `<rect x="10" y="20" width="30" height="2.4" fill="${INK}"/>` +
+    `<rect x="60" y="20" width="30" height="2.4" fill="${INK}"/></svg>`;
+  const s = separation(await pixels(await shoot(hairline, 16)), "x", 20.5 / GRID);
+  const peaks = s.runs.map((r) => r.peak);
+  control("hairline walls reported as faint, not as sound runs",
+    s.runs.length > 0 && peaks.every((p) => p < 55), `peak coverage ${peaks.join("/") || "none"}%`);
+}
+// (e) over-count: a drawing that makes MORE runs than it claims must be reported
+//     miscounted. A >= comparison passes it, which is the defect this replaces.
+{
+  const four = `<svg width="24" height="24" viewBox="0 0 96 96"><rect width="96" height="96" fill="${GROUND}"/>` +
+    [8, 32, 56, 80].map((x) => `<rect x="${x}" y="40" width="8" height="16" fill="${INK}"/>`).join("") + `</svg>`;
+  const s = separation(await pixels(await shoot(four, 24)), "x", 48 / GRID);
+  control("four runs rejected against a claim of two", s.runs.length !== 2, `${s.runs.length} runs against a claim of 2`);
+}
+
+if (!controlsOk) {
+  console.error("\nABORTING: a probe failed to report the defect it exists to catch. Nothing below would mean anything.");
+  await browser.close();
+  process.exit(2);
+}
+
+// ── The skeletons ───────────────────────────────────────────────────────────
+const verdicts = [];
+for (const sk of SKELETONS) {
+  console.log(`\n── ${sk.name}  (${sk.id}, ${sk.origin})`);
+  console.log(`   ${sk.thesis}`);
+
+  const row = { id: sk.id, name: sk.name, sizes: {} };
+  let refused = false, crossCheckFailed = false;
+
+  for (const size of SIZES) {
+    const baseUrl = await shoot(svg(sk, size, null), size);
+    const base = await pixels(baseUrl);
+    const p = presence(base);
+    if (!p.ok) {
+      console.error(`   REFUSING at ${size}px: ${p.on} ink pixels over ${(p.frac * 100).toFixed(1)}% of frame — not a drawing.`);
+      refused = true;
+      continue;
+    }
+
+    // separation, on the base unless the claim only exists once a cue is drawn
+    const sib = sk.separationOn;
+    const target = sib ? await pixels(await shoot(svg(sk, size, sib), size)) : base;
+    const s = separation(target, sk.separation.axis, scanAt(sk, sib));
+    const wanted = sk.separation.runs;
+    // EXACTLY the claimed number of runs. A >= comparison lets a drawing that makes
+    // four runs pass a claim of two, which is a label claiming more than the
+    // assertion checks — it did exactly that for the isometric slabs.
+    const counted = s.runs.length === wanted && s.gaps.every((g) => g >= 1);
+    // A run present but pale is a wall that is half there. 16px antialiasing is where
+    // an outline dies, and a binary SEPARATED/FUSED verdict hides it, so a run below
+    // this floor is reported as faint and counts against the skeleton at product size.
+    const FAINT_AT = 55;
+    const faint = s.runs.filter((r) => r.peak < FAINT_AT);
+    const held = counted && faint.length === 0;
+    if (!held && PRODUCT_SIZES.includes(size)) refused = true;
+
+    console.log(
+      `   ${String(size).padStart(2)}px  ink ${(p.frac * 100).toFixed(1)}% of frame  ·  ` +
+      `scan ${sk.separation.axis === "x" ? "row" : "column"} ${s.line} of ${sk.separation.axis === "x" ? target.h : target.w}: ` +
+      `${s.runs.length} run${s.runs.length === 1 ? "" : "s"} (claimed ${wanted}) ` +
+      (s.gaps.length ? `gap${s.gaps.length > 1 ? "s" : ""} ${s.gaps.join(",")}px ` : "no gap ") +
+      `coverage ${s.runs.map((r) => r.peak + "%").join("/") || "—"}  ` +
+      `${held ? "SEPARATED" : counted ? `FAINT (${faint.length} run${faint.length === 1 ? "" : "s"} under ${FAINT_AT}%)` : "MISCOUNTED"}`
+    );
+    row.sizes[size] = { ink: p.frac, runs: s.runs.length, wanted, gaps: s.gaps, held };
+  }
+
+  // cue separation + closed-form cross-check, at product sizes only
+  for (const size of PRODUCT_SIZES) {
+    const base = await pixels(await shoot(svg(sk, size, null), size));
+    const centres = [];
+    for (const k of SIBLINGS) {
+      const c = cueCentre(await pixels(await shoot(svg(sk, size, k), size)), base);
+      if (c) centres.push(c);
+    }
+    const measured = centres.length === SIBLINGS.length ? minPairwise(centres) : 0;
+    // Closed form: the smallest distance between the declared cue centres, in grid
+    // units, scaled to this render. It comes from `cueCentres` in skeletons.mjs —
+    // the same constants draw() uses — so a disagreement is a broken probe.
+    const declared = minPairwise(SIBLINGS.map((k) => ({ x: sk.cueCentres[k][0], y: sk.cueCentres[k][1] })));
+    const expected = declared * size / GRID;
+    const agrees = Math.abs(measured - expected) <= Math.max(0.5, expected * 0.25);
+    if (!agrees) crossCheckFailed = true;
+    const distinguishable = centres.length === SIBLINGS.length && measured >= MIN_VISIBLE_PX;
+    console.log(
+      `   ${String(size).padStart(2)}px  cue: measured ${measured.toFixed(2)}px  closed form ${expected.toFixed(2)}px  ` +
+      `${agrees ? "agree" : "DISAGREE — measurement rejected"}  ` +
+      `${distinguishable ? "DISTINGUISHABLE" : "not distinguishable"}`
+    );
+    row.sizes[size] = { ...row.sizes[size], cue: measured, cueExpected: expected, agrees, distinguishable };
+  }
+
+  row.verdict = crossCheckFailed ? "measurement-rejected" : refused ? "fails-at-product-size" : "survives-measurement";
+  console.log(`   → ${row.verdict}`);
+  for (const h of sk.hazards) console.log(`     hazard: ${h}`);
+  verdicts.push(row);
+}
+
+// ── Plates for the cold reader ──────────────────────────────────────────────
+// One PNG per skeleton per product size, named by a letter rather than by the
+// concept, so the reader is shown a drawing and not a description of it.
+if (process.argv.includes("--plates")) {
+  const letters = "ABCDE";
+  // The mark a reader is shown is a SIBLING, not the differencing base. The base is
+  // an instrument — the same drawing with the cue removed so the cue can be isolated
+  // — and for three of these five it is the concept with its idea taken out: the
+  // grid with nothing spent, the wedge with nothing punched, the lanes with none
+  // chosen. The first plating run showed the base and would have asked a cold reader
+  // to name a drawing nobody is proposing.
+  const PLATE_SIB = "cloud";
+  for (const [i, sk] of SKELETONS.entries()) {
+    for (const size of [16, 24, 96]) {
+      // Plated at 8x nearest-neighbour so a 16px drawing can be LOOKED at without
+      // resampling it into something smoother than it is. The pixels are the 16px
+      // pixels; only the display is enlarged.
+      const scale = size === 96 ? 2 : 8;
+      const markup =
+        `<div style="background:${GROUND};padding:24px;display:inline-block;">` +
+        `<div style="width:${size * scale}px;height:${size * scale}px;image-rendering:pixelated;` +
+        `background-image:url('${await shoot(svg(sk, size, PLATE_SIB), size)}');background-size:100% 100%;"></div></div>`;
+      await page.setContent(`<style>body{margin:0;background:${GROUND};}</style>${markup}`);
+      const buf = await page.locator("div").first().screenshot();
+      writeFileSync(path.join(OUT, `${letters[i]}-${size}px.png`), buf);
+    }
+    // and the three siblings side by side at 24px, for the lockup-cue question
+    const trio = SIBLINGS.map((k) =>
+      `<div style="width:192px;height:192px;image-rendering:pixelated;background-size:100% 100%;` +
+      `background-image:url('PLACE-${k}');"></div>`).join("");
+    let filled = trio;
+    for (const k of SIBLINGS) filled = filled.replace(`PLACE-${k}`, await shoot(svg(sk, 24, k), 24));
+    await page.setContent(`<style>body{margin:0;background:${GROUND};}</style>` +
+      `<div style="display:flex;gap:24px;padding:24px;background:${GROUND};">${filled}</div>`);
+    writeFileSync(path.join(OUT, `${letters[i]}-siblings-24px.png`), await page.locator("div").first().screenshot());
+  }
+  writeFileSync(path.join(OUT, "measurements.json"), JSON.stringify(verdicts, null, 2));
+  console.log(`\nplates: ${path.relative(process.cwd(), OUT)}  (A–E, deliberately unnamed)`);
+}
+
+await browser.close();
+const dead = verdicts.filter((v) => v.verdict !== "survives-measurement");
+console.log(`\n${verdicts.length - dead.length}/${verdicts.length} skeletons survive measurement at 16px and 24px`);
+for (const d of dead) console.log(`  DEAD  ${d.name}: ${d.verdict}`);
+console.log(`\nMeasurement is not the whole gate: the control test, the one-drawing test and`);
+console.log(`the lockup-cue test are a cold reader's, and a skeleton can survive here and die there.`);
+process.exit(0);
