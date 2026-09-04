@@ -19,6 +19,10 @@ pub const RESOURCE_PROFILE_V1_DOMAIN: &[u8] = b"ioi::aft::external-resource-prof
 pub const RESOURCE_RECORD_V1_DOMAIN: &[u8] = b"ioi::aft::external-resource-record::v1\0";
 /// Domain separator for textual conflict-domain identities.
 pub const CONFLICT_DOMAIN_ID_V1_DOMAIN: &[u8] = b"ioi::aft::conflict-domain-id::v1\0";
+/// Native workload service that admits one exact consequence manifest.
+pub const AFT_EFFECT_REGISTRY_SERVICE_ID: &str = "aft_effect_registry";
+/// Canonical service method for admitting a consequence manifest.
+pub const REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD: &str = "register_effect_manifest@v1";
 
 /// Canonical 32-byte SHA-256 commitment used by consequence contracts.
 pub type ConsequenceHash = [u8; 32];

@@ -16,6 +16,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_memory::MemoryRuntime;
 use ioi_services::{
+    aft_effect_registry::AftEffectRegistryService,
     agentic::leakage::LeakageController,
     agentic::media_runtime::KernelMediaRuntime,
     agentic::optimizer::OptimizerService, // Import Optimizer
@@ -510,6 +511,8 @@ where
 
     tracing::info!(target: "workload", event = "service_init", name = "WalletNetwork", impl="native", capabilities="policy_sessions_audit");
     initial_services.push(Arc::new(WalletNetworkService) as Arc<dyn UpgradableService>);
+    tracing::info!(target: "workload", event = "service_init", name = "AftEffectRegistry", impl="native", capabilities="manifest_validation,agentgres_binding");
+    initial_services.push(Arc::new(AftEffectRegistryService) as Arc<dyn UpgradableService>);
 
     for _service_config in &config.initial_services {
         match _service_config {

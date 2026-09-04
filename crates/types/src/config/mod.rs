@@ -844,6 +844,19 @@ impl WorkloadConfig {
 pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
     let mut map = BTreeMap::new();
 
+    // AFT effect manifest admission. This roots inert authorization input;
+    // only the executor's later live QUV operation may continue into T10.
+    map.insert(
+        crate::app::AFT_EFFECT_REGISTRY_SERVICE_ID.to_string(),
+        ServicePolicy {
+            methods: BTreeMap::from([(
+                crate::app::REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD.to_string(),
+                MethodPermission::User,
+            )]),
+            allowed_system_prefixes: vec!["aft_effect_registry/".to_string()],
+        },
+    );
+
     // Governance
     let mut gov_methods = BTreeMap::new();
     gov_methods.insert("submit_proposal@v1".into(), MethodPermission::User);

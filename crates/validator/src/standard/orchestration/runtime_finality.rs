@@ -15,8 +15,8 @@ use agentgres::profile::{
     FinalityProfile, GuaranteeDelta, GuaranteeDirection, ProfileBindingsDigest, ProfileIdentity,
 };
 use agentgres::recognized_effect::{
-    AuthorityRevalidator, AuthoritySnapshot, CommitDisposition, CommitResult, OutboxIntent,
-    RecognizedEffectStore,
+    AuthorityRevalidator, AuthoritySnapshot, CommitDisposition, CommitResult,
+    CommittedRecognizedEffect, OutboxIntent, RecognizedEffectStore,
 };
 use anyhow::{anyhow, Context, Result};
 use ioi_api::chain::{
@@ -39,7 +39,8 @@ use ioi_services::wallet_network::{
 };
 use ioi_types::app::{
     account_id_from_key_material, canonical_validator_set_hash, AccountId, Block, ChainTransaction,
-    KernelEvent, SignatureSuite, SystemPayload,
+    EffectManifestV1, KernelEvent, SignatureSuite, SystemPayload, AFT_EFFECT_REGISTRY_SERVICE_ID,
+    REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD,
 };
 use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use ioi_types::config::RuntimeFinalityProfile;
@@ -71,6 +72,13 @@ pub(crate) struct RuntimeAdmission {
     pub effect_id: String,
     pub block: Block<ChainTransaction>,
     pub commit: CommitResult,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct CommittedConsequenceManifest {
+    pub committed: CommittedRecognizedEffect,
+    pub manifest: EffectManifestV1,
+    pub admitted_height: u64,
 }
 
 #[derive(Clone)]
@@ -1345,6 +1353,10 @@ impl RuntimeFinalityCoordinator {
         runtime_profile(active.identity.profile)
     }
 
+    pub(crate) fn consequence_runtime_root(&self) -> PathBuf {
+        self.root.clone()
+    }
+
     /// Recovers the last Agentgres-admitted block from the exact staged bytes
     /// named by the rooted canonical head. The genesis head intentionally has
     /// no staged envelope and therefore returns `None`.
@@ -1362,6 +1374,60 @@ impl RuntimeFinalityCoordinator {
             return Ok(None);
         }
         Ok(Some(self.read_staged(&hash)?.block))
+    }
+
+    /// Resolve one workload-admitted manifest through the exact Agentgres
+    /// record that committed its root. Portable receipts do not call this
+    /// path; it is process-local input to the live executor continuation.
+    pub(crate) fn committed_consequence_manifest(
+        &self,
+        effect_id: &str,
+    ) -> Result<CommittedConsequenceManifest> {
+        let mut found = None;
+        for committed in self.store.committed_effects_in_order() {
+            let Some(bound_root) = committed.record.effect_manifest_root.as_deref() else {
+                continue;
+            };
+            let head = committed
+                .record
+                .bundle
+                .pointer("/checkpoint/resulting_canonical_head")
+                .and_then(Value::as_str)
+                .ok_or_else(|| anyhow!("committed runtime effect lost resulting head"))?;
+            let staged = self.read_staged(&parse_hash_label(head)?)?;
+            let Some(manifest) = admitted_effect_manifest(&staged.block)? else {
+                return Err(anyhow!(
+                    "Agentgres record binds a manifest root absent from its workload block"
+                ));
+            };
+            let expected = format!(
+                "sha256:{}",
+                hex::encode(
+                    manifest
+                        .commitment()
+                        .map_err(|error| anyhow!(error.to_string()))?
+                )
+            );
+            if expected != bound_root {
+                return Err(anyhow!(
+                    "Agentgres manifest root differs from its workload transaction"
+                ));
+            }
+            if manifest.effect_id != effect_id {
+                continue;
+            }
+            if found.is_some() {
+                return Err(anyhow!(
+                    "effect identity appears in more than one Agentgres admission"
+                ));
+            }
+            found = Some(CommittedConsequenceManifest {
+                committed: committed.clone(),
+                manifest,
+                admitted_height: staged.block.header.height,
+            });
+        }
+        found.ok_or_else(|| anyhow!("effect manifest is not Agentgres-admitted"))
     }
 
     pub(crate) fn stage_block(
@@ -1963,13 +2029,16 @@ impl RuntimeFinalityCoordinator {
             &self.signing_key,
         )?;
         let outbox = build_outbox(&effect_id, &staged.block, &bundle)?;
-        let prepared = self.store.prepare_runtime_bundle(
+        let mut prepared = self.store.prepare_runtime_bundle(
             effect_id.clone(),
             bundle,
             active.authority,
             &authority_owner,
             outbox,
         )?;
+        if let Some(manifest) = admitted_effect_manifest(&staged.block)? {
+            prepared = prepared.bind_effect_manifest(&manifest)?;
+        }
         let commit = self
             .store
             .commit(prepared, &authority_owner, recorded_at_ms)?;
@@ -2115,6 +2184,39 @@ fn governed_cutover_operation(
     let request: AuthorizeFinalityProfileCutoverParamsV1 =
         from_bytes_canonical(params).map_err(anyhow::Error::msg)?;
     Ok(Some(request.operation))
+}
+
+fn admitted_effect_manifest(block: &Block<ChainTransaction>) -> Result<Option<EffectManifestV1>> {
+    let mut admitted = None;
+    for transaction in &block.transactions {
+        let ChainTransaction::System(system) = transaction else {
+            continue;
+        };
+        let SystemPayload::CallService {
+            service_id,
+            method,
+            params,
+        } = &system.payload;
+        if service_id != AFT_EFFECT_REGISTRY_SERVICE_ID
+            || method != REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD
+        {
+            continue;
+        }
+        if admitted.is_some() {
+            return Err(anyhow!(
+                "finalized block contains more than one AFT effect manifest"
+            ));
+        }
+        let manifest: EffectManifestV1 = serde_json::from_slice(params)?;
+        if serde_jcs::to_vec(&manifest)? != *params {
+            return Err(anyhow!("AFT effect manifest is not canonical JCS"));
+        }
+        manifest
+            .validate()
+            .map_err(|error| anyhow!(error.to_string()))?;
+        admitted = Some(manifest);
+    }
+    Ok(admitted)
 }
 
 fn governed_authority_refs(
@@ -2530,9 +2632,12 @@ mod tests {
         FINALITY_PROFILE_CUTOVER_SCOPE,
     };
     use ioi_types::app::action::ApprovalAuthority;
+    use ioi_types::app::consensus::{ExternalizationModeV1, GuaranteeRequirementsV1};
     use ioi_types::app::wallet_network::PrincipalAuthorityBindingCoordinates;
     use ioi_types::app::{
-        account_id_from_key_material, AccountId, BlockHeader, QuorumCertificate, SignHeader,
+        account_id_from_key_material, AccountId, BlockHeader, EffectAuthorizationModeV1,
+        EffectFenceV1, EffectManifestVersionV1, EffectResourceKeyV1, ExternalResourceContractV1,
+        ExternalResourceProfileV1, QuorumCertificate, ReconciliationPolicyV1, SignHeader,
         SignatureProof, StateRoot, SystemTransaction,
     };
     use tempfile::tempdir;
@@ -2635,6 +2740,57 @@ mod tests {
             },
             signature_proof: SignatureProof::default(),
         }))
+    }
+
+    fn online_effect_manifest(effect_id: &str) -> EffectManifestV1 {
+        let mut manifest = EffectManifestV1 {
+            schema_version: EffectManifestVersionV1::V1,
+            effect_id: effect_id.into(),
+            resource_id: "resource://test/pq-register".into(),
+            conflict_domain_id: "domain://test/effect".into(),
+            conflict_slot: 1,
+            authorization_mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+            online_authorization_policy_root: Some([12; 32]),
+            read_set: vec![EffectResourceKeyV1 {
+                key: "account/source".into(),
+                predecessor: Some([1; 32]),
+            }],
+            write_set: vec![EffectResourceKeyV1 {
+                key: "transfer/1".into(),
+                predecessor: None,
+            }],
+            idempotency_key: "pending".into(),
+            request_root: [2; 32],
+            predecessor_root: [3; 32],
+            intent_root: [4; 32],
+            expected_outcome_root: [5; 32],
+            resource_profile: ExternalResourceProfileV1 {
+                adapter_id: "test-pq-register".into(),
+                adapter_version: "v1".into(),
+                resource_profile_id: "resource-profile://test/pq-register/v1".into(),
+                contract: ExternalResourceContractV1::AtomicPutIfAbsent,
+                externalization_pq: true,
+                endpoint_pq_key_hash: Some([9; 32]),
+            },
+            required_guarantees: GuaranteeRequirementsV1 {
+                minimum_externalization: Some(ExternalizationModeV1::IdempotencyRegister),
+                require_at_most_once: true,
+                require_externalization_pq: true,
+                ..Default::default()
+            },
+            fence: EffectFenceV1::ProtocolHeight {
+                configuration_hash: [6; 32],
+                minimum_height: 1,
+                maximum_height: 20,
+            },
+            reconciliation: ReconciliationPolicyV1::LookupByIdempotencyKey {
+                maximum_observations: 3,
+            },
+            irreversible: true,
+        };
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
+        manifest.validate().unwrap();
+        manifest
     }
 
     fn cutover_operation(
@@ -2802,6 +2958,51 @@ mod tests {
         let hash = block_hash(&block).unwrap();
         coordinator.stage_block(block, Vec::new()).unwrap();
         coordinator.admit_single_authority(hash, 1).unwrap();
+    }
+
+    #[test]
+    fn workload_effect_manifest_is_bound_to_agentgres_and_resolves_by_manifest_identity() {
+        let dir = tempdir().unwrap();
+        let seed = [31_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let manifest = online_effect_manifest("effect-workload-1");
+        let params = serde_jcs::to_vec(&manifest).unwrap();
+        let transaction = ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader::default(),
+            payload: SystemPayload::CallService {
+                service_id: AFT_EFFECT_REGISTRY_SERVICE_ID.into(),
+                method: REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD.into(),
+                params,
+            },
+            signature_proof: SignatureProof::default(),
+        }));
+        let block = block_with_transactions([0; 32], 1, vec![transaction.clone()]);
+        let receipt = BlockExecutionReceipt::for_success(1, 0, transaction.hash().unwrap(), 0, &[]);
+        let mut coordinator = RuntimeFinalityCoordinator::open(
+            dir.path().to_path_buf(),
+            "chain://test/effect".into(),
+            RuntimeFinalityProfile::SingleAuthorityV1,
+            "writer://test/effect".into(),
+            runtime_finality_initial_head(None).unwrap(),
+            issuer,
+            &seed,
+        )
+        .unwrap();
+        let hash = block_hash(&block).unwrap();
+        coordinator.stage_block(block, vec![receipt]).unwrap();
+        let admitted = coordinator.admit_single_authority(hash, 1).unwrap();
+        assert_ne!(admitted.effect_id, manifest.effect_id);
+        let resolved = coordinator
+            .committed_consequence_manifest(&manifest.effect_id)
+            .unwrap();
+        assert_eq!(resolved.manifest, manifest);
+        assert_eq!(resolved.admitted_height, 1);
+        assert_eq!(resolved.committed.record.effect_id, admitted.effect_id);
+        assert!(resolved.committed.record.effect_manifest_root.is_some());
     }
 
     #[test]

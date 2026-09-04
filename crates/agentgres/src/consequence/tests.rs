@@ -1,4 +1,5 @@
 use super::*;
+use ioi_crypto::{security::SecurityLevel, sign::dilithium::MldsaScheme};
 use ioi_types::app::consensus::{
     guarantee_vector_of, CertificateOnlyGuaranteeVerifierV1, CertificateProfile,
     ExternalizationModeV1, GuaranteeRank, GuaranteeRequirementsV1,
@@ -237,6 +238,11 @@ fn query_unanimity_effect_requires_matching_immediate_online_authorization() {
     let mut manifest = manifest("quv", profile.clone());
     manifest.authorization_mode = ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0;
     manifest.online_authorization_policy_root = Some([19; 32]);
+    manifest.fence = EffectFenceV1::ProtocolHeight {
+        configuration_hash: [88; 32],
+        minimum_height: 10,
+        maximum_height: 10,
+    };
     manifest.idempotency_key = manifest.query_unanimity_idempotency_key().unwrap();
     let manifest_root = manifest.commitment().unwrap();
     let configuration_root = match manifest.fence {
@@ -690,4 +696,27 @@ fn evidence_hash(evidence: &[u8]) -> ConsequenceHash {
     hasher.update(b"ioi::aft::external-resource-evidence::v1\0");
     hasher.update(canonical);
     hasher.finalize().into()
+}
+
+#[test]
+fn durable_pq_register_is_cross_instance_at_most_once_and_evidence_verified() {
+    let temp = TempDir::new().unwrap();
+    let endpoint = MldsaScheme::new(SecurityLevel::Level2)
+        .generate_keypair()
+        .unwrap();
+    let profile = DurablePqAtomicRegisterV1::profile_for(&endpoint).unwrap();
+    let manifest = manifest("durable-pq-register", profile);
+    let mut first = DurablePqAtomicRegisterV1::open(temp.path(), endpoint.clone()).unwrap();
+    let mut second = DurablePqAtomicRegisterV1::open(temp.path(), endpoint).unwrap();
+
+    let AtomicMutationResultV1::Inserted(inserted) = first.invoke_atomic(&manifest).unwrap() else {
+        panic!("first mutation must insert");
+    };
+    assert!(first.verify_record_evidence(&inserted));
+    let AtomicMutationResultV1::Existing(existing) = second.invoke_atomic(&manifest).unwrap()
+    else {
+        panic!("duplicate mutation must observe the existing record");
+    };
+    assert_eq!(existing, inserted);
+    assert!(second.verify_record_evidence(&existing));
 }

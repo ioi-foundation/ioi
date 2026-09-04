@@ -9,11 +9,12 @@ use ioi_ipc::blockchain::{
 };
 use ioi_ipc::public::public_api_server::PublicApi;
 use ioi_ipc::public::{
-    ChainEvent, DraftTransactionRequest, DraftTransactionResponse, GetBlockByHeightRequest,
-    GetBlockByHeightResponse, GetContextBlobRequest, GetContextBlobResponse,
-    GetSessionHistoryRequest, GetSessionHistoryResponse, GetTransactionStatusRequest,
-    GetTransactionStatusResponse, SetRuntimeSecretRequest, SetRuntimeSecretResponse,
-    SubmitTransactionRequest, SubmitTransactionResponse, SubscribeEventsRequest,
+    ChainEvent, DraftTransactionRequest, DraftTransactionResponse, ExecuteAftQuvEffectRequest,
+    ExecuteAftQuvEffectResponse, GetBlockByHeightRequest, GetBlockByHeightResponse,
+    GetContextBlobRequest, GetContextBlobResponse, GetSessionHistoryRequest,
+    GetSessionHistoryResponse, GetTransactionStatusRequest, GetTransactionStatusResponse,
+    SetRuntimeSecretRequest, SetRuntimeSecretResponse, SubmitTransactionRequest,
+    SubmitTransactionResponse, SubscribeEventsRequest,
 };
 use parity_scale_codec::{Decode, Encode};
 use serde::Serialize;
@@ -110,6 +111,112 @@ where
         } else {
             Err(Status::unavailable("Node is initializing"))
         }
+    }
+
+    async fn handle_execute_aft_quv_effect(
+        &self,
+        request: Request<ExecuteAftQuvEffectRequest>,
+    ) -> Result<Response<ExecuteAftQuvEffectResponse>, Status> {
+        use agentgres::consequence::{
+            AcceptedEffectAuthorizationV1, ConsequenceStore, DurablePqAtomicRegisterV1,
+            ExternalResourceV1,
+        };
+        use ioi_types::app::{QuvCandidateV0, QuvPushQueryV0};
+        use rand::{rngs::OsRng, RngCore};
+
+        let request = request.into_inner();
+        if request.effect_id.trim().is_empty() {
+            return Err(Status::invalid_argument("effect_id is empty"));
+        }
+        let candidate: QuvCandidateV0 = codec::from_bytes_canonical(&request.candidate_bytes)
+            .map_err(|error| Status::invalid_argument(format!("invalid QUV candidate: {error}")))?;
+        let context = self.get_context().await?;
+        let (runtime_finality, endpoint) = {
+            let guard = context.lock().await;
+            (
+                guard.runtime_finality.clone(),
+                guard
+                    .pqc_signer
+                    .clone()
+                    .ok_or_else(|| Status::failed_precondition("PQ executor key is absent"))?,
+            )
+        };
+        let (admission, current_height, runtime_root) = {
+            let finality = runtime_finality.lock().await;
+            let admission = finality
+                .committed_consequence_manifest(&request.effect_id)
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            let current_height = finality
+                .last_admitted_block()
+                .map_err(|error| Status::internal(error.to_string()))?
+                .map(|block| block.header.height)
+                .unwrap_or(admission.admitted_height);
+            let runtime_root = finality.consequence_runtime_root();
+            (admission, current_height, runtime_root)
+        };
+        let mut resource =
+            DurablePqAtomicRegisterV1::open(runtime_root.join("quv-external-resource"), endpoint)
+                .map_err(|error| Status::internal(error.to_string()))?;
+        if resource.profile() != &admission.manifest.resource_profile {
+            return Err(Status::failed_precondition(
+                "executor PQ resource differs from the Agentgres-admitted manifest",
+            ));
+        }
+        let mut consequence_store = ConsequenceStore::open(runtime_root.join("consequence"))
+            .map_err(|error| Status::unavailable(error.to_string()))?;
+        if !consequence_store.contains(&request.effect_id) {
+            let (authorization, achieved) =
+                AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+                    &admission.committed,
+                    &admission.manifest,
+                )
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            consequence_store
+                .authorize(
+                    admission.manifest,
+                    &achieved,
+                    &authorization,
+                    current_height,
+                )
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        }
+        let requirement = consequence_store
+            .online_authorization_requirement(&request.effect_id)
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        if candidate.payload_hash != requirement.payload_hash
+            || candidate.slot.configuration_root != requirement.configuration_root
+            || candidate.slot.policy_root != requirement.policy_root
+            || candidate.slot.domain_id != requirement.conflict_domain_hash
+            || candidate.slot.slot != requirement.conflict_slot
+        {
+            return Err(Status::invalid_argument(
+                "QUV candidate does not match the durable effect manifest",
+            ));
+        }
+        let mut verifier_nonce = [0_u8; 32];
+        OsRng.fill_bytes(&mut verifier_nonce);
+        let receiver = super::quv::begin_online_authorization(
+            &context,
+            QuvPushQueryV0 {
+                verifier_nonce,
+                candidate,
+            },
+        )
+        .await
+        .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let authorization = receiver
+            .await
+            .map_err(|_| Status::unavailable("QUV operation ended without a decision"))?
+            .map_err(Status::failed_precondition)?;
+        let receipt = consequence_store
+            .execute_with_online_authorization(&request.effect_id, &mut resource, authorization)
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let consequence_receipt_jcs =
+            serde_jcs::to_vec(&receipt).map_err(|error| Status::internal(error.to_string()))?;
+        Ok(Response::new(ExecuteAftQuvEffectResponse {
+            consequence_receipt_jcs,
+            portable_final_receipt: false,
+        }))
     }
 }
 
@@ -218,5 +325,12 @@ where
         request: Request<GetContextBlobRequest>,
     ) -> Result<Response<GetContextBlobResponse>, Status> {
         self.handle_get_context_blob(request).await
+    }
+
+    async fn execute_aft_quv_effect(
+        &self,
+        request: Request<ExecuteAftQuvEffectRequest>,
+    ) -> Result<Response<ExecuteAftQuvEffectResponse>, Status> {
+        self.handle_execute_aft_quv_effect(request).await
     }
 }

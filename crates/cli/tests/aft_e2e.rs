@@ -1,6 +1,9 @@
 // Path: crates/cli/tests/aft_e2e.rs
 #![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
+use agentgres::consequence::{
+    ConsequenceReceiptV1, ConsequenceStateV1, DurablePqAtomicRegisterV1, ExternalResourceV1,
+};
 use anyhow::Result;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_cli::aft_quv_ceremony::{install_signed_handoff, sign_handoff_draft};
@@ -9,16 +12,22 @@ use ioi_cli::testing::{
     assert_log_contains, build_test_artifacts, rpc, wait_for, wait_for_height, TestCluster,
 };
 use ioi_consensus::aft::query_unanimity::{
-    quv_handoff_domain_id, quv_policy_root, validate_quv_handoff_candidate,
+    quv_candidate_authority_signing_bytes, quv_handoff_domain_id, quv_policy_root,
+    validate_quv_handoff_candidate,
 };
+use ioi_types::app::consensus::{ExternalizationModeV1, GuaranteeRequirementsV1};
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, BlockTimingParams,
-        BlockTimingRuntime, QuvAuthorityModeV0, QuvConfigurationHandoffEnvelopeV0, SignatureSuite,
-        ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, conflict_domain_id_commitment, AccountId, ActiveKeyRecord,
+        BlockTimingParams, BlockTimingRuntime, ChainTransaction, EffectAuthorizationModeV1,
+        EffectFenceV1, EffectManifestV1, EffectManifestVersionV1, EffectResourceKeyV1,
+        QuvAuthorityModeV0, QuvCandidateV0, QuvConfigurationHandoffEnvelopeV0, QuvSlotV0,
+        ReconciliationPolicyV1, SignHeader, SignatureProof, SignatureSuite, SystemPayload,
+        SystemTransaction, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+        AFT_EFFECT_REGISTRY_SERVICE_ID, REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD,
     },
     codec,
-    config::{AftSafetyMode, InitialServiceConfig},
+    config::{AftQuvDomainPolicyV0, AftSafetyMode, InitialServiceConfig},
     service_configs::MigrationConfig,
 };
 use std::collections::HashSet;
@@ -61,6 +70,36 @@ impl Drop for ScopedEnv {
 async fn aft_hash_async_metrics(metrics_addr: &str) -> Result<String> {
     let response = reqwest::get(format!("http://{metrics_addr}/metrics")).await?;
     Ok(response.error_for_status()?.text().await?)
+}
+
+fn signed_system_transaction(
+    keypair: &libp2p::identity::Keypair,
+    payload: SystemPayload,
+    nonce: u64,
+    chain_id: ioi_types::app::ChainId,
+) -> Result<ChainTransaction> {
+    let public_key = keypair.public().encode_protobuf();
+    let mut transaction = SystemTransaction {
+        header: SignHeader {
+            account_id: AccountId(account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &public_key,
+            )?),
+            nonce,
+            chain_id,
+            tx_version: 1,
+            session_auth: None,
+        },
+        payload,
+        signature_proof: SignatureProof::default(),
+    };
+    let signing_bytes = transaction.to_sign_bytes().map_err(anyhow::Error::msg)?;
+    transaction.signature_proof = SignatureProof {
+        suite: SignatureSuite::ED25519,
+        public_key,
+        signature: keypair.sign(&signing_bytes)?,
+    };
+    Ok(ChainTransaction::System(Box::new(transaction)))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -238,6 +277,11 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
     let activation_height = 3;
     let delta_rt_millis = 30_000;
     let continuation_millis = 5_000;
+    let effect_conflict_domain_id = "domain://aft-e2e/quv-effect";
+    let effect_domain =
+        conflict_domain_id_commitment(effect_conflict_domain_id).map_err(anyhow::Error::msg)?;
+    let effect_delta_rt_millis = 5_000;
+    let effect_continuation_millis = 5_000;
     let _env = ScopedEnv::set(&[
         ("IOI_TEST_BUILD_PROFILE", "release"),
         ("IOI_TEST_VALIDATOR_LAUNCH_CONCURRENCY", "2"),
@@ -272,6 +316,13 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             continuation_millis,
             source_path_string,
         )
+        .with_quv_domain_policy(AftQuvDomainPolicyV0 {
+            domain_id: effect_domain,
+            authority_mode: QuvAuthorityModeV0::Unowned,
+            owner: None,
+            delta_rt_millis: effect_delta_rt_millis,
+            continuation_millis: effect_continuation_millis,
+        })
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 0xA19,
             grace_period_blocks: 0,
@@ -574,6 +625,150 @@ async fn test_aft_quv_disjoint_successors_install_live_handoff_before_activation
             Duration::from_secs(240),
         )
         .await?;
+
+        // Admit an irreversible effect through the real workload, bind its
+        // manifest root into the block's Agentgres record, then ask one
+        // relying executor to run fresh QUV against every active successor
+        // and immediately continue into the PQ atomic T10 resource. The RPC
+        // response is consequence audit/state only, never bearer authority.
+        let executor_account = keyed[4].0;
+        let executor_key = cluster.validators[restarted_index]
+            .validator()
+            .pqc_keypair
+            .as_ref()
+            .expect("QUV executor must retain its ML-DSA key")
+            .clone();
+        let effect_policy_root = quv_policy_root(
+            effect_domain,
+            QuvAuthorityModeV0::Unowned,
+            None,
+            effect_delta_rt_millis,
+            effect_continuation_millis,
+        )?;
+        let mut manifest = EffectManifestV1 {
+            schema_version: EffectManifestVersionV1::V1,
+            effect_id: "effect-quv-e2e-1".into(),
+            resource_id: "resource://aft-e2e/pq-register".into(),
+            conflict_domain_id: effect_conflict_domain_id.into(),
+            conflict_slot: 1,
+            authorization_mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+            online_authorization_policy_root: Some(effect_policy_root),
+            read_set: vec![EffectResourceKeyV1 {
+                key: "account/source".into(),
+                predecessor: Some([21; 32]),
+            }],
+            write_set: vec![EffectResourceKeyV1 {
+                key: "settlement/one".into(),
+                predecessor: None,
+            }],
+            idempotency_key: "pending".into(),
+            request_root: [22; 32],
+            predecessor_root: [23; 32],
+            intent_root: [24; 32],
+            expected_outcome_root: [25; 32],
+            resource_profile: DurablePqAtomicRegisterV1::profile_for(&executor_key)?,
+            required_guarantees: GuaranteeRequirementsV1 {
+                require_consensus_pq: true,
+                require_externalization_pq: true,
+                minimum_externalization: Some(ExternalizationModeV1::IdempotencyRegister),
+                require_at_most_once: true,
+                ..Default::default()
+            },
+            fence: EffectFenceV1::ProtocolHeight {
+                configuration_hash: successor_root,
+                minimum_height: activation_height,
+                maximum_height: 10_000,
+            },
+            reconciliation: ReconciliationPolicyV1::LookupByIdempotencyKey {
+                maximum_observations: 3,
+            },
+            irreversible: true,
+        };
+        manifest.idempotency_key = manifest.query_unanimity_idempotency_key()?;
+        manifest.validate()?;
+        let registration = signed_system_transaction(
+            &cluster.validators[restarted_index].validator().keypair,
+            SystemPayload::CallService {
+                service_id: AFT_EFFECT_REGISTRY_SERVICE_ID.into(),
+                method: REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD.into(),
+                params: serde_jcs::to_vec(&manifest)?,
+            },
+            0,
+            0xA19_u32.into(),
+        )?;
+        rpc::submit_transaction(&restarted_rpc, &registration).await?;
+
+        let mut candidate = QuvCandidateV0 {
+            slot: QuvSlotV0 {
+                network_id,
+                configuration_root: successor_root,
+                policy_root: effect_policy_root,
+                domain_id: effect_domain,
+                slot: manifest.conflict_slot,
+                predecessor: ioi_crypto::algorithms::hash::sha256(
+                    b"ioi/aft/e2e-effect-initial-predecessor/v1",
+                )?,
+                authority_mode: QuvAuthorityModeV0::Unowned,
+            },
+            payload_hash: manifest.commitment()?,
+            authorizer: executor_account,
+            authority_signature: Vec::new(),
+        };
+        candidate.authority_signature = executor_key
+            .sign(&quv_candidate_authority_signing_bytes(&candidate)?)?
+            .to_bytes();
+        let response = rpc::execute_aft_quv_effect(
+            &restarted_rpc,
+            &manifest.effect_id,
+            &candidate,
+        )
+        .await?;
+        if response.portable_final_receipt {
+            return Err(anyhow::anyhow!(
+                "online QUV executor mislabeled consequence audit as portable finality"
+            ));
+        }
+        let receipt: ConsequenceReceiptV1 =
+            serde_json::from_slice(&response.consequence_receipt_jcs)?;
+        if serde_jcs::to_vec(&receipt)? != response.consequence_receipt_jcs {
+            return Err(anyhow::anyhow!(
+                "QUV consequence response is not canonical JCS"
+            ));
+        }
+        receipt.validate()?;
+        let record = match &receipt.state {
+            ConsequenceStateV1::Executed {
+                resource_record, ..
+            } => resource_record,
+            state => {
+                return Err(anyhow::anyhow!(
+                    "QUV consequence did not reach Executed: {:?}",
+                    state.phase()
+                ))
+            }
+        };
+        if receipt.online_authorization_audit.as_ref().is_none_or(|audit| {
+            audit.portable_final_receipt || audit.profile != "aft_quv_v0"
+        }) {
+            return Err(anyhow::anyhow!(
+                "T10 consequence omitted its nonportable live QUV audit"
+            ));
+        }
+        let resource_root = cluster.validators[restarted_index]
+            .validator()
+            .state_dir()
+            .join("ordering-finality")
+            .join("quv-external-resource");
+        let mut resource = DurablePqAtomicRegisterV1::open(resource_root, executor_key)?;
+        let observed = resource
+            .lookup(&manifest.resource_id, &manifest.idempotency_key)
+            .map_err(|error| anyhow::anyhow!("resource lookup failed: {error:?}"))?
+            .ok_or_else(|| anyhow::anyhow!("T10 resource mutation is absent"))?;
+        if observed != *record || !resource.verify_record_evidence(&observed) {
+            return Err(anyhow::anyhow!(
+                "T10 resource record or its rooted ML-DSA evidence differs"
+            ));
+        }
 
         // Source bytes are still replayable input after a successful live
         // install. Replacing even the owner signature cannot borrow the

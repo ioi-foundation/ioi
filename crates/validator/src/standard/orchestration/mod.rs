@@ -395,6 +395,46 @@ where
         resource: &mut dyn agentgres::consequence::ExternalResourceV1,
         candidate: QuvCandidateV0,
     ) -> Result<agentgres::consequence::ConsequenceReceiptV1> {
+        let context = self
+            .main_loop_context
+            .lock()
+            .await
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| anyhow!("orchestrator is not running"))?;
+        if !consequence_store.contains(effect_id) {
+            let runtime_finality = {
+                let context = context.lock().await;
+                context.runtime_finality.clone()
+            };
+            let (admission, current_height) = {
+                let finality = runtime_finality.lock().await;
+                let admission = finality.committed_consequence_manifest(effect_id)?;
+                let current_height = finality
+                    .last_admitted_block()?
+                    .map(|block| block.header.height)
+                    .unwrap_or(admission.admitted_height);
+                (admission, current_height)
+            };
+            if resource.profile() != &admission.manifest.resource_profile {
+                return Err(anyhow!(
+                    "executor resource differs from the Agentgres-admitted manifest"
+                ));
+            }
+            let (authorization, achieved) = agentgres::consequence::AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+                &admission.committed,
+                &admission.manifest,
+            )
+            .map_err(anyhow::Error::new)?;
+            consequence_store
+                .authorize(
+                    admission.manifest,
+                    &achieved,
+                    &authorization,
+                    current_height,
+                )
+                .map_err(anyhow::Error::new)?;
+        }
         let requirement = consequence_store
             .online_authorization_requirement(effect_id)
             .map_err(anyhow::Error::new)?;
@@ -409,13 +449,6 @@ where
             ));
         }
 
-        let context = self
-            .main_loop_context
-            .lock()
-            .await
-            .as_ref()
-            .cloned()
-            .ok_or_else(|| anyhow!("orchestrator is not running"))?;
         let mut verifier_nonce = [0_u8; 32];
         OsRng.fill_bytes(&mut verifier_nonce);
         let receiver = quv::begin_online_authorization(

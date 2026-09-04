@@ -43,6 +43,23 @@ service PublicApi {
 
   // Set an in-memory runtime secret scoped to a session (never persisted).
   rpc SetRuntimeSecret (SetRuntimeSecretRequest) returns (SetRuntimeSecretResponse);
+
+  // Execute one Agentgres-admitted online-QUV consequence. The server runs
+  // PUSHQUERY itself and consumes the process-local result before replying.
+  rpc ExecuteAftQuvEffect (ExecuteAftQuvEffectRequest) returns (ExecuteAftQuvEffectResponse);
+}
+
+message ExecuteAftQuvEffectRequest {
+  string effect_id = 1;
+  // Canonical SCALE QuvCandidateV0 bytes. Never an authorization receipt.
+  bytes candidate_bytes = 2;
+}
+
+message ExecuteAftQuvEffectResponse {
+  // Canonical JCS consequence audit/state after the immediate T10 continuation.
+  bytes consequence_receipt_jcs = 1;
+  // Fixed false. Online timing observations are not portable finality.
+  bool portable_final_receipt = 2;
 }
 
 message SubmitTransactionRequest {

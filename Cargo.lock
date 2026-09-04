@@ -225,6 +225,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "fs2",
+ "hex",
  "ioi-api",
  "ioi-crypto",
  "ioi-finality",
@@ -6717,6 +6718,7 @@ dependencies = [
 name = "ioi-cli"
 version = "0.1.0"
 dependencies = [
+ "agentgres",
  "alloy-primitives",
  "alloy-trie",
  "anyhow",

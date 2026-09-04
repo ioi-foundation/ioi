@@ -6,11 +6,16 @@
 //! the mutation again.
 
 use crate::recognized_effect::CommittedRecognizedEffect;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use fs2::FileExt;
-use ioi_types::app::consensus::VerifiedGuaranteeV1;
+use ioi_api::crypto::{SerializableKey, SigningKeyPair, VerifyingKey};
+use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaPublicKey, MldsaSignature};
+use ioi_types::app::consensus::{CertificateOnlyGuaranteeVerifierV1, VerifiedGuaranteeV1};
 use ioi_types::app::{
-    ConsequenceHash, EffectAuthorizationModeV1, EffectFenceV1, EffectManifestV1,
-    ExternalResourceProfileV1, ExternalResourceRecordV1, ReconciliationPolicyV1,
+    account_id_from_key_material, ConsequenceHash, EffectAuthorizationModeV1, EffectFenceV1,
+    EffectManifestV1, ExternalResourceProfileV1, ExternalResourceRecordV1, ReconciliationPolicyV1,
+    SignatureSuite,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -52,12 +57,22 @@ impl AcceptedEffectAuthorizationV1 {
         committed: &CommittedRecognizedEffect,
         manifest: &EffectManifestV1,
     ) -> Result<Self, ConsequenceError> {
+        Self::from_committed_with_resource_contract(committed, manifest)
+            .map(|(authorization, _)| authorization)
+    }
+
+    /// Reverify the runtime bundle and the exact modeled resource contract,
+    /// returning both the opaque assurance input and its inseparable
+    /// Agentgres authorization. The externalization coordinate describes the
+    /// bound atomic contract; execution evidence is added only after T10 runs.
+    pub fn from_committed_with_resource_contract(
+        committed: &CommittedRecognizedEffect,
+        manifest: &EffectManifestV1,
+    ) -> Result<(Self, VerifiedGuaranteeV1), ConsequenceError> {
         manifest.validate().map_err(type_error)?;
         let manifest_root = manifest.commitment().map_err(type_error)?;
         let expected_manifest_text = format_hash(manifest_root);
-        if committed.record.effect_id != manifest.effect_id
-            || committed.record.effect_manifest_root.as_deref()
-                != Some(expected_manifest_text.as_str())
+        if committed.record.effect_manifest_root.as_deref() != Some(expected_manifest_text.as_str())
         {
             return Err(ConsequenceError::ReplayConflict);
         }
@@ -68,8 +83,23 @@ impl AcceptedEffectAuthorizationV1 {
                 "Agentgres record does not carry one verified effect authorization".into(),
             ));
         }
-        let achieved_guarantee_root = claim
-            .assurance
+        let mut achieved = claim.assurance;
+        achieved.externalization = manifest
+            .resource_profile
+            .advertised_externalization()
+            .map_err(type_error)?;
+        achieved.crypto.externalization_pq = manifest.resource_profile.externalization_pq;
+        achieved.crypto.end_to_end_pq = achieved.crypto.consensus_pq
+            && achieved.crypto.channel_pq
+            && achieved.crypto.externalization_pq;
+        achieved
+            .constituent_hashes
+            .insert(manifest.resource_profile.commitment().map_err(type_error)?);
+        achieved.theorem_ids.insert("T10-resource-contract".into());
+        let verified = CertificateOnlyGuaranteeVerifierV1::verify(&[achieved])
+            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+        let achieved_guarantee_root = verified
+            .achieved()
             .commitment()
             .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
         let authority_snapshot_root = canonical_hash(
@@ -88,14 +118,15 @@ impl AcceptedEffectAuthorizationV1 {
                 authority_snapshot_root,
             ),
         )?;
-        Ok(Self {
+        let authorization = Self {
             effect_id: manifest.effect_id.clone(),
             manifest_root,
             achieved_guarantee_root,
             authority_epoch: committed.record.authority.authority_epoch,
             authority_snapshot_root,
             authorization_receipt_root,
-        })
+        };
+        Ok((authorization, verified))
     }
 }
 
@@ -357,6 +388,252 @@ pub trait ExternalResourceV1 {
     fn verify_record_evidence(&self, record: &ExternalResourceRecordV1) -> bool;
 }
 
+const DURABLE_PQ_REGISTER_ADAPTER_ID: &str = "ioi-durable-pq-register";
+const DURABLE_PQ_REGISTER_ADAPTER_VERSION: &str = "v1";
+const DURABLE_PQ_REGISTER_PROFILE_ID: &str = "resource-profile://ioi/durable-pq-register/v1";
+const DURABLE_PQ_REGISTER_EVIDENCE_SCHEMA: &str = "ioi.aft-pq-resource-evidence.v1";
+const DURABLE_PQ_REGISTER_SIGNATURE_DOMAIN: &[u8] = b"ioi::aft::durable-pq-register-evidence::v1\0";
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DurablePqRegisterStatementV1 {
+    schema: String,
+    record: ExternalResourceRecordV1,
+    endpoint_public_key_base64: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DurablePqRegisterEvidenceV1 {
+    statement: DurablePqRegisterStatementV1,
+    signature_base64: String,
+}
+
+/// File-backed atomic put-if-absent resource with an ML-DSA-authenticated
+/// endpoint statement. Separate executor processes coordinate through the
+/// resource lock and observe one shared register value.
+pub struct DurablePqAtomicRegisterV1 {
+    root: PathBuf,
+    profile: ExternalResourceProfileV1,
+    endpoint: MldsaKeyPair,
+}
+
+impl DurablePqAtomicRegisterV1 {
+    pub fn profile_for(
+        endpoint: &MldsaKeyPair,
+    ) -> Result<ExternalResourceProfileV1, ConsequenceError> {
+        let public = endpoint.public_key().to_bytes();
+        let endpoint_pq_key_hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &public)
+            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+        let profile = ExternalResourceProfileV1 {
+            adapter_id: DURABLE_PQ_REGISTER_ADAPTER_ID.into(),
+            adapter_version: DURABLE_PQ_REGISTER_ADAPTER_VERSION.into(),
+            resource_profile_id: DURABLE_PQ_REGISTER_PROFILE_ID.into(),
+            contract: ioi_types::app::ExternalResourceContractV1::AtomicPutIfAbsent,
+            externalization_pq: true,
+            endpoint_pq_key_hash: Some(endpoint_pq_key_hash),
+        };
+        profile.validate().map_err(type_error)?;
+        Ok(profile)
+    }
+
+    pub fn open(root: impl AsRef<Path>, endpoint: MldsaKeyPair) -> Result<Self, ConsequenceError> {
+        let root = root.as_ref().to_path_buf();
+        fs::create_dir_all(root.join("records"))?;
+        let profile = Self::profile_for(&endpoint)?;
+        Ok(Self {
+            root,
+            profile,
+            endpoint,
+        })
+    }
+
+    fn lock(&self) -> Result<File, std::io::Error> {
+        let lock = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(self.root.join("resource.lock"))?;
+        FileExt::lock_exclusive(&lock)?;
+        Ok(lock)
+    }
+
+    fn record_path(&self, resource_id: &str, idempotency_key: &str) -> PathBuf {
+        let digest = hash_parts(
+            b"ioi::aft::durable-pq-register-key::v1\0",
+            &[resource_id.as_bytes(), idempotency_key.as_bytes()],
+        );
+        self.root
+            .join("records")
+            .join(format!("{}.json", hex::encode(digest)))
+    }
+
+    fn read_record(
+        &self,
+        resource_id: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<ExternalResourceRecordV1>, ConsequenceError> {
+        let path = self.record_path(resource_id, idempotency_key);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let bytes = fs::read(path)?;
+        let record: ExternalResourceRecordV1 = serde_json::from_slice(&bytes)
+            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+        if serde_jcs::to_vec(&record)
+            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?
+            != bytes
+        {
+            return Err(ConsequenceError::Invalid(
+                "external resource record is not canonical JCS".into(),
+            ));
+        }
+        record.validate().map_err(type_error)?;
+        Ok(Some(record))
+    }
+
+    fn sign_record(
+        &self,
+        mut record: ExternalResourceRecordV1,
+    ) -> Result<ExternalResourceRecordV1, ConsequenceError> {
+        let statement = DurablePqRegisterStatementV1 {
+            schema: DURABLE_PQ_REGISTER_EVIDENCE_SCHEMA.into(),
+            record: record.clone(),
+            endpoint_public_key_base64: BASE64.encode(self.endpoint.public_key().to_bytes()),
+        };
+        let mut message = DURABLE_PQ_REGISTER_SIGNATURE_DOMAIN.to_vec();
+        message.extend(
+            serde_jcs::to_vec(&statement)
+                .map_err(|error| ConsequenceError::Invalid(error.to_string()))?,
+        );
+        let evidence = DurablePqRegisterEvidenceV1 {
+            statement,
+            signature_base64: BASE64.encode(
+                self.endpoint
+                    .sign(&message)
+                    .map_err(|error| ConsequenceError::Invalid(error.to_string()))?
+                    .to_bytes(),
+            ),
+        };
+        let evidence = serde_jcs::to_vec(&evidence)
+            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+        record.evidence_hash = Some(canonical_hash(
+            b"ioi::aft::external-resource-evidence::v1\0",
+            &evidence,
+        )?);
+        record.evidence = Some(evidence);
+        record.validate().map_err(type_error)?;
+        Ok(record)
+    }
+}
+
+impl ExternalResourceV1 for DurablePqAtomicRegisterV1 {
+    fn profile(&self) -> &ExternalResourceProfileV1 {
+        &self.profile
+    }
+
+    fn invoke_atomic(
+        &mut self,
+        manifest: &EffectManifestV1,
+    ) -> Result<AtomicMutationResultV1, ResourceInvocationErrorV1> {
+        if manifest.resource_profile != self.profile {
+            return Err(ResourceInvocationErrorV1::DefinitiveRejection(
+                "resource profile mismatch".into(),
+            ));
+        }
+        let _lock = self
+            .lock()
+            .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
+        if let Some(existing) = self
+            .read_record(&manifest.resource_id, &manifest.idempotency_key)
+            .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?
+        {
+            if existing.request_root == manifest.request_root
+                && existing.predecessor_root == manifest.predecessor_root
+                && existing.outcome_root == manifest.expected_outcome_root
+            {
+                return Ok(AtomicMutationResultV1::Existing(existing));
+            }
+            return Err(ResourceInvocationErrorV1::Conflict(existing));
+        }
+        let record = self
+            .sign_record(ExternalResourceRecordV1 {
+                resource_id: manifest.resource_id.clone(),
+                idempotency_key: manifest.idempotency_key.clone(),
+                request_root: manifest.request_root,
+                predecessor_root: manifest.predecessor_root,
+                outcome_root: manifest.expected_outcome_root,
+                mutation_sequence: 1,
+                evidence: None,
+                evidence_hash: None,
+            })
+            .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
+        let bytes = serde_jcs::to_vec(&record).map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
+        atomic_write(
+            &self.record_path(&manifest.resource_id, &manifest.idempotency_key),
+            &bytes,
+        )
+        .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
+        Ok(AtomicMutationResultV1::Inserted(record))
+    }
+
+    fn lookup(
+        &mut self,
+        resource_id: &str,
+        idempotency_key: &str,
+    ) -> Result<Option<ExternalResourceRecordV1>, ResourceLookupErrorV1> {
+        let _lock = self.lock().map_err(|_| ResourceLookupErrorV1::Ambiguous)?;
+        self.read_record(resource_id, idempotency_key)
+            .map_err(|_| ResourceLookupErrorV1::Ambiguous)
+    }
+
+    fn verify_record_evidence(&self, record: &ExternalResourceRecordV1) -> bool {
+        let (Some(evidence), Some(expected_hash)) = (&record.evidence, record.evidence_hash) else {
+            return false;
+        };
+        if canonical_hash(b"ioi::aft::external-resource-evidence::v1\0", evidence).ok()
+            != Some(expected_hash)
+        {
+            return false;
+        }
+        let Ok(envelope) = serde_json::from_slice::<DurablePqRegisterEvidenceV1>(evidence) else {
+            return false;
+        };
+        let mut unsigned = record.clone();
+        unsigned.evidence = None;
+        unsigned.evidence_hash = None;
+        if envelope.statement.schema != DURABLE_PQ_REGISTER_EVIDENCE_SCHEMA
+            || envelope.statement.record != unsigned
+        {
+            return false;
+        }
+        let Ok(public_bytes) = BASE64.decode(&envelope.statement.endpoint_public_key_base64) else {
+            return false;
+        };
+        if account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_bytes).ok()
+            != self.profile.endpoint_pq_key_hash
+        {
+            return false;
+        }
+        let (Ok(public), Ok(signature)) = (
+            MldsaPublicKey::from_bytes(&public_bytes),
+            BASE64
+                .decode(&envelope.signature_base64)
+                .ok()
+                .and_then(|bytes| MldsaSignature::from_bytes(&bytes).ok())
+                .ok_or(()),
+        ) else {
+            return false;
+        };
+        let mut message = DURABLE_PQ_REGISTER_SIGNATURE_DOMAIN.to_vec();
+        let Ok(statement) = serde_jcs::to_vec(&envelope.statement) else {
+            return false;
+        };
+        message.extend(statement);
+        public.verify(&message, &signature).is_ok()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceViolationKindV1 {
@@ -489,6 +766,12 @@ impl ConsequenceStore {
         })
     }
 
+    /// Whether this store already holds durable state for an effect. This is
+    /// existence only; callers must use `load` before relying on its contents.
+    pub fn contains(&self, effect_id: &str) -> bool {
+        self.receipt_path(effect_id).exists()
+    }
+
     #[cfg(test)]
     pub fn arm_crash(&mut self, point: ConsequenceCrashPoint) {
         self.armed_crash = Some(point);
@@ -502,7 +785,7 @@ impl ConsequenceStore {
         current_height: u64,
     ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
         manifest.validate().map_err(type_error)?;
-        validate_fence(&manifest.fence, current_height, achieved, authorization)?;
+        validate_fence(&manifest, current_height, achieved, authorization)?;
         if !manifest.required_guarantees.is_satisfied_by(achieved) {
             return Err(ConsequenceError::PolicyUnsatisfied);
         }
@@ -835,19 +1118,21 @@ enum ConsequenceCrashPoint {
 }
 
 fn validate_fence(
-    fence: &EffectFenceV1,
+    manifest: &EffectManifestV1,
     current_height: u64,
     achieved: &VerifiedGuaranteeV1,
     authorization: &AcceptedEffectAuthorizationV1,
 ) -> Result<(), ConsequenceError> {
-    let valid = match fence {
+    let valid = match &manifest.fence {
         EffectFenceV1::ProtocolHeight {
             configuration_hash,
             minimum_height,
             maximum_height,
         } => {
             (*minimum_height..=*maximum_height).contains(&current_height)
-                && achieved.achieved().safety.configuration_hash == Some(*configuration_hash)
+                && (manifest.authorization_mode
+                    == EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+                    || achieved.achieved().safety.configuration_hash == Some(*configuration_hash))
         }
         EffectFenceV1::AuthorityEpoch {
             authority_snapshot_hash,

@@ -5,8 +5,9 @@ use ioi_ipc::blockchain::{GetStatusRequest, GetStatusResponse, QueryRawStateRequ
 use ioi_ipc::public::public_api_client::PublicApiClient;
 // [FIX] Removed unused imports
 use ioi_ipc::public::{
-    chain_event::Event as ChainEventEnum, GetBlockByHeightRequest, GetTransactionStatusRequest,
-    SubmitTransactionRequest, SubscribeEventsRequest, TxStatus,
+    chain_event::Event as ChainEventEnum, ExecuteAftQuvEffectRequest, ExecuteAftQuvEffectResponse,
+    GetBlockByHeightRequest, GetTransactionStatusRequest, SubmitTransactionRequest,
+    SubscribeEventsRequest, TxStatus,
 };
 use ioi_types::{
     app::{Block, ChainTransaction, Proposal, StateEntry, StateRoot},
@@ -442,6 +443,26 @@ pub async fn submit_transaction_no_wait(rpc_addr: &str, tx: &ChainTransaction) -
 
     log::info!("submit_transaction: accepted -> hash: {}", tx_hash);
     Ok(tx_hash)
+}
+
+/// Ask one relying executor to run a fresh QUV operation and consume the
+/// process-local result directly into T10. The returned bytes are audit/state,
+/// never portable authorization.
+pub async fn execute_aft_quv_effect(
+    rpc_addr: &str,
+    effect_id: &str,
+    candidate: &ioi_types::app::QuvCandidateV0,
+) -> Result<ExecuteAftQuvEffectResponse> {
+    let mut client = connect(rpc_addr).await?;
+    let candidate_bytes = codec::to_bytes_canonical(candidate)
+        .map_err(|error| anyhow!("QUV candidate serialization failed: {error}"))?;
+    Ok(client
+        .execute_aft_quv_effect(tonic::Request::new(ExecuteAftQuvEffectRequest {
+            effect_id: effect_id.into(),
+            candidate_bytes,
+        }))
+        .await?
+        .into_inner())
 }
 
 /// Submits a transaction and waits for it to be COMMITTED.

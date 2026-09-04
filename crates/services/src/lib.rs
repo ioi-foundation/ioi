@@ -1,6 +1,7 @@
 // Path: crates/services/src/lib.rs
 #![forbid(unsafe_code)]
 
+pub mod aft_effect_registry;
 pub mod agentic;
 pub mod governance;
 pub mod guardian_registry;

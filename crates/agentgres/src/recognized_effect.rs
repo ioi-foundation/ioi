@@ -468,11 +468,6 @@ impl PreparedRecognizedEffect {
         mut self,
         manifest: &EffectManifestV1,
     ) -> Result<Self, RecognizedEffectError> {
-        if self.record.effect_id != manifest.effect_id {
-            return Err(RecognizedEffectError::ReplayConflict {
-                identity: manifest.effect_id.clone(),
-            });
-        }
         let digest = manifest
             .commitment()
             .map_err(|error| RecognizedEffectError::Invalid(error.to_string()))?;

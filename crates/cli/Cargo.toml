@@ -86,6 +86,7 @@ alloy-trie = { version = "0.4", optional = true }
 ssz_rs = { version = "0.9", optional = true }
 
 [dev-dependencies]
+agentgres = { path = "../agentgres" }
 ioi-relayer = { path = "../plugins/relayer" } # [FIX] Updated path to plugins/relayer
 ioi-execution = { path = "../execution" }
 ioi-memory = { path = "../memory" }

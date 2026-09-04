@@ -454,6 +454,7 @@ pub struct TestClusterBuilder {
     state_dir: Option<PathBuf>,
     pq_consensus_profile: bool,
     quv_handoff_profile: Option<TestQuvHandoffProfile>,
+    additional_quv_domain_policies: Vec<AftQuvDomainPolicyV0>,
 }
 
 #[derive(Clone)]
@@ -495,6 +496,7 @@ impl Default for TestClusterBuilder {
             state_dir: None,
             pq_consensus_profile: false,
             quv_handoff_profile: None,
+            additional_quv_domain_policies: Vec::new(),
         }
     }
 }
@@ -984,6 +986,14 @@ impl TestClusterBuilder {
             continuation_millis,
             source_path: source_path.into(),
         });
+        self
+    }
+
+    /// Add an independently provisioned QUV policy beside any handoff
+    /// fixture. The harness does not infer this policy from candidate bytes.
+    pub fn with_quv_domain_policy(mut self, policy: AftQuvDomainPolicyV0) -> Self {
+        self.pq_consensus_profile = true;
+        self.additional_quv_domain_policies.push(policy);
         self
     }
 
@@ -1495,7 +1505,7 @@ impl TestClusterBuilder {
             .to_string()
         };
 
-        let (aft_quv_domain_policies, aft_quv_handoff_source) =
+        let (mut aft_quv_domain_policies, aft_quv_handoff_source) =
             if let (Some(profile), Some((old, successor, owner))) = (
                 self.quv_handoff_profile.as_ref(),
                 quv_root_material.as_ref(),
@@ -1527,6 +1537,7 @@ impl TestClusterBuilder {
             } else {
                 (Vec::new(), None)
             };
+        aft_quv_domain_policies.extend(self.additional_quv_domain_policies.clone());
 
         let mut service_policies = ioi_types::config::default_service_policies();
         for (k, v) in self.service_policies_override.clone() {
