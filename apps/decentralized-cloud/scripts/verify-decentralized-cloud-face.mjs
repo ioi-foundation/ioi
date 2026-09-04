@@ -168,20 +168,8 @@ function checkBothDoorsAreOnePrimitive() {
     !/credential|api[_-]?key|secret|token/i.test(JSON.stringify({ human, agent })));
 }
 
-// ── 2f. The identity's provisional score never reaches the reader ───────────
-// The mark is identity v0, scored 50 by blind review. That belongs in the source and
-// on the identity sheet and nowhere a visitor can read it: a public surface that
-// grades its own logo is reporting its confidence rather than its product.
-function checkScoreIsNotOnTheSurface() {
-  const html = readFileSync(path.join(APP, "public/index.html"), "utf8");
-  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
-  ok("the provisional status is recorded in the shell's source",
-    /identity v0 — provisional/.test(html));
-  const visible = html.replace(/<!--[\s\S]*?-->/g, "") +
-    js.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  ok("no rendered text mentions the identity score",
-    !/identity v0|provisional, score|scored? 50/i.test(visible));
-}
+// (2f was a pair of assertions that could not both hold, and it is gone. See
+// checkScoreIsNotServed below, which runs against the server rather than the files.)
 
 // ── 3. The served surface refuses everything it should ──────────────────────
 async function checkServer() {
@@ -199,6 +187,30 @@ async function checkServer() {
 
     const index = await fetch(`${BASE}/`);
     ok("the shell is served", index.status === 200, `HTTP ${index.status}`);
+
+    // ── The identity's provisional score never reaches a reader. ──
+    //
+    // This assertion used to read the SOURCE FILES, strip comments, and scan the
+    // remainder — so it examined a transformed copy while `index.html` shipped
+    // `identity v0 — provisional, score 50` verbatim to every view-source. Worse, it
+    // was paired with a second assertion REQUIRING that phrase to exist in the
+    // source, so the two could not both hold in a file served as-is: the gate was
+    // compelling the very defect it claimed to prevent, and the label could not be
+    // removed without turning the gate red.
+    //
+    // Both are replaced by one assertion that reads the BYTES THE SERVER SENDS,
+    // comments included, across every asset a visitor can fetch. The status now
+    // lives in brand/identity-status.md, which is never served.
+    const servedAssets = ["/", "/face.js", "/face.css"];
+    const leaked = [];
+    for (const asset of servedAssets) {
+      const res = await fetch(`${BASE}${asset}`);
+      const raw = await res.text();
+      if (/identity v0|provisional,? score|scored? 50/i.test(raw)) leaked.push(asset);
+    }
+    ok("the identity's provisional score is in no byte this server sends",
+      leaked.length === 0,
+      leaked.length ? `leaked in ${leaked.join(", ")}` : `${servedAssets.length} assets scanned raw`);
 
     const unknown = await fetch(`${BASE}/api/not-a-real-read`);
     const unknownBody = await unknown.json().catch(() => ({}));
@@ -306,7 +318,6 @@ async function run() {
   checkFreshnessIsDerived();
   checkUnwiredSurfaces();
   checkBothDoorsAreOnePrimitive();
-  checkScoreIsNotOnTheSurface();
   await checkServer();
   await checkBrandGates();
 }
