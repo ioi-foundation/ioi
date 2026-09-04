@@ -41,7 +41,7 @@
   <div class="rule" style="margin: 20px 0 40px;"></div>
 
   <!-- ── Palette ───────────────────────────────────────────────────────── -->
-  <div class="eyebrow" style="margin-bottom: 16px;">Palette — every value is a token</div>
+  <div class="eyebrow" style="margin-bottom: 16px;">Palette — nine of the thirteen tokens these sheets use</div>
   <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 12px;">
     <div style="display: flex; flex-direction: column; gap: 8px;">
       <div class="swatch" style="background: #0a0e19;"></div>
@@ -92,6 +92,14 @@
   <div class="body" style="margin-top: 14px; max-width: 100ch;">
     Each swatch names the token it is, in
     <span class="mono" style="font-size: 12px; color: #0a0e19;">packages/design-system/tokens/colors.css</span>.
+    These nine carry meaning; four more are drawn and carry none —
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#ffffff</span> paper,
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#ececec</span> the softer
+    hairline inside tables and rails,
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#1f1f1f</span> body ink on
+    the type specimens, and
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#3e7f5c</span> the link
+    hover. Thirteen in total, every one of them in that file, and none invented here.
     Exactly one was added to that file for this product rather than kept on a
     sheet: <span class="mono" style="font-size: 12px; color: #0a0e19;">green-on-dark</span>,
     because link green measures 3.53:1 on onyx and fails AA where this measures
@@ -151,9 +159,39 @@
     <span class="chip" style="background: #ffffff; border-color: #e40014; color: #e40014;">
       <span class="dot" style="background: #e40014;"></span>expired
     </span>
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>live_quote_source
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>available
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>storage_backends_engaged
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>credential_preflight_only
+    </span>
+  </div>
+
+  <div class="eyebrow" style="margin: 22px 0 12px;">Statements the surface makes about itself</div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>read-only surface
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>last sweep shown while refreshing
+    </span>
     <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
       <span class="dot" style="background: #818181;"></span>not wired — job api not live
     </span>
+  </div>
+  <div class="body" style="margin-top: 16px; max-width: 100ch;">
+    <strong style="color: #0a0e19;">One rule decides which kind a chip is.</strong>
+    A chip reporting what the daemon said carries the daemon's token verbatim,
+    in mono — nine of them, above, and a surface may not gloss one into friendlier
+    English, because the reader who needs the chip is the reader who will search
+    for that string. A chip reporting what THIS SURFACE is doing is a sentence in
+    plain words, and there are exactly three. Nothing else is a chip.
   </div>
   <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; margin-top: 26px;">
     <div class="body">
@@ -256,7 +294,7 @@
       <div style="display: flex; align-items: center; gap: 9px;">
         <span style="width: 22px; height: 1px; background: #cecece;"></span>
         <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #636363;">an</span>
-        <span class="w" style="font-size: 13px; color: #0a0e19;">ioi</span>
+        <span class="w" style="font-size: 18px; color: #0a0e19;">ioi</span>
         <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #636363;">product</span>
       </div>
     </div>

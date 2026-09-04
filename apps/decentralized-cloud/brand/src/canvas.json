@@ -1,10 +1,10 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 1660, "title": "Identity sheet" },
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 1840, "title": "Identity sheet" },
     { "file": "DirectionA.dc.html", "x": 0, "y": 1700, "w": 720, "h": 540, "title": "Direction A — the dot and its window" },
     { "file": "DirectionB.dc.html", "x": 820, "y": 1700, "w": 720, "h": 540, "title": "Direction B — the convergence" },
     { "file": "DirectionC.dc.html", "x": 1640, "y": 1700, "w": 720, "h": 540, "title": "Direction C — the field" },
-    { "file": "System.dc.html", "x": 0, "y": 2460, "w": 1240, "h": 1770, "title": "Visual system" },
+    { "file": "System.dc.html", "x": 0, "y": 2460, "w": 1240, "h": 2000, "title": "Visual system" },
     { "file": "Explorer.dc.html", "x": 0, "y": 4330, "w": 1440, "h": 1100, "title": "Candidate explorer — reads the live daemon" },
     { "file": "Composer.dc.html", "x": 1560, "y": 4330, "w": 1440, "h": 1010, "title": "Job composer — designed, not wired" }
   ],

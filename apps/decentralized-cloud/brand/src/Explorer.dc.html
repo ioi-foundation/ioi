@@ -136,22 +136,14 @@
 
         <div style="display: grid; grid-template-columns: 132px minmax(0, 1fr) 124px 132px; gap: 20px;
                     padding: 16px 20px; align-items: center;">
+          <div class="mono" style="font-size: 14px; color: #636363;">akash</div>
           <div style="display: flex; flex-direction: column; gap: 7px;">
-            <div class="mono" style="font-size: 14px; color: #636363;">akash</div>
             <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363; align-self: start;">
-              <span class="dot" style="background: #818181;"></span>no quote
+              <span class="dot" style="background: #818181;"></span>credential_preflight_only
             </span>
-          </div>
-          <div style="font-size: 13px; color: #636363; line-height: 1.5;">
-            <span class="mono" style="font-size: 12px;">provider_capable · credential_preflight_only · lifecycle_adapter_absent</span><br>
-            Reached as a candidate under source
-            <span class="mono" style="font-size: 12px;">direct_provider</span>; the
-            <span class="mono" style="font-size: 12px;">depin_market</span> source that
-            would price it reports
-            <span class="mono" style="font-size: 12px;">akash_credential_absent</span> in
-            the rail. An account that exists without a resolvable sealed credential is
-            exactly that: reachable, unpriceable — which is not the same thing as
-            expensive.
+            <div class="mono" style="font-size: 12px; color: #636363; line-height: 1.5;">
+              provider_capable · lifecycle_adapter_absent
+            </div>
           </div>
           <div class="mono" style="font-size: 13px; color: #636363;">—</div>
           <div class="mono" style="font-size: 13px; color: #636363;">—</div>
@@ -165,6 +157,14 @@
         <span class="mono" style="font-size: 12px;">expires_at</span> still in the
         future, and a quote reference it can be traced back to. Simulator lanes are
         excluded from this table, from the venue count, and from any fee.
+        <br><br>
+        Akash is in the table without one: it is reachable as a candidate under
+        <span class="mono" style="font-size: 12px;">direct_provider</span>, while the
+        <span class="mono" style="font-size: 12px;">depin_market</span> source that would
+        price it reports
+        <span class="mono" style="font-size: 12px;">akash_credential_absent</span> in the
+        rail. An account that exists without a resolvable sealed credential is exactly
+        that — reachable, unpriceable — which is not the same thing as expensive.
       </div>
 
       <div class="lbl" style="margin: 34px 0 12px;">What this page does with a fifteen-minute window</div>
@@ -234,7 +234,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #0a0e19;">storage_network</span>
           <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
-            <span class="dot" style="background: #397554;"></span>backends_engaged
+            <span class="dot" style="background: #397554;"></span>storage_backends_engaged
           </span>
         </div>
         <div class="sreason">Verified storage backends. Storage availability is not restore truth.</div>
@@ -244,7 +244,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #0a0e19;">direct_provider</span>
           <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
-            <span class="dot" style="background: #818181;"></span>preflight only
+            <span class="dot" style="background: #818181;"></span>credential_preflight_only
           </span>
         </div>
         <div class="sreason">Connected cloud-kind accounts — provider-capable, no lifecycle adapter yet.</div>
@@ -254,7 +254,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">runpod</span>
           <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
-            <span class="dot" style="background: #818181;"></span>unavailable
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
           </span>
         </div>
         <div class="sreason">
@@ -267,7 +267,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">depin_market</span>
           <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
-            <span class="dot" style="background: #818181;"></span>unavailable
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
           </span>
         </div>
         <div class="sreason">
@@ -280,7 +280,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">managed_capacity</span>
           <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
-            <span class="dot" style="background: #818181;"></span>unavailable
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
           </span>
         </div>
         <div class="sreason">
@@ -293,7 +293,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">decentralized.cloud</span>
           <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
-            <span class="dot" style="background: #818181;"></span>unavailable
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
           </span>
         </div>
         <div class="sreason">
@@ -306,7 +306,7 @@
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">aws · gcp · azure · k8s · lambda_cloud</span>
           <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
-            <span class="dot" style="background: #818181;"></span>unavailable
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
           </span>
         </div>
         <div class="sreason">

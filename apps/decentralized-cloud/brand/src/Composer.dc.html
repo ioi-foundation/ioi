@@ -147,7 +147,7 @@
   "intent": {
     "runtime_class": "compute.gpu_runtime",
     "resource_classes": ["compute.gpu_runtime"],
-    "gpu": { "required": true, "min_vram_gb": 24 },
+    "gpu": { "required": true, "count": 1, "min_vram_gb": 24 },
     "user_placement_choice": "let_hypervisor_choose",
     "selection_mode": "auto"
   },
