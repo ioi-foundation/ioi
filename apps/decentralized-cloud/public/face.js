@@ -63,7 +63,12 @@ async function read(path) {
 }
 
 const surface = document.getElementById("surface");
-const intentRef = new URL(location.href).searchParams.get("intent") || "";
+
+// Cold start renders the daemon's own default intent, which already exists and is
+// reachable by a GET. `?intent=` overrides it. Creating an intent with custom
+// constraints is a write, and this surface performs none.
+const DEFAULT_INTENT = "cloud-resource-intent://cri_default";
+const intentRef = new URL(location.href).searchParams.get("intent") || DEFAULT_INTENT;
 
 const waiting = (what) =>
   el("div", { class: "stack", style: "gap: 10px;" },
@@ -80,21 +85,6 @@ const failure = (r) =>
 
 // ── Candidates ───────────────────────────────────────────────────────────────
 async function renderCandidates() {
-  if (!intentRef) {
-    surface.replaceChildren(
-      el("div", { class: "stack", style: "gap: 18px;" },
-        el("h1", {}, "Candidates"),
-        el("div", { class: "panel absent stack", style: "gap: 10px;" },
-          el("h2", {}, "No intent to price"),
-          el("p", { class: "prose" },
-            "Candidates are always candidates FOR something — a runtime class, a GPU " +
-            "requirement, a region. Opening a new intent is a write, and this surface " +
-            "performs none, so it renders an intent it is given rather than creating one."),
-          el("p", { class: "prose mono", style: "font-size: 12px;" },
-            "add ?intent=cloud-resource-intent://cri_… to this URL"))));
-    return;
-  }
-
   surface.replaceChildren(waiting("candidates"));
   const r = await read(`/api/candidates?intent_ref=${encodeURIComponent(intentRef)}`);
   if (!r.ok) return surface.replaceChildren(failure(r));
@@ -120,7 +110,10 @@ async function renderCandidates() {
           "A routing decision needs at least two venues to be a decision at all. " +
           (venues.length === 1
             ? `Every quote below is real and every one of them is ${venues[0]}, so this intent can be priced but not routed, and no fee can be minted against it.`
-            : "Nothing here is priced, and no price has been invented to fill the gap.")));
+            : "Nothing here is priced, and no price has been invented to fill the gap. " +
+              "Quotes are good for about fifteen minutes, and taking a fresh one is a write " +
+              "this surface does not perform — so an intent nobody has refreshed lately shows " +
+              "its evidence expired rather than a price it cannot stand behind.")));
 
   const rows = [
     el("div", { class: "trow head" },
@@ -159,15 +152,27 @@ async function renderCandidates() {
       el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "same window")));
   }
 
+  // Everything that is not live is summarised by the reason it is not, rather than
+  // given a row each: a default intent accumulates hundreds of candidates across
+  // sweeps, and six hundred rows of "not a price" is not more honest than a count.
+  const notLive = new Map();
   for (const c of candidates) {
     const verdict = classify(c);
     if (verdict.live) continue;
+    const entry = notLive.get(verdict.reason) || { count: 0, kinds: new Set() };
+    entry.count += 1;
+    entry.kinds.add(c.provider_kind || c.source || "—");
+    notLive.set(verdict.reason, entry);
+  }
+
+  for (const [reason, entry] of [...notLive.entries()].sort((a, b) => b[1].count - a[1].count)) {
     rows.push(el("div", { class: "trow" },
       el("div", { class: "stack", style: "gap: 7px;" },
-        el("div", { class: "mono", style: "font-size: 14px; color: var(--label);" }, c.provider_kind || c.source || "—"),
-        chip(verdict.reason === "expired" ? "expired" : "no quote", verdict.reason === "expired" ? "expired" : "")),
+        el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" },
+          [...entry.kinds].sort().join(", ")),
+        chip(reason === "expired" ? "expired" : "not a price", reason === "expired" ? "expired" : "")),
       el("div", { class: "prose" },
-        (Array.isArray(c.eligibility_labels) ? c.eligibility_labels.join(" · ") : verdict.reason)),
+        `${entry.count} candidate${entry.count === 1 ? "" : "s"} — ${reason}.`),
       el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—"),
       el("div", { class: "mono", style: "font-size: 13px; color: var(--label);" }, "—")));
   }
