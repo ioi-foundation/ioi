@@ -17,13 +17,20 @@ The M13Q assumptions remain visible. The lift adds:
 | Q-EA4 | Every irreversible executor performs its own QUV operation against the active rooted membership immediately before entering T10's durable `Claimed` state | consequence authorization |
 | Q-EA5 | `EffectManifestV1` derives one stable idempotency key from the rooted conflict domain and slot, not from the candidate payload, and commits the exact atomic-resource profile | same-conflict deduplication |
 | Q-EA6 | The external resource and executor satisfy T10's atomic idempotency-register and claim-before-call assumptions | at-most-once physical mutation |
-| Q-EA7 | Reconfiguration is a typed handoff candidate under the old root; before old-root expiry, every correct new member performs QUV against every old correct member within the old rooted bound and durably installs the accepted predecessor/state root before activating | live handoff continuity |
+| Q-EA7 | Reconfiguration is a typed handoff candidate under the old root that binds the exact old-root boundary block, state root, and authenticated ordering QC; before old-root expiry, every correct new member performs QUV against every old correct member within the old rooted bound, independently verifies that QC under the old root, and durably installs the accepted predecessor/state root before activating | live ordering and handoff continuity |
 | Q-EA8 | A client joining after the old authority is no longer reachable receives the current root through an independently provisioned trust channel; historical bytes alone do not establish currentness | honest bootstrap boundary |
 
 Q-EA7 is intentionally stronger than carrying a signed handoff transcript. A
 transcript is bytes and cannot preserve QUV's online timing fact. If no correct
 new member completes the live handoff before expiry, the new configuration does
 not activate under this theorem.
+
+The embedded boundary QC is replayable ordering evidence, not transition
+authority. Every correct old member accepts the candidate only when those bytes
+equal the QC it independently verified for the exact local boundary. A
+successor uses the QC to seed parent continuity only after its own live QUV
+operation succeeds; possession of the QC or handoff bytes alone never enables
+the successor identity.
 
 ## 2. Theorems
 

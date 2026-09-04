@@ -613,10 +613,12 @@ resume point and the minimum evidence the owner must supply.
 1. Preserve M10's closed R5 qualification and the exact M12b R4
    `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
-2. Finish M15Q from its locally passing runtime foundation: prove the
-   process-level executor path and complete the Q-EA7 live-overlap coordinator
-   over the implemented typed/rollback-anchored handoff gate. Ordinary QUV
-   validator-set promotion now refuses until that live authorization exists.
+2. Finish M15Q from commit `e8ec2dc44` or its descendant. The eight-process
+   disjoint-root Q-EA7 release fixture now passes through successor progress,
+   with an old-root-authenticated boundary QC bound into the owner-signed
+   payload and independently replay-verified by each successor. Add
+   process-restart recovery at every durable transition, finish operator source
+   tooling, and prove the executor-to-members-to-T10 external-resource path.
    Retain complete non-authorizing audit evidence without relabeling an
    existing certificate class.
 3. Execute M16Q against the bounded QUV scheduling architecture. Qualify Q-A3
