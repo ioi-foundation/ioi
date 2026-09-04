@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "apps/aiagent-xyz",
+    "apps/decentralized-cloud",
     "apps/developers-ioi-ai",
     "apps/hypervisor",
     "apps/hypervisor-web",

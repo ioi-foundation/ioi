@@ -27,9 +27,12 @@
     .lbl { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
       letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
     .field { display: flex; flex-direction: column; gap: 8px; }
-    .input { border: 1px solid #cecece; border-radius: 7px; padding: 11px 13px; background: #f9f9f9;
-      color: #636363; font-size: 14px; min-height: 44px; box-sizing: border-box; display: flex;
+    .input { border: 1px solid #cecece; border-radius: 7px; padding: 11px 13px; background: #ffffff;
+      color: #0a0e19; font-size: 14px; min-height: 44px; box-sizing: border-box; display: flex;
       align-items: center; justify-content: space-between; gap: 12px; }
+    /* An unfilled control must not look like a chosen value. Placeholders sit on the
+       surface tint in label grey; a chosen value is ink on paper. */
+    .input.empty { background: #f9f9f9; color: #636363; font-style: italic; }
     .hint { font-size: 13px; line-height: 1.45; color: #636363; }
   </style>
 </helmet>
@@ -38,11 +41,18 @@
 
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 32px;
               padding: 0 40px; height: 66px; border-bottom: 1px solid #e1e1e1;">
-    <div style="display: flex; align-items: baseline;">
-      <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
+    <div style="display: flex; align-items: center; gap: 11px;">
+      <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
+        <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+        <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
+        <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+      </svg>
+      <div style="display: flex; align-items: baseline;">
+        <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
+      </div>
     </div>
     <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
-      <span class="dot" style="background: #818181;"></span>not wired — waiting on M15.3
+      <span class="dot" style="background: #818181;"></span>not wired — job api not live
     </span>
   </div>
 
@@ -80,10 +90,12 @@
         <div class="field">
           <div class="lbl">deadline</div>
           <div class="input"><span>max duration · 4 hours</span><span class="mono" style="font-size: 12px;">▾</span></div>
+          <div class="hint">An absolute deadline or a maximum duration. The job is complete
+            when its receipt chain is complete, which is not the same moment.</div>
         </div>
         <div class="field">
           <div class="lbl">budget_ref</div>
-          <div class="input"><span>select an external_spend budget</span><span class="mono" style="font-size: 12px;">▾</span></div>
+          <div class="input empty"><span>select an external_spend budget</span><span class="mono" style="font-size: 12px;">▾</span></div>
           <div class="hint">An existing budget, never an amount typed here. A request with no
             resolvable budget is refused by name:
             <span class="mono" style="font-size: 12px;">budget_undiscovered_before_mutation</span>.</div>
@@ -149,7 +161,10 @@
   "authority_ref": "capability-lease://cl_...",
   "budget_ref": "budget://external_spend/...",
   "deadline": { "max_duration_s": 14400 },
-  "receipt_requirements": ["placement", "spend"],
+  "receipt_requirements": [
+    "placement", "provider-operation", "spend",
+    "failover", "offline-verifiable"
+  ],
   "redundancy": { "posture": "none" }
 }</pre>
       </div>

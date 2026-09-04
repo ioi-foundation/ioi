@@ -39,11 +39,18 @@
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 32px;
               padding: 0 40px; height: 66px; border-bottom: 1px solid #e1e1e1;">
     <div style="display: flex; align-items: center; gap: 40px;">
-      <div style="display: flex; align-items: baseline;">
-        <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+        </svg>
+        <div style="display: flex; align-items: baseline;">
+          <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
+        </div>
       </div>
       <div style="display: flex; align-items: center; gap: 26px;">
-        <span class="nav" style="color: #0a0e19; box-shadow: inset 0 -2px 0 #397554; padding-bottom: 4px;">Candidates</span>
+        <span class="nav" style="color: #0a0e19; box-shadow: inset 0 -2px 0 #0a0e19; padding-bottom: 4px;">Candidates</span>
         <span class="nav">Sources</span>
         <span class="nav">Placement</span>
         <span class="nav">Receipts</span>
@@ -78,7 +85,7 @@
       </div>
 
       <!-- One venue is not a routing decision -->
-      <div style="margin-top: 26px; border: 1px solid #e1e1e1; border-left: 3px solid #397554;
+      <div style="margin-top: 26px; border: 1px solid #e1e1e1; border-left: 3px solid #0a0e19;
                   border-radius: 8px; padding: 20px 22px; display: flex; flex-direction: column; gap: 9px;">
         <div style="font-size: 18px; letter-spacing: -0.012em;">24 live quotes, from one venue</div>
         <div style="font-size: 14px; line-height: 1.5; color: #636363; max-width: 74ch;">
@@ -131,14 +138,20 @@
                     padding: 16px 20px; align-items: center;">
           <div style="display: flex; flex-direction: column; gap: 7px;">
             <div class="mono" style="font-size: 14px; color: #636363;">akash</div>
-            <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #636363; align-self: start;">
-              <span class="dot" style="background: #cecece;"></span>no quote
+            <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363; align-self: start;">
+              <span class="dot" style="background: #818181;"></span>no quote
             </span>
           </div>
           <div style="font-size: 13px; color: #636363; line-height: 1.5;">
-            provider_capable · credential_preflight_only · lifecycle_adapter_absent.
-            A venue that can be reached and cannot yet be priced, which is not the
-            same thing as an expensive one.
+            <span class="mono" style="font-size: 12px;">provider_capable · credential_preflight_only · lifecycle_adapter_absent</span><br>
+            Reached as a candidate under source
+            <span class="mono" style="font-size: 12px;">direct_provider</span>; the
+            <span class="mono" style="font-size: 12px;">depin_market</span> source that
+            would price it reports
+            <span class="mono" style="font-size: 12px;">akash_credential_absent</span> in
+            the rail. An account that exists without a resolvable sealed credential is
+            exactly that: reachable, unpriceable — which is not the same thing as
+            expensive.
           </div>
           <div class="mono" style="font-size: 13px; color: #636363;">—</div>
           <div class="mono" style="font-size: 13px; color: #636363;">—</div>
@@ -158,24 +171,25 @@
       <div style="border: 1px solid #e1e1e1; border-radius: 10px; padding: 20px 22px;
                   display: flex; flex-direction: column; gap: 16px;">
         <div style="display: flex; align-items: center; gap: 0;">
-          <div style="flex-grow: 1; height: 4px; border-radius: 2px; background: #397554;"></div>
+          <div style="flex-grow: 1; height: 4px; border-radius: 2px 0 0 2px; background: #cecece;"></div>
           <div style="width: 2px; height: 14px; background: #0a0e19;"></div>
-          <div style="width: 74px; height: 4px; background: #e1e1e1;"></div>
-          <div style="width: 2px; height: 14px; background: #b8000f;"></div>
+          <div style="width: 74px; height: 4px; border-radius: 0 2px 2px 0; background: #397554;"></div>
+          <div style="width: 2px; height: 14px; background: #e40014;"></div>
         </div>
         <div style="display: flex; justify-content: space-between; gap: 16px;">
-          <div class="mono" style="font-size: 12px; color: #636363;">observed 15:11:41Z</div>
+          <div class="mono" style="font-size: 12px; color: #636363;">observed 15:11:41Z · spent</div>
           <div class="mono" style="font-size: 12px; color: #636363;">refresh at 12 min</div>
-          <div class="mono" style="font-size: 12px; color: #b8000f;">expires 15:26:41Z</div>
+          <div class="mono" style="font-size: 12px; color: #e40014;">expires 15:26:41Z</div>
         </div>
         <div style="font-size: 13px; line-height: 1.55; color: #636363;">
-          A full sweep takes 38.8 seconds against one live adapter, so the page shows
-          the last sweep with the time it was observed rather than an empty spinner,
-          and starts the next one three minutes before the window closes. A quote
-          past its
+          Grey is the window already spent, green is what is left — the same reading
+          as the mark, where the drawn arc is the window still good and the gap is
+          the part gone. A full sweep takes 38.8 seconds against one live adapter, so
+          the page shows the last sweep with the time it was observed rather than an
+          empty spinner, and starts the next one three minutes before the window
+          closes. A quote past its
           <span class="mono" style="font-size: 12px;">expires_at</span> turns red and
-          stops being a price — it is never re-labelled as current, and never
-          silently re-used.
+          stops being a price — never re-labelled as current, never silently re-used.
         </div>
       </div>
     </div>
@@ -233,8 +247,8 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">runpod</span>
-          <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #636363;">
-            <span class="dot" style="background: #cecece;"></span>unavailable
+          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
         <div class="sreason">
@@ -246,8 +260,8 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">depin_market</span>
-          <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #636363;">
-            <span class="dot" style="background: #cecece;"></span>unavailable
+          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
         <div class="sreason">
@@ -259,8 +273,8 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">managed_capacity</span>
-          <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #636363;">
-            <span class="dot" style="background: #cecece;"></span>unavailable
+          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
         <div class="sreason">
@@ -272,8 +286,8 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">decentralized.cloud</span>
-          <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #636363;">
-            <span class="dot" style="background: #cecece;"></span>unavailable
+          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
         <div class="sreason">
@@ -283,9 +297,16 @@
       </div>
 
       <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #636363;">aws · gcp · azure · k8s · lambda_cloud</span>
+          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>unavailable
+          </span>
+        </div>
         <div class="sreason">
-          aws · gcp · azure · k8s · lambda_cloud — credential absent, each naming the
-          credential kind it would need.
+          Five more credential-absent sources, each naming the credential kind it
+          would need — SigV4, a service-account key, a service principal, a bearer
+          token or kubeconfig, a bearer api_key.
         </div>
       </div>
     </div>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>decentralized.cloud</title>
+  <link rel="stylesheet" href="/face.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <div style="display: flex; align-items: center; gap: 11px;">
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+        </svg>
+        <div class="wordmark" style="font-size: 22px;" aria-label="decentralized.cloud">
+          <span>decentralized</span><span class="dot"></span><span>cloud</span>
+        </div>
+      </div>
+      <nav class="nav" aria-label="Surfaces">
+        <button type="button" data-surface="candidates" aria-current="page">Candidates</button>
+        <button type="button" data-surface="sources">Sources</button>
+        <button type="button" data-surface="placement">Placement</button>
+        <button type="button" data-surface="job">Submit a job</button>
+        <button type="button" data-surface="api">API</button>
+      </nav>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span class="meta" id="daemon-label">daemon —</span>
+      <span class="chip muted"><span class="dot"></span>read-only surface</span>
+    </div>
+  </header>
+
+  <main id="surface" aria-live="polite">
+    <p class="prose">Asking the daemon.</p>
+  </main>
+
+  <script type="module" src="/face.js"></script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+/* decentralized.cloud — the public face.
+   Every value here is a token from packages/design-system/tokens/*.css, restated
+   locally because this surface is served standalone and pulls no stylesheet from
+   another app. Where a value has no token it is not used. */
+
+@font-face { font-family: "IOI Display"; src: url("/fonts/IOI.ttf") format("truetype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "ABC Diatype"; src: url("/fonts/ABCDiatype-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "ABC Diatype"; src: url("/fonts/ABCDiatype-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "ABC Diatype Mono"; src: url("/fonts/ABCDiatypeSemi-Mono-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+
+:root {
+  --ink: #0a0e19;
+  --live: #397554;
+  --live-on-dark: #7bbd97;
+  --expired: #e40014;
+  --label: #636363;
+  --muted: #818181;
+  --hairline: #e1e1e1;
+  --hairline-soft: #ececec;
+  --border-strong: #cecece;
+  --surface: #f9f9f9;
+  --paper: #ffffff;
+
+  --sans: "ABC Diatype", ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  --mono: "ABC Diatype Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --brand: "IOI Display", "ABC Diatype", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+a { color: var(--live); }
+a:hover { color: #3e7f5c; }
+
+.mono { font-family: var(--mono); }
+
+/* ── Wordmark ─────────────────────────────────────────────────────────────
+   The horizontal signature is permitted only above 400px of clear width; below
+   that the shell swaps to the stacked lockup. The dot is one quarter of the cap
+   height (0.175em), rounded up. */
+.wordmark { display: flex; align-items: baseline; font-family: var(--brand);
+  font-weight: 400; letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+.wordmark .dot { display: inline-block; border-radius: 50%; background: var(--live);
+  width: 4px; height: 4px; margin: 0 2px; }
+
+/* ── Chrome ───────────────────────────────────────────────────────────────── */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 32px;
+  padding: 0 40px; height: 66px; border-bottom: 1px solid var(--hairline);
+  position: sticky; top: 0; background: var(--paper); z-index: 2; }
+.topbar-left { display: flex; align-items: center; gap: 40px; }
+.nav { display: flex; align-items: center; gap: 26px; }
+.nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
+  color: var(--label); cursor: pointer; }
+/* Green marks live evidence and nothing else, so the current-surface underline is
+   ink. A selection colour that is also the evidence colour makes chrome look like
+   a claim. */
+.nav button[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+
+main { padding: 34px 40px 56px; max-width: 1560px; }
+
+h1 { margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400; }
+h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; font-weight: 400; }
+
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--label); }
+.meta { font-family: var(--mono); font-size: 12px; color: var(--label); }
+.prose { font-size: 13px; line-height: 1.55; color: var(--label); max-width: 88ch; }
+
+/* ── Evidence chips ───────────────────────────────────────────────────────
+   Green is worn only by a candidate the daemon returned as live_evidence. Grey is
+   absence. Red means one thing: a quote past its expires_at. */
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px;
+  border-radius: 999px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
+  border: 1px solid var(--hairline); background: var(--paper); color: var(--label);
+  white-space: nowrap; }
+/* A state dot carries meaning, so it clears the 3:1 non-text floor (grey-700 on
+   white measures 3.90:1); a hairline grey would not. */
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.chip.live { border-color: var(--live); color: var(--live); }
+.chip.live .dot { background: var(--live); }
+.chip.muted { background: var(--surface); border-color: var(--border-strong); }
+.chip.muted .dot { background: var(--muted); }
+.chip.expired { border-color: var(--expired); color: var(--expired); }
+.chip.expired .dot { background: var(--expired); }
+
+/* ── Panels and tables ────────────────────────────────────────────────────── */
+.panel { border: 1px solid var(--hairline); border-radius: 10px; padding: 20px 22px; }
+.panel.flag { border-left: 3px solid var(--ink); }
+.panel.absent { border-left: 3px solid var(--border-strong); }
+.panel.fault { border-left: 3px solid var(--expired); }
+
+.table { border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.trow { display: grid; grid-template-columns: 148px minmax(0, 1fr) 132px 148px; gap: 20px;
+  padding: 16px 20px; align-items: center; border-top: 1px solid var(--hairline-soft); }
+.trow.head { padding: 12px 20px; background: var(--surface); border-top: 0;
+  border-bottom: 1px solid var(--hairline); }
+.trow.head > * { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--label); }
+
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 40px; align-items: start; }
+.stack { display: flex; flex-direction: column; }
+.rail { border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface);
+  padding: 22px 24px; }
+.srow { display: flex; flex-direction: column; gap: 6px; padding: 13px 0;
+  border-top: 1px solid var(--hairline-soft); }
+.srow:first-of-type { border-top: 0; }
+.srow-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.srow-reason { font-size: 13px; line-height: 1.45; color: var(--label); }
+
+/* ── Write surfaces: designed, not connected ──────────────────────────────── */
+.unwired-banner { display: flex; align-items: baseline; gap: 14px; padding: 16px 40px;
+  background: var(--surface); border-bottom: 1px solid var(--hairline); }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--label); }
+.field-box { border: 1px solid var(--border-strong); border-radius: 7px; padding: 11px 13px;
+  background: var(--surface); color: var(--label); font-size: 14px; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.field-hint { font-size: 13px; line-height: 1.45; color: var(--label); }
+.button-inert { background: var(--hairline-soft); color: var(--muted); border: 0; border-radius: 8px;
+  padding: 0 22px; height: 46px; display: inline-flex; align-items: center; font: inherit;
+  font-size: 16px; cursor: not-allowed; }
+pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-radius: 10px;
+  padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
+
+@media (max-width: 1180px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .trow { grid-template-columns: 120px minmax(0, 1fr); }
+  .trow > :nth-child(3), .trow > :nth-child(4) { grid-column: 2; }
+}

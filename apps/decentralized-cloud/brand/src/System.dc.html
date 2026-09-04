@@ -42,7 +42,7 @@
 
   <!-- ── Palette ───────────────────────────────────────────────────────── -->
   <div class="eyebrow" style="margin-bottom: 16px;">Palette — every value is a token</div>
-  <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px;">
+  <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 12px;">
     <div style="display: flex; flex-direction: column; gap: 8px;">
       <div class="swatch" style="background: #0a0e19;"></div>
       <div class="mono" style="font-size: 12px; color: #0a0e19;">#0a0e19</div>
@@ -59,14 +59,24 @@
       <div class="mono" style="font-size: 12px; color: #636363;">green-on-dark</div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px;">
-      <div class="swatch" style="background: #b8000f;"></div>
-      <div class="mono" style="font-size: 12px; color: #0a0e19;">#b8000f</div>
-      <div class="mono" style="font-size: 12px; color: #636363;">red-700 · expired</div>
+      <div class="swatch" style="background: #e40014;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#e40014</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">red-600 · expired</div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px;">
       <div class="swatch" style="background: #636363;"></div>
       <div class="mono" style="font-size: 12px; color: #0a0e19;">#636363</div>
       <div class="mono" style="font-size: 12px; color: #636363;">grey-800 · labels</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #818181;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#818181</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-700 · state dot</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #cecece;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#cecece</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-600 · controls</div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px;">
       <div class="swatch" style="background: #f9f9f9; border: 1px solid #e1e1e1; box-sizing: border-box;"></div>
@@ -79,15 +89,18 @@
       <div class="mono" style="font-size: 12px; color: #636363;">grey-500 · hairline</div>
     </div>
   </div>
-  <div class="body" style="margin-top: 14px; max-width: 96ch;">
+  <div class="body" style="margin-top: 14px; max-width: 100ch;">
     Each swatch names the token it is, in
     <span class="mono" style="font-size: 12px; color: #0a0e19;">packages/design-system/tokens/colors.css</span>.
-    Two of them were added to that file for this product rather than kept on a
+    Exactly one was added to that file for this product rather than kept on a
     sheet: <span class="mono" style="font-size: 12px; color: #0a0e19;">green-on-dark</span>,
-    because link green sits at 1.9:1 on onyx and fails, and
-    <span class="mono" style="font-size: 12px; color: #0a0e19;">red-700</span>,
-    because red 600 does not clear 4.5:1 at label sizes on white. Nothing on
-    these sheets uses a colour that is not in that file.
+    because link green measures 3.53:1 on onyx and fails AA where this measures
+    8.78:1. A second was drafted and then deleted — a darkened red for the
+    expired chip — once measurement showed red-600 already clears at 4.87:1 and
+    the token was solving nothing. Every figure in this paragraph comes from
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">brand/measure-contrast.mjs</span>,
+    which prints them from the hex values themselves; the first draft of this
+    sheet asserted two contrast numbers from memory and both were wrong.
   </div>
 
   <!-- ── Type ──────────────────────────────────────────────────────────── -->
@@ -132,23 +145,24 @@
     <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
       <span class="dot" style="background: #818181;"></span>advisory_only
     </span>
-    <span class="chip" style="background: #ffffff; border-color: #e1e1e1; color: #636363;">
-      <span class="dot" style="background: #cecece;"></span>candidate_source_unavailable
+    <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
     </span>
-    <span class="chip" style="background: #ffffff; border-color: #b8000f; color: #b8000f;">
-      <span class="dot" style="background: #b8000f;"></span>expired
+    <span class="chip" style="background: #ffffff; border-color: #e40014; color: #e40014;">
+      <span class="dot" style="background: #e40014;"></span>expired
     </span>
     <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
-      <span class="dot" style="background: #818181;"></span>not wired — waiting on M15.3
+      <span class="dot" style="background: #818181;"></span>not wired — job api not live
     </span>
   </div>
   <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; margin-top: 26px;">
     <div class="body">
-      <strong style="color: #0a0e19;">Green is earned, and it is the only earned colour.</strong>
+      <strong style="color: #0a0e19;">Green means live evidence, and nothing else.</strong>
       A candidate wears it only when the daemon returned it as
       <span class="mono" style="font-size: 12px;">evidence_mode: live_evidence</span>.
-      A simulator candidate is grey, is labelled in words, and never counts
-      toward a comparison or a fee.
+      It is not the selection colour, not the accent on a callout, and not the
+      chrome of the current tab — those are ink and grey, so that green on a
+      surface is always a claim about evidence rather than a decoration.
     </div>
     <div class="body">
       <strong style="color: #0a0e19;">Grey is absence, red is time.</strong> A
@@ -156,7 +170,9 @@
       daemon's own words, in the row where a price would have been. Red means
       one thing only: a quote whose
       <span class="mono" style="font-size: 12px;">expires_at</span> has passed
-      and which the surface has not yet refreshed.
+      and which the surface has not yet refreshed. A state dot carries meaning,
+      so it is drawn in grey-700 at 3.90:1 rather than a hairline grey that
+      would fail the 3:1 floor for non-text.
     </div>
     <div class="body">
       <strong style="color: #0a0e19;">Unwired is visible.</strong> Write

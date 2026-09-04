@@ -1,12 +1,12 @@
 {
   "artboards": [
-    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 1220, "title": "Identity sheet" },
-    { "file": "DirectionA.dc.html", "x": 0, "y": 1260, "w": 720, "h": 540, "title": "Direction A — the dot and its window" },
-    { "file": "DirectionB.dc.html", "x": 820, "y": 1260, "w": 720, "h": 540, "title": "Direction B — the convergence" },
-    { "file": "DirectionC.dc.html", "x": 1640, "y": 1260, "w": 720, "h": 540, "title": "Direction C — the field" },
-    { "file": "System.dc.html", "x": 0, "y": 2020, "w": 1240, "h": 1300, "title": "Visual system" },
-    { "file": "Explorer.dc.html", "x": 0, "y": 3520, "w": 1440, "h": 1000, "title": "Candidate explorer — reads the live daemon" },
-    { "file": "Composer.dc.html", "x": 1560, "y": 3520, "w": 1440, "h": 960, "title": "Job composer — designed, not wired" }
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1240, "h": 1370, "title": "Identity sheet" },
+    { "file": "DirectionA.dc.html", "x": 0, "y": 1490, "w": 720, "h": 540, "title": "Direction A — the dot and its window" },
+    { "file": "DirectionB.dc.html", "x": 820, "y": 1490, "w": 720, "h": 540, "title": "Direction B — the convergence" },
+    { "file": "DirectionC.dc.html", "x": 1640, "y": 1490, "w": 720, "h": 540, "title": "Direction C — the field" },
+    { "file": "System.dc.html", "x": 0, "y": 2250, "w": 1240, "h": 1380, "title": "Visual system" },
+    { "file": "Explorer.dc.html", "x": 0, "y": 3760, "w": 1440, "h": 1100, "title": "Candidate explorer — reads the live daemon" },
+    { "file": "Composer.dc.html", "x": 1560, "y": 3760, "w": 1440, "h": 1010, "title": "Job composer — designed, not wired" }
   ],
   "annotations": [
     {
@@ -19,7 +19,7 @@
     {
       "id": "surfaces",
       "x": 3060,
-      "y": 3520,
+      "y": 3760,
       "w": 400,
       "text": "The two surfaces are deliberately different kinds of thing.\n\nThe explorer reads the running daemon. Every number on it was returned by that daemon today: 24 live quotes, all from Vast, cheapest $0.0136/hr, valid for fifteen minutes.\n\nThe composer is drawn to the canonical CloudJobRequest shape and submits nothing. It is labelled unwired on the surface itself, not only in a note."
     }

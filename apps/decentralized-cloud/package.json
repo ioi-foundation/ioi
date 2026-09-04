@@ -1,0 +1,13 @@
+{
+  "name": "decentralized-cloud",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "decentralized.cloud — the public read surface over the Hypervisor daemon (ADR 0051).",
+  "scripts": {
+    "serve": "node scripts/serve-face.mjs",
+    "check:decentralized-cloud-face": "node scripts/verify-decentralized-cloud-face.mjs",
+    "brand:build": "node brand/build-artboards.mjs",
+    "brand:measure": "node brand/measure-artboards.mjs"
+  }
+}

@@ -35,7 +35,7 @@
   <div class="rule" style="margin: 20px 0 44px;"></div>
 
   <!-- ── Primary lockup: stacked ──────────────────────────────────────── -->
-  <div style="display: flex; flex-direction: column; gap: 18px;">
+  <div style="display: flex; flex-direction: column; gap: 48px;">
     <div class="eyebrow">Primary lockup</div>
     <div style="display: flex; flex-direction: column; gap: 4px;">
       <div style="display: flex; align-items: baseline;">
@@ -45,7 +45,7 @@
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 28px;">
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 44px;">
     <div class="body">
       The name breaks where the domain breaks, and the drawn dot sits at the
       break doing the work the face cannot: IOI Display carries 33 unicase
@@ -76,38 +76,49 @@
 
   <!-- ── Icon ─────────────────────────────────────────────────────────── -->
   <div class="rule" style="margin: 44px 0 32px;"></div>
-  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;">
-    <div style="display: flex; flex-direction: column; gap: 18px;">
+  <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 48px;">
+    <div style="display: flex; flex-direction: column; gap: 22px;">
       <div class="eyebrow">Icon — the dot and its window</div>
-      <div style="display: flex; align-items: flex-end; gap: 30px;">
+      <div style="display: flex; align-items: flex-end; gap: 28px;">
         <svg width="104" height="104" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 104 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="5" stroke-linecap="butt"></path>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
           <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
         </svg>
         <svg width="48" height="48" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 48 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="7" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="14" fill="#7bbd97"></circle>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
         </svg>
         <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 32 pixels">
           <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="15" fill="#7bbd97"></circle>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+        </svg>
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 24 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
         </svg>
         <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 16 pixels">
-          <rect x="0" y="0" width="96" height="96" rx="12" fill="#0a0e19"></rect>
-          <circle cx="48" cy="48" r="24" fill="#7bbd97"></circle>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="11" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
         </svg>
       </div>
     </div>
     <div class="body" style="max-width: 44ch;">
-      The dot is the price. The arc around it is the window that price is good
-      for, and the hundred degrees missing from the arc are the part of the
-      window already spent — every quote this product shows carries an
+      The dot is the price. The arc around it is the window that price is still
+      good for, and the hundred degrees of missing arc are the part of the window
+      already spent — every quote this product shows carries an
       <span class="mono" style="font-size: 12px;">expires_at</span>, most of them
-      fifteen minutes out. Below 24px the arc is dropped, not thinned: a
-      hairline that disappears on a browser tab is worse than an honest dot.
+      fifteen minutes out.
+      <br><br>
+      One drawing at every size: dot radius 13, ring radius 26, gap 100°, corner
+      radius 11, all on a 96-unit grid. Only the stroke changes — 6 units at 32px
+      and above, 11 below it, so the arc survives a browser tab instead of being
+      dropped there. The arc is the half of the idea that matters; a size that
+      cannot carry it is a size this mark does not go to.
     </div>
   </div>
 
@@ -132,17 +143,18 @@
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">The dot</div>
       <div class="body">
-        One quarter of the cap height, rounded up to the nearest pixel. On this
-        sheet: 11px at 64, 7px at 40, 5px at 28, 4px at 22. Cap height is
-        0.70 em in this face, measured off the rendered glyph.
+        One quarter of the cap height, rounded to the nearest pixel. On this
+        sheet: 11px at 64, 7px at 40, 5px at 28, 4px at 22. Cap height measures
+        0.70 em in this face — 44.8px at 64 — taken off the rendered glyph, not
+        the metrics table.
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">Clear space</div>
       <div class="body">
         One cap height on every side, measured from the outermost ink — 45px
-        around the 64px lockup above. Nothing sits inside it, the IOI
-        endorsement line included.
+        around the 64px lockup, which is why the eyebrow above it sits where it
+        does. Nothing enters it, the IOI endorsement line included.
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
