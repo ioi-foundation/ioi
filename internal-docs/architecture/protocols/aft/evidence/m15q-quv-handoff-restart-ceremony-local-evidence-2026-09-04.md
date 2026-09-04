@@ -118,10 +118,11 @@ M15Q still requires:
   boundaries, explicit rollback-image restoration, and the overlapping-root
   case;
 - any future post-retirement observer role to use separately rooted observer
-  credentials; the tested old validator key correctly regains no authority;
-- a real multiprocess executor-to-members-to-T10 atomic-resource path in which
-  each relying executor performs and directly consumes its own live QUV
-  continuation immediately before `Claimed`.
+  credentials; the tested old validator key correctly regains no authority.
+
+The executor-to-members-to-T10 obligation was subsequently closed by code
+commit `bd1e91a6d`; see
+`m15q-quv-executor-t10-local-evidence-2026-09-04.md`.
 
 M16Q and fresh M17Q review have not begun. `portable_final_receipt=false`
 remains mandatory.

@@ -94,8 +94,13 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`evidence/m15q-quv-handoff-restart-ceremony-local-evidence-2026-09-04.md`](./evidence/m15q-quv-handoff-restart-ceremony-local-evidence-2026-09-04.md)
   — eight-process disjoint-root live handoff, exact rollback-anchored successor
   restart, post-recovery progress, and non-authorizing operator ceremony at
-  commit `252e03573`; M15Q remains open on the remaining restart matrix and
-  real executor-to-T10 process path.
+  commits `252e03573` and `fc7c9b926`; M15Q remains open on the remaining
+  restart matrix.
+- [`evidence/m15q-quv-executor-t10-local-evidence-2026-09-04.md`](./evidence/m15q-quv-executor-t10-local-evidence-2026-09-04.md)
+  — finalized workload manifest through Agentgres, fresh executor-side live
+  QUV, direct process-local continuation consumption, T10 claim-before-call,
+  one durable PQ atomic mutation, and verified ML-DSA resource evidence at
+  code commit `bd1e91a6d`.
 - [`packets/M12b-quv-construction-review.md`](./packets/M12b-quv-construction-review.md)
   — immutable-candidate independent construction-review commission.
 - [`packets/M10-M12-owner-commissioning-handoff-2026-09-03.md`](./packets/M10-M12-owner-commissioning-handoff-2026-09-03.md)
