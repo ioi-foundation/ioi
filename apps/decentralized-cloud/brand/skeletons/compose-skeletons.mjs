@@ -514,18 +514,37 @@ if (process.argv.includes("--plates")) {
   // in the lockup. The face is inlined as a data: URI and the run REFUSES if it did
   // not load, because a lockup measured in a fallback face is a lockup nobody drew.
   const IOI = readFileSync(path.join(HERE, "../../public/fonts/IOI.ttf")).toString("base64");
-  const lockup = (markMarkup, markPx, typePx) => {
-    const dot = Math.max(2, Math.round(typePx * 0.7 / 4));   // a quarter of the cap
-    return `<div style="display:flex;align-items:center;gap:${Math.round(typePx * 0.45)}px;` +
-      `background:${GROUND};padding:${Math.round(typePx)}px;">` +
-      `<svg width="${markPx}" height="${markPx}" viewBox="0 0 ${GRID} ${GRID}">${markMarkup.replace(/INK/g, INK)}</svg>` +
-      `<div style="display:flex;align-items:baseline;font-family:'IOI Display';font-size:${typePx}px;` +
-      `line-height:1;letter-spacing:0.01em;white-space:nowrap;color:${INK};">` +
-      `<span>decentralized</span>` +
-      `<span style="display:inline-block;width:${dot}px;height:${dot}px;border-radius:50%;` +
-      `background:${INK};margin:0 ${Math.max(1, Math.round(dot / 2))}px;"></span>` +
-      `<span>cloud</span></div></div>`;
+  // THE Z OVERRIDE AND THE MEDIAL PERIOD, matching public/index.html and face.css.
+  //
+  // This plater set the wordmark as plain live text in IOI Display, and a round-four
+  // reader read the result as "DECENTRALI2ED" — the same misread three earlier
+  // reviewers had found, which had ALREADY been fixed on the shipped surface. The fix
+  // went to the product and not to the harness that plates the lockups readers judge,
+  // so a corrected wordmark was tested in its broken form and the whole lockup half of
+  // that round was run against a name that misspells itself. Two places set this
+  // wordmark; both have to agree, or the test is not testing what shipped.
+  const Z_PATH = "M 32 700 L 1033 700 L 1033 560 L 221 140 L 1033 140 L 1033 0 " +
+                 "L 32 0 L 32 140 L 844 560 L 32 560 Z";
+  const wordmark = (typePx) => {
+    const cap = typePx * 0.700;                        // the face's measured cap
+    const dotD = typePx * 0.137;                       // the face's measured stem
+    return `<div style="display:flex;align-items:baseline;font-family:'IOI Display';` +
+      `font-size:${typePx}px;line-height:1;letter-spacing:0.01em;white-space:nowrap;color:${INK};">` +
+      `<span>decentrali</span>` +
+      `<svg width="${(cap * 1065 / 700).toFixed(3)}" height="${cap.toFixed(3)}" ` +
+      `viewBox="0 -700 1065 700" style="vertical-align:baseline;overflow:visible;flex-shrink:0;">` +
+      `<g transform="scale(1,-1)"><path d="${Z_PATH}" fill="${INK}"></path></g></svg>` +
+      `<span>ed</span>` +
+      `<span style="display:inline-block;width:${dotD.toFixed(2)}px;height:${dotD.toFixed(2)}px;` +
+      `border-radius:50%;background:${INK};margin:0 ${(typePx * 0.10).toFixed(2)}px;` +
+      `position:relative;top:-${(typePx * 0.2815).toFixed(2)}px;"></span>` +
+      `<span>cloud</span></div>`;
   };
+  const lockup = (markMarkup, markPx, typePx) =>
+    `<div style="display:flex;align-items:center;gap:${Math.round(typePx * 0.45)}px;` +
+    `background:${GROUND};padding:${Math.round(typePx)}px;">` +
+    `<svg width="${markPx}" height="${markPx}" viewBox="0 0 ${GRID} ${GRID}">${markMarkup.replace(/INK/g, INK)}</svg>` +
+    wordmark(typePx) + `</div>`;
   for (const [i, sk] of SKELETONS.entries()) {
     if (sk.ghost) continue;
     const mark = sk.draw(PLATE_SIB).replace(/INK/g, INK);
