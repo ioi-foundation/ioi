@@ -10,44 +10,45 @@
   <style>
     @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
     @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
     @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
     body { margin: 0; background: #ffffff; color: #0a0e19;
       font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
     a { color: #397554; } a:hover { color: #3e7f5c; }
     .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
-      letter-spacing: 0.08em; text-transform: uppercase; color: #818181; }
-    .mark-word { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
       letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
     .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
   </style>
 </helmet>
 
-<div style="display: flex; flex-direction: column; gap: 0; padding: 40px 44px; height: 100%; box-sizing: border-box;">
+<div style="display: flex; flex-direction: column; padding: 40px 44px 44px;">
   <div class="eyebrow">Direction C — the field</div>
-  <div style="height: 1px; background: #e1e1e1; margin: 16px 0 40px;"></div>
+  <div style="height: 1px; background: #e1e1e1; margin: 16px 0 36px;"></div>
 
-  <div style="display: flex; flex-direction: column; gap: 44px; flex-grow: 1;">
-
-    <div style="display: flex; justify-content: center;">
-      <svg width="180" height="180" viewBox="0 0 96 96" role="img" aria-label="Direction C icon">
-        <rect x="0" y="0" width="96" height="96" rx="10" fill="#0a0e19"></rect>
-        <g fill="#ffffff" fill-opacity="0.30">
-          <circle cx="26" cy="26" r="4"></circle>
-          <circle cx="48" cy="26" r="4"></circle>
-          <circle cx="70" cy="26" r="4"></circle>
-          <circle cx="26" cy="48" r="4"></circle>
-          <circle cx="70" cy="48" r="4"></circle>
-          <circle cx="26" cy="70" r="4"></circle>
-          <circle cx="48" cy="70" r="4"></circle>
-          <circle cx="70" cy="70" r="4"></circle>
-        </g>
-        <circle cx="48" cy="48" r="11" fill="#397554"></circle>
-      </svg>
-    </div>
-
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 18px;">
-      <div style="display: flex; align-items: baseline;">
-        <span class="mark-word" style="font-size: 34px;">decentralized</span><span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #397554; margin: 0 4px;"></span><span class="mark-word" style="font-size: 34px;">cloud</span>
+  <div style="display: flex; align-items: center; gap: 44px;">
+    <svg width="160" height="160" viewBox="0 0 96 96" role="img" aria-label="Direction C icon">
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+      <g fill="#ffffff" fill-opacity="0.30">
+        <circle cx="26" cy="26" r="4"></circle>
+        <circle cx="48" cy="26" r="4"></circle>
+        <circle cx="70" cy="26" r="4"></circle>
+        <circle cx="26" cy="48" r="4"></circle>
+        <circle cx="70" cy="48" r="4"></circle>
+        <circle cx="26" cy="70" r="4"></circle>
+        <circle cx="48" cy="70" r="4"></circle>
+        <circle cx="70" cy="70" r="4"></circle>
+      </g>
+      <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="display: flex; align-items: baseline;">
+          <span class="w" style="font-size: 28px;">decentralized</span><span class="d" style="width: 5px; height: 5px; margin-left: 3px;"></span>
+        </div>
+        <div class="w" style="font-size: 28px;">cloud</div>
       </div>
       <div style="display: flex; align-items: center; gap: 14px;">
         <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="Direction C at 24 pixels">
@@ -58,29 +59,29 @@
             <circle cx="24" cy="72" r="7"></circle>
             <circle cx="72" cy="72" r="7"></circle>
           </g>
-          <circle cx="48" cy="48" r="14" fill="#397554"></circle>
+          <circle cx="48" cy="48" r="14" fill="#7bbd97"></circle>
         </svg>
         <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="Direction C at 16 pixels">
           <rect x="0" y="0" width="96" height="96" rx="12" fill="#0a0e19"></rect>
-          <circle cx="48" cy="48" r="20" fill="#397554"></circle>
+          <circle cx="48" cy="48" r="22" fill="#7bbd97"></circle>
         </svg>
+        <span class="eyebrow" style="text-transform: none; letter-spacing: 0.02em;">24px · 16px</span>
       </div>
     </div>
+  </div>
 
-    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: auto;">
-      <div class="body">
-        <strong style="color: #0a0e19;">The case.</strong> Eight quiet
-        candidates and one chosen. It is the picture of what the product
-        actually does all day — compare, then pick one — and the field pattern
-        extends into section dividers and empty states without redrawing
-        anything.
-      </div>
-      <div class="body">
-        <strong style="color: #0a0e19;">The tradeoff.</strong> The field
-        disappears first: at 24px it is already four dots, at 16px it is A's
-        icon with extra steps. It is the strongest large and the weakest small,
-        which is backwards for something that mostly appears as a tab.
-      </div>
+  <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 40px;">
+    <div class="body">
+      <strong style="color: #0a0e19;">The case.</strong> Eight quiet candidates
+      and one chosen. It is a picture of what the product does all day —
+      compare, then pick one — and the field extends into dividers and empty
+      states without redrawing anything.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">The tradeoff.</strong> The field
+      disappears first: at 24px it is already four dots, at 16px it is A's icon
+      with extra steps. Strongest large and weakest small, which is backwards
+      for a mark that mostly appears as a tab.
     </div>
   </div>
 </div>

@@ -16,110 +16,141 @@
       font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
     a { color: #397554; } a:hover { color: #3e7f5c; }
     .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
-      letter-spacing: 0.08em; text-transform: uppercase; color: #818181; }
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
     .rule { height: 1px; background: #e1e1e1; }
-    .mark-word { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
       letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
   </style>
 </helmet>
 
-<div style="display: flex; flex-direction: column; gap: 0; padding: 56px 64px 64px; background: #ffffff;">
+<div style="display: flex; flex-direction: column; padding: 56px 64px 64px;">
 
   <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 24px;">
     <div class="eyebrow">decentralized.cloud · identity sheet</div>
-    <div class="eyebrow">IOI umbrella · IOI Display · onyx #0a0e19 · accent #397554</div>
+    <div class="eyebrow">IOI umbrella · IOI Display · onyx #0a0e19 · green #397554</div>
   </div>
-  <div class="rule" style="margin: 20px 0 48px;"></div>
+  <div class="rule" style="margin: 20px 0 44px;"></div>
 
-  <!-- ── Primary horizontal lockup ─────────────────────────────────────── -->
+  <!-- ── Primary lockup: stacked ──────────────────────────────────────── -->
   <div style="display: flex; flex-direction: column; gap: 18px;">
     <div class="eyebrow">Primary lockup</div>
-    <div style="display: flex; align-items: baseline; gap: 0;">
-      <span class="mark-word" style="font-size: 64px;">decentralized</span><span style="display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: #397554; margin: 0 7px;"></span><span class="mark-word" style="font-size: 64px;">cloud</span>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <div style="display: flex; align-items: baseline;">
+        <span class="w" style="font-size: 64px;">decentralized</span><span class="d" style="width: 11px; height: 11px; margin-left: 7px;"></span>
+      </div>
+      <div class="w" style="font-size: 64px;">cloud</div>
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 64px; margin-top: 56px;">
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; margin-top: 28px;">
+    <div class="body">
+      The name breaks where the domain breaks, and the drawn dot sits at the
+      break doing the work the face cannot: IOI Display carries 33 unicase
+      glyphs and no period at all.
+    </div>
+    <div class="body">
+      Stacking is not a concession to width. Set on one line the name runs
+      19.2 ems — measured off the rendered face, not estimated — which is
+      unusable at product sizes. The IOI wordmark is short; short is the family
+      cue, not length.
+    </div>
+  </div>
 
-    <!-- ── Stacked lockup ──────────────────────────────────────────────── -->
-    <div style="display: flex; flex-direction: column; gap: 18px;">
-      <div class="eyebrow">Stacked lockup — square and narrow contexts</div>
-      <div style="display: flex; flex-direction: column; gap: 2px;">
-        <div class="mark-word" style="font-size: 40px;">decentralized</div>
-        <div style="display: flex; align-items: baseline; gap: 0;">
-          <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #397554; margin-right: 6px;"></span><span class="mark-word" style="font-size: 40px;">cloud</span>
-        </div>
+  <!-- ── Horizontal signature ─────────────────────────────────────────── -->
+  <div class="rule" style="margin: 48px 0 32px;"></div>
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="eyebrow">Horizontal signature — wide chrome only</div>
+      <div style="display: flex; align-items: baseline;">
+        <span class="w" style="font-size: 40px;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin: 0 4px;"></span><span class="w" style="font-size: 40px;">cloud</span>
       </div>
     </div>
+    <div class="body" style="max-width: 44ch;">
+      Permitted only where 400px of clear width exists — a top bar, a footer, a
+      letterhead. Below that the stacked lockup, which holds to 220px.
+    </div>
+  </div>
 
-    <!-- ── The icon ────────────────────────────────────────────────────── -->
+  <!-- ── Icon ─────────────────────────────────────────────────────────── -->
+  <div class="rule" style="margin: 44px 0 32px;"></div>
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;">
     <div style="display: flex; flex-direction: column; gap: 18px;">
-      <div class="eyebrow">Icon — the expiring dot</div>
-      <div style="display: flex; align-items: flex-end; gap: 28px;">
-        <svg width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon, 96 pixels">
-          <rect x="0" y="0" width="96" height="96" rx="10" fill="#0a0e19"></rect>
-          <path d="M 48 20 A 28 28 0 1 1 28.2 28.2" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="3" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="12" fill="#397554"></circle>
+      <div class="eyebrow">Icon — the dot and its window</div>
+      <div style="display: flex; align-items: flex-end; gap: 30px;">
+        <svg width="104" height="104" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 104 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="5" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
         </svg>
-        <svg width="48" height="48" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon, 48 pixels">
-          <rect x="0" y="0" width="96" height="96" rx="10" fill="#0a0e19"></rect>
-          <path d="M 48 20 A 28 28 0 1 1 28.2 28.2" fill="none" stroke="#ffffff" stroke-opacity="0.42" stroke-width="4" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="13" fill="#397554"></circle>
+        <svg width="48" height="48" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 48 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="7" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="14" fill="#7bbd97"></circle>
         </svg>
-        <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon, 32 pixels">
-          <rect x="0" y="0" width="96" height="96" rx="10" fill="#0a0e19"></rect>
-          <path d="M 48 20 A 28 28 0 1 1 28.2 28.2" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="6" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="15" fill="#397554"></circle>
+        <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 32 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 61 25.5 A 26 26 0 1 1 23.6 39.1" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="15" fill="#7bbd97"></circle>
         </svg>
-        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon, 16 pixels">
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud icon at 16 pixels">
           <rect x="0" y="0" width="96" height="96" rx="12" fill="#0a0e19"></rect>
-          <circle cx="48" cy="48" r="22" fill="#397554"></circle>
+          <circle cx="48" cy="48" r="24" fill="#7bbd97"></circle>
         </svg>
       </div>
-      <div style="font-size: 13px; line-height: 1.5; color: #636363; max-width: 46ch;">
-        The dot is the price. The open ring is how long it is good for, and the
-        gap is that it expires. Below 24px the ring is dropped, not thinned — a
-        hairline that vanishes on a tab is worse than an honest solid dot.
+    </div>
+    <div class="body" style="max-width: 44ch;">
+      The dot is the price. The arc around it is the window that price is good
+      for, and the hundred degrees missing from the arc are the part of the
+      window already spent — every quote this product shows carries an
+      <span class="mono" style="font-size: 12px;">expires_at</span>, most of them
+      fifteen minutes out. Below 24px the arc is dropped, not thinned: a
+      hairline that disappears on a browser tab is worse than an honest dot.
+    </div>
+  </div>
+
+  <!-- ── Dark variant ─────────────────────────────────────────────────── -->
+  <div style="margin-top: 44px; background: #0a0e19; border-radius: 12px; padding: 40px 44px;
+              display: flex; align-items: center; justify-content: space-between; gap: 48px;">
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      <div style="display: flex; align-items: baseline;">
+        <span class="w" style="font-size: 40px; color: #ffffff;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin-left: 4px; background: #7bbd97;"></span>
       </div>
+      <div class="w" style="font-size: 40px; color: #ffffff;">cloud</div>
+    </div>
+    <div class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+                             color: #818181; text-align: right; line-height: 1.7;">
+      on onyx the dot takes green-on-dark<br>#7bbd97 — link green fails contrast here
     </div>
   </div>
 
-  <!-- ── Dark variant ──────────────────────────────────────────────────── -->
-  <div style="margin-top: 56px; background: #0a0e19; border-radius: 12px; padding: 44px 48px;
-              display: flex; align-items: center; justify-content: space-between; gap: 40px;">
-    <div style="display: flex; align-items: baseline; gap: 0;">
-      <span class="mark-word" style="font-size: 46px; color: #ffffff;">decentralized</span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #7bbd97; margin: 0 5px;"></span><span class="mark-word" style="font-size: 46px; color: #ffffff;">cloud</span>
-    </div>
-    <div style="font-family: 'ABC Diatype Mono', ui-monospace, Menlo, monospace; font-size: 12px;
-                letter-spacing: 0.08em; text-transform: uppercase; color: #818181; text-align: right;">
-      on onyx the dot lifts to #7bbd97<br>ink #397554 fails contrast on #0a0e19
-    </div>
-  </div>
-
-  <!-- ── Construction rules ────────────────────────────────────────────── -->
-  <div class="rule" style="margin: 48px 0 24px;"></div>
+  <!-- ── Construction, measured ───────────────────────────────────────── -->
+  <div class="rule" style="margin: 44px 0 26px;"></div>
   <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px;">
     <div style="display: flex; flex-direction: column; gap: 10px;">
-      <div class="eyebrow">Dot geometry</div>
-      <div style="font-size: 13px; line-height: 1.55; color: #636363;">
-        Diameter is 0.205 of the cap height, sitting on the baseline where a
-        period would. IOI Display carries no period glyph, so the one mark the
-        face cannot set is the one we draw.
+      <div class="eyebrow">The dot</div>
+      <div class="body">
+        One quarter of the cap height, rounded up to the nearest pixel. On this
+        sheet: 11px at 64, 7px at 40, 5px at 28, 4px at 22. Cap height is
+        0.70 em in this face, measured off the rendered glyph.
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">Clear space</div>
-      <div style="font-size: 13px; line-height: 1.55; color: #636363;">
-        One cap height on every side of the lockup, measured from the outermost
-        ink. Nothing sits inside it, including the IOI endorsement line.
+      <div class="body">
+        One cap height on every side, measured from the outermost ink — 45px
+        around the 64px lockup above. Nothing sits inside it, the IOI
+        endorsement line included.
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
       <div class="eyebrow">Minimum size</div>
-      <div style="font-size: 13px; line-height: 1.55; color: #636363;">
-        Horizontal lockup down to 132px wide; below that the stacked lockup;
-        below 96px the icon alone. Never set the wordmark in anything but IOI
-        Display, and never letterspace it past 0.01em.
+      <div class="body">
+        Stacked to 220px wide, which puts the cap at 11px. Horizontal to 400px.
+        Below 220px the icon alone. Never set the wordmark in another face and
+        never track it past 0.01em.
       </div>
     </div>
   </div>

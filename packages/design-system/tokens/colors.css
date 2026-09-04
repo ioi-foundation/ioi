@@ -23,6 +23,7 @@
   --color-fern-green: #3e7f5c;     /* link hover / brighter accent */
   --color-pistachio-green: #dbefdb;/* soft green surface */
   --color-moss-green: #1e3c2c;     /* deep green, illustration */
+  --color-green-on-dark: #7bbd97;  /* link green lifted for onyx surfaces — #397554 sits at 1.9:1 on #0a0e19 */
 
   /* ---- Decorative pastels (illustration & data only, used sparingly) ---- */
   --color-pastel-blue: #afc1fd;
@@ -35,6 +36,7 @@
   /* ---- Status ---- */
   --color-red-500: #fb2c36;
   --color-red-600: #e40014;
+  --color-red-700: #b8000f;        /* red 600 darkened to clear AA (4.5:1) for label-size text on white */
   --color-green-600: #00a544;
   --color-blue-600: #155dfc;
 
