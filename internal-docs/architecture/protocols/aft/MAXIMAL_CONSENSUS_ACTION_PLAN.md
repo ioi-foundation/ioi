@@ -610,8 +610,8 @@ resume point and the minimum evidence the owner must supply.
 
 ## 9. Immediate next actions
 
-1. Close M10's independently observed cold-restart signer-startup defect and
-   retest the exact PQ v1 candidate.
+1. Freeze M10's locally passing finite signer-startup repair and independently
+   retest the exact height-5/cold-restart/height-7 PQ v1 candidate.
 2. Preserve the exact M12b R4 `PASS_CONSTRUCTION` report and immutable
    candidate identity; do not broaden it into a consensus or production claim.
 3. Execute M15Q: implement the locally proved M13Q/M14Q profile, durable

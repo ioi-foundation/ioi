@@ -42,6 +42,11 @@ traces, TLC state dumps, and compiled paper outputs live under
 - [`evidence/m10-r3-daybreak-retest-2026-09-03.md`](./evidence/m10-r3-daybreak-retest-2026-09-03.md)
   — exact R3 automated retest: prior high findings and M10-006/007 closed,
   while M10-003 remains open on four-signer cold-restart reproducibility.
+- [`evidence/m10-r4-signer-startup-local-evidence-2026-09-03.md`](./evidence/m10-r4-signer-startup-local-evidence-2026-09-03.md)
+  — finite signer-startup repair and successful 1,098.02-second local
+  height-5/restart/height-7 reproduction.
+- [`packets/M10-r4-remediation-retest.md`](./packets/M10-r4-remediation-retest.md)
+  — exact-tag independent retest commission for closing AFT-M10-003.
 - [`evidence/m12-r3-daybreak-retest-2026-09-03.md`](./evidence/m12-r3-daybreak-retest-2026-09-03.md)
   — exact-candidate `UPHELD` retest closing byte-portable M12a as
   `PROVED_IMPOSSIBLE_UNDER_CONSTRAINTS`; automated, not human peer review and

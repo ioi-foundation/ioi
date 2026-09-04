@@ -235,6 +235,7 @@ async fn test_aft_pq_four_validator_timeout_quorum_and_restart() -> Result<()> {
         ("IOI_TEST_FULL_MESH_BOOTNODES", "1"),
         ("IOI_TEST_READY_HEIGHT_LAG_MAX", "0"),
         ("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS", "30"),
+        ("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS", "120"),
         ("IOI_BENCH_BLOCK_INTERVAL_MS", "1000"),
         ("IOI_AFT_BLOCK_DIRECT_RELAY", "1"),
     ]);
@@ -464,6 +465,7 @@ async fn test_aft_pq_hash_fallback_executes_virtual_block() -> Result<()> {
         // only makes the cold-restart half race normal forward progress.
         ("IOI_TEST_READY_HEIGHT_LAG_MAX", "1"),
         ("IOI_TEST_ROUND_ROBIN_VIEW_TIMEOUT_SECS", "30"),
+        ("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS", "120"),
         ("IOI_BENCH_BLOCK_INTERVAL_MS", "500"),
         ("IOI_AFT_BLOCK_DIRECT_RELAY", "1"),
         ("IOI_TEST_AFT_FORCE_HASH_FALLBACK_ARMED", "1"),

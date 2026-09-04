@@ -8,6 +8,9 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use tempfile::TempDir;
 
+const DEFAULT_SIGNER_STARTUP_TIMEOUT: Duration = Duration::from_secs(120);
+const SIGNER_STARTUP_POLL_INTERVAL: Duration = Duration::from_millis(100);
+
 /// Manages the lifecycle of a local `ioi-signer` process (the Aft deterministic Signing Oracle) for testing.
 pub struct SigningOracleGuard {
     process: std::process::Child,
@@ -92,34 +95,48 @@ impl SigningOracleGuard {
 
         // ML-DSA cluster tests can start several encrypted signer processes
         // while the host is still paging freshly linked validator binaries.
-        // Five seconds is below the observed cold-start envelope and turns a
-        // healthy signer into a harness failure. Keep the bound explicit and
-        // configurable while retaining a finite startup deadline.
+        // The release fixture also repeats that work after a four-validator
+        // cold restart. Keep a finite, configurable host-resource deadline,
+        // but do not confuse a contended debug-binary start with a protocol
+        // timeout. The exact release fixture pins this same 120-second bound.
         let startup_timeout = std::env::var("IOI_TEST_SIGNER_STARTUP_TIMEOUT_SECS")
             .ok()
             .and_then(|value| value.parse::<u64>().ok())
             .filter(|value| *value > 0)
             .map(Duration::from_secs)
-            .unwrap_or_else(|| Duration::from_secs(20));
+            .unwrap_or(DEFAULT_SIGNER_STARTUP_TIMEOUT);
 
         // Wait for the port to be open
         let start = std::time::Instant::now();
         let mut connected = false;
         while start.elapsed() < startup_timeout {
+            if let Some(status) = process.try_wait()? {
+                let output = process.wait_with_output()?;
+                return Err(anyhow!(
+                    "ioi-signer exited before readiness with status {status}. stdout: {} stderr: {}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr),
+                ));
+            }
             if std::net::TcpStream::connect(&addr).is_ok() {
                 connected = true;
                 break;
             }
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(SIGNER_STARTUP_POLL_INTERVAL);
         }
 
         if !connected {
-            // If failed, try to read stderr to see why
-            let _ = process.kill();
+            // Preserve both streams and the reaped status. A bare timeout hid
+            // whether the signer exited, was killed, or was merely slow.
+            let kill_error = process.kill().err();
             let output = process.wait_with_output()?;
             return Err(anyhow!(
-                "Timed out waiting for ioi-signer. Stderr: {}",
-                String::from_utf8_lossy(&output.stderr)
+                "timed out after {:.3}s waiting for ioi-signer; status={}; kill_error={:?}; stdout: {} stderr: {}",
+                startup_timeout.as_secs_f64(),
+                output.status,
+                kill_error,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
             ));
         }
 
