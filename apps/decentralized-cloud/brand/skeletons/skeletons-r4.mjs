@@ -61,7 +61,13 @@ const M = () => {
     ],
     separation: { axis: "x", at: 0.5, runs: 1, of: "the mass, one piece by construction" },
     separationOn: null,
-    topRise: 0,
+    // NO CLAIM. `topRise` compares the ends of the rendered top-ink profile, each
+    // averaged over the outer eighth of the shape's columns. That equals a geometric
+    // rise ONLY when the top edge is a single straight line across the full width.
+    // Here it is not, so a declared number and the measurement answer different
+    // questions and the disagreement is meaningless rather than informative — which
+    // is what it reported. The profile is still printed, as information.
+    topRise: null,
     // What differs between siblings is the triangle the V removes; its centroid is
     // the mean of the three vertices, per the closed-form rule this phase learned
     // the hard way three times.
@@ -141,7 +147,13 @@ const O = () => {
     ],
     separation: { axis: "x", at: 0.5, runs: 2, of: "ink either side of the counter" },
     separationOn: NEUTRAL,
-    topRise: 30 - 8,
+    // NO CLAIM. `topRise` compares the ends of the rendered top-ink profile, each
+    // averaged over the outer eighth of the shape's columns. That equals a geometric
+    // rise ONLY when the top edge is a single straight line across the full width.
+    // Here it is not, so a declared number and the measurement answer different
+    // questions and the disagreement is meaningless rather than informative — which
+    // is what it reported. The profile is still printed, as information.
+    topRise: null,
     cueCentres: Object.fromEntries(SIBLINGS.map((k) => [k, slots[k]])),
     neutral: NEUTRAL,
     draw: (sib) => {
@@ -183,7 +195,13 @@ const P = () => {
     ],
     separation: { axis: "x", at: (BASE - 4) / GRID, runs: 2, of: "the two feet either side of the base notch" },
     separationOn: NEUTRAL,
-    topRise: SHOULDER - PEAK,
+    // NO CLAIM. `topRise` compares the ends of the rendered top-ink profile, each
+    // averaged over the outer eighth of the shape's columns. That equals a geometric
+    // rise ONLY when the top edge is a single straight line across the full width.
+    // Here it is not, so a declared number and the measurement answer different
+    // questions and the disagreement is meaningless rather than informative — which
+    // is what it reported. The profile is still printed, as information.
+    topRise: null,
     cueCentres: Object.fromEntries(SIBLINGS.map((k) => [k, [feet[k] + NW / 2, BASE - NH / 2]])),
     neutral: NEUTRAL,
     draw: (sib) => `<path d="${shape(feet[sib === null ? NEUTRAL : sib])}" fill="INK"></path>`,

@@ -286,6 +286,11 @@ if (!controlsOk) {
 // ── The skeletons ───────────────────────────────────────────────────────────
 const verdicts = [];
 for (const sk of SKELETONS) {
+  // A GHOST is a retired shape carried in only so the silhouette comparison can see
+  // it. It is not measured, not scored, not plated and never shown to a reader — it
+  // exists so a later round cannot quietly re-draw a silhouette an earlier round
+  // already killed.
+  if (sk.ghost) { console.log(`\n·· ${sk.name} — ghost, silhouette comparison only`); continue; }
   console.log(`\n── ${sk.name}  (${sk.id}, ${sk.origin})`);
   console.log(`   ${sk.thesis}`);
 
@@ -459,7 +464,7 @@ if (process.argv.includes("--plates")) {
   // Each round gets its own letters. A reader who has seen an earlier round must not
   // be able to carry a verdict across on a shared label, and a five-letter alphabet
   // against six skeletons silently wrote a file called "undefined" the first time.
-  const ALPHABETS = { "": "ABCDE", r2: "PQRSTUVW", r3: "GHJKLMN" };
+  const ALPHABETS = { "": "ABCDE", r2: "PQRSTUVW", r3: "GHJKLMN", r4: "1234567" };
   const letters = ALPHABETS[SET || ""];
   if (!letters) {
     console.error(`REFUSING to plate: set "${SET}" has no letters of its own, and reusing another round's would let a reader carry a verdict across.`);
@@ -479,6 +484,7 @@ if (process.argv.includes("--plates")) {
   // to name a drawing nobody is proposing.
   const PLATE_SIB = "cloud";
   for (const [i, sk] of SKELETONS.entries()) {
+    if (sk.ghost) continue;
     for (const size of [16, 24, 96]) {
       // Plated at 8x nearest-neighbour so a 16px drawing can be LOOKED at without
       // resampling it into something smoother than it is. The pixels are the 16px
@@ -521,6 +527,7 @@ if (process.argv.includes("--plates")) {
       `<span>cloud</span></div></div>`;
   };
   for (const [i, sk] of SKELETONS.entries()) {
+    if (sk.ghost) continue;
     const mark = sk.draw(PLATE_SIB).replace(/INK/g, INK);
     // Mark enlarged against the wordmark, per the owner's ruling: 26px of mark to a
     // 22px type size, which is 1.29 x the measured 0.700em cap — inside the
