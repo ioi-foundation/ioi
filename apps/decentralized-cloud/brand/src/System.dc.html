@@ -76,7 +76,7 @@
     <div style="display: flex; flex-direction: column; gap: 8px;">
       <div class="swatch" style="background: #cecece;"></div>
       <div class="mono" style="font-size: 12px; color: #0a0e19;">#cecece</div>
-      <div class="mono" style="font-size: 12px; color: #636363;">grey-600 · controls</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-600 · panel accents</div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px;">
       <div class="swatch" style="background: #f9f9f9; border: 1px solid #e1e1e1; box-sizing: border-box;"></div>
@@ -139,19 +139,19 @@
     <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
       <span class="dot" style="background: #397554;"></span>live_evidence
     </span>
-    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
       <span class="dot" style="background: #818181;"></span>simulated_control_plane
     </span>
-    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
       <span class="dot" style="background: #818181;"></span>advisory_only
     </span>
-    <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+    <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
       <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
     </span>
     <span class="chip" style="background: #ffffff; border-color: #e40014; color: #e40014;">
       <span class="dot" style="background: #e40014;"></span>expired
     </span>
-    <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
       <span class="dot" style="background: #818181;"></span>not wired — job api not live
     </span>
   </div>
@@ -183,6 +183,63 @@
       surfaces designed ahead of the kernel carry the last chip and cannot be
       submitted. A stub a reader cannot tell apart from truth is refused; a
       labelled one is a design deliverable.
+    </div>
+  </div>
+
+  <!-- ── Freshness dial ────────────────────────────────────────────────── -->
+  <div class="rule" style="margin: 40px 0;"></div>
+  <div class="eyebrow" style="margin-bottom: 20px;">Freshness dial — a component, not a logo</div>
+  <div style="display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 40px; align-items: start;">
+    <div style="display: flex; align-items: flex-end; gap: 30px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="freshness dial, three minutes into a fifteen-minute window">
+          <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="6"></circle>
+          <path d="M 48 22 A 26 26 0 1 1 23.27 39.97" fill="none" stroke="#397554" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+        </svg>
+        <div class="mono" style="font-size: 12px; color: #636363;">12 min left</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="freshness dial, twelve minutes into a fifteen-minute window">
+          <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="6"></circle>
+          <path d="M 48 22 A 26 26 0 0 1 72.73 39.97" fill="none" stroke="#397554" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+        </svg>
+        <div class="mono" style="font-size: 12px; color: #636363;">3 min left</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="freshness dial, expired">
+          <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="6"></circle>
+          <circle cx="48" cy="48" r="9" fill="#e40014"></circle>
+        </svg>
+        <div class="mono" style="font-size: 12px; color: #e40014;">expired</div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="body">
+        <strong style="color: #0a0e19;">The binding, written where the component is.</strong>
+        The drawn arc is the window still good; the grey it sits on is the window
+        already spent. The fraction is
+        <span class="mono" style="font-size: 12px;">(now − observed_at) / (expires_at − observed_at)</span>,
+        taken from the candidate the daemon returned — never from a timer this
+        surface started. At
+        <span class="mono" style="font-size: 12px;">expires_at</span> the arc is
+        gone, the centre turns red, and the row stops being a price.
+      </div>
+      <div class="body">
+        It is allowed to look like a progress ring, because that is what it is.
+        This is the one place in the system where a ring is honest: it reports a
+        real number, it changes as that number changes, and it never appears
+        where there is no quote behind it. The identity does not use it — the
+        wordmark's period is the only drawn thing in the logo, and a logo that
+        appeared to report a live number would be the one thing this product
+        cannot ship.
+      </div>
+      <div class="body">
+        The centre disc is the same period the wordmark draws, at the same
+        quarter-cap proportion. That is the whole family tie: the mark is
+        punctuation, the dial is punctuation with a measure around it.
+      </div>
     </div>
   </div>
 

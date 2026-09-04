@@ -39,16 +39,9 @@
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 32px;
               padding: 0 40px; height: 66px; border-bottom: 1px solid #e1e1e1;">
     <div style="display: flex; align-items: center; gap: 40px;">
-      <div style="display: flex; align-items: center; gap: 11px;">
-        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
-          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
-          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
-          <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
-        </svg>
-        <div style="display: flex; align-items: baseline;">
+      <div style="display: flex; align-items: baseline;">
           <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
         </div>
-      </div>
       <div style="display: flex; align-items: center; gap: 26px;">
         <span class="nav" style="color: #0a0e19; box-shadow: inset 0 -2px 0 #0a0e19; padding-bottom: 4px;">Candidates</span>
         <span class="nav">Sources</span>
@@ -59,7 +52,7 @@
     </div>
     <div style="display: flex; align-items: center; gap: 14px;">
       <span class="mono" style="font-size: 12px; color: #636363;">daemon 127.0.0.1:8765</span>
-      <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+      <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
         <span class="dot" style="background: #818181;"></span>read-only surface
       </span>
     </div>
@@ -79,7 +72,7 @@
             intent cri_18d226c34a17fe7f · observed 15:11:41Z · sweep took 38.8s
           </div>
         </div>
-        <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+        <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
           <span class="dot" style="background: #818181;"></span>last sweep shown while refreshing
         </span>
       </div>
@@ -117,9 +110,16 @@
             offer 49676633 · dph_total, verbatim<br>provider-quote://crc_18d226d5e883f80b_v0
           </div>
           <div class="mono" style="font-size: 16px; color: #0a0e19;">$0.0136</div>
-          <div style="display: flex; flex-direction: column; gap: 5px;">
-            <div class="mono" style="font-size: 13px; color: #0a0e19;">15:26:41Z</div>
-            <div class="mono" style="font-size: 12px; color: #636363;">15 min window</div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg width="28" height="28" viewBox="0 0 96 96" role="img" aria-label="freshness dial, twelve minutes left">
+              <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="9"></circle>
+              <path d="M 48 22 A 26 26 0 1 1 23.27 39.97" fill="none" stroke="#397554" stroke-width="9" stroke-linecap="butt"></path>
+              <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+              <div class="mono" style="font-size: 13px; color: #0a0e19;">15:26:41Z</div>
+              <div class="mono" style="font-size: 12px; color: #636363;">12 min left</div>
+            </div>
           </div>
         </div>
 
@@ -138,7 +138,7 @@
                     padding: 16px 20px; align-items: center;">
           <div style="display: flex; flex-direction: column; gap: 7px;">
             <div class="mono" style="font-size: 14px; color: #636363;">akash</div>
-            <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363; align-self: start;">
+            <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363; align-self: start;">
               <span class="dot" style="background: #818181;"></span>no quote
             </span>
           </div>
@@ -204,7 +204,7 @@
     <div style="border-left: 1px solid #e1e1e1; padding: 34px 32px 40px; background: #f9f9f9;">
       <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
         <div class="lbl">Sources</div>
-        <div class="mono" style="font-size: 12px; color: #636363;">1 quoting · 3 answering · 9 absent</div>
+        <div class="mono" style="font-size: 12px; color: #636363;">1 quoting · 2 answering · 1 preflight · 9 absent</div>
       </div>
       <div style="font-size: 13px; line-height: 1.5; color: #636363; margin: 10px 0 16px;">
         Thirteen sources, each reporting its own health in its own words.
@@ -243,7 +243,7 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #0a0e19;">direct_provider</span>
-          <span class="chip" style="background: #f9f9f9; border-color: #cecece; color: #636363;">
+          <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
             <span class="dot" style="background: #818181;"></span>preflight only
           </span>
         </div>
@@ -253,7 +253,7 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">runpod</span>
-          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
             <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
@@ -266,7 +266,7 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">depin_market</span>
-          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
             <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
@@ -279,7 +279,7 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">managed_capacity</span>
-          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
             <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
@@ -292,7 +292,7 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">decentralized.cloud</span>
-          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
             <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>
@@ -305,7 +305,7 @@
       <div class="srow">
         <div class="sname">
           <span class="mono" style="font-size: 14px; color: #636363;">aws · gcp · azure · k8s · lambda_cloud</span>
-          <span class="chip" style="background: #ffffff; border-color: #cecece; color: #636363;">
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
             <span class="dot" style="background: #818181;"></span>unavailable
           </span>
         </div>

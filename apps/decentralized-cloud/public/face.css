@@ -43,9 +43,9 @@ a:hover { color: #3e7f5c; }
 .mono { font-family: var(--mono); }
 
 /* ── Wordmark ─────────────────────────────────────────────────────────────
-   The horizontal signature is permitted only above 400px of clear width; below
-   that the shell swaps to the stacked lockup. The dot is one quarter of the cap
-   height (0.175em), rounded up. */
+   The single line is permitted above 400px of clear width; below
+   that the shell swaps to the narrow lockup. The drawn period is one quarter of
+   the cap height, rounded to the nearest pixel. */
 .wordmark { display: flex; align-items: baseline; font-family: var(--brand);
   font-weight: 400; letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
 .wordmark .dot { display: inline-block; border-radius: 50%; background: var(--live);
@@ -79,14 +79,16 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    absence. Red means one thing: a quote past its expires_at. */
 .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px;
   border-radius: 999px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
-  border: 1px solid var(--hairline); background: var(--paper); color: var(--label);
+  /* A chip's border is the only edge the component has, so it clears the 3:1
+     non-text floor (grey-700 on white is 3.90:1); grey-500 measured 1.57:1. */
+  border: 1px solid var(--muted); background: var(--paper); color: var(--label);
   white-space: nowrap; }
 /* A state dot carries meaning, so it clears the 3:1 non-text floor (grey-700 on
    white measures 3.90:1); a hairline grey would not. */
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
 .chip.live { border-color: var(--live); color: var(--live); }
 .chip.live .dot { background: var(--live); }
-.chip.muted { background: var(--surface); border-color: var(--border-strong); }
+.chip.muted { background: var(--surface); border-color: var(--muted); }
 .chip.muted .dot { background: var(--muted); }
 .chip.expired { border-color: var(--expired); color: var(--expired); }
 .chip.expired .dot { background: var(--expired); }
@@ -121,7 +123,7 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .field { display: flex; flex-direction: column; gap: 8px; }
 .field-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--label); }
-.field-box { border: 1px solid var(--border-strong); border-radius: 7px; padding: 11px 13px;
+.field-box { border: 1px solid var(--muted); border-radius: 7px; padding: 11px 13px;
   background: var(--surface); color: var(--label); font-size: 14px; min-height: 44px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .field-hint { font-size: 13px; line-height: 1.45; color: var(--label); }

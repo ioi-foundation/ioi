@@ -34,21 +34,24 @@ const PAIRS = [
   ["green-on-dark on onyx", "#7bbd97", "#0a0e19", 4.5, "the dot and wordmark dot on dark"],
   ["red-600 on white", "#e40014", "#ffffff", 4.5, "expired chip text"],
   ["grey-800 on white", "#636363", "#ffffff", 4.5, "labels, eyebrows, body-muted"],
-  ["grey-700 on white", "#818181", "#ffffff", 4.5, "was carrying label text — replaced"],
+  ["grey-700 on white", "#818181", "#ffffff", 3.0, "state dots and chip borders — meaningful non-text"],
   ["grey-700 on porcelain", "#818181", "#f9f9f9", 3.0, "state dots on the surface tint"],
-  ["grey-600 on white", "#cecece", "#ffffff", 3.0, "absence dot — non-text state"],
-  ["grey-500 on white", "#e1e1e1", "#ffffff", 3.0, "hairline — decorative, exempt"],
+  ["grey-600 on white", "#cecece", "#ffffff", null, "palette swatch only — it borders nothing since the chips moved to grey-700"],
+  ["grey-500 on white", "#e1e1e1", "#ffffff", null, "hairline rules and panel edges — decorative, outside 1.4.11"],
+  ["grey-700 on grey-450", "#818181", "#ececec", 3.0, "the disabled Submit — a disabled control, exempt, measured anyway"],
   ["onyx on white", "#0a0e19", "#ffffff", 4.5, "ink"],
-  ["white on onyx", "#ffffff", "#0a0e19", 4.5, "wordmark on the dark variant"],
 ];
 
-let worst = null;
+// A null floor means the pair carries no meaning a reader must perceive — a
+// decorative rule, or a swatch that borders nothing. It is still measured and
+// printed, because "exempt" is a claim and an unmeasured claim is the thing this
+// file exists to prevent.
 for (const [name, fg, bg, floor, note] of PAIRS) {
   const r = ratio(fg, bg);
-  const verdict = r >= floor ? "pass" : "FAIL";
-  if (verdict === "FAIL" && (!worst || r < worst.r)) worst = { name, r };
+  const verdict = floor === null ? "n/a " : r >= floor ? "pass" : "FAIL";
   console.log(
-    `  ${verdict.padEnd(4)}  ${name.padEnd(26)} ${fg} on ${bg}  ${r.toFixed(2)}:1  (floor ${floor}:1)  ${note}`
+    `  ${verdict.padEnd(4)}  ${name.padEnd(26)} ${fg} on ${bg}  ${r.toFixed(2)}:1  ` +
+    `(${floor === null ? "no floor" : `floor ${floor}:1`})  ${note}`
   );
 }
 
