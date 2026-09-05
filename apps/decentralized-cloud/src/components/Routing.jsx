@@ -19,8 +19,21 @@
 // A stage whose body has not arrived is drawn as NOTHING with the word "asking" under
 // it. An empty column a reader would take for zero is a false number.
 
+// THE BARS SIT ABOVE THEIR NUMBERS, BY ARITHMETIC AND NOT BY A COMMENT.
+//
+// The first build asserted "the heads sit under their stacks at every width" in a
+// comment and got it wrong at every width: the SVG placed the four stacks at 5.3 /
+// 35.3 / 65.3 / 92.7% of the figure (preserveAspectRatio none) while the heads sat at
+// the LEFT EDGES of four grid cells with a 12px gap — 0 / 25 / 50 / 75% — so the
+// drift grew with every column (+41 … +225px at 1440, measured by the verifier from
+// the rendered pixels). Two coordinate systems, never reconciled.
+//
+// Now one: four equal grid columns with NO gap, heads centred, so the head centres are
+// at 12.5 / 37.5 / 62.5 / 87.5% of the width at every width — and the stacks are
+// placed so that (x + COL/2) / W lands on exactly those fractions. A gap cannot be
+// used, because a px gap does not scale with the box while the viewBox does.
 const W = 1000, H = 200, COL = 26;
-const XS = [40, 340, 640, 940 - COL];
+const XS = [125 - COL / 2, 375 - COL / 2, 625 - COL / 2, 875 - COL / 2];
 const scale = (n, max) => (n > 0 && max > 0 ? Math.max(6, (H - 20) * Math.sqrt(n / max)) : 0);
 
 // ONE MARK PER THING COUNTED. A column is a stack of `total` marks, the bottom `live`
@@ -87,7 +100,7 @@ export default function Routing({ sources, candidates, placement, figures }) {
         <line x1="0" y1={H - 0.5} x2={W} y2={H - 0.5} className="rt-base" />
       </svg>
 
-      {/* The heads sit under their stacks at every width — four columns, always. The
+      {/* Four equal columns, no gap, heads centred — see the arithmetic above XS. The
           reasons beneath them need room to be read, so they go four-across on a desk
           and one-across on a phone, each prefixed with the set it belongs to. */}
       {/* The heads are the hero's four figures, from routing.mjs's headline() — each
@@ -175,7 +188,7 @@ export default function Routing({ sources, candidates, placement, figures }) {
         </div>
       </div>
       <figcaption className="rt-caption mono">
-        column height is on a square-root scale of the count, so the one recommended placement stays visible beside the candidate stack · green is live evidence and nothing else is
+        column height is on a square-root scale of the count, so the one recommended placement stays visible beside the candidate stack · green is live evidence and nothing else is · the recommended placement is drawn white because it is the advisory's choice, not itself live evidence — it may be an unpriced candidate
       </figcaption>
     </figure>
   );

@@ -16,6 +16,7 @@
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -99,7 +100,33 @@ const REFRESH_CADENCE_S = process.env.IOI_DC_REFRESH_CADENCE_S
 // reported green, which is this programme's own scar arriving by another road: three
 // cold readers once scored a sheet the run had never written. A missing build is a
 // state, and it says so.
-const DIST_DIR = path.join(HERE, "..", "dist");
+//
+// WHICH BUILD THIS SERVER HANDS OUT — stated, never assumed.
+//
+// The verifier's gate and the designer's exhibit used to share ONE dist/, and a build by
+// either rewrote the bytes under the other's run: a contact sheet once captured half of
+// one commit and half of the next with nothing in the images saying which, and had to be
+// voided. Three straddles of that class in one day, each caught by discipline — and a
+// fence that depends on a peer remembering is weaker than one that cannot be crossed.
+// So the designer's builds go to a separate, gitignored directory and this server is
+// TOLD which one to serve. The default is unchanged: ../dist, the gate's own build. The
+// gate pins this variable when it spawns its server rather than inheriting it, so an
+// ambient IOI_DC_DIST cannot redirect a gate run to a build it never made, and it checks
+// the served face.js against the one it just built. This server, for its part, says
+// which directory it serves on every boot, on the same line as the port — and refuses
+// to start at all if that directory does not exist: a server with nothing behind it
+// must not announce "face on".
+const DIST_DIR = process.env.IOI_DC_DIST
+  ? path.resolve(process.env.IOI_DC_DIST)
+  : path.join(HERE, "..", "dist");
+const DIST_SOURCE = process.env.IOI_DC_DIST ? "IOI_DC_DIST" : "default";
+if (!existsSync(DIST_DIR) || !statSync(DIST_DIR).isDirectory()) {
+  console.error(
+    `decentralized.cloud face: refusing to start — ${DIST_DIR} (${DIST_SOURCE}) is not a directory. ` +
+    "Build it, or point IOI_DC_DIST at a build that exists."
+  );
+  process.exit(1);
+}
 const STATIC = new Map([
   ["/", { file: "index.html", type: "text/html; charset=utf-8", from: DIST_DIR }],
   ["/index.html", { file: "index.html", type: "text/html; charset=utf-8", from: DIST_DIR }],
@@ -171,7 +198,8 @@ async function serveStatic(res, entry) {
     json(res, unbuilt ? 503 : 404, {
       state: unbuilt ? "surface_not_built" : "asset_absent",
       reason: unbuilt
-        ? `${entry.file} is not in dist/ — run \`npm run build --workspace=decentralized-cloud\`. ` +
+        ? `${entry.file} is not in ${DIST_DIR} (${DIST_SOURCE}) — run \`npm run build --workspace=decentralized-cloud\`, ` +
+          "or point IOI_DC_DIST at a directory that has been built. " +
           "This server does not fall back to the pre-port files still on disk: serving a " +
           "different surface than the one under test is how a green gate comes to mean nothing."
         : `${entry.file} is not on disk`,
@@ -308,7 +336,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`decentralized.cloud face on http://127.0.0.1:${PORT} → daemon ${DAEMON}`);
+  console.log(`decentralized.cloud face on http://127.0.0.1:${PORT} → daemon ${DAEMON} · serving ${DIST_DIR} (${DIST_SOURCE})`);
   console.log(`allowlist: ${SENTENCES.readAllowlist}; ${SENTENCES.writeSummary}`);
   console.log(`  ${ROUTES.map((r) => `${r.method} ${r.face}`).join("\n  ")}`);
 });

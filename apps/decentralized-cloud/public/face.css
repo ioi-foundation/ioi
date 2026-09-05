@@ -839,9 +839,12 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .rt-placed { fill: var(--paper); }
 .rt-band { fill: var(--on-onyx-band); }
 .rt-base { stroke: var(--on-onyx-shape); stroke-width: 1; }
+/* NO GAP AND CENTRED, so each head's centre is at 12.5/37.5/62.5/87.5% of the width —
+   the four fractions the SVG places its stacks on (Routing.jsx, XS). A px gap here put
+   the heads 41–225px left of their stacks at 1440; measured, not guessed. */
 .rt-heads { list-style: none; margin: 0; padding: 0; display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.rt-head { min-width: 0; }
+  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.rt-head { min-width: 0; text-align: center; padding: 0 6px; }
 .rt-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;
   padding-top: 14px; border-top: 1px solid var(--on-onyx-rule); }
 .rt-set-repeat { display: none; }
@@ -902,7 +905,7 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .hero-what { font-size: 15px; }
   .hero-venue { font-size: 16px; }
   .rt { height: 110px; }
-  .rt-heads { gap: 8px; }
+  .rt-head { padding: 0 2px; }
   .rt-n { font-size: 34px; }
   .rt-set { font-size: 10px; margin-top: 5px; }
   .rt-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -915,9 +918,12 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .receipt { display: grid; gap: 6px; padding: 10px 0 12px; border-top: 2px solid var(--ink);
   border-bottom: 1px solid var(--hairline); max-width: 520px; }
 .receipt + .receipt { border-top-width: 1px; }
-.receipt-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.receipt-head { display: flex; justify-content: space-between; gap: 4px 12px; align-items: baseline;
+  flex-wrap: wrap; }
 .receipt-kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
-.receipt-at { font-size: 11px; color: var(--label); }
+/* A timestamp never breaks inside itself ("2026-09-" / "05T06:22…" read as a fault);
+   the head wraps the whole stamp to its own line instead. */
+.receipt-at { font-size: 11px; color: var(--label); white-space: nowrap; }
 .receipt-root { font-size: 12px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
 .receipt-fee { font-size: 12px; color: var(--label); }
 .receipt-note { font-size: 13px; line-height: 1.45; color: var(--label); }

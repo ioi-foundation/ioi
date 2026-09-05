@@ -15,15 +15,28 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // and then deleted it: a second copy of IOI.ttf is a second source that can drift from
 // the first, which is the exact fault the wordmark's one-source gate exists to catch,
 // one directory over. One copy on disk; the build reads it.
-const copyFonts = () => ({
-  name: "dcloud-copy-fonts",
-  closeBundle() {
-    const from = path.join(HERE, "public/fonts");
-    const to = path.join(HERE, "dist/fonts");
-    mkdirSync(to, { recursive: true });
-    cpSync(from, to, { recursive: true });
-  },
-});
+// The fonts follow the RESOLVED outDir, not a hard-coded dist/. The designer's builds
+// go to a separate directory (`vite build --outDir .dist-designer`) so that a build by
+// one session cannot rewrite the bytes under another session's gate run; a plugin that
+// always wrote dist/fonts would have shipped that directory fontless and rendered the
+// whole exhibit in fallback serif — a failure this programme has already paid for once.
+const copyFonts = () => {
+  let outDir = path.join(HERE, "dist");
+  return {
+    name: "dcloud-copy-fonts",
+    configResolved(config) {
+      outDir = path.isAbsolute(config.build.outDir)
+        ? config.build.outDir
+        : path.join(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      const from = path.join(HERE, "public/fonts");
+      const to = path.join(outDir, "fonts");
+      mkdirSync(to, { recursive: true });
+      cpSync(from, to, { recursive: true });
+    },
+  };
+};
 
 export default defineConfig({
   root: HERE,

@@ -108,7 +108,11 @@ export default function Catalog({ announce }) {
             {populationLine({
               live: liveTotal,
               venues: venuesQuoting,
-              considered: considered ?? undefined,
+              // `selection.considered` is the HELD set — every candidate ever swept for
+              // this intent — and it was handed to the advisory's "considered" slot,
+              // so the catalog said "6,727 considered by the advisory" against
+              // Placement's 47. Right label module, wrong slot; the verifier caught it.
+              held: considered ?? undefined,
               sources: counts.sources,
             })}
           </p>

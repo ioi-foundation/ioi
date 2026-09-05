@@ -229,11 +229,14 @@ export default function Candidates({ announce }) {
           intent accumulates every sweep ever run against it; showing a fresh quote
           beside a fortnight-old one would make this a place where prices go to be
           misread. */}
+      {/* No batch count in this sentence. With ?latest=true the body holds exactly one
+          batch, so a count derived from it read "from 0 earlier batches" beside 6,681
+          set-aside observations — two halves of one sentence from two different places.
+          The daemon does not send a batch count and this surface will not compute one. */}
       {setAside > 0 && (
         <p className="meta">
-          Reading the most recent sweep only: {setAside} older observation
-          {setAside === 1 ? "" : "s"} from {batchCount - 1} earlier batch
-          {batchCount - 1 === 1 ? "" : "es"} set aside, not mixed in.
+          Reading the most recent sweep only: {setAside.toLocaleString("en-US")} older observation
+          {setAside === 1 ? "" : "s"} from earlier sweeps set aside, not mixed in.
         </p>
       )}
 
