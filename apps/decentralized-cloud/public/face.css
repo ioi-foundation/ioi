@@ -129,9 +129,24 @@ a:hover { color: #3e7f5c; }
 /* The gap is 16 rather than 22 to pay for the tap-target padding below: adding 6px
    either side of seven buttons widened the bar by 84px and pushed the status block
    20px off a 1440 viewport, which is a regression this file caused and measured. */
-.nav { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; min-width: 0; }
+/* `overflow-x: auto` at EVERY width, not only under a breakpoint.
+   `min-width: 0` above lets these flex items shrink below their content, which is what
+   stops the body scrolling — but a shrunken box whose content does not scroll simply
+   spills, and the spill slides UNDER the neighbouring block. That is a collision, and
+   no overflow measurement can see one: the gate reported 0px of scroll and a nav
+   button sitting on top of the status text at 1520px, which is a wide viewport. It
+   appeared the moment the status chip's wording got longer.
+   The pair is the fix: the container scrolls, and its children refuse to shrink. */
+.nav { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; min-width: 0;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.topbar-status > * { flex-shrink: 0; }
+/* `flex-shrink: 0` at every width, for the reason the narrow breakpoint already
+   carried it: a scroll container whose items shrink does not scroll, it compresses
+   them until they overlap each other. The nav scrolls at all widths now, so its
+   children must refuse to shrink at all widths too. */
 .nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
-  color: var(--label); cursor: pointer; white-space: nowrap; }
+  color: var(--label); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
 /* Green marks live evidence and nothing else, so the current-surface underline is
    ink. A selection colour that is also the evidence colour makes chrome look like
    a claim. */
@@ -269,7 +284,16 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
    and at 390px it was still 1376px, 986px of overflow, with the first nav button at
    x = -352 and the wordmark at x = -557, off-screen to the left and reachable only by
    dragging the whole page sideways. The first thing that overflow hid was the
-   "read-only surface" chip, which is the surface's own honesty label.
+   status chip, which is the surface's own honesty label.
+
+   That chip used to claim the surface performed no writes. It does not any more,
+   because the job door is wired and the claim stopped being true — and this comment
+   QUOTED the old wording, in a stylesheet that is served with its comments intact.
+   The gate asserting that no served byte makes that claim fired on this sentence,
+   not on the chip, and it was right to: a reader running view-source would have found
+   the surface calling itself read-only either way. Same class as the identity score
+   that once shipped to every view-source inside a comment asserting it never reached
+   a reader. The old wording is therefore described here and not repeated.
 
    A comment in this file also described a narrow lockup swapped in below 400px. No
    such rule existed. It does now.
@@ -302,8 +326,18 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
    inside a viewport reporting zero horizontal scroll. No overflow measurement can see
    a collision, which is why the brand harness has had a pairwise collision check
    since the artboard round and why the face now gets the same one. Measured clean at
-   1920, 1520, 1180, 900 and 390; the collision band was 1330 to roughly 1500. */
-@media (max-width: 1500px) {
+   1920, 1520, 1180, 900 and 390; the collision band was 1330 to roughly 1500.
+
+   RAISED FROM 1500 TO 1640, and the number is measured rather than chosen. Wiring the
+   job door made the status chip's wording longer — it used to claim the surface
+   performed no writes, which stopped being true — and the single-row topbar's content
+   floor moved with it. Measured at 1520: lockup 466 + gap 40 + nav 607 + gap 32 +
+   status 408 + padding 80 = 1633. Below that floor the row cannot fit, and what
+   happened at 1520 was not a collision but something quieter: the nav clipped inside
+   its own scroll container and the API button disappeared entirely on a wide desktop.
+   A breakpoint set anywhere below the content's real floor hides a surface rather than
+   reflowing to it. */
+@media (max-width: 1640px) {
   /* The topbar becomes two rows: identity and status, then the surfaces. */
   .topbar { height: auto; flex-wrap: wrap; align-items: center; padding: 10px 24px 0;
     row-gap: 4px; column-gap: 16px; }

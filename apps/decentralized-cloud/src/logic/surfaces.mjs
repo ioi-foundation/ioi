@@ -15,19 +15,25 @@
 // cannot tell from truth is refused; a labelled stub is a design deliverable.
 
 // `wired` is a claim about THIS BRANCH at THIS COMMIT, not about what the daemon can
-// do. The daemon's cloud-job routes exist and are green on m15; this surface has not
-// been connected to them yet, so job/receipts stay FALSE until Phase C actually wires
-// them and the gate proves it. Marking a surface wired before wiring it is the exact
-// dishonesty this page exists to refuse — and I set these three to true from the
-// daemon's capabilities rather than from my own code, which is the same error one
-// level up.
+// do. I once set job and receipts to true from the daemon's capabilities rather than
+// from my own code — the daemon's routes were green while this surface called none of
+// them — which is the same dishonesty this page exists to refuse, one level up.
+//
+// They are true NOW because the door exists and the gate proves it against the running
+// daemon: a job admitted through this surface appears in GET /v1/hypervisor/cloud-jobs,
+// and its refusals and receipts are rendered from the daemon's own bodies.
+//
+// REDUNDANCY STAYS FALSE. The daemon accepts only the `none` posture and refuses the
+// other two by name until M15.9 — replica placement, a per-replica exposure set and a
+// switch policy do not exist yet. A posture surface that could not set a posture would
+// be wired in name only.
 export const SURFACES = [
   { id: "candidates", label: "Candidates", wired: true },
   { id: "sources", label: "Sources", wired: true },
   { id: "placement", label: "Placement", wired: true },
-  { id: "job", label: "Submit a job", wired: false },
+  { id: "job", label: "Submit a job", wired: true },
   { id: "redundancy", label: "Redundancy", wired: false },
-  { id: "receipts", label: "Receipts", wired: false },
+  { id: "receipts", label: "Receipts", wired: true },
   { id: "api", label: "API", wired: true },
 ];
 

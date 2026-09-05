@@ -16,6 +16,22 @@ const READS = [
   ["/api/candidates", "/v1/hypervisor/cloud-candidates/candidates", "intent_ref"],
   ["/api/placement-advisory", "/v1/hypervisor/cloud-candidates/placement-advisory", "intent_ref"],
   ["/api/venues", "/v1/hypervisor/placement/venues", "—"],
+  ["/api/jobs", "/v1/hypervisor/cloud-jobs", "—"],
+  ["/api/jobs/:id", "/v1/hypervisor/cloud-jobs/:id", "—"],
+  ["/api/budgets", "/v1/hypervisor/resource/budgets", "—"],
+];
+
+const WRITES = [
+  [
+    "/api/jobs",
+    "POST /v1/hypervisor/cloud-jobs",
+    "Admits a proposal. The daemon's own words: admission authorizes nothing. No provider is touched and nothing is spent.",
+  ],
+  [
+    "/api/jobs/:id/dry-run",
+    "POST /v1/hypervisor/cloud-jobs/:id/execute",
+    "Runs the placement decision and stops. The proxy sets dry_run itself rather than forwarding it, so no request composed by a client reaches a metered provider operation.",
+  ],
 ];
 
 export default function Api({ announce }) {
@@ -51,6 +67,44 @@ export default function Api({ announce }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="stack" style={{ gap: "12px" }}>
+        <div className="eyebrow">and the two writes — the whole of them</div>
+        <p className="prose">
+          Until the job door was wired this surface exposed no mutating route at all.
+          It now exposes exactly two, and the second one carries the boundary that
+          matters: a real execution is a metered provider operation, and the proxy sets
+          the dry-run flag itself on every execute instead of forwarding what the caller
+          sent. There is no request a client can compose that reaches a provider through
+          this surface. A real run is a spend, and a spend needs an explicit owner
+          authorization naming amount, venue ceiling, offer hash and teardown.
+        </p>
+        <div className="table-scroll">
+          <table className="quotes">
+            <caption className="sr-only">The two writes this surface exposes</caption>
+            <thead>
+              <tr>
+                <th scope="col">This surface accepts</th>
+                <th scope="col">The daemon route it stands for</th>
+                <th scope="col">What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              {WRITES.map(([face, daemon, what]) => (
+                <tr key={face} className="trow">
+                  <th scope="row" className="mono" style={{ fontSize: "13px" }}>POST {face}</th>
+                  <td className="mono basis">{daemon}</td>
+                  <td className="basis">{what}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="meta">
+          No PUT, no PATCH, no DELETE, on any path. A POST to anything not in this table
+          is refused by name: <span className="mono">write_not_on_allowlist</span>.
+        </p>
       </div>
 
       <div className="stack" style={{ gap: "9px" }}>

@@ -94,16 +94,41 @@ half of a review is the part that survives the fixes.
 ## Ownership, for anyone acting on a review
 
 This surface is split by responsibility rather than by file. Presentation — the
-markup, classes, copy and structure emitted by the render functions, plus
-`public/index.html` and `public/face.css` — is the identity track's. Logic — the
-fetches, the live-versus-simulator classification, batch and expiry computation, the
-refresher contract and the job door — is not. A UX fix that needs a logic change is
+components under `src/components/` and `src/surfaces/`, the shell `index.html`, and
+`public/face.css` — is one track. Logic — `src/logic/**`, `src/useSurfaceRead.js` and
+the proxy in `scripts/serve-face.mjs` — is not. A UX fix that needs a logic change is
 routed as a diff rather than applied, and
 `scripts/verify-decentralized-cloud-face.mjs` must stay green after every change.
 
-Seven of that gate's assertions read `public/face.js` as TEXT: the canonical-vocabulary
-names, the no-mutating-fetch check, the two request literals whose diff must remain
-exactly one field, the three per-surface "designed, not connected" labels, and the
-check that no rendered text mentions the identity score. Reformatting any of those
-makes the gate FAIL rather than pass silently, which is the correct direction — but it
-means restyling must keep them byte-stable.
+### What changed under this document
+
+These criteria were written when the surface was a single 930-line `public/face.js`.
+It is now a built React app and the job door is wired, which moves two criteria
+underneath. Read this before scoring: the previous edition of this section described
+files that no longer carry what it said they carried, and a reviewer following it
+would have gone looking in the wrong place.
+
+**Criterion 2 covers less than it used to.** Job and Receipts are WIRED — the form
+admits a real job against the daemon, it appears in the daemon's own list, and
+refusals are the daemon's own codes rendered by code. The only surface still designed
+and not connected is **Redundancy**, because the daemon accepts the `none` posture and
+refuses the other two by name until M15.9. Score criterion 2 on Redundancy, and on
+whether the wired surfaces are honest about the one thing they still cannot do.
+
+**There is a boundary worth trying to break, and it scores under criteria 1 and 8.**
+A real job execution is metered provider spend. The proxy overwrites `dry_run` to true
+on every execute rather than forwarding it, so no request a client composes reaches a
+provider; the surface states this in the panel above the submit button. If any copy
+overstates or understates that, it is a defect. If you can find a path through the
+surface that reaches a provider, that is not a defect — it is a stop-everything.
+
+**Assertions that read source as TEXT, which restyling must keep byte-stable**, now
+read `src/**`: the canonical-vocabulary names, the closed list of exactly two POSTs and
+no other verb, Redundancy's own "designed, not connected" label, the registry's `wired`
+flags, the proxy's `dry_run` overwrite, and the checks that no served byte claims the
+surface is read-only or mentions the identity score. Two assertions that used to read
+source now IMPORT it — the dial's arithmetic and both job-request bodies — so those are
+safe to reformat and unsafe to change in meaning.
+
+Reformatting any text-read assertion makes the gate FAIL rather than pass silently,
+which is the correct direction.

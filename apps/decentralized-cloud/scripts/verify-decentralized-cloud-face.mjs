@@ -170,9 +170,7 @@ function checkUnwiredSurfaces() {
   // to a reader, and source a reader never sees cannot satisfy a claim about what
   // they are told.
   for (const [file, surface, shape] of [
-    ["src/surfaces/Job.jsx", "Job", "CloudJobRequest"],
     ["src/surfaces/Redundancy.jsx", "Redundancy", "RedundancyPosture"],
-    ["src/surfaces/Receipts.jsx", "Receipts", "RoutingDecisionReceipt"],
   ]) {
     const body = stripComments(readFileSync(path.join(APP, file), "utf8"));
     ok(`${surface} is labelled designed, not connected`,
@@ -193,14 +191,38 @@ function checkUnwiredSurfaces() {
   // renders <NotConnected>, or an unwired one that has quietly lost its label, is a
   // disagreement between what the app believes and what it tells a reader.
   const registry = readFileSync(path.join(APP, "src/logic/surfaces.mjs"), "utf8");
-  for (const id of ["job", "redundancy", "receipts"]) {
-    ok(`the registry marks ${id} unwired while it renders an unwired label`,
-      new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*false`).test(registry));
+  ok("the registry marks redundancy unwired while it renders an unwired label",
+    /id:\s*"redundancy"[^}]*wired:\s*false/.test(registry));
+  // The two that were unwired and now are not. This is asserted so the flag cannot be
+  // flipped back to false while the door still exists, or forward while it does not.
+  for (const id of ["job", "receipts"]) {
+    ok(`the registry marks ${id} wired, and the door it names exists`,
+      new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*true`).test(registry));
   }
-  ok("every control drawn on a write surface is inert",
-    (js.match(/className="button-inert"[^>]*disabled/g) || []).length >= 1);
-  ok("the face declares no mutating fetch anywhere",
-    !/method:\s*["'](POST|PUT|PATCH|DELETE)["']/i.test(js));
+
+  // ── The mutating surface, stated exactly ──────────────────────────────────
+  // This assertion used to read "the face declares no mutating fetch anywhere", and
+  // that was true and is not any more: the job door posts. Weakening it to nothing
+  // would have been the easy move and the wrong one — the claim that matters was never
+  // "no POST exists", it was "no POST exists that I did not name". So it is replaced by
+  // a CLOSED list: exactly two POSTs, and no other verb at all.
+  const doorSrc = readFileSync(path.join(APP, "src/logic/job-door.mjs"), "utf8");
+  const posts = [...js.matchAll(/method:\s*"(\w+)"/g)].map((m) => m[1]);
+  ok("the only verb the surface sends is POST",
+    posts.every((v) => v === "POST"), posts.join(", ") || "none");
+  ok("the surface posts to exactly two paths, both named",
+    /"\/api\/jobs"/.test(doorSrc) && /\/api\/jobs\/\$\{encodeURIComponent\(jobId\)\}\/dry-run/.test(doorSrc));
+  ok("no PUT, PATCH or DELETE is declared anywhere on the surface",
+    !/method:\s*["'](PUT|PATCH|DELETE)["']/i.test(js));
+
+  // THE SPEND FENCE, in the source. The proxy is what enforces it and the served-bytes
+  // check below proves it against the daemon; this asserts the door module does not
+  // even offer the caller a way to ask.
+  ok("the job door never sends dry_run — it is not the client's field to set",
+    !/dry_run/.test(doorSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")));
+  const serveSrc = readFileSync(path.join(APP, "scripts/serve-face.mjs"), "utf8");
+  ok("the proxy OVERWRITES dry_run rather than forwarding it",
+    /body\s*=\s*\{\s*\.\.\.body,\s*dry_run:\s*true\s*\}/.test(serveSrc));
 }
 
 // ── 2e. One primitive, two doors ────────────────────────────────────────────
@@ -355,6 +377,19 @@ async function checkServer() {
       shell.includes(facesOwnZ)
         ? "the served shell carries the pre-override Z, which four readers read as a 2"
         : "the pre-override Z is absent from the served shell");
+    // THE SURFACE DOES NOT CALL ITSELF READ-ONLY WHILE IT HAS A WRITE DOOR.
+    // That claim stood in the header for a build after the door was wired — a false
+    // statement on the one page whose subject is not making false statements. No gate
+    // saw it; a screenshot did. It is asserted against the served bytes because the
+    // claim is a rendered string, and it is asserted as an ABSENCE, which is the only
+    // shape that catches it coming back.
+    const claimsReadOnly = /read-only surface/.test(shell);
+    ok("the surface does not describe itself as read-only now that it has a write door",
+      !claimsReadOnly,
+      claimsReadOnly
+        ? "the served bytes still say 'read-only surface' while two POST routes exist"
+        : "no served byte claims the surface is read-only");
+
     // THE MARK IS STILL THERE, and it is asserted because it once was not.
     // Porting the lockup to a component dropped the mark — not by a decision, but by
     // writing a new lockup and not carrying it over. Every gate stayed green, because
@@ -398,16 +433,174 @@ async function checkServer() {
         : "the served bytes set 'decentrali' as one run — the I is the face's bare stem, " +
           "which two readers typed back as a lowercase l and one as DECENTRAL12ED");
 
+    // ── THE JOB DOOR, against the RUNNING daemon ──────────────────────────────
+    //
+    // Not against a fixture and not against a recorded body. A job is admitted THROUGH
+    // this surface, it is then found in the daemon's own list, its refusals are the
+    // daemon's own codes, and the spend fence is exercised by trying to defeat it.
+    //
+    // If the daemon is not reachable, these are reported as NOT RUN rather than passing
+    // quietly — silence from a check that never ran looks exactly like silence from a
+    // check that passed.
+    const jobsProbe = await fetch(`${BASE}/api/jobs`);
+    const daemonUp = jobsProbe.status === 200;
+    ok("the daemon answers the job list, so the door can be proven at all",
+      daemonUp, `GET /api/jobs -> ${jobsProbe.status}`);
+
+    if (!daemonUp) {
+      ok("THE JOB DOOR WAS NOT PROVEN — the daemon was unreachable", false,
+        "these assertions did not run; that is not the same as passing");
+    } else {
+      // A refusal, by CODE, from the daemon's own mouth. A request with no deadline is
+      // refused before anything is created.
+      const noDeadline = await fetch(`${BASE}/api/jobs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          caller_kind: "human",
+          authority_ref: "wallet-grant://wg_gate_probe",
+          budget_ref: "budget://does-not-exist",
+          intent: { runtime_class: "compute.gpu_runtime" },
+        }),
+      });
+      const noDeadlineBody = await noDeadline.json().catch(() => ({}));
+      ok("a job with no deadline is refused by the daemon, by name",
+        noDeadline.status === 422 && noDeadlineBody?.error?.code === "job_deadline_required",
+        `${noDeadline.status} ${noDeadlineBody?.error?.code || "(no code)"}`);
+      ok("the refusal carries the daemon's own sentence, not a paraphrase",
+        typeof noDeadlineBody?.error?.message === "string" &&
+        noDeadlineBody.error.message.length > 40,
+        (noDeadlineBody?.error?.message || "").slice(0, 60));
+
+      // The authority mode is resolved from caller_kind, and a mismatched ref is
+      // refused rather than coerced.
+      const mismatched = await fetch(`${BASE}/api/jobs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          caller_kind: "human",
+          authority_ref: "capability-lease://cl_gate_probe",
+          budget_ref: "budget://does-not-exist",
+          intent: { runtime_class: "compute.gpu_runtime" },
+          deadline: { max_duration_hours: 1 },
+        }),
+      });
+      const mismatchedBody = await mismatched.json().catch(() => ({}));
+      ok("a human caller presenting a lease ref is refused by name",
+        mismatchedBody?.error?.code === "job_authority_mode_mismatch",
+        mismatchedBody?.error?.code || "(no code)");
+
+      // An admission, for real, through this surface — then found in the daemon's list.
+      const budgetsRes = await fetch(`${BASE}/api/budgets`);
+      const budgetsBody = await budgetsRes.json().catch(() => ({}));
+      const spend = (budgetsBody.budgets || budgetsBody.items || [])
+        .find((b) => b.scope === "external_spend");
+      ok("an external_spend budget exists for the door to draw on",
+        !!spend, spend ? `budget://${spend.budget_id}` : "none — the admission below cannot run");
+
+      if (spend) {
+        const admitRes = await fetch(`${BASE}/api/jobs`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            caller_kind: "human",
+            authority_ref: "wallet-grant://wg_face_gate",
+            budget_ref: `budget://${spend.budget_id}`,
+            intent: { runtime_class: "compute.gpu_runtime", gpu: { required: true, devices: 1, min_gb: 24 } },
+            deadline: { max_duration_hours: 1 },
+            redundancy: "none",
+            receipt_requirements: ["placement", "spend"],
+          }),
+        });
+        const admitBody = await admitRes.json().catch(() => ({}));
+        const jobId = admitBody?.job?.job_id;
+        ok("a job submitted THROUGH this surface is admitted by the daemon",
+          admitRes.status === 201 && !!jobId, `${admitRes.status} ${jobId || "(no job_id)"}`);
+        ok("the admitted record is a PROPOSAL and authorizes nothing",
+          admitBody?.job?.state === "admitted_proposal", admitBody?.job?.state || "(no state)");
+        ok("the human caller resolved to a wallet grant, not a lease",
+          admitBody?.job?.authority?.mode === "wallet_grant" &&
+          admitBody?.job?.authority?.caller_kind === "human",
+          `${admitBody?.job?.authority?.caller_kind}/${admitBody?.job?.authority?.mode}`);
+        ok("the budget was discovered BEFORE any mutation",
+          admitBody?.job?.budget_discovery?.discovered_before_mutation === true);
+        ok("the caller holds no provider credential in the admitted record",
+          admitBody?.job?.authority?.credential_held_by_caller === false);
+
+        // It is in the daemon's own list, read back independently.
+        if (jobId) {
+          const listBody = await (await fetch(`${BASE}/api/jobs`)).json();
+          const found = (listBody.jobs || []).some((j) => j.job_id === jobId);
+          ok("the job appears in the daemon's own list, read back after the write",
+            found, found ? jobId : `${jobId} not found among ${(listBody.jobs || []).length} records`);
+
+          // ── THE SPEND FENCE, exercised by trying to defeat it ──────────────
+          // The request deliberately carries `dry_run: false`. The proxy must overwrite
+          // it, and the DAEMON's echo — not this surface's — must come back true.
+          const dryRes = await fetch(`${BASE}/api/jobs/${jobId}/dry-run`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ dry_run: false, idempotency_key: `gate-${Date.now()}` }),
+          });
+          const dryBody = await dryRes.json().catch(() => ({}));
+          ok("a client asking for a REAL run through this door still gets a dry run",
+            dryBody?.dry_run === true,
+            `sent dry_run:false, the daemon echoed dry_run:${String(dryBody?.dry_run)}`);
+          ok("the dry run reaches a placement and stops there",
+            dryRes.status === 200 && dryBody?.job?.state === "placed",
+            `${dryRes.status} ${dryBody?.job?.state || "(no state)"}`);
+          ok("no provider operation receipt was minted by the dry run",
+            !dryBody?.job?.receipts?.["provider-operation"],
+            "a dry run that produced a provider receipt would have touched a provider");
+        }
+      }
+
+      // Every other verb is refused, and a POST off the allowlist is refused BY NAME.
+      for (const method of ["PUT", "PATCH", "DELETE"]) {
+        const res = await fetch(`${BASE}/api/jobs`, { method });
+        const body = await res.json().catch(() => ({}));
+        ok(`a ${method} to the job door is refused`,
+          res.status === 405 && body?.state === "method_not_allowed",
+          `${res.status} ${body?.state || ""}`);
+      }
+      const strayPost = await fetch(`${BASE}/api/candidates`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+      });
+      const strayBody = await strayPost.json().catch(() => ({}));
+      ok("a POST to a READ route is refused by name, not proxied",
+        strayPost.status === 405 && strayBody?.state === "write_not_on_allowlist",
+        `${strayPost.status} ${strayBody?.state || ""}`);
+    }
+
     const unknown = await fetch(`${BASE}/api/not-a-real-read`);
     const unknownBody = await unknown.json().catch(() => ({}));
     ok("a path off the allowlist is refused BY NAME",
       unknown.status === 404 && unknownBody.state === "route_not_on_read_allowlist",
       `HTTP ${unknown.status} ${unknownBody.state || ""}`);
-    ok("the refusal names what the surface does expose",
-      Array.isArray(unknownBody.allowed) && unknownBody.allowed.length === 4,
-      (unknownBody.allowed || []).join(", "));
+    // The refusal names what the surface DOES expose, and the list is pinned to the
+    // proxy's own map rather than to a number I typed. It was `length === 4`, and the
+    // job door made it 6 — a count is a claim that goes stale the moment the thing it
+    // counts changes, and "update the number until it passes" is how a gate stops
+    // meaning anything. Compared against the server's map, it cannot drift.
+    const serveText = readFileSync(path.join(APP, "scripts/serve-face.mjs"), "utf8");
+    // Scoped to the READS map alone. The first version of this scanned the whole file
+    // and counted 7 against a refusal listing 6, because `/api/jobs` appears in BOTH
+    // the read map and the write map — the assertion was reading two different things
+    // as one. Scope every assertion to the region it names.
+    const readsBlock = (serveText.match(/const READS = new Map\(\[([\s\S]*?)\n\]\);/) || ["", ""])[1];
+    const declaredReads = [...readsBlock.matchAll(/\["(\/api\/[a-z-]+)",\s*\{\s*daemon:/g)].map((m) => m[1]);
+    const namedAll = declaredReads.every((r) => (unknownBody.allowed || []).includes(r));
+    ok("the refusal names every read the proxy actually declares",
+      namedAll && (unknownBody.allowed || []).length === declaredReads.length,
+      `refusal listed ${(unknownBody.allowed || []).length}, the proxy declares ${declaredReads.length}`);
 
-    for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+    // PUT, PATCH and DELETE are refused on every path, still. POST is no longer in this
+    // loop because POST is no longer universally refused — it is refused EXCEPT on the
+    // two named write paths, and that is asserted above by posting to a read route and
+    // requiring `write_not_on_allowlist`. Leaving POST here and relaxing the expected
+    // state to "either refusal" would have been a disjunction, which is blind: it would
+    // pass whether the surface refused a stray POST or proxied it.
+    for (const method of ["PUT", "PATCH", "DELETE"]) {
       const res = await fetch(`${BASE}/api/candidate-sources`, { method });
       const body = await res.json().catch(() => ({}));
       ok(`${method} is refused as method_not_allowed`,

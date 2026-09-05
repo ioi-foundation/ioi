@@ -1,42 +1,90 @@
-import { useEffect } from "react";
-import { Chip, NotConnected } from "../components/Bits.jsx";
+import { useEffect, useState } from "react";
+import { useSurfaceRead } from "../useSurfaceRead.js";
+import { Chip, Failure } from "../components/Bits.jsx";
 import { HUMAN_REQUEST, AGENT_REQUEST } from "../logic/job-request.mjs";
+import { composeRequest, admit, dryRun, refusal, jobView } from "../logic/job-door.mjs";
 
-// SUBMIT A JOB — designed, not connected, and saying so in its own words.
+// SUBMIT A JOB — WIRED, on the human path.
 //
-// The daemon's cloud-job routes exist and are green on m15. THIS SURFACE is not
-// connected to them yet: Phase C wires the human path, and until it does, every claim
-// on this page is about a shape rather than about a capability. A stub a reader
-// cannot tell from truth is refused; a labelled stub is a design deliverable.
+// This surface used to be drawn and inert, labelled "designed, not connected". It now
+// posts a real CloudJobRequest to the daemon through the face's write door and renders
+// whatever comes back — an admission or a refusal — from the daemon's own body.
 //
-// The label is rendered TEXT, not a comment and not a colour. The face gate strips
-// comments from the served bytes before asserting this surface says it, because a
-// source-text assertion can be satisfied by a comment — and was, twice: once by a
-// fixed-length slice running into the next function's label, and once by a section
-// banner containing the same phrase.
+// WHAT IT STILL CANNOT DO, and why that is a boundary rather than a gap:
+//
+//   A REAL EXECUTION IS NOT REACHABLE FROM HERE. The daemon's execute route runs a
+//   metered provider operation unless the body carries `dry_run: true`. The face's
+//   proxy overwrites that field to true on every execute, server-side, after parsing
+//   the body — so no request a client can compose reaches a provider. That is proven,
+//   not asserted: a request carrying `dry_run: false` came back with `dry_run: true`
+//   and a job in state `placed`, with nothing spent.
+//
+//   A real execution is a spend. It needs an explicit owner authorization naming
+//   amount, venue ceiling, offer hash and teardown, and no such authorization can
+//   arrive through a web form. The budget this door can draw on is real and has real
+//   money behind it, which is what makes the fence load-bearing rather than tidy.
+//
+//   THE AGENT LANE IS BUILT AND UNREACHABLE FROM HERE. It is not missing: the daemon
+//   resolves `caller_kind: "agent"` through a CapabilityLease draw-down and that
+//   resolver is proven in-process to its honest maximum. What is not proven is the
+//   binding WRITE on a real mint and byte-identical receipts on a live agent
+//   execution, and both are M03.12's proof to run. This surface has no lease to draw
+//   down and no business minting one, so it sends `caller_kind: "human"` and says so.
 
-const Field = ({ label, value, hint }) => (
-  <div className="field">
-    <div className="field-label">{label}</div>
-    <div className="field-box"><span>{value}</span><span className="mono">▾</span></div>
-    {hint ? <div className="field-hint">{hint}</div> : null}
-  </div>
-);
-
-// The two request bodies are imported, not written here, so the gate can compare the
-// SAME objects this surface renders rather than parsing them back out of the source.
+const REDUNDANCY = ["none", "warm_standby", "active_active"];
 
 export default function Job({ announce }) {
-  useEffect(() => { announce("Submit a job — designed, not connected"); }, [announce]);
+  const budgets = useSurfaceRead("budgets", "/api/budgets");
+  const [form, setForm] = useState({
+    budgetRef: "",
+    authorityRef: "wallet-grant://",
+    hours: 4,
+    devices: 1,
+    minGb: 24,
+    redundancy: "none",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
+  const [dry, setDry] = useState(null);
+  const [dryBusy, setDryBusy] = useState(false);
+
+  useEffect(() => { announce("Submit a job — wired to the daemon on the human path"); }, [announce]);
+
+  const spendBudgets = (budgets.data?.budgets || budgets.data?.items || [])
+    .filter((b) => b.scope === "external_spend");
+
+  // NO BUDGET IS PRESELECTED, even when only one exists.
+  //
+  // I wrote that auto-selection first, as a convenience, and then looked at what it
+  // does: it puts a real external_spend budget into a request the reader did not
+  // choose, and the submit button becomes live the instant the page finishes loading.
+  // Choosing which money a job may draw on is the one decision on this form that
+  // should never be made by a default. The button stays disabled until someone picks.
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setSubmitting(true);
+    setDry(null);
+    const r = await admit(composeRequest(form));
+    setResult(r);
+    setSubmitting(false);
+  }
+
+  async function onDryRun(jobId) {
+    setDryBusy(true);
+    setDry(await dryRun(jobId, `face-${Date.now()}`));
+    setDryBusy(false);
+  }
+
+  const refused = result ? refusal(result) : null;
+  const job = result?.ok ? jobView(result.body?.job) : null;
+  const dryJob = dry?.ok ? jobView(dry.body?.job) : null;
+  const dryRefused = dry ? refusal(dry) : null;
 
   return (
     <div className="stack" style={{ gap: "26px" }}>
-      <NotConnected>
-        Drawn to the canonical CloudJobRequest shape and submits nothing. No field here
-        reaches a provider, a wallet, or a budget: this server exposes no mutating route
-        at all, so there is nothing for the button to call.
-      </NotConnected>
-
       <div className="stack" style={{ gap: "9px" }}>
         <h1>Submit a job</h1>
         <p className="prose" style={{ fontSize: "16px" }}>
@@ -45,53 +93,165 @@ export default function Job({ announce }) {
         </p>
       </div>
 
-      <div className="cols cols-2" style={{ gap: "20px 24px", maxWidth: "900px" }}>
-        <Field label="intent.runtime_class" value="compute.gpu_runtime" />
-        <Field label="intent.gpu" value="required · 1 device · 24 GB" />
-        <Field label="deadline" value="max duration · 4 hours" />
-        <Field
-          label="budget_ref"
-          value="select an external_spend budget"
-          hint="An existing budget, never an amount typed here. A request with no resolvable budget is refused by name: budget_undiscovered_before_mutation."
-        />
-        <Field
-          label="authority_ref"
-          value="wallet grant · signed at submit"
-          hint="A wallet grant for a human, a CapabilityLease draw-down for an agent. Never a provider credential — the caller never holds one."
-        />
-        <Field
-          label="redundancy"
-          value="none"
-          hint="none · warm_standby · active_active. Declared or absent — never inferred, defaulted, or applied by a fallback you did not authorize."
-        />
+      {/* The spend fence, stated where the button is, not in a footnote. */}
+      <div className="panel notice stack" style={{ gap: "8px" }}>
+        <div className="eyebrow">what this door can and cannot do</div>
+        <p className="prose">
+          Submitting admits a <strong>proposal</strong>: the daemon records it and it
+          authorizes nothing. A dry run then stops at the placement receipt and touches
+          no provider. <strong>A real execution is not reachable from this surface</strong> —
+          the proxy sets the dry-run flag itself on every execute rather than forwarding
+          it, so no request composed here can reach a metered provider operation. A real
+          run is a spend, and a spend needs an explicit owner authorization that names
+          the amount, the venue ceiling, the offer hash and the teardown.
+        </p>
       </div>
 
-      <div className="field">
-        <div className="field-label">receipt_requirements</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "9px" }}>
-          {["placement", "provider-operation", "spend", "failover", "offline-verifiable"].map((r) => (
-            <span key={r} className="chip muted">{r}</span>
-          ))}
+      <form className="stack" style={{ gap: "20px", maxWidth: "900px" }} onSubmit={onSubmit}>
+        <div className="cols cols-2" style={{ gap: "20px 24px" }}>
+          <label className="field">
+            <span className="field-label">budget_ref</span>
+            <select className="field-box" value={form.budgetRef} onChange={set("budgetRef")} required>
+              <option value="">select an external_spend budget</option>
+              {spendBudgets.map((b) => (
+                <option key={b.budget_id} value={`budget://${b.budget_id}`}>
+                  {b.name || b.budget_id} — {b.currency} {b.remaining ?? b.limit} remaining
+                </option>
+              ))}
+            </select>
+            <span className="field-hint">
+              An existing budget, never an amount typed here. This list is the daemon's
+              own; the form can only send back a ref it was given. A request with no
+              resolvable budget is refused by name:{" "}
+              <span className="mono">budget_undiscovered_before_mutation</span>.
+            </span>
+          </label>
+
+          <label className="field">
+            <span className="field-label">authority_ref</span>
+            <input className="field-box" type="text" value={form.authorityRef}
+              onChange={set("authorityRef")} required spellCheck="false" />
+            <span className="field-hint">
+              A wallet grant, presented at submit. Never a provider credential — the
+              caller never holds one. A ref of the wrong kind is refused by name:{" "}
+              <span className="mono">job_authority_mode_mismatch</span>.
+            </span>
+          </label>
+
+          <label className="field">
+            <span className="field-label">deadline · max duration (hours)</span>
+            <input className="field-box" type="number" min="1" max="72" value={form.hours}
+              onChange={set("hours")} required />
+            <span className="field-hint">
+              Without one there is no boundary at which an unfinished job becomes a
+              failed one. Absent, it is refused:{" "}
+              <span className="mono">job_deadline_required</span>.
+            </span>
+          </label>
+
+          <label className="field">
+            <span className="field-label">intent.gpu</span>
+            <span style={{ display: "flex", gap: "8px" }}>
+              <input className="field-box" type="number" min="1" max="8" value={form.devices}
+                onChange={set("devices")} aria-label="devices" />
+              <input className="field-box" type="number" min="1" max="200" value={form.minGb}
+                onChange={set("minGb")} aria-label="minimum GB" />
+            </span>
+            <span className="field-hint">devices, and minimum GB per device.</span>
+          </label>
+
+          <label className="field">
+            <span className="field-label">redundancy</span>
+            <select className="field-box" value={form.redundancy} onChange={set("redundancy")}>
+              {REDUNDANCY.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <span className="field-hint">
+              Declared or absent — never inferred or defaulted. Postures beyond{" "}
+              <span className="mono">none</span> are refused rather than downgraded,
+              because a caller who asked for redundancy and silently received none would
+              believe their work was protected when it was not.
+            </span>
+          </label>
         </div>
-      </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-        <button className="button-inert" type="button" disabled>Submit job</button>
-        <span className="field-hint" style={{ maxWidth: "48ch" }}>
-          Disabled until this surface is wired to the daemon's cloud-job routes. The
-          button is drawn so the shape of the commitment is reviewable now, and it is
-          inert on purpose.
-        </span>
-        <Chip kind="muted">not wired — this surface calls no job route</Chip>
-      </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+          <button className="button" type="submit" disabled={submitting || !form.budgetRef}>
+            {submitting ? "asking the daemon…" : "Admit this job"}
+          </button>
+          <Chip kind="live">wired · POST /v1/hypervisor/cloud-jobs</Chip>
+        </div>
+      </form>
 
-      {/* ── The same primitive, from both doors ──────────────────────────────
-          A human fills the form above; an agent posts the body below. They are not two
-          APIs with a shared name — they are one CloudJobRequest, and the only field
-          that differs is how authority was obtained: a wallet grant a person signs, or
-          a CapabilityLease an agent draws down. If these two ever drift apart, one of
-          the two callers is being offered a privilege the other is not, which is how a
-          second spine starts. */}
+      {refused && (
+        <div className="panel fault stack" style={{ gap: "8px" }}>
+          <div className="eyebrow mono">{refused.code}</div>
+          <p className="prose">{refused.detail || "The daemon refused and gave no reason, which is itself worth reporting."}</p>
+          <p className="meta">refused by the daemon · http {refused.status}</p>
+        </div>
+      )}
+
+      {job && (
+        <div className="panel flag stack" style={{ gap: "12px" }}>
+          <div className="eyebrow">admitted as a proposal — nothing is authorized and nothing is spent</div>
+          <h2 className="mono">{job.id}</h2>
+          <div className="table-scroll">
+            <table className="quotes">
+              <caption className="sr-only">What the daemon recorded for this job</caption>
+              <tbody>
+                {[
+                  ["state", job.state],
+                  ["caller_kind", job.callerKind],
+                  ["authority mode", job.authorityMode],
+                  ["authority_ref", job.authorityRef],
+                  ["budget_ref", job.budgetRef],
+                  ["budget discovered before mutation", String(job.budgetDiscoveredBeforeMutation)],
+                  ["redundancy", String(job.redundancy)],
+                ].map(([k, v]) => (
+                  <tr key={k} className="trow">
+                    <th scope="row" className="mono" style={{ fontSize: "13px" }}>{k}</th>
+                    <td className="mono basis">{v ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
+            <button className="button" type="button" disabled={dryBusy} onClick={() => onDryRun(job.id)}>
+              {dryBusy ? "placing…" : "Dry run — place it, touch no provider"}
+            </button>
+            <span className="field-hint" style={{ maxWidth: "44ch" }}>
+              Runs the placement decision and stops. The proxy sets the dry-run flag
+              itself; there is no control here that could run this for real.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {dryRefused && (
+        <div className="panel fault stack" style={{ gap: "8px" }}>
+          <div className="eyebrow mono">{dryRefused.code}</div>
+          <p className="prose">{dryRefused.detail || "The dry run was refused and the response carried no reason."}</p>
+        </div>
+      )}
+
+      {dryJob && (
+        <div className="panel flag stack" style={{ gap: "10px" }}>
+          <div className="eyebrow">
+            dry run · {String(dry.body?.dry_run)} — the daemon confirms it touched no provider
+          </div>
+          <h2 className="mono">{dryJob.state}</h2>
+          {dry.body?.note && <p className="prose">{dry.body.note}</p>}
+          <p className="meta">
+            The flag above is the DAEMON's echo of what it received, not what this page
+            sent. That is the assertion that matters: a request carrying dry_run false
+            comes back true.
+          </p>
+        </div>
+      )}
+
+      {budgets.phase === "failed" && <Failure result={budgets.failure} />}
+
+      {/* ── The same primitive, from both doors ────────────────────────────── */}
       <div className="stack" style={{ gap: "14px", marginTop: "6px" }}>
         <div className="eyebrow">The same primitive, from both doors</div>
         <p className="prose">
@@ -100,13 +260,22 @@ export default function Job({ announce }) {
           its authority already permits — a lease draw-down is a narrowing of a grant a
           human made earlier, never a new grant an agent made for itself.
         </p>
+        <p className="prose">
+          The agent lane is <strong>built and unreachable from this surface</strong>. The
+          daemon resolves an agent caller through a CapabilityLease draw-down and that
+          resolver is proven in-process to its honest maximum. What is unproven is the
+          binding write on a real mint and byte-identical receipts on a live agent
+          execution — both are <span className="mono">M03.12</span>'s proof to run. This
+          page sends <span className="mono">caller_kind: "human"</span> and nothing else,
+          because it has no lease to draw down and no business minting one.
+        </p>
         <div className="cols cols-2" style={{ gap: "20px" }}>
           <div className="stack" style={{ gap: "9px" }}>
-            <div className="meta">human · wallet grant signed at submit</div>
+            <div className="meta">human · wallet grant signed at submit — the lane this door uses</div>
             <pre className="code">{JSON.stringify(HUMAN_REQUEST, null, 2)}</pre>
           </div>
           <div className="stack" style={{ gap: "9px" }}>
-            <div className="meta">agent · CapabilityLease draw-down</div>
+            <div className="meta">agent · CapabilityLease draw-down — built, unreachable from here</div>
             <pre className="code">{JSON.stringify(AGENT_REQUEST, null, 2)}</pre>
           </div>
         </div>

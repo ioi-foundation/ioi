@@ -80,8 +80,13 @@ export default function App() {
           <span className="meta" id="daemon-label">
             daemon {typeof location === "undefined" ? "—" : location.host}
           </span>
+          {/* This chip said "read-only surface" until the job door was wired, and for
+              one build after it — a false claim standing in the header of the one page
+              whose entire subject is not making false claims. The screenshot caught it.
+              It now says what is actually true: everything on this surface is a read
+              except two named writes, neither of which can reach a provider. */}
           <span className="chip muted" id="refresh-chip">
-            <span className="dot" />read-only surface
+            <span className="dot" />reads · two writes, neither spends
           </span>
         </div>
       </header>

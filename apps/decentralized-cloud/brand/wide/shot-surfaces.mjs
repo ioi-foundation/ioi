@@ -38,7 +38,7 @@ const browser = await chromium.launch({
   args: ["--disable-lcd-text", "--disable-font-subpixel-positioning", "--font-render-hinting=none"],
 });
 try {
-  for (const [w, h] of [[1280, 900], [390, 900]]) {
+  for (const [w, h] of [[1520, 900], [1280, 900], [390, 900]]) {
     const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
     for (const surface of ["candidates", "sources", "job", "receipts", "api"]) {
       await page.goto(`http://127.0.0.1:${PORT}/#/${surface}`, { waitUntil: "networkidle" });
