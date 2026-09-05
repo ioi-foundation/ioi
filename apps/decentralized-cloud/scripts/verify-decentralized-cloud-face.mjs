@@ -16,6 +16,10 @@ import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// The route table, imported by the gate for the same reason the proxy and the API
+// surface import it: three copies of a list is three chances for one of them to be
+// the stale one, and the stale one is always the one somebody reads.
+import * as cap from "../src/logic/capability.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(HERE, "..");
@@ -23,8 +27,43 @@ const REPO = path.resolve(APP, "../..");
 const PORT = Number(process.env.IOI_DC_VERIFY_PORT || 4187);
 const BASE = `http://127.0.0.1:${PORT}`;
 
+// ── Assertions, and the vacuity rule ─────────────────────────────────────────
+//
+// THE FAILURE THIS EXISTS FOR. Three of seven widths were inspecting ZERO table cells
+// while the run reported 144/144, because the page had not finished loading and "no
+// cell is misdeclared" is trivially true of no cells. Every overflow, collision and
+// cell number at those widths described a page reading "Asking the daemon" — including
+// the ones I had cited as evidence the layout was sound.
+//
+// Making that one assertion count its cells fixed that one assertion. The rule below
+// is the CLASS, and it is enforced by the RUNNER rather than by the author remembering.
+//
+// It applies to UNIVERSALLY QUANTIFIED assertions — "every X is Y", "no X is Y" —
+// because those are the ones that pass on an empty set. A single-subject assertion
+// ("the mark is in the served bytes") cannot pass by inspecting nothing: with nothing
+// to inspect its condition is false and it goes red, which is the correct outcome. So
+// the rule is aimed at exactly the shape that carries the defect, rather than being a
+// blanket wide enough that people learn to route around it.
+//
+//   ok(name, cond, detail, inspected)   `inspected` = how many things were looked at
+//   okMayBeEmpty(...)                   declares zero a valid outcome, BY NAME
+//
+// A universally-quantified assertion that reports NO count, or a count of zero without
+// declaring zero valid, fails the RUN — it is not counted as a pass. A gate that
+// cannot say what it looked at is not reporting a result.
 const results = [];
-const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
+// "only" is here because `[].every(...)` is true: "the only verb the surface sends is
+// POST" passed over an empty list of verbs, and would have gone on passing if the
+// door's fetch were ever written in a way the regex did not find.
+const UNIVERSAL = /\b(every|each|all|none|no|only)\b/i;
+const ok = (name, cond, detail, inspected) => {
+  results.push({ name, pass: !!cond, detail: detail || "", inspected });
+};
+// For assertions where an empty set is a real expected outcome rather than a symptom.
+// Declared through a different function so the declaration is visible in a diff.
+const okMayBeEmpty = (name, cond, detail, inspected) => {
+  results.push({ name, pass: !!cond, detail: detail || "", inspected, zeroDeclared: true });
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Where the surface lives, after the React port ───────────────────────────
@@ -51,6 +90,13 @@ const SRC_FILES = [
   "src/logic/batches.mjs",
   "src/logic/surfaces.mjs",
   "src/logic/job-request.mjs",
+  // ADDED after the vacuity rule reported "the only verb the surface sends is POST"
+  // as inspecting ZERO verbs. The door module — the only file in the surface that
+  // sends a verb at all — was not in this list, so every assertion scanning "the
+  // surface's source" for HTTP methods was scanning a corpus with no HTTP methods in
+  // it. It had been passing since the door was wired.
+  "src/logic/job-door.mjs",
+  "src/logic/capability.mjs",
   "src/components/Bits.jsx",
   "src/components/Dial.jsx",
   "src/components/Lockup.jsx",
@@ -76,14 +122,21 @@ function checkPalette() {
 
   const surfaces = ["public/face.css", ...SRC_FILES];
   const strays = [];
+  // Counted, because "no stray hex" is true of a file set that yielded no hexes at
+  // all — and a surface whose colours had all moved into a file this list forgot
+  // would pass exactly as loudly as one that is correct.
+  let painted = 0;
   for (const rel of surfaces) {
     const body = readFileSync(path.join(APP, rel), "utf8");
     for (const hex of body.match(/#[0-9a-fA-F]{6}/g) || []) {
+      painted++;
       if (!tokenHexes.has(hex.toLowerCase())) strays.push(`${rel}:${hex}`);
     }
   }
   ok("every colour the face paints is a design-system token",
-    strays.length === 0, strays.join(", ") || `${tokenHexes.size} tokens`);
+    strays.length === 0,
+    strays.join(", ") || `${painted} hexes across ${surfaces.length} files, all among ${tokenHexes.size} tokens`,
+    painted);
 }
 
 // ── 2. The evidence vocabulary is not re-spelled locally ────────────────────
@@ -116,15 +169,30 @@ function checkRefresherSeparation() {
   ok("the refresher never imports the face server",
     !/serve-face/.test(refresher));
   ok("the refresher is the only one of the two that writes to the daemon",
-    /candidates\/refresh/.test(refresher) && !/candidates\/refresh/.test(serve));
+    /candidates\/refresh/.test(refresher) && !/candidates\/refresh/.test(serve),
+    "the refresh write is in the refresher and absent from the face server",
+    2);
+  // This used to slice `const READS … ]);` out of the server's source and grep the
+  // slice. Moving the table into capability.mjs deleted that declaration, so the
+  // regex matched nothing, the slice was the empty string, and "no refresh route in
+  // the allowlist" passed by looking at NO allowlist at all. The vacuity rule caught
+  // it on its first run. It now reads the table the server actually dispatches from,
+  // and counts the routes it checked.
+  const refreshRoutes = cap.ROUTES.filter((r) => /refresh/.test(r.face) || /refresh/.test(r.daemon || ""));
   ok("the face's allowlist contains no refresh route",
-    !/refresh/.test((serve.match(/const READS[\s\S]*?\]\);/) || [""])[0]));
+    refreshRoutes.length === 0,
+    refreshRoutes.length
+      ? `the refresher's write is reachable from the face: ${refreshRoutes.map((r) => r.face).join(", ")}`
+      : `${cap.ROUTES.length} routes checked, none of them a refresh`,
+    cap.ROUTES.length);
   ok("the refresher never reaches a provider mutation",
     !/provider-ops/.test(refresher));
 
   const js = srcText();
   ok("the face reads the latest batch rather than every sweep ever taken",
-    /batch/.test(js) && /batches/.test(js));
+    /batch/.test(js) && /batches/.test(js),
+    `both batch selectors present across ${SRC_FILES.length} source files`,
+    SRC_FILES.length);
 }
 
 // ── 2c. Freshness is derived, never decorative ──────────────────────────────
@@ -134,8 +202,18 @@ function checkRefresherSeparation() {
 // windows whose answers are known rather than read out of the source.
 async function checkFreshnessIsDerived() {
   const css = readFileSync(path.join(APP, "public/face.css"), "utf8");
+  // Counted over the rules this is ABOUT. If the dial's rules were renamed, there
+  // would be no .dial or .sweep blocks left, and "none of them animates" would be
+  // true of nothing — a green light for a stylesheet the assertion no longer
+  // describes.
+  const dialRules = css.match(/\.(dial|sweep)[^{]*\{[^}]*\}/g) || [];
+  const animated = dialRules.filter((r) => /animation/.test(r));
   ok("no animation drives the dial's sweep",
-    !/\.dial[^{]*\{[^}]*animation|\.sweep[^{]*\{[^}]*animation/.test(css));
+    animated.length === 0,
+    animated.length
+      ? `animated: ${animated.join(" ")}`
+      : `${dialRules.length} dial/sweep rules, none animating`,
+    dialRules.length);
 
   // THE REAL FUNCTION, IMPORTED. The vanilla gate found `dialFraction` in the source
   // with a regular expression and evaluated the captured text with `new Function` —
@@ -154,7 +232,9 @@ async function checkFreshnessIsDerived() {
   ok("a window just opened reads full", fresh > 0.99, `fraction ${fresh.toFixed(4)}`);
   ok("a window half spent reads about half", Math.abs(half - 0.5) < 0.01, `fraction ${half.toFixed(4)}`);
   ok("a candidate with no window drives no dial",
-    dialFraction(undefined, undefined) === null && dialFraction("2026-01-01T00:00:00Z", "bad") === null);
+    dialFraction(undefined, undefined) === null && dialFraction("2026-01-01T00:00:00Z", "bad") === null,
+    "both the absent window and the unparseable one return null rather than a fraction",
+    2);
 }
 
 // ── 2d. The unwired write surfaces say so, and stay unwired ─────────────────
@@ -207,13 +287,32 @@ function checkUnwiredSurfaces() {
   // "no POST exists", it was "no POST exists that I did not name". So it is replaced by
   // a CLOSED list: exactly two POSTs, and no other verb at all.
   const doorSrc = readFileSync(path.join(APP, "src/logic/job-door.mjs"), "utf8");
-  const posts = [...js.matchAll(/method:\s*"(\w+)"/g)].map((m) => m[1]);
+  // SCANNED OVER THE MODULES THAT ACTUALLY FETCH, not over the whole surface.
+  // Widening this to every source file swept in capability.mjs's route table, whose
+  // `method: "GET"` entries are DECLARATIONS OF WHAT THE PROXY SERVES — not verbs the
+  // browser sends — and the assertion went red on eight of its own allowlist rows. An
+  // assertion is only as good as the corpus it names, and "all the source" is not a
+  // corpus, it is an absence of one.
+  const fetchingModules = ["src/logic/job-door.mjs", "src/logic/read.mjs"]
+    .map((f) => readFileSync(path.join(APP, f), "utf8")).join("\n");
+  const posts = [...fetchingModules.matchAll(/method:\s*"(\w+)"/g)].map((m) => m[1]);
   ok("the only verb the surface sends is POST",
-    posts.every((v) => v === "POST"), posts.join(", ") || "none");
+    posts.every((v) => v === "POST"),
+    // `[].every()` is TRUE, so this is a textbook vacuous pass waiting for the day the
+    // door's fetch is written differently and the regex finds no verbs at all. The
+    // count is what stops that being green.
+    posts.length ? posts.join(", ") : "NO VERBS FOUND — this assertion had nothing to check",
+    posts.length);
   ok("the surface posts to exactly two paths, both named",
-    /"\/api\/jobs"/.test(doorSrc) && /\/api\/jobs\/\$\{encodeURIComponent\(jobId\)\}\/dry-run/.test(doorSrc));
+    /"\/api\/jobs"/.test(doorSrc) && /\/api\/jobs\/\$\{encodeURIComponent\(jobId\)\}\/dry-run/.test(doorSrc),
+    "both the admit path and the dry-run path are literals in the door module",
+    2);
+  const forbiddenVerbs = ["PUT", "PATCH", "DELETE"];
+  const declared = forbiddenVerbs.filter((v) => new RegExp(`method:\\s*["']${v}["']`, "i").test(js));
   ok("no PUT, PATCH or DELETE is declared anywhere on the surface",
-    !/method:\s*["'](PUT|PATCH|DELETE)["']/i.test(js));
+    declared.length === 0,
+    declared.length ? `declared: ${declared.join(", ")}` : `${forbiddenVerbs.length} verbs checked across ${SRC_FILES.length} source files`,
+    forbiddenVerbs.length);
 
   // THE SPEND FENCE, in the source. The proxy is what enforces it and the served-bytes
   // check below proves it against the daemon; this asserts the door module does not
@@ -315,7 +414,8 @@ async function checkServer() {
     }
     ok("the identity's provisional score is in no byte this server sends",
       leaked.length === 0,
-      leaked.length ? `leaked in ${leaked.join(", ")}` : `${servedAssets.length} assets scanned raw`);
+      leaked.length ? `leaked in ${leaked.join(", ")}` : `${servedAssets.length} assets scanned raw`,
+      servedAssets.length);
 
     // ── The wordmark has ONE source, and this is what makes that true. ──
     //
@@ -376,7 +476,11 @@ async function checkServer() {
       !shell.includes(facesOwnZ),
       shell.includes(facesOwnZ)
         ? "the served shell carries the pre-override Z, which four readers read as a 2"
-        : "the pre-override Z is absent from the served shell");
+        : `the pre-override Z is absent from ${shell.length} served bytes`,
+      // The bytes are the thing inspected here. Zero of them would mean the fetches
+      // returned nothing and the absence is an artifact of an empty string, which is
+      // this gate's own scar in miniature.
+      shell.length);
     // ── THE FIELD CONTRACT, against LIVE bodies ──────────────────────────────
     //
     // A field name is a fact about the DAEMON, and every assertion I had read my own
@@ -405,7 +509,12 @@ async function checkServer() {
       const r = checkBody(route, body);
       ok(`every field ${route} is read for exists in the daemon's live body`,
         r.failures.length === 0,
-        r.failures.length ? r.failures.join(" · ") : (r.notes.join(" · ") || "no item fields declared"));
+        r.failures.length
+          ? r.failures.join(" · ")
+          : (r.notes.join(" · ") || "no item fields declared"),
+        // An empty container returns checked: 0, and a contract verified against no
+        // items is not a verified contract.
+        r.checked);
     }
 
     // ── EVERY CLASS THE SURFACE EMITS HAS A RULE IN THE STYLESHEET IT SHIPS ───
@@ -444,7 +553,8 @@ async function checkServer() {
       orphans.length === 0,
       orphans.length
         ? `no rule for: ${orphans.join(", ")} — an invented class name renders as nothing and fails silently`
-        : `${emitted.size} emitted class tokens, all defined among ${defined.size} in the served CSS`);
+        : `${emitted.size} emitted class tokens, all defined among ${defined.size} in the served CSS`,
+      emitted.size);
 
     // THE SURFACE DOES NOT CALL ITSELF READ-ONLY WHILE IT HAS A WRITE DOOR.
     // That claim stood in the header for a build after the door was wired — a false
@@ -475,8 +585,116 @@ async function checkServer() {
     ok("no served byte claims this surface performs no writes, in any wording",
       falseClaims.length === 0,
       falseClaims.length
-        ? `the served bytes still make that claim: ${falseClaims.join(" ")} — two POST routes exist`
-        : `checked ${NO_WRITE_CLAIMS.length} ways of saying it; the served bytes make none of them`);
+        ? `the served bytes still make that claim: ${falseClaims.join(" ")} — ${cap.writeRoutes().length} POST routes exist`
+        : `checked ${NO_WRITE_CLAIMS.length} ways of saying it; the served bytes make none of them`,
+      NO_WRITE_CLAIMS.length);
+
+    // ── THE CAPABILITY SENTENCES ARE GENERATED, AND THIS IS WHAT MAKES THAT TRUE ──
+    //
+    // A list of forbidden phrasings is better than one phrasing and is still a list of
+    // phrasings: it catches the sentences I thought of. The sentences a reader is
+    // shown about what this surface can do are now GENERATED from the route table the
+    // proxy dispatches from, so the failure mode it replaces — a sentence that was
+    // true when written, left standing after a route was added — cannot occur without
+    // the table itself being wrong.
+    //
+    // Three separate things have to hold, and each has been false at some point:
+    //   (a) the generated sentences actually REACH the reader,
+    //   (b) the table is the DISPATCH and not a second copy beside it,
+    //   (c) the generator responds to the table, which is checked by MUTATING it.
+    const sentences = cap.capabilitySentences();
+
+    // (a) The surfaces render the generator's output rather than a literal.
+    //
+    // My first version of this checked the SERVED BYTES for the generated sentence and
+    // failed against a perfectly correct build — because a generated sentence is not
+    // in the bundle. The bundle carries the GENERATOR; the sentence exists only after
+    // it runs. Asserting a computed string appears as a literal in the artifact is a
+    // demand that it not be computed, which is the opposite of the requirement.
+    //
+    // So this half asserts the call sites, and the RENDERED half — the sentence a
+    // reader actually sees — is asserted in the browser, in checkRenderedCapability().
+    const chipSrc = readFileSync(path.join(APP, "src/App.jsx"), "utf8");
+    const apiSrc = readFileSync(path.join(APP, "src/surfaces/Api.jsx"), "utf8");
+    const wired = [
+      ["the header chip", chipSrc, /capabilitySentences\(\)/],
+      ["the API surface", apiSrc, /capabilitySentences\(\)/],
+    ];
+    const unwired = wired.filter(([, src, re]) => !re.test(src)).map(([w]) => w);
+    ok("every surface that states this one's capability generates the sentence",
+      unwired.length === 0,
+      unwired.length ? `still hand-written: ${unwired.join(", ")}` : `${wired.length} call sites`,
+      wired.length);
+
+    // Every route on the table is published on the API surface. The page used to
+    // hand-copy seven rows under the words "the same four reads the server enforces";
+    // now the rows ARE the table, and this checks that all of them arrive.
+    const unpublished = cap.ROUTES.filter((r) => !shell.includes(r.face));
+    ok("every route the proxy dispatches is published in the served bytes",
+      unpublished.length === 0,
+      unpublished.length
+        ? `enforced but not published: ${unpublished.map((r) => `${r.method} ${r.face}`).join(", ")}`
+        : `${cap.ROUTES.length} routes, all published`,
+      cap.ROUTES.length);
+
+    // (b) The proxy holds no route of its own. Both routes the job door added used to
+    // live in path regexes BELOW the allowlist maps, so they were enforced and
+    // uncounted at the same time — which is what made every published count wrong.
+    // A bare /api path regex in the server is that shape coming back.
+    const serveSrc = stripComments(readFileSync(path.join(APP, "scripts/serve-face.mjs"), "utf8"));
+    // Counted over the /api MENTIONS in the server, not over the violations — a count
+    // of violations is zero when the assertion passes, which would make every pass
+    // vacuous by its own rule. What is inspected is every place the server names an
+    // /api path; what is asserted is that none of them is a path regex of its own.
+    const privateRoutes = serveSrc.match(/\/\^\\?\/api[^\n]*/g) || [];
+    const delegates = /matchRoute\(/.test(serveSrc);
+    ok("the server matches no /api path of its own outside the shared table",
+      privateRoutes.length === 0 && delegates,
+      privateRoutes.length
+        ? `a route matched outside the table: ${privateRoutes.join(" ")} — enforced and uncounted is how the published counts went wrong`
+        : delegates
+          ? `the server names no /api path at all; all ${cap.ROUTES.length} are matched through the shared table`
+          : "the server neither matches /api itself NOR calls matchRoute — it is serving nothing, and this assertion would have passed on that",
+      // Inspected: the routes the table is responsible for. Counting the VIOLATIONS
+      // would be zero on every pass, which would make the assertion fail its own rule
+      // whenever it succeeded — a rule that only permits failure is not a rule.
+      cap.ROUTES.length);
+
+    // (c) THE MUTATION, run in-process against the generator itself. Declare a write
+    // that spends and the sentences must stop promising nothing does. This is the
+    // assertion that makes the other two mean something: without it, the generator
+    // could return a constant and (a) would still pass.
+    const mutated = cap.capabilitySentences(
+      cap.ROUTES.map((r) => (r.method === "POST" && r.kind === "dry-run" ? { ...r, spends: true } : r))
+    );
+    const flipped =
+      mutated.whatItDoes !== sentences.whatItDoes && mutated.chip !== sentences.chip &&
+      !/no request composed by a client reaches one/.test(mutated.whatItDoes);
+    ok("declaring a spending route changes what the surface says about spending",
+      flipped,
+      flipped
+        ? `the mutated table generates "${mutated.chip}" instead of "${sentences.chip}"`
+        : `MUTANT SURVIVED — the generator returns "${mutated.chip}" either way, so the ` +
+          `sentence is not derived from the table and this whole file is decoration`);
+
+    // And the live proof that the table is the dispatch: every GET on it answers
+    // something other than the proxy's own "not on the allowlist" refusal. A route
+    // published but not served is the same lie as a route served but not published,
+    // pointing the other way.
+    const unserved = [];
+    for (const r of cap.readRoutes()) {
+      const probe = r.face.replace(/:[a-z]+/g, "probe-id");
+      const res = await fetch(`${BASE}${probe}`);
+      let state = null;
+      try { state = (await res.json())?.state; } catch { /* non-JSON is fine */ }
+      if (res.status === 404 && state === "route_not_on_read_allowlist") unserved.push(r.face);
+    }
+    ok("every read route the surface publishes is one the server actually dispatches",
+      unserved.length === 0,
+      unserved.length
+        ? `published but refused as unknown: ${unserved.join(", ")}`
+        : `${cap.readRoutes().length} read routes, all dispatched (daemon-level errors are not this assertion's subject)`,
+      cap.readRoutes().length);
 
     // THE MARK IS STILL THERE, and it is asserted because it once was not.
     // Porting the lockup to a component dropped the mark — not by a decision, but by
@@ -533,7 +751,7 @@ async function checkServer() {
     const jobsProbe = await fetch(`${BASE}/api/jobs`);
     const daemonUp = jobsProbe.status === 200;
     ok("the daemon answers the job list, so the door can be proven at all",
-      daemonUp, `GET /api/jobs -> ${jobsProbe.status}`);
+      daemonUp, `GET /api/jobs -> ${jobsProbe.status}`, 1);
 
     if (!daemonUp) {
       ok("THE JOB DOOR WAS NOT PROVEN — the daemon was unreachable", false,
@@ -554,7 +772,8 @@ async function checkServer() {
       const noDeadlineBody = await noDeadline.json().catch(() => ({}));
       ok("a job with no deadline is refused by the daemon, by name",
         noDeadline.status === 422 && noDeadlineBody?.error?.code === "job_deadline_required",
-        `${noDeadline.status} ${noDeadlineBody?.error?.code || "(no code)"}`);
+        `${noDeadline.status} ${noDeadlineBody?.error?.code || "(no code)"}`,
+        1);
       ok("the refusal carries the daemon's own sentence, not a paraphrase",
         typeof noDeadlineBody?.error?.message === "string" &&
         noDeadlineBody.error.message.length > 40,
@@ -627,7 +846,9 @@ async function checkServer() {
         ok("the budget was discovered BEFORE any mutation",
           admitBody?.job?.budget_discovery?.discovered_before_mutation === true);
         ok("the caller holds no provider credential in the admitted record",
-          admitBody?.job?.authority?.credential_held_by_caller === false);
+          admitBody?.job?.authority?.credential_held_by_caller === false,
+          `authority.credential_held_by_caller = ${JSON.stringify(admitBody?.job?.authority?.credential_held_by_caller)}`,
+          1);
 
         // The label round-trips through the DAEMON'S record, not through anything this
         // process is holding. If it did not, the Receipts surface would filter on a tag
@@ -664,9 +885,17 @@ async function checkServer() {
           ok("the dry run reaches a placement and stops there",
             dryRes.status === 200 && dryBody?.job?.state === "placed",
             `${dryRes.status} ${dryBody?.job?.state || "(no state)"}`);
+          // Counted over the receipts the record actually carries. A dry run mints a
+          // placement receipt, so an empty map here does not mean "no provider
+          // receipt" — it means the record shape changed and this assertion is
+          // looking at nothing.
+          const mintedKinds = Object.keys(dryBody?.job?.receipts || {});
           ok("no provider operation receipt was minted by the dry run",
             !dryBody?.job?.receipts?.["provider-operation"],
-            "a dry run that produced a provider receipt would have touched a provider");
+            mintedKinds.length
+              ? `receipts minted: ${mintedKinds.join(", ")} — none of them a provider operation`
+              : "the record carries NO receipts at all, so this assertion checked nothing",
+            mintedKinds.length);
         }
       }
 
@@ -714,32 +943,49 @@ async function checkServer() {
     // So the surface's whole reachable API is written out here, once, as literals. A new
     // route fails this until someone adds it deliberately — which is the only version
     // of "closed" that means anything.
+    // FOURTH SHAPE, and the reason for it. The list above was `length === 4`; then it
+    // was compared against the proxy's own map, which could not fail if the map grew;
+    // then it was these literals, which is the version that means something — and
+    // which parsed `const READS = new Map([…])` out of the server's source.
+    //
+    // Moving the table into capability.mjs deleted that declaration. The regex matched
+    // nothing, `declaredReads` became the empty list, and this assertion compared an
+    // empty list against six literals and went red — correctly, but for a reason that
+    // has nothing to do with what it is about. Two of its three siblings did the same.
+    //
+    // The literals stay, because "closed" means a new route fails until a person adds
+    // it here deliberately. What changes is WHAT THEY ARE COMPARED AGAINST: the route
+    // table, which is what the proxy dispatches from, rather than a source-text parse
+    // of a declaration that may have moved. The gate keeps its own independent copy —
+    // that is the whole point of the assertion — but it no longer keeps a copy of the
+    // proxy's SYNTAX.
     const EXPECTED_READS = [
       "/api/candidate-sources",
       "/api/candidates",
       "/api/placement-advisory",
       "/api/venues",
       "/api/jobs",
+      "/api/jobs/:id",
       "/api/budgets",
+      "/api/face-config",
     ];
     const EXPECTED_WRITES = ["/api/jobs", "/api/jobs/:id/dry-run"];
 
-    const readsBlock = (serveText.match(/const READS = new Map\(\[([\s\S]*?)\n\]\);/) || ["", ""])[1];
-    const declaredReads = [...readsBlock.matchAll(/\["(\/api\/[a-z-]+)",\s*\{\s*daemon:/g)].map((m) => m[1]);
+    const declaredReads = cap.readRoutes().map((r) => r.face);
+    const declaredWrites = cap.writeRoutes().map((r) => r.face);
     const sameSet = (a, b) => a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i]);
     ok("the proxy declares exactly the reads this gate names, and no others",
       sameSet(declaredReads, EXPECTED_READS),
-      `proxy: ${declaredReads.join(", ")}`);
+      `proxy: ${declaredReads.join(", ")}`,
+      declaredReads.length);
     ok("the refusal names exactly those reads back to the caller",
       sameSet(unknownBody.allowed || [], EXPECTED_READS),
-      `refusal: ${(unknownBody.allowed || []).join(", ")}`);
-
-    const writesBlock = (serveText.match(/const WRITES = new Map\(\[([\s\S]*?)\n\]\);/) || ["", ""])[1];
-    const declaredWrites = [...writesBlock.matchAll(/\["(\/api\/[a-z-]+)",/g)].map((m) => m[1]);
-    ok("the proxy declares exactly one POST path plus the dry-run lane, both named here",
-      declaredWrites.length === 1 && declaredWrites[0] === "/api/jobs" &&
-      /EXECUTE_PATH = \/\^\\\/api\\\/jobs\\\//.test(serveText),
-      `writes: ${declaredWrites.join(", ")} + the dry-run lane; expected ${EXPECTED_WRITES.join(", ")}`);
+      `refusal: ${(unknownBody.allowed || []).join(", ")}`,
+      (unknownBody.allowed || []).length);
+    ok("the proxy declares exactly the writes this gate names, both of them",
+      sameSet(declaredWrites, EXPECTED_WRITES),
+      `writes: ${declaredWrites.join(", ")}; expected ${EXPECTED_WRITES.join(", ")}`,
+      declaredWrites.length);
 
     // PUT, PATCH and DELETE are refused on every path, still. POST is no longer in this
     // loop because POST is no longer universally refused — it is refused EXCEPT on the
@@ -761,12 +1007,22 @@ async function checkServer() {
     const sourcesBody = await sources.json().catch(() => ({}));
     if (sources.status === 200 && Array.isArray(sourcesBody.sources)) {
       ok("candidate-sources proxies the daemon's own body",
+        sourcesBody.sources.length > 0 &&
         sourcesBody.sources.every((s) => typeof s.source === "string" && typeof s.state === "string"),
-        `${sourcesBody.sources.length} sources`);
+        `${sourcesBody.sources.length} sources`,
+        sourcesBody.sources.length);
       const unavailable = sourcesBody.sources.filter((s) => s.state === "candidate_source_unavailable");
-      ok("every unavailable source keeps its named reason through the proxy",
+      // ZERO IS A REAL ANSWER HERE, and this is the distinction the vacuity rule is
+      // for. "No unavailable source lost its reason" over an empty set is not a broken
+      // instrument — it is every source being available, which is the good day. That
+      // is declared through okMayBeEmpty rather than assumed, so the declaration is a
+      // visible decision rather than a silent one.
+      okMayBeEmpty("every unavailable source keeps its named reason through the proxy",
         unavailable.every((s) => typeof s.reason === "string" && s.reason.length > 0),
-        `${unavailable.length} unavailable`);
+        unavailable.length
+          ? `${unavailable.length} unavailable, all carrying a reason`
+          : `0 of ${sourcesBody.sources.length} sources are unavailable right now — nothing to check, which is a real state and not a stalled read`,
+        unavailable.length);
     } else {
       ok("candidate-sources proxies the daemon's own body", false,
         `HTTP ${sources.status} ${sourcesBody.state || "no sources array"} — is the daemon running?`);
@@ -780,7 +1036,8 @@ async function checkServer() {
     if (cands.status === 200) {
       ok("every candidate carries the batch it was observed in",
         list.length > 0 && list.every((c) => typeof c.batch === "string" && c.batch.length > 0),
-        `${list.length} candidates`);
+        `${list.length} candidates`,
+        list.length);
 
       const batches = new Map();
       for (const c of list) {
@@ -799,7 +1056,7 @@ async function checkServer() {
         inNewest.length > 0 && inNewest.length <= list.length,
         `batch ${newest?.[0]} — ${inNewest.length} of ${list.length} candidates, ${liveNow.length} live right now`);
     } else {
-      ok("every candidate carries the batch it was observed in", false, `HTTP ${cands.status}`);
+      ok("every candidate carries the batch it was observed in", false, `HTTP ${cands.status}`, 0);
     }
   } finally {
     server.kill("SIGTERM");
@@ -835,7 +1092,15 @@ async function checkBrandGates() {
 
   const frames = await run("measure-artboards.mjs");
   const fitLine = (frames.out.match(/^\d+\/\d+ artboards fit their frame.*$/m) || [])[0] || "";
-  ok("every brand artboard fits its declared frame", frames.code === 0, fitLine || frames.out.slice(-160));
+  // The count comes out of the sub-run's own report line. If measure-artboards.mjs
+  // measured nothing it exits 0 and prints nothing matching, and "every artboard fits"
+  // would be a green light for a measurement that never happened — which is exactly
+  // how a 585px clip once passed 7/7.
+  const artboardsFit = Number((fitLine.match(/^(\d+)\//) || [])[1] || 0);
+  ok("every brand artboard fits its declared frame",
+    frames.code === 0,
+    fitLine || frames.out.slice(-160),
+    artboardsFit);
 
   const contrast = await run("measure-contrast.mjs");
   ok("the contrast pairs the sheets cite are computed, not asserted",
@@ -909,6 +1174,24 @@ async function checkResponsiveLayout() {
           ? "rows present before measuring"
           : "NO ROWS after 60s — every layout number at this width describes a loading page");
       await page.waitForTimeout(400);
+
+      // ── THE RENDERED CAPABILITY SENTENCE, once, at the first width ─────────
+      // The half of the generation proof that has to happen in a browser: what a
+      // READER sees, compared against what the generator produces. A source-level
+      // check that the surface calls the generator cannot tell whether the result
+      // reaches the page, and the served bytes cannot carry a computed string at all.
+      if (w === 1920) {
+        const chipText = await page.$eval("#refresh-chip", (el) => el.textContent.trim())
+          .catch(() => null);
+        const expected = cap.capabilitySentences().chip;
+        ok("the capability sentence a reader sees is the one the route table generates",
+          chipText === expected,
+          chipText === null
+            ? "the header chip was not found in the rendered page at all"
+            : `rendered "${chipText}" vs generated "${expected}"`,
+          1);
+      }
+
       // The read-backed surfaces are slow and their emptiness is not a layout fault,
       // so the ones that render synchronously carry the width check.
       for (const s of ["job", "redundancy", "receipts", "api", "candidates"]) {
@@ -957,7 +1240,13 @@ async function checkResponsiveLayout() {
         // viewport, and require the result to be a real box. A button a reader cannot
         // see or reach now fails BY NAME instead of being reported as something else.
         const invisible = [];
-        for (const b of document.querySelectorAll(".nav button")) {
+        // Counted rather than assumed. The detail line used to say "all seven nav
+        // targets" as a literal — a hand-maintained count inside the gate whose whole
+        // job is catching hand-maintained counts. If the nav's selector ever stops
+        // matching, this finds zero buttons and "none of them is clipped" becomes true
+        // of nothing.
+        const navTargets = [...document.querySelectorAll(".nav button")];
+        for (const b of navTargets) {
           let box = b.getBoundingClientRect();
           let node = b.parentElement;
           while (node && node !== document.documentElement) {
@@ -1002,6 +1291,7 @@ async function checkResponsiveLayout() {
         }
 
         return { overflow, hits: [...new Set(hits)].slice(0, 3), invisible,
+                 navSeen: navTargets.length,
                  cellsSeen: allCells.length,
                  brokenCells: [...new Set(brokenCells)].slice(0, 4) };
       });
@@ -1024,12 +1314,14 @@ async function checkResponsiveLayout() {
           : m.cellsSeen > 0
             ? `${m.cellsSeen} cells checked, all display:table-cell`
             : "NOTHING TO CHECK — no table rows were rendered at this width, so this " +
-              "assertion passed without looking at anything");
+              "assertion passed without looking at anything",
+        m.cellsSeen);
       ok(`at ${w}px every surface in the nav is visible and reachable`,
         m.invisible.length === 0,
         m.invisible.length
           ? `clipped out of sight: ${m.invisible.join(", ")}`
-          : "all seven nav targets have a real visible box after intersecting their scroll ancestors");
+          : `${m.navSeen} nav targets have a real visible box after intersecting their scroll ancestors`,
+        m.navSeen);
     }
   } finally {
     await browser.close();
@@ -1051,10 +1343,34 @@ async function run() {
 }
 
 run().then(() => {
+  // THE VACUITY SWEEP, before anything is printed as a pass.
+  // A universally-quantified assertion that passed is only a pass if it can say how
+  // many things it looked at, and looked at more than none of them. This runs over
+  // the results rather than inside each assertion, so a new assertion is covered the
+  // moment it is written instead of when its author remembers the rule.
+  const vacuous = [];
+  for (const r of results) {
+    if (!r.pass || !UNIVERSAL.test(r.name)) continue;
+    if (r.inspected === undefined) {
+      r.pass = false;
+      r.detail = `${r.detail} — VACUITY: this assertion is universally quantified and did not report what it inspected, so its pass means nothing`;
+      vacuous.push(r.name);
+    } else if (r.inspected === 0 && !r.zeroDeclared) {
+      r.pass = false;
+      r.detail = `${r.detail} — VACUITY: passed after inspecting ZERO things, which is what "144/144" looked like while three widths measured a loading page`;
+      vacuous.push(r.name);
+    }
+  }
+
   let fail = 0;
   for (const r of results) {
-    console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`);
+    const n = r.inspected === undefined ? "" : ` [${r.inspected} inspected]`;
+    console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${n}${r.detail ? `  (${r.detail})` : ""}`);
     if (!r.pass) fail++;
+  }
+  if (vacuous.length) {
+    console.log(`\n${vacuous.length} assertion(s) failed the vacuity rule, not their own subject:`);
+    for (const n of vacuous) console.log(`  - ${n}`);
   }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`decentralized.cloud face: ${fail ? "FAIL" : "OK"}`);

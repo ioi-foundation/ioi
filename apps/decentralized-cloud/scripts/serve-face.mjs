@@ -30,35 +30,36 @@ const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765"
 const DAEMON_TIMEOUT_MS = Number(process.env.IOI_DC_DAEMON_TIMEOUT_MS || 75_000);
 
 // ── The allowlist ────────────────────────────────────────────────────────────
-// path → the daemon route it stands for. GET only. `query` lists the query
-// parameters that may be forwarded; anything else is dropped, not passed on.
-const READS = new Map([
-  ["/api/candidate-sources", { daemon: "/v1/hypervisor/cloud-candidates/candidate-sources", query: [] }],
-  ["/api/candidates", { daemon: "/v1/hypervisor/cloud-candidates/candidates", query: ["intent_ref"] }],
-  ["/api/placement-advisory", { daemon: "/v1/hypervisor/cloud-candidates/placement-advisory", query: ["intent_ref"] }],
-  ["/api/venues", { daemon: "/v1/hypervisor/placement/venues", query: [] }],
-  // The job door's reads. A job record carries its own refusals and receipts, so the
-  // Receipts surface renders from these and never from an example.
-  ["/api/jobs", { daemon: "/v1/hypervisor/cloud-jobs", query: [] }],
-  // Budgets are READ so the form can offer the ones that exist. "An existing budget,
-  // never an amount typed here" was a sentence on an inert form; with the door wired it
-  // has to be a mechanism, and the mechanism is that the surface can only show budgets
-  // the daemon already has and can only send back a ref it was given.
-  ["/api/budgets", { daemon: "/v1/hypervisor/resource/budgets", query: [] }],
-]);
+// The table lives in src/logic/capability.mjs and is imported by this proxy, by the
+// API surface that publishes it, and by the gate that checks it.
+//
+// It used to live here as two Maps with two path regexes BELOW them — and the regexes
+// held the two routes the job door added, so every count written against "the map" was
+// wrong by two: in this file's own 404 body ("not one of the four daemon reads"), in
+// the header chip, and on the very page that publishes the list. Each of those
+// sentences was true when it was written. Prose does not go red.
+//
+// The asymmetry that mattered is kept, and is now structural rather than maintained:
+// the surface cannot widen its own access by editing its own documentation, because
+// the documentation and the dispatch are the SAME object instead of two objects that
+// agreed by hand until they didn't.
+import {
+  ROUTES,
+  matchRoute,
+  readRoutes,
+  daemonReadRoutes,
+  writeRoutes,
+  capabilitySentences,
+  DRY_RUN_ONLY,
+} from "../src/logic/capability.mjs";
 
-// ── The WRITE allowlist, and the one place spend is fenced off ───────────────
+const SENTENCES = capabilitySentences();
+
+// ── The one place spend is fenced off ────────────────────────────────────────
 //
-// Until this cut the surface exposed no mutating route at all and said so. The job
-// door changes that, and the change is deliberately as small as it can be: exactly two
-// POSTs, exact-match, each with a fixed daemon target.
-//
-//   /api/jobs          -> POST /v1/hypervisor/cloud-jobs
-//        ADMISSION. The daemon's own comment: "admission is a proposal — this record
-//        authorizes nothing". No provider is touched and nothing is spent.
-//
-//   /api/jobs/:id/dry-run -> POST /v1/hypervisor/cloud-jobs/:id/execute
-//        A dry run stops at the placement receipt and touches no provider.
+// The two writes are on the table above, exact-match, each with a fixed daemon target:
+// admission (a proposal, which authorizes nothing) and a dry run that stops at the
+// placement receipt and touches no provider.
 //
 // THE SPEND FENCE, which is the most important thing in this file.
 //
@@ -74,11 +75,10 @@ const READS = new Map([
 // bitten by twice. A real execution is a spend, a spend needs an explicit owner
 // authorization naming amount, venue ceiling, offer hash and teardown, and no such
 // authorization can arrive through a web form.
-const DRY_RUN_ONLY = true;
-const WRITES = new Map([
-  ["/api/jobs", { daemon: "/v1/hypervisor/cloud-jobs", kind: "admit" }],
-]);
-const EXECUTE_PATH = /^\/api\/jobs\/([A-Za-z0-9_.:-]{1,128})\/dry-run$/;
+//
+// DRY_RUN_ONLY is imported rather than declared here, so that the flag the fence reads
+// and the flag the generated sentences read are one flag. Opening a non-dry-run lane
+// now changes what the surface SAYS in the same edit that changes what it does.
 
 // The face's own configuration — not a daemon read. It carries only what the surface
 // needs in order to avoid making an unchecked claim: if an operator has declared a
@@ -251,20 +251,15 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
 
   if (req.method === "POST") {
-    const write = WRITES.get(url.pathname);
-    if (write) return proxyWrite(res, req, write.daemon, write.kind);
-    const execute = EXECUTE_PATH.exec(url.pathname);
-    if (execute) {
-      return proxyWrite(
-        res, req,
-        `/v1/hypervisor/cloud-jobs/${encodeURIComponent(execute[1])}/execute`,
-        "dry-run"
-      );
-    }
+    // One matcher for both writes, including the parameterised one. The dry-run lane
+    // used to be a regex sitting outside the map that the refusal body below counted,
+    // so this route was simultaneously enforced and uncounted.
+    const write = matchRoute("POST", url.pathname);
+    if (write) return proxyWrite(res, req, write.daemon, write.route.kind);
     return json(res, 405, {
       state: "write_not_on_allowlist",
-      reason: `${url.pathname} is not one of the two writes this surface exposes`,
-      allowed: [...WRITES.keys(), "/api/jobs/:id/dry-run"],
+      reason: `${url.pathname} is not one of the ${SENTENCES.writePhrase} this surface exposes`,
+      allowed: writeRoutes().map((r) => r.face),
     });
   }
 
@@ -272,47 +267,48 @@ const server = createServer(async (req, res) => {
     return json(res, 405, {
       state: "method_not_allowed",
       reason:
-        "this surface exposes two POSTs and nothing else: admitting a job proposal, and " +
-        "a dry run that stops at the placement receipt. It has no PUT, PATCH or DELETE.",
+        `this surface exposes ${SENTENCES.writePhrase} and nothing else: ` +
+        writeRoutes().map((r) => `POST ${r.face}`).join(", ") +
+        ". It has no PUT, PATCH or DELETE.",
     });
   }
 
-  // A job read by id. The daemon's own route; the id is bounded by the same pattern
-  // the write lane uses, so a path that is not a job id is refused rather than
-  // forwarded and refused later somewhere with more privilege.
-  const jobById = /^\/api\/jobs\/([A-Za-z0-9_.:-]{1,128})$/.exec(url.pathname);
-  if (jobById) {
-    return proxyRead(
-      res,
-      { daemon: `/v1/hypervisor/cloud-jobs/${encodeURIComponent(jobById[1])}`, query: [] },
-      url
-    );
+  // Every GET on the table, including the parameterised job-by-id read that used to
+  // sit in a regex here. The id is bounded by the same pattern the write lane uses —
+  // one pattern, declared once — so a path that is not a job id is refused here rather
+  // than forwarded and refused later somewhere with more privilege.
+  const read = matchRoute("GET", url.pathname);
+  if (read) {
+    // The one route this surface answers itself. It is on the table because a route
+    // absent from the table is a route absent from the count, and the count is the
+    // claim the page makes.
+    if (!read.daemon) {
+      return json(res, 200, {
+        refresh_cadence_seconds: REFRESH_CADENCE_S,
+        daemon_reads: daemonReadRoutes().map((r) => r.face),
+        capability: SENTENCES.whatItDoes,
+        note: REFRESH_CADENCE_S
+          ? "an operator process refreshes the showcase intents on this cadence; it is a separate process and is not reachable from this surface"
+          : "no refresh cadence is declared to this surface, so it makes no claim about when the next batch lands",
+      });
+    }
+    return proxyRead(res, { daemon: read.daemon, query: read.route.query }, url);
   }
-
-  if (url.pathname === "/api/face-config") {
-    return json(res, 200, {
-      refresh_cadence_seconds: REFRESH_CADENCE_S,
-      daemon_reads: [...READS.keys()],
-      note: REFRESH_CADENCE_S
-        ? "an operator process refreshes the showcase intents on this cadence; it is a separate process and is not reachable from this surface"
-        : "no refresh cadence is declared to this surface, so it makes no claim about when the next batch lands",
-    });
-  }
-
-  const read = READS.get(url.pathname);
-  if (read) return proxyRead(res, read, url);
 
   const asset = STATIC.get(url.pathname);
   if (asset) return serveStatic(res, asset);
 
   json(res, 404, {
     state: "route_not_on_read_allowlist",
-    reason: `${url.pathname} is not one of the four daemon reads this surface exposes`,
-    allowed: [...READS.keys()],
+    // This said "the four daemon reads" while seven were enforced. The count is
+    // generated now, so it is wrong only if the table is wrong.
+    reason: `${url.pathname} is not one of the ${SENTENCES.readPhrase} this surface exposes`,
+    allowed: readRoutes().map((r) => r.face),
   });
 });
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`decentralized.cloud face on http://127.0.0.1:${PORT} → daemon ${DAEMON}`);
-  console.log(`read allowlist: ${[...READS.keys()].join(", ")}`);
+  console.log(`allowlist: ${SENTENCES.readAllowlist}; ${SENTENCES.writeSummary}`);
+  console.log(`  ${ROUTES.map((r) => `${r.method} ${r.face}`).join("\n  ")}`);
 });

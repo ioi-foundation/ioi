@@ -6,44 +6,35 @@ import { useEffect } from "react";
 // described. A route not on it is refused BY NAME rather than passed through, so no
 // mutating daemon call is reachable from this surface even by accident.
 //
-// This page lists the same four reads the server enforces. If it ever listed a fifth,
-// the server would still refuse it — the list here is documentation, and the server's
-// map is the authority. That asymmetry is deliberate: a surface that could widen its
-// own access by editing its own documentation is not an allowlist.
+// THIS PAGE USED TO HAND-COPY THE LIST. It introduced seven rows as "the same four
+// reads the server enforces" — a count that had been true two routes earlier, sitting
+// directly above the rows disproving it. The proxy's own 404 body told callers the same
+// wrong number, and the header chip counted the writes by hand.
+//
+// The rows and the proxy's dispatch are now the SAME table, imported. This page cannot
+// list a route the server does not serve, cannot miss one it does, and cannot miscount
+// what it lists — the counts in the prose below are generated from the rows.
+//
+// The asymmetry the old comment claimed is now real rather than asserted: this file
+// cannot widen the surface's access by editing itself, because it no longer holds a
+// list at all. It renders one.
 
-const READS = [
-  ["/api/candidate-sources", "/v1/hypervisor/cloud-candidates/candidate-sources", "—"],
-  ["/api/candidates", "/v1/hypervisor/cloud-candidates/candidates", "intent_ref"],
-  ["/api/placement-advisory", "/v1/hypervisor/cloud-candidates/placement-advisory", "intent_ref"],
-  ["/api/venues", "/v1/hypervisor/placement/venues", "—"],
-  ["/api/jobs", "/v1/hypervisor/cloud-jobs", "—"],
-  ["/api/jobs/:id", "/v1/hypervisor/cloud-jobs/:id", "—"],
-  ["/api/budgets", "/v1/hypervisor/resource/budgets", "—"],
-];
+import { readRoutes, writeRoutes, capabilitySentences } from "../logic/capability.mjs";
 
-const WRITES = [
-  [
-    "/api/jobs",
-    "POST /v1/hypervisor/cloud-jobs",
-    "Admits a proposal. The daemon's own words: admission authorizes nothing. No provider is touched and nothing is spent.",
-  ],
-  [
-    "/api/jobs/:id/dry-run",
-    "POST /v1/hypervisor/cloud-jobs/:id/execute",
-    "Runs the placement decision and stops. The proxy sets dry_run itself rather than forwarding it, so no request composed by a client reaches a metered provider operation.",
-  ],
-];
+const SENTENCES = capabilitySentences();
+const READS = readRoutes();
+const WRITES = writeRoutes();
 
 export default function Api({ announce }) {
-  useEffect(() => { announce(`API — ${READS.length} reads on the allowlist, GET only`); }, [announce]);
+  useEffect(() => { announce(`API — ${SENTENCES.readAllowlist}`); }, [announce]);
 
   return (
     <div className="stack" style={{ gap: "24px" }}>
       <div className="stack" style={{ gap: "9px" }}>
         <h1>API</h1>
         <p className="prose" style={{ fontSize: "16px" }}>
-          Everything this surface can ask the daemon, and nothing else. Exact-match,
-          GET only. Query parameters not listed are dropped rather than forwarded.
+          {SENTENCES.whatItDoes} Exact-match, GET only for the reads. Query parameters
+          not listed are dropped rather than forwarded.
         </p>
       </div>
 
@@ -58,11 +49,11 @@ export default function Api({ announce }) {
             </tr>
           </thead>
           <tbody>
-            {READS.map(([face, daemon, query]) => (
-              <tr key={face} className="trow">
-                <th scope="row" className="mono" style={{ fontSize: "13px" }}>{face}</th>
-                <td className="mono basis">{daemon}</td>
-                <td className="mono">{query}</td>
+            {READS.map((r) => (
+              <tr key={r.face} className="trow">
+                <th scope="row" className="mono" style={{ fontSize: "13px" }}>{r.face}</th>
+                <td className="mono basis">{r.daemon || "answered by this surface — never leaves the process"}</td>
+                <td className="mono">{r.query.length ? r.query.join(", ") : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -70,7 +61,7 @@ export default function Api({ announce }) {
       </div>
 
       <div className="stack" style={{ gap: "12px" }}>
-        <div className="eyebrow">and the two writes — the whole of them</div>
+        <div className="eyebrow">and the {SENTENCES.writePhrase} — the whole of them</div>
         {/* This opened "Until the job door was wired this surface exposed no mutating
             route at all" — true, and past tense — and the gate forbidding the surface
             from claiming it performs no writes fired on it anyway. A regex cannot read
@@ -79,17 +70,18 @@ export default function Api({ announce }) {
             once already, in a stub panel, and an assertion with an exception in it is
             an assertion someone will fit their next sentence through. */}
         <p className="prose">
-          The job door added this surface's only two writes; before it, every route here
-          was a read. The second of them carries the boundary that
-          matters: a real execution is a metered provider operation, and the proxy sets
-          the dry-run flag itself on every execute instead of forwarding what the caller
-          sent. There is no request a client can compose that reaches a provider through
-          this surface. A real run is a spend, and a spend needs an explicit owner
-          authorization naming amount, venue ceiling, offer hash and teardown.
+          The job door added this surface&rsquo;s {SENTENCES.writePhrase}, and{" "}
+          {SENTENCES.spendClause}. The second of
+          them carries the boundary that matters: a real execution is a metered provider
+          operation, and the proxy sets the dry-run flag itself on every execute instead
+          of forwarding what the caller sent. There is no request a client can compose
+          that reaches a provider through this surface. A real run is a spend, and a
+          spend needs an explicit owner authorization naming amount, venue ceiling,
+          offer hash and teardown.
         </p>
         <div className="table-scroll">
           <table className="table t-api">
-            <caption className="sr-only">The two writes this surface exposes</caption>
+            <caption className="sr-only">The {SENTENCES.writePhrase} this surface exposes</caption>
             <thead>
               <tr>
                 <th scope="col">This surface accepts</th>
@@ -98,11 +90,11 @@ export default function Api({ announce }) {
               </tr>
             </thead>
             <tbody>
-              {WRITES.map(([face, daemon, what]) => (
-                <tr key={face} className="trow">
-                  <th scope="row" className="mono" style={{ fontSize: "13px" }}>POST {face}</th>
-                  <td className="mono basis">{daemon}</td>
-                  <td className="basis">{what}</td>
+              {WRITES.map((r) => (
+                <tr key={r.face} className="trow">
+                  <th scope="row" className="mono" style={{ fontSize: "13px" }}>{r.method} {r.face}</th>
+                  <td className="mono basis">{r.method} {r.daemon}</td>
+                  <td className="basis">{r.does}</td>
                 </tr>
               ))}
             </tbody>

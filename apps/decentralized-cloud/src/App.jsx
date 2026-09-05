@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface } from "./logic/surfaces.mjs";
 import { forget } from "./logic/read.mjs";
+import { capabilitySentences } from "./logic/capability.mjs";
 import Lockup from "./components/Lockup.jsx";
 import Candidates from "./surfaces/Candidates.jsx";
 import Sources from "./surfaces/Sources.jsx";
@@ -9,6 +10,8 @@ import Job from "./surfaces/Job.jsx";
 import Redundancy from "./surfaces/Redundancy.jsx";
 import Receipts from "./surfaces/Receipts.jsx";
 import Api from "./surfaces/Api.jsx";
+
+const CAPABILITY = capabilitySentences();
 
 const VIEWS = {
   candidates: Candidates,
@@ -83,10 +86,12 @@ export default function App() {
           {/* This chip said "read-only surface" until the job door was wired, and for
               one build after it — a false claim standing in the header of the one page
               whose entire subject is not making false claims. The screenshot caught it.
-              It now says what is actually true: everything on this surface is a read
-              except two named writes, neither of which can reach a provider. */}
+              Then it said "two writes, neither spends", hand-counted, which is the same
+              defect with a longer fuse: correct today, and maintained by nobody. It is
+              now GENERATED from the route table the proxy dispatches from, so adding a
+              write changes the header in the same edit. */}
           <span className="chip muted" id="refresh-chip">
-            <span className="dot" />reads · two writes, neither spends
+            <span className="dot" />{CAPABILITY.chip}
           </span>
         </div>
       </header>

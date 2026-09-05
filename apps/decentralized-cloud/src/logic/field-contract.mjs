@@ -112,18 +112,40 @@ export function checkBody(route, body) {
     items = got.value;
     if (items.length === 0) {
       notes.push(`'${c.container}' came back empty — nothing to check the item fields against`);
-      return { route, failures, notes };
+      // `checked: 0` is the important part of this return. An empty container produces
+      // no failures, and "no failures" is indistinguishable from "verified" unless the
+      // count travels alongside it. The gate refuses to score a zero as a pass.
+      return { route, failures, notes, checked: 0 };
     }
   }
 
+  // Every (item, declared field) pair actually examined, reported so a contract that
+  // has quietly stopped describing anything cannot read as a clean bill of health.
+  let checked = 0;
+
   for (const p of c.every) {
     const missing = items.filter((it) => !pathIn(it, p).present).length;
+    checked += items.length;
     if (missing > 0) failures.push(`'${p}' missing on ${missing}/${items.length} items`);
   }
   for (const p of c.sampled) {
     const present = items.filter((it) => pathIn(it, p).present).length;
+    checked += items.length;
     if (present === 0) failures.push(`'${p}' present on 0/${items.length} items — the surface reads a name the daemon never sends`);
     else notes.push(`'${p}' on ${present}/${items.length}`);
   }
-  return { route, failures, notes };
+
+  // OPTIONAL paths are inspected too, and reported, though never required.
+  //
+  // /api/placement-advisory declares nothing but optional fields — correctly, because
+  // "the daemon returned no advisory for this intent" is a renderable answer. That
+  // made its contract check inspect ZERO things and pass, which the vacuity rule
+  // caught. The fix is not to require what must stay optional; it is to LOOK at them
+  // and say what was found, so the check reports a fact instead of a blank.
+  for (const p of c.optional || []) {
+    const present = items.filter((it) => pathIn(it, p).present).length;
+    checked += items.length;
+    notes.push(`'${p}' (optional) on ${present}/${items.length}`);
+  }
+  return { route, failures, notes, checked };
 }
