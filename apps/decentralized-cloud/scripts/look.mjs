@@ -54,17 +54,32 @@ if (process.env.STRIP) {
 // The label is BURNED INTO THE IMAGE, not printed beside it. A caption in a terminal
 // does not travel with the picture; the picture is what gets looked at, pasted and
 // relayed, so the state has to be part of it.
-await page.evaluate(({ arrived, waited, sel }) => {
+//
+// IT MUST NOT PAINT OVER THE THING IT IS LABELLING. `position: fixed` puts the bar at
+// the bottom of the VIEWPORT, and a fullPage screenshot renders that at the viewport's
+// position inside a much taller image — so on a long page the label lands across the
+// middle of the content. ioi-c8's own hero capture came back with the green bar printed
+// straight through the funnel's detail columns, obscuring the losers-and-reasons text
+// that is the whole point of that section.
+//
+// An instrument that damages the picture it is annotating is worse than one that says
+// nothing, because the damage looks like a product defect. On a fullPage shot the bar
+// is a normal block appended after the content; on a clipped shot it stays fixed, where
+// the viewport IS the frame and there is nothing below to obscure.
+await page.evaluate(({ arrived, waited, sel, pinned }) => {
   const bar = document.createElement("div");
   bar.textContent = arrived
     ? `LOADED — "${sel}" present after ${waited}ms`
     : `STILL WAITING — "${sel}" never appeared in ${waited}ms. THIS IS NOT THE LOADED PAGE.`;
   bar.setAttribute("style",
-    "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;padding:6px 10px;" +
+    (pinned
+      ? "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;"
+      : "position:static;display:block;width:100%;") +
+    "padding:6px 10px;box-sizing:border-box;" +
     "font:12px ui-monospace,monospace;color:#fff;" +
     `background:${arrived ? "#397554" : "#e40014"};`);
   document.body.appendChild(bar);
-}, { arrived, waited, sel });
+}, { arrived, waited, sel, pinned: Boolean(clip) });
 
 await page.screenshot({ path: out, ...(clip ? { clip } : { fullPage: true }) });
 console.log(`${arrived ? "LOADED" : "STILL WAITING"} after ${waited}ms — wrote ${out}`);

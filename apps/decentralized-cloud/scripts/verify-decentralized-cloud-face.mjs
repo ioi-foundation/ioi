@@ -104,7 +104,15 @@ const SRC_FILES = [
   "src/logic/job-door.mjs",
   "src/logic/capability.mjs",
   "src/components/Bits.jsx",
-  "src/components/Dial.jsx",
+  // Dial.jsx is GONE from this list, not commented out. The ring it drew was replaced
+  // by the depleting bar in Freshness.jsx — three readers had read the ring as a
+  // loading spinner, which says "wait" beside settled data — and no surface imports it
+  // any more. A file the gate scans but the product never ships is corpus that dilutes
+  // every source-reading assertion: it can only contribute false positives, never a
+  // true one, because nothing it contains can reach a reader. ioi-c8 deletes the file
+  // in its next commit; this list stops naming it now so the two do not have to land
+  // in the same second.
+  "src/components/Freshness.jsx",
   "src/components/Lockup.jsx",
   "src/surfaces/Candidates.jsx",
   "src/surfaces/Sources.jsx",
@@ -452,41 +460,65 @@ async function checkServer() {
     // is a JavaScript string the component passes to `d`, and a gate still matching
     // the attribute form would have gone red on a surface that was perfectly correct —
     // or, worse, been "fixed" by weakening it to something that matches anything.
-    const carriesZ = shell.includes(wm.Z_PATH);
-    ok("the served wordmark carries the Z path from its one source",
-      carriesZ,
-      carriesZ
-        ? "the served shell carries wordmark.mjs's Z_PATH verbatim"
-        : "the served shell does NOT carry the module's Z_PATH — the surface and its " +
-          "one source have drifted, which is the whole state this gate exists to catch");
+    // ── THE WORDMARK IS ONE TEXT RUN IN THE FACE — owner ruling, 2026-09-05 ──
+    //
+    // THESE ASSERTIONS ARE INVERTED, deliberately. They used to REQUIRE the drawn Z and
+    // the drawn I in the served bytes. The owner has ruled the wordmark is set entirely
+    // in IOI.ttf with no path substitution for any letter, so requiring them would now
+    // compel the very thing the ruling forbids — the shape of gate that once pinned a
+    // provisional identity label in place because another assertion demanded it exist,
+    // and which could not be removed without turning the gate red.
+    //
+    // WHAT THE RULING COST, recorded in the file that will be read when someone asks
+    // why the override went: FIVE independent readers across two harnesses transcribed
+    // the brand's own name wrong. Three under the old evidence, and two more AFTER the
+    // ruling — asked only to type what they saw and explicitly not to correct it —
+    // every one returning "DECENTRALI2ED·CLOUD" at 19px and at 14px. One of them: "your
+    // product name contains the only letter this face renders as a digit." The owner
+    // chose the face's authenticity over that cost knowingly. It is theirs to choose,
+    // and this gate's job is to hold the choice they made, not the one it held before.
+    //
+    // ABSENT FROM SERVED BYTES, NOT FROM THE MODULE. wordmark.mjs still exports Z_PATH
+    // and I_PATH — they are the plates' history and the archive's evidence — so an
+    // assertion phrased "the module no longer defines them" would fail on a correct
+    // repository. What must be true is that no VISITOR receives them.
+    const overrides = [["Z_PATH", wm.Z_PATH], ["I_PATH", wm.I_PATH]];
+    const stillServed = overrides.filter(([, d]) => shell.includes(d)).map(([n]) => n);
+    ok("no drawn letter override reaches a reader — the wordmark is one run in the face",
+      stillServed.length === 0,
+      stillServed.length
+        ? `served bytes still carry ${stillServed.join(" and ")} — the wordmark is ` +
+          "substituting a drawn glyph for a letter, which the owner's ruling removed"
+        : `neither override appears in ${shell.length} served bytes`,
+      overrides.length);
 
-    // The drawn I is held to the same standard as the drawn Z, and for the same
-    // reason: it is an override of the estate's brand face, adopted on the evidence of
-    // three fresh readers, and an override that can drift from its source is an
-    // override nobody can audit.
-    const carriesI = shell.includes(wm.I_PATH);
-    ok("the served wordmark carries the I path from its one source",
-      carriesI,
-      carriesI
-        ? "the served shell carries wordmark.mjs's I_PATH verbatim"
-        : "the served shell does NOT carry the module's I_PATH — the drawn I and its " +
-          "one source have drifted");
+    // The SVG WRAPPERS go too, and this is what catches a half-revert: a shell could
+    // drop the path data while keeping an empty <svg class="wm-z">, which renders
+    // nothing and looks correct in a diff.
+    const wrappers = ["wm-z", "wm-i"].filter((c) => shell.includes(c));
+    ok("no drawn-glyph wrapper survives in the served bytes",
+      wrappers.length === 0,
+      wrappers.length ? `still present: ${wrappers.join(", ")}` : "wm-z and wm-i are both gone",
+      2);
 
-    // NEITHER OVERRIDE MAY BE SILENTLY DROPPED. A gate that only checks "the path in
-    // the shell equals the module" passes if BOTH the shell and the module lose the
-    // override together, or if the shell stops setting that letter as a drawn glyph at
-    // all and falls back to the face. So the served bytes are also checked for the
-    // FACE's own shapes, which are the exact things these overrides exist to replace.
-    const facesOwnZ = "M 32 700 L 1033 700 L 1033 560 L 221 140";
-    ok("the face's own numeral-shaped Z is in no byte this server sends",
-      !shell.includes(facesOwnZ),
-      shell.includes(facesOwnZ)
-        ? "the served shell carries the pre-override Z, which four readers read as a 2"
-        : `the pre-override Z is absent from ${shell.length} served bytes`,
-      // The bytes are the thing inspected here. Zero of them would mean the fetches
-      // returned nothing and the absence is an artifact of an empty string, which is
-      // this gate's own scar in miniature.
-      shell.length);
+    // THE PERIOD IS STILL DRAWN, and must be: IOI.ttf carries no U+002E at all — it
+    // maps to .notdef — so dropping the drawn period drops the period. That is a
+    // mechanical necessity rather than a design choice, and it is the one drawn element
+    // the ruling keeps.
+    //
+    // Read from the SERVED STYLESHEET rather than an inline style, because the sizing
+    // moved into `.wordmark .dot` in em; an assertion still reading inline px would be
+    // reading an attribute that no longer exists and would fail on a correct surface.
+    const servedCss = await (await fetch(`${BASE}/assets/index.css`)).text();
+    const dotRule = /\.wordmark\s+\.dot\s*\{[^}]*\}/.exec(servedCss);
+    const dotSized = dotRule ? /0\.137em/.test(dotRule[0]) : false;
+    ok("the drawn period survives, cut to the face's own stem weight",
+      shell.includes("wordmark") && dotSized,
+      dotRule
+        ? `.wordmark .dot is ${dotSized ? "cut to 0.137em, the face's measured stem" : "present but NOT at stem weight"}`
+        : "no .wordmark .dot rule in the served stylesheet — the face has no U+002E, so " +
+          "this is the period disappearing",
+      1);
     // ── THE FIELD CONTRACT, against LIVE bodies ──────────────────────────────
     //
     // A field name is a fact about the DAEMON, and every assertion I had read my own
@@ -555,8 +587,28 @@ async function checkServer() {
     for (const m of bundleJs.matchAll(/className:\s*"([^"${}]+)"/g)) {
       for (const t of m[1].split(/\s+/)) if (t) emitted.add(t);
     }
+    // A TEMPLATE LITERAL'S INTERPOLATED CHUNKS ARE NOT CLASS NAMES.
+    //
+    // This used to split on `${…}` and join with a space, which turns
+    // `className={`fresh-${size} fresh-none`}` into the tokens "fresh-" and
+    // "fresh-none". "fresh-" is a PREFIX, not a class — nothing is ever named that —
+    // and the gate duly reported `no rule for: fresh-` as an orphan on a surface whose
+    // classes were all defined. A reader handed that finding would go looking for a
+    // stylesheet bug that does not exist.
+    //
+    // So: split the raw template on whitespace FIRST, and discard any chunk that
+    // touches an interpolation. What survives is the set of statically-known classes;
+    // the dynamic ones are COUNTED AND REPORTED rather than silently dropped, because
+    // "this gate cannot see N of your classes" is a fact the reader of a green run is
+    // entitled to, and dropping them quietly is how a check comes to cover less than
+    // its name claims.
+    let dynamic = 0;
     for (const m of bundleJs.matchAll(/className:\s*`([^`]*)`/g)) {
-      for (const t of m[1].split(/\$\{[^}]*\}/).join(" ").split(/\s+/)) if (t) emitted.add(t);
+      for (const chunk of m[1].split(/\s+/)) {
+        if (!chunk) continue;
+        if (chunk.includes("${") || chunk.includes("}")) { dynamic += 1; continue; }
+        emitted.add(chunk);
+      }
     }
     const defined = new Set();
     for (const m of bundleCss.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) defined.add(m[1]);
@@ -566,7 +618,11 @@ async function checkServer() {
       orphans.length === 0,
       orphans.length
         ? `no rule for: ${orphans.join(", ")} — an invented class name renders as nothing and fails silently`
-        : `${emitted.size} emitted class tokens, all defined among ${defined.size} in the served CSS`,
+        : `${emitted.size} static class tokens, all defined among ${defined.size} in the served CSS` +
+          (dynamic
+            ? ` · ${dynamic} interpolated class expressions NOT checked — this assertion ` +
+              "cannot see a class assembled at runtime, and says so rather than counting it as covered"
+            : ""),
       emitted.size);
 
     // THE SURFACE DOES NOT CALL ITSELF READ-ONLY WHILE IT HAS A WRITE DOOR.
@@ -755,27 +811,75 @@ async function checkServer() {
     // second matched the mask id `cloud-cue`, and SURVIVED a mutation that renamed it
     // to `cloud-cue-removed` — because a substring test passes on any name containing
     // it. A rename is the most likely way this drawing actually changes.
-    const MARK_PATH = "M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90";
-    const hasMark = shell.includes(MARK_PATH) && /decentralized\.cloud/.test(shell);
-    ok("the served surface still carries the mark, with the product's name on it",
+    //
+    // RE-ANCHORED ON THE NEW MARK — owner ruling, 2026-09-05. The reserved d is retired
+    // and the dissolving cloud ships in its place, so the old path literal now anchors
+    // on a drawing no visitor receives.
+    //
+    // Anchored on the GEOMETRY, IMPORTED FROM ITS ONE SOURCE, rather than on a literal
+    // copied into this file. brand/canvas-directions/marks.mjs exports CLOUD and
+    // CLOUD_GRID; the shell draws from the same exports. A literal here would be a
+    // second copy of the drawing, and two copies of a thing that must agree are two
+    // sources and a wish — which is the fault the wordmark's one-source module was
+    // built to remove and which this assertion would otherwise reintroduce.
+    //
+    // The three circles plus the base rect are unique to this drawing and are what a
+    // reader actually sees; there is no mask id to be fooled by this time. Mutating any
+    // radius in the shell must turn this red.
+    const marks = await import(path.join(APP, "brand/canvas-directions/marks.mjs"));
+    const circles = marks.CLOUD.filter((s) => s.r !== undefined);
+    const servedCircles = circles.filter((c) =>
+      new RegExp(`cx="?${c.cx}"?[^>]*cy="?${c.cy}"?[^>]*r="?${c.r}"?`).test(shell) ||
+      new RegExp(`"cx":\\s*${c.cx}[^}]*"cy":\\s*${c.cy}[^}]*"r":\\s*${c.r}`).test(shell) ||
+      (shell.includes(`cx:${c.cx}`) && shell.includes(`r:${c.r}`)));
+    const gridSquares = marks.CLOUD_GRID.filter((g) =>
+      shell.includes(`${g.x}`) && shell.includes(`${g.s}`)).length;
+    const named = /decentralized\.cloud/.test(shell);
+    const hasMark = servedCircles.length === circles.length && named;
+    ok("the served surface carries the mark's own geometry, with the product's name on it",
       hasMark,
       hasMark
-        ? "the mark is present and is what carries the accessible name"
-        : "the served bytes carry no mark — it has been removed, and if that was not a " +
-          "decision somebody made on purpose, it is the port dropping it again");
+        ? `all ${circles.length} cloud lobes present at the module's radii, ` +
+          `${gridSquares}/${marks.CLOUD_GRID.length} grid squares, accessible name on the mark`
+        : `only ${servedCircles.length} of ${circles.length} lobes match marks.mjs` +
+          (named ? "" : ", and the accessible name is absent") +
+          " — the served drawing and its one source have drifted, or the mark has been " +
+          "dropped again the way the port once dropped it by omission with every gate green",
+      circles.length);
+
+    // THE RETIRED MARK MAY NOT COME BACK. The reserved d and its mask id are the shapes
+    // the ruling replaced; a shell carrying both drawings, or reverting to the old one,
+    // is the state this catches — and it is the same argument the pre-override Z
+    // assertion used to make, pointed at the other end of the change.
+    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue"].filter((s) => shell.includes(s));
+    ok("the retired reserved-d mark is in no byte this server sends",
+      retired.length === 0,
+      retired.length
+        ? `served bytes still carry ${retired.join(" and ")} — the replaced mark is back, ` +
+          "or both drawings are shipping at once"
+        : `neither the reserved d's path nor its mask id appears in ${shell.length} served bytes`,
+      shell.length);
 
     // THE RUN BREAKS BEFORE THE I. This is the assertion that proves the letter is
     // DRAWN rather than set in the face, and it catches what the path-equality check
     // above cannot: a surface that keeps I_PATH in a disabled element while setting
     // "decentrali" as one run passes equality and fails this. That exact mutant was
     // planted and it went red here alone.
-    const breaks = /"decentral"|>decentral</.test(shell) && !/"decentrali"|>decentrali</.test(shell);
-    ok("the wordmark's I is drawn rather than set in the face",
-      breaks,
-      breaks
-        ? "the run breaks before the I, so the I is a drawn glyph and not the face's bare stem"
-        : "the served bytes set 'decentrali' as one run — the I is the face's bare stem, " +
-          "which two readers typed back as a lowercase l and one as DECENTRAL12ED");
+    // INVERTED WITH THE REST. This asserted the run BREAKS before the I, which was the
+    // proof the letter was drawn. Under the owner's ruling the name is one unbroken run
+    // in the face, so the old form would now compel the drawn glyph back — and it is the
+    // sharpest of the three, because it was the assertion that caught a half-revert
+    // (a shell keeping I_PATH in a disabled element while setting "decentrali" as one
+    // run passed path-equality and failed only here). Inverted, it catches the mirror
+    // image: a shell that quietly re-splits the run.
+    const oneRun = /"decentralized"|>decentralized</.test(shell);
+    const splitRun = /"decentral"|>decentral</.test(shell) && !oneRun;
+    ok("the wordmark is one unbroken run in the face",
+      oneRun && !splitRun,
+      oneRun
+        ? "the served bytes set 'decentralized' as a single run, with no letter substituted"
+        : "the run is SPLIT — the served bytes break the name into pieces, which is what " +
+          "a drawn-glyph override looks like coming back");
 
     // ── THE JOB DOOR, against the RUNNING daemon ──────────────────────────────
     //
@@ -1238,22 +1342,50 @@ async function checkResponsiveLayout() {
         // D4: the headline names a price; row one must BE that price. `cheapest` is
         // now live[0] by construction, so this can only fail if the render order and
         // the summary disagree — which is exactly what it is for.
+        // RE-ANCHORED FOR THE GROUPED TABLE, and this is a case where leaving the
+        // assertion alone would have produced a FALSE FAILURE rather than a missed one.
+        //
+        // The table is now one <tbody class="tgroup"> per venue, ordered by each
+        // venue's cheapest, with rows ascending INSIDE each group. Prices are therefore
+        // NOT globally ascending — the second group's cheapest is legitimately lower
+        // than the first group's dearest — so the old flat `ascending` check would have
+        // gone red on a correct surface, and the honest reading of that red would have
+        // been "the gate no longer describes this table", not "the table is wrong".
+        //
+        // What still holds, and is what the assertion was ever about: the headline's
+        // cheapest IS the first data row, because `summarise` returns `live[0]` and the
+        // groups are built in the order venues first appear in that already-sorted list.
         const priced = await page.evaluate(() => {
           const head = document.body.innerText.match(/cheapest \$([0-9.]+)\/hr/);
-          const cells = [...document.querySelectorAll(".t-quotes tbody .price")]
-            .map((c) => parseFloat(c.textContent.replace(/[^0-9.]/g, "")))
-            .filter((n) => Number.isFinite(n));
-          return { headline: head ? parseFloat(head[1]) : null, cells };
+          const num = (el) => parseFloat(el.textContent.replace(/[^0-9.]/g, ""));
+          // Per GROUP, in document order. `.price` is now a `th` row header rather than
+          // a `td`; anchoring on the class rather than the element or a column index is
+          // what let this survive the change at all.
+          const groups = [...document.querySelectorAll(".t-quotes tbody")]
+            .map((tb) => [...tb.querySelectorAll(".trow .price, .trow.price, .trow > .price")]
+              .map(num).filter((n) => Number.isFinite(n)))
+            .filter((g) => g.length);
+          return { headline: head ? parseFloat(head[1]) : null, groups };
         });
-        const ascending = priced.cells.every((v, i, a) => i === 0 || a[i - 1] <= v);
+        const flat = priced.groups.flat();
+        // Ascending WITHIN each group, and each group's cheapest ordered against the next.
+        const inGroup = priced.groups.every((g) => g.every((v, i) => i === 0 || g[i - 1] <= v));
+        const acrossGroups = priced.groups.every((g, i, a) => i === 0 || a[i - 1][0] <= g[0]);
+        const ascending = inGroup && acrossGroups;
         ok("the cheapest price in the headline is the first row of the table",
-          priced.headline !== null && priced.cells.length > 0 &&
-          Math.abs(priced.headline - priced.cells[0]) < 1e-9 && ascending,
+          priced.headline !== null && flat.length > 0 &&
+          Math.abs(priced.headline - flat[0]) < 1e-9 && ascending,
           priced.headline === null
             ? "no cheapest headline was rendered"
-            : `headline $${priced.headline}, row one $${priced.cells[0]}, ascending: ${ascending}` +
-              ` over ${priced.cells.length} rows`,
-          priced.cells.length);
+            : `headline $${priced.headline}, row one $${flat[0]}, ` +
+              `${priced.groups.length} venue groups, ascending within groups: ${inGroup}, ` +
+              `groups ordered by their cheapest: ${acrossGroups}, over ${flat.length} rows`,
+          // `flat.length`, not `priced.cells.length` — the shape changed from a flat
+          // list to per-group lists and this count argument was the one reference I
+          // missed, which crashed the whole run. Fittingly it was the vacuity rule's
+          // own inspected-count that broke: the thing added so an assertion cannot
+          // claim to have looked at something it did not.
+          flat.length);
 
         // D1: no chip anywhere on the surface is a bare integer. An array index
         // rendered as evidence reads exactly like a count, and that is how a column
