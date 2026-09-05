@@ -34,7 +34,16 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1180, height: 1000 } });
 await page.goto(`http://127.0.0.1:${port}/#/${surface}`, { waitUntil: "domcontentloaded" });
-await page.waitForSelector(sel, { timeout: 120000 });
+// THE CAPTURE LABELS THE STATE IT CAPTURED, and the wait it observed.
+//
+// The contact sheet spent its whole life photographing three surfaces mid-load and
+// presenting the result as the product; three cold readers reported those blanks back
+// as defects. A picture that does not say which state it caught can be read as the
+// loaded page by default, and it always will be.
+const t0 = Date.now();
+const arrived = await page.waitForSelector(sel, { timeout: 120000 })
+  .then(() => true).catch(() => false);
+const waited = Date.now() - t0;
 // THE PARAGRAPH TEST, run rather than recalled. Hide every prose paragraph and look at
 // what is left: if the surface cannot say what it is without its sentences, the facts
 // are living in the prose instead of in the structure.
@@ -42,6 +51,24 @@ if (process.env.STRIP) {
   await page.addStyleTag({ content: ".prose { display: none !important; }" });
   await page.waitForTimeout(150);
 }
+// The label is BURNED INTO THE IMAGE, not printed beside it. A caption in a terminal
+// does not travel with the picture; the picture is what gets looked at, pasted and
+// relayed, so the state has to be part of it.
+await page.evaluate(({ arrived, waited, sel }) => {
+  const bar = document.createElement("div");
+  bar.textContent = arrived
+    ? `LOADED — "${sel}" present after ${waited}ms`
+    : `STILL WAITING — "${sel}" never appeared in ${waited}ms. THIS IS NOT THE LOADED PAGE.`;
+  bar.setAttribute("style",
+    "position:fixed;left:0;right:0;bottom:0;z-index:2147483647;padding:6px 10px;" +
+    "font:12px ui-monospace,monospace;color:#fff;" +
+    `background:${arrived ? "#397554" : "#e40014"};`);
+  document.body.appendChild(bar);
+}, { arrived, waited, sel });
+
 await page.screenshot({ path: out, ...(clip ? { clip } : { fullPage: true }) });
-console.log("wrote", out);
+console.log(`${arrived ? "LOADED" : "STILL WAITING"} after ${waited}ms — wrote ${out}`);
 await browser.close();
+// A capture of a page that never loaded is not a failure of this script, but it must
+// not exit clean: a green exit is how a waiting page gets treated as a result.
+if (!arrived) process.exitCode = 2;
