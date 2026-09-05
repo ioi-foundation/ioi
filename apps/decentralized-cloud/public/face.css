@@ -397,10 +397,9 @@ input.field-box { cursor: text; }
    positions, which is a price list you cannot compare by eye — on the surface whose
    headline claims to have found the cheapest one. */
 .price { font-size: 16px; color: var(--ink); white-space: nowrap;
-  text-align: right; font-variant-numeric: tabular-nums; }
+  font-variant-numeric: tabular-nums; }
 /* The header sits over its own column. A right-aligned column under a left-aligned
    label is the header pointing at the wrong place. */
-.t-quotes thead > tr > th:nth-child(3) { text-align: right; }
 .reasons { list-style: none; margin: 0; padding: 0; display: flex;
   flex-direction: column; gap: 6px; font-size: 12px; color: var(--label); }
 
@@ -455,11 +454,33 @@ input.field-box { cursor: text; }
 .trow > td.freshness > .stack { display: inline-block; vertical-align: middle;
   white-space: normal; }
 
+/* Price first and dominant; offer; basis takes the slack; the bar last. */
 .table.t-quotes { min-width: 720px; }
-.table.t-quotes th:nth-child(1), .table.t-quotes td:nth-child(1) { width: 19%; }
-.table.t-quotes th:nth-child(2), .table.t-quotes td:nth-child(2) { width: 43%; }
-.table.t-quotes th:nth-child(3), .table.t-quotes td:nth-child(3) { width: 15%; }
-.table.t-quotes th:nth-child(4), .table.t-quotes td:nth-child(4) { width: 23%; }
+.table.t-quotes thead th:nth-child(1), .table.t-quotes .trow > :nth-child(1) { width: 17%; }
+.table.t-quotes thead th:nth-child(2), .table.t-quotes .trow > :nth-child(2) { width: 22%; }
+.table.t-quotes thead th:nth-child(3), .table.t-quotes .trow > :nth-child(3) { width: 39%; }
+.table.t-quotes thead th:nth-child(4), .table.t-quotes .trow > :nth-child(4) { width: 22%; }
+.t-quotes thead > tr > th:nth-child(1) { text-align: left; }
+.t-quotes .trow > th.price { font-size: 22px; letter-spacing: -0.02em; text-align: left;
+  color: var(--ink); vertical-align: top; padding-top: 12px; }
+/* Denser rows than the rest of the product: forty-odd quotes is a list to scan, and
+   a three-line basis at 16px padding made each row 87px tall. */
+.t-quotes .trow > th, .t-quotes .trow > td { padding-top: 12px; padding-bottom: 12px; }
+.t-quotes .basis { line-height: 1.45; }
+.offer-name { font-size: 15px; color: var(--ink); }
+/* A VENUE GROUP HEADER ROW: name, count, cheapest, and the one live chip for the whole
+   group. It is a row-group header (th scope=rowgroup), so it keeps the table's
+   semantics and reads as a section to a screen reader. */
+.tgroup-head > th { padding: 22px 0 8px; border-top: 0; border-bottom: 1px solid var(--ink);
+  text-align: left; font-weight: 400; background: transparent; }
+.tgroup:first-of-type .tgroup-head > th { padding-top: 12px; }
+.tgroup-head > th > * { display: inline-block; vertical-align: middle; margin-right: 16px; }
+.tgroup-venue { font-size: 20px; letter-spacing: -0.012em; color: var(--ink); }
+.tgroup-count { font-size: 14px; color: var(--label); }
+.tgroup-cheapest { font-size: 13px; color: var(--label); }
+.tgroup .trow:first-of-type > th, .tgroup .trow:first-of-type > td { border-top: 0; }
+/* The bar's cell: the bar block inside a table-cell, not a flex cell. */
+.trow > td.freshness > .fresh { display: grid; }
 /* THE SOURCE COLUMN HOLDS THE LONGEST STATE NAMES IN THE PRODUCT.
    `candidate_source_unavailable` and `storage_backends_engaged` are 28 and 24 mono
    characters, and `.chip` is `white-space: nowrap`, so at 30% of a 620px table they
@@ -693,7 +714,9 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .catalog-line { font-size: 13px; color: var(--ink); line-height: 1.5; }
 .catalog-tools { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 .catalog-filter { width: min(420px, 100%); }
-.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 22px 28px; }
+/* Two-up at 1440, not three: at three-up the state column measured tight enough that
+   "no supply now" wrapped into a two-line oval and "1 account connected" broke. */
+.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 26px 40px; }
 .cat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .table.t-catalog { min-width: 0; table-layout: fixed; }

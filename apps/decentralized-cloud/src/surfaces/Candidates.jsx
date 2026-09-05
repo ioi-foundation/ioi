@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef, keptState } from "../logic/read.mjs";
-import { classify, clock, minutesLeft, stamp } from "../logic/classify.mjs";
+import { classify, stamp } from "../logic/classify.mjs";
 import { latestBatch, summarise, venueVerdict } from "../logic/batches.mjs";
 import { populationLine, FUNNEL_NOTE } from "../logic/population.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
-import Dial from "../components/Dial.jsx";
+import Freshness from "../components/Freshness.jsx";
 
 const POLL_MS = 30_000;
 
@@ -45,6 +45,17 @@ export default function Candidates({ announce }) {
   const setAside = considered !== null ? considered - latest.items.length : 0;
   const { live, venues, cheapest } = summarise(latest.items);
   const verdict = venueVerdict({ live, venues });
+  // Venue groups, in the order of each venue's cheapest quote. `live` is already price
+  // ascending, so the first item seen for a venue IS its cheapest and the groups fall
+  // into cheapest-first order by the order venues first appear — one sort, no second
+  // derivation of "cheapest".
+  const groups = [];
+  for (const c of live) {
+    const v = c.provider_kind || "—";
+    let g = groups.find((x) => x.venue === v);
+    if (!g) { g = { venue: v, items: [] }; groups.push(g); }
+    g.items.push(c);
+  }
 
   useEffect(() => {
     if (state.phase === "first") return;
@@ -77,54 +88,74 @@ export default function Candidates({ announce }) {
           inside its own container rather than restyling it into blocks, because
           changing `display` on table elements strips their implicit roles — the fix
           would have removed the semantics it was added to provide. */}
+      {/* GROUPED BY VENUE, PRICE FIRST.
+          One table, one <tbody> per venue, so the semantics hold (every row keeps its
+          column; the group header is a row-group header) while a reader sees the shape
+          a cold reader asked for: which venues, how many each, cheapest of each, and
+          the price as the column the eye lands on. Groups are ordered by their cheapest
+          quote and rows inside each by price, so the first data row of the first group
+          is the headline's cheapest — the gate's "headline equals row one" holds by
+          construction, as before.
+          The per-row live_evidence chip is gone: every row in this table passed the
+          live rule, so the chip belongs in the header, not forty-three times down the
+          left edge ("five identical badges stacked down the left edge, all saying the
+          same thing" — reader on the direction canvases). */}
       <table className="table t-quotes">
         <caption className="sr-only">
-          Live quotes for this intent, from the most recent sweep, cheapest first
+          Live quotes for this intent, from the most recent sweep, grouped by venue, cheapest first within each
         </caption>
         <thead>
           <tr>
-            <th scope="col">Venue</th>
-            <th scope="col">Basis</th>
             {/* The order is STATED where the reader is looking, rather than left to be
                 inferred from the numbers. A sorted table that does not say it is
                 sorted asks every reader to verify it by eye. */}
-            <th scope="col">USD per hour <span className="meta">· cheapest first</span></th>
-            <th scope="col">Freshness</th>
+            <th scope="col">USD / hour <span className="meta">· cheapest first</span></th>
+            <th scope="col">Offer</th>
+            <th scope="col">Basis</th>
+            <th scope="col">Good for</th>
           </tr>
         </thead>
-        <tbody>
-          {live.map((c) => (
-            <tr key={c.candidate_ref || `${c.provider_kind}-${c.observed_at}`} className="trow">
-              <th className="stack" scope="row" style={{ gap: "7px" }}>
-                <div className="mono" style={{ fontSize: "14px" }}>{c.provider_kind || "—"}</div>
+        {groups.map((g) => (
+          <tbody key={g.venue} className="tgroup">
+            <tr className="tgroup-head">
+              <th scope="rowgroup" colSpan={4}>
+                <span className="tgroup-venue">{g.venue}</span>
+                <span className="tgroup-count">{g.items.length} live</span>
+                <span className="tgroup-cheapest mono">cheapest {price(g.items[0].quote.usd_per_hour)}/hr</span>
                 <Chip kind="live">live_evidence</Chip>
               </th>
-              <td className="mono basis">
-                {c.quote.basis}
-                <br />
-                {c.quote.quote_ref || ""}
-                <br />
-                {/* DATED, not just clocked. A cold reader noted `04:31:49Z` has no
-                    date — and a quote's age is the whole question on this surface, so
-                    a bare time is the one format it cannot use. */}
-                {`observed ${stamp(c.observed_at)}`}
-              </td>
-              <td className="mono price">{price(c.quote.usd_per_hour)}</td>
-              <td className="freshness">
-                <Dial observedAt={c.observed_at} expiresAt={c.expires_at} />
-                <div className="stack" style={{ gap: "4px" }}>
-                  <div className="mono" style={{ fontSize: "13px" }}>{clock(c.expires_at)}</div>
-                  <div className="meta">
-                    {(() => {
-                      const m = minutesLeft(c.expires_at);
-                      return m === null ? "no window" : m <= 0 ? "expired" : `${m} min left`;
-                    })()}
-                  </div>
-                </div>
-              </td>
             </tr>
-          ))}
-        </tbody>
+            {g.items.map((c) => (
+              <tr key={c.candidate_ref || `${c.provider_kind}-${c.observed_at}`} className="trow">
+                <th className="mono price" scope="row">{price(c.quote.usd_per_hour)}</th>
+                <td className="offer">
+                  <div className="offer-name">{c.display_name || c.provider_kind || "—"}</div>
+                  {/* The daemon's region is "<city>, <country>" and some offers carry
+                      an empty city, arriving as ", CN". The leading separator is
+                      dropped — nothing is added — because ", CN" in a cell reads as a
+                      rendering fault rather than as an offer with no city. */}
+                  {c.region && <div className="meta">{String(c.region).replace(/^\s*,\s*/, "")}</div>}
+                </td>
+                <td className="mono basis">
+                  {c.quote.basis}
+                  <br />
+                  {c.quote.quote_ref || ""}
+                  <br />
+                  {/* DATED, not just clocked. A cold reader noted `04:31:49Z` has no
+                      date — and a quote's age is the whole question on this surface, so
+                      a bare time is the one format it cannot use. */}
+                  {`observed ${stamp(c.observed_at)}`}
+                </td>
+                <td className="freshness">
+                  {/* THE DEPLETING BAR, replacing the ring three independent readers read
+                      as a loading spinner. Same arithmetic (classify.dialFraction), now
+                      with a readable time beside it. */}
+                  <Freshness observedAt={c.observed_at} expiresAt={c.expires_at} size="row" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
       </table>
     </div>
   );
