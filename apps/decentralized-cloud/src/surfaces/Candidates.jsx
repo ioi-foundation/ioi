@@ -128,7 +128,11 @@ export default function Candidates({ announce }) {
             {g.items.map((c) => (
               <tr key={c.candidate_ref || `${c.provider_kind}-${c.observed_at}`} className="trow">
                 <th className="mono price" scope="row">{price(c.quote.usd_per_hour)}</th>
-                <td className="offer">
+                {/* No class on the cell: `.offer` was a hook no rule ever used (the
+                    gate's one real finding on this table), and a rule invented to make
+                    a check green is worse than the orphan. The name inside carries the
+                    styling. */}
+                <td>
                   <div className="offer-name">{c.display_name || c.provider_kind || "—"}</div>
                   {/* The daemon's region is "<city>, <country>" and some offers carry
                       an empty city, arriving as ", CN". The leading separator is
