@@ -218,8 +218,27 @@ export default function Receipts({ announce }) {
                           <div className="meta mono" style={{ fontSize: "11px" }}>{j.quoteRef}</div>
                         )}
                       </div>
+                    ) : j.state === "placed" ? (
+                      // THE RECORD DISAGREES WITH ITSELF, and the surface says so
+                      // rather than picking the half that reads better.
+                      //
+                      // A cold reader found a row with STATE `placed`, a full
+                      // placement-decision receipt, and this cell reading "not placed
+                      // yet — no venue was chosen". Reading the record back:
+                      // `placement.venue` and `placement.candidate_ref` are both null
+                      // while the RECEIPT for the same `decision_ref` names
+                      // `selected_candidate_ref`. The daemon's own record contradicts
+                      // itself, and "not placed yet" was this surface INFERRING from
+                      // one half of it — an inference that is flatly false, on a
+                      // ledger whose whole claim is that it renders what is there.
+                      <span className="meta">
+                        placed, but this record names no venue — its receipt names a
+                        selected candidate and its placement block does not. Reported to
+                        the daemon; not resolved here, because a surface that picks the
+                        more plausible half of a contradiction is guessing.
+                      </span>
                     ) : (
-                      <span className="meta">not placed yet — no venue was chosen</span>
+                      <span className="meta">not placed — no venue was chosen</span>
                     )}
                   </td>
                   <td>

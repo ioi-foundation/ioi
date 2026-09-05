@@ -1479,7 +1479,12 @@ async function checkResponsiveLayout() {
         const want = TABLE_OF[s];
         let arrived = true;
         if (want) {
-          arrived = await page.waitForSelector(`${want} .trow`, { timeout: 75000 })
+          // 120s, because the Sources read is measured at ~28s and spikes past 75.
+          // Each width is a fresh browser context, so the persisted answer does not
+          // carry between them and every width pays the full read. The ceiling exists
+          // to tell SLOW apart from NEVER; set below the real cost it reports "never"
+          // for a surface that was merely slow, which is a manufactured finding.
+          arrived = await page.waitForSelector(`${want} .trow`, { timeout: 120000 })
             .then(() => true).catch(() => false);
         }
         await page.waitForTimeout(160);
