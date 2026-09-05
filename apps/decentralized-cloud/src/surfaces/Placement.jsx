@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef } from "../logic/read.mjs";
-import { stamp } from "../logic/classify.mjs";
+import { stamp, duration } from "../logic/classify.mjs";
 import { Waiting, Failure, Kept, Chip } from "../components/Bits.jsx";
 
 // PLACEMENT — an ADVISORY, and the word is load-bearing.
@@ -52,7 +52,7 @@ export default function Placement({ announce }) {
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
       <h1>Placement</h1>
-      <p className="meta">advisory · read in {state.ms != null ? `${(state.ms / 1000).toFixed(1)}s` : "—"}</p>
+      <p className="meta">advisory · read in {duration(state.ms)}</p>
       <p className="prose">
         An advisory, not a decision. The venue picker runs in the daemon; this surface
         renders what it returned and scores nothing of its own. A ranking computed here

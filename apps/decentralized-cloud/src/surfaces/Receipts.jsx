@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
-import { stamp } from "../logic/classify.mjs";
+import { stamp, duration } from "../logic/classify.mjs";
 import { jobView } from "../logic/job-door.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
@@ -59,13 +59,23 @@ export default function Receipts({ announce }) {
       <p className="meta">
         {jobs.length} job record{jobs.length === 1 ? "" : "s"} ·{" "}
         {withReceipts.length} carrying receipts · read in{" "}
-        {state.ms != null ? `${(state.ms / 1000).toFixed(1)}s` : "—"}
+        {duration(state.ms)}
       </p>
       <p className="prose">
         Every row is a record the daemon holds. A receipt is the only place a fee
         exists: no fee is charged for pricing, for looking, or for a decision taken
         between fewer than two real venues. Where a record carries no receipt, this page
         says so — it does not draw the shape of one.
+      </p>
+      {/* WHY THERE IS NO AMOUNT COLUMN, said once rather than asked on every row.
+          A fee exists only as a minted receipt, and nothing reachable from this
+          surface can mint one, so an amount column would be empty on every row
+          forever. An always-empty column is a question the page keeps asking and
+          never answers. */}
+      <p className="meta">
+        There is no amount column. A fee exists only as a minted receipt, and no
+        execution is reachable from this surface — so every row would carry an empty
+        one. Each row states whether a fee was minted instead.
       </p>
 
       {gateJobs.length > 0 && (
@@ -103,9 +113,13 @@ export default function Receipts({ announce }) {
             </caption>
             <thead>
               <tr>
-                <th scope="col">Job</th>
+                <th scope="col">Job <span className="meta">· newest first</span></th>
                 <th scope="col">Authority</th>
                 <th scope="col">Receipts</th>
+                {/* WHERE IT WENT. A receipts ledger that cannot say which venue the
+                    placement chose is missing the fact most readers open it for, and
+                    the job record has carried it all along. */}
+                <th scope="col">Venue</th>
                 <th scope="col">State</th>
               </tr>
             </thead>
@@ -156,6 +170,18 @@ export default function Receipts({ announce }) {
                       <div className="meta" style={{ marginTop: "6px" }}>
                         required: {j.receiptRequirements.join(", ")}
                       </div>
+                    )}
+                  </td>
+                  <td className="basis">
+                    {j.venue ? (
+                      <div className="stack" style={{ gap: "4px" }}>
+                        <div className="mono" style={{ fontSize: "13px" }}>{j.venue}</div>
+                        {j.quoteRef && (
+                          <div className="meta mono" style={{ fontSize: "11px" }}>{j.quoteRef}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="meta">not placed yet — no venue was chosen</span>
                     )}
                   </td>
                   <td>

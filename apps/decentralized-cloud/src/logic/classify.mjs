@@ -63,6 +63,18 @@ export const clock = (iso) => {
   return Number.isFinite(t) ? new Date(t).toISOString().slice(11, 19) + "Z" : String(iso);
 };
 
+// A DURATION AT A PRECISION IT WAS ACTUALLY MEASURED TO.
+//
+// Every surface rendered `(ms / 1000).toFixed(1)` and Receipts therefore said "read in
+// 0.0s" — a duration printed at a precision that reads as unmeasured, on the page that
+// must look most measured. A 46ms read is not zero; it is 46ms, and saying so costs
+// nothing. Above a second, tenths are the right grain and milliseconds are noise.
+export const duration = (ms) => {
+  if (ms == null || !Number.isFinite(ms)) return "—";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+};
+
 export const stamp = (iso) => {
   if (!iso) return "—";
   const t = Date.parse(iso);

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
-import { stamp } from "../logic/classify.mjs";
+import { stamp, duration } from "../logic/classify.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
 // SOURCES — the surface stale-while-refresh was built for.
@@ -86,7 +86,7 @@ export default function Sources({ announce }) {
       <h1>Sources</h1>
       <p className="meta">
         {quoting.length} quoting · {answering.length} answering without a price ·{" "}
-        {absent.length} unavailable · read in {state.ms != null ? `${(state.ms / 1000).toFixed(1)}s` : "—"}
+        {absent.length} unavailable · read in {duration(state.ms)}
       </p>
       <p className="prose">
         A source without an adapter or without a credential says so in the row where a

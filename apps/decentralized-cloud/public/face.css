@@ -405,11 +405,19 @@ input.field-box { cursor: text; }
 .table.t-sources { min-width: 620px; }
 .table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 30%; }
 .table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 70%; }
-.table.t-receipts { min-width: 760px; }
-.table.t-receipts th:nth-child(1), .table.t-receipts td:nth-child(1) { width: 22%; }
-.table.t-receipts th:nth-child(2), .table.t-receipts td:nth-child(2) { width: 26%; }
-.table.t-receipts th:nth-child(3), .table.t-receipts td:nth-child(3) { width: 37%; }
-.table.t-receipts th:nth-child(4), .table.t-receipts td:nth-child(4) { width: 15%; }
+/* Five columns since the ledger gained Venue: job, authority, receipts, venue, state. */
+.table.t-receipts { min-width: 900px; }
+.table.t-receipts th:nth-child(1), .table.t-receipts td:nth-child(1) { width: 18%; }
+.table.t-receipts th:nth-child(2), .table.t-receipts td:nth-child(2) { width: 20%; }
+.table.t-receipts th:nth-child(3), .table.t-receipts td:nth-child(3) { width: 25%; }
+.table.t-receipts th:nth-child(4), .table.t-receipts td:nth-child(4) { width: 17%; }
+.table.t-receipts th:nth-child(5), .table.t-receipts td:nth-child(5) { width: 20%; }
+/* THE STATE CHIP WRAPS. `.chip` is `white-space: nowrap`, which is right for a short
+   state name and wrong for `refused_authority_mode_mismatch` — a reviewer measured 24
+   of 27 rows truncated mid-glyph at 1180, and it came back the moment this ledger
+   gained a column. The state is the column a ledger is read for; it does not get to be
+   the one that is cut. */
+.table.t-receipts td:nth-child(5) .chip { white-space: normal; }
 .table.t-api { min-width: 700px; }
 /* Redundancy's postures, converted from three prose cards to a table: posture, whether
    the daemon accepts it, what it means, and what a refused one would need. The two

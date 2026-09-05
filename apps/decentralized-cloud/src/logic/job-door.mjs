@@ -171,6 +171,17 @@ export function jobView(job) {
     receiptRequirements: Array.isArray(job.receipt_requirements) ? job.receipt_requirements : [],
     receipts: receiptViews(job.receipts),
     placement: job.placement || job.decision || null,
+    // The venue the placement chose, lifted so the ledger can carry it as a column.
+    // A receipts ledger that cannot say WHERE the work was placed is a ledger missing
+    // the fact most people open it for.
+    venue: job.placement?.venue || job.decision?.venue || null,
+    quoteRef: job.placement?.quote_ref || null,
+    // Whether a fee object exists for this job at all. There is deliberately no
+    // "amount" here: a fee exists only as a minted receipt, and nothing on this
+    // surface can produce one, so an amount column would be empty on every row
+    // forever. An always-empty column is a question the page keeps asking and never
+    // answers; the ledger states the absence once instead.
+    feeMinted: job.fee_object_minted ?? null,
     createdAt: job.created_at || job.at || null,
   };
 }
