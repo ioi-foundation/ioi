@@ -421,6 +421,31 @@ input.field-box { cursor: text; }
    any assertion: nothing here overflows, collides, or loses a class. */
 .stack > .chip { align-self: flex-start; }
 
+/* ── THE JOB LANE: Admit -> Place -> Execute ─────────────────────────────────
+   The spend boundary as a state row rather than a paragraph. Step three is a locked
+   control carrying its lock reason as its own label, because a boundary a reader has
+   to READ TO is a boundary they can miss. */
+.lane { list-style: none; margin: 0; padding: 0; display: grid; gap: 0;
+  border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.lane-step { display: flex; gap: 16px; padding: 18px 20px; align-items: flex-start;
+  border-top: 1px solid var(--hairline-soft); background: var(--paper); }
+.lane-step:first-child { border-top: 0; }
+.lane-mark { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid var(--border-strong); color: var(--label);
+  font-family: var(--mono); font-size: 12px;
+  display: flex; align-items: center; justify-content: center; }
+.lane-step.now { background: var(--surface); }
+.lane-step.now .lane-mark { border-color: var(--ink); color: var(--ink); }
+.lane-step.done .lane-mark { border-color: var(--live); color: var(--live); }
+/* The locked step is visibly the end of the lane, not a step waiting its turn. */
+.lane-step.locked { background: var(--surface); }
+.lane-step.locked .lane-mark { border-style: dashed; }
+.lane-title { font-size: 15px; }
+/* A button inside a column stack must not stretch to the lane's full width — the same
+   defect as the stretched chip, one container up. A control that spans 1100px does not
+   read as a control. */
+.lane-step .button { align-self: flex-start; }
+
 /* Placement's decision table: a what/answer pair, so the label column stays narrow. */
 .table.t-decision { min-width: 620px; }
 .table.t-decision th:nth-child(1), .table.t-decision td:nth-child(1) { width: 24%; }

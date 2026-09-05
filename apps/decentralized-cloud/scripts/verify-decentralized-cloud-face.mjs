@@ -1369,7 +1369,9 @@ async function checkResponsiveLayout() {
                  cellsSeen: allCells.length,
                  brokenCells: [...new Set(brokenCells)].slice(0, 4) };
       });
-      await page.close();
+      // The page stays OPEN — the all-surface cell sweep below still needs it. It used
+      // to close here, which was fine while every assertion after this point read only
+      // the `m` object.
       ok(`at ${w}px the body does not scroll sideways and nothing collides`,
         m.overflow <= 0 && m.hits.length === 0,
         `overflow ${m.overflow}px${m.hits.length ? `; ${m.hits.join(", ")}` : ""}`);
@@ -1396,6 +1398,71 @@ async function checkResponsiveLayout() {
           ? `clipped out of sight: ${m.invisible.join(", ")}`
           : `${m.navSeen} nav targets have a real visible box after intersecting their scroll ancestors`,
         m.navSeen);
+
+      // ── THE CELL CHECK, ACROSS ALL SEVEN SURFACES ─────────────────────────
+      //
+      // The assertion above ran on whatever surface happened to be showing, which was
+      // always Candidates. It covered ONE surface of seven, and I quoted it as though
+      // it covered the product — which is how a chip in a stacked `td` on Placement
+      // rendered as an 800px bar with the gate green. That is the 144/144 error one
+      // level up: not a vacuous assertion this time, but a NARROW one read as broad.
+      //
+      // It now visits every surface and REPORTS ITS COVERAGE by name, so the same
+      // misreading is not available to me next time.
+      // EACH SURFACE'S OWN TABLE IS WAITED FOR BY NAME. A fixed 260ms pause reported
+      // "no table on: placement" — because Placement's read had not landed — which
+      // would have declared the surface table-free at the very moment I was fixing a
+      // cell defect on it. A surface whose table never arrives is reported as NOT
+      // MEASURED rather than counted as having none.
+      const TABLE_OF = {
+        candidates: ".t-quotes", sources: ".t-sources", placement: ".t-decision",
+        redundancy: ".t-postures", receipts: ".t-receipts", api: ".t-api",
+        job: null, // no table until a job is submitted; genuinely table-free here
+      };
+      const sweep = [];
+      for (const s of SURFACES) {
+        await page.click(`.nav button[data-surface="${s}"]`).catch(() => {});
+        const want = TABLE_OF[s];
+        let arrived = true;
+        if (want) {
+          arrived = await page.waitForSelector(`${want} .trow`, { timeout: 75000 })
+            .then(() => true).catch(() => false);
+        }
+        await page.waitForTimeout(160);
+        if (want && !arrived) {
+          sweep.push({ surface: s, cells: 0, broken: [], notMeasured: true });
+          continue;
+        }
+        const r = await page.evaluate(() => {
+          const broken = [];
+          const cells = document.querySelectorAll(".trow > th, .trow > td");
+          for (const cell of cells) {
+            const d = getComputedStyle(cell).display;
+            if (d !== "table-cell") broken.push(`${cell.className || cell.tagName} is display:${d}`);
+          }
+          return { cells: cells.length, broken: [...new Set(broken)].slice(0, 3) };
+        });
+        sweep.push({ surface: s, ...r });
+      }
+      const sweptCells = sweep.reduce((n, r) => n + r.cells, 0);
+      const sweptBroken = sweep.filter((r) => r.broken.length);
+      const missed = sweep.filter((r) => r.notMeasured).map((r) => r.surface);
+      const withTables = sweep.filter((r) => r.cells > 0).map((r) => r.surface);
+      // THE COVERAGE LINE. A per-surface check states which surfaces it inspected, so
+      // a narrow result cannot be quoted as a broad one — which is what I did with the
+      // single-surface version of this assertion.
+      ok(`at ${w}px every table cell on every surface is still a table cell`,
+        sweptBroken.length === 0 && missed.length === 0,
+        sweptBroken.length
+          ? sweptBroken.map((r) => `${r.surface}: ${r.broken.join("; ")}`).join(" · ")
+          : missed.length
+            ? `NOT MEASURED on ${missed.join(", ")} — their tables never rendered, so this ` +
+              `assertion says nothing about them`
+            : `${sweptCells} cells across ${withTables.length} of ${SURFACES.length} surfaces ` +
+              `(inspected: ${withTables.join(", ")}; no table by design: ` +
+              `${SURFACES.filter((s) => !withTables.includes(s)).join(", ") || "none"})`,
+        sweptCells);
+      await page.close();
     }
 
     // ── COLD START IS NOT A BLANK PAGE ──────────────────────────────────────

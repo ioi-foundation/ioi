@@ -112,6 +112,25 @@ export default function Job({ announce }) {
   const dryJob = dry?.ok ? jobView(dry.body?.job) : null;
   const dryRefused = dry ? refusal(dry) : null;
 
+  // WHAT IS STOPPING THE SUBMIT, in the reader's words rather than the form's.
+  // Each blocker names the field AND what a valid value is, because the previous
+  // version named neither: the button was simply dead.
+  const blockers = [];
+  if (!form.budgetRef) {
+    blockers.push(
+      budgets.data?.budgets?.length
+        ? "choose a budget — none is preselected, because real money is never a default"
+        : "the daemon holds no external_spend budget for this surface to offer"
+    );
+  }
+  if (!/^wallet-grant:\/\/.+/.test(form.authorityRef || "")) {
+    blockers.push(
+      "an authority_ref of the form wallet-grant://<id> — a grant a person signed, " +
+      "which this page cannot create for you; existing grants appear in the Authority " +
+      "column on Receipts"
+    );
+  }
+
   return (
     <div className="stack" style={{ gap: "26px" }}>
       <div className="stack" style={{ gap: "9px" }}>
@@ -122,19 +141,60 @@ export default function Job({ announce }) {
         </p>
       </div>
 
-      {/* The spend fence, stated where the button is, not in a footnote. */}
-      <div className="panel absent stack" style={{ gap: "8px" }}>
-        <div className="eyebrow">what this door can and cannot do</div>
-        <p className="prose">
-          Submitting admits a <strong>proposal</strong>: the daemon records it and it
-          authorizes nothing. A dry run then stops at the placement receipt and touches
-          no provider. <strong>A real execution is not reachable from this surface</strong> —
-          the proxy sets the dry-run flag itself on every execute rather than forwarding
-          it, so no request composed here can reach a metered provider operation. A real
-          run is a spend, and a spend needs an explicit owner authorization that names
-          the amount, the venue ceiling, the offer hash and the teardown.
-        </p>
-      </div>
+      {/* ── THE LANE, AS THREE STATES ──────────────────────────────────────
+          This was a five-sentence paragraph, and it was the worst paragraph-test
+          failure on the site: strip the prose from this surface and a form that admits
+          a real write said NOTHING about what it does. The entire spend boundary — the
+          one fact that makes this door safe to put on a public page — existed only
+          inside a block of text.
+          It is a state row now. Where you are is a chip; where the lane stops is a
+          LOCKED CONTROL whose lock reason is its own label, so the boundary is a thing
+          a reader sees rather than a thing they must read to. */}
+      <ol className="lane" aria-label="What this door does, and where it stops">
+        <li className={`lane-step${job ? " done" : " now"}`}>
+          <div className="lane-mark" aria-hidden="true">1</div>
+          <div className="stack" style={{ gap: "4px" }}>
+            <div className="lane-title">Admit</div>
+            <div className="meta">
+              The daemon records a proposal. It authorizes nothing and spends nothing.
+            </div>
+            {job && <Chip kind="live">done — {job.id}</Chip>}
+          </div>
+        </li>
+        <li className={`lane-step${dryJob ? " done" : job ? " now" : ""}`}>
+          <div className="lane-mark" aria-hidden="true">2</div>
+          <div className="stack" style={{ gap: "4px" }}>
+            <div className="lane-title">Place</div>
+            <div className="meta">
+              A dry run decides the placement and stops at the receipt. No provider is
+              touched.
+            </div>
+            {dryJob && <Chip kind="live">done — {dryJob.state}</Chip>}
+          </div>
+        </li>
+        <li className="lane-step locked">
+          <div className="lane-mark" aria-hidden="true">3</div>
+          <div className="stack" style={{ gap: "6px" }}>
+            <div className="lane-title">Execute</div>
+            {/* A REAL CONTROL, PERMANENTLY DISABLED, CARRYING ITS REASON AS ITS LABEL.
+                Not a sentence about a button that does not exist: the button exists,
+                is locked, and says why on its face. `aria-disabled` plus a real
+                `disabled` so it is announced and unreachable both. */}
+            <button className="button" type="button" disabled aria-disabled="true"
+              title="This surface has no execution lane. The proxy sets the dry-run flag itself on every execute.">
+              Locked — a wallet grant is required, and is not offered here
+            </button>
+            <div className="meta">
+              A real run is a metered provider spend. It needs an authorization naming
+              the amount, the venue ceiling, the offer hash and the teardown — presented
+              at the moment of spend, which is a thing a person does and not a thing a
+              web form carries. The proxy sets the dry-run flag itself on every execute
+              rather than forwarding it, so no request composed here can reach a
+              provider even if this control were unlocked.
+            </div>
+          </div>
+        </li>
+      </ol>
 
       <form className="stack" style={{ gap: "20px", maxWidth: "900px" }} onSubmit={onSubmit}>
         <div className="cols cols-2" style={{ gap: "20px 24px" }}>
@@ -203,12 +263,24 @@ export default function Job({ announce }) {
           </label>
         </div>
 
+        {/* A DISABLED CONTROL SAYS WHY IT IS DISABLED.
+            A reviewer found this button dead with no reason given — no message, no
+            hint, no error — and completed the write only by reading a wallet-grant ref
+            off the Receipts table on another surface. A primary action that is inert
+            for reasons the reader cannot see is indistinguishable from a broken one. */}
         <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
-          <button className="button" type="submit" disabled={submitting || !form.budgetRef}>
+          <button className="button" type="submit"
+            disabled={submitting || blockers.length > 0}
+            aria-describedby={blockers.length ? "submit-blockers" : undefined}>
             {submitting ? "asking the daemon…" : "Admit this job"}
           </button>
           <Chip kind="live">wired · POST /v1/hypervisor/cloud-jobs</Chip>
         </div>
+        {blockers.length > 0 && (
+          <p className="field-hint" id="submit-blockers">
+            Not ready to submit: {blockers.join("; ")}.
+          </p>
+        )}
       </form>
 
       {refused && (
