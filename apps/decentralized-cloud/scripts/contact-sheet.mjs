@@ -35,6 +35,20 @@ const OUT = path.join(APP, "brand/.artifacts/contact");
 const PORT = Number(process.env.IOI_DC_SHEET_PORT || 4205);
 const WIDTHS = [1440, 1180, 390];
 
+// What "this surface has arrived" means, per surface. Named here rather than guessed
+// at with a timeout, because a timeout is a guess about the daemon and this sheet is
+// the thing people form their opinion of the product from.
+// `job` has no read to wait for — its content is a form, present immediately.
+const CONTENT_OF = {
+  candidates: ".t-quotes .trow",
+  sources: ".t-sources .trow",
+  placement: ".t-decision .trow",
+  redundancy: ".t-postures .trow",
+  receipts: ".t-receipts .trow",
+  api: ".t-api .trow",
+  job: null,
+};
+
 mkdirSync(OUT, { recursive: true });
 for (const f of readdirSync(OUT)) rmSync(path.join(OUT, f), { force: true });
 
@@ -60,12 +74,43 @@ try {
     const page = await browser.newPage({ viewport: { width: w, height: 900 }, deviceScaleFactor: 1 });
     for (const s of SURFACES) {
       await page.goto(`http://127.0.0.1:${PORT}/#/${s.id}`, { waitUntil: "networkidle" });
-      // The slow reads are part of what is being looked at. A shot taken during the
-      // wait is a picture of the waiting state — a real state, and not the one this
-      // sheet is for.
-      await page.waitForTimeout(s.id === "candidates" || s.id === "sources" ? 6000 : 1500);
+
+      // ── THE SHEET WAITED 1.5s FOR READS THAT TAKE UP TO 61 ─────────────────
+      //
+      // The comment that used to sit here said, correctly, that "a shot taken during
+      // the wait is a picture of the waiting state — a real state, and not the one this
+      // sheet is for". Directly underneath it was `waitForTimeout(1500)`, which
+      // guaranteed exactly that shot for Sources, Placement and Receipts on every run.
+      //
+      // THREE COLD READERS JUDGED THIS PRODUCT THROUGH THIS SHEET. All three reported
+      // three of seven surfaces as blank pages, and I relayed those blanks upward as
+      // product findings and wrote contact-sheet lines describing them. They were an
+      // artifact of this line. The product renders those surfaces; the instrument
+      // photographed them before they arrived.
+      //
+      // That is the vacuous-pass defect exactly — measuring a loading page and
+      // reporting the result as if it described the loaded one — committed inside the
+      // instrument built to catch what the assertions miss. The gate learned this two
+      // commits ago. The sheet had not, and the sheet is the thing people LOOK at.
+      //
+      // Each surface now waits for ITS OWN CONTENT with a ceiling above the slowest
+      // measured read, and a cell that never arrives is LABELLED rather than presented
+      // as a picture of the product.
+      const want = CONTENT_OF[s.id];
+      let arrived = true;
+      if (want) {
+        arrived = await page.waitForSelector(want, { timeout: 90_000 })
+          .then(() => true).catch(() => false);
+      }
+      await page.waitForTimeout(400);
       const buf = await page.screenshot();
-      cells.push({ w, id: s.id, label: s.label, url: `data:image/png;base64,${buf.toString("base64")}` });
+      cells.push({
+        w, id: s.id, label: s.label, arrived,
+        url: `data:image/png;base64,${buf.toString("base64")}`,
+      });
+      if (!arrived) {
+        console.log(`  !! ${s.id} @ ${w}px — content did not arrive within 90s; this cell is a WAITING page`);
+      }
     }
     await page.close();
   }
@@ -78,7 +123,18 @@ try {
   const groups = WIDTHS.map((w) => {
     const row = cells
       .filter((c) => c.w === w)
-      .map((c) => `<figure><img src="${c.url}" width="${Math.round(w / 3)}"><figcaption>${c.label} · ${w}px</figcaption></figure>`)
+      // A cell whose content never arrived is MARKED, in the caption, in words. An
+      // unmarked waiting page is indistinguishable from a page that renders nothing —
+      // which is the exact confusion three cold readers reported back, and they were
+      // reading the instrument, not the product.
+      .map((c) => {
+        const cap = c.arrived === false
+          ? `${c.label} · ${w}px — <b>STILL WAITING at capture; this is not the loaded page</b>`
+          : `${c.label} · ${w}px`;
+        return `<figure${c.arrived === false ? ' class="waiting"' : ""}>` +
+          `<img src="${c.url}" width="${Math.round(w / 3)}">` +
+          `<figcaption>${cap}</figcaption></figure>`;
+      })
       .join("");
     return `<section><h2>${w}px</h2><div class="row">${row}</div></section>`;
   }).join("");
@@ -87,7 +143,8 @@ try {
     `h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:26px 0 10px;}` +
     `.row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;}` +
     `figure{margin:0;}img{display:block;border:1px solid #ddd;}` +
-    `figcaption{margin-top:6px;font-size:11px;color:#666;}</style>` +
+    `figcaption{margin-top:6px;font-size:11px;color:#666;}` +
+    `figure.waiting img{border:2px solid #e40014;}figure.waiting figcaption{color:#e40014;}</style>` +
     `<h1 style="font-size:15px;">decentralized.cloud — every surface, every width</h1>` +
     `<p style="max-width:80ch;color:#666;">Producing this sheet is not looking at it. ` +
     `The run is green when someone has opened it and written a line per surface.</p>` +

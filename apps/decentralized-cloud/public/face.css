@@ -18,6 +18,16 @@
   --hairline: #e1e1e1;
   --hairline-soft: #ececec;
   --border-strong: #cecece;
+  /* THE BOUNDARY OF AN INTERACTIVE CONTROL, which WCAG 1.4.11 holds to 3:1 against
+     what surrounds it. `--border-strong` is #cecece and measures 1.57:1 on this page —
+     a reviewer found every input, every select and the submit button on the only write
+     surface below half the required contrast. It is fine as a DECORATIVE edge (the
+     stale rail, the absent-chip dash) and it is not fine as the thing that tells you
+     where a field is.
+     #818181 is the design system's own --muted value and measures about 3.9:1 here,
+     so the fix uses a token that already exists rather than inventing a hex, which is
+     the rule the palette gate enforces. */
+  --control-border: #818181;
   --surface: #f9f9f9;
   --paper: #ffffff;
 
@@ -276,7 +286,7 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    That is the same fault as the Redundancy sentence and the read-only chip: a claim
    held in one place and contradicted by a change made in another. The comment above is
    kept as the record of what these were, and the rules below are what they are. */
-.field-box { border: 1px solid var(--border-strong); border-radius: 7px;
+.field-box { border: 1px solid var(--control-border); border-radius: 7px;
   padding: 11px 13px; background: var(--paper); color: var(--ink);
   font: inherit; font-size: 14px; min-height: 44px; width: 100%;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -323,7 +333,7 @@ input.field-box { cursor: text; }
    legible: --label on --surface measures 5.40:1, where the browser's own disabled
    grey measured 1.99:1. */
 .button:disabled { background: var(--surface); color: var(--label);
-  border-color: var(--border-strong); cursor: not-allowed; }
+  border-color: var(--control-border); cursor: not-allowed; }
 
 /* Table cells whose content is machine-supplied and long. `.table` is
    `table-layout: fixed`, so a column with no declared width gets an equal share — which
