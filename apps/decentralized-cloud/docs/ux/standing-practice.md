@@ -80,3 +80,57 @@ most likely to flatter the author.
 Three absence assertions in one session first fired on comments — in a shipped module
 and in the stylesheet. The bundle ships them. A comment quoting a false sentence puts
 the false sentence on the wire.
+
+## 8. Truncation must announce itself
+
+Content cut off at a **viewport edge** is truncation a reader cannot detect. There is no
+ellipsis, no fade, no scrollbar — the sentence simply ends and nothing says it did.
+
+The daemon label in the topbar read `mon 127.0.0.1:4211` at 390px for the whole life of
+the port: `.topbar-status` is `justify-content: flex-end` with every child
+`flex-shrink: 0`, so the longest chip pushed the label past the left edge. A cold reader
+reported it on an earlier build and I did not act on it. The nav-visibility assertion
+passed the whole time, correctly — the label is not a nav button.
+
+An ellipsis says "there is more here". A viewport clip says nothing at all, and on a
+surface whose subject is not making silent claims, silent truncation is the same defect
+one layer down. Applies equally to a scroll container with no cue: four readers could
+not tell "horizontally scrollable" from "content unreachable" from a still image.
+
+## 9. Do not resolve an ambiguous state in the product's favour
+
+The catalog rendered the daemon's `candidate_source_unavailable` as **"connected, not
+quoting"** whenever an account was verified for that venue. But `unavailable` does not
+distinguish *we reached it and it had nothing* from *we could not reach it*, so
+"connected" told a stranger the link was healthy and the venue merely declined — a
+specific, flattering reading of a state that does not carry it.
+
+Inferring a live connection from a stored account is the same move as inferring liveness
+from a cached price, which is the one thing this product exists to refuse.
+
+The repair is not a better adjective. It is to **stop drawing a conclusion across two
+facts** and let them sit beside each other: the chip reports what the read returned
+("no supply now"), the evidence line reports what is stored ("1 account connected"). A
+reader can then draw their own inference, or decline to.
+
+## 10. A proxy signal works until the thing it proxied changes
+
+The contact sheet waited on `networkidle` before capturing. That was never the question
+it needed answered — it needed "has THIS surface's content arrived" — but it correlated
+well enough while the default surface was cheap. When the default became a surface whose
+read runs ~30s, `goto`'s own 30s timeout expired before the network was ever quiet and
+the script died outright.
+
+A proxy that has worked for months is indistinguishable from a correct signal right up
+to the moment the thing it stood in for changes. Wait on the fact you actually need, by
+name, with a stated ceiling and a NOT-MEASURED outcome.
+
+## 11. A phone screenshot must be inspected unscaled
+
+A full-page 390px capture is ~390×4600 and downsamples about 2.3× on the way to a
+reader. Neither §8's clipped label nor §9's chip wrap was legible in it.
+
+Phone width is inspected in **unscaled bands** (`scripts/.crop390.mjs`), for the same
+reason the mark plate magnifies nothing: a scaled phone screenshot is the identical
+class of instrument error as a magnified glyph plate, and that one manufactured a
+finding twice in this programme.

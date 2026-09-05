@@ -34,6 +34,10 @@ const APP = path.join(HERE, "..");
 const OUT = path.join(APP, "brand/.artifacts/contact");
 const PORT = Number(process.env.IOI_DC_SHEET_PORT || 4205);
 const WIDTHS = [1440, 1180, 390];
+// The phone width, and the band height its unscaled crops are written in. 760 is a
+// readable slice at true size without being so tall that delivery scales it again.
+const NARROW = 390;
+const BAND = 760;
 
 // What "this surface has arrived" means, per surface. Named here rather than guessed
 // at with a timeout, because a timeout is a guess about the daemon and this sheet is
@@ -145,6 +149,30 @@ try {
       if (!arrived) {
         console.log(`  !! ${s.id} @ ${w}px — content did not arrive within 90s; this cell is a WAITING page`);
       }
+
+      // ── THE PHONE WIDTH IS ALSO WRITTEN IN UNSCALED BANDS ──────────────────
+      //
+      // A full-page 390px capture is about 390x4600, and it downsamples ~2.3x on the
+      // way to whoever is reading it. Two real defects were invisible in exactly that
+      // image and legible the moment it was cropped unscaled: a daemon label clipped
+      // off the left edge, and a state chip wrapping to four lines into a distorted
+      // pill.
+      //
+      // This is the same class of instrument error as a magnified glyph plate — the
+      // one that manufactured a mark finding twice in this programme — so the phone
+      // width gets the same discipline the mark plate gets: nothing scaled, look at
+      // the pixels that ship.
+      if (w === NARROW) {
+        const full = await page.evaluate(() => document.documentElement.scrollHeight);
+        for (let y = 0, n = 0; y < full; y += BAND, n += 1) {
+          const h = Math.min(BAND, full - y);
+          if (h < 40) break;                       // a sliver at the end carries nothing
+          const band = await page.screenshot({
+            fullPage: true, clip: { x: 0, y, width: w, height: h },
+          });
+          writeFileSync(path.join(OUT, `${s.id}-${w}-band${n}.png`), band);
+        }
+      }
     }
     await page.close();
   }
@@ -219,6 +247,7 @@ try {
   );
   console.log(`contact sheet: ${sheet}`);
   console.log(`full-size cells: ${OUT}/<surface>-<width>.png`);
+  console.log(`unscaled ${NARROW}px bands: ${OUT}/<surface>-${NARROW}-band<n>.png`);
   console.log(`${cells.length} cells — ${SURFACES.length} surfaces x ${WIDTHS.length} widths`);
   console.log("");
   console.log("THIS RUN IS NOT GREEN UNTIL THE SHEET HAS BEEN OPENED AND A LINE WRITTEN");
