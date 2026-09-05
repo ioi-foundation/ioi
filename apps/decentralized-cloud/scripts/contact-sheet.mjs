@@ -40,6 +40,7 @@ const WIDTHS = [1440, 1180, 390];
 // the thing people form their opinion of the product from.
 // `job` has no read to wait for — its content is a form, present immediately.
 const CONTENT_OF = {
+  catalog: ".t-catalog .trow",
   candidates: ".t-quotes .trow",
   sources: ".t-sources .trow",
   placement: ".t-decision .trow",
@@ -48,6 +49,13 @@ const CONTENT_OF = {
   api: ".t-api .trow",
   job: null,
 };
+// FAIL CLOSED. An unlisted surface used to get `undefined`, skip the wait, and be
+// photographed mid-load with nothing saying so — which is how three cold readers came
+// to judge blank pages that were never blank. Every registered surface must be named
+// here, with a selector or an explicit null.
+for (const s of SURFACES) {
+  if (!(s.id in CONTENT_OF)) throw new Error(`CONTENT_OF has no entry for surface "${s.id}" — add a selector or an explicit null`);
+}
 
 mkdirSync(OUT, { recursive: true });
 for (const f of readdirSync(OUT)) rmSync(path.join(OUT, f), { force: true });

@@ -93,6 +93,8 @@ const SRC_FILES = [
   "src/logic/read.mjs",
   "src/logic/batches.mjs",
   "src/logic/surfaces.mjs",
+  "src/logic/catalog.mjs",
+  "src/surfaces/Catalog.jsx",
   "src/logic/job-request.mjs",
   // ADDED after the vacuity rule reported "the only verb the surface sends is POST"
   // as inspecting ZERO verbs. The door module — the only file in the surface that
@@ -1195,10 +1197,19 @@ async function checkResponsiveLayout() {
     // at 390px on Redundancy, plus overflow on Job and Placement — four of the seven
     // surfaces had never been opened at that width. A check that visits one screen is
     // a claim about one screen.
-    const SURFACES = ["candidates", "sources", "placement", "job", "redundancy", "receipts", "api"];
+    // DERIVED FROM THE REGISTRY, not copied. This was a hand-written list of seven
+    // ids — a second spine of src/logic/surfaces.mjs — and a surface added to the
+    // registry but not here would never be visited by the sweep, the cell check or
+    // the collision probe at any width, while the coverage line said "7 of 7".
+    const { SURFACES: REGISTRY } = await import(path.join(APP, "src/logic/surfaces.mjs"));
+    const SURFACES = REGISTRY.map((s) => s.id);
     for (const w of [1920, 1520, 1440, 1180, 900, 640, 390]) {
       const page = await browser.newPage({ viewport: { width: w, height: 900 } });
-      await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
+      // CANDIDATES BY NAME. The landing is now the catalog; this block's assertions
+      // are about the candidate table, so it opens that surface explicitly rather
+      // than "/" — otherwise the assertion below would measure the catalog while
+      // claiming to measure candidates.
+      await page.goto(`http://127.0.0.1:${port}/#/candidates`, { waitUntil: "domcontentloaded" });
       // WAIT FOR THE TABLE, DO NOT RACE IT. A fixed 2.2s wait was shorter than the
       // candidate sweep, which has been measured at 27-39s, so at some widths this
       // whole block measured a page that was still saying "Asking the daemon".
@@ -1469,10 +1480,18 @@ async function checkResponsiveLayout() {
       // cell defect on it. A surface whose table never arrives is reported as NOT
       // MEASURED rather than counted as having none.
       const TABLE_OF = {
+        catalog: ".t-catalog",
         candidates: ".t-quotes", sources: ".t-sources", placement: ".t-decision",
         redundancy: ".t-postures", receipts: ".t-receipts", api: ".t-api",
         job: null, // no table until a job is submitted; genuinely table-free here
       };
+      // FAIL CLOSED ON AN UNLISTED SURFACE. `TABLE_OF[unknown]` is undefined, and
+      // `if (want)` then SKIPS the wait with `arrived` still true — the surface is
+      // swept mid-load, its zero cells counted as "table-free by design", and nothing
+      // says so. A surface must be listed here with a selector or an explicit null.
+      for (const s of SURFACES) {
+        if (!(s in TABLE_OF)) throw new Error(`TABLE_OF has no entry for surface "${s}" — add a selector or an explicit null`);
+      }
       const sweep = [];
       for (const s of SURFACES) {
         await page.click(`.nav button[data-surface="${s}"]`).catch(() => {});

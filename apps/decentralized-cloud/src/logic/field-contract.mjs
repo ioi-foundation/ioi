@@ -26,7 +26,7 @@
 
 export const FIELD_CONTRACT = {
   "/api/candidate-sources": {
-    read_by: "src/surfaces/Sources.jsx",
+    read_by: "src/surfaces/Sources.jsx + src/surfaces/Catalog.jsx + src/logic/catalog.mjs",
     container: "sources",
     // Present on every item the daemon returns.
     every: ["state"],
@@ -34,7 +34,14 @@ export const FIELD_CONTRACT = {
     sampled: ["source", "coverage", "evidence"],
     // Read defensively and never required. Named so the list of what the surface
     // touches is complete rather than only the parts that happen to be enforced.
-    optional: ["observed_at"],
+    // The catalog reads these evidence keys by name to write one sentence per venue;
+    // each is present on some sources and not others by design, and the catalog
+    // renders whichever are there.
+    optional: ["observed_at", "evidence.basis", "evidence.offers_seen",
+               "evidence.gpu_types_priced", "evidence.verified_backends",
+               "evidence.verified_ssh_accounts", "evidence.connected_cloud_accounts",
+               "evidence.aws_accounts", "evidence.gcp_accounts", "evidence.azure_accounts",
+               "evidence.k8s_accounts", "evidence.lambda_cloud_accounts", "evidence.akash_accounts"],
   },
   "/api/candidates": {
     read_by: "src/surfaces/Candidates.jsx + src/logic/batches.mjs + src/logic/classify.mjs",

@@ -3,6 +3,7 @@ import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface } from "./lo
 import { forget } from "./logic/read.mjs";
 import { capabilitySentences } from "./logic/capability.mjs";
 import Lockup from "./components/Lockup.jsx";
+import Catalog from "./surfaces/Catalog.jsx";
 import Candidates from "./surfaces/Candidates.jsx";
 import Sources from "./surfaces/Sources.jsx";
 import Placement from "./surfaces/Placement.jsx";
@@ -14,6 +15,7 @@ import Api from "./surfaces/Api.jsx";
 const CAPABILITY = capabilitySentences();
 
 const VIEWS = {
+  catalog: Catalog,
   candidates: Candidates,
   sources: Sources,
   placement: Placement,

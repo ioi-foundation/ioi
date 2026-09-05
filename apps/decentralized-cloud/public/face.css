@@ -650,6 +650,49 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   h1 { font-size: 26px; }
 }
 
+/* ── The catalog — "all resources, by category" ───────────────────────────────
+   The landing. A directory, dense and scannable, in the shape of a console's
+   all-services page: category blocks in a responsive grid, each a real table
+   (resource class · venue or network · state) so every row is a .trow the cell and
+   collision probes already cover. No hue here beyond the tokens: green is a venue
+   quoting live prices, and nothing else is green. */
+.catalog-page { gap: 26px; }
+.catalog-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 40px; align-items: end; padding-bottom: 22px; border-bottom: 1px solid var(--hairline); }
+.catalog-title { gap: 12px; }
+.catalog-lede { font-size: 15px; max-width: 62ch; }
+.catalog-now { gap: 8px; justify-self: end; text-align: right; }
+.catalog-line { font-size: 13px; color: var(--ink); line-height: 1.5; }
+.catalog-tools { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.catalog-filter { width: min(420px, 100%); }
+.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 22px 28px; }
+.cat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.table.t-catalog { min-width: 0; table-layout: fixed; }
+.table.t-catalog th:nth-child(1), .table.t-catalog td:nth-child(1) { width: 30%; }
+.table.t-catalog th:nth-child(2), .table.t-catalog td:nth-child(2) { width: 38%; }
+.table.t-catalog th:nth-child(3), .table.t-catalog td:nth-child(3) { width: 32%; }
+.t-catalog .trow > th, .t-catalog .trow > td { padding: 11px 14px; vertical-align: top; }
+.cls-cell { border-right: 1px solid var(--hairline-soft); }
+.cls-name { font-size: 14px; color: var(--ink); }
+.entry-name { color: var(--ink); text-decoration: none; font-size: 14px; }
+.entry-name:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.entry-state { white-space: normal; }
+.entry-state .chip { white-space: normal; }
+.entry-evidence { overflow-wrap: anywhere; }
+.catalog-foot { display: flex; gap: 28px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--hairline); }
+@media (max-width: 1000px) {
+  .catalog-head { grid-template-columns: minmax(0, 1fr); }
+  .catalog-now { justify-self: start; text-align: left; }
+  .catalog { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .table.t-catalog th:nth-child(1), .table.t-catalog td:nth-child(1) { width: 34%; }
+  .table.t-catalog th:nth-child(2), .table.t-catalog td:nth-child(2) { width: 36%; }
+  .table.t-catalog th:nth-child(3), .table.t-catalog td:nth-child(3) { width: 30%; }
+  .t-catalog .trow > th, .t-catalog .trow > td { padding: 10px 10px; }
+}
+
 @media (max-width: 430px) {
   .topbar { padding: 10px 16px 0; }
   .nav { margin: 0 -16px; padding: 6px 16px 0; gap: 14px; }

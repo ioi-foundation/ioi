@@ -1,0 +1,209 @@
+import { useEffect, useMemo, useState } from "react";
+import { useSurfaceRead } from "../useSurfaceRead.js";
+import { intentRef } from "../logic/read.mjs";
+import { classify, stamp, duration } from "../logic/classify.mjs";
+import { latestBatch } from "../logic/batches.mjs";
+import { populationLine } from "../logic/population.mjs";
+import { resolveCatalog } from "../logic/catalog.mjs";
+import { hashForSurface } from "../logic/surfaces.mjs";
+import { Chip, Waiting, Failure, Kept, Eyebrow } from "../components/Bits.jsx";
+
+// ALL RESOURCES — the landing. The decentralized counterpart of a console's "all
+// services by category" page: every resource class this router can be asked for,
+// grouped the way the canon groups them, and under each the venues and networks that
+// can supply it, each with the state the daemon last persisted for it.
+//
+// It exists because a stranger arriving at a table of prices could not say what the
+// product was. This page answers that in the first second, from the daemon: here is
+// everything it can route, and here is what is answering right now.
+
+const money = (n) => (typeof n === "number" ? `$${n.toFixed(4)}/hr` : null);
+
+export default function Catalog({ announce }) {
+  const sources = useSurfaceRead("sources", "/api/candidate-sources");
+  const cands = useSurfaceRead(
+    "candidates",
+    `/api/candidates?intent_ref=${encodeURIComponent(intentRef())}&latest=true`
+  );
+  const [filter, setFilter] = useState("");
+
+  // Live counts per venue come from the ONE live rule, over the latest batch only.
+  // The catalog module is not allowed to decide liveness; it is handed the result.
+  const liveByVenue = useMemo(() => {
+    const { latest } = latestBatch(cands.data?.candidates);
+    const map = new Map();
+    for (const c of latest.items) {
+      if (!classify(c).live) continue;
+      const k = c.provider_kind;
+      const cur = map.get(k) || { count: 0, cheapest: null };
+      cur.count += 1;
+      const p = c.quote?.usd_per_hour;
+      if (typeof p === "number" && (cur.cheapest === null || p < cur.cheapest)) cur.cheapest = p;
+      map.set(k, cur);
+    }
+    return map;
+  }, [cands.data]);
+
+  const sourceList = Array.isArray(sources.data?.sources) ? sources.data.sources : [];
+  const { categories, counts } = useMemo(
+    () => resolveCatalog(sourceList, liveByVenue),
+    [sourceList, liveByVenue]
+  );
+
+  const liveTotal = [...liveByVenue.values()].reduce((a, v) => a + v.count, 0);
+  const venuesQuoting = liveByVenue.size;
+  const considered = typeof cands.data?.selection?.considered === "number" ? cands.data.selection.considered : null;
+
+  useEffect(() => {
+    if (sources.phase === "first") return;
+    announce(`All resources — ${counts.quoting} quoting, ${counts.answering} answering, ${counts.planned} not yet a source`);
+  }, [sources.phase, counts.quoting, counts.answering, counts.planned, announce]);
+
+  if (sources.phase === "first") {
+    return (
+      <Waiting
+        what="the list of candidate sources"
+        title="All resources"
+        willShow={
+          "Every kind of infrastructure this router can be asked for — compute, storage, " +
+          "networking, runtimes, confidential compute — and, under each, every venue or " +
+          "network that can supply it, with whether it is quoting real prices right now, " +
+          "connected without an adapter, or not yet a source at all."
+        }
+        why="The daemon is asked for the state it last persisted for each source."
+      />
+    );
+  }
+
+  const q = filter.trim().toLowerCase();
+  const matches = (text) => !q || String(text).toLowerCase().includes(q);
+
+  const view = (
+    <div className="stack catalog-page">
+      <div className="catalog-head">
+        <div className="stack catalog-title">
+          <h1>All resources</h1>
+          <p className="prose catalog-lede">
+            One request, any venue. This is everything the router can place work on,
+            by category, with the state each supply source is in right now — read from
+            the daemon, not from a brochure.
+          </p>
+        </div>
+        <div className="stack catalog-now">
+          <Eyebrow>right now</Eyebrow>
+          <p className="mono catalog-line">
+            {populationLine({
+              live: liveTotal,
+              venues: venuesQuoting,
+              considered: considered ?? undefined,
+              sources: counts.sources,
+            })}
+          </p>
+          <p className="meta">
+            {counts.quoting} quoting · {counts.answering} answering · {counts.planned} not yet a source ·
+            read at {stamp(sources.at)} in {duration(sources.ms)}
+          </p>
+        </div>
+      </div>
+
+      <div className="catalog-tools">
+        <label className="field catalog-filter">
+          <span className="field-label">find a resource or venue</span>
+          <input
+            className="field-box"
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="gpu, akash, archive, dns…"
+            aria-label="Filter the catalog"
+          />
+        </label>
+        <p className="meta">
+          green means a venue is quoting live prices for this intent; everything else is grey.
+        </p>
+      </div>
+
+      <Eyebrow>resources by category</Eyebrow>
+      <div className="catalog">
+        {categories.map((cat) => {
+          const rows = cat.classes.flatMap((cls) =>
+            cls.entries
+              .filter((e) => matches(`${cls.label} ${cls.id} ${e.name} ${e.kind} ${e.state.word}`))
+              .map((e) => ({ cls, e }))
+          );
+          if (rows.length === 0) return null;
+          return (
+            <section key={cat.id} className="cat" aria-labelledby={`cat-${cat.id}`}>
+              <div className="cat-head">
+                <h2 id={`cat-${cat.id}`}>{cat.title}</h2>
+                <span className="meta">{cat.classes.length} classes</span>
+              </div>
+              <div className="table-scroll">
+                <table className="table t-catalog">
+                  <caption className="sr-only">{cat.title} — resource classes and the venues that can supply them</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Resource</th>
+                      <th scope="col">Venue or network</th>
+                      <th scope="col">State</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(({ cls, e }, i) => {
+                      const first = i === 0 || rows[i - 1].cls.id !== cls.id;
+                      return (
+                        <tr key={`${cls.id}:${e.name}`} className="trow">
+                          <th scope="row" className="cls-cell">
+                            {first ? (
+                              <>
+                                <div className="cls-name">{cls.label}</div>
+                                <div className="meta mono">{cls.id}</div>
+                              </>
+                            ) : null}
+                          </th>
+                          <td>
+                            <a className="entry-name" href={hashForSurface(e.state.chip === "live" ? "candidates" : "sources")}>
+                              {e.name}
+                            </a>
+                            <div className="meta">{e.kind}</div>
+                          </td>
+                          <td className="entry-state">
+                            <Chip kind={e.state.chip}>{e.state.word}</Chip>
+                            {e.state.live && (
+                              <div className="meta">
+                                {e.state.live.count} live · cheapest {money(e.state.live.cheapest)}
+                              </div>
+                            )}
+                            {!e.state.live && e.state.evidence && (
+                              <div className="meta entry-evidence">{e.state.evidence}</div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="catalog-foot">
+        <a className="entry-name" href={hashForSurface("candidates")}>Live prices →</a>
+        <a className="entry-name" href={hashForSurface("job")}>Submit a job →</a>
+        <a className="entry-name" href={hashForSurface("receipts")}>Receipts →</a>
+      </div>
+    </div>
+  );
+
+  if (sources.phase === "failed") {
+    return (
+      <div className="stack" style={{ gap: "16px" }}>
+        <Failure result={sources.failure} />
+        {sources.data && <Kept at={sources.at}>{view}</Kept>}
+      </div>
+    );
+  }
+  return sources.stale ? <Kept at={sources.at}>{view}</Kept> : view;
+}

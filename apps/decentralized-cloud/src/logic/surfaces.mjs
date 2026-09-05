@@ -31,6 +31,11 @@
 // and the gate's absence check reads served bytes — it caught this line. The identifier
 // belongs in the programme's records, not in a stranger's browser.)
 export const SURFACES = [
+  // The landing. Every resource class the router can be asked for, by category, and
+  // every venue that can supply it, with its state read from the daemon on every
+  // render — the decentralized counterpart of a console's "all services" page. It is
+  // wired: it reads candidate-sources and the latest candidates batch.
+  { id: "catalog", label: "All resources", wired: true },
   { id: "candidates", label: "Candidates", wired: true },
   { id: "sources", label: "Sources", wired: true },
   { id: "placement", label: "Placement", wired: true },
@@ -41,7 +46,7 @@ export const SURFACES = [
 ];
 
 export const SURFACE_IDS = SURFACES.map((s) => s.id);
-export const DEFAULT_SURFACE = "candidates";
+export const DEFAULT_SURFACE = "catalog";
 
 export const isSurface = (name) => SURFACE_IDS.includes(name);
 
