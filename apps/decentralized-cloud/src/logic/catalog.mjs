@@ -177,10 +177,27 @@ export const STATES = {
   available: { chip: "muted", word: "available" },
   engaged: { chip: "muted", word: "engaged" },
   connected: { chip: "muted", word: "connected, no adapter" },
-  // An account is verified for this venue but it returned no candidates in the
-  // latest read. Distinct from "no source": the daemon knows the venue and could ask
-  // it; it did not answer with supply. Rendered grey, never green.
-  connectedNotQuoting: { chip: "muted", word: "connected, not quoting" },
+  // An account is verified for this venue and the latest read returned no supply from
+  // it. Distinct from "no source", where the daemon has no account at all.
+  //
+  // THE WORD WAS "connected, not quoting", AND IT CLAIMED TOO MUCH. The daemon's own
+  // state here is `candidate_source_unavailable`, which does NOT distinguish "we
+  // reached it and it had nothing" from "we could not reach it". Saying "connected"
+  // resolves that ambiguity in the product's favour: it tells a stranger the link is
+  // healthy and the venue merely declined to quote, when the evidence supports only
+  // that an account is verified — possibly from an earlier check — and that this read
+  // produced no supply.
+  //
+  // On a surface whose whole discipline is that a state means one thing, inferring a
+  // live connection from a stored account is the same move as inferring liveness from
+  // a cached price. The two facts now sit beside each other with no conclusion drawn
+  // across them: the chip reports the read, the evidence line reports the account.
+  // Rendered grey, never green.
+  // "no supply this read" was the first wording and it wrapped to four lines in a 30%
+  // column at 390px, turning the pill into a distorted oval. "now" carries the same
+  // momentary framing — which is the load-bearing part, since the alternative reading
+  // is "this venue never has supply" — in a third of the width.
+  connectedNotQuoting: { chip: "muted", word: "no supply now" },
   unavailable: { chip: "absent", word: "no source" },
   planned: { chip: "absent", word: "not yet a source" },
   unread: { chip: "absent", word: "not in this read" },

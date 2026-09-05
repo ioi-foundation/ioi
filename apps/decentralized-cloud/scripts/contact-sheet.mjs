@@ -81,7 +81,19 @@ try {
   for (const w of WIDTHS) {
     const page = await browser.newPage({ viewport: { width: w, height: 900 }, deviceScaleFactor: 1 });
     for (const s of SURFACES) {
-      await page.goto(`http://127.0.0.1:${PORT}/#/${s.id}`, { waitUntil: "networkidle" });
+      // `domcontentloaded`, NOT `networkidle`.
+      //
+      // networkidle waits for the network to go quiet, and this surface's network never
+      // does: the catalog read runs ~30s and Candidates polls every 30s, so on a page
+      // whose default surface reads sources, goto's own 30s timeout expired before the
+      // first quiet moment and the sheet crashed outright.
+      //
+      // It was also the wrong signal all along. What this sheet needs to know is "has
+      // THIS surface's content arrived", and the selector wait below answers exactly
+      // that, by name, with a 90s ceiling and a NOT-MEASURED label when it does not.
+      // networkidle was a proxy for that question that happened to work while the
+      // default surface was cheap.
+      await page.goto(`http://127.0.0.1:${PORT}/#/${s.id}`, { waitUntil: "domcontentloaded" });
 
       // ── THE SHEET WAITED 1.5s FOR READS THAT TAKE UP TO 61 ─────────────────
       //
