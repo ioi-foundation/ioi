@@ -47,15 +47,27 @@ const REFRESH_CADENCE_S = process.env.IOI_DC_REFRESH_CADENCE_S
   ? Number(process.env.IOI_DC_REFRESH_CADENCE_S)
   : null;
 
+// ── What is served, and from where ───────────────────────────────────────────
+// The surface is a built React app. `dist/` is the artifact that ships and the
+// artifact every honesty gate reads; the fonts are served from `public/fonts`, which
+// is the ONE copy of them in the repo — the build copies rather than duplicates.
+//
+// IT FAILS CLOSED. If dist/ has not been built, this server refuses the shell by name
+// rather than falling back to the pre-port files that are still on disk beside it. A
+// fallback would serve a DIFFERENT surface than the one under test while every gate
+// reported green, which is this programme's own scar arriving by another road: three
+// cold readers once scored a sheet the run had never written. A missing build is a
+// state, and it says so.
+const DIST_DIR = path.join(HERE, "..", "dist");
 const STATIC = new Map([
-  ["/", { file: "index.html", type: "text/html; charset=utf-8" }],
-  ["/index.html", { file: "index.html", type: "text/html; charset=utf-8" }],
-  ["/face.css", { file: "face.css", type: "text/css; charset=utf-8" }],
-  ["/face.js", { file: "face.js", type: "text/javascript; charset=utf-8" }],
-  ["/fonts/IOI.ttf", { file: "fonts/IOI.ttf", type: "font/ttf" }],
-  ["/fonts/ABCDiatype-Regular.woff2", { file: "fonts/ABCDiatype-Regular.woff2", type: "font/woff2" }],
-  ["/fonts/ABCDiatype-Bold.woff2", { file: "fonts/ABCDiatype-Bold.woff2", type: "font/woff2" }],
-  ["/fonts/ABCDiatypeSemi-Mono-Regular.woff2", { file: "fonts/ABCDiatypeSemi-Mono-Regular.woff2", type: "font/woff2" }],
+  ["/", { file: "index.html", type: "text/html; charset=utf-8", from: DIST_DIR }],
+  ["/index.html", { file: "index.html", type: "text/html; charset=utf-8", from: DIST_DIR }],
+  ["/assets/face.js", { file: "assets/face.js", type: "text/javascript; charset=utf-8", from: DIST_DIR }],
+  ["/assets/index.css", { file: "assets/index.css", type: "text/css; charset=utf-8", from: DIST_DIR }],
+  ["/fonts/IOI.ttf", { file: "fonts/IOI.ttf", type: "font/ttf", from: PUBLIC_DIR }],
+  ["/fonts/ABCDiatype-Regular.woff2", { file: "fonts/ABCDiatype-Regular.woff2", type: "font/woff2", from: PUBLIC_DIR }],
+  ["/fonts/ABCDiatype-Bold.woff2", { file: "fonts/ABCDiatype-Bold.woff2", type: "font/woff2", from: PUBLIC_DIR }],
+  ["/fonts/ABCDiatypeSemi-Mono-Regular.woff2", { file: "fonts/ABCDiatypeSemi-Mono-Regular.woff2", type: "font/woff2", from: PUBLIC_DIR }],
 ]);
 
 const json = (res, status, body) => {
@@ -107,11 +119,22 @@ async function proxyRead(res, entry, url) {
 
 async function serveStatic(res, entry) {
   try {
-    const body = await readFile(path.join(PUBLIC_DIR, entry.file));
+    const body = await readFile(path.join(entry.from, entry.file));
     res.writeHead(200, { "content-type": entry.type, "cache-control": "no-store", "content-length": body.length });
     res.end(body);
   } catch {
-    json(res, 404, { state: "asset_absent", reason: `${entry.file} is not on disk` });
+    // Named states, and the build's absence is its own. "asset_absent" for a font and
+    // "surface_not_built" for the shell are different facts, and a reader — or a gate
+    // — that cannot tell them apart will spend its time on the wrong one.
+    const unbuilt = entry.from === DIST_DIR;
+    json(res, unbuilt ? 503 : 404, {
+      state: unbuilt ? "surface_not_built" : "asset_absent",
+      reason: unbuilt
+        ? `${entry.file} is not in dist/ — run \`npm run build --workspace=decentralized-cloud\`. ` +
+          "This server does not fall back to the pre-port files still on disk: serving a " +
+          "different surface than the one under test is how a green gate comes to mean nothing."
+        : `${entry.file} is not on disk`,
+    });
   }
 }
 

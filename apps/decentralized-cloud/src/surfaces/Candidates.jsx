@@ -35,7 +35,7 @@ export default function Candidates({ announce }) {
   if (state.phase === "first") return <Waiting what="candidates" />;
 
   const table = (
-    <div className="tablewrap">
+    <div className="table-scroll">
       {/* A REAL TABLE. This was four <div>s per row with a grid layout, and a review
           found `document.querySelectorAll("table").length = 0` and `th = 0` on all
           five static surfaces: "$0.0136" had no programmatic association with "PER

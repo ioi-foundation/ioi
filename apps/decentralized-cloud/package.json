@@ -5,10 +5,21 @@
   "type": "module",
   "description": "decentralized.cloud — the public read surface over the Hypervisor daemon (ADR 0051).",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
     "serve": "node scripts/serve-face.mjs",
     "check:decentralized-cloud-face": "node scripts/verify-decentralized-cloud-face.mjs",
     "check:decentralized-cloud-job-primitive": "node scripts/verify-decentralized-cloud-job-primitive.mjs",
+    "check:workspace-builds": "node scripts/verify-workspace-builds.mjs",
     "brand:build": "node brand/build-artboards.mjs",
     "brand:measure": "node brand/measure-artboards.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^6.0.5"
   }
 }

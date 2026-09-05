@@ -12,7 +12,7 @@
 //
 // Usage: node apps/decentralized-cloud/scripts/verify-decentralized-cloud-face.mjs
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +27,46 @@ const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ── Where the surface lives, after the React port ───────────────────────────
+// The surface used to be three files in public/. It is now a built app, and this gate
+// has two different jobs that must not be confused with one another:
+//
+//   SOURCE assertions ask what the code SAYS — that a surface carries its unwired
+//   label, that the canonical vocabulary is not re-spelled locally. Those read the
+//   modules, with comments stripped, because a claim about what a reader is told
+//   cannot be satisfied by a comment (it was, twice, before that was fixed).
+//
+//   SERVED assertions ask what a VISITOR RECEIVES. Those read the bytes off the
+//   running server, because a build step is exactly the kind of transform that can
+//   drop a label, and a gate that reads the source it was built from would not see it.
+//
+// Every path below is one or the other, deliberately, and the run builds before it
+// serves so the served bytes are this commit's bytes and not the last build's.
+const SRC_FILES = [
+  "src/main.jsx",
+  "src/App.jsx",
+  "src/useSurfaceRead.js",
+  "src/logic/classify.mjs",
+  "src/logic/read.mjs",
+  "src/logic/batches.mjs",
+  "src/logic/surfaces.mjs",
+  "src/logic/job-request.mjs",
+  "src/components/Bits.jsx",
+  "src/components/Dial.jsx",
+  "src/components/Lockup.jsx",
+  "src/surfaces/Candidates.jsx",
+  "src/surfaces/Sources.jsx",
+  "src/surfaces/Placement.jsx",
+  "src/surfaces/Job.jsx",
+  "src/surfaces/Redundancy.jsx",
+  "src/surfaces/Receipts.jsx",
+  "src/surfaces/Api.jsx",
+];
+
+const srcText = () => SRC_FILES.map((f) => readFileSync(path.join(APP, f), "utf8")).join("\n");
+const stripComments = (s) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "").replace(/^\s*\/\/[^\n]*$/gm, "");
+
 // ── 1. No colour exists only on the surface ─────────────────────────────────
 // Every hex the shipped face paints must be a value in the design system's token
 // file. A colour invented in a stylesheet is a colour nobody measured.
@@ -34,7 +74,7 @@ function checkPalette() {
   const tokens = readFileSync(path.join(REPO, "packages/design-system/tokens/colors.css"), "utf8");
   const tokenHexes = new Set((tokens.match(/#[0-9a-fA-F]{6}/g) || []).map((h) => h.toLowerCase()));
 
-  const surfaces = ["public/face.css", "public/index.html", "public/face.js"];
+  const surfaces = ["public/face.css", ...SRC_FILES];
   const strays = [];
   for (const rel of surfaces) {
     const body = readFileSync(path.join(APP, rel), "utf8");
@@ -49,11 +89,11 @@ function checkPalette() {
 // ── 2. The evidence vocabulary is not re-spelled locally ────────────────────
 // The face must classify candidates by the daemon's own label, not a synonym of it.
 function checkVocabulary() {
-  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  const js = srcText();
   for (const name of ["live_evidence", "simulated_control_plane", "observed_at", "expires_at", "evidence_mode"]) {
-    ok(`face.js speaks the canonical name '${name}'`, js.includes(name));
+    ok(`the surface speaks the canonical name '${name}'`, js.includes(name));
   }
-  ok("face.js never labels a simulator candidate live",
+  ok("the surface never labels a simulator candidate live",
     !/simulated_control_plane[^\n]*live\s*:\s*true/.test(js));
 }
 
@@ -82,7 +122,7 @@ function checkRefresherSeparation() {
   ok("the refresher never reaches a provider mutation",
     !/provider-ops/.test(refresher));
 
-  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+  const js = srcText();
   ok("the face reads the latest batch rather than every sweep ever taken",
     /batch/.test(js) && /batches/.test(js));
 }
@@ -92,16 +132,19 @@ function checkRefresherSeparation() {
 // quote's window, and would be a lie the moment the two disagreed. So the sweep must
 // be computed from observed_at and expires_at, and the real function is exercised on
 // windows whose answers are known rather than read out of the source.
-function checkFreshnessIsDerived() {
-  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
+async function checkFreshnessIsDerived() {
   const css = readFileSync(path.join(APP, "public/face.css"), "utf8");
-  ok("the dial's fraction comes from observed_at and expires_at",
-    /function dialFraction\([\s\S]{0,300}Date\.parse\(observedAt\)[\s\S]{0,300}Date\.parse\(expiresAt\)/.test(js));
   ok("no animation drives the dial's sweep",
     !/\.dial[^{]*\{[^}]*animation|\.sweep[^{]*\{[^}]*animation/.test(css));
 
-  const src = js.slice(js.indexOf("function dialFraction"), js.indexOf("function dial("));
-  const dialFraction = new Function(`${src}; return dialFraction;`)();
+  // THE REAL FUNCTION, IMPORTED. The vanilla gate found `dialFraction` in the source
+  // with a regular expression and evaluated the captured text with `new Function` —
+  // which tested a string sliced out of a file, not the function the surface calls.
+  // The port put the live rule in a framework-free module precisely so this gate can
+  // import it: there is now no transform between the thing under test and the test.
+  const { dialFraction } = await import(path.join(APP, "src/logic/classify.mjs"));
+  ok("the dial's fraction is computed by the module the surface imports",
+    typeof dialFraction === "function");
   const now = Date.now();
   const iso = (ms) => new Date(ms).toISOString();
   const expired = dialFraction(iso(now - 20 * 60_000), iso(now - 5 * 60_000));
@@ -116,29 +159,46 @@ function checkFreshnessIsDerived() {
 
 // ── 2d. The unwired write surfaces say so, and stay unwired ─────────────────
 function checkUnwiredSurfaces() {
-  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
-  for (const [surface, shape] of [
-    ["renderJob", "CloudJobRequest"],
-    ["renderRedundancy", "RedundancyPosture"],
-    ["renderReceipts", "receipt kinds"],
+  // ONE FILE PER SURFACE, which removes the defect class outright rather than
+  // defending against it. The vanilla gate sliced one 930-line file between function
+  // boundaries, and mutation found two ways that slice reached the WRONG surface's
+  // label: a fixed 7000-character window that ran into the next function, and then a
+  // bounded slice that ended on the next section's comment banner carrying the same
+  // phrase. A slice cannot overrun a file boundary.
+  //
+  // Comments are still stripped, because the assertion is about what a surface SAYS
+  // to a reader, and source a reader never sees cannot satisfy a claim about what
+  // they are told.
+  for (const [file, surface, shape] of [
+    ["src/surfaces/Job.jsx", "Job", "CloudJobRequest"],
+    ["src/surfaces/Redundancy.jsx", "Redundancy", "RedundancyPosture"],
+    ["src/surfaces/Receipts.jsx", "Receipts", "RoutingDecisionReceipt"],
   ]) {
-    // Two defects were found here by mutation, one after the other.
-    // First: the slice was a fixed 7000 characters and ran past renderRedundancy
-    // into renderReceipts, so removing renderRedundancy's own label still passed.
-    // Bounding at the next function did not fix it, because the slice then ended at
-    // renderReceipts' SECTION COMMENT — which also reads "designed, not connected".
-    // The assertion is about what the surface SAYS, so comments cannot satisfy it:
-    // they are stripped before the test.
-    const start = js.indexOf(`function ${surface}`);
-    const next = js.indexOf("\nfunction ", start + 1);
-    const body = js.slice(start, next === -1 ? js.length : next)
-      .replace(/\/\/[^\n]*/g, "")
-      .replace(/\/\*[\s\S]*?\*\//g, "");
-    ok(`${surface} is labelled designed, not connected`, /designed, not connected/.test(body));
+    const body = stripComments(readFileSync(path.join(APP, file), "utf8"));
+    ok(`${surface} is labelled designed, not connected`,
+      /designed, not connected/.test(body) || /<NotConnected>/.test(body));
     ok(`${surface} names the canonical shape it draws`, body.includes(shape), shape);
   }
+
+  // The label element itself must carry the words. `<NotConnected>` above proves the
+  // surface uses the component; this proves the component says what its name claims.
+  const bits = stripComments(readFileSync(path.join(APP, "src/components/Bits.jsx"), "utf8"));
+  ok("the unwired label renders the words a reader is owed",
+    /designed, not connected/.test(bits));
+
+  const js = stripComments(srcText());
+
+  // The registry's `wired` flag is a claim in code and it is checked against the
+  // surfaces that actually carry an unwired label. A surface marked wired that still
+  // renders <NotConnected>, or an unwired one that has quietly lost its label, is a
+  // disagreement between what the app believes and what it tells a reader.
+  const registry = readFileSync(path.join(APP, "src/logic/surfaces.mjs"), "utf8");
+  for (const id of ["job", "redundancy", "receipts"]) {
+    ok(`the registry marks ${id} unwired while it renders an unwired label`,
+      new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*false`).test(registry));
+  }
   ok("every control drawn on a write surface is inert",
-    (js.match(/class:\s*"button-inert",\s*type:\s*"button",\s*disabled:\s*true/g) || []).length >= 2);
+    (js.match(/className="button-inert"[^>]*disabled/g) || []).length >= 1);
   ok("the face declares no mutating fetch anywhere",
     !/method:\s*["'](POST|PUT|PATCH|DELETE)["']/i.test(js));
 }
@@ -147,14 +207,23 @@ function checkUnwiredSurfaces() {
 // The face claims a human's request and an agent's are the same CloudJobRequest
 // differing in exactly one field. That is a claim about two literals, so they are
 // compared field by field rather than trusted.
-function checkBothDoorsAreOnePrimitive() {
-  const js = readFileSync(path.join(APP, "public/face.js"), "utf8");
-  const bodies = [...js.matchAll(/JSON\.stringify\((\{[\s\S]*?receipt_requirements:[^\]]*\],\s*\n\s*\}), null, 2\)/g)];
-  ok("both doors are drawn from an object literal, not prose", bodies.length === 2, `${bodies.length} found`);
-  if (bodies.length !== 2) return;
-  const parse = (s) => new Function(`return ${s};`)();
-  const human = parse(bodies[0][1]);
-  const agent = parse(bodies[1][1]);
+async function checkBothDoorsAreOnePrimitive() {
+  // THE OBJECTS THEMSELVES, IMPORTED. The vanilla gate matched two literals out of the
+  // source with a regular expression and evaluated the captured text — so it compared
+  // two strings it had cut out of a file, and a change to the surrounding formatting
+  // could have silently reduced it to `bodies.length === 0` and an early return.
+  //
+  // The port moved both request bodies into a framework-free module so this gate
+  // imports the SAME objects the surface renders. There is no parse step between the
+  // claim and its proof, and the Job surface importing them is what makes that true
+  // rather than a coincidence.
+  const { HUMAN_REQUEST: human, AGENT_REQUEST: agent } =
+    await import(path.join(APP, "src/logic/job-request.mjs"));
+  const jobSrc = readFileSync(path.join(APP, "src/surfaces/Job.jsx"), "utf8");
+  ok("the job surface renders the same objects this gate compares",
+    /from "\.\.\/logic\/job-request\.mjs"/.test(jobSrc) &&
+    /JSON\.stringify\(HUMAN_REQUEST/.test(jobSrc) &&
+    /JSON\.stringify\(AGENT_REQUEST/.test(jobSrc));
   const keys = [...new Set([...Object.keys(human), ...Object.keys(agent)])];
   const differing = keys.filter((k) => JSON.stringify(human[k]) !== JSON.stringify(agent[k]));
   ok("the two doors differ in exactly one field", differing.length === 1, differing.join(", ") || "none");
@@ -173,6 +242,20 @@ function checkBothDoorsAreOnePrimitive() {
 
 // ── 3. The served surface refuses everything it should ──────────────────────
 async function checkServer() {
+  // THE SURFACE IS BUILT BEFORE IT IS SERVED, in this process, every run. Without
+  // this the gate would measure whatever happened to be in dist/ — which is how a
+  // 585px artboard once passed 7/7 against a built sheet that predated the source
+  // edit, and how three cold readers scored a plate the run had never written.
+  const built = spawnSync("npm", ["run", "build", "--workspace=decentralized-cloud"], {
+    cwd: REPO, encoding: "utf8", timeout: 10 * 60 * 1000,
+  });
+  ok("the surface builds, and this run's bytes are the bytes under test",
+    built.status === 0,
+    built.status === 0
+      ? "dist/ rebuilt from source before the server started"
+      : String(built.stderr || built.stdout || "").split("\n").slice(-4).join(" | "));
+  if (built.status !== 0) return;
+
   const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
     env: { ...process.env, IOI_DC_PORT: String(PORT) },
     stdio: ["ignore", "pipe", "pipe"],
@@ -201,7 +284,7 @@ async function checkServer() {
     // Both are replaced by one assertion that reads the BYTES THE SERVER SENDS,
     // comments included, across every asset a visitor can fetch. The status now
     // lives in brand/identity-status.md, which is never served.
-    const servedAssets = ["/", "/face.js", "/face.css"];
+    const servedAssets = ["/", "/assets/face.js", "/assets/index.css"];
     const leaked = [];
     for (const asset of servedAssets) {
       const res = await fetch(`${BASE}${asset}`);
@@ -228,8 +311,20 @@ async function checkServer() {
     // which any well-formed path would satisfy. The exact string, from the one
     // source, in the response a visitor receives.
     const wm = await import(path.join(APP, "brand/wordmark/wordmark.mjs"));
-    const shell = await (await fetch(`${BASE}/`)).text();
-    const carriesZ = shell.includes(`d="${wm.Z_PATH}"`);
+    // THE UNION OF EVERY BYTE A VISITOR RECEIVES, not the shell alone. Before the port
+    // the wordmark was a literal in index.html and reading the shell was the same as
+    // reading the surface. It is now a component in the bundle, and a gate still
+    // looking only at the shell would have gone green while asserting nothing at all —
+    // the assertion would have been about a file that no longer carries the value.
+    const shell = (
+      await Promise.all(servedAssets.map(async (a) => (await fetch(`${BASE}${a}`)).text()))
+    ).join("\n");
+    // The VALUE, not the attribute. Before the port the path was a literal in the
+    // shell's HTML and `d="…"` was the right thing to look for; in a built bundle it
+    // is a JavaScript string the component passes to `d`, and a gate still matching
+    // the attribute form would have gone red on a surface that was perfectly correct —
+    // or, worse, been "fixed" by weakening it to something that matches anything.
+    const carriesZ = shell.includes(wm.Z_PATH);
     ok("the served wordmark carries the Z path from its one source",
       carriesZ,
       carriesZ
@@ -241,7 +336,7 @@ async function checkServer() {
     // reason: it is an override of the estate's brand face, adopted on the evidence of
     // three fresh readers, and an override that can drift from its source is an
     // override nobody can audit.
-    const carriesI = shell.includes(`d="${wm.I_PATH}"`);
+    const carriesI = shell.includes(wm.I_PATH);
     ok("the served wordmark carries the I path from its one source",
       carriesI,
       carriesI
@@ -260,11 +355,47 @@ async function checkServer() {
       shell.includes(facesOwnZ)
         ? "the served shell carries the pre-override Z, which four readers read as a 2"
         : "the pre-override Z is absent from the served shell");
+    // THE MARK IS STILL THERE, and it is asserted because it once was not.
+    // Porting the lockup to a component dropped the mark — not by a decision, but by
+    // writing a new lockup and not carrying it over. Every gate stayed green, because
+    // no gate asserted that the product's only mark exists. A screenshot caught it.
+    // The mark is the owner's reserved form, shipped provisional; removing it by
+    // omission is still removing it.
+    // Anchored on the mark's OWN mask id, which nothing else in the surface uses, plus
+    // the accessible name. My first attempt matched `aria-label="…"` — the JSX form —
+    // and went red against a perfectly correct build, because the bundler emits
+    // `"aria-label": "…"`. An assertion written against the source's spelling rather
+    // than the artifact's is the same mistake as reading the source instead of the
+    // served bytes, one layer down.
+    // Anchored on the mark's OWN PATH DATA, which nothing else in the surface draws.
+    // Two earlier versions of this assertion were weaker in two different ways and both
+    // are worth recording. The first matched `aria-label="…"` — the JSX spelling — and
+    // went red against a correct build, because the bundler emits `"aria-label": "…"`;
+    // an assertion written against the source's spelling rather than the artifact's is
+    // the same mistake as reading source instead of served bytes, one layer down. The
+    // second matched the mask id `cloud-cue`, and SURVIVED a mutation that renamed it
+    // to `cloud-cue-removed` — because a substring test passes on any name containing
+    // it. A rename is the most likely way this drawing actually changes.
+    const MARK_PATH = "M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90";
+    const hasMark = shell.includes(MARK_PATH) && /decentralized\.cloud/.test(shell);
+    ok("the served surface still carries the mark, with the product's name on it",
+      hasMark,
+      hasMark
+        ? "the mark is present and is what carries the accessible name"
+        : "the served bytes carry no mark — it has been removed, and if that was not a " +
+          "decision somebody made on purpose, it is the port dropping it again");
+
+    // THE RUN BREAKS BEFORE THE I. This is the assertion that proves the letter is
+    // DRAWN rather than set in the face, and it catches what the path-equality check
+    // above cannot: a surface that keeps I_PATH in a disabled element while setting
+    // "decentrali" as one run passes equality and fails this. That exact mutant was
+    // planted and it went red here alone.
+    const breaks = /"decentral"|>decentral</.test(shell) && !/"decentrali"|>decentrali</.test(shell);
     ok("the wordmark's I is drawn rather than set in the face",
-      /<span>decentral<\/span>/.test(shell),
-      /<span>decentral<\/span>/.test(shell)
+      breaks,
+      breaks
         ? "the run breaks before the I, so the I is a drawn glyph and not the face's bare stem"
-        : "the served shell sets 'decentrali' as one run — the I is the face's bare stem, " +
+        : "the served bytes set 'decentrali' as one run — the I is the face's bare stem, " +
           "which two readers typed back as a lowercase l and one as DECENTRAL12ED");
 
     const unknown = await fetch(`${BASE}/api/not-a-real-read`);
@@ -471,9 +602,9 @@ async function run() {
   checkPalette();
   checkVocabulary();
   checkRefresherSeparation();
-  checkFreshnessIsDerived();
+  await checkFreshnessIsDerived();
   checkUnwiredSurfaces();
-  checkBothDoorsAreOnePrimitive();
+  await checkBothDoorsAreOnePrimitive();
   checkPriceKeepsItsUnit();
   await checkServer();
   await checkResponsiveLayout();
