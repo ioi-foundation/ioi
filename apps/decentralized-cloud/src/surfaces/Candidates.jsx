@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
-import { intentRef } from "../logic/read.mjs";
+import { intentRef, keptState } from "../logic/read.mjs";
 import { classify, clock, minutesLeft } from "../logic/classify.mjs";
 import { latestBatch, summarise, venueVerdict } from "../logic/batches.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
@@ -32,7 +32,7 @@ export default function Candidates({ announce }) {
     announce(`Candidates — ${verdict.heading}`);
   }, [state.phase, verdict.heading, announce]);
 
-  if (state.phase === "first") return <Waiting what="candidates" />;
+  if (state.phase === "first") return <Waiting what="candidates" title="Candidates" />;
 
   const table = (
     <div className="table-scroll">
@@ -116,6 +116,20 @@ export default function Candidates({ announce }) {
           No candidate in the most recent sweep meets the live rule, and no price has
           been invented to fill the gap. An empty table here means "no live price" and
           is never allowed to also mean "loading".
+        </p>
+      )}
+
+      {/* WHY THIS SURFACE ALONE FORGETS. Every other read-backed surface keeps its
+          last answer across a reload and shows it, dated, while it refreshes. This one
+          cannot: a full sweep for this intent measures about 13 MB, well past what a
+          browser will store. Without this line a reader sees Sources and Receipts
+          remember and Candidates forget, with nothing to explain the difference, and
+          reasonably concludes the page is unreliable. */}
+      {keptState("candidates") === "too_large" && (
+        <p className="meta">
+          This surface starts empty on every visit. Its last answer is too large for
+          this browser to keep — a full sweep runs to thousands of records — so there is
+          nothing to show while the next one is read. The other surfaces keep theirs.
         </p>
       )}
 

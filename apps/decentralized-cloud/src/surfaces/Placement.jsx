@@ -28,7 +28,7 @@ export default function Placement({ announce }) {
     announce(`Placement — ${decision ? "an advisory was returned" : "no advisory"}`);
   }, [state.phase, decision, announce]);
 
-  if (state.phase === "first") return <Waiting what="a placement advisory" />;
+  if (state.phase === "first") return <Waiting what="a placement advisory" title="Placement" />;
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>

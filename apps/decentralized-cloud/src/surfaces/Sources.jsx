@@ -24,7 +24,7 @@ export default function Sources({ announce }) {
     announce(`Sources — ${quoting.length} quoting, ${absent.length} unavailable`);
   }, [state.phase, quoting.length, absent.length, announce]);
 
-  if (state.phase === "first") return <Waiting what="source health" />;
+  if (state.phase === "first") return <Waiting what="source health" title="Sources" />;
 
   // THE ROW SHOWS THE EVIDENCE THE DAEMON ALREADY SENT. It used to render
   // `s.reason || s.coverage || s.rule` and stop there, so vast came back with

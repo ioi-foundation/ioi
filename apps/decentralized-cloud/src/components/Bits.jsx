@@ -12,9 +12,27 @@ export const Eyebrow = ({ children }) => <div className="eyebrow">{children}</di
 // WAITING. Nothing is shown until the daemon answers, and the wait says why. An
 // invented placeholder would be indistinguishable from a real quote, which on this
 // surface is the one thing that must never be true.
-export const Waiting = ({ what }) => (
-  <div className="stack" style={{ gap: "10px" }}>
-    <p className="prose">Asking the daemon for {what}.</p>
+// A TRUE first load — nothing kept, nothing to show. Rare now that the store survives
+// a reload, and it must still not be a blank rectangle.
+//
+// A reviewer sampled a cold Sources load fourteen times across 39,417ms and measured:
+// zero rows throughout, `aria-busy` null in every sample, zero elements matching
+// skeleton/shimmer/spinner/loading, opacity 1, no <h1> on the document at all, and the
+// polite live region holding the EMPTY STRING for the entire wait before jumping
+// straight to the result. A sighted reader could not tell working from hung, and a
+// screen-reader user was told nothing for thirty-nine seconds.
+//
+// The refusal to invent a placeholder stands — an invented quote is the one thing this
+// surface must never render. What changes is that waiting is now a STATE with a name,
+// a heading and a machine-readable busy flag, instead of an absence.
+export const Waiting = ({ what, title }) => (
+  <div className="stack" style={{ gap: "10px" }} aria-busy="true">
+    {/* The heading exists DURING the wait. A document whose first heading appears 39
+        seconds after load has no structure to navigate for all of that time. */}
+    {title && <h1>{title}</h1>}
+    <p className="prose" role="status">
+      Asking the daemon for {what}. This can take up to a minute.
+    </p>
     <p className="prose">
       A full candidate sweep is slow — it asks every live venue in turn. Nothing is
       shown until it answers: an invented placeholder would be indistinguishable from

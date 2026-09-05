@@ -51,7 +51,7 @@ export default function Receipts({ announce }) {
     announce(`Receipts — ${jobs.length} job records, newest first, ${withReceipts.length} carrying receipts`);
   }, [state.phase, jobs.length, withReceipts.length, announce]);
 
-  if (state.phase === "first") return <Waiting what="job records" />;
+  if (state.phase === "first") return <Waiting what="job records" title="Receipts" />;
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>

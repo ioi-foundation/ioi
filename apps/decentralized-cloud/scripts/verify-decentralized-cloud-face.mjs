@@ -1372,6 +1372,81 @@ async function checkResponsiveLayout() {
           : `${m.navSeen} nav targets have a real visible box after intersecting their scroll ancestors`,
         m.navSeen);
     }
+
+    // ── COLD START IS NOT A BLANK PAGE ──────────────────────────────────────
+    //
+    // The kept-answer store used to be an in-memory Map: it survived NAVIGATION and
+    // died on RELOAD. So a cold visit had nothing and sat empty for the length of a
+    // daemon sweep — 39,417ms measured on Sources, with no rows, no aria-busy, and the
+    // live region holding the empty string throughout. Three of seven surfaces are a
+    // blank page in the contact sheet for the same reason.
+    //
+    // RECEIPTS, not Candidates, and the reason is a measurement rather than a
+    // preference: the candidates body for the default intent is 13.6 MB, against a
+    // localStorage quota of a few megabytes. Candidates CANNOT keep its answer and
+    // says so; Sources (4 KB), Receipts (88 KB) and Budgets (375 B) can. Asserting
+    // this on Candidates would demand a thing that is not possible, and the honest
+    // shape of that is a surface stating why rather than a gate insisting.
+    //
+    // On its OWN PAGE. My first version reloaded the page the width sweep was
+    // measuring, and the cell and nav assertions at 1920 then ran against a reloading
+    // document — one of them reported inspecting zero cells, which is the exact
+    // failure this gate spent a commit learning to detect, reintroduced by the test I
+    // wrote to detect something else.
+    const keepPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    try {
+      await keepPage.goto(`http://127.0.0.1:${port}/#/receipts`, { waitUntil: "domcontentloaded" });
+      const warmed = await keepPage
+        .waitForSelector(".t-receipts .trow", { timeout: 60000 })
+        .then(() => true)
+        .catch(() => false);
+      ok("the receipts read completed once, so there is an answer to keep",
+        warmed, warmed ? "rows present before the reload" : "no rows in 60s — nothing was cached", 1);
+
+      if (warmed) {
+        // THE READ IS HELD OPEN, or this assertion proves nothing.
+        //
+        // My first version simply reloaded and measured 59ms to first row — and that
+        // number does not distinguish "painted from the kept answer" from "the read
+        // was just fast", which for an 88 KB body on localhost it is. It would have
+        // gone green with the persistence layer deleted.
+        //
+        // So /api/jobs is delayed by three seconds. Any row appearing before the
+        // daemon has answered came from the store, and could have come from nowhere
+        // else.
+        const HOLD_MS = 3000;
+        await keepPage.route("**/api/jobs", async (route) => {
+          await new Promise((r) => setTimeout(r, HOLD_MS));
+          await route.continue();
+        });
+
+        const t0 = Date.now();
+        await keepPage.reload({ waitUntil: "domcontentloaded" });
+        const painted = await keepPage
+          .waitForSelector(".t-receipts .trow", { timeout: 5000 })
+          .then(() => Date.now() - t0)
+          .catch(() => null);
+        ok("the rows painted before the daemon answered, so they came from the store",
+          painted !== null && painted < HOLD_MS,
+          painted === null
+            ? `no rows within 5s while the read was held for ${HOLD_MS}ms`
+            : `first row at ${painted}ms, with the read held for ${HOLD_MS}ms`,
+          1);
+        // The kept answer must also SAY it is kept. A cached body rendered as though it
+        // were fresh is the one version of this feature that would be worse than the
+        // blank page it replaces.
+        const marked = painted === null ? false : await keepPage.evaluate(() =>
+          /kept|last answer|as of|read at/i.test(document.body.innerText));
+        ok("a reload paints the last kept answer instead of a blank page",
+          painted !== null && marked,
+          painted === null
+            ? "NO ROWS within 5s of reload — the kept answer did not survive the page load"
+            : `rows painted ${painted}ms after reload; labelled as a kept answer: ${marked}`,
+          1);
+      }
+    } finally {
+      await keepPage.close();
+    }
   } finally {
     await browser.close();
     server.kill("SIGTERM");
