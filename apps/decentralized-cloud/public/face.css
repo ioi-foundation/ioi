@@ -722,3 +722,126 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .lockup { gap: 8px; }
   pre.code { padding: 14px 14px; font-size: 11px; }
 }
+
+/* ── THE HERO — the product performing ────────────────────────────────────────
+   One dark band at the head of the landing, full-bleed, onyx. The cheapest live
+   quote at display size, its window running out beneath it, the four figures a
+   routing is made of, and the routing drawn from them. It is the one place the face
+   goes dark: a long read is punished by a dark ground, and this band is not a long
+   read — it is a figure, a bar and a drawing. The catalog below stays on paper.
+
+   Colour keeps its one meaning each on the dark ground: green (the on-dark token) is
+   live evidence, red is expired, and everything else is paper at a stated opacity. */
+.hero { background: var(--ink); color: var(--paper);
+  margin: -34px -40px 34px; padding: 44px 40px 40px;
+  display: grid; gap: 36px; }
+.hero-statement { font-size: 17px; font-weight: 400; letter-spacing: 0; line-height: 1.3;
+  color: var(--paper); opacity: 0.78; max-width: 46ch; }
+.hero-focus { display: grid; gap: 10px; }
+.hero-eyebrow { color: var(--live-on-dark); }
+/* THE PRICE IS THE PAGE. 168px at desktop, tabular so a refresh that changes one digit
+   does not shift the rest; the fraction and the unit step down so the figure reads as
+   one number and not as a stat with two captions. */
+.hero-price { margin: 0; display: flex; align-items: baseline; gap: 0.06em;
+  font-size: 168px; line-height: 0.92; letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums; color: var(--paper); }
+.hero-cur { font-size: 0.42em; letter-spacing: -0.02em; opacity: 0.7; align-self: flex-start; margin-top: 0.12em; }
+.hero-figure { font-weight: 400; }
+.hero-frac { font-size: 0.62em; letter-spacing: -0.02em; }
+.hero-unit { font-size: 0.13em; letter-spacing: 0.02em; font-family: var(--mono);
+  opacity: 0.7; margin-left: 0.6em; text-transform: uppercase; }
+.hero-price-waiting .hero-figure { opacity: 0.35; }
+.hero-what { margin: 2px 0 0; font-size: 17px; line-height: 1.4; color: var(--paper); }
+.hero-venue { font-size: 19px; }
+.hero-basis { font-size: 13px; opacity: 0.66; }
+.hero-observed { margin: 0; font-size: 12px; opacity: 0.6; }
+
+/* THE DEPLETING BAR. Track = time spent (paper at low opacity); left = time remaining
+   in live green; a spent window turns the text red because red means expired. */
+.fresh { display: grid; gap: 8px; }
+.fresh-track { position: relative; height: 6px; border-radius: 3px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.16); }
+.fresh-left { position: absolute; left: 0; top: 0; bottom: 0; background: var(--live-on-dark);
+  border-radius: 3px; transition: width 1s linear; }
+.fresh-text { font-size: 13px; color: var(--paper); opacity: 0.85; }
+.fresh-hero { max-width: 720px; margin-top: 10px; }
+.fresh-hero .fresh-track { height: 10px; border-radius: 5px; }
+.fresh-hero .fresh-text { font-size: 15px; }
+.fresh-expired .fresh-text { color: var(--expired); opacity: 1; }
+.fresh-expired .fresh-left { background: var(--expired); }
+.fresh-none .fresh-track { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0 4px, transparent 4px 8px); }
+/* In a table row on paper the same bar, in the paper's own colours. */
+.fresh-row { min-width: 150px; }
+.fresh-row .fresh-track { background: var(--hairline); height: 5px; }
+.fresh-row .fresh-left { background: var(--live); }
+.fresh-row .fresh-text { color: var(--label); opacity: 1; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .fresh-left { transition: none; } }
+
+/* THE ROUTING DRAWING. The SVG stretches to the band's width (preserveAspectRatio
+   none; fills only, no strokes, so nothing distorts) and the legend is a 4-column
+   HTML grid whose columns sit under the SVG's four stacks. */
+.routing { margin: 0; display: grid; gap: 14px; padding-top: 26px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14); }
+.rt { display: block; width: 100%; height: 200px; }
+.rt-stage { fill: rgba(255, 255, 255, 0.28); }
+.rt-live { fill: var(--live-on-dark); }
+.rt-placed { fill: var(--paper); }
+.rt-band { fill: rgba(255, 255, 255, 0.09); }
+.rt-base { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+.rt-heads { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.rt-head { min-width: 0; }
+.rt-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;
+  padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+.rt-set-repeat { display: none; }
+.rt-cell { min-width: 0; display: grid; gap: 6px; align-content: start; }
+.rt-n { font-size: 56px; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.rt-set { margin-top: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.66; }
+/* A reason code is long and the cell is a quarter of the band: the chip wraps. The
+   first build let one run 12px past the viewport. */
+.hero .chip { white-space: normal; overflow-wrap: anywhere; }
+.rt-why { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.4; opacity: 0.6; overflow-wrap: anywhere; }
+.rt-why .rt-live-word { color: var(--live-on-dark); opacity: 1; }
+.rt-wait { font-family: var(--mono); font-size: 12px; opacity: 0.6; }
+.rt-rec { display: grid; gap: 8px; }
+.rt-rec-name { font-size: 16px; line-height: 1.3; }
+.rt-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.rt-why-line { font-family: var(--mono); font-size: 12px; opacity: 0.6; }
+.rt-caption { font-size: 11px; opacity: 0.5; max-width: 80ch; }
+/* Chips on the dark ground: same object, the ground's colours. */
+.hero .chip { background: transparent; border-color: rgba(255, 255, 255, 0.3); color: var(--paper); }
+.hero .chip .dot { background: rgba(255, 255, 255, 0.5); }
+.hero .chip.live { border-color: var(--live-on-dark); color: var(--live-on-dark); }
+.hero .chip.live .dot { background: var(--live-on-dark); }
+
+/* THE DOORS. One primary, paper on onyx, and two quiet links. */
+.hero-doors { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding-top: 4px; }
+/* The catalog's own heading, now second on the page: the hero's statement is the h1. */
+.catalog-h { font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; }
+/* The Waiting block's own h1 beneath the hero is demoted the same way. */
+.catalog-page > [aria-busy] > h1 { font-size: 31px; }
+.hero-door { background: var(--paper); color: var(--ink); border-color: var(--paper); text-decoration: none; }
+.hero-door:hover { background: var(--ink); color: var(--paper); }
+.hero-door-link { color: var(--paper); text-decoration: none; font-size: 15px; opacity: 0.85; }
+.hero-door-link:hover { text-decoration: underline; text-underline-offset: 3px; opacity: 1; }
+
+@media (max-width: 1640px) { .hero { margin: -26px -24px 26px; padding: 36px 24px 32px; } }
+@media (max-width: 1000px) {
+  .hero-price { font-size: 120px; }
+  .rt-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rt-set-repeat { display: block; }
+  .rt { height: 140px; }
+}
+@media (max-width: 700px) {
+  .hero { gap: 28px; }
+  .hero-price { font-size: 76px; letter-spacing: -0.03em; }
+  .hero-what { font-size: 15px; }
+  .hero-venue { font-size: 16px; }
+  .rt { height: 110px; }
+  .rt-heads { gap: 8px; }
+  .rt-n { font-size: 34px; }
+  .rt-set { font-size: 10px; margin-top: 5px; }
+  .rt-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+@media (max-width: 430px) { .hero { margin: -22px -16px 22px; padding: 30px 16px 28px; } .hero-price { font-size: 64px; } }

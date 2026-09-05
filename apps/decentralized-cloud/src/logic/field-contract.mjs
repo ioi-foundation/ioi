@@ -44,7 +44,7 @@ export const FIELD_CONTRACT = {
                "evidence.k8s_accounts", "evidence.lambda_cloud_accounts", "evidence.akash_accounts"],
   },
   "/api/candidates": {
-    read_by: "src/surfaces/Candidates.jsx + src/logic/batches.mjs + src/logic/classify.mjs",
+    read_by: "src/surfaces/Candidates.jsx + src/components/Hero.jsx + src/logic/routing.mjs + src/logic/batches.mjs + src/logic/classify.mjs",
     container: "candidates",
     // NOTHING is required on every candidate, and `evidence_mode` is the reason this
     // note exists. I declared it as required and the gate reported it missing on
@@ -60,7 +60,11 @@ export const FIELD_CONTRACT = {
     // are computed from, and a sweep with no live candidate at all is a real state.
     sampled: ["provider_kind", "observed_at", "expires_at", "batch", "quote"],
     optional: ["quote.usd_per_hour", "quote.basis", "quote.quote_ref", "quote.evidence_mode",
-               "eligibility_labels", "candidate_ref"],
+               "eligibility_labels", "candidate_ref",
+               // The hero names the cheapest quote in the daemon's own words — its
+               // display name, GPU memory and region — each present on priced
+               // candidates and absent on some unpriced ones by design.
+               "display_name", "gpu.vram_gb", "region"],
     // TOP-LEVEL fields, checked against the BODY rather than against each item.
     // The surface reads `selection.considered` for its population line — the number
     // five cold readers could not reconcile against Placement's — and a contract that
@@ -71,7 +75,7 @@ export const FIELD_CONTRACT = {
     root: ["selection.considered", "selection.returned", "selection.latest_batch_only"],
   },
   "/api/placement-advisory": {
-    read_by: "src/surfaces/Placement.jsx",
+    read_by: "src/surfaces/Placement.jsx + src/components/Hero.jsx + src/logic/routing.mjs",
     container: null,
     // A CONTRACT IN WHICH EVERYTHING IS OPTIONAL CANNOT FAIL, and this one was exactly
     // that. It declared `decision`, `decision.selected.provider_kind` and `considered`
@@ -89,7 +93,7 @@ export const FIELD_CONTRACT = {
     // nothing is eligible, and the fee fields are absent on advisories that predate
     // fee accounting.
     optional: ["recommendation.venue", "recommendation.reason_codes",
-               "recommendation.candidate_ref", "effective_venue",
+               "recommendation.candidate_ref", "recommendation.display_name", "effective_venue",
                "no_eligible_candidate", "routing_fee_basis", "fee_object_minted"],
   },
   "/api/jobs": {

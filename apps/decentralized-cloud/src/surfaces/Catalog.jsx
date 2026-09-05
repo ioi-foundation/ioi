@@ -7,6 +7,7 @@ import { populationLine } from "../logic/population.mjs";
 import { resolveCatalog } from "../logic/catalog.mjs";
 import { hashForSurface } from "../logic/surfaces.mjs";
 import { Chip, Waiting, Failure, Kept, Eyebrow } from "../components/Bits.jsx";
+import Hero from "../components/Hero.jsx";
 
 // ALL RESOURCES — the landing. The decentralized counterpart of a console's "all
 // services by category" page: every resource class this router can be asked for,
@@ -59,19 +60,30 @@ export default function Catalog({ announce }) {
     announce(`All resources — ${counts.quoting} quoting, ${counts.answering} answering, ${counts.planned} not yet a source`);
   }, [sources.phase, counts.quoting, counts.answering, counts.planned, announce]);
 
+  // THE HERO PAINTS FIRST, AND THE CATALOG WAITS BENEATH IT. The sources read runs
+  // about half a minute and the catalog needs it; the hero needs the candidates read,
+  // which takes about a second. Gating the whole landing on the slow read put a
+  // stranger in front of a waiting paragraph for the thirty seconds that decide
+  // whether they believe the product is real.
   if (sources.phase === "first") {
     return (
-      <Waiting
-        what="the list of candidate sources"
-        title="All resources"
-        willShow={
-          "Every kind of infrastructure this router can be asked for — compute, storage, " +
-          "networking, runtimes, confidential compute — and, under each, every venue or " +
-          "network that can supply it, with whether it is quoting real prices right now, " +
-          "connected without an adapter, or not yet a source at all."
-        }
-        why="The daemon is asked for the state it last persisted for each source."
-      />
+      <div className="stack catalog-page">
+        <Hero />
+        {/* The heading is an h2 here: the hero's statement is the page's one h1, and a
+            waiting block that minted a second one would give the page two. */}
+        <h2 className="catalog-h">All resources</h2>
+        <Waiting
+          what="the list of candidate sources"
+          title={null}
+          willShow={
+            "Every kind of infrastructure this router can be asked for — compute, storage, " +
+            "networking, runtimes, confidential compute — and, under each, every venue or " +
+            "network that can supply it, with whether it is quoting real prices right now, " +
+            "connected without an adapter, or not yet a source at all."
+          }
+          why="The daemon is asked for the state it last persisted for each source."
+        />
+      </div>
     );
   }
 
@@ -80,9 +92,10 @@ export default function Catalog({ announce }) {
 
   const view = (
     <div className="stack catalog-page">
+      <Hero />
       <div className="catalog-head">
         <div className="stack catalog-title">
-          <h1>All resources</h1>
+          <h2 className="catalog-h">All resources</h2>
           <p className="prose catalog-lede">
             One request, any venue. This is everything the router can place work on,
             by category, with the state each supply source is in right now — read from
