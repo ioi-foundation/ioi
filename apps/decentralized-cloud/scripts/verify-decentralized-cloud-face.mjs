@@ -498,8 +498,15 @@ async function checkServer() {
     // may not read a field the daemon does not send.
     const { FIELD_CONTRACT, checkBody } = await import(path.join(APP, "src/logic/field-contract.mjs"));
     for (const route of Object.keys(FIELD_CONTRACT)) {
-      const url = route === "/api/candidates" || route === "/api/placement-advisory"
-        ? `${BASE}${route}?intent_ref=${encodeURIComponent("cloud-resource-intent://cri_default")}`
+      // THE SAMPLE IS FETCHED THE WAY THE SURFACE FETCHES IT, query and all. Candidates
+      // reads with `latest=true`, and the daemon only sends the `selection` block on
+      // that form — so sampling without it would check a body the surface never sees
+      // and report the selection fields absent. A contract sample taken differently
+      // from the real read is a contract about a different response.
+      const intent = encodeURIComponent("cloud-resource-intent://cri_default");
+      const url =
+        route === "/api/candidates" ? `${BASE}${route}?intent_ref=${intent}&latest=true`
+        : route === "/api/placement-advisory" ? `${BASE}${route}?intent_ref=${intent}`
         : `${BASE}${route}`;
       const res = await fetch(url);
       if (!res.ok) {
@@ -1064,8 +1071,10 @@ async function checkServer() {
         `HTTP ${sources.status} ${sourcesBody.state || "no sources array"} — is the daemon running?`);
     }
     // The face can only show a fresh batch if the daemon labels batches at all.
+    // Fetched with `latest=true`, the way the surface reads it — see the contract
+    // sampler above on why a sample taken differently is a sample of another response.
     const cands = await fetch(
-      `${BASE}/api/candidates?intent_ref=${encodeURIComponent("cloud-resource-intent://cri_default")}`
+      `${BASE}/api/candidates?intent_ref=${encodeURIComponent("cloud-resource-intent://cri_default")}&latest=true`
     );
     const candsBody = await cands.json().catch(() => ({}));
     const list = Array.isArray(candsBody.candidates) ? candsBody.candidates : [];

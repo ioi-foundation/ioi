@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef } from "../logic/read.mjs";
 import { stamp, duration } from "../logic/classify.mjs";
+import { populationLine, FUNNEL_NOTE } from "../logic/population.mjs";
 import { Waiting, Failure, Kept, Chip } from "../components/Bits.jsx";
 
 // PLACEMENT — an ADVISORY, and the word is load-bearing.
@@ -151,7 +152,16 @@ export default function Placement({ announce }) {
                 <th scope="row">Out of how many</th>
                 <td>
                   {eligibleCount !== null && consideredCount !== null
-                    ? <span><strong>{eligibleCount}</strong> eligible, out of {consideredCount} considered</span>
+                    ? (
+                      <div className="stack" style={{ gap: "5px" }}>
+                        <span>{populationLine({ eligible: eligibleCount, considered: consideredCount })}</span>
+                        {/* The funnel, said where the number is. Readers compared this
+                            4,514 against Candidates' 45 and Sources' 13 and could not
+                            reconcile them; all three are correct and count different
+                            sets, which is invisible unless the sets are named. */}
+                        <span className="meta">{FUNNEL_NOTE}</span>
+                      </div>
+                    )
                     : <span className="meta">the advisory did not say</span>}
                 </td>
               </tr>

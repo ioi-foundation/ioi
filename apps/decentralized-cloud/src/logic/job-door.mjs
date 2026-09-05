@@ -100,6 +100,28 @@ export const GATE_ORIGIN_REF = "gate://verify-decentralized-cloud-face";
 export const isGateAdmitted = (job) =>
   Array.isArray(job?.evidence_refs) && job.evidence_refs.includes(GATE_ORIGIN_REF);
 
+// WHEN THIS SURFACE'S GATES BEGAN LABELLING THEIR OWN RECORDS.
+//
+// Both verifiers now tag every job they create, on every path. They did not before, and
+// the daemon does not permit a field rewrite — correctly — so records created earlier
+// carry `evidence_refs: []` and cannot be attributed from the face. A cold reader found
+// them and called it exactly right: "capability-lease://lease_forged_does_not_exist
+// appears verbatim as an authority value on row 1. That reads like a test fixture
+// sitting in a production-looking ledger, and nothing labels it as one."
+//
+// The honest move is neither to delete them (a check that erases its own evidence
+// cannot be audited) nor to guess at them from their authority refs (a heuristic that
+// silently reclassifies a real record is worse than an unlabelled one). It is to COUNT
+// them and say what they are: records from before origin tagging, whose origin this
+// surface cannot establish.
+export const ORIGIN_TAGGING_SINCE = "2026-09-05T05:30:00Z";
+
+// A record this surface cannot attribute: untagged, and older than the tagging change.
+// A record untagged and NEWER than it would be a real product job.
+export const originUnknown = (job) =>
+  !isGateAdmitted(job) &&
+  Date.parse(job?.createdAt || job?.created_at || "") < Date.parse(ORIGIN_TAGGING_SINCE);
+
 // ── What a receipt IS, rather than where it sat in a list ────────────────────
 //
 // THE DEFECT THIS REPLACES. `receipts` came through as `typeof === "object"`, which is

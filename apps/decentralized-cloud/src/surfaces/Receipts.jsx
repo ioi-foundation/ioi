@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { stamp, duration } from "../logic/classify.mjs";
-import { jobView } from "../logic/job-door.mjs";
+import { jobView, originUnknown, ORIGIN_TAGGING_SINCE } from "../logic/job-door.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
 // RECEIPTS — WIRED, and rendered from real records.
@@ -45,6 +45,7 @@ export default function Receipts({ announce }) {
   });
 
   const withReceipts = jobs.filter((j) => j.receipts.length > 0);
+  const unattributed = jobs.filter(originUnknown);
 
   useEffect(() => {
     if (state.phase === "first") return;
@@ -98,6 +99,22 @@ export default function Receipts({ announce }) {
         execution is reachable from this surface — so every row would carry an empty
         one. Each row states whether a fee was minted instead.
       </p>
+
+      {/* RECORDS THIS SURFACE CANNOT ATTRIBUTE, counted and named. Both verifiers now
+          tag every record they create; earlier ones carry no tag and the daemon does
+          not permit a field rewrite, so they cannot be labelled retroactively from
+          here. Saying "some of these rows may be verification records and I cannot tell
+          you which" is worse than useless only if it is not said. */}
+      {unattributed.length > 0 && (
+        <p className="meta">
+          {unattributed.length} of these records predate origin tagging (before{" "}
+          <span className="mono">{ORIGIN_TAGGING_SINCE}</span>) and carry no origin.
+          Some are almost certainly this surface&rsquo;s own verification runs. This page
+          will not guess which: attributing a record by the shape of its authority ref
+          would silently reclassify a real job, which is a worse error than an
+          unattributed one.
+        </p>
+      )}
 
       {gateJobs.length > 0 && (
         <p className="meta">

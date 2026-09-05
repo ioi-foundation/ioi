@@ -61,9 +61,16 @@ export const ROUTES = [
     face: "/api/candidates",
     method: "GET",
     daemon: "/v1/hypervisor/cloud-candidates/candidates",
-    query: ["intent_ref"],
+    // `latest` asks the daemon for the newest sweep only. Forwarded because the face
+    // renders exactly that: asking for every sweep ever taken and discarding all but one
+    // made the body 13.6 MB, the read 27-39 seconds, and this the only surface that
+    // could not keep its last answer across a reload.
+    query: ["intent_ref", "latest"],
     spends: false,
-    does: "The candidates the daemon holds for one intent, with their evidence mode.",
+    does:
+      "The candidates the daemon holds for one intent, with their evidence mode. With " +
+      "latest=true, the newest sweep only, plus a selection block saying how many exist " +
+      "in total — which is where this surface's counts come from.",
   },
   {
     face: "/api/placement-advisory",

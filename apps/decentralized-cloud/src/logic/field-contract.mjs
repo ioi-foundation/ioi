@@ -54,6 +54,14 @@ export const FIELD_CONTRACT = {
     sampled: ["provider_kind", "observed_at", "expires_at", "batch", "quote"],
     optional: ["quote.usd_per_hour", "quote.basis", "quote.quote_ref", "quote.evidence_mode",
                "eligibility_labels", "candidate_ref"],
+    // TOP-LEVEL fields, checked against the BODY rather than against each item.
+    // The surface reads `selection.considered` for its population line — the number
+    // five cold readers could not reconcile against Placement's — and a contract that
+    // only ever inspects items would have left the one field the counts depend on
+    // entirely unchecked. Required, because with `latest=true` the daemon always sends
+    // it and a missing selection would silently make the set-aside count wrong rather
+    // than absent.
+    root: ["selection.considered", "selection.returned", "selection.latest_batch_only"],
   },
   "/api/placement-advisory": {
     read_by: "src/surfaces/Placement.jsx",
@@ -124,6 +132,16 @@ export function checkBody(route, body) {
   const failures = [];
   const notes = [];
 
+  // ROOT-LEVEL fields, checked against the body itself before the container is opened.
+  // A contract with a container inspected ONLY its items, so a top-level field the
+  // surface reads — `selection.considered`, which every count on Candidates now derives
+  // from — was outside anything the contract could see.
+  let rootChecked = 0;
+  for (const p of c.root || []) {
+    rootChecked += 1;
+    if (!pathIn(body, p).present) failures.push(`'${p}' absent from the body root`);
+  }
+
   let items = [body];
   if (c.container) {
     const got = pathIn(body, c.container);
@@ -137,13 +155,13 @@ export function checkBody(route, body) {
       // `checked: 0` is the important part of this return. An empty container produces
       // no failures, and "no failures" is indistinguishable from "verified" unless the
       // count travels alongside it. The gate refuses to score a zero as a pass.
-      return { route, failures, notes, checked: 0 };
+      return { route, failures, notes, checked: rootChecked };
     }
   }
 
   // Every (item, declared field) pair actually examined, reported so a contract that
   // has quietly stopped describing anything cannot read as a clean bill of health.
-  let checked = 0;
+  let checked = rootChecked;
 
   for (const p of c.every) {
     const missing = items.filter((it) => !pathIn(it, p).present).length;

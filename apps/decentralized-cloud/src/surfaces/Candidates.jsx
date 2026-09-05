@@ -3,6 +3,7 @@ import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef, keptState } from "../logic/read.mjs";
 import { classify, clock, minutesLeft, stamp } from "../logic/classify.mjs";
 import { latestBatch, summarise, venueVerdict } from "../logic/batches.mjs";
+import { populationLine, FUNNEL_NOTE } from "../logic/population.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 import Dial from "../components/Dial.jsx";
 
@@ -16,14 +17,32 @@ const POLL_MS = 30_000;
 const price = (usdPerHour) => `$${usdPerHour.toFixed(4)}`;
 
 export default function Candidates({ announce }) {
+  // LATEST BATCH, SERVER-SIDE. The daemon gained `?latest=true`, which returns the
+  // newest sweep only with a `selection` block saying how many exist.
+  //
+  // This retires three separate problems at once, all of which were consequences of the
+  // face asking for everything and throwing most of it away:
+  //   - 13.6 MB became 191 KB, so this surface can keep its answer across a reload like
+  //     every other one, and the "too large for this browser to keep" apology goes.
+  //   - the read went from 27-39 seconds to about one.
+  //   - `considered` now comes from the daemon rather than being inferred here, so the
+  //     count on this page and the count on Placement have ONE source. Five cold
+  //     readers could not reconcile them; they were two derivations of one population.
   const state = useSurfaceRead(
     "candidates",
-    `/api/candidates?intent_ref=${encodeURIComponent(intentRef())}`,
+    `/api/candidates?intent_ref=${encodeURIComponent(intentRef())}&latest=true`,
     { pollMs: POLL_MS }
   );
 
   const body = state.data;
-  const { latest, setAside, batchCount } = latestBatch(body?.candidates);
+  // The body IS the latest batch now. `latestBatch` still runs — it is the one rule for
+  // "which sweep is newest" and a second one here would be a second spine — but with a
+  // single batch in the body it is an identity, and the set-aside count comes from the
+  // daemon's own selection block instead of from what this page happened to be sent.
+  const { latest, batchCount } = latestBatch(body?.candidates);
+  const selection = body?.selection || null;
+  const considered = typeof selection?.considered === "number" ? selection.considered : null;
+  const setAside = considered !== null ? considered - latest.items.length : 0;
   const { live, venues, cheapest } = summarise(latest.items);
   const verdict = venueVerdict({ live, venues });
 
@@ -113,10 +132,22 @@ export default function Candidates({ announce }) {
   const board = (
     <div className="stack" style={{ gap: "18px" }}>
       <h1>Candidates</h1>
+      {/* THE POPULATION LINE, from the one derivation every counting surface uses.
+          Four cold readers could not reconcile 45 live here against 4,514 considered on
+          Placement and 13 sources on Sources — all three correct, all three counting
+          different sets, with nothing naming the sets. Three true numbers with no
+          stated relationship read as three claims that cannot all be true. */}
       <p className="meta">
-        {live.length} live · {venues.length} venue{venues.length === 1 ? "" : "s"}
+        {populationLine({
+          live: live.length,
+          venues: venues.length,
+          batch: latest.items.length,
+          // The daemon's own number, so this page and Placement cannot disagree.
+          held: considered,
+        })}
         {cheapest ? ` · cheapest ${price(cheapest.quote.usd_per_hour)}/hr` : ""}
       </p>
+      <p className="meta">{FUNNEL_NOTE}</p>
 
       <div className={`panel flag stack`} style={{ gap: "9px" }}>
         <h2>{verdict.heading}</h2>
@@ -139,11 +170,23 @@ export default function Candidates({ announce }) {
           browser will store. Without this line a reader sees Sources and Receipts
           remember and Candidates forget, with nothing to explain the difference, and
           reasonably concludes the page is unreliable. */}
+      {/* RETIRED, and worth recording why. This surface used to say "starts empty on
+          every visit; its last answer is too large for this browser to keep", which was
+          true and which a cold reader correctly read as an apology for an
+          implementation constraint — and which CONTRADICTED the API surface's flat
+          claim that the last answer is always kept. Two surfaces of one product stating
+          opposite caching behaviour.
+          The fix was not to reword either sentence. It was `?latest=true`: the face now
+          asks for the sweep it renders instead of asking for everything and discarding
+          it, so the body is 191 KB, it persists like every other surface, and neither
+          sentence needs to exist. The condition is left here as a guard — if a body
+          ever grows past the cap again, the reader is told rather than left to notice
+          a surface that forgets. */}
       {keptState("candidates") === "too_large" && (
         <p className="meta">
-          This surface starts empty on every visit. Its last answer is too large for
-          this browser to keep — a full sweep runs to thousands of records — so there is
-          nothing to show while the next one is read. The other surfaces keep theirs.
+          This surface could not keep its last answer: the daemon returned more than this
+          browser will store, so there is nothing to show while the next read runs. Every
+          other surface keeps theirs.
         </p>
       )}
 
