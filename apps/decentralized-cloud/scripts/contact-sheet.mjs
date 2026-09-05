@@ -23,7 +23,8 @@
 //
 // Usage: node apps/decentralized-cloud/scripts/contact-sheet.mjs
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,14 +65,47 @@ for (const s of SURFACES) {
 mkdirSync(OUT, { recursive: true });
 for (const f of readdirSync(OUT)) rmSync(path.join(OUT, f), { force: true });
 
+// PROVENANCE, MEASURED AT CAPTURE TIME — a sheet that cannot say which build it
+// photographed is not evidence.
+//
+// This script does NOT build; it serves whatever is in dist/. That is deliberate — the
+// sheet is for looking at, and rebuilding under it would change what is on screen
+// mid-shoot. But it means the bytes it photographs are whoever's build landed there last,
+// and a run of this script was straddled by a peer session's rebuild five seconds after it
+// started: half the cells were one commit's bytes and half another's, with nothing in the
+// images saying so. That sheet was voided. A mixed sheet is not a result to interpret, it
+// is no result — and it is indistinguishable by eye from a clean one.
+//
+// So the run REFUSES to start against a dirty tree, records the commit, and fingerprints
+// the served bundle before and after the shoot. If the fingerprint moves, somebody rebuilt
+// underneath and the whole sheet is declared void rather than published.
+const git = (args) => spawnSync("git", args, { cwd: APP, encoding: "utf8" }).stdout.trim();
+const COMMIT = git(["rev-parse", "--short", "HEAD"]);
+const DIRTY = git(["status", "--porcelain", "--", "src", "public", "index.html"]);
+if (DIRTY) {
+  console.log("REFUSING TO SHOOT — the surface tree has uncommitted changes:");
+  console.log(DIRTY.split("\n").map((l) => `  ${l}`).join("\n"));
+  console.log("A sheet shot over a dirty tree cannot name what it photographed. Commit or stash first.");
+  process.exit(1);
+}
+
 const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
-  env: { ...process.env, IOI_DC_PORT: String(PORT) },
+  // PINNED, not inherited: an ambient IOI_DC_DIST would point this shoot at a different
+  // build than the one this run names in its own output.
+  env: { ...process.env, IOI_DC_PORT: String(PORT), IOI_DC_DIST: path.join(APP, "dist") },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let booted = false;
 server.stdout.on("data", (b) => { if (String(b).includes("face on")) booted = true; });
-for (let i = 0; i < 80 && !booted; i++) await new Promise((r) => setTimeout(r, 100));
-if (!booted) { server.kill("SIGTERM"); throw new Error("the face server did not start"); }
+for (let i = 0; i < 600 && !booted; i++) await new Promise((r) => setTimeout(r, 100));
+if (!booted) { server.kill("SIGTERM"); throw new Error("the face server did not start within 60s"); }
+
+const fingerprint = async () => {
+  const t = await (await fetch(`http://127.0.0.1:${PORT}/assets/face.js`)).text();
+  return `${t.length}:${createHash("sha256").update(t).digest("hex").slice(0, 12)}`;
+};
+const FP_BEFORE = await fingerprint();
+console.log(`shooting ${COMMIT} — served bundle ${FP_BEFORE}`);
 
 const { chromium } = await import(
   "/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs"
@@ -245,7 +279,18 @@ try {
       captures: cells.map((c) => ({ surface: c.id, width: c.w, loaded: c.arrived !== false })),
     }, null, 2)
   );
+  // THE SAME BUNDLE AT THE END AS AT THE START, or none of this is one build.
+  const fpAfter = await fingerprint();
+  if (fpAfter !== FP_BEFORE) {
+    console.log("");
+    console.log(`SHEET VOID — the served bundle changed under the shoot: ${FP_BEFORE} -> ${fpAfter}.`);
+    console.log("Someone rebuilt while this was running. Some cells are one build and some are");
+    console.log("another, and nothing in the images says which. This is not a mixed result to be");
+    console.log("read with care; it is no result. Re-shoot from a quiet tree.");
+    process.exit(1);
+  }
   console.log(`contact sheet: ${sheet}`);
+  console.log(`shot from ${COMMIT}, served bundle ${FP_BEFORE} unchanged across the shoot`);
   console.log(`full-size cells: ${OUT}/<surface>-<width>.png`);
   console.log(`unscaled ${NARROW}px bands: ${OUT}/<surface>-${NARROW}-band<n>.png`);
   console.log(`${cells.length} cells — ${SURFACES.length} surfaces x ${WIDTHS.length} widths`);

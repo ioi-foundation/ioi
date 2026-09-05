@@ -13,7 +13,7 @@
 // Usage: node apps/decentralized-cloud/scripts/verify-decentralized-cloud-face.mjs
 
 import { spawn, spawnSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 // The route table, imported by the gate for the same reason the proxy and the API
@@ -56,6 +56,23 @@ const BASE = `http://127.0.0.1:${PORT}`;
 // declaring zero valid, fails the RUN — it is not counted as a pass. A gate that
 // cannot say what it looked at is not reporting a result.
 const results = [];
+// A RUN THAT BAILED EARLY IS NOT A RUN WITH A SCORE.
+//
+// When the face server failed to boot, checkServer returned before its fifty-one
+// assertions and the run printed "119/127 passed". That is not a partial result — it is
+// NO result about the surface, since every served-bytes, field-contract, job-door and
+// identity assertion was skipped — and in the output it is indistinguishable from a run
+// where all of them passed.
+//
+// Anything that returns early sets this, and the runner then refuses to print a total.
+// A number is a claim about what was measured; when the answer is "not this", the
+// honest output is a void, not a fraction.
+// A LIST, NOT A SLOT. This was `voided = why`, so a second bail overwrote the first:
+// the proving run voided on BOTH the served-bytes block and the responsive-layout block
+// and reported only the second, which reads as one narrow failure rather than as a run
+// that lost two of its three measuring blocks. Every bail is named.
+const voided = [];
+const voidRun = (why) => { voided.push(why); };
 // "only" is here because `[].every(...)` is true: "the only verb the surface sends is
 // POST" passed over an empty list of verbs, and would have gone on passing if the
 // door's fetch were ever written in a way the regex did not find.
@@ -69,6 +86,97 @@ const okMayBeEmpty = (name, cond, detail, inspected) => {
   results.push({ name, pass: !!cond, detail: detail || "", inspected, zeroDeclared: true });
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ONE BOOT WAIT, USED BY EVERY BLOCK THAT STARTS THE FACE SERVER.
+//
+// The fixed four-second wait cost a whole run: on a loaded machine the child had not
+// printed its banner in time, checkServer returned early, and fifty-one assertions were
+// skipped under the headline "119/127 passed". I fixed that wait — and left the
+// IDENTICAL four-second wait in checkResponsiveLayout nine hundred lines below, which
+// then lost the very next run to ERR_CONNECTION_REFUSED on port 4188. Same defect,
+// second site, one commit apart. That is the third time in this file that fixing the
+// instance has left the class alive, so the wait now exists once.
+//
+// The second site was worse in one way and better in another: it never checked `booted`
+// at all, so it walked into page.goto and crashed. A crash is at least unmistakable —
+// nobody reads a stack trace as a pass — but it still throws the run away. Both sites
+// now end on the CONDITION, and a server that never comes up VOIDS the run rather than
+// letting a fraction be printed over skipped assertions.
+// SPAWN AND LISTEN IN ONE PLACE, so nothing can happen to the child between the two.
+//
+// The listener was attached inside the wait, which in the responsive-layout block runs
+// AFTER `chromium.launch()` — several seconds in which the child is alive and
+// unobserved. Worse, its stderr went to a pipe nobody ever read: when that server failed
+// to come up the gate could say only "did not print its banner", while the child had
+// very likely printed the reason and had it discarded. A probe that throws away the one
+// message explaining its own failure turns a diagnosable fault into a mystery, and I
+// spent a run guessing at port collisions that `ss` then showed did not exist.
+function spawnFace(port) {
+  const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
+    // IOI_DC_DIST IS PINNED, NOT INHERITED.
+    //
+    // serve-face.mjs is gaining an IOI_DC_DIST override so the designer's exhibit can be
+    // served from its own build directory instead of the one this gate writes. This spawn
+    // spreads `process.env`, so an IOI_DC_DIST set anywhere in the ambient environment —
+    // a shell, a stray export, a CI wrapper — would silently redirect the gate's own
+    // server at somebody else's build. Every assertion would still run, the counts would
+    // look right, and the run would report on bytes it never made.
+    //
+    // Pinned to the directory the gate itself built, so the variable cannot be used to
+    // point the measurement somewhere else.
+    env: { ...process.env, IOI_DC_PORT: String(port), IOI_DC_DIST: path.join(APP, "dist") },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const h = { server, port, booted: false, err: "", out: "" };
+  server.stdout.on("data", (b) => { h.out += b; if (String(b).includes("face on")) h.booted = true; });
+  server.stderr.on("data", (b) => { h.err += b; });
+  server.on("error", (e) => { h.err += `spawn error: ${e.message}\n`; });
+  server.on("exit", (code, sig) => { if (!h.booted) h.err += `child exited early: code ${code} signal ${sig}\n`; });
+  return h;
+}
+
+// A BANNER IS A CLAIM; A FETCH OF THE BYTES I JUST BUILT IS A MEASUREMENT.
+//
+// This waited for the child to print "face on" and took that as proof the surface was up.
+// Two things are wrong with believing a greeting. A server can announce itself while
+// serving a directory that is empty or is not the one the gate built — which is exactly
+// what the incoming IOI_DC_DIST override makes possible — and the detector is then
+// pinned to prose that a future edit to the banner would break silently.
+//
+// So the boot condition is now: fetch /assets/face.js, and require it to be byte-identical
+// to the file the build just wrote. That answers "is it up", "is it serving MY build",
+// and "did the build actually produce this" in one measurement, and it cannot be
+// satisfied by a server that is merely running.
+async function bootFace(h, label) {
+  const built = path.join(APP, "dist/assets/face.js");
+  let served = null;
+  for (let i = 0; i < 600; i++) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${h.port}/assets/face.js`);
+      if (r.status === 200) { served = await r.text(); break; }
+    } catch { /* not up yet — the loop IS the wait */ }
+    await sleep(100);
+  }
+  const onDisk = existsSync(built) ? readFileSync(built, "utf8") : null;
+  const same = served !== null && onDisk !== null && served === onDisk;
+  ok(`the face server for ${label} serves the build this run just made`, same,
+    same
+      ? `port ${h.port} served ${served.length} bytes, byte-identical to dist/assets/face.js`
+      : served === null
+        ? `nothing answered on port ${h.port} within 60s — EVERY assertion in ${label} was ` +
+          `SKIPPED, not passed; this run measured nothing there. ` +
+          `Child said: ${(h.err || h.out).trim().split("\n").slice(-3).join(" / ") || "(nothing at all)"}`
+        : onDisk === null
+          ? `the server answered but dist/assets/face.js does not exist — the build did not produce it`
+          : `the server answered with ${served.length} bytes and the build wrote ${onDisk.length} — ` +
+            `this server is NOT serving the directory this gate built, so every assertion in ` +
+            `${label} would have measured somebody else's bytes`);
+  if (!same) {
+    voidRun(`the face server for ${label} was not serving this run's build, so every assertion after it was skipped`);
+  }
+  h.booted = same;
+  return same;
+}
 
 // ── Where the surface lives, after the React port ───────────────────────────
 // The surface used to be three files in public/. It is now a built app, and this gate
@@ -391,17 +499,13 @@ async function checkServer() {
       : String(built.stderr || built.stdout || "").split("\n").slice(-4).join(" | "));
   if (built.status !== 0) return;
 
-  const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
-    env: { ...process.env, IOI_DC_PORT: String(PORT) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let booted = false;
-  server.stdout.on("data", (b) => { if (String(b).includes("face on")) booted = true; });
+  const face = spawnFace(PORT);
+  const server = face.server;
 
   try {
-    for (let i = 0; i < 40 && !booted; i++) await sleep(100);
-    ok("the face server starts", booted);
-    if (!booted) return;
+    // The wait itself lives in bootFace, because this file has already proved twice
+    // that a boot wait written twice is a boot wait fixed once.
+    if (!(await bootFace(face, "the served-bytes and contract block"))) return;
 
     const index = await fetch(`${BASE}/`);
     ok("the shell is served", index.status === 200, `HTTP ${index.status}`);
@@ -602,11 +706,56 @@ async function checkServer() {
     // "this gate cannot see N of your classes" is a fact the reader of a green run is
     // entitled to, and dropping them quietly is how a check comes to cover less than
     // its name claims.
+    // PER-CHUNK IS NOT ENOUGH: AN INTERPOLATION SPANS CHUNKS.
+    //
+    // The rule above discarded a whitespace-chunk that CONTAINED `${` or `}`. That is
+    // only the first and last chunk of an interpolation — everything in between came
+    // through as a class name. On `` `fresh fresh-${size}${expired ? " fresh-expired" : ""}` ``
+    // it emitted `?`, `:`, and `"fresh-expired"` WITH ITS QUOTES, and the gate reported
+    // nine orphans of which seven were JS punctuation and string literals. Two of them —
+    // `fresh-expired"` and `receipt-compact"` — name classes the stylesheet DOES define;
+    // only the stray quote made them look missing.
+    //
+    // A reader handed that list goes hunting for seven stylesheet bugs that do not
+    // exist, and the two real orphans in it are the least believable lines on the page.
+    // That is worse than not running the check: a finding buried in noise I generated
+    // costs more to disprove than it cost to report.
+    //
+    // So the interpolations are removed by BRACE DEPTH before anything is split, and
+    // what remains is the statically-known text and nothing else.
+    // AND A STATIC FRAGMENT TOUCHING AN INTERPOLATION IS NOT A CLASS EITHER.
+    //
+    // Deleting the `${…}` regions and splitting what was left fixed the punctuation and
+    // the quoted literals, and RE-INTRODUCED the exact false positive the previous fix
+    // had removed: `` `fresh fresh-${size}…` `` reduces to "fresh fresh-", so `fresh-`
+    // came back as an orphan. Nothing is ever named that — it is the static half of a
+    // name whose other half is a runtime value.
+    //
+    // Two fixes to one line, each of which broke what the other repaired, is a sign the
+    // rule was never stated properly. It is: a token is a class name only if BOTH of its
+    // ends are whitespace or a string boundary. So the interpolation is replaced by a
+    // sentinel that cannot occur in a class name rather than deleted, and any token
+    // still carrying the sentinel is a fragment and is counted, not reported.
+    // Written as an escape, never as a literal control byte: this sentinel spent one
+    // edit as an invisible NUL in the source, indistinguishable from a space to every
+    // reader and to every diff.
+    const HOLE = "\u0000";
     let dynamic = 0;
     for (const m of bundleJs.matchAll(/className:\s*`([^`]*)`/g)) {
-      for (const chunk of m[1].split(/\s+/)) {
+      let statik = "";
+      let depth = 0;
+      for (let i = 0; i < m[1].length; i++) {
+        if (m[1][i] === "$" && m[1][i + 1] === "{") { depth += 1; i += 1; statik += HOLE; continue; }
+        if (depth > 0) {
+          if (m[1][i] === "{") depth += 1;
+          else if (m[1][i] === "}") depth -= 1;
+          continue;
+        }
+        statik += m[1][i];
+      }
+      for (const chunk of statik.split(/\s+/)) {
         if (!chunk) continue;
-        if (chunk.includes("${") || chunk.includes("}")) { dynamic += 1; continue; }
+        if (chunk.includes(HOLE)) { dynamic += 1; continue; }
         emitted.add(chunk);
       }
     }
@@ -828,10 +977,26 @@ async function checkServer() {
     // radius in the shell must turn this red.
     const marks = await import(path.join(APP, "brand/canvas-directions/marks.mjs"));
     const circles = marks.CLOUD.filter((s) => s.r !== undefined);
+    // THE ARTIFACT'S SPELLING, NOT THE SOURCE'S — the scar recorded four paragraphs
+    // above, committed again inside the block that records it.
+    //
+    // This went red across every valid run today while the mark was being served
+    // perfectly. The bundle emits `cx: 32, cy: 38, r: 17`; the third matcher tested for
+    // `cx:32`, without the space the bundler puts after the colon. The first two
+    // matchers cover an attribute form and a JSON form that a built React bundle never
+    // produces, so the whole assertion rested on the one spelling that was wrong.
+    //
+    // Had I sent this on, the designer would have gone hunting for a dropped mark that
+    // is plainly on the screen. Whitespace around the punctuation is now optional, and
+    // the three keys must appear TOGETHER in one object: the old
+    // `includes("cx:32") && includes("r:17")` would have passed on two unrelated numbers
+    // that happened to be somewhere in the bundle.
+    const near = (c) => new RegExp(
+      `cx:\\s*${c.cx}\\s*,\\s*cy:\\s*${c.cy}\\s*,\\s*r:\\s*${c.r}\\b`);
     const servedCircles = circles.filter((c) =>
       new RegExp(`cx="?${c.cx}"?[^>]*cy="?${c.cy}"?[^>]*r="?${c.r}"?`).test(shell) ||
       new RegExp(`"cx":\\s*${c.cx}[^}]*"cy":\\s*${c.cy}[^}]*"r":\\s*${c.r}`).test(shell) ||
-      (shell.includes(`cx:${c.cx}`) && shell.includes(`r:${c.r}`)));
+      near(c).test(shell));
     const gridSquares = marks.CLOUD_GRID.filter((g) =>
       shell.includes(`${g.x}`) && shell.includes(`${g.s}`)).length;
     const named = /decentralized\.cloud/.test(shell);
@@ -1286,15 +1451,15 @@ function checkPriceKeepsItsUnit() {
 async function checkResponsiveLayout() {
   const { chromium } = await import("/home/heathledger/Documents/ioi/repos/ioi/node_modules/playwright/index.mjs");
   const port = PORT + 1;
-  const server = spawn("node", [path.join(APP, "scripts/serve-face.mjs")], {
-    env: { ...process.env, IOI_DC_PORT: String(port) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let booted = false;
-  server.stdout.on("data", (b) => { if (String(b).includes("face on")) booted = true; });
+  // SPAWNED BEFORE THE BROWSER LAUNCH, and listened to from the same instant.
+  const face = spawnFace(port);
+  const server = face.server;
   const browser = await chromium.launch();
   try {
-    for (let i = 0; i < 40 && !booted; i++) await sleep(100);
+    // This site is why bootFace exists. It waited four seconds and then never looked
+    // at the result, so a slow boot came back as ERR_CONNECTION_REFUSED from page.goto
+    // rather than as a stated finding.
+    if (!(await bootFace(face, "the responsive-layout block"))) return;
     // EVERY SURFACE, not just the landing one. The first responsive pass measured the
     // default surface at three widths, found 0px of overflow, and reported the layout
     // fixed; a review then found 238px of body scroll and four text-on-text collisions
@@ -1682,11 +1847,41 @@ async function checkResponsiveLayout() {
                 top: rr.top, bottom: rr.bottom,
               }));
           };
+          // LAID OUT IS NOT THE SAME AS ON THE SCREEN.
+          //
+          // This probe reported text-on-text on catalog at ALL SEVEN widths, naming
+          // pairs like "aws · no source" over "column height is on a sq". Every one was
+          // false. The left-hand element in each pair is an <li> inside a CLOSED
+          // <details class="rt-losers"> — the "N not quoting — why" disclosure. Chrome
+          // still lays those out: display list-item, content-visibility visible, a real
+          // rect at 16,1045→374,1062 that genuinely intersects the caption's box. They
+          // are simply not painted, because the disclosure is shut.
+          //
+          // Two things should have stopped me sending this to the designer before I
+          // looked, and one of them nearly didn't. The finding was WIDTH-INDEPENDENT,
+          // identical at 1920 and 390 — a reflow collision is a function of width and
+          // this was not shaped like one. And a screenshot at 390 shows the funnel
+          // columns stacking cleanly with nothing overprinting. The rule this file keeps
+          // relearning: numbers do not see pictures.
+          //
+          // `visibility: hidden` and `opacity: 0` were already excluded; this is the
+          // third way to be invisible while still having a box, and the check is for the
+          // CONDITION — an ancestor that is not rendering its contents — rather than for
+          // <details> by name, so a content-visibility skip is caught the same way.
+          const unpainted = (el) => {
+            for (let e = el; e && e !== document.body; e = e.parentElement) {
+              if (e.tagName === "DETAILS" && !e.open) return true;
+              if (getComputedStyle(e).contentVisibility === "hidden") return true;
+            }
+            return false;
+          };
+          let skipped = 0;
           const leaves = [];
           for (const el of document.querySelectorAll("body *")) {
             if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
             const cs = getComputedStyle(el);
             if (cs.visibility === "hidden" || cs.opacity === "0") continue;
+            if (unpainted(el)) { skipped += 1; continue; }
             const rects = painted(el);
             if (rects.length) leaves.push({ el, rects, text: (el.textContent || "").trim().slice(0, 24) });
           }
@@ -1704,6 +1899,10 @@ async function checkResponsiveLayout() {
             cells: cells.length,
             broken: [...new Set(broken)].slice(0, 3),
             leaves: leaves.length,
+            // REPORTED, NOT SILENTLY DROPPED. Narrowing what a probe looks at without
+            // saying so is how a check comes to cover less than its name claims; the
+            // reader of a green run is owed the count it declined to inspect.
+            skipped,
             over: [...new Set(over)].slice(0, 3),
           };
         });
@@ -1738,7 +1937,10 @@ async function checkResponsiveLayout() {
           : missed.length
             ? `NOT MEASURED on ${missed.join(", ")} — their content never rendered`
             : `${leavesSeen} text-bearing elements across all ${SURFACES.length} surfaces, ` +
-              `compared on PAINTED bounds (each rect widened by any content that overruns it)`,
+              `compared on PAINTED bounds (each rect widened by any content that overruns it); ` +
+              `${sweep.reduce((t, r) => t + (r.skipped || 0), 0)} more are laid out but not ` +
+              `painted (behind a closed disclosure or a content-visibility skip) and this ` +
+              `assertion says NOTHING about them`,
         leavesSeen);
 
       await page.close();
@@ -1867,10 +2069,43 @@ run().then(() => {
     console.log(`\n${vacuous.length} assertion(s) failed the vacuity rule, not their own subject:`);
     for (const n of vacuous) console.log(`  - ${n}`);
   }
+  if (voided.length) {
+    // NO TOTAL. A fraction here would be read as a score, and the run has no score to
+    // give — it stopped before most of what it exists to check.
+    console.log(`\nRUN VOID — ${voided.length} bail${voided.length === 1 ? "" : "s"}:`);
+    for (const why of voided) console.log(`  - ${why}`);
+    console.log(`${results.length} assertions ran before the bail; the rest were SKIPPED, not passed.`);
+    console.log("decentralized.cloud face: VOID (not a pass, not a fail — nothing was measured)");
+    process.exit(1);
+  }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`decentralized.cloud face: ${fail ? "FAIL" : "OK"}`);
   process.exit(fail ? 1 : 0);
 }).catch((e) => {
+  // A CRASH MUST NOT THROW AWAY WHAT WAS ALREADY MEASURED.
+  //
+  // This printed one line — "verifier crashed: <error>" — and exited, discarding every
+  // result collected before the throw. The mutation test that occupied the face's port
+  // found it: the run correctly voided on "the face server starts", then died later for
+  // an unrelated reason, and the output said NOTHING about the void. The one finding the
+  // run had actually made was destroyed by the reporting of a different failure.
+  //
+  // A crash is a void by definition — the run stopped before it finished, so it has no
+  // score — but the assertions that DID run are still evidence, and the reason for the
+  // bail is the most useful line in the output.
   console.error("verifier crashed:", e);
+  for (const r of results) {
+    const n = r.inspected === undefined ? "" : ` [${r.inspected} inspected]`;
+    console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${n}${r.detail ? `  (${r.detail})` : ""}`);
+  }
+  // `if (voided)` was true for an EMPTY array — the slot-to-list change would have made
+  // every crash claim a bail that never happened.
+  if (voided.length) {
+    console.log(`\nalso VOID before the crash — ${voided.length} bail${voided.length === 1 ? "" : "s"}:`);
+    for (const why of voided) console.log(`  - ${why}`);
+  }
+  console.log(`\nRUN VOID — the verifier crashed partway through.`);
+  console.log(`${results.length} assertions ran before the crash; the rest were SKIPPED, not passed.`);
+  console.log("decentralized.cloud face: VOID (not a pass, not a fail — the run did not finish)");
   process.exit(1);
 });

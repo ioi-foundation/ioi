@@ -134,3 +134,38 @@ Phone width is inspected in **unscaled bands** (`scripts/.crop390.mjs`), for the
 reason the mark plate magnifies nothing: a scaled phone screenshot is the identical
 class of instrument error as a magnified glyph plate, and that one manufactured a
 finding twice in this programme.
+
+## 12. The same probe agreeing with itself is ONE instrument
+
+Director's ruling, 2026-09-05, after a false finding survived three runs and two commits.
+
+The collision probe reported text-on-text on catalog at all seven widths. It was wrong:
+every reported pair had one side inside a **closed `<details>`**, which Chrome lays out
+(real rects, `display: list-item`) and never paints. The probe compared painted bounds
+and had no rule for *laid out but not painted*.
+
+It survived because I treated its own repetition as corroboration. Run again on a second
+commit, it said the same thing, and I read that as the two-instrument rule being
+satisfied. It is not. **A probe repeating itself is one instrument run twice, and a third
+run makes a false finding look more certain rather than less.**
+
+The second instrument must be of a different **KIND**: a screenshot, a DOM interrogation,
+a cold reader, a live body. Here the DOM interrogation named the closed disclosure and a
+390px screenshot showed the funnel columns stacking cleanly — two different kinds, one
+minute of work, available the entire time.
+
+Two signals were visible in the very first report and neither was acted on:
+
+- **The finding was width-independent.** Identical at 1920 and at 390. A reflow collision
+  is a function of width; anything that reads the same at every width is shaped like an
+  instrument artifact, not a layout defect.
+- **Nobody had looked.** §"numbers do not see pictures" already covers this. A collision
+  claim that has never been seen by an eye is half a claim.
+
+The corollary, for gates specifically: an exclusion added to stop a false positive must
+be mutation-tested in **both** directions, because an exclusion that silences a real
+finding looks exactly like one that works. The fix here was proved with three planted
+mutants — a visible overlap is CAUGHT, the same overlap behind a closed disclosure is
+MISSED, and the same element with the disclosure OPENED is CAUGHT again. Only the third
+distinguishes "excludes unpainted text" from "excludes anything inside a `<details>`",
+and the lazy version of the fix passes the first two.
