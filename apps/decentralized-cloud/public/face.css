@@ -69,6 +69,12 @@ a:hover { color: #3e7f5c; }
    slack, which is exactly what a first attempt did. */
 .wordmark .wm-z { height: 0.700em; width: 1.065em; vertical-align: baseline;
   overflow: visible; flex-shrink: 0; }
+/* The drawn I. Its width is its own advance — 620 units on a 1000 em — not the Z's,
+   for the reason the comment above gives: an SVG box narrower than its viewBox
+   shrinks the glyph to fit and centres it in the slack, so a shared width would
+   silently squash one of the two drawn glyphs. */
+.wordmark .wm-i { height: 0.700em; width: 0.620em; vertical-align: baseline;
+  overflow: visible; flex-shrink: 0; }
 
 .lockup { display: flex; align-items: center; gap: 10px; }
 .mark { display: block; flex-shrink: 0; }

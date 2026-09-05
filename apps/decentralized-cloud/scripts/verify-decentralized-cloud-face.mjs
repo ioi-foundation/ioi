@@ -237,6 +237,36 @@ async function checkServer() {
         : "the served shell does NOT carry the module's Z_PATH — the surface and its " +
           "one source have drifted, which is the whole state this gate exists to catch");
 
+    // The drawn I is held to the same standard as the drawn Z, and for the same
+    // reason: it is an override of the estate's brand face, adopted on the evidence of
+    // three fresh readers, and an override that can drift from its source is an
+    // override nobody can audit.
+    const carriesI = shell.includes(`d="${wm.I_PATH}"`);
+    ok("the served wordmark carries the I path from its one source",
+      carriesI,
+      carriesI
+        ? "the served shell carries wordmark.mjs's I_PATH verbatim"
+        : "the served shell does NOT carry the module's I_PATH — the drawn I and its " +
+          "one source have drifted");
+
+    // NEITHER OVERRIDE MAY BE SILENTLY DROPPED. A gate that only checks "the path in
+    // the shell equals the module" passes if BOTH the shell and the module lose the
+    // override together, or if the shell stops setting that letter as a drawn glyph at
+    // all and falls back to the face. So the served bytes are also checked for the
+    // FACE's own shapes, which are the exact things these overrides exist to replace.
+    const facesOwnZ = "M 32 700 L 1033 700 L 1033 560 L 221 140";
+    ok("the face's own numeral-shaped Z is in no byte this server sends",
+      !shell.includes(facesOwnZ),
+      shell.includes(facesOwnZ)
+        ? "the served shell carries the pre-override Z, which four readers read as a 2"
+        : "the pre-override Z is absent from the served shell");
+    ok("the wordmark's I is drawn rather than set in the face",
+      /<span>decentral<\/span>/.test(shell),
+      /<span>decentral<\/span>/.test(shell)
+        ? "the run breaks before the I, so the I is a drawn glyph and not the face's bare stem"
+        : "the served shell sets 'decentrali' as one run — the I is the face's bare stem, " +
+          "which two readers typed back as a lowercase l and one as DECENTRAL12ED");
+
     const unknown = await fetch(`${BASE}/api/not-a-real-read`);
     const unknownBody = await unknown.json().catch(() => ({}));
     ok("a path off the allowlist is refused BY NAME",

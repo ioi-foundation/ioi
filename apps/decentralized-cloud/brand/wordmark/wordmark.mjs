@@ -72,6 +72,50 @@ export const Z_PATH =
   "M 32 700 L 1033 700 L 1033 560 L 270 140 L 1033 140 L 1033 0 " +
   "L 32 0 L 32 140 L 795 560 L 32 560 Z";
 
+// ── The drawn I ─────────────────────────────────────────────────────────────
+// The face's I is literally `M32 0 L32 700 L171 700 L171 0 Z` — a bare rectangle,
+// 139 units wide on a 700 cap. It is not a stylised I that happens to resemble a
+// numeral; it is the same shape as one. Two readers typed back `DECENTRAL1ZED`, and
+// with the face's Z that compounds: "a barred Z next to a numeral-looking I gives
+// AL1ƵED — not two problems, one compound problem."
+//
+// An earlier drawn I was ruled a NULL RESULT and the letter was left alone. That
+// ruling was wrong, and it was wrong for a reason worth keeping: it rested on plates
+// wide enough to be downsampled in delivery — the same instrument fault that
+// manufactured part of the Z finding beside it. On narrow plates the fault came
+// straight back. Reader S, transcribing the wordmark cold at 16px: "DECENTRAL12ED".
+//
+// So the I was swept the way the Z was: ten variants, the face's own bare stem
+// carried as the incumbent, one magnification for the whole set (the first attempt
+// let each plate pick its own, and both readers named the scale difference before
+// they named anything about the letter — a comparison set that varies in scale is a
+// comparison of scale).
+//
+// TWO FRESH READERS INDEPENDENTLY CHOSE THIS DRAWING, and both put the bare stem in
+// their worst group, reading it as a lowercase l or a numeral 1.
+//
+//   reader V, on the incumbent: "a naked stem carries no capital-ness: it is exactly
+//     the shape a lowercase l would take, and it sits in a word where an l is
+//     perfectly plausible."
+//   reader X, on this variant: "crossbars long enough that no alternative reading
+//     occurred to me, while the bars stay in the same weight band as the L's foot and
+//     the E's arms, so the letter does not spot the line."
+//
+// Both also named the trade, and it is why the bars are 4x the stem and not 4.8x:
+// the widest, heaviest variants read as "a serif-font gesture" dropped into a
+// geometric sans — "the best legibility in the set is bought with the clearest
+// stylistic foreignness" (V). This is the drawing where neither complaint fires.
+//
+// Every number is the face's own: stem 139 measured off its outline, cap 700, left
+// bearing 32. Bars run 4x the stem and 200 units deep. IOI.ttf is UNTOUCHED.
+export const I_STEM = 139;
+export const I_BAR_MULTIPLE = 4.0;
+export const I_BAR_DEPTH = 200;
+export const I_ADVANCE = I_STEM * I_BAR_MULTIPLE + 64;      // 620
+export const I_PATH =
+  "M 32 700 L 588 700 L 588 500 L 379.5 500 L 379.5 200 L 588 200 " +
+  "L 588 0 L 32 0 L 32 200 L 240.5 200 L 240.5 500 L 32 500 Z";
+
 // ── The drawn period ────────────────────────────────────────────────────────
 // MEDIAL, per the standing spec it had drifted from, and cut to the face's stem.
 // Its centre sits at half the cap, which is the optical centre of a band where every
