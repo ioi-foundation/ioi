@@ -217,11 +217,21 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
   min-width: 620px; }
 .trow > th, .trow > td { padding: 16px 20px; vertical-align: middle; text-align: left;
   font-weight: 400; border-top: 1px solid var(--hairline-soft); }
-.table thead .trow > th { padding: 12px 20px; background: var(--surface); border-top: 0;
+/* `thead > tr`, NOT `thead .trow`.
+   Not one of the six theads in this surface carries the `trow` class — it is used on
+   BODY rows — so this whole block matched NOTHING on every table in the product, and
+   every column header fell back to the browser default: bold, centred, in the body
+   face. A reviewer measured "all four th are text-align:center"; that was the visible
+   half. The uppercase mono label treatment had simply never rendered, anywhere.
+   The class-orphan gate cannot see this. It asserts every class EMITTED has a rule,
+   and `trow` has one. The inverse — A RULE THAT MATCHES NOTHING — is a different
+   smell, and it is the one that hid here for the whole life of the port. */
+.table thead > tr > th { padding: 12px 20px; background: var(--surface); border-top: 0;
+  text-align: left; font-weight: 400;
   border-bottom: 1px solid var(--hairline);
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--label); }
-.table tbody .trow:first-child > th, .table tbody .trow:first-child > td { border-top: 0; }
+.table tbody > tr:first-child > th, .table tbody > tr:first-child > td { border-top: 0; }
 .trow > :nth-child(1) { width: 168px; }
 .trow > :nth-child(3) { width: 132px; }
 .trow > :nth-child(4) { width: 178px; }
@@ -324,7 +334,15 @@ input.field-box { cursor: text; }
   overflow-wrap: anywhere; }
 /* The price is the most important number on the surface and was rendering at the same
    weight as the ref beside it. */
-.price { font-size: 16px; color: var(--ink); white-space: nowrap; }
+/* Right-aligned and tabular, so the column can be READ AS A COLUMN. Left-aligned
+   proportional figures put $1.5900, $0.0415 and $6.7900 on three different decimal
+   positions, which is a price list you cannot compare by eye — on the surface whose
+   headline claims to have found the cheapest one. */
+.price { font-size: 16px; color: var(--ink); white-space: nowrap;
+  text-align: right; font-variant-numeric: tabular-nums; }
+/* The header sits over its own column. A right-aligned column under a left-aligned
+   label is the header pointing at the wrong place. */
+.t-quotes thead > tr > th:nth-child(3) { text-align: right; }
 .reasons { list-style: none; margin: 0; padding: 0; display: flex;
   flex-direction: column; gap: 6px; font-size: 12px; color: var(--label); }
 

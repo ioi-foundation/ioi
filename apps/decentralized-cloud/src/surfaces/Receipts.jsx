@@ -33,13 +33,22 @@ export default function Receipts({ announce }) {
   // daemon's own record, the count is stated, and one click shows them.
   const [showGate, setShowGate] = useState(false);
   const gateJobs = allJobs.filter((j) => j.gateAdmitted);
-  const jobs = showGate ? allJobs : allJobs.filter((j) => !j.gateAdmitted);
+  // SORTED, NEWEST FIRST, AND THE ORDER IS STATED IN THE HEADER.
+  // This was the daemon's response order: a reviewer measured stamps running
+  // 01:31 → 01:02 → 23:24 → 23:25 → 23:26. A ledger in arbitrary order is not a
+  // ledger. Records with no timestamp sort last rather than being treated as old.
+  const unsorted = showGate ? allJobs : allJobs.filter((j) => !j.gateAdmitted);
+  const jobs = [...unsorted].sort((a, b) => {
+    const at = Date.parse(a.createdAt || "") || -Infinity;
+    const bt = Date.parse(b.createdAt || "") || -Infinity;
+    return bt - at;
+  });
 
-  const withReceipts = jobs.filter((j) => j.receipts && Object.keys(j.receipts).length > 0);
+  const withReceipts = jobs.filter((j) => j.receipts.length > 0);
 
   useEffect(() => {
     if (state.phase === "first") return;
-    announce(`Receipts — ${jobs.length} job records, ${withReceipts.length} carrying receipts`);
+    announce(`Receipts — ${jobs.length} job records, newest first, ${withReceipts.length} carrying receipts`);
   }, [state.phase, jobs.length, withReceipts.length, announce]);
 
   if (state.phase === "first") return <Waiting what="job records" />;
@@ -113,10 +122,26 @@ export default function Receipts({ announce }) {
                     <div className="meta">{j.authorityRef || "—"}</div>
                   </td>
                   <td className="basis">
-                    {j.receipts && Object.keys(j.receipts).length > 0 ? (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                        {Object.keys(j.receipts).map((k) => (
-                          <span key={k} className="chip muted">{k}</span>
+                    {j.receipts.length > 0 ? (
+                      // THE RECEIPT'S KIND AND ITS ANCHORS, never its position in a
+                      // list. This rendered `Object.keys(receipts)` — indices, because
+                      // the daemon sends an array — so every chip on the page read "0"
+                      // under a column headed Receipts.
+                      <div className="stack" style={{ gap: "6px" }}>
+                        {j.receipts.map((r, i) => (
+                          <div key={r.ref || i} className="stack" style={{ gap: "3px" }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                              <span className="chip muted">{r.kind || "receipt of an unnamed kind"}</span>
+                              {/* The fee fact, from the record's own fields rather than
+                                  inferred from one of them. This is the claim the
+                                  product is most often asked to prove. */}
+                              {r.feeMinted === false && <span className="chip absent">no fee minted</span>}
+                              {r.feeMinted === true && <span className="chip">fee minted</span>}
+                            </div>
+                            {r.root && (
+                              <div className="meta mono" style={{ fontSize: "11px" }}>{r.root}</div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     ) : (

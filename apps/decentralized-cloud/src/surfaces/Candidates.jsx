@@ -49,13 +49,16 @@ export default function Candidates({ announce }) {
           would have removed the semantics it was added to provide. */}
       <table className="table t-quotes">
         <caption className="sr-only">
-          Live quotes for this intent, from the most recent sweep
+          Live quotes for this intent, from the most recent sweep, cheapest first
         </caption>
         <thead>
           <tr>
             <th scope="col">Venue</th>
             <th scope="col">Basis</th>
-            <th scope="col">USD per hour</th>
+            {/* The order is STATED where the reader is looking, rather than left to be
+                inferred from the numbers. A sorted table that does not say it is
+                sorted asks every reader to verify it by eye. */}
+            <th scope="col">USD per hour <span className="meta">· cheapest first</span></th>
             <th scope="col">Freshness</th>
           </tr>
         </thead>

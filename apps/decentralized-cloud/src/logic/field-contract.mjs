@@ -71,6 +71,15 @@ export const FIELD_CONTRACT = {
     sampled: ["authority", "budget_ref", "created_at", "evidence_refs"],
     optional: ["authority.caller_kind", "authority.mode", "authority.authority_ref",
                "budget_discovery.discovered_before_mutation", "receipts",
+               // THE SHAPE, not just the name. This contract said `receipts` EXISTS and
+               // nothing about what it is. It is an ARRAY, `typeof [] === "object"`
+               // passed it through untouched, and the surface rendered
+               // Object.keys(receipts) — indices — as evidence chips under a column
+               // headed Receipts. A shape assumption is exactly as much a fact about
+               // the daemon as a field name is, and this contract was only checking
+               // the names.
+               "receipts.0.receipt_ref", "receipts.0.receipt_root",
+               "receipts.0.fee_object_minted", "receipts.0.schema_version",
                "receipt_requirements", "redundancy"],
   },
   "/api/budgets": {

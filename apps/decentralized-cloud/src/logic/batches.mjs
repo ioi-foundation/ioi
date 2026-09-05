@@ -34,11 +34,22 @@ export function latestBatch(candidates) {
 // "live" on this surface is exactly the second spine the estate's structural law
 // forbids, and it is how a simulator lane would eventually be counted toward a fee.
 export function summarise(candidates) {
-  const live = candidates.filter((c) => classify(c).live);
+  // SORTED BY PRICE ASCENDING, AND THE HEADLINE'S CHEAPEST IS ROW ONE BY CONSTRUCTION.
+  //
+  // The table rendered in the daemon's response order. A reviewer measured 45 rows
+  // whose first eight prices ran 0.50, 0.27, 0.0502, 1.59, 0.0556 … while the headline
+  // above advertised "cheapest $0.0136/hr" — and that row sat at index 37 of 45, about
+  // 3,200px down a 3,940px table. The page named a number and then hid it.
+  //
+  // `cheapest` is now the FIRST ELEMENT rather than a separate reduction over the same
+  // list. Two derivations of one fact can disagree; one cannot. Same structural move
+  // as the route table and the wordmark's single source — and it means the assertion
+  // "the headline's price equals row one's price" cannot be satisfied by luck.
+  const live = candidates
+    .filter((c) => classify(c).live)
+    .sort((a, b) => a.quote.usd_per_hour - b.quote.usd_per_hour);
   const venues = [...new Set(live.map((c) => c.provider_kind))].sort();
-  const cheapest = live.length
-    ? live.reduce((a, b) => (a.quote.usd_per_hour <= b.quote.usd_per_hour ? a : b))
-    : null;
+  const cheapest = live.length ? live[0] : null;
   return { live, venues, cheapest };
 }
 

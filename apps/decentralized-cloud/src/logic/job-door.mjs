@@ -100,6 +100,58 @@ export const GATE_ORIGIN_REF = "gate://verify-decentralized-cloud-face";
 export const isGateAdmitted = (job) =>
   Array.isArray(job?.evidence_refs) && job.evidence_refs.includes(GATE_ORIGIN_REF);
 
+// ── What a receipt IS, rather than where it sat in a list ────────────────────
+//
+// THE DEFECT THIS REPLACES. `receipts` came through as `typeof === "object"`, which is
+// true of an ARRAY, and the Receipts surface then rendered `Object.keys(receipts)` as
+// chips. On an array those keys are indices, so a blind reviewer measured 27 rows, a
+// header reading "18 carrying receipts", 18 rows carrying a chip, and the set of every
+// distinct chip value on the page being ["0"].
+//
+// A column headed *Receipts* was showing a loop counter, on the surface whose whole
+// thesis is that no number appears without its provenance. The header count beside it
+// was correct, which is what made it survive: the page looked internally consistent.
+//
+// Nothing caught it. The field contract asserted `receipts` EXISTS and said nothing
+// about its shape, and a shape assumption is exactly as much a fact about the daemon
+// as a field name is — the same lesson as reading `provider_kind` off a body that
+// sends `source`, one level in.
+//
+// So the shape is now read once, here, and what the surface renders is the receipt's
+// KIND and its auditable anchors.
+const RECEIPT_KIND = (r) => {
+  // The daemon names the kind twice, and both are real evidence rather than a guess:
+  // the ref's URI scheme and the schema version. The scheme is preferred because it is
+  // what the rest of the estate addresses receipts by.
+  const scheme = String(r?.receipt_ref || "").split("://")[0];
+  if (scheme) return scheme;
+  const schema = String(r?.schema_version || "");
+  const m = schema.match(/^ioi\.hypervisor\.([a-z-]+)\.v\d+$/);
+  return m ? m[1] : null;
+};
+
+export function receiptViews(receipts) {
+  // An object keyed by kind and an array of receipt records are both plausible and the
+  // daemon sends the array. Both are handled, and neither is turned into indices.
+  const list = Array.isArray(receipts)
+    ? receipts
+    : receipts && typeof receipts === "object"
+      ? Object.values(receipts)
+      : [];
+  return list.map((r) => ({
+    kind: RECEIPT_KIND(r),
+    ref: r?.receipt_ref || null,
+    root: r?.receipt_root || null,
+    at: r?.at || null,
+    // The fee facts, carried rather than summarised. "no fee minted" is the claim this
+    // product is most often asked to prove, so it is rendered from the record's own
+    // two fields instead of inferred from one.
+    feeMinted: r?.fee_object_minted ?? null,
+    noFee: r?.no_fee ?? null,
+    note: r?.note || null,
+  }));
+}
+
 // What a job record actually carries, so the surfaces read one shape. Every field is
 // read from the daemon's own record; nothing here supplies a default that could be
 // mistaken for the daemon having said it.
@@ -117,7 +169,7 @@ export function jobView(job) {
     budgetDiscoveredBeforeMutation: job.budget_discovery?.discovered_before_mutation ?? null,
     redundancy: job.redundancy ?? null,
     receiptRequirements: Array.isArray(job.receipt_requirements) ? job.receipt_requirements : [],
-    receipts: job.receipts && typeof job.receipts === "object" ? job.receipts : null,
+    receipts: receiptViews(job.receipts),
     placement: job.placement || job.decision || null,
     createdAt: job.created_at || job.at || null,
   };

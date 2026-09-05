@@ -1175,6 +1175,55 @@ async function checkResponsiveLayout() {
           : "NO ROWS after 60s — every layout number at this width describes a loading page");
       await page.waitForTimeout(400);
 
+      // ── D1 AND D4, ASSERTED AGAINST THE RENDERED PAGE ─────────────────────
+      // Both defects were invisible to every source-reading assertion and plain in a
+      // screenshot, so both are measured in the browser, on the surface a reader sees.
+      if (w === 1920) {
+        // D4: the headline names a price; row one must BE that price. `cheapest` is
+        // now live[0] by construction, so this can only fail if the render order and
+        // the summary disagree — which is exactly what it is for.
+        const priced = await page.evaluate(() => {
+          const head = document.body.innerText.match(/cheapest \$([0-9.]+)\/hr/);
+          const cells = [...document.querySelectorAll(".t-quotes tbody .price")]
+            .map((c) => parseFloat(c.textContent.replace(/[^0-9.]/g, "")))
+            .filter((n) => Number.isFinite(n));
+          return { headline: head ? parseFloat(head[1]) : null, cells };
+        });
+        const ascending = priced.cells.every((v, i, a) => i === 0 || a[i - 1] <= v);
+        ok("the cheapest price in the headline is the first row of the table",
+          priced.headline !== null && priced.cells.length > 0 &&
+          Math.abs(priced.headline - priced.cells[0]) < 1e-9 && ascending,
+          priced.headline === null
+            ? "no cheapest headline was rendered"
+            : `headline $${priced.headline}, row one $${priced.cells[0]}, ascending: ${ascending}` +
+              ` over ${priced.cells.length} rows`,
+          priced.cells.length);
+
+        // D1: no chip anywhere on the surface is a bare integer. An array index
+        // rendered as evidence reads exactly like a count, and that is how a column
+        // headed *Receipts* came to be full of zeroes.
+        const bareChips = await page.evaluate(async () => {
+          const found = [];
+          for (const s of ["receipts", "candidates", "sources", "placement"]) {
+            const b = document.querySelector(`.nav button[data-surface="${s}"]`);
+            if (!b) continue;
+            b.click();
+            await new Promise((r) => setTimeout(r, 700));
+            for (const c of document.querySelectorAll(".chip")) {
+              const t = c.textContent.trim();
+              if (/^\d+$/.test(t)) found.push(`${s}: "${t}"`);
+            }
+          }
+          return found;
+        });
+        ok("no chip on any surface is a bare integer standing in for a name",
+          bareChips.length === 0,
+          bareChips.length
+            ? `bare-integer chips: ${[...new Set(bareChips)].join(", ")} — an index rendered as evidence`
+            : "chips carry names across receipts, candidates, sources and placement",
+          4);
+      }
+
       // ── THE RENDERED CAPABILITY SENTENCE, once, at the first width ─────────
       // The half of the generation proof that has to happen in a browser: what a
       // READER sees, compared against what the generator produces. A source-level
