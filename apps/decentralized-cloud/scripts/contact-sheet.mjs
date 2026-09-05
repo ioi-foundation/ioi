@@ -156,10 +156,15 @@ try {
       // as a picture of the product.
       const want = CONTENT_OF[s.id];
       let arrived = true;
+      // THE WAIT IS RECORDED, NOT JUST ENDURED. Standing practice §1 says a capture
+      // states the wait it observed; this file said so in a comment and wrote only a
+      // boolean. An instrument reader asked for the number and found it absent.
+      const t0 = Date.now();
       if (want) {
         arrived = await page.waitForSelector(want, { timeout: 90_000 })
           .then(() => true).catch(() => false);
       }
+      const waitedMs = Date.now() - t0;
       await page.waitForTimeout(400);
       // FULL PAGE, NOT THE VIEWPORT.
       //
@@ -177,7 +182,7 @@ try {
       // built for producing rather than for reading.
       const buf = await page.screenshot({ fullPage: true });
       cells.push({
-        w, id: s.id, label: s.label, arrived,
+        w, id: s.id, label: s.label, arrived, waitedMs,
         url: `data:image/png;base64,${buf.toString("base64")}`,
       });
       if (!arrived) {
@@ -196,7 +201,11 @@ try {
       // one that manufactured a mark finding twice in this programme — so the phone
       // width gets the same discipline the mark plate gets: nothing scaled, look at
       // the pixels that ship.
-      if (w === NARROW) {
+      // EVERY WIDTH, NOT ONLY THE PHONE. Receipts at 1440 is 6,800px tall; delivered
+      // whole it arrives at ~0.29 scale and an instrument reader called it illegible and
+      // cropped it by hand to read it at all. The bands are the reading copy for every
+      // cell whose height would force a scale-down; a short page writes one band.
+      {
         const full = await page.evaluate(() => document.documentElement.scrollHeight);
         for (let y = 0, n = 0; y < full; y += BAND, n += 1) {
           const h = Math.min(BAND, full - y);
@@ -225,8 +234,8 @@ try {
       // reading the instrument, not the product.
       .map((c) => {
         const cap = c.arrived === false
-          ? `${c.label} · ${w}px — <b>STILL WAITING at capture; this is not the loaded page</b>`
-          : `${c.label} · ${w}px`;
+          ? `${c.label} · ${w}px — <b>STILL WAITING after ${(c.waitedMs / 1000).toFixed(1)}s; this is not the loaded page</b>`
+          : `${c.label} · ${w}px · loaded after ${(c.waitedMs / 1000).toFixed(1)}s`;
         return `<figure${c.arrived === false ? ' class="waiting"' : ""}>` +
           `<img src="${c.url}" width="${Math.round(w / 3)}">` +
           `<figcaption>${cap}</figcaption></figure>`;
@@ -276,7 +285,12 @@ try {
       surfaces: SURFACES.map((s) => s.id),
       // The state of every capture, machine-readable, so a later reader can tell which
       // cells were the loaded page without squinting at a caption.
-      captures: cells.map((c) => ({ surface: c.id, width: c.w, loaded: c.arrived !== false })),
+      captures: cells.map((c) => ({
+        surface: c.id, width: c.w, loaded: c.arrived !== false,
+        // The wait the capture observed before its content arrived (or the 90s ceiling
+        // when it did not), in milliseconds — the number §1 promises.
+        waited_ms: c.waitedMs,
+      })),
     }, null, 2)
   );
   // THE SAME BUNDLE AT THE END AS AT THE START, or none of this is one build.
@@ -292,7 +306,7 @@ try {
   console.log(`contact sheet: ${sheet}`);
   console.log(`shot from ${COMMIT}, served bundle ${FP_BEFORE} unchanged across the shoot`);
   console.log(`full-size cells: ${OUT}/<surface>-<width>.png`);
-  console.log(`unscaled ${NARROW}px bands: ${OUT}/<surface>-${NARROW}-band<n>.png`);
+  console.log(`unscaled ${BAND}px bands at every width: ${OUT}/<surface>-<width>-band<n>.png`);
   console.log(`${cells.length} cells — ${SURFACES.length} surfaces x ${WIDTHS.length} widths`);
   console.log("");
   console.log("THIS RUN IS NOT GREEN UNTIL THE SHEET HAS BEEN OPENED AND A LINE WRITTEN");
