@@ -900,13 +900,63 @@ pub(crate) async fn handle_candidates_list(
             Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })),
         );
     };
-    let candidates = candidates_for(&st.data_dir, text(&intent, "intent_ref"));
+    let all = candidates_for(&st.data_dir, text(&intent, "intent_ref"));
+    let considered = all.len();
+
+    // ── `?latest=true` — the newest BATCH only, and nothing older. ──
+    //
+    // A long-lived intent accumulates every sweep ever run against it: `cri_default`
+    // reached 3,750 candidates and ~13.6 MB, which no caller can hold and no reader can
+    // use. Worse, the accumulation mixes cohorts — a price observed minutes ago sits
+    // beside one observed a fortnight ago, and only the batch tells them apart. A
+    // consumer that wants "what is true now" wants ONE cohort.
+    //
+    // The default is unchanged and returns everything, so no existing caller moves.
+    let latest = matches!(q.get("latest").map(String::as_str), Some("true" | "1"));
+    let mut candidates = if latest {
+        // Newest batch by the latest observation inside it. Candidates with no batch
+        // are their own cohort rather than being silently folded into a real one.
+        let newest = all
+            .iter()
+            .max_by(|a, b| text(a, "observed_at").cmp(text(b, "observed_at")))
+            .map(|c| text(c, "batch").to_string());
+        match newest {
+            Some(batch) => all
+                .into_iter()
+                .filter(|c| text(c, "batch") == batch)
+                .collect::<Vec<_>>(),
+            None => all,
+        }
+    } else {
+        all
+    };
+
+    // `?limit=N` truncates AFTER cohort selection, so a limit can never mix batches.
+    let limit = q.get("limit").and_then(|v| v.parse::<usize>().ok());
+    if let Some(n) = limit {
+        candidates.truncate(n);
+    }
+
     (
         StatusCode::OK,
         Json(json!({
             "schema_version": "ioi.hypervisor.cloud-resource-candidates.v1",
             "intent_ref": intent["intent_ref"],
             "candidates": candidates,
+            // Say what was set aside and why, so a truncated read is never mistaken for
+            // a complete one. Silence about omission is how a partial answer becomes a
+            // wrong one.
+            "selection": {
+                "latest_batch_only": latest,
+                "limit": limit,
+                "returned": candidates.len(),
+                "considered": considered,
+                "note": if latest || limit.is_some() {
+                    "a subset was returned; `considered` is how many exist for this intent"
+                } else {
+                    "every candidate known for this intent, across all sweeps"
+                },
+            },
             "candidate_rule": "candidates are proposals with evidence and expiry — never authority; expired/superseded candidates are not placement-eligible",
             "at": iso_now(),
         })),
