@@ -11,6 +11,7 @@
     "check:decentralized-cloud-face": "node scripts/verify-decentralized-cloud-face.mjs",
     "check:decentralized-cloud-job-primitive": "node scripts/verify-decentralized-cloud-job-primitive.mjs",
     "check:decentralized-cloud-spend-fence": "node scripts/verify-spend-fence.mjs",
+    "contact-sheet": "node scripts/contact-sheet.mjs",
     "check:workspace-builds": "node scripts/verify-workspace-builds.mjs",
     "brand:build": "node brand/build-artboards.mjs",
     "brand:measure": "node brand/measure-artboards.mjs"

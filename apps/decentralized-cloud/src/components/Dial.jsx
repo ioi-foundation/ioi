@@ -37,7 +37,7 @@ export default function Dial({ observedAt, expiresAt }) {
   if (f === null) {
     return (
       <svg className="dial" width="22" height="22" viewBox="0 0 22 22" role="img" aria-label="no observation window">
-        <circle cx="11" cy="11" r={R} className="dial-track" fill="none" strokeDasharray="2 3" />
+        <circle cx="11" cy="11" r={R} className="track" fill="none" strokeDasharray="2 3" />
       </svg>
     );
   }
@@ -52,12 +52,12 @@ export default function Dial({ observedAt, expiresAt }) {
       role="img"
       aria-label={`${pct}% of this quote's observation window remains`}
     >
-      <circle cx="11" cy="11" r={R} className="dial-track" fill="none" />
+      <circle cx="11" cy="11" r={R} className="track" fill="none" />
       <circle
         cx="11"
         cy="11"
         r={R}
-        className="dial-ink"
+        className="sweep"
         fill="none"
         strokeDasharray={`${(C * f).toFixed(3)} ${C.toFixed(3)}`}
         transform="rotate(-90 11 11)"

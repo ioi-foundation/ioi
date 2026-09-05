@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { Chip, Failure } from "../components/Bits.jsx";
 import { HUMAN_REQUEST, AGENT_REQUEST } from "../logic/job-request.mjs";
@@ -63,19 +63,48 @@ export default function Job({ announce }) {
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  // THE OUTCOME OF A WRITE IS ANNOUNCED, AND FOCUS MOVES TO IT.
+  //
+  // A reviewer submitted a job, got a 201 back, and measured that the page's only live
+  // region still read "Submit a job — wired to the daemon on the human path". The
+  // result panel rendered 209px below an unscrolled fold with no role, no announcement
+  // and no focus move: a screen-reader user pressed the only button on the surface and
+  // was told nothing had happened, and a sighted user was told by a panel they could
+  // not see.
+  //
+  // This is the only place on the surface where a reader causes something, so it is the
+  // one place where "what happened" cannot be left to be discovered.
+  const outcomeRef = useRef(null);
+  const announceOutcome = (r, verb) => {
+    const f = refusal(r);
+    announce(
+      f
+        ? `${verb} refused by the daemon: ${f.code}. ${f.detail || ""}`
+        : `${verb} accepted. ${r.body?.job?.job_id || ""} is ${r.body?.job?.state || "recorded"}.`
+    );
+    // Focus lands on the outcome, not on the top of the page: the reader asked a
+    // question and the answer is what they should arrive at.
+    requestAnimationFrame(() => outcomeRef.current?.focus());
+  };
+
   async function onSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
     setDry(null);
+    announce("Submitting the job to the daemon.");
     const r = await admit(composeRequest(form));
     setResult(r);
     setSubmitting(false);
+    announceOutcome(r, "Admission");
   }
 
   async function onDryRun(jobId) {
     setDryBusy(true);
-    setDry(await dryRun(jobId, `face-${Date.now()}`));
+    announce("Running the placement decision. No provider is contacted.");
+    const r = await dryRun(jobId, `face-${Date.now()}`);
+    setDry(r);
     setDryBusy(false);
+    announceOutcome(r, "Dry run");
   }
 
   const refused = result ? refusal(result) : null;
@@ -94,7 +123,7 @@ export default function Job({ announce }) {
       </div>
 
       {/* The spend fence, stated where the button is, not in a footnote. */}
-      <div className="panel notice stack" style={{ gap: "8px" }}>
+      <div className="panel absent stack" style={{ gap: "8px" }}>
         <div className="eyebrow">what this door can and cannot do</div>
         <p className="prose">
           Submitting admits a <strong>proposal</strong>: the daemon records it and it
@@ -183,7 +212,8 @@ export default function Job({ announce }) {
       </form>
 
       {refused && (
-        <div className="panel fault stack" style={{ gap: "8px" }}>
+        <div className="panel fault stack" style={{ gap: "8px" }}
+          ref={outcomeRef} tabIndex={-1} role="alert">
           <div className="eyebrow mono">{refused.code}</div>
           <p className="prose">{refused.detail || "The daemon refused and gave no reason, which is itself worth reporting."}</p>
           <p className="meta">refused by the daemon · http {refused.status}</p>
@@ -191,11 +221,12 @@ export default function Job({ announce }) {
       )}
 
       {job && (
-        <div className="panel flag stack" style={{ gap: "12px" }}>
+        <div className="panel flag stack" style={{ gap: "12px" }}
+          ref={outcomeRef} tabIndex={-1} role="status">
           <div className="eyebrow">admitted as a proposal — nothing is authorized and nothing is spent</div>
           <h2 className="mono">{job.id}</h2>
           <div className="table-scroll">
-            <table className="quotes">
+            <table className="table">
               <caption className="sr-only">What the daemon recorded for this job</caption>
               <tbody>
                 {[
@@ -241,10 +272,22 @@ export default function Job({ announce }) {
           </div>
           <h2 className="mono">{dryJob.state}</h2>
           {dry.body?.note && <p className="prose">{dry.body.note}</p>}
+          {/* The end of the road on this surface, stated as the DESIGN it is rather
+              than as a thing that is missing. A public page is a dry-run door: it
+              decides a placement and stops. Executing is a spend, and a spend is
+              authorized by a wallet grant presented at the moment it happens — which
+              is a thing a person does, not a thing a web form carries. */}
+          <p className="prose">
+            <strong>Placement decided; execution requires a wallet grant — not offered
+            on this surface.</strong> That is the design, not a gap: a public page is a
+            dry-run door. Running this for real is a metered provider spend, authorized
+            at the moment of spend against the daemon's own gate, and nothing on this
+            page can stand in for that.
+          </p>
           <p className="meta">
-            The flag above is the DAEMON's echo of what it received, not what this page
-            sent. That is the assertion that matters: a request carrying dry_run false
-            comes back true.
+            The dry-run flag above is the DAEMON's echo of what it received, not what
+            this page sent. That is the fact worth having: a request carrying dry_run
+            false comes back true.
           </p>
         </div>
       )}

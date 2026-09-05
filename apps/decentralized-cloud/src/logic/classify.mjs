@@ -45,10 +45,30 @@ export const minutesLeft = (iso) => {
   return Math.round((t - Date.now()) / 60000);
 };
 
+// A TIME WITHOUT A DATE IS NOT A TIMESTAMP.
+//
+// This returned "01:11:36Z" everywhere. On Candidates the dial and "13 min left"
+// rescued it; on Receipts nothing did, and twenty-three rows carried a time of day
+// with no day. On the one surface whose stated promise is that a stale number is never
+// presented as a current one, a reader could not tell yesterday's record from this
+// hour's.
+//
+// `clock` keeps the time-only form for places where the date is already established by
+// something adjacent — a row whose freshness dial is beside it — and `stamp` is the
+// full one. Both are UTC and say so, because a local rendering of a daemon's UTC record
+// is a second timezone for a reader to reconcile.
 export const clock = (iso) => {
   if (!iso) return "—";
   const t = Date.parse(iso);
   return Number.isFinite(t) ? new Date(t).toISOString().slice(11, 19) + "Z" : String(iso);
+};
+
+export const stamp = (iso) => {
+  if (!iso) return "—";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return String(iso);
+  const d = new Date(t).toISOString();
+  return `${d.slice(0, 10)} ${d.slice(11, 19)}Z`;
 };
 
 // ── The error envelope, both shapes ──────────────────────────────────────────

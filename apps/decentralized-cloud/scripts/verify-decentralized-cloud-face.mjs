@@ -377,18 +377,106 @@ async function checkServer() {
       shell.includes(facesOwnZ)
         ? "the served shell carries the pre-override Z, which four readers read as a 2"
         : "the pre-override Z is absent from the served shell");
+    // ── THE FIELD CONTRACT, against LIVE bodies ──────────────────────────────
+    //
+    // A field name is a fact about the DAEMON, and every assertion I had read my own
+    // source. So the Sources surface read `provider_kind`, `source_ref`, `reason`,
+    // `rule`, `http_status` and `offers_seen` — none of which the daemon sends — and
+    // rendered "—" thirteen times out of thirteen under a subtitle promising it showed
+    // the daemon's own evidence. Every gate was green.
+    //
+    // This fetches ONE LIVE BODY per read route through the surface's own proxy and
+    // checks it against the names declared in src/logic/field-contract.mjs. A surface
+    // may not read a field the daemon does not send.
+    const { FIELD_CONTRACT, checkBody } = await import(path.join(APP, "src/logic/field-contract.mjs"));
+    for (const route of Object.keys(FIELD_CONTRACT)) {
+      const url = route === "/api/candidates" || route === "/api/placement-advisory"
+        ? `${BASE}${route}?intent_ref=${encodeURIComponent("cloud-resource-intent://cri_default")}`
+        : `${BASE}${route}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        // NOT RUN is reported as its own state. Silence from a check that never ran
+        // looks exactly like silence from a check that passed.
+        ok(`the field contract for ${route} was checked against a live body`, false,
+          `the route answered HTTP ${res.status}; the contract for ${route} was NOT verified`);
+        continue;
+      }
+      const body = await res.json().catch(() => null);
+      const r = checkBody(route, body);
+      ok(`every field ${route} is read for exists in the daemon's live body`,
+        r.failures.length === 0,
+        r.failures.length ? r.failures.join(" · ") : (r.notes.join(" · ") || "no item fields declared"));
+    }
+
+    // ── EVERY CLASS THE SURFACE EMITS HAS A RULE IN THE STYLESHEET IT SHIPS ───
+    //
+    // I invented a class name that does not exist TWICE in one session. The first
+    // (`tablewrap`, where the stylesheet defines `table-scroll`) left every table
+    // without a scroll container and cost 70px of horizontal overflow at 390px; the
+    // gate caught that one by its consequence. The second (`linklike`) would have
+    // shipped an unstyled browser button sitting in a line of prose, and the only
+    // reason it did not is that I grepped the stylesheet instead of trusting myself.
+    //
+    // Twice by grep is a pattern, so it becomes an assertion. Both sides are read from
+    // the BUILT artifact: the class tokens the bundle actually emits, against the rules
+    // the served stylesheet actually defines. Reading the JSX source would test a file
+    // that a build step sits between — and a build step is exactly what this programme
+    // keeps being surprised by.
+    const bundleJs = await (await fetch(`${BASE}/assets/face.js`)).text();
+    const bundleCss = await (await fetch(`${BASE}/assets/index.css`)).text();
+
+    // Static class tokens only. A template literal like `chip ${kind}` contributes
+    // "chip" and nothing else: the interpolated half is a runtime value and this
+    // assertion has no business guessing it. Confining the instrument to what it can
+    // actually see is what keeps a disagreement from it worth reading.
+    const emitted = new Set();
+    for (const m of bundleJs.matchAll(/className:\s*"([^"${}]+)"/g)) {
+      for (const t of m[1].split(/\s+/)) if (t) emitted.add(t);
+    }
+    for (const m of bundleJs.matchAll(/className:\s*`([^`]*)`/g)) {
+      for (const t of m[1].split(/\$\{[^}]*\}/).join(" ").split(/\s+/)) if (t) emitted.add(t);
+    }
+    const defined = new Set();
+    for (const m of bundleCss.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) defined.add(m[1]);
+
+    const orphans = [...emitted].filter((c) => !defined.has(c)).sort();
+    ok("every class the built surface emits resolves to a rule in the stylesheet it ships",
+      orphans.length === 0,
+      orphans.length
+        ? `no rule for: ${orphans.join(", ")} — an invented class name renders as nothing and fails silently`
+        : `${emitted.size} emitted class tokens, all defined among ${defined.size} in the served CSS`);
+
     // THE SURFACE DOES NOT CALL ITSELF READ-ONLY WHILE IT HAS A WRITE DOOR.
     // That claim stood in the header for a build after the door was wired — a false
     // statement on the one page whose subject is not making false statements. No gate
     // saw it; a screenshot did. It is asserted against the served bytes because the
     // claim is a rendered string, and it is asserted as an ABSENCE, which is the only
     // shape that catches it coming back.
-    const claimsReadOnly = /read-only surface/.test(shell);
-    ok("the surface does not describe itself as read-only now that it has a write door",
-      !claimsReadOnly,
-      claimsReadOnly
-        ? "the served bytes still say 'read-only surface' while two POST routes exist"
-        : "no served byte claims the surface is read-only");
+    // AN ABSENCE ASSERTION PINNED TO ONE WORDING IS NOT AN ABSENCE ASSERTION.
+    //
+    // This checked for the exact phrase "read-only surface" and passed while
+    // Redundancy's stub panel said "this server exposes no mutating route at all" — the
+    // same false claim in different words, inside the one construct this product spends
+    // its credibility on. A blind reviewer put a job through one of the two POSTs to
+    // prove the sentence false. I had fixed the header chip and the API surface when I
+    // wired the door and missed this one, and my own gate agreed with me.
+    //
+    // The fix is to look for the CLAIM rather than a phrasing of it: several ways of
+    // saying "this surface performs no writes", any of which is now false.
+    const NO_WRITE_CLAIMS = [
+      /read-only surface/i,
+      /exposes no mutating route/i,
+      /no mutating route at all/i,
+      /performs no writes?/i,
+      /this surface writes nothing/i,
+      /owns no write/i,
+    ];
+    const falseClaims = NO_WRITE_CLAIMS.filter((re) => re.test(shell)).map(String);
+    ok("no served byte claims this surface performs no writes, in any wording",
+      falseClaims.length === 0,
+      falseClaims.length
+        ? `the served bytes still make that claim: ${falseClaims.join(" ")} — two POST routes exist`
+        : `checked ${NO_WRITE_CLAIMS.length} ways of saying it; the served bytes make none of them`);
 
     // THE MARK IS STILL THERE, and it is asserted because it once was not.
     // Porting the lockup to a component dropped the mark — not by a decision, but by
@@ -499,6 +587,19 @@ async function checkServer() {
         !!spend, spend ? `budget://${spend.budget_id}` : "none — the admission below cannot run");
 
       if (spend) {
+        // THE GATE LABELS ITS OWN RECORDS. It admits a real job every run — that is
+        // what makes the door proven rather than asserted — and those proposals
+        // accumulate in the daemon's data directory.
+        //
+        // They are NOT cleaned up afterwards: a gate that erases its own records is one
+        // more artifact the estate cannot audit. Instead the run identifies itself in
+        // `evidence_refs`, which the daemon passes through verbatim into the persisted
+        // record, so the label lives in the daemon's own copy rather than in a list this
+        // repository keeps on the side. The Receipts surface filters on the same
+        // constant, imported from the same module, so the tag written and the tag
+        // filtered cannot drift apart.
+        const { GATE_ORIGIN_REF } = await import(path.join(APP, "src/logic/job-door.mjs"));
+        const runRef = `run://face-gate-${Date.now()}`;
         const admitRes = await fetch(`${BASE}/api/jobs`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -510,6 +611,7 @@ async function checkServer() {
             deadline: { max_duration_hours: 1 },
             redundancy: "none",
             receipt_requirements: ["placement", "spend"],
+            evidence_refs: [GATE_ORIGIN_REF, runRef],
           }),
         });
         const admitBody = await admitRes.json().catch(() => ({}));
@@ -526,6 +628,19 @@ async function checkServer() {
           admitBody?.job?.budget_discovery?.discovered_before_mutation === true);
         ok("the caller holds no provider credential in the admitted record",
           admitBody?.job?.authority?.credential_held_by_caller === false);
+
+        // The label round-trips through the DAEMON'S record, not through anything this
+        // process is holding. If it did not, the Receipts surface would filter on a tag
+        // nothing carries and would quietly hide nothing at all — a filter that appears
+        // to work by never matching.
+        const refs = admitBody?.job?.evidence_refs;
+        ok("the gate's own record says, in the daemon's copy, that the gate made it",
+          Array.isArray(refs) && refs.includes(GATE_ORIGIN_REF) && refs.includes(runRef),
+          Array.isArray(refs) ? refs.join(", ") : "evidence_refs absent");
+        const { isGateAdmitted } = await import(path.join(APP, "src/logic/job-door.mjs"));
+        ok("the surface's own filter recognises this record as gate-admitted",
+          isGateAdmitted(admitBody?.job),
+          "the tag the gate writes and the predicate the surface filters with are the same constant");
 
         // It is in the daemon's own list, read back independently.
         if (jobId) {
@@ -583,16 +698,48 @@ async function checkServer() {
     // counts changes, and "update the number until it passes" is how a gate stops
     // meaning anything. Compared against the server's map, it cannot drift.
     const serveText = readFileSync(path.join(APP, "scripts/serve-face.mjs"), "utf8");
-    // Scoped to the READS map alone. The first version of this scanned the whole file
-    // and counted 7 against a refusal listing 6, because `/api/jobs` appears in BOTH
-    // the read map and the write map — the assertion was reading two different things
-    // as one. Scope every assertion to the region it names.
+    // A CLOSED, NAMED LIST — pinned here, by literal path, and nowhere else.
+    //
+    // This went through three shapes and the last two are both worth recording. It was
+    // `length === 4`, which went stale the moment the job door added routes: a count is
+    // a claim that dies when the thing it counts changes, and raising the number until
+    // it passes is how a gate stops meaning anything.
+    //
+    // I then compared the refusal against the PROXY'S OWN MAP, which fixed the
+    // staleness and introduced a worse fault: an assertion that cannot fail if the map
+    // grows. Adding a route would have moved both sides of the comparison at once and
+    // the gate would have applauded. The number had not been removed, it had been moved
+    // out of the gate and into the thing the gate was supposed to be watching.
+    //
+    // So the surface's whole reachable API is written out here, once, as literals. A new
+    // route fails this until someone adds it deliberately — which is the only version
+    // of "closed" that means anything.
+    const EXPECTED_READS = [
+      "/api/candidate-sources",
+      "/api/candidates",
+      "/api/placement-advisory",
+      "/api/venues",
+      "/api/jobs",
+      "/api/budgets",
+    ];
+    const EXPECTED_WRITES = ["/api/jobs", "/api/jobs/:id/dry-run"];
+
     const readsBlock = (serveText.match(/const READS = new Map\(\[([\s\S]*?)\n\]\);/) || ["", ""])[1];
     const declaredReads = [...readsBlock.matchAll(/\["(\/api\/[a-z-]+)",\s*\{\s*daemon:/g)].map((m) => m[1]);
-    const namedAll = declaredReads.every((r) => (unknownBody.allowed || []).includes(r));
-    ok("the refusal names every read the proxy actually declares",
-      namedAll && (unknownBody.allowed || []).length === declaredReads.length,
-      `refusal listed ${(unknownBody.allowed || []).length}, the proxy declares ${declaredReads.length}`);
+    const sameSet = (a, b) => a.length === b.length && [...a].sort().every((v, i) => v === [...b].sort()[i]);
+    ok("the proxy declares exactly the reads this gate names, and no others",
+      sameSet(declaredReads, EXPECTED_READS),
+      `proxy: ${declaredReads.join(", ")}`);
+    ok("the refusal names exactly those reads back to the caller",
+      sameSet(unknownBody.allowed || [], EXPECTED_READS),
+      `refusal: ${(unknownBody.allowed || []).join(", ")}`);
+
+    const writesBlock = (serveText.match(/const WRITES = new Map\(\[([\s\S]*?)\n\]\);/) || ["", ""])[1];
+    const declaredWrites = [...writesBlock.matchAll(/\["(\/api\/[a-z-]+)",/g)].map((m) => m[1]);
+    ok("the proxy declares exactly one POST path plus the dry-run lane, both named here",
+      declaredWrites.length === 1 && declaredWrites[0] === "/api/jobs" &&
+      /EXECUTE_PATH = \/\^\\\/api\\\/jobs\\\//.test(serveText),
+      `writes: ${declaredWrites.join(", ")} + the dry-run lane; expected ${EXPECTED_WRITES.join(", ")}`);
 
     // PUT, PATCH and DELETE are refused on every path, still. POST is no longer in this
     // loop because POST is no longer universally refused — it is refused EXCEPT on the
@@ -742,7 +889,26 @@ async function checkResponsiveLayout() {
     for (const w of [1920, 1520, 1440, 1180, 900, 640, 390]) {
       const page = await browser.newPage({ viewport: { width: w, height: 900 } });
       await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(2200);
+      // WAIT FOR THE TABLE, DO NOT RACE IT. A fixed 2.2s wait was shorter than the
+      // candidate sweep, which has been measured at 27-39s, so at some widths this
+      // whole block measured a page that was still saying "Asking the daemon".
+      //
+      // The vacuous-pass reporting made that visible: three of seven widths inspected
+      // ZERO cells while the run said 144/144. Every collision and overflow number at
+      // those widths was a measurement of an empty page — including the collision
+      // checks I had been quoting as evidence the layout was fine.
+      //
+      // If the rows never arrive, that is reported as NOT MEASURED rather than passed.
+      const rowsArrived = await page
+        .waitForSelector(".trow", { timeout: 60000 })
+        .then(() => true)
+        .catch(() => false);
+      ok(`at ${w}px the candidate table rendered, so the measurements below saw it`,
+        rowsArrived,
+        rowsArrived
+          ? "rows present before measuring"
+          : "NO ROWS after 60s — every layout number at this width describes a loading page");
+      await page.waitForTimeout(400);
       // The read-backed surfaces are slow and their emptiness is not a layout fault,
       // so the ones that render synchronously carry the width check.
       for (const s of ["job", "redundancy", "receipts", "api", "candidates"]) {
@@ -778,12 +944,92 @@ async function checkResponsiveLayout() {
             if (ox > 3 && oy > 3) hits.push(`"${a.text}" over "${b.text}"`);
           }
         }
-        return { overflow, hits: [...new Set(hits)].slice(0, 3) };
+        // ── EVERY NAV TARGET IS ACTUALLY VISIBLE ────────────────────────────
+        // The collision probe above compares RECTS, and a rect does not know it has
+        // been clipped by a scrolling ancestor. That blindness produced a false report
+        // — a nav button whose rect overlapped the status block while the nav clipped
+        // it on screen — and while I was chasing that report, the real defect went
+        // unnamed: at 1520px the nav was silently clipped and the API button had
+        // disappeared entirely on a wide desktop. Nothing tested for it, because
+        // "disappeared" is not overflow and is not collision.
+        //
+        // So: intersect each nav target with every scrolling ancestor and with the
+        // viewport, and require the result to be a real box. A button a reader cannot
+        // see or reach now fails BY NAME instead of being reported as something else.
+        const invisible = [];
+        for (const b of document.querySelectorAll(".nav button")) {
+          let box = b.getBoundingClientRect();
+          let node = b.parentElement;
+          while (node && node !== document.documentElement) {
+            const cs = getComputedStyle(node);
+            if (/(auto|scroll|hidden)/.test(cs.overflowX + cs.overflowY)) {
+              const c = node.getBoundingClientRect();
+              box = {
+                left: Math.max(box.left, c.left), right: Math.min(box.right, c.right),
+                top: Math.max(box.top, c.top), bottom: Math.min(box.bottom, c.bottom),
+              };
+            }
+            node = node.parentElement;
+          }
+          const vw = { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+          const w2 = Math.min(box.right, vw.right) - Math.max(box.left, vw.left);
+          const h2 = Math.min(box.bottom, vw.bottom) - Math.max(box.top, vw.top);
+          // 24x24 is WCAG 2.2 SC 2.5.8's target size; anything smaller than a few
+          // pixels is not a target a reader can hit, whatever the rect says.
+          if (w2 < 8 || h2 < 8) invisible.push(`${b.textContent.trim()} (${Math.round(w2)}x${Math.round(h2)})`);
+        }
+
+        // ── A TABLE CELL IS A TABLE CELL ────────────────────────────────────
+        // `.stack` and `.freshness` are both `display: flex`, and both were applied
+        // directly to `<th>`/`<td>`. That removes the cell from the table layout
+        // algorithm: it stops taking its column's declared width and collapses to
+        // min-content. Measured at 1440px, the Venue header cell was 264px — exactly
+        // the 19% declared — above a body cell of 50px rendering "vast" as four
+        // stacked letters.
+        //
+        // Every other check was green while that shipped: the body did not scroll,
+        // nothing collided, every class resolved to a rule, every field existed. A
+        // contact sheet caught it, and then caught the SECOND instance after I fixed
+        // only the first. So the rule is asserted about cells rather than about the two
+        // classes I happen to have found.
+        const brokenCells = [];
+        const allCells = document.querySelectorAll(".trow > th, .trow > td");
+        for (const cell of allCells) {
+          const d = getComputedStyle(cell).display;
+          if (d !== "table-cell") {
+            brokenCells.push(`${cell.className || cell.tagName} is display:${d}`);
+          }
+        }
+
+        return { overflow, hits: [...new Set(hits)].slice(0, 3), invisible,
+                 cellsSeen: allCells.length,
+                 brokenCells: [...new Set(brokenCells)].slice(0, 4) };
       });
       await page.close();
       ok(`at ${w}px the body does not scroll sideways and nothing collides`,
         m.overflow <= 0 && m.hits.length === 0,
         `overflow ${m.overflow}px${m.hits.length ? `; ${m.hits.join(", ")}` : ""}`);
+      // A VACUOUS PASS IS REPORTED AS ONE. The mutation test planted a flex cell and
+      // this assertion went red at 1920, 1440, 1180, 900, 640 and 390 — and PASSED at
+      // 1520, because the table had not finished loading at that width and there were
+      // no cells to check. Silence from a check with nothing to look at is
+      // indistinguishable from silence from a check that looked and found nothing,
+      // which is the shape that let three readers score a sheet that was never written.
+      // It says which it was.
+      ok(`at ${w}px every table cell is still a table cell`,
+        m.brokenCells.length === 0,
+        m.brokenCells.length
+          ? `${m.brokenCells.join("; ")} — a cell that is not display:table-cell leaves the ` +
+            `table layout, drops its column's width, and collapses to min-content`
+          : m.cellsSeen > 0
+            ? `${m.cellsSeen} cells checked, all display:table-cell`
+            : "NOTHING TO CHECK — no table rows were rendered at this width, so this " +
+              "assertion passed without looking at anything");
+      ok(`at ${w}px every surface in the nav is visible and reachable`,
+        m.invisible.length === 0,
+        m.invisible.length
+          ? `clipped out of sight: ${m.invisible.join(", ")}`
+          : "all seven nav targets have a real visible box after intersecting their scroll ancestors");
     }
   } finally {
     await browser.close();

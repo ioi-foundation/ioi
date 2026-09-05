@@ -80,6 +80,26 @@ export function refusal(result) {
   return { code, detail, status: result.status };
 }
 
+// ── The gate's own records, labelled rather than deleted ────────────────────
+//
+// The face gate admits a real job on every run, to prove the door against the running
+// daemon rather than a fixture. Those records are real and they accumulate.
+//
+// They are NOT cleaned up. ioi-c0's ruling, and it is the right one: a gate that
+// erases its own records is one more artifact the estate cannot audit. So each one is
+// TAGGED at admission instead — the daemon passes `evidence_refs` through verbatim
+// from the request body into the persisted record, so the tag lives in the daemon's
+// own copy and not in a list this surface keeps on the side.
+//
+// This constant is exported so the gate that WRITES the tag and the surface that
+// FILTERS on it use the same string. Two copies of a magic value that must agree are
+// two sources and a wish — the same fault as two copies of the Z path, and the
+// filter silently showing nothing would be the way it announced itself.
+export const GATE_ORIGIN_REF = "gate://verify-decentralized-cloud-face";
+
+export const isGateAdmitted = (job) =>
+  Array.isArray(job?.evidence_refs) && job.evidence_refs.includes(GATE_ORIGIN_REF);
+
 // What a job record actually carries, so the surfaces read one shape. Every field is
 // read from the daemon's own record; nothing here supplies a default that could be
 // mistaken for the daemon having said it.
@@ -87,6 +107,8 @@ export function jobView(job) {
   if (!job) return null;
   return {
     id: job.job_id || null,
+    evidenceRefs: Array.isArray(job.evidence_refs) ? job.evidence_refs : [],
+    gateAdmitted: isGateAdmitted(job),
     state: job.state || null,
     callerKind: job.authority?.caller_kind || null,
     authorityMode: job.authority?.mode || null,

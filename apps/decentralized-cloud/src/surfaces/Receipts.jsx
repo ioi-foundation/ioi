@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
-import { clock } from "../logic/classify.mjs";
+import { stamp } from "../logic/classify.mjs";
 import { jobView } from "../logic/job-door.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
@@ -21,7 +21,19 @@ import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
 export default function Receipts({ announce }) {
   const state = useSurfaceRead("jobs", "/api/jobs");
-  const jobs = (Array.isArray(state.data?.jobs) ? state.data.jobs : []).map(jobView);
+  const allJobs = (Array.isArray(state.data?.jobs) ? state.data.jobs : []).map(jobView);
+
+  // THE GATE'S OWN RECORDS ARE HIDDEN, COUNTED, AND AVAILABLE — never deleted.
+  //
+  // The face gate admits a real job every time it runs, which is what makes the door
+  // proven rather than asserted. Those proposals are real records and they pile up.
+  // Deleting them would make the gate's evidence unauditable; leaving them mixed in
+  // would make this page's headline count a number about my test runs rather than
+  // about the product. So they are filtered by the tag the gate wrote into the
+  // daemon's own record, the count is stated, and one click shows them.
+  const [showGate, setShowGate] = useState(false);
+  const gateJobs = allJobs.filter((j) => j.gateAdmitted);
+  const jobs = showGate ? allJobs : allJobs.filter((j) => !j.gateAdmitted);
 
   const withReceipts = jobs.filter((j) => j.receipts && Object.keys(j.receipts).length > 0);
 
@@ -47,15 +59,36 @@ export default function Receipts({ announce }) {
         says so — it does not draw the shape of one.
       </p>
 
+      {gateJobs.length > 0 && (
+        <p className="meta">
+          {showGate
+            ? `showing ${gateJobs.length} gate-admitted proposal${gateJobs.length === 1 ? "" : "s"} alongside the rest`
+            : `${gateJobs.length} gate-admitted proposal${gateJobs.length === 1 ? "" : "s"} hidden`}
+          {" — "}records the face's own verification created to prove the job door
+          against this daemon. They are labelled in the daemon's record rather than
+          deleted: a check that erases its own evidence cannot be audited.{" "}
+          <button
+            type="button"
+            className="linklike"
+            aria-pressed={showGate}
+            onClick={() => setShowGate((v) => !v)}
+          >
+            {showGate ? "hide them" : "show them"}
+          </button>
+        </p>
+      )}
+
       {jobs.length === 0 && (
         <p className="prose">
-          The daemon holds no job records. Nothing has been invented to fill the page.
+          {allJobs.length === 0
+            ? "The daemon holds no job records. Nothing has been invented to fill the page."
+            : "Every job record the daemon holds was admitted by this surface's own verification. No product job has been submitted yet, and none has been invented to stand in for one."}
         </p>
       )}
 
       {jobs.length > 0 && (
         <div className="table-scroll">
-          <table className="quotes">
+          <table className="table t-receipts">
             <caption className="sr-only">
               Job records held by the daemon, and the receipts each one carries
             </caption>
@@ -72,7 +105,7 @@ export default function Receipts({ announce }) {
                 <tr key={j.id} className="trow">
                   <th scope="row" className="stack" style={{ gap: "6px" }}>
                     <div className="mono" style={{ fontSize: "13px" }}>{j.id}</div>
-                    <div className="meta">{clock(j.createdAt)}</div>
+                    <div className="meta">{stamp(j.createdAt)}</div>
                   </th>
                   <td className="mono basis">
                     <div>{j.callerKind || "—"}</div>
@@ -101,7 +134,7 @@ export default function Receipts({ announce }) {
                     )}
                   </td>
                   <td>
-                    <Chip kind={j.state === "placed" ? "live" : "muted"}>{j.state || "state absent"}</Chip>
+                    <Chip kind="muted">{j.state || "state absent"}</Chip>
                   </td>
                 </tr>
               ))}

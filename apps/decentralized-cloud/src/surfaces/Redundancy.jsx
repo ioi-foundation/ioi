@@ -42,10 +42,22 @@ export default function Redundancy({ announce }) {
 
   return (
     <div className="stack" style={{ gap: "24px" }}>
+      {/* This panel said "and this server exposes no mutating route" for a build after
+          the job door was wired. It exposes two, and a reviewer put a job through one to
+          prove the sentence false — inside the "designed, not connected" panel, which is
+          the exact construct this product spends its credibility on.
+          I had fixed the header chip and the API surface when I wired the door and
+          missed this. My own absence-assertion missed it too, because it was pinned to
+          the phrase "read-only surface" and this sentence claimed the same thing in
+          different words. An absence assertion pinned to one wording is not an absence
+          assertion; the gate now looks for the claim rather than the phrasing. */}
       <NotConnected>
         The postures below are the canonical RedundancyPosture values and this surface
-        sets none of them. Declaring a posture is part of a job request, and this server
-        exposes no mutating route.
+        sets none of them. Declaring a posture is part of a job request — and the daemon
+        accepts only <span className="mono">none</span>, refusing the other two by name
+        until M15.9, because replica placement, a per-replica exposure set and a switch
+        policy do not exist yet. A posture is refused rather than quietly downgraded, so
+        nothing here can leave you believing your work is protected when it is not.
       </NotConnected>
 
       <div className="stack" style={{ gap: "9px" }}>

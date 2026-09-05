@@ -47,7 +47,7 @@ export default function Candidates({ announce }) {
           inside its own container rather than restyling it into blocks, because
           changing `display` on table elements strips their implicit roles — the fix
           would have removed the semantics it was added to provide. */}
-      <table className="quotes">
+      <table className="table t-quotes">
         <caption className="sr-only">
           Live quotes for this intent, from the most recent sweep
         </caption>

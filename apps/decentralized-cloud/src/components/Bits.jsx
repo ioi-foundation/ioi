@@ -52,7 +52,7 @@ export const Failure = ({ result }) => {
 // stripped, because a source-text assertion can be satisfied by a comment and once
 // was, twice.
 export const NotConnected = ({ children }) => (
-  <div className="panel notice stack" style={{ gap: "8px" }}>
+  <div className="panel absent stack" style={{ gap: "8px" }}>
     <Eyebrow>designed, not connected</Eyebrow>
     <p className="prose">{children}</p>
   </div>

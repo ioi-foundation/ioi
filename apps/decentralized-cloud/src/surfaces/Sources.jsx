@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
-import { clock } from "../logic/classify.mjs";
+import { stamp } from "../logic/classify.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
 // SOURCES — the surface stale-while-refresh was built for.
@@ -33,29 +33,50 @@ export default function Sources({ announce }) {
   // without an adapter or without a credential says so in the row where a price would
   // have been." A reviewer asked whose fault runpod's absence was and could not tell.
   // The daemon had already said.
+  // THE FIELDS ARE READ FROM A LIVE BODY, not from what I assumed they were called.
+  //
+  // My port read `provider_kind`, `source_ref`, `reason`, `rule`, `http_status`,
+  // `offers_seen`. The daemon sends `source`, `coverage`, `state` and an `evidence`
+  // OBJECT. None of the names I used exist, so every one of the thirteen rows rendered
+  // "—" in the Source column and dropped nearly all of the evidence — on the surface
+  // whose subtitle promises it shows the evidence the daemon already sent.
+  //
+  // That is the same defect the vanilla surface was fixed for, reintroduced by me
+  // porting the render without checking the field names against a real response. The
+  // name of a field is a fact about the daemon, and I guessed it.
+  //
+  // `evidence` is rendered by walking whatever keys it actually carries rather than by
+  // naming them here, so a daemon that starts sending a new one shows it instead of
+  // silently dropping it — which is the failure mode this row already had once.
+  const evidenceLines = (s) => {
+    const out = [];
+    if (s.coverage) out.push(s.coverage);
+    const ev = s.evidence && typeof s.evidence === "object" ? s.evidence : null;
+    if (ev) {
+      for (const [k, v] of Object.entries(ev)) {
+        if (v === null || v === undefined || v === "") continue;
+        out.push(k === "basis" ? String(v) : `${k} ${typeof v === "object" ? JSON.stringify(v) : v}`);
+      }
+    }
+    return out;
+  };
+
   const row = (s) => (
-    <tr key={s.provider_kind || s.source_ref} className="trow">
+    <tr key={s.source || s.state} className="trow">
       <th scope="row" className="stack" style={{ gap: "7px" }}>
-        <div className="mono" style={{ fontSize: "14px" }}>{s.provider_kind || s.source_ref || "—"}</div>
+        <div className="mono" style={{ fontSize: "14px" }}>{s.source || "source not named by the daemon"}</div>
         <Chip kind={s.state === "live_quote_source" ? "live" : s.state === "candidate_source_unavailable" ? "absent" : "muted"}>
           {s.state || "state absent"}
         </Chip>
       </th>
-      <td className="mono basis">
-        {[
-          s.reason,
-          s.coverage,
-          s.rule,
-          s.http_status != null ? `http_status ${s.http_status}` : null,
-          s.offers_seen != null ? `offers_seen ${s.offers_seen}` : null,
-          s.error || s.error_code || null,
-        ]
-          .filter(Boolean)
-          .map((line, i) => <div key={i}>{line}</div>)}
+      <td className="mono src-evidence">
+        {evidenceLines(s).length > 0
+          ? evidenceLines(s).map((line, i) => <div key={i}>{line}</div>)
+          : <span className="meta">the daemon returned no evidence for this source</span>}
         {/* `state` is LAST PERSISTED and can lag a fixed adapter, so the row shows the
             observation's own timestamp beside it rather than implying the state is
             current. A fixed adapter reports broken until a refresh runs. */}
-        <div className="meta">observed {clock(s.observed_at || body?.at)}</div>
+        <div className="meta">observed {stamp(s.observed_at || body?.at)}</div>
       </td>
     </tr>
   );
@@ -73,7 +94,7 @@ export default function Sources({ announce }) {
         daemon returned for that source.
       </p>
       <div className="table-scroll">
-        <table className="quotes">
+        <table className="table t-sources">
           <caption className="sr-only">Candidate sources and the state the daemon last persisted for each</caption>
           <thead>
             <tr>

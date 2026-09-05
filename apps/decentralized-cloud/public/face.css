@@ -152,6 +152,16 @@ a:hover { color: #3e7f5c; }
    a claim. */
 .nav button[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
 
+/* A control that sits inside a sentence. It is a BUTTON, not a styled span with a
+   click handler: it toggles what the table shows, it is reachable by keyboard, and it
+   carries aria-pressed so a screen reader is told its state rather than only its
+   label. The underline is what makes it look like the affordance it is — without it
+   this was an unstyled browser button dropped into a line of prose, which is what it
+   renders as until this rule exists. */
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--ink);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.linklike:hover { text-decoration-thickness: 2px; }
+
 main { padding: 34px 40px 56px; max-width: 1560px; }
 
 h1 { margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400; }
@@ -246,14 +256,26 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    not rely on colour. `cursor: not-allowed` matches the Submit button's own state.
    These are not focusable on purpose — a keyboard user should not be sent to a stop
    that does nothing. They are specimens of controls, not disabled controls. */
-.field-box { border: 1px dashed var(--muted); border-radius: 7px; padding: 11px 13px;
-  background: var(--surface); color: var(--label); font-size: 14px; min-height: 44px;
-  cursor: not-allowed;
+/* EVERYTHING ABOVE THIS LINE DESCRIBED AN INERT FORM, AND THE FORM IS NOW WIRED.
+   The dashed border, `cursor: not-allowed`, "these are not focusable on purpose", and a
+   `::after` reading "NOT WIRED" were all correct when the Job surface submitted
+   nothing. They became false the moment the job door was wired and I did not revisit
+   them — so a blind reviewer measured eight real controls rendering in 13.3px Arial
+   with dashed borders and called it "the visual grammar of 'not real'", on the one
+   surface that had just become real.
+   That is the same fault as the Redundancy sentence and the read-only chip: a claim
+   held in one place and contradicted by a change made in another. The comment above is
+   kept as the record of what these were, and the rules below are what they are. */
+.field-box { border: 1px solid var(--border-strong); border-radius: 7px;
+  padding: 11px 13px; background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 14px; min-height: 44px; width: 100%;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.field-box::after { content: "not wired"; font-family: var(--mono); font-size: 11px;
-  letter-spacing: 0.06em; text-transform: uppercase; color: var(--label);
-  border: 1px solid var(--hairline); border-radius: 999px; padding: 2px 8px;
-  white-space: nowrap; flex-shrink: 0; }
+.field-box:hover { border-color: var(--ink); }
+/* A select and an input are replaced elements: `font: inherit` is what stops the
+   browser substituting its own 13.3px Arial, which is what the reviewer measured on
+   all eight of them. */
+select.field-box, input.field-box { appearance: auto; cursor: pointer; }
+input.field-box { cursor: text; }
 
 /* Focus was the user-agent default — visible, but undesigned and easily lost against
    this surface's hairlines. */
@@ -273,6 +295,106 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
 .button-inert { background: var(--hairline-soft); color: var(--muted); border: 0; border-radius: 8px;
   padding: 0 22px; height: 46px; display: inline-flex; align-items: center; font: inherit;
   font-size: 16px; cursor: not-allowed; }
+
+/* THE PRIMARY ACTION. There was no `.button` rule at all: the Job surface's submit
+   control carried `className="button"` and rendered as a raw browser default —
+   measured by a reviewer at 96x21px, 13.3px Arial, `border-style: outset`, disabled
+   contrast 1.99:1, sitting beside a hand-drawn 286x28px chip three times its width. It
+   was the least prominent element on the page and it was the only thing on the page
+   that does anything.
+   Height 46px matches `.button-inert` so the wired and inert states are the same
+   object in two conditions rather than two different objects. 24x24 is WCAG 2.2 SC
+   2.5.8's floor and this clears it by a wide margin. */
+.button { background: var(--ink); color: var(--paper); border: 1px solid var(--ink);
+  border-radius: 8px; padding: 0 22px; height: 46px; display: inline-flex;
+  align-items: center; font: inherit; font-size: 16px; cursor: pointer; }
+.button:hover:not(:disabled) { background: var(--paper); color: var(--ink); }
+/* Disabled is a STATE OF THIS BUTTON, not a different control, and it still has to be
+   legible: --label on --surface measures 5.40:1, where the browser's own disabled
+   grey measured 1.99:1. */
+.button:disabled { background: var(--surface); color: var(--label);
+  border-color: var(--border-strong); cursor: not-allowed; }
+
+/* Table cells whose content is machine-supplied and long. `.table` is
+   `table-layout: fixed`, so a column with no declared width gets an equal share — which
+   is how the Receipts "Receipts" column came out 132px and wrapped a twelve-word
+   sentence to eleven lines, and how Candidates' Basis column collapsed to 46px at 390
+   and rendered one character per line. */
+.basis, .src-evidence { font-size: 12px; line-height: 1.5; color: var(--label);
+  overflow-wrap: anywhere; }
+/* The price is the most important number on the surface and was rendering at the same
+   weight as the ref beside it. */
+.price { font-size: 16px; color: var(--ink); white-space: nowrap; }
+.reasons { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: 6px; font-size: 12px; color: var(--label); }
+
+/* COLUMN WIDTHS, because `table-layout: fixed` divides the row equally without them
+   and the widest content loses. Declared per table by its own class so a table with
+   four columns and one with two do not share a rule that fits neither. The evidence
+   column takes the slack in both, because it is the one carrying sentences. */
+/* A CHIP MUST NOT OUTGROW ITS CELL. `.table` is table-layout: fixed, so content wider
+   than its column does not widen the column — it paints over the neighbour. The
+   live_evidence chip is ~120px and the venue column was 15%, which is 123px at 900px
+   wide: the gate measured the chip sitting on top of the basis text at exactly that
+   width. The column is widened AND the chip is allowed to give, because either alone
+   only moves the width at which it happens. */
+.chip { max-width: 100%; }
+.trow > th > .chip, .trow > td > .chip { white-space: normal; }
+
+/* A TABLE CELL MAY NOT BE A FLEX CONTAINER, and finding this took measuring rather
+   than guessing. `.stack` sets `display: flex`, and it was applied directly to
+   `<th scope="row">` on four surfaces. That takes the cell OUT of the table layout
+   algorithm — it stops being a table-cell, stops taking its column's declared width,
+   and collapses to min-content. Measured at 1440px: the Venue HEADER cell was 264px,
+   exactly the 19% declared, above a BODY cell of 50px rendering "vast" as four
+   stacked letters, on every surface with a row header.
+   The contact sheet caught it. The gate did not and could not: the body never
+   scrolled, nothing collided, every class resolved to a rule, and every field existed
+   in the daemon's body. A green run and a visibly broken page — which is the entire
+   reason looking is now a step with an artifact rather than a habit.
+   The cell stays a cell; the stacking goes to its children. */
+/* Written for `.stack` first, and then the contact sheet showed the Freshness column
+   doing exactly the same thing — because `.freshness` is ALSO `display: flex` and is
+   ALSO applied straight to a cell. Fixing the one I had found and not looking for its
+   siblings is how the same defect ships twice, so the rule is now about CELLS rather
+   than about a class: a direct child cell of a row is a table-cell, whatever else it
+   is asked to be. The assertion below it in the gate enforces that for every cell on
+   every surface, so the next class with `display: flex` in it cannot do this quietly. */
+.trow > th.stack, .trow > td.stack,
+.trow > th.freshness, .trow > td.freshness { display: table-cell; }
+.trow > th.stack > *, .trow > td.stack > * { display: block; }
+.trow > th.stack > .chip { display: inline-flex; }
+/* Freshness is a dial beside two lines of text. With the cell restored to a table-cell
+   the pairing moves to an inner wrapper rather than the cell itself. */
+.trow > td.freshness { white-space: nowrap; }
+.trow > td.freshness > .dial { display: inline-block; vertical-align: middle;
+  margin-right: 9px; }
+.trow > td.freshness > .stack { display: inline-block; vertical-align: middle;
+  white-space: normal; }
+
+.table.t-quotes { min-width: 720px; }
+.table.t-quotes th:nth-child(1), .table.t-quotes td:nth-child(1) { width: 19%; }
+.table.t-quotes th:nth-child(2), .table.t-quotes td:nth-child(2) { width: 43%; }
+.table.t-quotes th:nth-child(3), .table.t-quotes td:nth-child(3) { width: 15%; }
+.table.t-quotes th:nth-child(4), .table.t-quotes td:nth-child(4) { width: 23%; }
+.table.t-sources { min-width: 620px; }
+.table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 30%; }
+.table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 70%; }
+.table.t-receipts { min-width: 760px; }
+.table.t-receipts th:nth-child(1), .table.t-receipts td:nth-child(1) { width: 22%; }
+.table.t-receipts th:nth-child(2), .table.t-receipts td:nth-child(2) { width: 26%; }
+.table.t-receipts th:nth-child(3), .table.t-receipts td:nth-child(3) { width: 37%; }
+.table.t-receipts th:nth-child(4), .table.t-receipts td:nth-child(4) { width: 15%; }
+.table.t-api { min-width: 700px; }
+.table.t-pairs th:nth-child(1), .table.t-pairs td:nth-child(1) { width: 34%; }
+
+/* GREY MEANT TWO OPPOSITE THINGS ON SOURCES — `available` as a filled grey chip and
+   `candidate_source_unavailable` as an outline chip whose only distinguishing feature
+   measured 1.57:1 against a 3:1 requirement. An absent source now wears the same
+   treatment absence wears everywhere else on this surface, at the strong border. */
+.chip.absent { background: var(--paper); border-color: var(--border-strong);
+  color: var(--ink); }
+.chip.absent .dot { background: var(--border-strong); }
 pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-radius: 10px;
   padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
 
@@ -372,6 +494,18 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
      collisions on the LANDING surface only and reported the layout fixed; four of the
      seven were never opened at 390px. */
   .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
+
+  /* THE NAV WRAPS INSTEAD OF SCROLLING, below this width.
+     A horizontal scroll container costs the body nothing, which is why it was chosen —
+     but at 390px it measured 627px of content in a 390px box with Redundancy, Receipts
+     and API entirely off-screen and NO VISIBLE AFFORDANCE that they were there. A
+     blind reviewer reported three surfaces as unreachable, and the nav-visibility
+     assertion measured their visible boxes at 1x29, -104x29 and -186x29.
+     "It scrolls" is only true if a reader can tell. Seven short labels wrap into two
+     rows and every surface is on screen, which costs a row of height and hides
+     nothing. */
+  .nav { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; margin: 0;
+    padding: 6px 0 0; }
 }
 
 /* A chip is `white-space: nowrap` so a state name never breaks mid-token, and that is

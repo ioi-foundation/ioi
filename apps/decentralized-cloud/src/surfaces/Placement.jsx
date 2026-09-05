@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef } from "../logic/read.mjs";
-import { clock } from "../logic/classify.mjs";
+import { stamp } from "../logic/classify.mjs";
 import { Waiting, Failure, Kept, Chip } from "../components/Bits.jsx";
 
 // PLACEMENT — an ADVISORY, and the word is load-bearing.
@@ -50,7 +50,7 @@ export default function Placement({ announce }) {
           <h2>{decision.selected?.provider_kind || "no venue named in the advisory"}</h2>
           <p className="prose">{decision.rationale || decision.reason || "The advisory carried no rationale."}</p>
           <p className="meta">
-            {decision.decision_ref || decision.advisory_ref || ""} · observed {clock(body?.at)}
+            {decision.decision_ref || decision.advisory_ref || ""} · observed {stamp(body?.at)}
           </p>
         </div>
       ) : (
@@ -62,7 +62,7 @@ export default function Placement({ announce }) {
 
       {considered.length > 0 && (
         <div className="table-scroll">
-          <table className="quotes">
+          <table className="table t-pairs">
             <caption className="sr-only">Venues the daemon considered for this intent</caption>
             <thead>
               <tr>

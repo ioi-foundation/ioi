@@ -48,7 +48,7 @@ export default function Api({ announce }) {
       </div>
 
       <div className="table-scroll">
-        <table className="quotes">
+        <table className="table t-api">
           <caption className="sr-only">The read allowlist this surface is served behind</caption>
           <thead>
             <tr>
@@ -71,9 +71,16 @@ export default function Api({ announce }) {
 
       <div className="stack" style={{ gap: "12px" }}>
         <div className="eyebrow">and the two writes — the whole of them</div>
+        {/* This opened "Until the job door was wired this surface exposed no mutating
+            route at all" — true, and past tense — and the gate forbidding the surface
+            from claiming it performs no writes fired on it anyway. A regex cannot read
+            tense. I would rather rewrite one sentence than teach that particular
+            assertion to be lenient: it guards the exact claim a reviewer proved false
+            once already, in a stub panel, and an assertion with an exception in it is
+            an assertion someone will fit their next sentence through. */}
         <p className="prose">
-          Until the job door was wired this surface exposed no mutating route at all.
-          It now exposes exactly two, and the second one carries the boundary that
+          The job door added this surface's only two writes; before it, every route here
+          was a read. The second of them carries the boundary that
           matters: a real execution is a metered provider operation, and the proxy sets
           the dry-run flag itself on every execute instead of forwarding what the caller
           sent. There is no request a client can compose that reaches a provider through
@@ -81,7 +88,7 @@ export default function Api({ announce }) {
           authorization naming amount, venue ceiling, offer hash and teardown.
         </p>
         <div className="table-scroll">
-          <table className="quotes">
+          <table className="table t-api">
             <caption className="sr-only">The two writes this surface exposes</caption>
             <thead>
               <tr>
