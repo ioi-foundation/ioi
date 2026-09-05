@@ -381,7 +381,14 @@ input.field-box { cursor: text; }
 .trow > th.stack, .trow > td.stack,
 .trow > th.freshness, .trow > td.freshness { display: table-cell; }
 .trow > th.stack > *, .trow > td.stack > * { display: block; }
-.trow > th.stack > .chip { display: inline-flex; }
+/* A chip stays a chip in EITHER kind of cell. This rule named `th` only, because when
+   it was written the only stacked cells were row headers. Placement's decision table
+   put a chip in a stacked `td`, the blanket `display: block` above caught it, and the
+   "no fee minted for this advisory" pill rendered as an 800px-wide bar — a pill that
+   spans the column stops reading as a pill and starts reading as a banner.
+   Found in a screenshot. No assertion could have: nothing overflowed, nothing
+   collided, no class was orphaned, and the cell check only ever visits Candidates. */
+.trow > th.stack > .chip, .trow > td.stack > .chip { display: inline-flex; }
 /* Freshness is a dial beside two lines of text. With the cell restored to a table-cell
    the pairing moves to an inner wrapper rather than the cell itself. */
 .trow > td.freshness { white-space: nowrap; }
@@ -404,6 +411,26 @@ input.field-box { cursor: text; }
 .table.t-receipts th:nth-child(3), .table.t-receipts td:nth-child(3) { width: 37%; }
 .table.t-receipts th:nth-child(4), .table.t-receipts td:nth-child(4) { width: 15%; }
 .table.t-api { min-width: 700px; }
+/* Redundancy's postures, converted from three prose cards to a table: posture, whether
+   the daemon accepts it, what it means, and what a refused one would need. The two
+   description columns carry the weight, so they take the width. */
+/* A chip inside a column stack must not stretch to the cell's width. `.stack` is
+   `display:flex; flex-direction:column`, whose default `align-items: stretch` turns a
+   chip into a full-width bar — a pill that is 800px wide stops reading as a pill and
+   starts reading as a banner. Caught in a screenshot of Placement's fee row, not by
+   any assertion: nothing here overflows, collides, or loses a class. */
+.stack > .chip { align-self: flex-start; }
+
+/* Placement's decision table: a what/answer pair, so the label column stays narrow. */
+.table.t-decision { min-width: 620px; }
+.table.t-decision th:nth-child(1), .table.t-decision td:nth-child(1) { width: 24%; }
+.table.t-decision th:nth-child(2), .table.t-decision td:nth-child(2) { width: 76%; }
+
+.table.t-postures { min-width: 760px; }
+.table.t-postures th:nth-child(1), .table.t-postures td:nth-child(1) { width: 17%; }
+.table.t-postures th:nth-child(2), .table.t-postures td:nth-child(2) { width: 19%; }
+.table.t-postures th:nth-child(3), .table.t-postures td:nth-child(3) { width: 32%; }
+.table.t-postures th:nth-child(4), .table.t-postures td:nth-child(4) { width: 32%; }
 .table.t-pairs th:nth-child(1), .table.t-pairs td:nth-child(1) { width: 34%; }
 
 /* GREY MEANT TWO OPPOSITE THINGS ON SOURCES — `available` as a filled grey chip and

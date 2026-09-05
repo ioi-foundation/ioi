@@ -58,11 +58,24 @@ export const FIELD_CONTRACT = {
   "/api/placement-advisory": {
     read_by: "src/surfaces/Placement.jsx",
     container: null,
-    every: [],
-    sampled: [],
-    // The whole body is optional by design: "the daemon returned no advisory for this
-    // intent" is a correct and renderable answer, so nothing here may be required.
-    optional: ["decision", "decision.selected.provider_kind", "considered", "at"],
+    // A CONTRACT IN WHICH EVERYTHING IS OPTIONAL CANNOT FAIL, and this one was exactly
+    // that. It declared `decision`, `decision.selected.provider_kind` and `considered`
+    // — none of which the daemon sends — with every path optional, so their absence was
+    // permitted and the surface rendered "the daemon returned no advisory" against a
+    // body containing a complete advisory. The vacuity rule reported this route
+    // inspecting ZERO fields, which is how it was found.
+    //
+    // These are the names from a live body. `advisory_ref` and `at` are required
+    // because an advisory that cannot say what it is or when it was taken is not
+    // evidence.
+    every: ["advisory_ref", "at"],
+    sampled: ["recommendation", "considered", "eligible", "authority_note"],
+    // Genuinely optional, and each for a stated reason: `recommendation` is absent when
+    // nothing is eligible, and the fee fields are absent on advisories that predate
+    // fee accounting.
+    optional: ["recommendation.venue", "recommendation.reason_codes",
+               "recommendation.candidate_ref", "effective_venue",
+               "no_eligible_candidate", "routing_fee_basis", "fee_object_minted"],
   },
   "/api/jobs": {
     read_by: "src/surfaces/Receipts.jsx + src/logic/job-door.mjs",

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NotConnected } from "../components/Bits.jsx";
+import { NotConnected, Chip } from "../components/Bits.jsx";
 
 // REDUNDANCY POSTURE — designed, not connected.
 //
@@ -11,29 +11,45 @@ import { NotConnected } from "../components/Bits.jsx";
 // Reactive failover already exists in the daemon. Proactive redundancy is a different
 // thing and this surface is careful not to imply the second from the first.
 
+// A TABLE, NOT THREE PROSE CARDS.
+//
+// This surface failed the paragraph test: strip the prose and three labelled empty
+// boxes remained. The honesty survived — the DESIGNED, NOT CONNECTED eyebrow is
+// structural — but nothing said which posture the daemon accepts or why the others are
+// refused, which is the entire content of the page.
+//
+// The four columns are the four questions a reader actually has, and each is now a
+// cell rather than a clause buried in a paragraph: what is it, will the daemon take it,
+// why not, and what would have to be true for it to work.
 const POSTURES = [
   {
     id: "none",
-    title: "none",
-    body:
+    accepted: true,
+    what:
       "One placement. If it fails, reactive failover may move the work — that is the " +
       "daemon's existing behaviour and it is not a redundancy posture.",
+    whyNot: null,
+    needs: null,
   },
   {
     id: "warm_standby",
-    title: "warm_standby",
-    body:
-      "A second placement is held ready on a provider of a different class. Hard " +
+    accepted: false,
+    what:
+      "A second placement held ready on a provider of a different class. Hard " +
       "provider-class diversity: two instances at the same vendor are not a standby, " +
       "they are one outage.",
+    whyNot: "Replica placement is not built.",
+    needs: "A second placement the daemon can hold, and a switch policy that decides when to use it.",
   },
   {
     id: "active_active",
-    title: "active_active",
-    body:
+    accepted: false,
+    what:
       "Both placements run. The budget multiplier is EXPLICIT in the request — the " +
       "caller states that they are paying twice, because nothing here may quietly " +
       "spend a multiple of what was authorized.",
+    whyNot: "Replica placement and per-replica exposure are not built.",
+    needs: "A per-replica exposure set, and a budget that authorizes the multiple up front.",
   },
 ];
 
@@ -68,13 +84,47 @@ export default function Redundancy({ announce }) {
         </p>
       </div>
 
-      <div className="cols cols-3" style={{ gap: "20px" }}>
-        {POSTURES.map((p) => (
-          <div key={p.id} className="panel stack" style={{ gap: "9px" }}>
-            <div className="eyebrow mono">{p.title}</div>
-            <p className="prose">{p.body}</p>
-          </div>
-        ))}
+      <div className="table-scroll">
+        <table className="table t-postures">
+          <caption className="sr-only">
+            The three redundancy postures, which the daemon accepts, and what each
+            refused one would need in order to work
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Posture</th>
+              <th scope="col">Accepted</th>
+              <th scope="col">What it means</th>
+              <th scope="col">Why not, and what would change it</th>
+            </tr>
+          </thead>
+          <tbody>
+            {POSTURES.map((p) => (
+              <tr key={p.id} className="trow">
+                <th scope="row" className="mono" style={{ fontSize: "13px" }}>{p.id}</th>
+                <td>
+                  {/* The state as a CHIP, so it survives a reader who is skimming and a
+                      reader who is not reading prose at all. This was a fact you could
+                      only get by reading a paragraph above the cards. */}
+                  {p.accepted
+                    ? <Chip kind="live">the daemon accepts this</Chip>
+                    : <Chip kind="absent">refused by name</Chip>}
+                </td>
+                <td className="basis">{p.what}</td>
+                <td className="basis">
+                  {p.whyNot
+                    ? (
+                      <div className="stack" style={{ gap: "5px" }}>
+                        <div>{p.whyNot}</div>
+                        <div className="meta">Would need: {p.needs}</div>
+                      </div>
+                    )
+                    : <span className="meta">— it is the one posture that works today</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <p className="prose">
