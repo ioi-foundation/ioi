@@ -169,3 +169,11 @@ mutants — a visible overlap is CAUGHT, the same overlap behind a closed disclo
 MISSED, and the same element with the disclosure OPENED is CAUGHT again. Only the third
 distinguishes "excludes unpainted text" from "excludes anything inside a `<details>`",
 and the lazy version of the fix passes the first two.
+
+**Rule, ruled by the director 2026-09-05 after the instrument commit 4f344e427:** an
+instrument's failure path is proved by MUTATION, never by reading its code. For the face
+gate's void path that meant two decoy servers occupying the gate's own ports and serving a
+copy of the build with one byte appended: the gate had to report both blocks as not
+serving its build, print RUN VOID with both bails named, print NO fraction, and exit 1.
+A void path that has only been read is a void path that has never been seen to fire, and
+the run it was written for printed "119/127 passed" over fifty-one skipped assertions.
