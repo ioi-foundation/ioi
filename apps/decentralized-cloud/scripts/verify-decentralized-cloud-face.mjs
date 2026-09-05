@@ -589,6 +589,31 @@ async function checkServer() {
         : `checked ${NO_WRITE_CLAIMS.length} ways of saying it; the served bytes make none of them`,
       NO_WRITE_CLAIMS.length);
 
+    // ── NO INTERNAL IDENTIFIER REACHES A READER ──────────────────────────────
+    // "refusing the other two by name until M15.9" and "both are M03.12's proof to
+    // run" were rendered on the public surface. Neither resolves to anything a
+    // stranger can look up, and a milestone number is an answer to a question they
+    // cannot ask. The facts stay; they become product words — "not built yet",
+    // "has not been run against a real lease".
+    //
+    // Asserted against SERVED BYTES, so a comment carrying one counts. That is not
+    // pedantry: this gate has already caught the phrase "read-only surface" surviving
+    // in a comment in a shipped module, and comments are served.
+    const INTERNAL_IDS = [
+      /\bM\d{2}\.\d+\b/,          // M15.9, M03.12
+      /\bACC-\d+\b/,              // acceptance-criteria numbers
+      /\bPR[:#]\s?\d+\b/,         // PR:9574
+    ];
+    const leakedIds = INTERNAL_IDS
+      .map((re) => (shell.match(new RegExp(re, "g")) || []).slice(0, 4))
+      .flat();
+    ok("no internal milestone or PR identifier is in any byte this server sends",
+      leakedIds.length === 0,
+      leakedIds.length
+        ? `served to readers: ${[...new Set(leakedIds)].join(", ")} — none of these resolves to anything a stranger can look up`
+        : `${INTERNAL_IDS.length} identifier shapes checked across ${shell.length} served bytes`,
+      INTERNAL_IDS.length);
+
     // ── THE CAPABILITY SENTENCES ARE GENERATED, AND THIS IS WHAT MAKES THAT TRUE ──
     //
     // A list of forbidden phrasings is better than one phrasing and is still a list of

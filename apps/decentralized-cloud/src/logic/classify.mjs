@@ -4,7 +4,7 @@
 // because they are not decoration: each clause here exists because a fixture, a
 // stale quote or a simulator lane once reached a surface that called it live.
 //
-// The rule is the same one the M15.1 check enforces server-side. A candidate is live
+// The rule is the same one the daemon enforces server-side. A candidate is live
 // ONLY if the daemon said live_evidence, carries a priced quote with a stated basis,
 // carries observed_at and expires_at, is still inside its window, and is not a
 // labelled simulator lane. Every one of those is a conjunct: a disjunction here would

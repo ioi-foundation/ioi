@@ -55,8 +55,8 @@ export default function Redundancy({ announce }) {
         The postures below are the canonical RedundancyPosture values and this surface
         sets none of them. Declaring a posture is part of a job request — and the daemon
         accepts only <span className="mono">none</span>, refusing the other two by name
-        until M15.9, because replica placement, a per-replica exposure set and a switch
-        policy do not exist yet. A posture is refused rather than quietly downgraded, so
+        because replica placement, a per-replica exposure set and a switch policy are
+        not built yet. A posture is refused rather than quietly downgraded, so
         nothing here can leave you believing your work is protected when it is not.
       </NotConnected>
 

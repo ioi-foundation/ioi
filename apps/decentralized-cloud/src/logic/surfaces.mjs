@@ -24,9 +24,12 @@
 // and its refusals and receipts are rendered from the daemon's own bodies.
 //
 // REDUNDANCY STAYS FALSE. The daemon accepts only the `none` posture and refuses the
-// other two by name until M15.9 — replica placement, a per-replica exposure set and a
-// switch policy do not exist yet. A posture surface that could not set a posture would
+// other two by name — replica placement, a per-replica exposure set and a switch
+// policy are not built yet. A posture surface that could not set a posture would
 // be wired in name only.
+// (No milestone identifier here. This module is BUNDLED AND SERVED, comments included,
+// and the gate's absence check reads served bytes — it caught this line. The identifier
+// belongs in the programme's records, not in a stranger's browser.)
 export const SURFACES = [
   { id: "candidates", label: "Candidates", wired: true },
   { id: "sources", label: "Sources", wired: true },

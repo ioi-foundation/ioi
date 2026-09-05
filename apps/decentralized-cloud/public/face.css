@@ -527,7 +527,7 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 }
 
 /* A chip is `white-space: nowrap` so a state name never breaks mid-token, and that is
-   right for "live_evidence" and wrong for "refused by name until M15.9" — measured at
+   right for "live_evidence" and wrong for a long refusal sentence — measured at
    213px and 299px wide, which is most of a phone. Below the single-column breakpoint a
    long chip wraps; the dot stays put because it is a flex item that does not shrink. */
 @media (max-width: 700px) {

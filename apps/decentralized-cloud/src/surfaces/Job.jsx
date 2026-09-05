@@ -308,7 +308,7 @@ export default function Job({ announce }) {
           daemon resolves an agent caller through a CapabilityLease draw-down and that
           resolver is proven in-process to its honest maximum. What is unproven is the
           binding write on a real mint and byte-identical receipts on a live agent
-          execution — both are <span className="mono">M03.12</span>'s proof to run. This
+          execution — neither has been run against a real lease yet. This
           page sends <span className="mono">caller_kind: "human"</span> and nothing else,
           because it has no lease to draw down and no business minting one.
         </p>
