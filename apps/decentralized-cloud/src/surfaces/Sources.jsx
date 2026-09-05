@@ -24,7 +24,19 @@ export default function Sources({ announce }) {
     announce(`Sources — ${quoting.length} quoting, ${absent.length} unavailable`);
   }, [state.phase, quoting.length, absent.length, announce]);
 
-  if (state.phase === "first") return <Waiting what="source health" title="Sources" />;
+  if (state.phase === "first") return (
+    <Waiting
+      what="source health"
+      title="Sources"
+      willShow={
+        "This page lists every place a price can come from: each venue's endpoint, " +
+        "whether it answered, how many offers it returned, and the daemon's own words " +
+        "for why it did not. It is how you check that a price on Candidates came from " +
+        "somewhere real."
+      }
+      why="Each source is asked in turn, and a full round has been measured at 27 to 61 seconds."
+    />
+  );
 
   // THE ROW SHOWS THE EVIDENCE THE DAEMON ALREADY SENT. It used to render
   // `s.reason || s.coverage || s.rule` and stop there, so vast came back with

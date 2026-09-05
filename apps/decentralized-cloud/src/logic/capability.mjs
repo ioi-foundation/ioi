@@ -214,6 +214,9 @@ export function capabilitySentences(routes = ROUTES, dryRunOnly = DRY_RUN_ONLY) 
   const reads = routes.filter((r) => r.method === "GET" && r.daemon);
   const writes = routes.filter((r) => r.method !== "GET");
   const localOnly = routes.filter((r) => r.method === "GET" && !r.daemon);
+  // Every GET route — which is what the API surface's read table actually renders.
+  // Keeping this separate from `reads` is what let the prose and the table disagree.
+  const allReads = routes.filter((r) => r.method === "GET");
   const clause = spendClause(routes, dryRunOnly);
 
   return {
@@ -252,9 +255,25 @@ export function capabilitySentences(routes = ROUTES, dryRunOnly = DRY_RUN_ONLY) 
     // The absence claim, stated POSITIVELY. A surface may not say what it does not do;
     // it says what it does, and the count is generated, so the sentence goes stale the
     // moment the table changes rather than the moment someone notices.
+    // COUNTS THE ROWS THE READER IS LOOKING AT, not a subset of them.
+    //
+    // This said "seven reads" above a table of EIGHT rows. Both numbers were generated,
+    // from this module, and they disagreed — because one counted daemon reads and the
+    // other rendered every GET route. A cold reader spotted it in a contact sheet in
+    // under a minute: "the count does not match the table".
+    //
+    // That is the defect this whole file was written to remove, occurring one level in.
+    // Deleting the hand-copy was not enough: I left TWO DERIVATIONS of "how many
+    // reads", and two derivations of one fact can disagree. The sentence now counts
+    // exactly what the table renders and names the split inside itself.
     whatItDoes:
-      `Everything this surface can ask the daemon: ${count(reads.length)} ` +
-      `${plural(reads.length, "read", "reads")} and ${count(writes.length)} ` +
+      `Everything this surface can ask the daemon: ${count(allReads.length)} ` +
+      `${plural(allReads.length, "read", "reads")}` +
+      (localOnly.length
+        ? ` — ${count(reads.length)} to the daemon and ${count(localOnly.length)} ` +
+          `${localOnly.length === 1 ? "this surface answers itself" : "this surface answers itself"}`
+        : "") +
+      ` — and ${count(writes.length)} ` +
       `${plural(writes.length, "write", "writes")}. ${
         dryRunOnly && !anySpends(routes)
           ? "A real execution is a metered provider spend and no request composed by a " +

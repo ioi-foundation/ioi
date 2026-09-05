@@ -1264,6 +1264,40 @@ async function checkResponsiveLayout() {
             ? "the header chip was not found in the rendered page at all"
             : `rendered "${chipText}" vs generated "${expected}"`,
           1);
+
+        // THE COUNT IN THE PROSE IS THE COUNT OF THE ROWS BENEATH IT.
+        //
+        // The API surface said "seven reads" above a table of EIGHT rows. Both numbers
+        // were generated, by the same module, and they disagreed — one counted daemon
+        // reads, the other rendered every GET route. A COLD READER found it in under a
+        // minute; 170 assertions did not, because every one of them compared the module
+        // against itself.
+        //
+        // So this counts the RENDERED ROWS and compares them to the RENDERED SENTENCE.
+        // Generating a number is not the same as generating it from the right set.
+        await page.click('.nav button[data-surface="api"]').catch(() => {});
+        await page.waitForSelector(".t-api .trow", { timeout: 20000 }).catch(() => {});
+        const apiCounts = await page.evaluate(() => {
+          const words = {
+            no: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+            six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+          };
+          const tables = [...document.querySelectorAll(".t-api")];
+          const text = document.body.innerText;
+          const m = text.match(/Everything this surface can ask the daemon:\s+(\w+)\s+reads?/i);
+          return {
+            claimed: m ? (words[m[1].toLowerCase()] ?? Number(m[1])) : null,
+            readRows: tables[0] ? tables[0].querySelectorAll("tbody .trow").length : 0,
+            writeRows: tables[1] ? tables[1].querySelectorAll("tbody .trow").length : 0,
+          };
+        });
+        ok("the read count in the prose equals the number of rows in the table below it",
+          apiCounts.claimed !== null && apiCounts.claimed === apiCounts.readRows,
+          apiCounts.claimed === null
+            ? "the capability sentence was not found on the rendered API surface"
+            : `prose says ${apiCounts.claimed} reads; the table renders ${apiCounts.readRows} rows ` +
+              `(and ${apiCounts.writeRows} write rows)`,
+          apiCounts.readRows);
       }
 
       // The read-backed surfaces are slow and their emptiness is not a layout fault,

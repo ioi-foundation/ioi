@@ -25,18 +25,30 @@ export const Eyebrow = ({ children }) => <div className="eyebrow">{children}</di
 // The refusal to invent a placeholder stands — an invented quote is the one thing this
 // surface must never render. What changes is that waiting is now a STATE with a name,
 // a heading and a machine-readable busy flag, instead of an absence.
-export const Waiting = ({ what, title }) => (
+// A cold reader given only pictures said of Sources, Placement and Receipts: "same
+// layout, same two grey paragraphs, one of which is copy-pasted verbatim between them
+// — if you covered the titles I could not tell which cell was which." They were right,
+// and worse: the shared paragraph explained why a CANDIDATE SWEEP is slow, on two
+// pages that are not about candidates. Boilerplate that describes a different page is
+// not an explanation, it is furniture.
+//
+// So the wait says what THIS read is waiting on and why THIS read is slow, and the
+// page states what it will show when it arrives — because the same reader could not
+// answer "what is this page for?" on any of the three.
+export const Waiting = ({ what, title, why, willShow }) => (
   <div className="stack" style={{ gap: "10px" }} aria-busy="true">
     {/* The heading exists DURING the wait. A document whose first heading appears 39
         seconds after load has no structure to navigate for all of that time. */}
     {title && <h1>{title}</h1>}
     <p className="prose" role="status">
-      Asking the daemon for {what}. This can take up to a minute.
+      Asking the daemon for {what}.
     </p>
-    <p className="prose">
-      A full candidate sweep is slow — it asks every live venue in turn. Nothing is
-      shown until it answers: an invented placeholder would be indistinguishable from
-      a real quote.
+    {/* WHAT THIS PAGE IS FOR, said while it is empty. A page that only explains itself
+        once its data arrives does not explain itself to anyone who leaves first. */}
+    {willShow && <p className="prose">{willShow}</p>}
+    <p className="meta">
+      {why} Nothing is shown until it answers: an invented placeholder would be
+      indistinguishable from a real one.
     </p>
   </div>
 );

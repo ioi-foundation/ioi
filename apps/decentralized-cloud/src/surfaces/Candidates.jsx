@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef, keptState } from "../logic/read.mjs";
-import { classify, clock, minutesLeft } from "../logic/classify.mjs";
+import { classify, clock, minutesLeft, stamp } from "../logic/classify.mjs";
 import { latestBatch, summarise, venueVerdict } from "../logic/batches.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 import Dial from "../components/Dial.jsx";
@@ -32,7 +32,18 @@ export default function Candidates({ announce }) {
     announce(`Candidates — ${verdict.heading}`);
   }, [state.phase, verdict.heading, announce]);
 
-  if (state.phase === "first") return <Waiting what="candidates" title="Candidates" />;
+  if (state.phase === "first") return (
+    <Waiting
+      what="candidates"
+      title="Candidates"
+      willShow={
+        "This page lists the live rental prices the daemon holds for one intent, " +
+        "cheapest first: which venue quoted, what the price is per hour, the quote it " +
+        "came from, and how long that quote is still good for."
+      }
+      why="A full sweep asks every live venue in turn and has been measured at 27 to 39 seconds."
+    />
+  );
 
   const table = (
     <div className="table-scroll">
@@ -74,7 +85,10 @@ export default function Candidates({ announce }) {
                 <br />
                 {c.quote.quote_ref || ""}
                 <br />
-                {`observed ${clock(c.observed_at)}`}
+                {/* DATED, not just clocked. A cold reader noted `04:31:49Z` has no
+                    date — and a quote's age is the whole question on this surface, so
+                    a bare time is the one format it cannot use. */}
+                {`observed ${stamp(c.observed_at)}`}
               </td>
               <td className="mono price">{price(c.quote.usd_per_hour)}</td>
               <td className="freshness">

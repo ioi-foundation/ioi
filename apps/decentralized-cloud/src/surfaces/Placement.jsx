@@ -47,7 +47,19 @@ export default function Placement({ announce }) {
     announce(`Placement — ${rec ? `advisory recommends ${rec.venue}` : "no advisory"}`);
   }, [state.phase, rec, announce]);
 
-  if (state.phase === "first") return <Waiting what="a placement advisory" title="Placement" />;
+  if (state.phase === "first") return (
+    <Waiting
+      what="a placement advisory"
+      title="Placement"
+      willShow={
+        "An advisory is the daemon's recommendation of WHERE a job should run: one " +
+        "venue, the reason codes it was chosen on, how many candidates were eligible " +
+        "out of how many considered, and whether a fee was minted. It recommends and " +
+        "cannot spend — running the work still requires a wallet grant."
+      }
+      why="The advisory is computed against every candidate the daemon holds for this intent."
+    />
+  );
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>

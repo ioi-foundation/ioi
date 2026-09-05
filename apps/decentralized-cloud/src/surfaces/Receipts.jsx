@@ -51,7 +51,19 @@ export default function Receipts({ announce }) {
     announce(`Receipts — ${jobs.length} job records, newest first, ${withReceipts.length} carrying receipts`);
   }, [state.phase, jobs.length, withReceipts.length, announce]);
 
-  if (state.phase === "first") return <Waiting what="job records" title="Receipts" />;
+  if (state.phase === "first") return (
+    <Waiting
+      what="job records"
+      title="Receipts"
+      willShow={
+        "A receipt is the daemon's record that something happened: what kind of event " +
+        "it was, a hash you can check it against, and whether a fee was minted. It is " +
+        "the only place a fee exists. This page lists every job the daemon holds, " +
+        "newest first, with the receipts each one carries and the venue it was placed on."
+      }
+      why="The daemon is asked for every job record it holds."
+    />
+  );
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
