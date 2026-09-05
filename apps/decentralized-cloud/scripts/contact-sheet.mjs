@@ -154,11 +154,37 @@ try {
   await page.screenshot({ path: sheet, fullPage: true });
   await page.close();
 
+  // ── EVERY CELL ALSO WRITTEN FULL SIZE ────────────────────────────────────
+  //
+  // A cold reader, on the sheet itself: "at 1700x2227 for 21 browser screenshots, most
+  // body text on this sheet is at or past the limit of legibility. I had to crop and
+  // upscale roughly a dozen regions to read it, and I still failed on at least two
+  // digits. A contact sheet that cannot be read by looking at it does not enforce the
+  // rule printed at the top of it."
+  //
+  // That is the same criticism as the 1500ms wait, aimed at a different property of the
+  // same instrument: the sheet was optimised for being PRODUCED rather than for being
+  // read. The thumbnail grid is still the thing you scan; these are what you open when
+  // the thumbnail shows you something you cannot resolve. Same scaling scar as the mark
+  // rounds, where delivery downsampling once manufactured a finding about a Z.
+  for (const c of cells) {
+    const file = path.join(OUT, `${c.id}-${c.w}${c.arrived === false ? "-WAITING" : ""}.png`);
+    writeFileSync(file, Buffer.from(c.url.split(",")[1], "base64"));
+  }
+
   writeFileSync(
     path.join(OUT, "cells.json"),
-    JSON.stringify({ at: new Date().toISOString(), widths: WIDTHS, surfaces: SURFACES.map((s) => s.id) }, null, 2)
+    JSON.stringify({
+      at: new Date().toISOString(),
+      widths: WIDTHS,
+      surfaces: SURFACES.map((s) => s.id),
+      // The state of every capture, machine-readable, so a later reader can tell which
+      // cells were the loaded page without squinting at a caption.
+      captures: cells.map((c) => ({ surface: c.id, width: c.w, loaded: c.arrived !== false })),
+    }, null, 2)
   );
   console.log(`contact sheet: ${sheet}`);
+  console.log(`full-size cells: ${OUT}/<surface>-<width>.png`);
   console.log(`${cells.length} cells — ${SURFACES.length} surfaces x ${WIDTHS.length} widths`);
   console.log("");
   console.log("THIS RUN IS NOT GREEN UNTIL THE SHEET HAS BEEN OPENED AND A LINE WRITTEN");

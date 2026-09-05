@@ -64,7 +64,17 @@ export default function Placement({ announce }) {
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
       <h1>Placement</h1>
-      <p className="meta">advisory · read in {duration(state.ms)}</p>
+      {/* THE SUBJECT OF THE ADVISORY, which this page never showed.
+          A cold reader: "I can tell what it CLAIMS to be… What I cannot tell is what it
+          is an advisory FOR. There is no job, no intent, no request shown anywhere on
+          the page. A single advisory floats with no subject."
+          They were right, and the surface has always known the answer — it is the
+          intent_ref this very read was made with. An answer rendered without its
+          question is a fact nobody can check. */}
+      <p className="meta">
+        an advisory for intent <span className="mono">{intentRef()}</span> · read in{" "}
+        {duration(state.ms)}
+      </p>
       <p className="prose">
         An advisory, not a decision. The venue picker runs in the daemon; this surface
         renders what it returned and scores nothing of its own. A ranking computed here
@@ -90,6 +100,18 @@ export default function Placement({ announce }) {
               </tr>
             </thead>
             <tbody>
+              {/* THE QUESTION, as row zero. The reader could not say what the advisory
+                  was FOR; the table now opens with what was asked before it answers. */}
+              <tr className="trow">
+                <th scope="row">Asked about</th>
+                <td className="stack" style={{ gap: "4px" }}>
+                  <div className="mono" style={{ fontSize: "13px" }}>{intentRef()}</div>
+                  <div className="meta">
+                    One intent — a description of the capacity wanted. The advisory below
+                    answers this and nothing else.
+                  </div>
+                </td>
+              </tr>
               <tr className="trow">
                 <th scope="row">Recommends</th>
                 <td className="stack" style={{ gap: "6px" }}>

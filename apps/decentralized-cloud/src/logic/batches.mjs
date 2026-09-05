@@ -62,9 +62,21 @@ export function venueVerdict({ live, venues }) {
     return {
       routable: true,
       heading: `${live.length} live quotes, across ${venues.length} venues`,
+      // EACH VENUE WITH ITS COUNT, not a bare list of names.
+      //
+      // A cold reader called this the strongest contradiction in the product: the
+      // callout claimed "Two or more venues are quoting (runpod, vast)" while every
+      // visible row said `vast`. Both facts were true — the table sorts by price and
+      // vast is cheaper, so runpod's rows are far below the fold — but the page asserted
+      // a second venue the reader could not see and gave them no way to reconcile it.
+      // "The claim and the table do not agree in anything I can see."
+      //
+      // A count per venue makes the claim checkable from where it is made.
       body:
-        `Two or more venues are quoting (${venues.join(", ")}), so this intent can be ` +
-        "compared and routed, not merely priced.",
+        `Two or more venues are quoting (${venues
+          .map((v) => `${v}: ${live.filter((c) => c.provider_kind === v).length}`)
+          .join(", ")}), so this intent can be compared and routed, not merely priced. ` +
+        "The table is sorted by price, so one venue's rows may sit far below another's.",
     };
   }
   return {

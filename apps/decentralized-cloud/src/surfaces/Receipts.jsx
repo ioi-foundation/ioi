@@ -68,10 +68,19 @@ export default function Receipts({ announce }) {
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
       <h1>Receipts</h1>
+      {/* SHOWN, HIDDEN, AND THE TOTAL — all three, because two of them alone are worse
+          than either. A cold reader: "30 records shown, 37 hidden. The header count
+          says 30 without saying whether 30 includes or excludes the 37. From the
+          picture I cannot tell if the true total is 30, 37, or 67. This is the sharpest
+          unexplained number in the whole set."
+          They were right: `jobs` is the filtered list and `allJobs` is everything, and
+          the page published the filtered count as though it were the population. */}
       <p className="meta">
-        {jobs.length} job record{jobs.length === 1 ? "" : "s"} ·{" "}
-        {withReceipts.length} carrying receipts · read in{" "}
-        {duration(state.ms)}
+        {jobs.length} job record{jobs.length === 1 ? "" : "s"} shown
+        {gateJobs.length > 0 && !showGate
+          ? ` · ${gateJobs.length} hidden · ${allJobs.length} in total`
+          : ""}
+        {" · "}{withReceipts.length} carrying receipts · read in {duration(state.ms)}
       </p>
       <p className="prose">
         Every row is a record the daemon holds. A receipt is the only place a fee
