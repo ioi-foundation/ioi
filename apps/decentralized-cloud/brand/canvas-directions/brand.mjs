@@ -28,20 +28,25 @@ const I_PATH = "M 32 700 L 588 700 L 588 500 L 379.5 500 L 379.5 200 L 588 200 "
 const Z_ADVANCE = 1065, I_ADVANCE = 620;
 const DOT_D = 0.137, DOT_SIDE = 0.10, DOT_RAISE = 0.2815;
 
-// The owner's reserved mark, carried across unchanged. Not mine to redraw.
-const MARK = (size, tile, glyph) => `
-<svg width="${size}" height="${size}" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud" style="display:block;flex-shrink:0">
-  <defs><mask id="cc-${size}-${tile.replace(/[^a-z0-9]/gi, "")}" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
-    <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
-    <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect>
-  </mask></defs>
-  <rect x="0" y="0" width="96" height="96" rx="11" fill="${tile}"></rect>
-  <g mask="url(#cc-${size}-${tile.replace(/[^a-z0-9]/gi, "")})"><g transform="translate(9.500 13.743) scale(0.71369)">
-    <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="${glyph}"></path>
-    <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="${glyph}"></path>
-    <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="${glyph}"></path>
-  </g></g>
-</svg>`;
+// THE MARK — direction B, the dissolving cloud. Owner reference, head-to-head winner.
+//
+// Two blind readers picked it over the isometric blocks, both on survival and both
+// unhappy about it. Reader two: "a mark that requires three greys to be itself is not
+// a logo" (of A), and "picking RIGHT is picking a mark that is legible and meaningless
+// over one that is meaningful and illegible."
+//
+// NEITHER PASSED SECOND SIGHTING. That is recorded here rather than in a footnote,
+// because this drawing now sits at the head of every surface and whoever reads this
+// file next should know what it cleared and what it did not: "Blunt: neither mark
+// passes second-sighting. Both are category pictures."
+//
+// Imported from marks.mjs so the canvas, the plate and the shell all draw the same
+// geometry — the reason the shipped Lockup imports wordmark.mjs rather than restating
+// its paths.
+import { dissolvingCloud } from "./marks.mjs";
+
+const MARK = (size, tile, glyph) =>
+  dissolvingCloud({ size, tile: tile === glyph ? null : tile, mono: glyph === "#ffffff" && tile === "#0a0e19" ? "#ffffff" : null });
 
 // THE WORDMARK, SET ENTIRELY IN IOI.TTF — owner ruling, 2026-09-05.
 //
@@ -67,8 +72,19 @@ const WORDMARK = (px, ink) => {
   </div>`;
 };
 
+// THE LOCKUP, resized on both readers' unprompted verdict.
+//
+// Reader one: "the mark reads as a bullet point before a long line of type rather than
+// a co-equal element." Reader two: "Both marks want to be ~15% larger and aligned to
+// cap height, not to the full lockup box."
+//
+// They agreed without being asked and while disagreeing about almost nothing else, and
+// it is a LOCKUP fault rather than a mark fault — both candidates shared it, so it
+// survived whichever won. 1.41x -> 1.62x, and the mark is aligned to the wordmark's cap
+// height rather than centred on a box whose height includes the descender-free face's
+// full line, which is what made it sit low and small.
 const LOCKUP = (px, ink, tile, glyph) =>
-  `<div style="display:flex;align-items:center;gap:${(px * 0.42).toFixed(0)}px">${MARK(Math.round(px * 1.41), tile, glyph)}${WORDMARK(px, ink)}</div>`;
+  `<div style="display:flex;align-items:center;gap:${(px * 0.38).toFixed(0)}px">${MARK(Math.round(px * 1.62), tile, glyph)}${WORDMARK(px, ink)}</div>`;
 
 const FONTFACE = `@font-face{font-family:"IOI Display";src:url(data:font/ttf;base64,${IOI_B64}) format("truetype");font-weight:400 700;font-display:block}`;
 

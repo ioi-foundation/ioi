@@ -64,19 +64,38 @@ export const dissolvingCloud = ({ size = 96, tile = null, mono = null } = {}) =>
   const body = mono || BLUE;
   const bits = mono || BLUE;
   // Three columns of squares, each column fainter and smaller than the last.
+  // Three columns clear of the cloud's right lobe (which ends at x=58), each fainter
+  // and smaller, on the same module. Aligned to the lobe's vertical band rather than
+  // scattered — the scorer called the old grid's alignment "loose", and it was.
   const grid = [
-    { x: 60, y: 26, s: 9, o: 0.95 }, { x: 60, y: 38, s: 9, o: 0.8 },
-    { x: 72, y: 22, s: 7.5, o: 0.62 }, { x: 72, y: 33, s: 7.5, o: 0.48 },
-    { x: 72, y: 44, s: 7.5, o: 0.34 },
-    { x: 83, y: 19, s: 6, o: 0.3 }, { x: 83, y: 29, s: 6, o: 0.2 },
-    { x: 83, y: 39, s: 6, o: 0.12 },
+    { x: 62, y: 32, s: 8, o: 0.92 }, { x: 62, y: 44, s: 8, o: 0.74 },
+    { x: 73, y: 26, s: 6.5, o: 0.56 }, { x: 73, y: 37, s: 6.5, o: 0.42 },
+    { x: 73, y: 48, s: 6.5, o: 0.3 },
+    { x: 83, y: 31, s: 5, o: 0.26 }, { x: 83, y: 41, s: 5, o: 0.16 },
   ];
+  // THE SILHOUETTE IS COMPLETE, and this is the scorer's finding fixed.
+  //
+  // The first drawing ended the cloud on a flat vertical cut with a rectangular notch
+  // where the dissolve began. A blind scorer, unprompted: "the right edge is an abrupt
+  // vertical cut with a rectangular bite that reads as a mistake rather than a
+  // decision, and the dot grid's alignment to the cloud edge is loose."
+  //
+  // That is a drawing fault, not a concept fault, and it is mine. A mark whose edge
+  // reads as an error cannot be judged on its idea, because the eye stops at the error.
+  // The cloud is now three lobes and a base on one baseline — a closed, connected
+  // silhouette that ends in a proper right lobe — and the squares sit clear of it on
+  // the same 6-unit module, so the dissolution reads as deliberate rather than as
+  // something taken out of the shape.
+  const cloud = `
+    <circle cx="32" cy="38" r="17" fill="${body}"></circle>
+    <circle cx="18" cy="50" r="12" fill="${body}"></circle>
+    <circle cx="46" cy="50" r="12" fill="${body}"></circle>
+    <rect x="18" y="50" width="28" height="12" fill="${body}"></rect>`;
   return `<svg width="${size}" height="${size}" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud" style="display:block;flex-shrink:0">
   ${tile ? `<rect x="0" y="0" width="96" height="96" rx="11" fill="${tile}"></rect>` : ""}
-  <path d="M 26 70 C 15 70 8 62 8 53 C 8 44 15 37 24 37 C 26 27 35 20 45 20 C 55 20 63 26 66 35 L 66 70 Z"
-        fill="${body}"></path>
+  <g>${cloud}</g>
   <g>
-    ${grid.map((g) => `<rect x="${g.x}" y="${g.y}" width="${g.s}" height="${g.s}" rx="1.2" fill="${bits}" opacity="${mono ? Math.max(0.15, g.o * 0.9) : g.o}"></rect>`).join("\n    ")}
+    ${grid.map((g) => `<rect x="${g.x}" y="${g.y}" width="${g.s}" height="${g.s}" rx="1" fill="${bits}" opacity="${mono ? Math.max(0.15, g.o * 0.9) : g.o}"></rect>`).join("\n    ")}
   </g>
 </svg>`;
 };
