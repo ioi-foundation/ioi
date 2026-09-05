@@ -60,42 +60,56 @@ export const isoBlocks = ({ size = 96, tile = null, mono = null } = {}) => {
 // The reduction below therefore drops the faintest column deliberately rather than
 // letting it turn to mud, and the readers are asked at true 16px precisely because that
 // is where this form is weakest.
+// ONE SOURCE FOR THE GEOMETRY. The shipped shell (src/components/Lockup.jsx) imports
+// these two constants and draws the same circles, rect and squares in JSX; the plates
+// draw them through dissolvingCloud() below. Two copies of a drawing that must agree
+// are two sources and a wish — the fault the wordmark's one-source module was built
+// to remove — so the numbers live here once and the face gate anchors on them in the
+// SERVED bytes.
+//
+// THE SILHOUETTE IS COMPLETE, and this is the scorer's finding fixed.
+//
+// The first drawing ended the cloud on a flat vertical cut with a rectangular notch
+// where the dissolve began. A blind scorer, unprompted: "the right edge is an abrupt
+// vertical cut with a rectangular bite that reads as a mistake rather than a
+// decision, and the dot grid's alignment to the cloud edge is loose."
+//
+// That is a drawing fault, not a concept fault, and it is mine. A mark whose edge
+// reads as an error cannot be judged on its idea, because the eye stops at the error.
+// The cloud is now three lobes and a base on one baseline — a closed, connected
+// silhouette that ends in a proper right lobe — and the squares sit clear of it on
+// the same 6-unit module, so the dissolution reads as deliberate rather than as
+// something taken out of the shape.
+export const CLOUD = [
+  { cx: 32, cy: 38, r: 17 },
+  { cx: 18, cy: 50, r: 12 },
+  { cx: 46, cy: 50, r: 12 },
+  { x: 18, y: 50, w: 28, h: 12 },
+];
+// Three columns of squares clear of the cloud's right lobe (which ends at x=58), each
+// fainter and smaller, on the same module. Aligned to the lobe's vertical band rather
+// than scattered — the scorer called the old grid's alignment "loose", and it was.
+export const CLOUD_GRID = [
+  { x: 62, y: 32, s: 8, o: 0.92 }, { x: 62, y: 44, s: 8, o: 0.74 },
+  { x: 73, y: 26, s: 6.5, o: 0.56 }, { x: 73, y: 37, s: 6.5, o: 0.42 },
+  { x: 73, y: 48, s: 6.5, o: 0.3 },
+  { x: 83, y: 31, s: 5, o: 0.26 }, { x: 83, y: 41, s: 5, o: 0.16 },
+];
+
 export const dissolvingCloud = ({ size = 96, tile = null, mono = null } = {}) => {
   const body = mono || BLUE;
   const bits = mono || BLUE;
-  // Three columns of squares, each column fainter and smaller than the last.
-  // Three columns clear of the cloud's right lobe (which ends at x=58), each fainter
-  // and smaller, on the same module. Aligned to the lobe's vertical band rather than
-  // scattered — the scorer called the old grid's alignment "loose", and it was.
-  const grid = [
-    { x: 62, y: 32, s: 8, o: 0.92 }, { x: 62, y: 44, s: 8, o: 0.74 },
-    { x: 73, y: 26, s: 6.5, o: 0.56 }, { x: 73, y: 37, s: 6.5, o: 0.42 },
-    { x: 73, y: 48, s: 6.5, o: 0.3 },
-    { x: 83, y: 31, s: 5, o: 0.26 }, { x: 83, y: 41, s: 5, o: 0.16 },
-  ];
-  // THE SILHOUETTE IS COMPLETE, and this is the scorer's finding fixed.
-  //
-  // The first drawing ended the cloud on a flat vertical cut with a rectangular notch
-  // where the dissolve began. A blind scorer, unprompted: "the right edge is an abrupt
-  // vertical cut with a rectangular bite that reads as a mistake rather than a
-  // decision, and the dot grid's alignment to the cloud edge is loose."
-  //
-  // That is a drawing fault, not a concept fault, and it is mine. A mark whose edge
-  // reads as an error cannot be judged on its idea, because the eye stops at the error.
-  // The cloud is now three lobes and a base on one baseline — a closed, connected
-  // silhouette that ends in a proper right lobe — and the squares sit clear of it on
-  // the same 6-unit module, so the dissolution reads as deliberate rather than as
-  // something taken out of the shape.
-  const cloud = `
-    <circle cx="32" cy="38" r="17" fill="${body}"></circle>
-    <circle cx="18" cy="50" r="12" fill="${body}"></circle>
-    <circle cx="46" cy="50" r="12" fill="${body}"></circle>
-    <rect x="18" y="50" width="28" height="12" fill="${body}"></rect>`;
+  const cloud = CLOUD.map((s) =>
+    s.r !== undefined
+      ? `<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${body}"></circle>`
+      : `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${body}"></rect>`
+  ).join("\n    ");
   return `<svg width="${size}" height="${size}" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud" style="display:block;flex-shrink:0">
   ${tile ? `<rect x="0" y="0" width="96" height="96" rx="11" fill="${tile}"></rect>` : ""}
-  <g>${cloud}</g>
   <g>
-    ${grid.map((g) => `<rect x="${g.x}" y="${g.y}" width="${g.s}" height="${g.s}" rx="1" fill="${bits}" opacity="${mono ? Math.max(0.15, g.o * 0.9) : g.o}"></rect>`).join("\n    ")}
+    ${cloud}</g>
+  <g>
+    ${CLOUD_GRID.map((g) => `<rect x="${g.x}" y="${g.y}" width="${g.s}" height="${g.s}" rx="1" fill="${bits}" opacity="${mono ? Math.max(0.15, g.o * 0.9) : g.o}"></rect>`).join("\n    ")}
   </g>
 </svg>`;
 };

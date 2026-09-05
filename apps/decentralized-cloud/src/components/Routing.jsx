@@ -1,5 +1,3 @@
-import { Chip } from "./Bits.jsx";
-
 // THE ROUTING, DRAWN. Four columns — sources asked, venues quoting, candidates in the
 // latest sweep, one recommended — each a stack sized to its count, joined by bands.
 //
@@ -108,10 +106,19 @@ export default function Routing({ sources, candidates, placement, figures }) {
         <div className="rt-cell">
           <div className="rt-set rt-set-repeat">sources asked</div>
           {sources ? (
-            <ul className="rt-why">
-              {sources.quoting.map((n) => <li key={n} className="rt-live-word">{n} · quoting</li>)}
-              {sources.notQuoting.map((s) => <li key={s.name}>{s.name} · {s.why}</li>)}
-            </ul>
+            <>
+              <ul className="rt-why">
+                {sources.quoting.map((n) => <li key={n} className="rt-live-word">{n} · quoting</li>)}
+              </ul>
+              {sources.notQuoting.length > 0 && (
+                <details className="rt-losers">
+                  <summary>{sources.notQuoting.length} not quoting — why</summary>
+                  <ul className="rt-why">
+                    {sources.notQuoting.map((s) => <li key={s.name}>{s.name} · {s.why}</li>)}
+                  </ul>
+                </details>
+              )}
+            </>
           ) : <div className="rt-wait">asking the daemon — this read takes about half a minute</div>}
         </div>
         <div className="rt-cell">
@@ -127,10 +134,19 @@ export default function Routing({ sources, candidates, placement, figures }) {
         <div className="rt-cell">
           <div className="rt-set rt-set-repeat">candidates in the latest sweep</div>
           {candidates ? (
-            <ul className="rt-why">
-              <li className="rt-live-word">{candidates.live} live-priced</li>
-              {candidates.notLive.map((c) => <li key={c.name}>{c.name} · {c.why}</li>)}
-            </ul>
+            <>
+              <ul className="rt-why">
+                <li className="rt-live-word">{candidates.live} live-priced</li>
+              </ul>
+              {candidates.notLive.length > 0 && (
+                <details className="rt-losers">
+                  <summary>{candidates.notLive.length} not live — why</summary>
+                  <ul className="rt-why">
+                    {candidates.notLive.map((c) => <li key={c.name}>{c.name} · {c.why}</li>)}
+                  </ul>
+                </details>
+              )}
+            </>
           ) : <div className="rt-wait">asking</div>}
         </div>
         <div className="rt-cell">
@@ -138,10 +154,17 @@ export default function Routing({ sources, candidates, placement, figures }) {
           {placement ? (
             placement.recommended ? (
               <div className="rt-rec">
+                {/* The daemon's own words first — the display name and the venue it
+                    named — then its reason codes as small mono lines. The codes were
+                    chips at display weight, which put a 50-character identifier where
+                    the eye lands; they are evidence, not the headline. */}
                 <div className="rt-rec-name">{placement.recommended.name}</div>
-                <div className="rt-chips">
-                  {placement.recommended.reasonCodes.map((c) => <Chip key={c} kind="muted">{c}</Chip>)}
-                </div>
+                {placement.recommended.venue && (
+                  <div className="rt-rec-venue">venue · {placement.recommended.venue}</div>
+                )}
+                <ul className="rt-codes" aria-label="the daemon's reason codes">
+                  {placement.recommended.reasonCodes.map((c) => <li key={c}>{c}</li>)}
+                </ul>
                 <div className="rt-why-line">
                   of {placement.eligible ?? "…"} eligible across every sweep held
                   {placement.feeMinted === false ? " · no fee minted" : ""}

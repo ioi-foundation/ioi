@@ -3,6 +3,7 @@ import { useSurfaceRead } from "../useSurfaceRead.js";
 import { stamp, duration } from "../logic/classify.mjs";
 import { jobView, originUnknown, ORIGIN_TAGGING_SINCE } from "../logic/job-door.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
+import Receipt from "../components/Receipt.jsx";
 
 // RECEIPTS — WIRED, and rendered from real records.
 //
@@ -179,22 +180,12 @@ export default function Receipts({ announce }) {
                       // list. This rendered `Object.keys(receipts)` — indices, because
                       // the daemon sends an array — so every chip on the page read "0"
                       // under a column headed Receipts.
-                      <div className="stack" style={{ gap: "6px" }}>
-                        {j.receipts.map((r, i) => (
-                          <div key={r.ref || i} className="stack" style={{ gap: "3px" }}>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                              <span className="chip muted">{r.kind || "receipt of an unnamed kind"}</span>
-                              {/* The fee fact, from the record's own fields rather than
-                                  inferred from one of them. This is the claim the
-                                  product is most often asked to prove. */}
-                              {r.feeMinted === false && <span className="chip absent">no fee minted</span>}
-                              {r.feeMinted === true && <span className="chip">fee minted</span>}
-                            </div>
-                            {r.root && (
-                              <div className="meta mono" style={{ fontSize: "11px" }}>{r.root}</div>
-                            )}
-                          </div>
-                        ))}
+                      // AS AN OBJECT, not a chip and a hash. A cold reader: "what a
+                      // receipt IS is named on four surfaces and never displayed." The
+                      // ticket carries kind, root, and the fee fact from the record's own
+                      // fields — the claim the product is most often asked to prove.
+                      <div className="stack" style={{ gap: "0" }}>
+                        {j.receipts.map((r, i) => <Receipt key={r.ref || i} r={r} compact />)}
                       </div>
                     ) : (
                       // Not "—", and not an empty cell. The absence is the finding and

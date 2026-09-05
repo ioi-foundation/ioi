@@ -31,6 +31,21 @@
   --surface: #f9f9f9;
   --paper: #ffffff;
 
+  /* The mark's one ink: --color-ocean-blue. Blue carries no meaning on the surface —
+     it is the identity's colour and appears nowhere else. */
+  --brand-blue: #0048ff;
+  /* Paper on onyx at named steps, restated from the token file with their computed
+     contrasts against onyx: text 13.91:1, soft 7.27:1, caption 5.36:1, shape 3.55:1;
+     rule and band are decorative. The palette gate sees only #rrggbb literals, so
+     these are named here and in colors.css precisely so nobody mistakes its silence
+     for a measurement of them. */
+  --on-onyx-text: rgba(255, 255, 255, 0.85);
+  --on-onyx-soft: rgba(255, 255, 255, 0.6);
+  --on-onyx-caption: rgba(255, 255, 255, 0.5);
+  --on-onyx-shape: rgba(255, 255, 255, 0.38);
+  --on-onyx-rule: rgba(255, 255, 255, 0.14);
+  --on-onyx-band: rgba(255, 255, 255, 0.09);
+
   --sans: "ABC Diatype", ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif;
   --mono: "ABC Diatype Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --brand: "IOI Display", "ABC Diatype", sans-serif;
@@ -73,21 +88,24 @@ a:hover { color: #3e7f5c; }
 .wordmark .dot { display: inline-block; border-radius: 50%; background: var(--ink);
   width: 0.137em; height: 0.137em; margin: 0 0.10em;
   position: relative; top: -0.2815em; }   /* raised so its centre lands at 0.35em */
-/* The overridden Z — see the note in index.html for why it exists. Its height is the
-   cap and its width follows the glyph's own advance ratio, 1065/700 of the cap: an
-   SVG box narrower than its viewBox shrinks the glyph to fit and centres it in the
-   slack, which is exactly what a first attempt did. */
-.wordmark .wm-z { height: 0.700em; width: 1.065em; vertical-align: baseline;
-  overflow: visible; flex-shrink: 0; }
-/* The drawn I. Its width is its own advance — 620 units on a 1000 em — not the Z's,
-   for the reason the comment above gives: an SVG box narrower than its viewBox
-   shrinks the glyph to fit and centres it in the slack, so a shared width would
-   silently squash one of the two drawn glyphs. */
-.wordmark .wm-i { height: 0.700em; width: 0.620em; vertical-align: baseline;
-  overflow: visible; flex-shrink: 0; }
+/* THE WORDMARK IS ONE TEXT RUN IN THE FACE — owner ruling, 2026-09-05. The rules
+   that sized two drawn letters used to sit here; those letters are gone and so are
+   the rules. The period stays drawn because the face has no U+002E.
 
-.lockup { display: flex; align-items: center; gap: 10px; }
-.mark { display: block; flex-shrink: 0; }
+   THE MARK is the dissolving cloud, sized in em against the lockup's own font size:
+   1.62 x the face's 0.700em cap, where two head-to-head readers put it ("~15% larger,
+   aligned to cap height"). Because both are in em, the narrow-width rule that steps
+   the lockup down steps the pair down together, as one object. Its ink is the
+   design system's ocean blue and nothing else on the surface is blue. */
+.lockup { display: flex; align-items: center; gap: 10px; font-size: 22px; }
+.wordmark { font-size: 1em; }
+/* The mark's viewBox is cropped to its INK (88 x 48 of the 96 artboard), so the
+   height set here is the cloud's own height, not the artboard's. At 1.134em the first
+   build put the whole artboard in that box and the cloud came out at 60% of it — a
+   smudge beside the name, which is the "bullet point" fault the readers named. */
+.mark { display: block; flex-shrink: 0; width: 2.079em; height: 1.134em; }
+.mark .mark-body { fill: var(--brand-blue); }
+.mark .mark-bits { fill: var(--brand-blue); }
 
 /* ── Freshness ────────────────────────────────────────────────────────────
    A quote is only worth what its window says. The dial is the fraction of the
@@ -230,7 +248,12 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    something to scroll to — `background-attachment: local` on the two inner layers
    means they scroll away with the content, leaving the fixed shadow visible only while
    content overflows in that direction. No script, no measurement, no state. */
-.table-scroll { border: 1px solid var(--hairline); border-radius: 10px; overflow-x: auto;
+/* RULED AND OPEN, not a card. A reader on the direction canvases named the one
+   table treatment that read as designed: "a 2px black rule under the header row
+   against hairline row separators — one strong horizontal, everything else quiet —
+   plus no card wrapper at all, so the table is the page instead of an object floating
+   on it." The scroll container keeps its edge fade and loses its border and radius. */
+.table-scroll { overflow-x: auto;
   background:
     linear-gradient(to right, var(--paper) 30%, rgba(255, 255, 255, 0)) left center,
     linear-gradient(to left, var(--paper) 30%, rgba(255, 255, 255, 0)) right center,
@@ -256,12 +279,17 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    The class-orphan gate cannot see this. It asserts every class EMITTED has a rule,
    and `trow` has one. The inverse — A RULE THAT MATCHES NOTHING — is a different
    smell, and it is the one that hid here for the whole life of the port. */
-.table thead > tr > th { padding: 12px 20px; background: var(--surface); border-top: 0;
+.table thead > tr > th { padding: 10px 20px 12px; background: transparent; border-top: 0;
   text-align: left; font-weight: 400;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 2px solid var(--ink);
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--label); }
 .table tbody > tr:first-child > th, .table tbody > tr:first-child > td { border-top: 0; }
+/* The table sits on the page's own left edge: no padding well on the first column,
+   none on the last, so the header rule runs from margin to margin. */
+.table thead > tr > th:first-child, .trow > :first-child { padding-left: 0; }
+.table thead > tr > th:last-child, .trow > :last-child { padding-right: 0; }
+.table tbody > tr:last-child > th, .table tbody > tr:last-child > td { border-bottom: 1px solid var(--hairline); }
 .trow > :nth-child(1) { width: 168px; }
 .trow > :nth-child(3) { width: 132px; }
 .trow > :nth-child(4) { width: 178px; }
@@ -674,6 +702,7 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .table.t-catalog th:nth-child(3), .table.t-catalog td:nth-child(3) { width: 32%; }
 .t-catalog .trow > th, .t-catalog .trow > td { padding: 11px 14px; vertical-align: top; }
 .cls-cell { border-right: 1px solid var(--hairline-soft); }
+.t-catalog .trow > th.cls-cell { padding-left: 0; }
 .cls-name { font-size: 14px; color: var(--ink); }
 .entry-name { color: var(--ink); text-decoration: none; font-size: 14px; }
 .entry-name:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
@@ -714,12 +743,11 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .nav { margin: 0 -16px; padding: 6px 16px 0; gap: 14px; }
   main { padding: 22px 16px 44px; }
   .unwired-banner { padding: 12px 16px; flex-direction: column; gap: 6px; }
-  /* The narrow lockup the old comment promised: the wordmark steps down with the
-     mark so the pair keeps its measured 1.25-1.35 ratio instead of the mark
-     shrinking alone. */
-  .wordmark { font-size: 17px !important; }
-  .mark { width: 24px; height: 24px; }
-  .lockup { gap: 8px; }
+  /* The narrow lockup: mark and wordmark are both in em on .lockup, so one number
+     steps the pair down together and the 1.62x-cap ratio holds. */
+  /* 15, not 17: at 17px the face's wide caps ran the name to the viewport's last
+     pixel with no margin (measured at 390: "CLOUD" ended at x=385 of 390). */
+  .lockup { font-size: 15px; gap: 7px; }
   pre.code { padding: 14px 14px; font-size: 11px; }
 }
 
@@ -736,7 +764,7 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   margin: -34px -40px 34px; padding: 44px 40px 40px;
   display: grid; gap: 36px; }
 .hero-statement { font-size: 17px; font-weight: 400; letter-spacing: 0; line-height: 1.3;
-  color: var(--paper); opacity: 0.78; max-width: 46ch; }
+  color: var(--on-onyx-text); max-width: 46ch; }
 .hero-focus { display: grid; gap: 10px; }
 .hero-eyebrow { color: var(--live-on-dark); }
 /* THE PRICE IS THE PAGE. 168px at desktop, tabular so a refresh that changes one digit
@@ -745,31 +773,31 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .hero-price { margin: 0; display: flex; align-items: baseline; gap: 0.06em;
   font-size: 168px; line-height: 0.92; letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums; color: var(--paper); }
-.hero-cur { font-size: 0.42em; letter-spacing: -0.02em; opacity: 0.7; align-self: flex-start; margin-top: 0.12em; }
+.hero-cur { font-size: 0.42em; letter-spacing: -0.02em; color: var(--on-onyx-soft); align-self: flex-start; margin-top: 0.12em; }
 .hero-figure { font-weight: 400; }
 .hero-frac { font-size: 0.62em; letter-spacing: -0.02em; }
 .hero-unit { font-size: 0.13em; letter-spacing: 0.02em; font-family: var(--mono);
-  opacity: 0.7; margin-left: 0.6em; text-transform: uppercase; }
-.hero-price-waiting .hero-figure { opacity: 0.35; }
+  color: var(--on-onyx-soft); margin-left: 0.6em; text-transform: uppercase; }
+.hero-price-waiting .hero-figure { color: var(--on-onyx-shape); }
 .hero-what { margin: 2px 0 0; font-size: 17px; line-height: 1.4; color: var(--paper); }
 .hero-venue { font-size: 19px; }
-.hero-basis { font-size: 13px; opacity: 0.66; }
-.hero-observed { margin: 0; font-size: 12px; opacity: 0.6; }
+.hero-basis { font-size: 13px; color: var(--on-onyx-soft); }
+.hero-observed { margin: 0; font-size: 12px; color: var(--on-onyx-soft); }
 
 /* THE DEPLETING BAR. Track = time spent (paper at low opacity); left = time remaining
    in live green; a spent window turns the text red because red means expired. */
 .fresh { display: grid; gap: 8px; }
 .fresh-track { position: relative; height: 6px; border-radius: 3px; overflow: hidden;
-  background: rgba(255, 255, 255, 0.16); }
+  background: var(--on-onyx-rule); }
 .fresh-left { position: absolute; left: 0; top: 0; bottom: 0; background: var(--live-on-dark);
   border-radius: 3px; transition: width 1s linear; }
-.fresh-text { font-size: 13px; color: var(--paper); opacity: 0.85; }
+.fresh-text { font-size: 13px; color: var(--on-onyx-text); }
 .fresh-hero { max-width: 720px; margin-top: 10px; }
 .fresh-hero .fresh-track { height: 10px; border-radius: 5px; }
 .fresh-hero .fresh-text { font-size: 15px; }
 .fresh-expired .fresh-text { color: var(--expired); opacity: 1; }
 .fresh-expired .fresh-left { background: var(--expired); }
-.fresh-none .fresh-track { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0 4px, transparent 4px 8px); }
+.fresh-none .fresh-track { background: repeating-linear-gradient(90deg, var(--on-onyx-shape) 0 4px, transparent 4px 8px); }
 /* In a table row on paper the same bar, in the paper's own colours. */
 .fresh-row { min-width: 150px; }
 .fresh-row .fresh-track { background: var(--hairline); height: 5px; }
@@ -781,37 +809,49 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
    none; fills only, no strokes, so nothing distorts) and the legend is a 4-column
    HTML grid whose columns sit under the SVG's four stacks. */
 .routing { margin: 0; display: grid; gap: 14px; padding-top: 26px;
-  border-top: 1px solid rgba(255, 255, 255, 0.14); }
+  border-top: 1px solid var(--on-onyx-rule); }
 .rt { display: block; width: 100%; height: 200px; }
-.rt-stage { fill: rgba(255, 255, 255, 0.28); }
+.rt-stage { fill: var(--on-onyx-shape); }
 .rt-live { fill: var(--live-on-dark); }
 .rt-placed { fill: var(--paper); }
-.rt-band { fill: rgba(255, 255, 255, 0.09); }
-.rt-base { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+.rt-band { fill: var(--on-onyx-band); }
+.rt-base { stroke: var(--on-onyx-shape); stroke-width: 1; }
 .rt-heads { list-style: none; margin: 0; padding: 0; display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .rt-head { min-width: 0; }
 .rt-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;
-  padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+  padding-top: 14px; border-top: 1px solid var(--on-onyx-rule); }
 .rt-set-repeat { display: none; }
 .rt-cell { min-width: 0; display: grid; gap: 6px; align-content: start; }
 .rt-n { font-size: 56px; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.rt-set { margin-top: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.66; }
+.rt-set { margin-top: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-onyx-soft); }
 /* A reason code is long and the cell is a quarter of the band: the chip wraps. The
    first build let one run 12px past the viewport. */
 .hero .chip { white-space: normal; overflow-wrap: anywhere; }
+/* TWO TIERS. What passed is at full weight in the live colour; what did not is a
+   count with a disclosure, because eleven lines of "no source" at 1440 were the right
+   facts at the wrong weight — a wall of small mono under the drawing. */
 .rt-why { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px;
-  font-family: var(--mono); font-size: 12px; line-height: 1.4; opacity: 0.6; overflow-wrap: anywhere; }
-.rt-why .rt-live-word { color: var(--live-on-dark); opacity: 1; }
-.rt-wait { font-family: var(--mono); font-size: 12px; opacity: 0.6; }
-.rt-rec { display: grid; gap: 8px; }
+  font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--on-onyx-soft); overflow-wrap: anywhere; }
+.rt-why .rt-live-word { color: var(--live-on-dark); }
+.rt-losers { margin-top: 4px; }
+.rt-losers > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--on-onyx-soft);
+  list-style: none; }
+.rt-losers > summary::-webkit-details-marker { display: none; }
+.rt-losers > summary::before { content: "+ "; }
+.rt-losers[open] > summary::before { content: "− "; }
+.rt-losers > .rt-why { margin-top: 6px; }
+.rt-wait { font-family: var(--mono); font-size: 12px; color: var(--on-onyx-soft); }
+.rt-rec { display: grid; gap: 6px; }
 .rt-rec-name { font-size: 16px; line-height: 1.3; }
-.rt-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.rt-why-line { font-family: var(--mono); font-size: 12px; opacity: 0.6; }
-.rt-caption { font-size: 11px; opacity: 0.5; max-width: 80ch; }
+.rt-rec-venue { font-family: var(--mono); font-size: 12px; color: var(--on-onyx-text); }
+.rt-codes { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px;
+  font-family: var(--mono); font-size: 11px; line-height: 1.4; color: var(--on-onyx-soft); overflow-wrap: anywhere; }
+.rt-why-line { font-family: var(--mono); font-size: 12px; color: var(--on-onyx-soft); }
+.rt-caption { font-size: 11px; color: var(--on-onyx-caption); max-width: 80ch; }
 /* Chips on the dark ground: same object, the ground's colours. */
-.hero .chip { background: transparent; border-color: rgba(255, 255, 255, 0.3); color: var(--paper); }
-.hero .chip .dot { background: rgba(255, 255, 255, 0.5); }
+.hero .chip { background: transparent; border-color: var(--on-onyx-shape); color: var(--paper); }
+.hero .chip .dot { background: var(--on-onyx-caption); }
 .hero .chip.live { border-color: var(--live-on-dark); color: var(--live-on-dark); }
 .hero .chip.live .dot { background: var(--live-on-dark); }
 
@@ -823,8 +863,8 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .catalog-page > [aria-busy] > h1 { font-size: 31px; }
 .hero-door { background: var(--paper); color: var(--ink); border-color: var(--paper); text-decoration: none; }
 .hero-door:hover { background: var(--ink); color: var(--paper); }
-.hero-door-link { color: var(--paper); text-decoration: none; font-size: 15px; opacity: 0.85; }
-.hero-door-link:hover { text-decoration: underline; text-underline-offset: 3px; opacity: 1; }
+.hero-door-link { color: var(--on-onyx-text); text-decoration: none; font-size: 15px; }
+.hero-door-link:hover { text-decoration: underline; text-underline-offset: 3px; color: var(--paper); }
 
 @media (max-width: 1640px) { .hero { margin: -26px -24px 26px; padding: 36px 24px 32px; } }
 @media (max-width: 1000px) {
@@ -845,3 +885,19 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .rt-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 @media (max-width: 430px) { .hero { margin: -22px -16px 22px; padding: 30px 16px 28px; } .hero-price { font-size: 64px; } }
+/* ── THE RECEIPT AS AN OBJECT ──────────────────────────────────────────────────
+   A ticket: one strong rule on top, a hairline beneath, the kind and time on the
+   first line, the root hash full-width so it can be selected and compared, the fee
+   as its own line. It is the same object at every size; `compact` only tightens it. */
+.receipt { display: grid; gap: 6px; padding: 10px 0 12px; border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--hairline); max-width: 520px; }
+.receipt + .receipt { border-top-width: 1px; }
+.receipt-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.receipt-kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+.receipt-at { font-size: 11px; color: var(--label); }
+.receipt-root { font-size: 12px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.receipt-fee { font-size: 12px; color: var(--label); }
+.receipt-note { font-size: 13px; line-height: 1.45; color: var(--label); }
+/* Inside a table cell the ticket's top rule is one pixel: two 2px rules in one row —
+   the table's header rule and the ticket's — read as two tables. */
+.receipt-compact { padding: 8px 0 10px; gap: 4px; border-top-width: 1px; }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { Chip, Failure } from "../components/Bits.jsx";
+import Receipt from "../components/Receipt.jsx";
 import { HUMAN_REQUEST, AGENT_REQUEST } from "../logic/job-request.mjs";
 import { composeRequest, admit, dryRun, refusal, jobView } from "../logic/job-door.mjs";
 
@@ -344,6 +345,14 @@ export default function Job({ announce }) {
           </div>
           <h2 className="mono">{dryJob.state}</h2>
           {dry.body?.note && <p className="prose">{dry.body.note}</p>}
+          {/* THE RECEIPT, AS THE THING YOU CAME FOR. The dry run stops at the placement
+              receipt; that receipt is rendered here as an object, from the daemon's own
+              record of this job, so the door ends on the artifact it promised. */}
+          {dryJob.receipts.length > 0 && (
+            <div className="stack" style={{ gap: "0" }}>
+              {dryJob.receipts.map((r, i) => <Receipt key={r.ref || i} r={r} />)}
+            </div>
+          )}
           {/* The end of the road on this surface, stated as the DESIGN it is rather
               than as a thing that is missing. A public page is a dry-run door: it
               decides a placement and stops. Executing is a spend, and a spend is

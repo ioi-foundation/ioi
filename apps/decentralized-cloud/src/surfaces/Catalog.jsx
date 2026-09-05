@@ -73,7 +73,7 @@ export default function Catalog({ announce }) {
             waiting block that minted a second one would give the page two. */}
         <h2 className="catalog-h">All resources</h2>
         <Waiting
-          what="the list of candidate sources"
+          what="the list of candidate sources — the quote above is already live; the catalog is what is still coming"
           title={null}
           willShow={
             "Every kind of infrastructure this router can be asked for — compute, storage, " +

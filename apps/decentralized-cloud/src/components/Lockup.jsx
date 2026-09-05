@@ -1,115 +1,69 @@
-import {
-  CAP, UPM, Z_PATH, Z_ADVANCE, I_PATH, I_ADVANCE,
-  DOT_DIAMETER_EM, DOT_SIDE_EM, DOT_RAISE_EM,
-} from "../../brand/wordmark/wordmark.mjs";
+import { CLOUD, CLOUD_GRID } from "../../brand/canvas-directions/marks.mjs";
 
-// THE LOCKUP — and the port's one real improvement over the surface it replaces.
+// THE LOCKUP, under the owner's two rulings of 2026-09-05.
 //
-// The static shell carried the Z path as a literal, and brand/wordmark/wordmark.mjs
-// claimed to be its one source while nothing enforced that. I added a gate that reads
-// the SERVED BYTES and compares them to the module's constant, and mutation-tested it.
+// THE MARK is the dissolving cloud — a solid cloud whose upper-right edge breaks into
+// a fading grid — the owner's reference B, winner of a blind head-to-head over the
+// isometric blocks. Its score ships with it and is not hidden: 51 of 100 against 36,
+// three readers, and NOT a pass — "neither mark passes second-sighting; both are
+// category pictures." Two drawing faults found by the scorer were fixed after that
+// number, so 51 is the corrected drawing's floor. The geometry is IMPORTED from the
+// one module that draws it for the brand plates, so the shell and the sheets cannot
+// drift — the reason the wordmark constants are imported too.
 //
-// This component does something the static shell could not: it IMPORTS the constant.
-// Drift is now impossible rather than merely detected — there is no second copy to
-// drift from. The served-bytes gate stays anyway, because it is the assertion that
-// proves the thing a visitor receives carries the value, and a build step is exactly
-// the kind of transform that can quietly drop one.
+// THE WORDMARK is set entirely in IOI Display, unaltered: ONE text run. The drawn I and
+// the drawn Z that two reader rounds had granted are removed by the owner's ruling and
+// archived with their evidence; the cost the owner chose — five readers across two
+// rulings transcribed the face's Z as a 2 and its bare-stem I as a 1 at small sizes —
+// is recorded on the identity sheet, not here. The only drawn element is the medial
+// period, and only because the face carries no U+002E at all.
 //
-// THE Z IS DRAWN, and only here. IOI Display's own Z (gid 30; the face is unicase)
-// has a curved upper-left terminal and reads as a numeral 2 — the brand's own name
-// misspelled by its own typeface. Three fresh readers on narrow plates typed a digit
-// for exactly one variant in a field of twenty, and it was the face's own. The
-// adopted path differs from the previous override in one number: the diagonal is cut
-// 1.7x the bar rather than 1.35x, elbow flush at the corners. The mechanism the
-// readers named is a corner, not a terminal: "it is a bend versus a corner, and at
-// 13px the bend wins."
-//
-// IOI.ttf is UNTOUCHED. It is the estate's brand face and other products set their
-// wordmarks in it; whether the same misread exists there is the owner's call.
-//
-// The face carries no U+002E either, which is why the period has always had to be
-// drawn — a mechanical necessity, not a style ruling.
+// SIZE: readers of the head-to-head said the mark wanted to be ~15% larger and aligned
+// to cap height rather than to the box; the plates settled at 1.62x the cap. Same here.
 
-export default function Lockup({ px = 22 }) {
-  const capPx = (px * CAP) / UPM;
-  const dotPx = px * DOT_DIAMETER_EM;
+
+// The mark's viewBox is the INK's bounding box on the 96-unit artboard — x 4..92,
+// y 18..66 — not the artboard. The first build put the whole artboard in a
+// cap-sized box and the cloud came out at 60% of it, a smudge beside the name.
+const INK_BOX = "4 18 88 48";
+
+// SIZES ARE IN EM, IN THE STYLESHEET, AND NOWHERE ELSE. The first build set the
+// wordmark's font size inline from a `px` prop, which beat the narrow-width rule that
+// steps the lockup down — so at 390 the name stayed at 22px and pushed the body 74px
+// past the viewport. The dot's geometry (0.137em, 0.10em sides, raised 0.2815em) and
+// the mark's 1.62x-cap height live in face.css in em; wordmark.mjs carries the same
+// numbers for the brand plates. Nothing here re-states them.
+
+export default function Lockup() {
   return (
     <div className="lockup">
-      {/* THE MARK, carried across from the static shell unchanged.
-          The mark hunt has since been capped — six rounds, ~1,300 candidates, thirteen
-          fresh readers, zero granted by two — and this drawing is the owner's reserved
-          form, shipped as identity v0 provisional. It is not mine to redraw and not
-          mine to remove, and ioi-c0 ruled explicitly that it stays untouched pending an
-          owner ruling on the naming question.
-          I dropped it from the first version of this component — not by deciding to,
-          but by writing a new lockup and not carrying it over. Removing the product's
-          only mark by omission is still removing it, and the screenshot is what caught
-          it: every gate was green, because no gate asserts the mark exists. */}
-      <svg className="mark" width="31" height="31" viewBox="0 0 96 96" role="img" aria-label="decentralized.cloud">
-        <defs>
-          <mask id="cloud-cue" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
-            <rect x="-20" y="-20" width="136" height="136" fill="#ffffff" />
-            <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000" />
-          </mask>
-        </defs>
-        <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19" />
-        <g mask="url(#cloud-cue)">
-          <g transform="translate(9.500 13.743) scale(0.71369)">
-            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#ffffff" />
-            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#ffffff" />
-            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#ffffff" />
-          </g>
+      <svg
+        className="mark"
+        viewBox={INK_BOX}
+        role="img"
+        aria-label="decentralized.cloud"
+      >
+        <g className="mark-body">
+          {CLOUD.map((s, i) =>
+            s.r !== undefined
+              ? <circle key={i} cx={s.cx} cy={s.cy} r={s.r} />
+              : <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} />
+          )}
+        </g>
+        <g className="mark-bits">
+          {CLOUD_GRID.map((g, i) => (
+            <rect key={i} x={g.x} y={g.y} width={g.s} height={g.s} rx="1" opacity={g.o} />
+          ))}
         </g>
       </svg>
-      <div className="wordmark" style={{ fontSize: `${px}px` }} aria-hidden="true">
-        {/* The run breaks HERE, before the I, because the I is drawn. I had this wrong
-            in the first version of this component: I adopted the drawn I into the one
-            source and into the static shell, and left the React lockup setting
-            "decentrali" in the face — so the ported surface shipped the bare stem
-            three readers had just rejected. The gate caught it, which is the whole
-            reason the gate reads the served bytes rather than the module. */}
-        <span>decentral</span>
-        <svg
-          className="wm-i"
-          width={(capPx * I_ADVANCE) / CAP}
-          height={capPx}
-          viewBox={`0 -${CAP} ${I_ADVANCE} ${CAP}`}
-          aria-hidden="true"
-          focusable="false"
-        >
-          <g transform="scale(1,-1)">
-            <path d={I_PATH} fill="currentColor" />
-          </g>
-        </svg>
-        <svg
-          className="wm-z"
-          width={(capPx * Z_ADVANCE) / CAP}
-          height={capPx}
-          viewBox={`0 -${CAP} ${Z_ADVANCE} ${CAP}`}
-          aria-hidden="true"
-          focusable="false"
-        >
-          <g transform="scale(1,-1)">
-            <path d={Z_PATH} fill="currentColor" />
-          </g>
-        </svg>
-        <span>ed</span>
-        <span
-          className="dot"
-          style={{
-            width: `${dotPx.toFixed(2)}px`,
-            height: `${dotPx.toFixed(2)}px`,
-            margin: `0 ${(px * DOT_SIDE_EM).toFixed(2)}px`,
-            top: `-${(px * DOT_RAISE_EM).toFixed(2)}px`,
-          }}
-        />
+      <div className="wordmark" aria-hidden="true">
+        <span>decentralized</span>
+        <span className="dot" />
         <span>cloud</span>
       </div>
-      {/* The accessible name is on the MARK's <svg role="img" aria-label>, and nowhere
-          else. The wordmark is aria-hidden because it is drawn glyphs and styled spans
-          — a screen reader walking it would read the product's name as fragments. I
-          briefly had an sr-only span here saying the name a second time, which would
-          have announced it twice. */}
+      {/* The accessible name is on the mark's <svg role="img" aria-label>, once. The
+          wordmark is aria-hidden: a styled span pair plus a drawn dot would be read as
+          fragments. */}
     </div>
   );
 }

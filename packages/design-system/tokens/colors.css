@@ -54,6 +54,19 @@
   --color-green-600: #00a544;
   --color-blue-600: #155dfc;
 
+  /* ---- Paper on onyx, at named steps (decentralized.cloud hero, 2026-09-05) ----
+     The face's one dark band sets paper-white text and shapes on onyx at a few
+     opacities. Each step is named for its one job and carries its computed contrast
+     against onyx (#0a0e19), so a reader of this file knows the steps exist and the
+     palette gate — which sees only #rrggbb literals — is not mistaken for having
+     measured them. Each is a token, not a hue: white at an alpha. */
+  --color-paper-on-onyx-text: rgba(255, 255, 255, 0.85);   /* body text on onyx — 13.91:1 */
+  --color-paper-on-onyx-soft: rgba(255, 255, 255, 0.6);    /* secondary text on onyx — 7.27:1 */
+  --color-paper-on-onyx-caption: rgba(255, 255, 255, 0.5); /* captions on onyx — 5.36:1 */
+  --color-paper-on-onyx-shape: rgba(255, 255, 255, 0.38);  /* a meaningful non-text shape, e.g. a non-live mark — 3.55:1 */
+  --color-paper-on-onyx-rule: rgba(255, 255, 255, 0.14);   /* hairline rules on onyx — decorative, 1.46:1 */
+  --color-paper-on-onyx-band: rgba(255, 255, 255, 0.09);   /* the routing's flow bands — decorative, 1.24:1 */
+
   /* ================= Semantic aliases ================= */
   --bg-page: var(--color-white);
   --bg-subtle: var(--color-porcelain-grey);
