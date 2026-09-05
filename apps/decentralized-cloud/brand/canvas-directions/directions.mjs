@@ -57,14 +57,14 @@ const D = {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const A_FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">`;
-const A_HELM = `${A_FONTS}
+const A_CSS = `
   .h { font-family: Archivo, ui-sans-serif, system-ui, sans-serif; }
   .m { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
   .rule { border-top: 1px solid ${T.hair}; }
   .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: ${T.muted}; }`;
 
 const A_landing = shell(
-  `background:${T.paper};color:${T.ink};`, A_HELM,
+  `background:${T.paper};color:${T.ink};`, A_FONTS, A_CSS,
   `<div class="h" style="min-height:900px;display:flex;flex-direction:column">
     <header style="display:flex;align-items:center;justify-content:space-between;padding:22px 56px;border-bottom:1px solid ${T.hair}">
       ${LOCKUP(19, T.ink, T.ink, T.paper)}
@@ -133,7 +133,7 @@ const A_landing = shell(
 );
 
 const A_candidates = shell(
-  `background:${T.paper};color:${T.ink};`, A_HELM,
+  `background:${T.paper};color:${T.ink};`, A_FONTS, A_CSS,
   `<div class="h" style="min-height:900px">
     <header style="display:flex;align-items:center;justify-content:space-between;padding:18px 40px;border-bottom:1px solid ${T.hair}">
       ${LOCKUP(17, T.ink, T.ink, T.paper)}
@@ -185,7 +185,7 @@ const A_candidates = shell(
 );
 
 const A_job = shell(
-  `background:${T.paper};color:${T.ink};`, A_HELM,
+  `background:${T.paper};color:${T.ink};`, A_FONTS, A_CSS,
   `<div class="h" style="min-height:900px">
     <header style="display:flex;align-items:center;padding:18px 40px;border-bottom:1px solid ${T.hair}">${LOCKUP(17, T.ink, T.ink, T.paper)}</header>
     <div style="padding:40px;max-width:900px">
@@ -246,13 +246,13 @@ const A_job = shell(
 
 const B_FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">`;
 const BSURF = "#12161f", BSURF2 = "#1a1f2a", BHAIR = "#232935";
-const B_HELM = `${B_FONTS}
+const B_CSS = `
   .h { font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif; }
   .m { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
   .eyebrow { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: ${T.muted}; }`;
 
 const B_landing = shell(
-  `background:${T.ink};color:${T.paper};`, B_HELM,
+  `background:${T.ink};color:${T.paper};`, B_FONTS, B_CSS,
   `<div class="h" style="min-height:900px;display:flex;flex-direction:column">
     <header style="display:flex;align-items:center;justify-content:space-between;padding:20px 56px;border-bottom:1px solid ${BHAIR}">
       ${LOCKUP(19, T.paper, T.paper, T.ink)}
@@ -313,7 +313,7 @@ const B_landing = shell(
 );
 
 const B_candidates = shell(
-  `background:${T.ink};color:${T.paper};`, B_HELM,
+  `background:${T.ink};color:${T.paper};`, B_FONTS, B_CSS,
   `<div class="h" style="min-height:900px">
     <header style="display:flex;align-items:center;justify-content:space-between;padding:16px 40px;border-bottom:1px solid ${BHAIR}">
       ${LOCKUP(17, T.paper, T.paper, T.ink)}
@@ -364,7 +364,7 @@ const B_candidates = shell(
 );
 
 const B_job = shell(
-  `background:${T.ink};color:${T.paper};`, B_HELM,
+  `background:${T.ink};color:${T.paper};`, B_FONTS, B_CSS,
   `<div class="h" style="min-height:900px">
     <header style="display:flex;align-items:center;padding:16px 40px;border-bottom:1px solid ${BHAIR}">${LOCKUP(17, T.paper, T.paper, T.ink)}</header>
     <div style="padding:34px 40px;max-width:900px">
@@ -421,14 +421,14 @@ const B_job = shell(
 
 const C_FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">`;
 const CPAPER = "#fbfaf8";
-const C_HELM = `${C_FONTS}
+const C_CSS = `
   .s { font-family: Newsreader, Georgia, serif; }
   .h { font-family: Archivo, ui-sans-serif, system-ui, sans-serif; }
   .m { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
   .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: ${T.muted}; }`;
 
 const C_landing = shell(
-  `background:${CPAPER};color:${T.ink};`, C_HELM,
+  `background:${CPAPER};color:${T.ink};`, C_FONTS, C_CSS,
   `<div class="h" style="min-height:900px;display:flex;flex-direction:column">
     <header style="display:flex;align-items:center;justify-content:space-between;padding:24px 60px">
       ${LOCKUP(19, T.ink, T.ink, CPAPER)}
@@ -494,7 +494,7 @@ const C_landing = shell(
 );
 
 const C_candidates = shell(
-  `background:${CPAPER};color:${T.ink};`, C_HELM,
+  `background:${CPAPER};color:${T.ink};`, C_FONTS, C_CSS,
   `<div class="h" style="min-height:900px">
     <header style="display:flex;align-items:center;justify-content:space-between;padding:20px 46px;border-bottom:1px solid ${T.strong}">
       ${LOCKUP(17, T.ink, T.ink, CPAPER)}
@@ -545,7 +545,7 @@ const C_candidates = shell(
 );
 
 const C_job = shell(
-  `background:${CPAPER};color:${T.ink};`, C_HELM,
+  `background:${CPAPER};color:${T.ink};`, C_FONTS, C_CSS,
   `<div class="h" style="min-height:900px">
     <header style="display:flex;align-items:center;padding:20px 46px;border-bottom:1px solid ${T.strong}">${LOCKUP(17, T.ink, T.ink, CPAPER)}</header>
     <div style="padding:38px 46px;max-width:920px">

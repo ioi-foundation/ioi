@@ -88,7 +88,20 @@ const LOCKUP = (px, ink, tile, glyph) =>
 
 const FONTFACE = `@font-face{font-family:"IOI Display";src:url(data:font/ttf;base64,${IOI_B64}) format("truetype");font-weight:400 700;font-display:block}`;
 
-const shell = (bodyStyle, helmetExtra, inner) => `<!doctype html>
+// THE <link> GOES OUTSIDE THE <style>, and this was a real bug in my own artboards.
+//
+// `helmetExtra` began with a `<link rel="stylesheet">` to Google Fonts and was
+// interpolated INSIDE the `<style>` block — so the browser parsed the link tag as CSS
+// text, dropped it, and every headline rendered in a fallback serif. Not the shooter's
+// fault and not a timing problem: `document.fonts.ready` reported "loaded" because the
+// font was never requested at all. The direction I would have put in front of readers
+// was not the direction I specified, and it would have shipped that way in the
+// published canvas too.
+//
+// The tell was that a timing theory explained it and the evidence did not — fonts
+// reported loaded and the type was still wrong. Two instruments disagreeing is the
+// signal to stop and look, not to lengthen the wait.
+const shell = (bodyStyle, links, css, inner) => `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -97,9 +110,10 @@ const shell = (bodyStyle, helmetExtra, inner) => `<!doctype html>
 <body>
 <x-dc>
 <helmet>
+  ${links}
   <style>
     ${FONTFACE}
-    ${helmetExtra}
+    ${css}
     body { margin: 0; ${bodyStyle} }
     a { color: inherit; text-decoration: none; }
     a:hover { text-decoration: underline; }
