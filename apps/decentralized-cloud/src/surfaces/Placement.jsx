@@ -75,7 +75,21 @@ export default function Placement({ announce }) {
         an advisory for intent <span className="mono">{intentRef()}</span> · read in{" "}
         {duration(state.ms)}
       </p>
-      <p className="prose">
+      {/* WHAT A READER DOES WITH THIS, first. Two cold readers failed this page on
+          question one for two different reasons. The first could not tell what the
+          advisory was ABOUT — fixed by showing the intent. The second could not tell
+          what it was FOR: "who reads this, at what moment, to decide what — I cannot
+          tell. The page explains its own epistemology at length and never says what a
+          person does with it."
+          They were right. Three sentences about what this surface is not preceded any
+          sentence about what it is good for. A page that leads with its own
+          epistemology is a page written for its author. */}
+      <p className="prose" style={{ fontSize: "16px" }}>
+        Before you submit a job, this is where the daemon would put it, and why. Read it
+        to check the venue is one you would accept and that the reasons hold — then
+        submit, or change the intent and read it again. Nothing here reserves anything.
+      </p>
+      <p className="meta">
         An advisory, not a decision. The venue picker runs in the daemon; this surface
         renders what it returned and scores nothing of its own. A ranking computed here
         could disagree with the receipt it claims to explain, and there would be no way

@@ -103,7 +103,21 @@ try {
           .then(() => true).catch(() => false);
       }
       await page.waitForTimeout(400);
-      const buf = await page.screenshot();
+      // FULL PAGE, NOT THE VIEWPORT.
+      //
+      // Every cell was a 900px-tall viewport shot, so every surface was cut off at the
+      // fold — and four cold readers in a row reported the consequences as PRODUCT
+      // defects: "the two writes are not in the table" (they are, below 900px), "there
+      // is no submit button visible anywhere" (there is), "the counts sum to 13 sources
+      // and the capture is cut off after four and a half rows, so I cannot check the
+      // header against its own table on any width".
+      //
+      // That last sentence is the cost stated exactly: the instrument made every
+      // count-versus-table check impossible, and then readers correctly reported that
+      // they could not verify the counts. THREE separate framings of one defect — a
+      // fixed wait, an unreadable scale, a cropped frame — all of them the sheet being
+      // built for producing rather than for reading.
+      const buf = await page.screenshot({ fullPage: true });
       cells.push({
         w, id: s.id, label: s.label, arrived,
         url: `data:image/png;base64,${buf.toString("base64")}`,

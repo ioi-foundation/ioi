@@ -221,7 +221,27 @@ h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; fo
    deliberately does NOT restyle table elements to block or grid at any width —
    changing `display` on a table strips its implicit roles, which would remove the
    semantics this change exists to add. Narrow screens scroll it instead. */
-.table-scroll { border: 1px solid var(--hairline); border-radius: 10px; overflow-x: auto; }
+/* A SCROLL CONTAINER SAYS IT SCROLLS.
+   Four cold readers, on the 390px cells: "content is severed with no ellipsis, no fade,
+   no scroll cue. From a still image I cannot distinguish 'horizontally scrollable and
+   fine in the hand' from 'content is unreachable on mobile'." A reader glancing at the
+   real page is in the same position as a reader glancing at the screenshot.
+   The fade is painted on the container's right edge and only appears when there is
+   something to scroll to — `background-attachment: local` on the two inner layers
+   means they scroll away with the content, leaving the fixed shadow visible only while
+   content overflows in that direction. No script, no measurement, no state. */
+.table-scroll { border: 1px solid var(--hairline); border-radius: 10px; overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--paper) 30%, rgba(255, 255, 255, 0)) left center,
+    linear-gradient(to left, var(--paper) 30%, rgba(255, 255, 255, 0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) right center;
+  background-repeat: no-repeat;
+  background-size: 40px 100%, 40px 100%, 16px 100%, 16px 100%;
+  background-attachment: local, local, scroll, scroll; }
+/* And it is SAID, not only shaded, for a reader who cannot see the shadow. */
+.scroll-note { display: none; }
+@media (max-width: 900px) { .scroll-note { display: block; } }
 .table { width: 100%; border-collapse: collapse; table-layout: fixed;
   /* Below this the columns would crush rather than scroll. */
   min-width: 620px; }

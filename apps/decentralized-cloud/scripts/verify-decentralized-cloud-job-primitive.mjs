@@ -18,6 +18,11 @@
 //
 // Usage: node apps/decentralized-cloud/scripts/verify-decentralized-cloud-job-primitive.mjs
 
+// The gate-origin mark, imported from the one module that defines it. The face's
+// Receipts ledger filters on this exact string; a second copy here is how the filter
+// and the records it filters would come to disagree.
+import { GATE_ORIGIN_REF } from "../src/logic/job-door.mjs";
+
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
 const results = [];
@@ -42,9 +47,24 @@ const errCode = (r) => r.body?.error?.code || r.body?.code || r.body?.reason || 
 
 // The envelope every case starts from. Deliberately minimal and canonical: no venue,
 // no credential, one intent, an existing budget.
+// EVERY RECORD THIS GATE CREATES CARRIES THE GATE'S MARK, ON EVERY PATH.
+//
+// This verifier admits real jobs — including deliberately refused ones, which is the
+// whole point of it — and tagged NONE of them. The face's Receipts ledger hides
+// gate-created proposals by looking for this ref in `evidence_refs`, so it hid the
+// OTHER gate's records and showed this one's. A cold reader found the consequence:
+// "capability-lease://lease_forged_does_not_exist appears verbatim as an authority
+// value on row 1. That reads like a test fixture sitting in a production-looking
+// ledger, and nothing labels it as one." It was, and nothing did.
+//
+// Read back from the daemon those records carry `evidence_refs: []` — the label was
+// not missed by the filter, it was never sent. Imported from the one module that
+// defines it rather than re-spelled here: a second copy of an identifying constant is
+// exactly how a filter and the records it filters come to disagree.
 const baseEnvelope = (over = {}) => ({
   caller_kind: "human",
   authority_ref: "wallet-grant://wg_gate",
+  evidence_refs: [GATE_ORIGIN_REF],
   budget_ref: null, // filled from the discovered budget
   deadline: { max_duration_hours: 1 },
   redundancy: "none",

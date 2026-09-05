@@ -20,6 +20,10 @@ import { fileURLToPath } from "node:url";
 // surface import it: three copies of a list is three chances for one of them to be
 // the stale one, and the stale one is always the one somebody reads.
 import * as cap from "../src/logic/capability.mjs";
+// The gate-origin mark, hoisted to the top because EVERY record this gate creates
+// carries it — including the refusal probes, which are composed well before the block
+// that used to import it lazily.
+import { GATE_ORIGIN_REF } from "../src/logic/job-door.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(HERE, "..");
@@ -789,6 +793,10 @@ async function checkServer() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           caller_kind: "human",
+          // Tagged like every other record this gate creates. A refusal probe still
+          // leaves a record, and an untagged record is one the ledger presents as a
+          // product job.
+          evidence_refs: [GATE_ORIGIN_REF],
           authority_ref: "wallet-grant://wg_gate_probe",
           budget_ref: "budget://does-not-exist",
           intent: { runtime_class: "compute.gpu_runtime" },
@@ -811,6 +819,7 @@ async function checkServer() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           caller_kind: "human",
+          evidence_refs: [GATE_ORIGIN_REF],
           authority_ref: "capability-lease://cl_gate_probe",
           budget_ref: "budget://does-not-exist",
           intent: { runtime_class: "compute.gpu_runtime" },
@@ -842,7 +851,9 @@ async function checkServer() {
         // repository keeps on the side. The Receipts surface filters on the same
         // constant, imported from the same module, so the tag written and the tag
         // filtered cannot drift apart.
-        const { GATE_ORIGIN_REF } = await import(path.join(APP, "src/logic/job-door.mjs"));
+        // GATE_ORIGIN_REF is imported at the top of this file now — every record this
+        // gate creates carries it, including the refusal probes above, which are
+        // composed long before this block ran.
         const runRef = `run://face-gate-${Date.now()}`;
         const admitRes = await fetch(`${BASE}/api/jobs`, {
           method: "POST",
