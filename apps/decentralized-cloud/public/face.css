@@ -432,9 +432,23 @@ input.field-box { cursor: text; }
 .table.t-quotes th:nth-child(2), .table.t-quotes td:nth-child(2) { width: 43%; }
 .table.t-quotes th:nth-child(3), .table.t-quotes td:nth-child(3) { width: 15%; }
 .table.t-quotes th:nth-child(4), .table.t-quotes td:nth-child(4) { width: 23%; }
-.table.t-sources { min-width: 620px; }
-.table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 30%; }
-.table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 70%; }
+/* THE SOURCE COLUMN HOLDS THE LONGEST STATE NAMES IN THE PRODUCT.
+   `candidate_source_unavailable` and `storage_backends_engaged` are 28 and 24 mono
+   characters, and `.chip` is `white-space: nowrap`, so at 30% of a 620px table they
+   were painted straight over the evidence column beside them. A cold reader found
+   eight rows of it at 390px — "not truncation; two strings drawn on top of one
+   another" — and my collision probe reported zero, because it compared BOXES and ink
+   that overflows its box never moves the box.
+   The chips wrap here, and the column is wide enough that they usually need not. */
+.table.t-sources { min-width: 720px; }
+.table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 34%; }
+.table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 66%; }
+/* `th` AND `td`. The source cell is a row HEADER, so a `td`-only rule would have
+   matched nothing — which is the same half-cased selector that let a chip stretch in a
+   stacked `td` a few commits ago, and the same class as a thead rule that named a
+   class no thead carried. Third time; write both cases. */
+.table.t-sources th:nth-child(1) .chip,
+.table.t-sources td:nth-child(1) .chip { white-space: normal; }
 /* Five columns since the ledger gained Venue: job, authority, receipts, venue, state. */
 .table.t-receipts { min-width: 900px; }
 .table.t-receipts th:nth-child(1), .table.t-receipts td:nth-child(1) { width: 18%; }

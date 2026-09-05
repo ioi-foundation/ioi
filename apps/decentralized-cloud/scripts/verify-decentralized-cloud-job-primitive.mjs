@@ -18,10 +18,15 @@
 //
 // Usage: node apps/decentralized-cloud/scripts/verify-decentralized-cloud-job-primitive.mjs
 
-// The gate-origin mark, imported from the one module that defines it. The face's
-// Receipts ledger filters on this exact string; a second copy here is how the filter
-// and the records it filters would come to disagree.
-import { GATE_ORIGIN_REF } from "../src/logic/job-door.mjs";
+// THIS GATE'S OWN origin mark, imported from the one module that defines both.
+//
+// It first imported GATE_ORIGIN_REF — the FACE gate's ref — because that was the
+// constant already exported, so this gate stamped its records as face-gate traffic.
+// ioi-cc caught it from the daemon side: three records carrying this gate's authority
+// refs, labelled as another gate's. A mislabelled record reading as true, created by
+// the fix for mislabelled records, because I reached for the constant that existed
+// instead of asking what it named. "Which gate made this" is one fact PER GATE.
+import { JOB_PRIMITIVE_ORIGIN_REF } from "../src/logic/job-door.mjs";
 
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 
@@ -64,7 +69,7 @@ const errCode = (r) => r.body?.error?.code || r.body?.code || r.body?.reason || 
 const baseEnvelope = (over = {}) => ({
   caller_kind: "human",
   authority_ref: "wallet-grant://wg_gate",
-  evidence_refs: [GATE_ORIGIN_REF],
+  evidence_refs: [JOB_PRIMITIVE_ORIGIN_REF],
   budget_ref: null, // filled from the discovered budget
   deadline: { max_duration_hours: 1 },
   redundancy: "none",

@@ -97,8 +97,25 @@ export function refusal(result) {
 // filter silently showing nothing would be the way it announced itself.
 export const GATE_ORIGIN_REF = "gate://verify-decentralized-cloud-face";
 
+// ONE REF PER GATE, because there is more than one gate.
+//
+// A single shared constant meant the job-primitive gate stamped its records with the
+// FACE gate's origin: three records carrying job-primitive authority refs were labelled
+// as face-gate traffic, and ioi-cc caught it from the daemon side. A mislabelled record
+// reading as true — the exact hazard this tagging exists to remove — created by the fix
+// for it, because I reached for the constant that was already exported instead of asking
+// what it named.
+//
+// "Which gate made this" is not one fact. It is one fact per gate.
+export const JOB_PRIMITIVE_ORIGIN_REF = "gate://verify-decentralized-cloud-job-primitive";
+
+// Every origin this surface's own verification writes. The Receipts filter reads this
+// list rather than a single ref, so adding a gate cannot silently un-hide its records.
+export const GATE_ORIGIN_REFS = [GATE_ORIGIN_REF, JOB_PRIMITIVE_ORIGIN_REF];
+
 export const isGateAdmitted = (job) =>
-  Array.isArray(job?.evidence_refs) && job.evidence_refs.includes(GATE_ORIGIN_REF);
+  Array.isArray(job?.evidence_refs) &&
+  job.evidence_refs.some((r) => GATE_ORIGIN_REFS.includes(r));
 
 // WHEN THIS SURFACE'S GATES BEGAN LABELLING THEIR OWN RECORDS.
 //

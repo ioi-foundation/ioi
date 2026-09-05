@@ -1494,7 +1494,62 @@ async function checkResponsiveLayout() {
             const d = getComputedStyle(cell).display;
             if (d !== "table-cell") broken.push(`${cell.className || cell.tagName} is display:${d}`);
           }
-          return { cells: cells.length, broken: [...new Set(broken)].slice(0, 3) };
+
+          // ── COLLISIONS, ON THIS SURFACE ─────────────────────────────────
+          // Moved here from a block that ran ONLY on Candidates. A cold reader found
+          // eight rows on Sources at 390px where the `candidate_source_unavailable`
+          // pill is drawn ON TOP of the `observed …` line — "not truncation; two
+          // strings drawn over one another" — and my collision probe reported ZERO
+          // collisions at 390, because it never looked at Sources.
+          //
+          // This is the cell check's defect exactly, in the block directly above it,
+          // and I fixed the cell check two commits ago without asking what ELSE in
+          // this evaluate was single-surface. Fix the instance, leave the class: the
+          // thing I wrote a standing-practice rule about, done again in the same file.
+          // PAINTED BOUNDS, NOT BOX BOUNDS. A box does not know its ink escaped it.
+          // When a cell is narrower than its content and overflow is visible, the text
+          // is painted OUTSIDE the element's rect, over whatever is next to it — the
+          // rect never overlaps and the pixels do. That is why this probe reported zero
+          // collisions at 390 while a reader could see two strings stacked on each
+          // other in eight rows.
+          // So each element's rect is widened by however much its content overruns it,
+          // and the comparison is between those painted extents.
+          const painted = (el) => {
+            const cs = getComputedStyle(el);
+            const escapes = cs.overflowX === "visible" ? Math.max(0, el.scrollWidth - el.clientWidth) : 0;
+            const dir = cs.direction === "rtl" ? -1 : 1;
+            return [...el.getClientRects()]
+              .filter((rr) => rr.width > 1 && rr.height > 1)
+              .map((rr) => ({
+                left: dir > 0 ? rr.left : rr.left - escapes,
+                right: dir > 0 ? rr.right + escapes : rr.right,
+                top: rr.top, bottom: rr.bottom,
+              }));
+          };
+          const leaves = [];
+          for (const el of document.querySelectorAll("body *")) {
+            if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+            const cs = getComputedStyle(el);
+            if (cs.visibility === "hidden" || cs.opacity === "0") continue;
+            const rects = painted(el);
+            if (rects.length) leaves.push({ el, rects, text: (el.textContent || "").trim().slice(0, 24) });
+          }
+          const over = [];
+          for (let i = 0; i < leaves.length; i++) for (let j = i + 1; j < leaves.length; j++) {
+            const a = leaves[i], b = leaves[j];
+            if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+            for (const ra of a.rects) for (const rb of b.rects) {
+              const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+              const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+              if (ox > 3 && oy > 3) over.push(`"${a.text}" over "${b.text}"`);
+            }
+          }
+          return {
+            cells: cells.length,
+            broken: [...new Set(broken)].slice(0, 3),
+            leaves: leaves.length,
+            over: [...new Set(over)].slice(0, 3),
+          };
         });
         sweep.push({ surface: s, ...r });
       }
@@ -1516,6 +1571,20 @@ async function checkResponsiveLayout() {
               `(inspected: ${withTables.join(", ")}; no table by design: ` +
               `${SURFACES.filter((s) => !withTables.includes(s)).join(", ") || "none"})`,
         sweptCells);
+
+      // NOTHING IS PAINTED ON TOP OF ANYTHING, ON ANY SURFACE, and the coverage says so.
+      const collided = sweep.filter((r) => r.over && r.over.length);
+      const leavesSeen = sweep.reduce((t, r) => t + (r.leaves || 0), 0);
+      ok(`at ${w}px no text is painted over other text, on any surface`,
+        collided.length === 0 && missed.length === 0,
+        collided.length
+          ? collided.map((r) => `${r.surface}: ${r.over.join("; ")}`).join(" · ")
+          : missed.length
+            ? `NOT MEASURED on ${missed.join(", ")} — their content never rendered`
+            : `${leavesSeen} text-bearing elements across all ${SURFACES.length} surfaces, ` +
+              `compared on PAINTED bounds (each rect widened by any content that overruns it)`,
+        leavesSeen);
+
       await page.close();
     }
 
