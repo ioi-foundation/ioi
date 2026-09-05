@@ -67,6 +67,19 @@ export default function Redundancy({ announce }) {
           the phrase "read-only surface" and this sentence claimed the same thing in
           different words. An absence assertion pinned to one wording is not an absence
           assertion; the gate now looks for the claim rather than the phrasing. */}
+      {/* The page's name first, then the label. The "designed, not connected" panel
+          used to be the first thing on the surface — before its own heading — so on a
+          phone a reader met 280px of limits before learning what the page was. It is
+          still above the table, in its own words, where a reader sees it before any
+          posture. */}
+      <div className="stack" style={{ gap: "9px" }}>
+        <h1>Redundancy</h1>
+        <p className="prose" style={{ fontSize: "16px" }}>
+          A posture is declared or it is absent. It is never inferred, never defaulted,
+          and never applied by a fallback you did not authorize.
+        </p>
+      </div>
+
       <NotConnected>
         The postures below are the canonical RedundancyPosture values and this surface
         sets none of them. Declaring a posture is part of a job request — and the daemon
@@ -75,14 +88,6 @@ export default function Redundancy({ announce }) {
         not built yet. A posture is refused rather than quietly downgraded, so
         nothing here can leave you believing your work is protected when it is not.
       </NotConnected>
-
-      <div className="stack" style={{ gap: "9px" }}>
-        <h1>Redundancy</h1>
-        <p className="prose" style={{ fontSize: "16px" }}>
-          A posture is declared or it is absent. It is never inferred, never defaulted,
-          and never applied by a fallback you did not authorize.
-        </p>
-      </div>
 
       <div className="table-scroll">
         <table className="table t-postures">

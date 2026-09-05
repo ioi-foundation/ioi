@@ -90,52 +90,11 @@ export default function Receipts({ announce }) {
         between fewer than two real venues. Where a record carries no receipt, this page
         says so — it does not draw the shape of one.
       </p>
-      {/* WHY THERE IS NO AMOUNT COLUMN, said once rather than asked on every row.
-          A fee exists only as a minted receipt, and nothing reachable from this
-          surface can mint one, so an amount column would be empty on every row
-          forever. An always-empty column is a question the page keeps asking and
-          never answers. */}
-      <p className="meta">
-        There is no amount column. A fee exists only as a minted receipt, and no
-        execution is reachable from this surface — so every row would carry an empty
-        one. Each row states whether a fee was minted instead.
-      </p>
-
-      {/* RECORDS THIS SURFACE CANNOT ATTRIBUTE, counted and named. Both verifiers now
-          tag every record they create; earlier ones carry no tag and the daemon does
-          not permit a field rewrite, so they cannot be labelled retroactively from
-          here. Saying "some of these rows may be verification records and I cannot tell
-          you which" is worse than useless only if it is not said. */}
-      {unattributed.length > 0 && (
-        <p className="meta">
-          {unattributed.length} of these records predate origin tagging (before{" "}
-          <span className="mono">{ORIGIN_TAGGING_SINCE}</span>) and carry no origin.
-          Some are almost certainly this surface&rsquo;s own verification runs. This page
-          will not guess which: attributing a record by the shape of its authority ref
-          would silently reclassify a real job, which is a worse error than an
-          unattributed one.
-        </p>
-      )}
-
-      {gateJobs.length > 0 && (
-        <p className="meta">
-          {showGate
-            ? `showing ${gateJobs.length} gate-admitted proposal${gateJobs.length === 1 ? "" : "s"} alongside the rest`
-            : `${gateJobs.length} gate-admitted proposal${gateJobs.length === 1 ? "" : "s"} hidden`}
-          {" — "}records the face's own verification created to prove the job door
-          against this daemon. They are labelled in the daemon's record rather than
-          deleted: a check that erases its own evidence cannot be audited.{" "}
-          <button
-            type="button"
-            className="linklike"
-            aria-pressed={showGate}
-            onClick={() => setShowGate((v) => !v)}
-          >
-            {showGate ? "hide them" : "show them"}
-          </button>
-        </p>
-      )}
-
+      {/* The limits and the epistemology — no amount column, unattributed records, the
+          gate's own hidden records — come AFTER the ledger now. On a phone they were
+          four paragraphs and ~450px of notes before the first row: purpose → facts →
+          limits → epistemology is the order every surface here follows, and the
+          ledger is the facts. */}
       {jobs.length === 0 && (
         <p className="prose">
           {allJobs.length === 0
@@ -240,6 +199,52 @@ export default function Receipts({ announce }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* WHY THERE IS NO AMOUNT COLUMN, said once rather than asked on every row.
+          A fee exists only as a minted receipt, and nothing reachable from this
+          surface can mint one, so an amount column would be empty on every row
+          forever. An always-empty column is a question the page keeps asking and
+          never answers. */}
+      <p className="meta">
+        There is no amount column. A fee exists only as a minted receipt, and no
+        execution is reachable from this surface — so every row would carry an empty
+        one. Each row states whether a fee was minted instead.
+      </p>
+
+      {/* RECORDS THIS SURFACE CANNOT ATTRIBUTE, counted and named. Both verifiers now
+          tag every record they create; earlier ones carry no tag and the daemon does
+          not permit a field rewrite, so they cannot be labelled retroactively from
+          here. Saying "some of these rows may be verification records and I cannot tell
+          you which" is worse than useless only if it is not said. */}
+      {unattributed.length > 0 && (
+        <p className="meta">
+          {unattributed.length} of these records predate origin tagging (before{" "}
+          <span className="mono">{ORIGIN_TAGGING_SINCE}</span>) and carry no origin.
+          Some are almost certainly this surface&rsquo;s own verification runs. This page
+          will not guess which: attributing a record by the shape of its authority ref
+          would silently reclassify a real job, which is a worse error than an
+          unattributed one.
+        </p>
+      )}
+
+      {gateJobs.length > 0 && (
+        <p className="meta">
+          {showGate
+            ? `showing ${gateJobs.length} gate-admitted proposal${gateJobs.length === 1 ? "" : "s"} alongside the rest`
+            : `${gateJobs.length} gate-admitted proposal${gateJobs.length === 1 ? "" : "s"} hidden`}
+          {" — "}records the face's own verification created to prove the job door
+          against this daemon. They are labelled in the daemon's record rather than
+          deleted: a check that erases its own evidence cannot be audited.{" "}
+          <button
+            type="button"
+            className="linklike"
+            aria-pressed={showGate}
+            onClick={() => setShowGate((v) => !v)}
+          >
+            {showGate ? "hide them" : "show them"}
+          </button>
+        </p>
       )}
 
       <p className="prose">

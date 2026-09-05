@@ -924,3 +924,44 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 /* Inside a table cell the ticket's top rule is one pixel: two 2px rules in one row —
    the table's header rule and the ticket's — read as two tables. */
 .receipt-compact { padding: 8px 0 10px; gap: 4px; border-top-width: 1px; }
+
+/* ── THE PHONE CHROME ─────────────────────────────────────────────────────────
+   At 390 the header was four rows — status, lockup, two rows of nav — about 165px
+   of chrome before a word of product, with the honesty chip pushed to the very top
+   where it read as the page's title. Below 700 the order becomes what a phone
+   reader needs: the name, the surfaces, then one quiet status line — daemon host and
+   the generated capability sentence together, still every word of it. Measured at
+   390 after the change: the status wraps to two short lines under the nav, so the
+   chrome is lockup + two rows of nav + two lines of status, about 150px — down from
+   165 with the honesty chip no longer standing where a title would. */
+@media (max-width: 700px) {
+  .topbar { padding: 12px 16px 0; row-gap: 6px; }
+  .topbar-left { order: 0; }
+  .topbar-status { order: 3; flex: 1 1 100%; justify-content: flex-start; gap: 10px;
+    padding: 0 0 8px; }
+  .topbar-status #daemon-label { flex-shrink: 1; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .topbar-status .chip { font-size: 11px; padding: 2px 8px 2px 7px; }
+  .nav { padding-top: 4px; gap: 4px 14px; }
+  .nav button { font-size: 14px; }
+}
+
+/* ── TWO-COLUMN TABLES REFLOW ON A PHONE INSTEAD OF SCROLLING ─────────────────
+   A table with two columns fits a phone if its cells wrap; forcing it to 620px and
+   scrolling it hid the whole evidence column behind the fade. The four-and-five
+   column tables (quotes, postures, receipts, api) keep the scroll: their columns
+   carry machine strings that cannot wrap without becoming unreadable, and the
+   price-first order puts the fact that matters in the visible part. */
+@media (max-width: 700px) {
+  .table.t-sources, .table.t-decision, .table.t-catalog { min-width: 0; }
+  .table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 42%; }
+  .table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 58%; }
+  /* A chip whose text is one unbroken token — live_quote_source, a reason code —
+     cannot wrap without a break opportunity, and at 390 it painted straight into the
+     next column on Sources and Placement (seen in the unscaled bands; the body did not
+     overflow, so no width probe saw it). */
+  .chip { overflow-wrap: anywhere; }
+  .table.t-decision th:nth-child(1), .table.t-decision td:nth-child(1) { width: 30%; }
+  .table.t-decision th:nth-child(2), .table.t-decision td:nth-child(2) { width: 70%; }
+  .src-evidence, .basis { font-size: 11px; }
+}
