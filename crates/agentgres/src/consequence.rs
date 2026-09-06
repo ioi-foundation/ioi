@@ -14,14 +14,15 @@ use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaPublicKey, MldsaSignature};
 use ioi_types::app::consensus::{CertificateOnlyGuaranteeVerifierV1, VerifiedGuaranteeV1};
 use ioi_types::app::{
     account_id_from_key_material, ConsequenceHash, EffectAuthorizationModeV1, EffectFenceV1,
-    EffectManifestV1, ExternalResourceProfileV1, ExternalResourceRecordV1, ReconciliationPolicyV1,
-    SignatureSuite,
+    EffectManifestV1, ExternalResourceProfileV1, ExternalResourceRecordV1,
+    QuvConsequenceStorageProfileV0 as StorageProfile, ReconciliationPolicyV1, SignatureSuite,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 const RECEIPT_SCHEMA: &str = "ioi.aft-consequence-receipt.v1";
 const CLAIM_DOMAIN: &[u8] = b"ioi::aft::consequence-claim::v1\0";
@@ -30,8 +31,12 @@ const RECEIPT_DOMAIN: &[u8] = b"ioi::aft::consequence-receipt::v1\0";
 const AMBIGUITY_DOMAIN: &[u8] = b"ioi::aft::consequence-ambiguity::v1\0";
 const VIOLATION_DOMAIN: &[u8] = b"ioi::aft::consequence-violation::v1\0";
 const ONLINE_AUDIT_EVIDENCE_DOMAIN: &[u8] = b"ioi::aft::online-authorization-audit::v1\0";
-const ONLINE_AUDIT_MAX_BYTES: usize = 16 * 1024 * 1024;
+const ONLINE_AUDIT_MAX_BYTES: usize = StorageProfile::AUDIT_MAX_BYTES as usize;
 const QUV_PROFILE_V0: &str = "aft_quv_v0";
+
+mod claim_index;
+mod receipt_reservation;
+mod resource_reservation;
 
 /// Opaque binding from one Agentgres-linearized runtime-v3 effect to its
 /// exact consequence manifest and independently verified assurance vector.
@@ -141,6 +146,20 @@ pub struct OnlineEffectAuthorizationBindingV1 {
     pub conflict_domain_hash: ConsequenceHash,
     pub conflict_slot: u64,
     pub policy_root: ConsequenceHash,
+    pub predecessor: ConsequenceHash,
+    pub authority_mode: ioi_types::app::QuvAuthorityModeV0,
+}
+
+impl OnlineEffectAuthorizationBindingV1 {
+    /// Derive a requirement before storage preparation. This is not evidence
+    /// of candidate validity, live QUV, current membership or effect authority.
+    pub fn from_manifest(manifest: &EffectManifestV1) -> Result<Self, ConsequenceError> {
+        manifest.validate().map_err(type_error)?;
+        if manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0 {
+            return Err(ConsequenceError::UnexpectedOnlineAuthorization);
+        }
+        manifest_online_requirement(manifest, manifest.commitment().map_err(type_error)?)
+    }
 }
 
 /// Durable evidence that an executor reports having observed an online
@@ -171,6 +190,8 @@ pub struct OnlineEffectAuthorizationAuditBindingV1 {
     pub conflict_domain_hash: ConsequenceHash,
     pub conflict_slot: u64,
     pub policy_root: ConsequenceHash,
+    pub predecessor: ConsequenceHash,
+    pub authority_mode: ioi_types::app::QuvAuthorityModeV0,
 }
 
 impl From<&OnlineEffectAuthorizationBindingV1> for OnlineEffectAuthorizationAuditBindingV1 {
@@ -182,6 +203,8 @@ impl From<&OnlineEffectAuthorizationBindingV1> for OnlineEffectAuthorizationAudi
             conflict_domain_hash: binding.conflict_domain_hash,
             conflict_slot: binding.conflict_slot,
             policy_root: binding.policy_root,
+            predecessor: binding.predecessor,
+            authority_mode: binding.authority_mode,
         }
     }
 }
@@ -190,6 +213,15 @@ impl From<&OnlineEffectAuthorizationBindingV1> for OnlineEffectAuthorizationAudi
 pub struct ConsumedOnlineEffectAuthorizationV1 {
     pub binding: OnlineEffectAuthorizationBindingV1,
     pub audit: OnlineEffectAuthorizationAuditV1,
+    /// Monotonic process-local continuation deadline. This is deliberately
+    /// not serializable and cannot become portable timing evidence.
+    pub expires_at: Instant,
+}
+
+struct OnlineClaimContext {
+    binding: OnlineEffectAuthorizationBindingV1,
+    expires_at: Instant,
+    current_height: u64,
 }
 
 /// A single-use, process-local authorization continuation. Implementations
@@ -212,6 +244,14 @@ pub enum ConsequencePhaseV1 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ConsequenceStateV1 {
+    /// Admitted but not yet claimed. This state is executable only while the
+    /// manifest fence is live at the moment of the call: `validate_fence`
+    /// rechecks the caller-supplied current height on every inspect, prepare
+    /// and execute of an `Authorized` receipt (expiry is tolerated only for
+    /// lookup-only readmission of a non-executable result). A lingering
+    /// `Authorized` receipt whose fence has passed is therefore fail-closed
+    /// in place: every path refuses it with `FenceExpired`, none transitions
+    /// it to a terminal state, and no fresh online operation can revive it.
     Authorized {
         authorization_root: ConsequenceHash,
         achieved_guarantee_root: ConsequenceHash,
@@ -303,14 +343,36 @@ pub struct ConsequenceReceiptV1 {
     /// Non-authorizing record of the executor's own online operation. It is
     /// absent before that operation and for portable-authorized effects.
     pub online_authorization_audit: Option<OnlineEffectAuthorizationAuditV1>,
+    /// Durable reservations made before reconciliation lookup. Zero is omitted
+    /// to preserve the canonical encoding of receipts written before this field.
+    #[serde(default, skip_serializing_if = "is_zero_reconciliation_attempts")]
+    pub reconciliation_attempts: u32,
     pub state: ConsequenceStateV1,
     pub trace: Vec<ConsequenceTransitionV1>,
     pub generation: u64,
     pub receipt_root: ConsequenceHash,
 }
 
+fn is_zero_reconciliation_attempts(value: &u32) -> bool {
+    *value == 0
+}
+
 impl ConsequenceReceiptV1 {
     pub fn validate(&self) -> Result<(), ConsequenceError> {
+        if self.trace.len() as u64 > receipt_trace_limit(&self.manifest) {
+            return Err(ConsequenceError::CorruptReceipt);
+        }
+        match self.manifest.reconciliation {
+            ReconciliationPolicyV1::LookupByIdempotencyKey {
+                maximum_observations,
+            } if self.reconciliation_attempts > maximum_observations => {
+                return Err(ConsequenceError::CorruptReceipt);
+            }
+            ReconciliationPolicyV1::NoSafeReconciliation if self.reconciliation_attempts != 0 => {
+                return Err(ConsequenceError::CorruptReceipt);
+            }
+            _ => {}
+        }
         if self.schema_version != RECEIPT_SCHEMA
             || self.manifest.commitment().map_err(type_error)? != self.manifest_root
             || self.trace.is_empty()
@@ -369,6 +431,12 @@ pub enum ResourceLookupErrorV1 {
 pub trait ExternalResourceV1 {
     fn profile(&self) -> &ExternalResourceProfileV1;
 
+    /// Prepare capacity before the executor's live authorization operation.
+    /// The default grants no storage guarantee for other adapters.
+    fn prepare(&mut self, _manifest: &EffectManifestV1) -> Result<(), ConsequenceError> {
+        Ok(())
+    }
+
     /// Invoke the one atomic mutation. The runtime calls this at most once for
     /// a manifest, and never from reconciliation or restart recovery.
     fn invoke_atomic(
@@ -393,6 +461,12 @@ const DURABLE_PQ_REGISTER_ADAPTER_VERSION: &str = "v1";
 const DURABLE_PQ_REGISTER_PROFILE_ID: &str = "resource-profile://ioi/durable-pq-register/v1";
 const DURABLE_PQ_REGISTER_EVIDENCE_SCHEMA: &str = "ioi.aft-pq-resource-evidence.v1";
 const DURABLE_PQ_REGISTER_SIGNATURE_DOMAIN: &[u8] = b"ioi::aft::durable-pq-register-evidence::v1\0";
+// The fixed ML-DSA-44 envelope contains two <=512-byte tokens, three
+// 32-byte hashes, one u64, fixed JSON syntax, and base64 key/signature bytes.
+// Conservative JSON escaping and fixed-field headroom fit below 16 KiB.
+const PQ_REGISTER_EVIDENCE_MAX_BYTES: usize = StorageProfile::PQ_EVIDENCE_MAX_BYTES as usize;
+// The outer JSON stores evidence as byte integers (at most four bytes each).
+const PQ_REGISTER_RECORD_MAX_BYTES: usize = StorageProfile::PQ_RECORD_MAX_BYTES as usize;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -416,6 +490,7 @@ pub struct DurablePqAtomicRegisterV1 {
     root: PathBuf,
     profile: ExternalResourceProfileV1,
     endpoint: MldsaKeyPair,
+    failed: bool,
 }
 
 impl DurablePqAtomicRegisterV1 {
@@ -423,6 +498,11 @@ impl DurablePqAtomicRegisterV1 {
         endpoint: &MldsaKeyPair,
     ) -> Result<ExternalResourceProfileV1, ConsequenceError> {
         let public = endpoint.public_key().to_bytes();
+        if public.len() != 1312 {
+            return Err(ConsequenceError::Invalid(
+                "resource endpoint requires ML-DSA-44".into(),
+            ));
+        }
         let endpoint_pq_key_hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &public)
             .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
         let profile = ExternalResourceProfileV1 {
@@ -441,19 +521,21 @@ impl DurablePqAtomicRegisterV1 {
         let root = root.as_ref().to_path_buf();
         fs::create_dir_all(root.join("records"))?;
         let profile = Self::profile_for(&endpoint)?;
+        resource_reservation::private_open(&root.join("resource.lock"), true)?.sync_all()?;
+        resource_reservation::sync_ancestry(&root.join("records"))?;
         Ok(Self {
             root,
             profile,
             endpoint,
+            failed: false,
         })
     }
 
-    fn lock(&self) -> Result<File, std::io::Error> {
-        let lock = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .open(self.root.join("resource.lock"))?;
+    fn lock(&self) -> Result<File, ConsequenceError> {
+        if self.failed {
+            return Err(ConsequenceError::ResourceRequiresReopen);
+        }
+        let lock = resource_reservation::private_open(&self.root.join("resource.lock"), false)?;
         FileExt::lock_exclusive(&lock)?;
         Ok(lock)
     }
@@ -474,21 +556,48 @@ impl DurablePqAtomicRegisterV1 {
         idempotency_key: &str,
     ) -> Result<Option<ExternalResourceRecordV1>, ConsequenceError> {
         let path = self.record_path(resource_id, idempotency_key);
-        if !path.exists() {
-            return Ok(None);
+        let file = match resource_reservation::private_open(&path, false) {
+            Ok(file) => file,
+            Err(ConsequenceError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(None)
+            }
+            Err(error) => return Err(error),
+        };
+        if file.metadata()?.len() > PQ_REGISTER_RECORD_MAX_BYTES as u64 {
+            return Err(ConsequenceError::CorruptReceipt);
         }
-        let bytes = fs::read(path)?;
+        let mut bytes = Vec::new();
+        file.take(PQ_REGISTER_RECORD_MAX_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > PQ_REGISTER_RECORD_MAX_BYTES {
+            return Err(ConsequenceError::CorruptReceipt);
+        }
         let record: ExternalResourceRecordV1 = serde_json::from_slice(&bytes)
             .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
-        if serde_jcs::to_vec(&record)
-            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?
-            != bytes
+        if record
+            .evidence
+            .as_ref()
+            .is_some_and(|evidence| evidence.len() > PQ_REGISTER_EVIDENCE_MAX_BYTES)
         {
+            return Err(ConsequenceError::CorruptReceipt);
+        }
+        let canonical = serde_jcs::to_vec(&record)
+            .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+        let initialized_padding = bytes.len() == PQ_REGISTER_RECORD_MAX_BYTES
+            && bytes.starts_with(&canonical)
+            && bytes[canonical.len()..].iter().all(|byte| *byte == b' ');
+        if canonical != bytes && !initialized_padding {
             return Err(ConsequenceError::Invalid(
                 "external resource record is not canonical JCS".into(),
             ));
         }
         record.validate().map_err(type_error)?;
+        if record.resource_id != resource_id
+            || record.idempotency_key != idempotency_key
+            || !self.verify_record_evidence(&record)
+        {
+            return Err(ConsequenceError::CorruptReceipt);
+        }
         Ok(Some(record))
     }
 
@@ -517,6 +626,11 @@ impl DurablePqAtomicRegisterV1 {
         };
         let evidence = serde_jcs::to_vec(&evidence)
             .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+        if evidence.len() > PQ_REGISTER_EVIDENCE_MAX_BYTES {
+            return Err(ConsequenceError::Invalid(
+                "resource evidence exceeds its derived format bound".into(),
+            ));
+        }
         record.evidence_hash = Some(canonical_hash(
             b"ioi::aft::external-resource-evidence::v1\0",
             &evidence,
@@ -532,14 +646,41 @@ impl ExternalResourceV1 for DurablePqAtomicRegisterV1 {
         &self.profile
     }
 
+    fn prepare(&mut self, manifest: &EffectManifestV1) -> Result<(), ConsequenceError> {
+        manifest.validate().map_err(type_error)?;
+        if manifest.resource_profile != self.profile {
+            return Err(ConsequenceError::ProfileMismatch);
+        }
+        let _lock = self.lock()?;
+        if let Some(record) = self.read_record(&manifest.resource_id, &manifest.idempotency_key)? {
+            if record.resource_id != manifest.resource_id
+                || record.idempotency_key != manifest.idempotency_key
+                || !self.verify_record_evidence(&record)
+            {
+                return Err(ConsequenceError::CorruptReceipt);
+            }
+            return Ok(());
+        }
+        resource_reservation::prepare(
+            &self.record_path(&manifest.resource_id, &manifest.idempotency_key),
+        )
+    }
+
     fn invoke_atomic(
         &mut self,
         manifest: &EffectManifestV1,
     ) -> Result<AtomicMutationResultV1, ResourceInvocationErrorV1> {
+        manifest
+            .validate()
+            .map_err(|error| ResourceInvocationErrorV1::DefinitiveRejection(error.to_string()))?;
         if manifest.resource_profile != self.profile {
             return Err(ResourceInvocationErrorV1::DefinitiveRejection(
                 "resource profile mismatch".into(),
             ));
+        }
+        if manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0 {
+            self.prepare(manifest)
+                .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
         }
         let _lock = self
             .lock()
@@ -569,11 +710,15 @@ impl ExternalResourceV1 for DurablePqAtomicRegisterV1 {
             })
             .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
         let bytes = serde_jcs::to_vec(&record).map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
-        atomic_write(
+        if resource_reservation::commit(
             &self.record_path(&manifest.resource_id, &manifest.idempotency_key),
             &bytes,
         )
-        .map_err(|_| ResourceInvocationErrorV1::Ambiguous)?;
+        .is_err()
+        {
+            self.failed = true;
+            return Err(ResourceInvocationErrorV1::Ambiguous);
+        }
         Ok(AtomicMutationResultV1::Inserted(record))
     }
 
@@ -591,6 +736,9 @@ impl ExternalResourceV1 for DurablePqAtomicRegisterV1 {
         let (Some(evidence), Some(expected_hash)) = (&record.evidence, record.evidence_hash) else {
             return false;
         };
+        if evidence.len() > PQ_REGISTER_EVIDENCE_MAX_BYTES {
+            return false;
+        }
         if canonical_hash(b"ioi::aft::external-resource-evidence::v1\0", evidence).ok()
             != Some(expected_hash)
         {
@@ -599,6 +747,9 @@ impl ExternalResourceV1 for DurablePqAtomicRegisterV1 {
         let Ok(envelope) = serde_json::from_slice::<DurablePqRegisterEvidenceV1>(evidence) else {
             return false;
         };
+        if serde_jcs::to_vec(&envelope).ok().as_deref() != Some(evidence.as_slice()) {
+            return false;
+        }
         let mut unsigned = record.clone();
         unsigned.evidence = None;
         unsigned.evidence_hash = None;
@@ -610,6 +761,9 @@ impl ExternalResourceV1 for DurablePqAtomicRegisterV1 {
         let Ok(public_bytes) = BASE64.decode(&envelope.statement.endpoint_public_key_base64) else {
             return false;
         };
+        if public_bytes.len() != 1312 {
+            return false;
+        }
         if account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_bytes).ok()
             != self.profile.endpoint_pq_key_hash
         {
@@ -702,6 +856,17 @@ pub enum ConsequenceError {
     InvalidViolationEvidence,
     CorruptReceipt,
     StoreBusy,
+    ResourceCapacityNotPrepared,
+    ResourceRequiresReopen,
+    /// The store's durable claim index already names a different effect for
+    /// this online conflict domain/slot. Refused with zero mutation.
+    ConflictSlotAlreadyClaimed {
+        effect_id: String,
+        claimed_by: String,
+    },
+    /// A claim index entry is an alias, hard link, oversize, non-canonical or
+    /// hash-mismatched file. Neither claimed nor unclaimed is inferred.
+    CorruptClaimIndex,
     #[cfg(test)]
     InjectedCrash(ConsequenceCrashPoint),
 }
@@ -724,11 +889,14 @@ impl From<std::io::Error> for ConsequenceError {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConsequenceCrashPoint {
     AfterAuthorized,
+    /// After the durable claim index write, before the `Claimed` persist.
+    AfterClaimIndexed,
     AfterClaimed,
     AfterInFlight,
     AfterInvocation,
     AfterExecuted,
     AfterUnknown,
+    AfterLookupReserved,
     AfterLookup,
     AfterReconciled,
 }
@@ -738,14 +906,38 @@ pub enum ConsequenceCrashPoint {
 pub struct ConsequenceStore {
     root: PathBuf,
     _lock: File,
+    failed: bool,
+    /// Monotonic clock consulted at the claim transition. Production uses
+    /// `Instant::now`; tests inject a deterministic sequence.
+    now: fn() -> Instant,
     #[cfg(test)]
     armed_crash: Option<ConsequenceCrashPoint>,
 }
 
+enum ReceiptAdmissionMode {
+    Authorize,
+    PrepareOnline,
+    InspectOnline,
+}
+
 impl ConsequenceStore {
+    /// Location only, never an admission or authority witness. Used to reopen
+    /// after releasing the exclusive store lock during operation queueing.
+    pub fn path(&self) -> &Path {
+        &self.root
+    }
+
     pub fn open(root: impl AsRef<Path>) -> Result<Self, ConsequenceError> {
         let root = root.as_ref().to_path_buf();
         fs::create_dir_all(root.join("effects"))?;
+        // Claim files are never removed here: an entry without a receipt or
+        // with a still-Authorized receipt is the reservation of the effect
+        // that reached the claim boundary before a crash, and only that
+        // effect may continue. Each entry is validated when it is consulted.
+        fs::create_dir_all(root.join("claims"))?;
+        #[cfg(unix)]
+        let lock = resource_reservation::private_open(&root.join("consequence.lock"), true)?;
+        #[cfg(not(unix))]
         let lock = OpenOptions::new()
             .create(true)
             .read(true)
@@ -758,18 +950,87 @@ impl ConsequenceStore {
                 ConsequenceError::Io(error)
             }
         })?;
+        lock.sync_all()?;
+        resource_reservation::sync_ancestry(&root.join("effects"))?;
+        resource_reservation::sync_ancestry(&root.join("claims"))?;
         Ok(Self {
             root,
             _lock: lock,
+            failed: false,
+            now: Instant::now,
             #[cfg(test)]
             armed_crash: None,
         })
     }
 
+    /// Replace the claim-transition clock with a deterministic source.
+    #[cfg(test)]
+    pub fn set_clock(&mut self, now: fn() -> Instant) {
+        self.now = now;
+    }
+
+    /// Refuse when the durable claim index names another effect for this
+    /// manifest's conflict slot, or the same effect under a different
+    /// manifest. Returns the validated entry when this exact effect holds it.
+    /// Read-only; safe before and after the executor's live operation.
+    fn claim_guard(
+        &self,
+        manifest: &EffectManifestV1,
+        manifest_root: ConsequenceHash,
+    ) -> Result<Option<claim_index::ClaimIndexRecordV1>, ConsequenceError> {
+        let Some(key) = claim_index::key_for(manifest)? else {
+            return Ok(None);
+        };
+        let Some(record) = claim_index::read(&claim_index::path_for(&self.root, &key), &key)?
+        else {
+            return Ok(None);
+        };
+        if record.effect_id != manifest.effect_id {
+            return Err(ConsequenceError::ConflictSlotAlreadyClaimed {
+                effect_id: manifest.effect_id.clone(),
+                claimed_by: record.effect_id,
+            });
+        }
+        if record.manifest_root != manifest_root {
+            return Err(ConsequenceError::ReplayConflict);
+        }
+        Ok(Some(record))
+    }
+
+    /// Durably name this effect as the one claimant of its conflict slot.
+    /// Idempotent for the same effect and manifest; any other holder refuses
+    /// before a single byte changes. No allocation occurs for the reserved
+    /// storage profile: the staging file was initialized before QUV.
+    fn install_claim(&mut self, receipt: &ConsequenceReceiptV1) -> Result<(), ConsequenceError> {
+        if self
+            .claim_guard(&receipt.manifest, receipt.manifest_root)?
+            .is_some()
+        {
+            return Ok(());
+        }
+        let Some(key) = claim_index::key_for(&receipt.manifest)? else {
+            return Ok(());
+        };
+        let record =
+            claim_index::record_for(&key, &receipt.manifest.effect_id, receipt.manifest_root)?;
+        let bytes = claim_index::encode(&record)?;
+        let reserved = online_receipt_byte_bound(&receipt.manifest)?.is_some();
+        if let Err(error) =
+            claim_index::commit(&claim_index::path_for(&self.root, &key), &bytes, reserved)
+        {
+            self.failed = true;
+            return Err(error);
+        }
+        Ok(())
+    }
+
     /// Whether this store already holds durable state for an effect. This is
     /// existence only; callers must use `load` before relying on its contents.
     pub fn contains(&self, effect_id: &str) -> bool {
-        self.receipt_path(effect_id).exists()
+        !matches!(
+            receipt_path_present(&self.receipt_path(effect_id)),
+            Ok(false)
+        )
     }
 
     #[cfg(test)]
@@ -784,8 +1045,198 @@ impl ConsequenceStore {
         authorization: &AcceptedEffectAuthorizationV1,
         current_height: u64,
     ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
+        self.authorize_inner(
+            manifest,
+            achieved,
+            authorization,
+            current_height,
+            ReceiptAdmissionMode::Authorize,
+        )
+    }
+
+    /// Prepare an online effect for either fresh execution or result retrieval.
+    /// Expiry may be ignored only for an existing non-executable receipt; all
+    /// committed admission and fence identity checks remain mandatory.
+    pub fn prepare_online_effect(
+        &mut self,
+        manifest: EffectManifestV1,
+        achieved: &VerifiedGuaranteeV1,
+        authorization: &AcceptedEffectAuthorizationV1,
+        current_height: u64,
+    ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
+        if manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0 {
+            return Err(ConsequenceError::UnexpectedOnlineAuthorization);
+        }
+        self.authorize_inner(
+            manifest,
+            achieved,
+            authorization,
+            current_height,
+            ReceiptAdmissionMode::PrepareOnline,
+        )
+    }
+
+    /// Revalidate admission without creating per-effect state. The returned
+    /// bool only says whether execution needs a fresh live interaction. Callers
+    /// must repeat admission validation after releasing this store to wait.
+    pub fn inspect_online_effect(
+        &mut self,
+        manifest: EffectManifestV1,
+        achieved: &VerifiedGuaranteeV1,
+        authorization: &AcceptedEffectAuthorizationV1,
+        current_height: u64,
+        candidate_binding: OnlineEffectAuthorizationBindingV1,
+    ) -> Result<bool, ConsequenceError> {
+        if OnlineEffectAuthorizationBindingV1::from_manifest(&manifest)? != candidate_binding {
+            return Err(ConsequenceError::InvalidOnlineAuthorization);
+        }
+        let receipt = self.authorize_inner(
+            manifest,
+            achieved,
+            authorization,
+            current_height,
+            ReceiptAdmissionMode::InspectOnline,
+        )?;
+        Ok(matches!(
+            receipt.state,
+            ConsequenceStateV1::Authorized { .. } | ConsequenceStateV1::Claimed { .. }
+        ))
+    }
+
+    /// Check exact candidate binding and, for executable state, the caller's
+    /// rooted candidate/head preflight before any per-effect storage mutation.
+    /// The callback grants no live authority; the executor must still run QUV.
+    /// Existing non-executable results retain lookup-only readmission semantics.
+    pub async fn prepare_online_effect_checked<F>(
+        &mut self,
+        manifest: EffectManifestV1,
+        achieved: &VerifiedGuaranteeV1,
+        authorization: &AcceptedEffectAuthorizationV1,
+        current_height: u64,
+        candidate_binding: OnlineEffectAuthorizationBindingV1,
+        preflight: F,
+    ) -> Result<bool, ConsequenceError>
+    where
+        F: std::future::Future<Output = Result<(), ConsequenceError>>,
+    {
+        if OnlineEffectAuthorizationBindingV1::from_manifest(&manifest)? != candidate_binding {
+            return Err(ConsequenceError::InvalidOnlineAuthorization);
+        }
+        let effect_id = manifest.effect_id.clone();
+        let needs_live = if self.contains(&effect_id) {
+            matches!(
+                self.load(&effect_id)?.state,
+                ConsequenceStateV1::Authorized { .. } | ConsequenceStateV1::Claimed { .. }
+            )
+        } else {
+            true
+        };
+        if needs_live {
+            preflight.await?;
+        }
+        let receipt =
+            self.prepare_online_effect(manifest, achieved, authorization, current_height)?;
+        // Final outcomes are lookup-only. Do not allocate, exchange or rewrite
+        // their receipt pair merely to report the exact observed result.
+        // Ambiguous outcomes still reserve storage for lookup reconciliation.
+        if !matches!(
+            receipt.state,
+            ConsequenceStateV1::Executed { .. } | ConsequenceStateV1::Reconciled { .. }
+        ) {
+            self.prepare_online_storage(&effect_id)?;
+        }
+        Ok(needs_live)
+    }
+
+    /// Reserve receipt data after admission rederivation and before beginning
+    /// the executor's live operation. Revalidation after QUV must not call this.
+    pub fn prepare_online_storage(&mut self, effect_id: &str) -> Result<(), ConsequenceError> {
+        let receipt = self.load(effect_id)?;
+        if let Some(bound) = online_receipt_byte_bound(&receipt.manifest)? {
+            if let Err(error) = receipt_reservation::prepare(&self.receipt_path(effect_id), bound) {
+                self.failed = true;
+                return Err(error);
+            }
+            // The claim index entry is the only other object written at the
+            // claim boundary. Prove its encoding fits and reserve its
+            // initialized staging now, unless this effect already holds it.
+            if let Some(key) = claim_index::key_for(&receipt.manifest)? {
+                claim_index::encode(&claim_index::record_for(
+                    &key,
+                    &receipt.manifest.effect_id,
+                    receipt.manifest_root,
+                )?)?;
+                if self
+                    .claim_guard(&receipt.manifest, receipt.manifest_root)?
+                    .is_none()
+                {
+                    if let Err(error) =
+                        claim_index::prepare(&claim_index::path_for(&self.root, &key))
+                    {
+                        self.failed = true;
+                        return Err(error);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn persist(
+        &mut self,
+        path: &Path,
+        receipt: &mut ConsequenceReceiptV1,
+    ) -> Result<(), ConsequenceError> {
+        if self.failed {
+            return Err(ConsequenceError::ResourceRequiresReopen);
+        }
+        if let Err(error) = persist_receipt(path, receipt) {
+            self.failed = true;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    fn authorize_inner(
+        &mut self,
+        manifest: EffectManifestV1,
+        achieved: &VerifiedGuaranteeV1,
+        authorization: &AcceptedEffectAuthorizationV1,
+        current_height: u64,
+        mode: ReceiptAdmissionMode,
+    ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
+        if self.failed {
+            return Err(ConsequenceError::ResourceRequiresReopen);
+        }
+        let allow_existing_result = !matches!(mode, ReceiptAdmissionMode::Authorize);
         manifest.validate().map_err(type_error)?;
-        validate_fence(&manifest, current_height, achieved, authorization)?;
+        let path = self.receipt_path(&manifest.effect_id);
+        let existing = if receipt_path_present(&path)? {
+            Some(self.load(&manifest.effect_id)?)
+        } else {
+            None
+        };
+        // A slot already claimed by another effect is refused in every
+        // admission mode before any fence, policy or receipt comparison, and
+        // before any per-effect state can be created.
+        let manifest_root = manifest.commitment().map_err(type_error)?;
+        self.claim_guard(&manifest, manifest_root)?;
+        let allow_expired_result = allow_existing_result
+            && existing.as_ref().is_some_and(|receipt| {
+                receipt.manifest.authorization_mode
+                    == EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+                    && !matches!(
+                        receipt.state,
+                        ConsequenceStateV1::Authorized { .. } | ConsequenceStateV1::Claimed { .. }
+                    )
+            });
+        validate_fence(
+            &manifest,
+            current_height,
+            achieved,
+            authorization,
+            allow_expired_result,
+        )?;
         if !manifest.required_guarantees.is_satisfied_by(achieved) {
             return Err(ConsequenceError::PolicyUnsatisfied);
         }
@@ -805,7 +1256,6 @@ impl ConsequenceStore {
         if manifest.irreversible && !manifest.resource_profile.contract.supports_at_most_once() {
             return Err(ConsequenceError::UnsafeResourceContract);
         }
-        let manifest_root = manifest.commitment().map_err(type_error)?;
         let achieved_guarantee_root = achieved
             .achieved()
             .commitment()
@@ -817,11 +1267,23 @@ impl ConsequenceStore {
         {
             return Err(ConsequenceError::ReplayConflict);
         }
-        let path = self.receipt_path(&manifest.effect_id);
-        if path.exists() {
-            let existing = self.load(&manifest.effect_id)?;
+        if let Some(existing) = existing {
+            // The initial authorization remains committed by the first trace
+            // entry after Claim replaces the state variant. A retry must match
+            // today's independently derived admission to that exact entry.
+            let expected_authorization_evidence =
+                state_evidence_root(&ConsequenceStateV1::Authorized {
+                    authorization_root: authorization.authorization_receipt_root,
+                    achieved_guarantee_root,
+                })?;
             if existing.manifest_root == manifest_root
                 && existing.achieved_guarantee_root == achieved_guarantee_root
+                && (manifest.authorization_mode
+                    != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+                    || existing
+                        .trace
+                        .first()
+                        .is_some_and(|step| step.evidence_root == expected_authorization_evidence))
             {
                 return Ok(existing);
             }
@@ -838,6 +1300,7 @@ impl ConsequenceStore {
             manifest_root,
             achieved_guarantee_root,
             online_authorization_audit: None,
+            reconciliation_attempts: 0,
             state,
             trace: vec![ConsequenceTransitionV1 {
                 sequence: 1,
@@ -848,8 +1311,10 @@ impl ConsequenceStore {
             generation: 1,
             receipt_root: [0; 32],
         };
-        persist_receipt(&path, &mut receipt)?;
-        self.hit(ConsequenceCrashPoint::AfterAuthorized)?;
+        if !matches!(mode, ReceiptAdmissionMode::InspectOnline) {
+            self.persist(&path, &mut receipt)?;
+            self.hit(ConsequenceCrashPoint::AfterAuthorized)?;
+        }
         Ok(receipt)
     }
 
@@ -861,7 +1326,7 @@ impl ConsequenceStore {
         effect_id: &str,
         resource: &mut dyn ExternalResourceV1,
     ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
-        self.execute_after_online_authorization(effect_id, resource, false)
+        self.execute_after_online_authorization(effect_id, resource, None)
     }
 
     /// Execute an `online_query_unanimity_v0` effect only as the immediate
@@ -871,19 +1336,40 @@ impl ConsequenceStore {
         effect_id: &str,
         resource: &mut dyn ExternalResourceV1,
         authorization: A,
+        current_height: u64,
     ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
         let receipt = self.load(effect_id)?;
         if receipt.manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
         {
             return Err(ConsequenceError::UnexpectedOnlineAuthorization);
         }
+        if !matches!(
+            receipt.state,
+            ConsequenceStateV1::Authorized { .. } | ConsequenceStateV1::Claimed { .. }
+        ) {
+            return Err(ConsequenceError::WrongState(receipt.state.phase()));
+        }
+        // A slot already claimed by another effect (or a corrupt claim
+        // entry) refuses here with zero mutation: the continuation is not
+        // consumed and no audit is installed. The durable claim itself is
+        // re-proved at the claim boundary below.
+        self.claim_guard(&receipt.manifest, receipt.manifest_root)?;
         let consumed = authorization.consume()?;
         validate_online_authorization(&receipt, &consumed.binding)?;
         validate_online_audit(&consumed.audit, &consumed.binding)?;
+        validate_online_execution_fence(&receipt.manifest, current_height)?;
         let mut receipt = receipt;
         receipt.online_authorization_audit = Some(consumed.audit);
-        persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
-        self.execute_after_online_authorization(effect_id, resource, true)
+        self.persist(&self.receipt_path(effect_id), &mut receipt)?;
+        self.execute_after_online_authorization(
+            effect_id,
+            resource,
+            Some(OnlineClaimContext {
+                binding: consumed.binding,
+                expires_at: consumed.expires_at,
+                current_height,
+            }),
+        )
     }
 
     /// Return the exact online binding an executor must satisfy before it
@@ -898,17 +1384,92 @@ impl ConsequenceStore {
         {
             return Err(ConsequenceError::UnexpectedOnlineAuthorization);
         }
+        if !matches!(
+            receipt.state,
+            ConsequenceStateV1::Authorized { .. } | ConsequenceStateV1::Claimed { .. }
+        ) {
+            return Err(ConsequenceError::WrongState(receipt.state.phase()));
+        }
         online_authorization_requirement(&receipt)
+    }
+
+    /// Inspect the durable online binding in any phase. This grants no
+    /// execution authority; callers must independently validate admission.
+    pub fn online_effect_binding(
+        &self,
+        effect_id: &str,
+    ) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
+        let receipt = self.load(effect_id)?;
+        if receipt.manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+        {
+            return Err(ConsequenceError::UnexpectedOnlineAuthorization);
+        }
+        online_authorization_requirement(&receipt)
+    }
+
+    /// Return a recorded outcome or perform lookup-only reconciliation. Call
+    /// after revalidating committed admission and the requested candidate.
+    /// None means a fresh live operation is still required; this method never
+    /// invokes the resource mutation operation or consumes a continuation.
+    pub fn online_retry_result(
+        &mut self,
+        effect_id: &str,
+        resource: &mut dyn ExternalResourceV1,
+    ) -> Result<Option<ConsequenceReceiptV1>, ConsequenceError> {
+        let receipt = self.load(effect_id)?;
+        if receipt.manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+        {
+            return Err(ConsequenceError::UnexpectedOnlineAuthorization);
+        }
+        if resource.profile() != &receipt.manifest.resource_profile {
+            return Err(ConsequenceError::ProfileMismatch);
+        }
+        match receipt.state {
+            ConsequenceStateV1::Authorized { .. } | ConsequenceStateV1::Claimed { .. } => Ok(None),
+            ConsequenceStateV1::Executed { .. } | ConsequenceStateV1::Reconciled { .. } => {
+                let expected = match &receipt.state {
+                    ConsequenceStateV1::Executed {
+                        resource_record, ..
+                    }
+                    | ConsequenceStateV1::Reconciled {
+                        resolution:
+                            ReconciliationResolutionV1::Executed {
+                                resource_record, ..
+                            },
+                        ..
+                    } => Some(resource_record),
+                    _ => None,
+                };
+                let observed = resource
+                    .lookup(
+                        &receipt.manifest.resource_id,
+                        &receipt.manifest.idempotency_key,
+                    )
+                    .map_err(|error| match error {
+                        ResourceLookupErrorV1::Ambiguous => ConsequenceError::Ambiguous,
+                        ResourceLookupErrorV1::Conflict(_) => ConsequenceError::ReplayConflict,
+                    })?;
+                if observed.as_ref() != expected {
+                    // A stored receipt alone is insufficient to report an
+                    // external outcome. Do not rewrite it or attribute blame.
+                    return Err(ConsequenceError::ReplayConflict);
+                }
+                Ok(Some(receipt))
+            }
+            ConsequenceStateV1::InFlight { .. } | ConsequenceStateV1::Unknown { .. } => {
+                self.reconcile(effect_id, resource).map(Some)
+            }
+        }
     }
 
     fn execute_after_online_authorization(
         &mut self,
         effect_id: &str,
         resource: &mut dyn ExternalResourceV1,
-        online_authorized: bool,
+        online: Option<OnlineClaimContext>,
     ) -> Result<ConsequenceReceiptV1, ConsequenceError> {
         let mut receipt = self.load(effect_id)?;
-        match (receipt.manifest.authorization_mode, online_authorized) {
+        match (receipt.manifest.authorization_mode, online.is_some()) {
             (EffectAuthorizationModeV1::OnlineQueryUnanimityV0, false) => {
                 return Err(ConsequenceError::OnlineAuthorizationRequired)
             }
@@ -923,18 +1484,46 @@ impl ConsequenceStore {
         if !resource.profile().contract.supports_at_most_once() {
             return Err(ConsequenceError::UnsafeResourceContract);
         }
+        if let Some(context) = &online {
+            // Check the receipt actually used for the claim/call, including
+            // retries, against the consumed process-local binding.
+            validate_online_authorization(&receipt, &context.binding)?;
+            validate_online_execution_fence(&receipt.manifest, context.current_height)?;
+        }
+        // The continuation deadline is inclusive: a claim at exactly
+        // `expires_at` is still inside the rooted continuation interval.
+        let now = self.now;
         if matches!(receipt.state, ConsequenceStateV1::Authorized { .. }) {
             let claim_root = claim_root(&receipt)?;
+            if online
+                .as_ref()
+                .is_some_and(|context| now() > context.expires_at)
+            {
+                return Err(ConsequenceError::InvalidOnlineAuthorization);
+            }
+            // Stable-key claim guard: the slot is durably bound to this
+            // effect before the receipt can say `Claimed`.
+            self.install_claim(&receipt)?;
+            self.hit(ConsequenceCrashPoint::AfterClaimIndexed)?;
             transition(&mut receipt, ConsequenceStateV1::Claimed { claim_root })?;
-            persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+            self.persist(&self.receipt_path(effect_id), &mut receipt)?;
             self.hit(ConsequenceCrashPoint::AfterClaimed)?;
         }
         let claim_root = match receipt.state {
             ConsequenceStateV1::Claimed { claim_root } => claim_root,
             _ => return Err(ConsequenceError::WrongState(receipt.state.phase())),
         };
+        if online
+            .as_ref()
+            .is_some_and(|context| now() > context.expires_at)
+        {
+            return Err(ConsequenceError::InvalidOnlineAuthorization);
+        }
+        // A `Claimed` retry re-proves it still holds the slot before the
+        // only external call.
+        self.install_claim(&receipt)?;
         transition(&mut receipt, ConsequenceStateV1::InFlight { claim_root })?;
-        persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+        self.persist(&self.receipt_path(effect_id), &mut receipt)?;
         self.hit(ConsequenceCrashPoint::AfterInFlight)?;
 
         let result = resource.invoke_atomic(&receipt.manifest);
@@ -952,7 +1541,7 @@ impl ConsequenceStore {
                         resource_record_root,
                     },
                 )?;
-                persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+                self.persist(&self.receipt_path(effect_id), &mut receipt)?;
                 self.hit(ConsequenceCrashPoint::AfterExecuted)?;
                 Ok(receipt)
             }
@@ -962,7 +1551,7 @@ impl ConsequenceStore {
                     AmbiguityReasonV1::InvocationResultAmbiguous,
                     0,
                 )?;
-                persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+                self.persist(&self.receipt_path(effect_id), &mut receipt)?;
                 self.hit(ConsequenceCrashPoint::AfterUnknown)?;
                 Err(ConsequenceError::Ambiguous)
             }
@@ -974,7 +1563,7 @@ impl ConsequenceStore {
                     },
                     0,
                 )?;
-                persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+                self.persist(&self.receipt_path(effect_id), &mut receipt)?;
                 Err(ConsequenceError::DefinitiveRejection(reason))
             }
             Err(ResourceInvocationErrorV1::Conflict(observed)) => {
@@ -991,7 +1580,7 @@ impl ConsequenceStore {
         let mut receipt = self.load(effect_id)?;
         if matches!(receipt.state, ConsequenceStateV1::InFlight { .. }) {
             mark_unknown(&mut receipt, AmbiguityReasonV1::RestartedFromInFlight, 0)?;
-            persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+            self.persist(&self.receipt_path(effect_id), &mut receipt)?;
         }
         Ok(receipt)
     }
@@ -1023,6 +1612,13 @@ impl ConsequenceStore {
             ConsequenceStateV1::Reconciled { .. } => return Ok(receipt),
             _ => return Err(ConsequenceError::WrongState(receipt.state.phase())),
         };
+        let attempts = receipt.reconciliation_attempts.max(observations);
+        if attempts >= maximum_observations {
+            return Err(ConsequenceError::ReconciliationExhausted);
+        }
+        receipt.reconciliation_attempts = attempts + 1;
+        self.persist(&self.receipt_path(effect_id), &mut receipt)?;
+        self.hit(ConsequenceCrashPoint::AfterLookupReserved)?;
         let observation = resource.lookup(
             &receipt.manifest.resource_id,
             &receipt.manifest.idempotency_key,
@@ -1038,14 +1634,15 @@ impl ConsequenceStore {
             }
             Ok(None) => ReconciliationResolutionV1::Absent,
             Err(ResourceLookupErrorV1::Ambiguous) => {
-                let next = observations.saturating_add(1);
-                mark_unknown(
-                    &mut receipt,
-                    AmbiguityReasonV1::ReconciliationLookupAmbiguous,
-                    next,
-                )?;
-                persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
-                return if next >= maximum_observations {
+                if matches!(receipt.state, ConsequenceStateV1::Unknown { .. }) {
+                    mark_unknown(
+                        &mut receipt,
+                        AmbiguityReasonV1::ReconciliationLookupAmbiguous,
+                        observations + 1,
+                    )?;
+                    self.persist(&self.receipt_path(effect_id), &mut receipt)?;
+                }
+                return if receipt.reconciliation_attempts >= maximum_observations {
                     Err(ConsequenceError::ReconciliationExhausted)
                 } else {
                     Err(ConsequenceError::Ambiguous)
@@ -1064,19 +1661,26 @@ impl ConsequenceStore {
                 reconciliation_root,
             },
         )?;
-        persist_receipt(&self.receipt_path(effect_id), &mut receipt)?;
+        self.persist(&self.receipt_path(effect_id), &mut receipt)?;
         self.hit(ConsequenceCrashPoint::AfterReconciled)?;
         Ok(receipt)
     }
 
     pub fn load(&self, effect_id: &str) -> Result<ConsequenceReceiptV1, ConsequenceError> {
-        let bytes = fs::read(self.receipt_path(effect_id))?;
+        if self.failed {
+            return Err(ConsequenceError::ResourceRequiresReopen);
+        }
+        let (bytes, stored_capacity) = receipt_reservation::read(&self.receipt_path(effect_id))?;
         let receipt: ConsequenceReceiptV1 = serde_json::from_slice(&bytes)
             .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
         if receipt.manifest.effect_id != effect_id {
             return Err(ConsequenceError::CorruptReceipt);
         }
         receipt.validate()?;
+        receipt_reservation::validate_capacity(
+            stored_capacity,
+            online_receipt_byte_bound(&receipt.manifest)?,
+        )?;
         Ok(receipt)
     }
 
@@ -1108,20 +1712,29 @@ impl ConsequenceStore {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ConsequenceCrashPoint {
     AfterAuthorized,
+    AfterClaimIndexed,
     AfterClaimed,
     AfterInFlight,
     AfterInvocation,
     AfterExecuted,
     AfterUnknown,
+    AfterLookupReserved,
     AfterLookup,
     AfterReconciled,
 }
 
+/// Live fence check against the caller's current height. `allow_expired_result`
+/// is true only for lookup-only readmission of an existing non-executable
+/// online result. For an `Authorized` (or `Claimed`) receipt it is always
+/// false, so a cached executable receipt whose fence has passed is refused
+/// here on inspect, prepare and execute alike; it stays in place, fail-closed,
+/// and is never advanced to a terminal state by the expiry itself.
 fn validate_fence(
     manifest: &EffectManifestV1,
     current_height: u64,
     achieved: &VerifiedGuaranteeV1,
     authorization: &AcceptedEffectAuthorizationV1,
+    allow_expired_result: bool,
 ) -> Result<(), ConsequenceError> {
     let valid = match &manifest.fence {
         EffectFenceV1::ProtocolHeight {
@@ -1129,7 +1742,8 @@ fn validate_fence(
             minimum_height,
             maximum_height,
         } => {
-            (*minimum_height..=*maximum_height).contains(&current_height)
+            current_height >= *minimum_height
+                && (current_height <= *maximum_height || allow_expired_result)
                 && (manifest.authorization_mode
                     == EffectAuthorizationModeV1::OnlineQueryUnanimityV0
                     || achieved.achieved().safety.configuration_hash == Some(*configuration_hash))
@@ -1139,7 +1753,7 @@ fn validate_fence(
             authority_epoch,
             expires_at_height,
         } => {
-            current_height <= *expires_at_height
+            (current_height <= *expires_at_height || allow_expired_result)
                 && authorization.authority_epoch == *authority_epoch
                 && authorization.authority_snapshot_root == *authority_snapshot_hash
         }
@@ -1159,6 +1773,27 @@ fn validate_online_authorization(
         return Err(ConsequenceError::InvalidOnlineAuthorization);
     }
     Ok(())
+}
+
+fn validate_online_execution_fence(
+    manifest: &EffectManifestV1,
+    current_height: u64,
+) -> Result<(), ConsequenceError> {
+    let live = match manifest.fence {
+        EffectFenceV1::ProtocolHeight {
+            minimum_height,
+            maximum_height,
+            ..
+        } => (minimum_height..=maximum_height).contains(&current_height),
+        EffectFenceV1::AuthorityEpoch {
+            expires_at_height, ..
+        } => current_height <= expires_at_height,
+    };
+    if live {
+        Ok(())
+    } else {
+        Err(ConsequenceError::FenceExpired)
+    }
 }
 
 /// Domain-separated commitment used by protocol implementations when they
@@ -1212,7 +1847,13 @@ fn validate_online_audit_shape(receipt: &ConsequenceReceiptV1) -> Result<(), Con
 fn online_authorization_requirement(
     receipt: &ConsequenceReceiptV1,
 ) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
-    let manifest = &receipt.manifest;
+    manifest_online_requirement(&receipt.manifest, receipt.manifest_root)
+}
+
+fn manifest_online_requirement(
+    manifest: &EffectManifestV1,
+    manifest_root: ConsequenceHash,
+) -> Result<OnlineEffectAuthorizationBindingV1, ConsequenceError> {
     let expected_configuration = match manifest.fence {
         EffectFenceV1::ProtocolHeight {
             configuration_hash, ..
@@ -1225,12 +1866,18 @@ fn online_authorization_requirement(
     let domain = manifest.conflict_domain_commitment().map_err(type_error)?;
     Ok(OnlineEffectAuthorizationBindingV1 {
         mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
-        payload_hash: receipt.manifest_root,
+        payload_hash: manifest_root,
         configuration_root: expected_configuration,
         conflict_domain_hash: domain,
         conflict_slot: manifest.conflict_slot,
         policy_root: manifest
             .online_authorization_policy_root
+            .ok_or(ConsequenceError::InvalidOnlineAuthorization)?,
+        predecessor: manifest
+            .online_authorization_predecessor
+            .ok_or(ConsequenceError::InvalidOnlineAuthorization)?,
+        authority_mode: manifest
+            .online_authorization_authority_mode
             .ok_or(ConsequenceError::InvalidOnlineAuthorization)?,
     })
 }
@@ -1285,6 +1932,54 @@ fn mark_unknown(
     )
 }
 
+/// Authorized, Claimed, InFlight and one execution/ambiguity entry, followed
+/// by at most one trace entry per rooted reconciliation observation. No new
+/// quota is introduced: this is a consequence of the existing state machine.
+fn receipt_trace_limit(manifest: &EffectManifestV1) -> u64 {
+    StorageProfile::TRACE_BASE_ENTRIES
+        + match manifest.reconciliation {
+            ReconciliationPolicyV1::LookupByIdempotencyKey {
+                maximum_observations,
+            } => u64::from(maximum_observations),
+            ReconciliationPolicyV1::NoSafeReconciliation => 0,
+        }
+}
+
+fn is_durable_pq_profile(profile: &ExternalResourceProfileV1) -> bool {
+    profile.adapter_id == DURABLE_PQ_REGISTER_ADAPTER_ID
+        && profile.adapter_version == DURABLE_PQ_REGISTER_ADAPTER_VERSION
+        && profile.resource_profile_id == DURABLE_PQ_REGISTER_PROFILE_ID
+        && profile.contract == ioi_types::app::ExternalResourceContractV1::AtomicPutIfAbsent
+        && profile.externalization_pq
+        && profile.endpoint_pq_key_hash.is_some()
+}
+
+/// Encoded lifetime bound for the named production online resource profile.
+/// This is input to physical reservation, not a claim that it reserves storage.
+/// The exact manifest and observation allowance are retained without reduction.
+fn online_receipt_byte_bound(manifest: &EffectManifestV1) -> Result<Option<u64>, ConsequenceError> {
+    if manifest.authorization_mode != EffectAuthorizationModeV1::OnlineQueryUnanimityV0
+        || !is_durable_pq_profile(&manifest.resource_profile)
+    {
+        return Ok(None);
+    }
+    manifest.validate().map_err(type_error)?;
+    let manifest_bytes = serde_jcs::to_vec(manifest)
+        .map_err(|error| ConsequenceError::Invalid(error.to_string()))?
+        .len() as u64;
+    // At most four JSON bytes per audit byte, 512 per fixed trace entry,
+    // one bounded resource record, and 32 KiB of fixed state/audit/root syntax.
+    let observations = match manifest.reconciliation {
+        ReconciliationPolicyV1::LookupByIdempotencyKey {
+            maximum_observations,
+        } => maximum_observations,
+        ReconciliationPolicyV1::NoSafeReconciliation => 0,
+    };
+    let bound = StorageProfile::receipt_encoded_bound(manifest_bytes, observations)
+        .ok_or(ConsequenceError::CorruptReceipt)?;
+    Ok(Some(bound))
+}
+
 fn transition(
     receipt: &mut ConsequenceReceiptV1,
     next: ConsequenceStateV1,
@@ -1308,6 +2003,9 @@ fn transition(
             .is_some_and(|current| next.claim_root() != Some(current))
     {
         return Err(ConsequenceError::WrongState(from));
+    }
+    if receipt.trace.len() as u64 >= receipt_trace_limit(&receipt.manifest) {
+        return Err(ConsequenceError::CorruptReceipt);
     }
     let evidence_root = state_evidence_root(&next)?;
     receipt.trace.push(ConsequenceTransitionV1 {
@@ -1446,6 +2144,14 @@ fn validate_resource_record(
     manifest: &EffectManifestV1,
     record: &ExternalResourceRecordV1,
 ) -> Result<(), ConsequenceError> {
+    if is_durable_pq_profile(&manifest.resource_profile)
+        && record
+            .evidence
+            .as_ref()
+            .is_some_and(|evidence| evidence.len() > PQ_REGISTER_EVIDENCE_MAX_BYTES)
+    {
+        return Err(ConsequenceError::CorruptReceipt);
+    }
     record.validate().map_err(type_error)?;
     if record_violation_kind(manifest, record).is_some() {
         return Err(ConsequenceError::UnattributedResourceConflict);
@@ -1543,9 +2249,37 @@ fn state_evidence_root(state: &ConsequenceStateV1) -> Result<ConsequenceHash, Co
 }
 
 fn receipt_root(receipt: &ConsequenceReceiptV1) -> Result<ConsequenceHash, ConsequenceError> {
-    let mut clone = receipt.clone();
-    clone.receipt_root = [0; 32];
-    canonical_hash(RECEIPT_DOMAIN, &clone)
+    // Match the existing wire object exactly, without cloning its audit bytes
+    // or retained trace merely to substitute the self-hash field.
+    #[derive(Serialize)]
+    struct RootView<'a> {
+        schema_version: &'a str,
+        manifest: &'a EffectManifestV1,
+        manifest_root: ConsequenceHash,
+        achieved_guarantee_root: ConsequenceHash,
+        online_authorization_audit: &'a Option<OnlineEffectAuthorizationAuditV1>,
+        #[serde(skip_serializing_if = "is_zero_reconciliation_attempts")]
+        reconciliation_attempts: u32,
+        state: &'a ConsequenceStateV1,
+        trace: &'a [ConsequenceTransitionV1],
+        generation: u64,
+        receipt_root: ConsequenceHash,
+    }
+    canonical_hash(
+        RECEIPT_DOMAIN,
+        &RootView {
+            schema_version: &receipt.schema_version,
+            manifest: &receipt.manifest,
+            manifest_root: receipt.manifest_root,
+            achieved_guarantee_root: receipt.achieved_guarantee_root,
+            online_authorization_audit: &receipt.online_authorization_audit,
+            reconciliation_attempts: receipt.reconciliation_attempts,
+            state: &receipt.state,
+            trace: &receipt.trace,
+            generation: receipt.generation,
+            receipt_root: [0; 32],
+        },
+    )
 }
 
 fn persist_receipt(
@@ -1557,7 +2291,28 @@ fn persist_receipt(
     receipt.validate()?;
     let bytes =
         serde_jcs::to_vec(receipt).map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+    if let Some(bound) = online_receipt_byte_bound(&receipt.manifest)? {
+        if bytes.len() as u64 > bound {
+            return Err(ConsequenceError::CorruptReceipt);
+        }
+        if receipt_path_present(path)? {
+            return receipt_reservation::commit(path, &bytes, bound);
+        }
+        if receipt.generation != 1 || receipt.online_authorization_audit.is_some() {
+            return Err(ConsequenceError::ResourceCapacityNotPrepared);
+        }
+    }
     atomic_write(path, &bytes)
+}
+
+// Only an absent directory entry is absent state. A dangling link or metadata
+// error must not be converted into a fresh authorization that replaces evidence.
+fn receipt_path_present(path: &Path) -> Result<bool, ConsequenceError> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(ConsequenceError::Io(error)),
+    }
 }
 
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), ConsequenceError> {
@@ -1570,11 +2325,17 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), ConsequenceError> {
         .and_then(|name| name.to_str())
         .ok_or_else(|| ConsequenceError::Invalid("receipt path has no filename".into()))?;
     let temporary = parent.join(format!(".{name}.prepared"));
+    #[cfg(unix)]
+    let mut file = resource_reservation::private_open(&temporary, true)?;
+    // The theorem-bearing reserved profile requires Linux. Keep the existing
+    // generic adapter path on other platforms outside that profile.
+    #[cfg(not(unix))]
     let mut file = OpenOptions::new()
         .create(true)
-        .truncate(true)
+        .truncate(false)
         .write(true)
         .open(&temporary)?;
+    file.set_len(0)?;
     file.write_all(bytes)?;
     file.sync_data()?;
     fs::rename(&temporary, path)?;
@@ -1586,9 +2347,23 @@ fn canonical_hash<T: Serialize>(
     domain: &[u8],
     value: &T,
 ) -> Result<ConsequenceHash, ConsequenceError> {
-    let bytes =
-        serde_jcs::to_vec(value).map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
-    Ok(hash_parts(domain, &[&bytes]))
+    struct DigestWriter<'a>(&'a mut Sha256);
+    impl Write for DigestWriter<'_> {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.update(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    // JCS still buffers object entries for key sorting. This removes the
+    // additional complete output Vec, not every serializer allocation.
+    serde_jcs::to_writer(DigestWriter(&mut hasher), value)
+        .map_err(|error| ConsequenceError::Invalid(error.to_string()))?;
+    Ok(hasher.finalize().into())
 }
 
 fn hash_parts(domain: &[u8], parts: &[&[u8]]) -> ConsequenceHash {
