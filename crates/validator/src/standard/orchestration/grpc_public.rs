@@ -24,6 +24,48 @@ use tokio::sync::{mpsc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
+// A conflict diagnosis is attached only to the verifier's typed refusal.
+// This metadata is not an authorization or transferable conflict proof.
+fn quv_effect_preparation_failure_status(
+    error: agentgres::consequence::ConsequenceError,
+) -> Status {
+    if matches!(
+        error,
+        agentgres::consequence::ConsequenceError::InvalidOnlineAuthorization
+    ) {
+        Status::invalid_argument("QUV candidate does not match the durable effect manifest")
+    } else {
+        Status::failed_precondition(error.to_string())
+    }
+}
+
+fn quv_operation_failure_status(error: anyhow::Error) -> Status {
+    use ioi_consensus::aft::query_unanimity::QuvError;
+    if matches!(
+        error.downcast_ref::<QuvError>(),
+        Some(QuvError::ConflictDisclosed)
+    ) {
+        let mut status = Status::aborted(error.to_string());
+        status.metadata_mut().insert(
+            "ioi-quv-refusal",
+            tonic::metadata::MetadataValue::from_static("conflict-disclosed-v0"),
+        );
+        status
+    } else {
+        Status::failed_precondition(error.to_string())
+    }
+}
+
+// Durable preflight is complete before network/readiness waiting. Reopen the
+// store afterward: another request may have changed its durable state meanwhile.
+async fn after_releasing_consequence_store<T>(
+    store: agentgres::consequence::ConsequenceStore,
+    wait: impl std::future::Future<Output = T>,
+) -> T {
+    drop(store);
+    wait.await
+}
+
 use crate::metrics::rpc_metrics as metrics;
 use ioi_api::chain::WorkloadClientApi;
 use ioi_services::agentic::intent::IntentResolver;
@@ -128,10 +170,13 @@ where
         if request.effect_id.trim().is_empty() {
             return Err(Status::invalid_argument("effect_id is empty"));
         }
-        let candidate: QuvCandidateV0 = codec::from_bytes_canonical(&request.candidate_bytes)
-            .map_err(|error| Status::invalid_argument(format!("invalid QUV candidate: {error}")))?;
+        let candidate: QuvCandidateV0 =
+            ioi_consensus::aft::query_unanimity::decode_quv_candidate(&request.candidate_bytes)
+                .map_err(|error| {
+                    Status::invalid_argument(format!("invalid QUV candidate: {error}"))
+                })?;
         let context = self.get_context().await?;
-        let (runtime_finality, endpoint) = {
+        let (runtime_finality, endpoint, receipt_gate) = {
             let guard = context.lock().await;
             (
                 guard.runtime_finality.clone(),
@@ -139,21 +184,46 @@ where
                     .pqc_signer
                     .clone()
                     .ok_or_else(|| Status::failed_precondition("PQ executor key is absent"))?,
+                guard.aft_quv_admission.clone(),
             )
         };
-        let (admission, current_height, runtime_root) = {
+        let (mut admission, runtime_root) = {
             let finality = runtime_finality.lock().await;
             let admission = finality
                 .committed_consequence_manifest(&request.effect_id)
                 .map_err(|error| Status::failed_precondition(error.to_string()))?;
-            let current_height = finality
+            let runtime_root = finality.consequence_runtime_root();
+            (admission, runtime_root)
+        };
+        let receipt_domain = admission
+            .manifest
+            .conflict_domain_commitment()
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let mut receipt_access = receipt_gate
+            .receipt_access(receipt_domain, candidate.authorizer)
+            .await
+            .map_err(|error| Status::resource_exhausted(error.to_string()))?;
+        // Committed admission may have changed while storage was queued.
+        let mut current_height;
+        {
+            let finality = runtime_finality.lock().await;
+            admission = finality
+                .committed_consequence_manifest(&request.effect_id)
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            current_height = finality
                 .last_admitted_block()
                 .map_err(|error| Status::internal(error.to_string()))?
                 .map(|block| block.header.height)
                 .unwrap_or(admission.admitted_height);
-            let runtime_root = finality.consequence_runtime_root();
-            (admission, current_height, runtime_root)
-        };
+            if admission
+                .manifest
+                .conflict_domain_commitment()
+                .map_err(|error| Status::failed_precondition(error.to_string()))?
+                != receipt_domain
+            {
+                return Err(Status::failed_precondition("queued receipt domain changed"));
+            }
+        }
         let mut resource =
             DurablePqAtomicRegisterV1::open(runtime_root.join("quv-external-resource"), endpoint)
                 .map_err(|error| Status::internal(error.to_string()))?;
@@ -164,53 +234,194 @@ where
         }
         let mut consequence_store = ConsequenceStore::open(runtime_root.join("consequence"))
             .map_err(|error| Status::unavailable(error.to_string()))?;
-        if !consequence_store.contains(&request.effect_id) {
-            let (authorization, achieved) =
-                AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
-                    &admission.committed,
-                    &admission.manifest,
-                )
-                .map_err(|error| Status::failed_precondition(error.to_string()))?;
-            consequence_store
-                .authorize(
-                    admission.manifest,
-                    &achieved,
-                    &authorization,
-                    current_height,
-                )
-                .map_err(|error| Status::failed_precondition(error.to_string()))?;
-        }
-        let requirement = consequence_store
-            .online_authorization_requirement(&request.effect_id)
+        let (authorization, achieved) =
+            AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+                &admission.committed,
+                &admission.manifest,
+            )
             .map_err(|error| Status::failed_precondition(error.to_string()))?;
-        if candidate.payload_hash != requirement.payload_hash
-            || candidate.slot.configuration_root != requirement.configuration_root
-            || candidate.slot.policy_root != requirement.policy_root
-            || candidate.slot.domain_id != requirement.conflict_domain_hash
-            || candidate.slot.slot != requirement.conflict_slot
-        {
-            return Err(Status::invalid_argument(
-                "QUV candidate does not match the durable effect manifest",
+        let needs_live = consequence_store
+            .inspect_online_effect(
+                admission.manifest.clone(),
+                &achieved,
+                &authorization,
+                current_height,
+                super::quv::effect_candidate_binding(&candidate),
+            )
+            .map_err(quv_effect_preparation_failure_status)?;
+        let reserved = if needs_live {
+            let mut verifier_nonce = [0_u8; 32];
+            OsRng.fill_bytes(&mut verifier_nonce);
+            let reserved = after_releasing_consequence_store(consequence_store, async {
+                drop(receipt_access);
+                super::quv::reserve_online_authorization(
+                    &context,
+                    QuvPushQueryV0 {
+                        verifier_nonce,
+                        candidate: candidate.clone(),
+                    },
+                )
+                .await
+                .map_err(|error| {
+                    quv_effect_preparation_failure_status(
+                        agentgres::consequence::ConsequenceError::Invalid(error.to_string()),
+                    )
+                })
+            })
+            .await?;
+            receipt_access = receipt_gate
+                .owned_receipt_access()
+                .await
+                .map_err(|error| Status::unavailable(error.to_string()))?;
+            consequence_store = ConsequenceStore::open(runtime_root.join("consequence"))
+                .map_err(|error| Status::unavailable(error.to_string()))?;
+            let finality = runtime_finality.lock().await;
+            admission = finality
+                .committed_consequence_manifest(&request.effect_id)
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            current_height = finality
+                .last_admitted_block()
+                .map_err(|error| Status::internal(error.to_string()))?
+                .map(|block| block.header.height)
+                .unwrap_or(0);
+            Some(reserved)
+        } else {
+            None
+        };
+        if resource.profile() != &admission.manifest.resource_profile {
+            return Err(Status::failed_precondition(
+                "executor PQ resource differs from the Agentgres-admitted manifest",
             ));
         }
-        let mut verifier_nonce = [0_u8; 32];
-        OsRng.fill_bytes(&mut verifier_nonce);
-        let receiver = super::quv::begin_online_authorization(
-            &context,
-            QuvPushQueryV0 {
-                verifier_nonce,
-                candidate,
-            },
-        )
-        .await
-        .map_err(|error| Status::failed_precondition(error.to_string()))?;
-        let authorization = receiver
-            .await
-            .map_err(|_| Status::unavailable("QUV operation ended without a decision"))?
-            .map_err(Status::failed_precondition)?;
-        let receipt = consequence_store
-            .execute_with_online_authorization(&request.effect_id, &mut resource, authorization)
+        let (authorization, achieved) =
+            AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+                &admission.committed,
+                &admission.manifest,
+            )
             .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let needs_live = consequence_store
+            .prepare_online_effect_checked(
+                admission.manifest.clone(),
+                &achieved,
+                &authorization,
+                current_height,
+                super::quv::effect_candidate_binding(&candidate),
+                async {
+                    reserved
+                        .as_ref()
+                        .ok_or_else(|| {
+                            agentgres::consequence::ConsequenceError::Invalid(
+                                "executable receipt appeared without operation admission".into(),
+                            )
+                        })?
+                        .check_service()
+                        .map_err(|error| {
+                            agentgres::consequence::ConsequenceError::Invalid(error.to_string())
+                        })?;
+                    super::quv::preflight_effect_candidate(&context, &candidate)
+                        .await
+                        .map_err(|error| {
+                            agentgres::consequence::ConsequenceError::Invalid(error.to_string())
+                        })
+                },
+            )
+            .await
+            .map_err(quv_effect_preparation_failure_status)?;
+        if needs_live {
+            reserved
+                .as_ref()
+                .ok_or_else(|| Status::failed_precondition("missing operation admission"))?
+                .check_service()
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            resource
+                .prepare(&admission.manifest)
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        }
+        if let Some(receipt) = consequence_store
+            .online_retry_result(&request.effect_id, &mut resource)
+            .map_err(|error| Status::failed_precondition(error.to_string()))?
+        {
+            let consequence_receipt_jcs =
+                serde_jcs::to_vec(&receipt).map_err(|error| Status::internal(error.to_string()))?;
+            let mut response = Response::new(ExecuteAftQuvEffectResponse {
+                consequence_receipt_jcs,
+                portable_final_receipt: false,
+            });
+            // Diagnostic height of committed readmission, never authority.
+            response.metadata_mut().insert(
+                "ioi-quv-result-height",
+                current_height
+                    .to_string()
+                    .parse()
+                    .map_err(|_| Status::internal("cannot encode result height"))?,
+            );
+            return Ok(response);
+        }
+        let reserved =
+            reserved.ok_or_else(|| Status::failed_precondition("missing operation admission"))?;
+        let authorization = after_releasing_consequence_store(consequence_store, async {
+            drop(receipt_access);
+            let receiver = super::quv::start_reserved_authorization(&context, reserved)
+                .await
+                .map_err(|error| Status::failed_precondition(error.to_string()))?;
+            receiver
+                .await
+                .map_err(|_| Status::unavailable("QUV operation ended without a decision"))?
+                .map_err(quv_operation_failure_status)
+        })
+        .await?;
+        let _receipt_access = receipt_gate
+            .owned_receipt_access()
+            .await
+            .map_err(|error| Status::unavailable(error.to_string()))?;
+        let mut consequence_store = ConsequenceStore::open(runtime_root.join("consequence"))
+            .map_err(|error| Status::unavailable(error.to_string()))?;
+        // Keep committed admission and height stable through the synchronous
+        // claim/call boundary. The online wait may have outlived the admission
+        // snapshot used to start the operation.
+        let finality = runtime_finality.lock().await;
+        let admission = finality
+            .committed_consequence_manifest(&request.effect_id)
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        let current_height = finality
+            .last_admitted_block()
+            .map_err(|error| Status::internal(error.to_string()))?
+            .map(|block| block.header.height)
+            .unwrap_or(0);
+        let (admitted_authorization, achieved) =
+            AcceptedEffectAuthorizationV1::from_committed_with_resource_contract(
+                &admission.committed,
+                &admission.manifest,
+            )
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        consequence_store
+            .prepare_online_effect(
+                admission.manifest,
+                &achieved,
+                &admitted_authorization,
+                current_height,
+            )
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+        // Reopen may observe completion by another relying request. A current
+        // committed readmission permits lookup-only result retrieval; it does
+        // not spend this grant or authorize a second external mutation.
+        let receipt = match consequence_store
+            .online_retry_result(&request.effect_id, &mut resource)
+            .map_err(|error| Status::failed_precondition(error.to_string()))?
+        {
+            Some(receipt) => receipt,
+            None => authorization.with_continuation(|authorization| {
+                consequence_store
+                    .execute_with_online_authorization(
+                        &request.effect_id,
+                        &mut resource,
+                        authorization,
+                        current_height,
+                    )
+                    .map_err(|error| Status::failed_precondition(error.to_string()))
+            })?,
+        };
+        drop(finality);
         let consequence_receipt_jcs =
             serde_jcs::to_vec(&receipt).map_err(|error| Status::internal(error.to_string()))?;
         Ok(Response::new(ExecuteAftQuvEffectResponse {
@@ -332,5 +543,50 @@ where
         request: Request<ExecuteAftQuvEffectRequest>,
     ) -> Result<Response<ExecuteAftQuvEffectResponse>, Status> {
         self.handle_execute_aft_quv_effect(request).await
+    }
+}
+
+#[cfg(test)]
+mod quv_refusal_status_tests {
+    use super::{after_releasing_consequence_store, quv_operation_failure_status};
+    use ioi_consensus::aft::query_unanimity::QuvError;
+
+    #[tokio::test]
+    async fn quv_wait_releases_consequence_lock_and_reopen_restores_exclusion() {
+        use agentgres::consequence::ConsequenceStore;
+        let temp = tempfile::tempdir().unwrap();
+        let store = ConsequenceStore::open(temp.path()).unwrap();
+        assert!(ConsequenceStore::open(temp.path()).is_err());
+        after_releasing_consequence_store(store, async {
+            let other = ConsequenceStore::open(temp.path())
+                .expect("online wait must not monopolize consequence storage");
+            assert!(ConsequenceStore::open(temp.path()).is_err());
+            drop(other);
+        })
+        .await;
+        let reopened = ConsequenceStore::open(temp.path()).unwrap();
+        assert!(ConsequenceStore::open(temp.path()).is_err());
+        drop(reopened);
+    }
+
+    #[test]
+    fn conflict_status_preserves_type_and_never_classifies_message_text() {
+        let typed =
+            anyhow::Error::new(QuvError::ConflictDisclosed).context("online verifier finished");
+        let status = quv_operation_failure_status(typed);
+        assert_eq!(status.code(), tonic::Code::Aborted);
+        assert_eq!(
+            status.metadata().get("ioi-quv-refusal").unwrap(),
+            "conflict-disclosed-v0"
+        );
+        for error in [
+            anyhow::anyhow!("a valid conflict was disclosed"),
+            anyhow::Error::new(QuvError::NoValidReplies),
+            anyhow::Error::new(QuvError::Io("a valid conflict was disclosed".into())),
+        ] {
+            let status = quv_operation_failure_status(error);
+            assert_eq!(status.code(), tonic::Code::FailedPrecondition);
+            assert!(status.metadata().get("ioi-quv-refusal").is_none());
+        }
     }
 }

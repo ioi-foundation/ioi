@@ -883,6 +883,10 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                     return;
                 }
                 context.last_executed_block = Some(processed_block.clone());
+                super::context::remember_executed_header(
+                    &mut context.recent_executed_headers,
+                    &processed_block,
+                );
                 if let Err(error) = emit_durable_proposal_vote(context, &processed_block).await {
                     tracing::warn!(
                         target: "consensus",
@@ -972,6 +976,10 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                 return;
             }
             context.last_executed_block = Some(processed_block.clone());
+            super::context::remember_executed_header(
+                &mut context.recent_executed_headers,
+                &processed_block,
+            );
 
             // A consensus-valid header is not sufficient authority to vote.
             // The exact proposal must first pass deterministic execution and
@@ -1335,6 +1343,7 @@ where
         == Some(block.header.height);
     if enriched_tip_is_current && accepted {
         context.last_executed_block = Some(block.clone());
+        super::context::remember_executed_header(&mut context.recent_executed_headers, block);
     }
 
     tracing::info!(

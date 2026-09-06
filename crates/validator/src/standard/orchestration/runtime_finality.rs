@@ -46,7 +46,7 @@ use ioi_types::codec::{from_bytes_canonical, to_bytes_canonical};
 use ioi_types::config::RuntimeFinalityProfile;
 use parity_scale_codec::{Decode, Encode};
 use serde_json::{json, Value};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -55,6 +55,24 @@ use std::sync::Arc;
 
 use super::context::MainLoopContext;
 use super::ingestion::ChainTipInfo;
+
+fn remember_manifest_locator(
+    index: &mut BTreeMap<String, Option<String>>,
+    effect_id: String,
+    runtime_id: String,
+) {
+    use std::collections::btree_map::Entry;
+    match index.entry(effect_id) {
+        Entry::Vacant(entry) => {
+            entry.insert(Some(runtime_id));
+        }
+        Entry::Occupied(mut entry) => {
+            if entry.get().as_ref() != Some(&runtime_id) {
+                entry.insert(None);
+            }
+        }
+    }
+}
 
 const STAGED_BLOCK_SCHEMA: &str = "ioi.validator-finality-staged-block.v1";
 const INITIAL_FENCE_TOKEN: u64 = 1;
@@ -123,6 +141,11 @@ pub(crate) struct RuntimeFinalityCoordinator {
     issuer_key_id: String,
     signing_key: Ed25519PrivateKey,
     store: RecognizedEffectStore,
+    /// Derived locators only: None denotes duplicate manifest identities.
+    /// Every lookup still rederives the selected committed manifest from disk.
+    committed_manifest_index: BTreeMap<String, Option<String>>,
+    #[cfg(test)]
+    staged_reads: std::sync::atomic::AtomicUsize,
     /// Transaction hashes already durably executed into staged blocks.
     ///
     /// A native AFT block is not Agentgres-admissible until its descendant QC
@@ -1399,10 +1422,14 @@ impl RuntimeFinalityCoordinator {
             issuer_key_id,
             signing_key,
             store,
+            committed_manifest_index: BTreeMap::new(),
+            #[cfg(test)]
+            staged_reads: std::sync::atomic::AtomicUsize::new(0),
             staged_transaction_hashes: BTreeSet::new(),
             pending_native_aft: Vec::new(),
         };
         coordinator.staged_transaction_hashes = coordinator.verify_all_staged()?;
+        coordinator.committed_manifest_index = coordinator.rebuild_manifest_index()?;
         Ok(coordinator)
     }
 
@@ -1445,51 +1472,79 @@ impl RuntimeFinalityCoordinator {
         &self,
         effect_id: &str,
     ) -> Result<CommittedConsequenceManifest> {
-        let mut found = None;
-        for committed in self.store.committed_effects_in_order() {
-            let Some(bound_root) = committed.record.effect_manifest_root.as_deref() else {
-                continue;
-            };
-            let head = committed
-                .record
-                .bundle
-                .pointer("/checkpoint/resulting_canonical_head")
-                .and_then(Value::as_str)
-                .ok_or_else(|| anyhow!("committed runtime effect lost resulting head"))?;
-            let staged = self.read_staged(&parse_hash_label(head)?)?;
-            let Some(manifest) = admitted_effect_manifest(&staged.block)? else {
-                return Err(anyhow!(
-                    "Agentgres record binds a manifest root absent from its workload block"
-                ));
-            };
-            let expected = format!(
-                "sha256:{}",
-                hex::encode(
-                    manifest
-                        .commitment()
-                        .map_err(|error| anyhow!(error.to_string()))?
-                )
-            );
-            if expected != bound_root {
-                return Err(anyhow!(
-                    "Agentgres manifest root differs from its workload transaction"
-                ));
-            }
-            if manifest.effect_id != effect_id {
-                continue;
-            }
-            if found.is_some() {
-                return Err(anyhow!(
-                    "effect identity appears in more than one Agentgres admission"
-                ));
-            }
-            found = Some(CommittedConsequenceManifest {
-                committed: committed.clone(),
-                manifest,
-                admitted_height: staged.block.header.height,
-            });
+        let runtime_id = self
+            .committed_manifest_index
+            .get(effect_id)
+            .ok_or_else(|| anyhow!("effect manifest is not Agentgres-admitted"))?
+            .as_ref()
+            .ok_or_else(|| {
+                anyhow!("effect identity appears in more than one Agentgres admission")
+            })?;
+        let committed = self
+            .store
+            .committed(runtime_id)
+            .ok_or_else(|| anyhow!("manifest locator does not name a committed record"))?;
+        let (manifest, admitted_height) = self.manifest_from_committed(committed)?;
+        if manifest.effect_id != effect_id {
+            return Err(anyhow!(
+                "manifest locator substitutes another effect identity"
+            ));
         }
-        found.ok_or_else(|| anyhow!("effect manifest is not Agentgres-admitted"))
+        Ok(CommittedConsequenceManifest {
+            committed: committed.clone(),
+            manifest,
+            admitted_height,
+        })
+    }
+
+    fn manifest_from_committed(
+        &self,
+        committed: &CommittedRecognizedEffect,
+    ) -> Result<(EffectManifestV1, u64)> {
+        let bound_root = committed
+            .record
+            .effect_manifest_root
+            .as_deref()
+            .ok_or_else(|| anyhow!("committed record has no consequence manifest"))?;
+        let head = committed
+            .record
+            .bundle
+            .pointer("/checkpoint/resulting_canonical_head")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("committed runtime effect lost resulting head"))?;
+        let staged = self.read_staged(&parse_hash_label(head)?)?;
+        let manifest = admitted_effect_manifest(&staged.block)?.ok_or_else(|| {
+            anyhow!("Agentgres record binds a manifest root absent from its workload block")
+        })?;
+        let expected = format!(
+            "sha256:{}",
+            hex::encode(
+                manifest
+                    .commitment()
+                    .map_err(|error| anyhow!(error.to_string()))?
+            )
+        );
+        if expected != bound_root {
+            return Err(anyhow!(
+                "Agentgres manifest root differs from its workload transaction"
+            ));
+        }
+        Ok((manifest, staged.block.header.height))
+    }
+
+    fn rebuild_manifest_index(&self) -> Result<BTreeMap<String, Option<String>>> {
+        let mut index = BTreeMap::new();
+        for committed in self.store.committed_effects_in_order() {
+            if committed.record.effect_manifest_root.is_some() {
+                let (manifest, _) = self.manifest_from_committed(committed)?;
+                remember_manifest_locator(
+                    &mut index,
+                    manifest.effect_id,
+                    committed.record.effect_id.clone(),
+                );
+            }
+        }
+        Ok(index)
     }
 
     pub(crate) fn stage_block(
@@ -2098,12 +2153,20 @@ impl RuntimeFinalityCoordinator {
             &authority_owner,
             outbox,
         )?;
-        if let Some(manifest) = admitted_effect_manifest(&staged.block)? {
+        let consequence_manifest = admitted_effect_manifest(&staged.block)?;
+        if let Some(manifest) = &consequence_manifest {
             prepared = prepared.bind_effect_manifest(&manifest)?;
         }
         let commit = self
             .store
             .commit(prepared, &authority_owner, recorded_at_ms)?;
+        if let Some(manifest) = consequence_manifest {
+            remember_manifest_locator(
+                &mut self.committed_manifest_index,
+                manifest.effect_id,
+                commit.effect.record.effect_id.clone(),
+            );
+        }
         // Forked same-height staged candidates remain durable evidence but
         // cease to fence their transactions once Agentgres advances past that
         // height. Rebuild from the rooted head so an abandoned proposal cannot
@@ -2123,6 +2186,9 @@ impl RuntimeFinalityCoordinator {
     }
 
     fn read_staged(&self, hash: &[u8; 32]) -> Result<StagedBlock> {
+        #[cfg(test)]
+        self.staged_reads
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let path = self.staged_path(hash);
         let bytes = fs::read(&path)
             .with_context(|| format!("missing staged finality block {}", path.display()))?;
@@ -2813,6 +2879,8 @@ mod tests {
             conflict_slot: 1,
             authorization_mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
             online_authorization_policy_root: Some([12; 32]),
+            online_authorization_predecessor: Some([77; 32]),
+            online_authorization_authority_mode: Some(ioi_types::app::QuvAuthorityModeV0::Unowned),
             read_set: vec![EffectResourceKeyV1 {
                 key: "account/source".into(),
                 predecessor: Some([1; 32]),
@@ -3065,6 +3133,119 @@ mod tests {
         assert_eq!(resolved.admitted_height, 1);
         assert_eq!(resolved.committed.record.effect_id, admitted.effect_id);
         assert!(resolved.committed.record.effect_manifest_root.is_some());
+    }
+
+    #[test]
+    fn manifest_locator_rederives_one_block_and_preserves_duplicate_and_restart_refusal() {
+        use std::sync::atomic::Ordering;
+        let dir = tempdir().unwrap();
+        let seed = [31_u8; 32];
+        let key = Ed25519PrivateKey::from_bytes(&seed).unwrap();
+        let issuer = format!(
+            "key://test/{}",
+            hex::encode(key.public_key().unwrap().as_bytes())
+        );
+        let open = || {
+            RuntimeFinalityCoordinator::open(
+                dir.path().to_path_buf(),
+                "chain://test/index".into(),
+                RuntimeFinalityProfile::SingleAuthorityV1,
+                "writer://test/index".into(),
+                runtime_finality_initial_head(None).unwrap(),
+                issuer.clone(),
+                &seed,
+            )
+            .unwrap()
+        };
+        let mut coordinator = open();
+        let admit = |coordinator: &mut RuntimeFinalityCoordinator,
+                     manifest: &EffectManifestV1,
+                     parent,
+                     height| {
+            let transaction = ChainTransaction::System(Box::new(SystemTransaction {
+                header: SignHeader::default(),
+                payload: SystemPayload::CallService {
+                    service_id: AFT_EFFECT_REGISTRY_SERVICE_ID.into(),
+                    method: REGISTER_AFT_EFFECT_MANIFEST_V1_METHOD.into(),
+                    params: serde_jcs::to_vec(manifest).unwrap(),
+                },
+                signature_proof: SignatureProof::default(),
+            }));
+            let block = block_with_transactions(parent, height, vec![transaction.clone()]);
+            let hash = block_hash(&block).unwrap();
+            let receipt =
+                BlockExecutionReceipt::for_success(height, 0, transaction.hash().unwrap(), 0, &[]);
+            coordinator.stage_block(block, vec![receipt]).unwrap();
+            (
+                coordinator.admit_single_authority(hash, height).unwrap(),
+                hash,
+            )
+        };
+        let first = online_effect_manifest("indexed-first");
+        let second = online_effect_manifest("indexed-second");
+        let (first_admission, first_hash) = admit(&mut coordinator, &first, [0; 32], 1);
+        let (second_admission, second_hash) = admit(&mut coordinator, &second, first_hash, 2);
+        coordinator.staged_reads.store(0, Ordering::Relaxed);
+        assert_eq!(
+            coordinator
+                .committed_consequence_manifest(&first.effect_id)
+                .unwrap()
+                .manifest,
+            first
+        );
+        assert_eq!(coordinator.staged_reads.load(Ordering::Relaxed), 1);
+        // The index has no manifest or authorization payload to reuse. A wrong
+        // but genuinely committed locator must fail selected identity checking.
+        coordinator.committed_manifest_index.insert(
+            first.effect_id.clone(),
+            Some(second_admission.effect_id.clone()),
+        );
+        assert!(coordinator
+            .committed_consequence_manifest(&first.effect_id)
+            .unwrap_err()
+            .to_string()
+            .contains("substitutes another effect"));
+        coordinator
+            .committed_manifest_index
+            .insert(first.effect_id.clone(), Some(first_admission.effect_id));
+        let path = coordinator.staged_path(&first_hash);
+        let original = fs::read(&path).unwrap();
+        let mut corrupt = original.clone();
+        corrupt.push(0);
+        fs::write(&path, &corrupt).unwrap();
+        assert!(coordinator
+            .committed_consequence_manifest(&first.effect_id)
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), corrupt);
+        fs::write(&path, original).unwrap();
+        let mut duplicate = first.clone();
+        duplicate.intent_root = [67; 32];
+        admit(&mut coordinator, &duplicate, second_hash, 3);
+        assert!(coordinator
+            .committed_consequence_manifest(&first.effect_id)
+            .unwrap_err()
+            .to_string()
+            .contains("more than one Agentgres admission"));
+        drop(coordinator);
+        let coordinator = open();
+        coordinator.staged_reads.store(0, Ordering::Relaxed);
+        assert!(coordinator
+            .committed_consequence_manifest(&first.effect_id)
+            .unwrap_err()
+            .to_string()
+            .contains("more than one Agentgres admission"));
+        assert!(coordinator
+            .committed_consequence_manifest("unadmitted")
+            .is_err());
+        assert_eq!(coordinator.staged_reads.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            coordinator
+                .committed_consequence_manifest(&second.effect_id)
+                .unwrap()
+                .manifest,
+            second
+        );
+        assert_eq!(coordinator.staged_reads.load(Ordering::Relaxed), 1);
     }
 
     #[test]

@@ -199,12 +199,20 @@ where
     /// for the member-state serializer. This bounds Byzantine queue occupancy
     /// to the rooted membership size instead of accepting an unbounded flood.
     pub(super) aft_quv_push_inflight: HashSet<AccountId>,
-    /// Reserves the single executor operation while its isolated network
-    /// admission epoch is being opened.
-    pub(super) aft_quv_starting: bool,
-    /// Live nonce-bound verifier operations. Entries exist only through their
-    /// rooted decision interval and never become portable authorization.
-    pub(super) aft_quv_operations: HashMap<QuvNonce, super::quv::PendingQuvOperationV0>,
+    /// Rooted per-identity PUSHQUERY sliding-window admission: admitted
+    /// request instants per (domain, authenticated requester). Bounds one
+    /// account's serial request rate under the provisioned quota; the table
+    /// itself is capped so unrelated identities cannot grow it without bound.
+    pub(super) aft_quv_push_admission:
+        BTreeMap<([u8; 32], AccountId), std::collections::VecDeque<std::time::Instant>>,
+    /// Bounded foreground queue and sole-operation permit, also used by preparation.
+    pub(super) aft_quv_admission: Arc<super::quv::admission::QuvOperationAdmissionV0>,
+    /// Wake independent preparation after durable work or operation completion.
+    pub(super) aft_quv_preparation_notify: Arc<tokio::sync::Notify>,
+    /// Separately locked live nonce-bound verifier operations. Abort/finalization
+    /// removes entries; delayed removal never extends the rooted observation
+    /// interval. Reply handling does not acquire the main context lock.
+    pub(super) aft_quv_operations: Arc<Mutex<HashMap<QuvNonce, super::quv::PendingQuvOperationV0>>>,
     /// Active per-height hash-only fallback sessions.
     pub aft_async_sessions: BTreeMap<u64, HashAsyncSession>,
     /// Verified exact-q asynchronous certificates awaiting or completing the
@@ -235,6 +243,14 @@ where
     /// Under AFT this may be ahead of `last_committed_block` while the peer quorum
     /// required for canonical admission is still forming.
     pub last_executed_block: Option<Block<ChainTransaction>>,
+    /// Header hashes of blocks this node itself executed recently, by height,
+    /// bounded to [`RECENT_EXECUTED_HEADERS`] entries. Sync consults it to
+    /// recognise a fetched block that this node already executed while the
+    /// canonical Agentgres floor still trails the executed cursor. A hash here
+    /// grants no ordering or finality authority: it only says "this exact
+    /// block was already executed locally", so re-applying it is a no-op
+    /// instead of a history disagreement.
+    pub recent_executed_headers: BTreeMap<u64, Vec<u8>>,
     /// The most recent tip vote replayed from workload state into the live consensus engine,
     /// along with the replay timestamp for rate limiting.
     pub last_tip_vote_replay: Option<(u64, u64, [u8; 32], std::time::Instant)>,
@@ -280,4 +296,34 @@ where
     pub event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
     /// Sole runtime ordering/finality admission coordinator.
     pub(crate) runtime_finality: Arc<Mutex<RuntimeFinalityCoordinator>>,
+}
+
+/// Bound on the locally executed header-hash ring kept for sync deduplication.
+pub const RECENT_EXECUTED_HEADERS: usize = 256;
+
+/// Records the header hash of a block this node has just executed. Older
+/// entries beyond [`RECENT_EXECUTED_HEADERS`] are dropped; an unhashable
+/// header records nothing.
+pub fn remember_executed_header(
+    recent: &mut BTreeMap<u64, Vec<u8>>,
+    block: &Block<ChainTransaction>,
+) {
+    if let Ok(hash) = block.header.hash() {
+        recent.insert(block.header.height, hash);
+        while recent.len() > RECENT_EXECUTED_HEADERS {
+            let Some(oldest) = recent.keys().next().copied() else {
+                break;
+            };
+            recent.remove(&oldest);
+        }
+    }
+}
+
+/// True only when this node already executed exactly this block at this
+/// height (same header hash). Unknown heights and differing hashes are false.
+pub fn executed_exactly(recent: &BTreeMap<u64, Vec<u8>>, height: u64, hash: &[u8]) -> bool {
+    !hash.is_empty()
+        && recent
+            .get(&height)
+            .is_some_and(|known| known.as_slice() == hash)
 }

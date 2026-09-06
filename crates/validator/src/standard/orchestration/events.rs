@@ -713,6 +713,24 @@ pub async fn handle_network_event<CS, ST, CE, V>(
             let mut ctx = context_arc.lock().await;
             peer_management::handle_connection_closed(&mut ctx, peer_id).await
         }
+        NetworkEvent::PqCarrierAuthenticated { peer, account } => {
+            // The only path that binds a carrier to an account for validator-
+            // side routing: the strict-PQ handshake proved the rooted key.
+            tracing::info!(
+                target: "network",
+                event = "pq_carrier_authenticated",
+                %peer,
+                account = %hex::encode(account.as_ref()),
+            );
+            let ctx = context_arc.lock().await;
+            let mut peers = ctx.peer_accounts_ref.lock().await;
+            peers.retain(|candidate, existing| *candidate == peer || *existing != account);
+            peers.insert(peer, account);
+        }
+        NetworkEvent::PqEnrollmentLost { peer } => {
+            let mut ctx = context_arc.lock().await;
+            peer_management::handle_pq_enrollment_lost(&mut ctx, peer).await
+        }
         NetworkEvent::StatusRequest(peer, channel) => {
             let mut ctx = context_arc.lock().await;
             sync_handlers::handle_status_request(&mut ctx, peer, channel).await

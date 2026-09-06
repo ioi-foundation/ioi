@@ -488,6 +488,11 @@ pub(crate) fn build_aft_pq_channel_configuration(
             identity,
             identity_key_hash,
             outbox_path,
+            rooted_accounts: set
+                .validators
+                .iter()
+                .map(|member| member.account_id)
+                .collect(),
         },
         peer_keys: set
             .validators

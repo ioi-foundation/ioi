@@ -5,3 +5,5 @@ include!("tests_parts/observer_canonical_publish.rs");
 include!("tests_parts/recovery_publish.rs");
 include!("tests_parts/pipeline_publish.rs");
 include!("tests_parts/solo_parity_post_commit.rs");
+
+include!("tests_parts/node_state_lock_order.rs");

@@ -758,7 +758,7 @@ async fn async_main() -> Result<()> {
     let (quv_swarm_commander, mut quv_swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
     tokio::spawn(async move {
         while let Some(command) = quv_swarm_rx.recv().await {
-            if let SwarmCommand::BeginQuvOperation { response } = command {
+            if let SwarmCommand::BeginQuvOperation { response, .. } = command {
                 let _ = response.send(());
             }
         }

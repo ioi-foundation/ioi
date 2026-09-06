@@ -717,6 +717,20 @@ pub(super) fn leader_accounts_for_upcoming_heights(
     leaders
 }
 
+/// Sync handlers acquire context before node state. Finalization must release
+/// node state before its continuation can acquire context or engine locks.
+pub(super) async fn after_synced_node_state<T>(
+    node_state: &Mutex<NodeState>,
+    continuation: impl std::future::Future<Output = T>,
+) -> T {
+    let mut state = node_state.lock().await;
+    if *state == NodeState::Syncing {
+        *state = NodeState::Synced;
+    }
+    drop(state);
+    continuation.await
+}
+
 pub async fn finalize_and_broadcast_block<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     mut final_block: Block<ChainTransaction>,
@@ -1046,11 +1060,7 @@ where
         engine.reset(block_height);
     }
 
-    let mut ns = node_state_arc.lock().await;
-    if *ns == NodeState::Syncing {
-        *ns = NodeState::Synced;
-    }
-
+    after_synced_node_state(node_state_arc.as_ref(), async {
     if !final_block.transactions.is_empty() {
         tracing::info!(
             target: "consensus",
@@ -1210,6 +1220,7 @@ where
     );
 
     Ok(())
+    }).await
 }
 
 pub(super) async fn relay_remaining_mempool_to_upcoming_leaders<CS, ST, CE, V>(

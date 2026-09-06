@@ -5,7 +5,15 @@
 //! mutation runs off the async reactor and no reply is queued until the state
 //! and external rollback anchor have both been synchronized.
 
+pub(super) mod admission;
+mod dispatch;
+pub(super) mod event_dispatch;
+mod member_completion;
+use dispatch::QuvDispatchV0;
+use member_completion::{QuvMemberCompletionV0, QuvMemberResponseV0};
+
 use super::context::MainLoopContext;
+use admission::QuvActiveAdmissionV0;
 use anyhow::{anyhow, Result};
 use ioi_api::{
     commitment::CommitmentScheme,
@@ -38,7 +46,7 @@ use parity_scale_codec::{Decode, Encode};
 use rand::{rngs::OsRng, RngCore};
 use serde::Serialize;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet, VecDeque},
     ffi::OsString,
     fmt::Debug,
     fs::{File, OpenOptions},
@@ -49,9 +57,73 @@ use std::{
 };
 use tokio::sync::{oneshot, Mutex};
 
+pub(crate) type QuvAdmittedAuthorizationV0 =
+    admission::QuvAdmittedContinuationV0<QuvOnlineAuthorizationV0>;
+
 pub(super) struct PendingQuvOperationV0 {
+    admission: Arc<QuvActiveAdmissionV0>,
+    dispatch: QuvDispatchV0,
+    service_deadline: Option<Instant>,
     operation: QuvOnlineOperationV0,
-    completion: oneshot::Sender<std::result::Result<QuvOnlineAuthorizationV0, String>>,
+    completion: oneshot::Sender<std::result::Result<QuvAdmittedAuthorizationV0, anyhow::Error>>,
+}
+
+fn active_service_budget(policy: &AftQuvDomainPolicyV0, preparation: bool) -> Result<Duration> {
+    if !policy.preparation.is_valid_operation_service(
+        policy.operation_service_millis,
+        policy.delta_rt_millis,
+        policy.continuation_millis,
+    ) {
+        return Err(anyhow!("QUV invalid rooted operation service budget"));
+    }
+    let millis = if preparation {
+        let ioi_types::app::QuvPreparationPolicyV0::Independent { service_millis, .. } =
+            policy.preparation
+        else {
+            return Err(anyhow!(
+                "QUV preparation requires an independent service policy"
+            ));
+        };
+        service_millis
+    } else {
+        policy.operation_service_millis
+    };
+    Ok(Duration::from_millis(millis))
+}
+
+fn foreground_readiness_delay(
+    policy: &AftQuvDomainPolicyV0,
+    preparation: bool,
+) -> Option<Duration> {
+    match (preparation, policy.preparation) {
+        (
+            false,
+            ioi_types::app::QuvPreparationPolicyV0::Independent {
+                readiness_millis, ..
+            },
+        ) => Some(Duration::from_millis(readiness_millis)),
+        _ => None,
+    }
+}
+
+fn require_readiness_elapsed(deadline: Option<Instant>, observed: Instant) -> Result<()> {
+    if deadline.is_some_and(|deadline| observed < deadline) {
+        return Err(anyhow!("QUV current head readiness delay has not elapsed"));
+    }
+    Ok(())
+}
+
+fn finish_active_service<T>(
+    outcome: Result<T>,
+    deadline: Option<Instant>,
+    observed: Instant,
+) -> Result<T> {
+    if deadline.is_some_and(|deadline| observed >= deadline) {
+        return Err(anyhow!(
+            "QUV operation active service deadline exceeded; inspect durable history"
+        ));
+    }
+    outcome
 }
 
 struct RuntimeQuvSignerV0 {
@@ -85,7 +157,79 @@ fn provisioned_policy<'a>(
             "QUV request authority mode differs from provisioned policy"
         ));
     }
+    match policy.bootstrap {
+        ioi_types::app::QuvDomainBootstrapV0::Fixed {
+            initial_slot,
+            predecessor,
+        } => {
+            if query.candidate.slot.slot < initial_slot
+                || (query.candidate.slot.slot == initial_slot
+                    && query.candidate.slot.predecessor != predecessor)
+            {
+                return Err(anyhow!(
+                    "QUV request differs from the rooted bootstrap boundary"
+                ));
+            }
+        }
+        ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary { activation_height } => {
+            if query.candidate.slot.slot != activation_height {
+                return Err(anyhow!("QUV request differs from the rooted handoff slot"));
+            }
+        }
+    }
+    // Later fixed-domain slots still require the separate durable expected-head
+    // mechanism. Bootstrap checks cannot establish acceptance of a parent.
     Ok(policy)
+}
+
+/// Upper bound on distinct (domain, requester) admission windows retained in
+/// memory. Beyond it the entry whose newest admission is oldest is evicted.
+pub(super) const QUV_PUSH_ADMISSION_TABLE_MAX_ENTRIES: usize = 4_096;
+
+/// Rooted per-identity sliding-window decision. Instants at least
+/// `window_millis` old are evicted; the request is admitted (and recorded)
+/// only while fewer than `max_requests_per_identity` remain in the window.
+/// A refused request records nothing, so refusals cannot extend the window.
+pub(super) fn admit_push_within_quota(
+    window: &mut VecDeque<Instant>,
+    now: Instant,
+    policy: ioi_types::app::QuvPushAdmissionPolicyV0,
+) -> bool {
+    let span = Duration::from_millis(policy.window_millis);
+    while window
+        .front()
+        .is_some_and(|earliest| now.saturating_duration_since(*earliest) >= span)
+    {
+        window.pop_front();
+    }
+    if window.len() >= policy.max_requests_per_identity as usize {
+        return false;
+    }
+    window.push_back(now);
+    true
+}
+
+/// Apply [`admit_push_within_quota`] to one keyed window in a table capped at
+/// [`QUV_PUSH_ADMISSION_TABLE_MAX_ENTRIES`] entries. Unrelated keys are
+/// independent; a new key beyond the cap evicts the entry whose newest
+/// admission instant is the oldest (empty windows first).
+pub(super) fn admit_push_within_quota_for(
+    table: &mut BTreeMap<([u8; 32], AccountId), VecDeque<Instant>>,
+    key: ([u8; 32], AccountId),
+    now: Instant,
+    policy: ioi_types::app::QuvPushAdmissionPolicyV0,
+) -> bool {
+    if !table.contains_key(&key) && table.len() >= QUV_PUSH_ADMISSION_TABLE_MAX_ENTRIES {
+        let stalest = table
+            .iter()
+            .min_by_key(|(_, window)| window.back().copied())
+            .map(|(existing, _)| *existing);
+        if let Some(stalest) = stalest {
+            table.remove(&stalest);
+        }
+    }
+    let window = table.entry(key).or_default();
+    admit_push_within_quota(window, now, policy)
 }
 
 fn require_qualified_membership(
@@ -110,7 +254,51 @@ fn provisioned_policy_root(
         policy.owner,
         policy.delta_rt_millis,
         policy.continuation_millis,
+        &policy.bootstrap,
+        &policy.preparation,
+        policy.operation_service_millis,
+        policy.authority_slots,
+        policy.push_admission,
     )
+}
+
+pub(super) fn member_provisioning_root(
+    network_id: [u8; 32],
+    configuration_root: [u8; 32],
+    policies: &[AftQuvDomainPolicyV0],
+) -> std::result::Result<[u8; 32], QuvError> {
+    let roots = policies
+        .iter()
+        .map(|policy| Ok((policy.domain_id, provisioned_policy_root(policy)?)))
+        .collect::<std::result::Result<Vec<_>, QuvError>>()?;
+    ioi_consensus::aft::query_unanimity::quv_member_provisioning_root(
+        network_id,
+        configuration_root,
+        &roots,
+    )
+}
+
+pub(super) fn member_provisioned_domains(
+    network_id: [u8; 32],
+    configuration_root: [u8; 32],
+    policies: &[AftQuvDomainPolicyV0],
+) -> std::result::Result<
+    std::collections::BTreeMap<[u8; 32], ioi_consensus::aft::query_unanimity::QuvMemberDomainV0>,
+    QuvError,
+> {
+    let mut domains = std::collections::BTreeMap::new();
+    for policy in policies {
+        let domain =
+            ioi_consensus::aft::query_unanimity::QuvMemberDomainV0::from_provisioned_policy(
+                configuration_root,
+                network_id,
+                policy,
+            )?;
+        if domains.insert(policy.domain_id, domain).is_some() {
+            return Err(QuvError::InvalidStoreConfiguration);
+        }
+    }
+    Ok(domains)
 }
 
 const QUV_HANDOFF_SOURCE_MAX_BYTES_V0: u64 = 16 * 1024 * 1024;
@@ -216,6 +404,15 @@ fn validate_handoff_source(
         candidate: envelope.candidate.clone(),
     };
     let policy = provisioned_policy(policies, &query)?;
+    if policy.bootstrap
+        != (ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary {
+            activation_height: envelope.handoff.activation_height,
+        })
+    {
+        return Err(anyhow!(
+            "QUV handoff source requires its exact rooted boundary bootstrap"
+        ));
+    }
     let validator = RootedQuvCandidateValidatorV0::new(
         old_set,
         keys,
@@ -544,9 +741,22 @@ where
 /// Execute the successor process's own online old-root operation and consume
 /// its non-exportable result directly into the rollback-anchored activation
 /// store. No transcript or cached verifier assertion enters this path.
+pub(crate) enum HandoffInstallOutcome {
+    ExistingGate([u8; 32]),
+    FreshLiveInstall([u8; 32]),
+}
+
+impl HandoffInstallOutcome {
+    fn configuration_root(&self) -> [u8; 32] {
+        match self {
+            Self::ExistingGate(root) | Self::FreshLiveInstall(root) => *root,
+        }
+    }
+}
+
 pub(crate) async fn authorize_and_install_handoff<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
-) -> Result<[u8; 32]>
+) -> Result<HandoffInstallOutcome>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -619,35 +829,49 @@ where
         observed_hash,
         &observed_root,
     ) {
-        return Ok(successor_root);
+        return Ok(HandoffInstallOutcome::ExistingGate(successor_root));
     }
+    // Join fair operation admission before allocation. The same ownership
+    // covers preparation, live QUV and the successor's durable install.
     let mut nonce = [0_u8; 32];
     OsRng.fill_bytes(&mut nonce);
     let request = QuvPushQueryV0 {
         verifier_nonce: nonce,
         candidate: envelope.candidate.clone(),
     };
-    let authorization = begin_online_authorization(context_arc, request)
+    let reserved = reserve_online_authorization(context_arc, request).await?;
+    let preparation_store = store.clone().lock_owned().await;
+    reserved.check_service()?;
+    let preparation_envelope = envelope.clone();
+    admission::spawn_durable_with_admission(reserved.admission.clone(), move || {
+        let mut store = preparation_store;
+        store.prepare_install_capacity(&preparation_envelope, local_successor)
+    })
+    .await
+    .map_err(|error| anyhow!("QUV handoff storage preparation task failed: {error}"))??;
+    let authorization = start_reserved_authorization(context_arc, reserved)
         .await?
         .await
-        .map_err(|_| anyhow!("QUV handoff operation completion was dropped"))?
-        .map_err(anyhow::Error::msg)?;
+        .map_err(|_| anyhow!("QUV handoff operation completion was dropped"))??;
     let handoff = envelope.handoff;
     let store = store.lock_owned().await;
     tokio::task::spawn_blocking(move || {
         let mut store = store;
-        store.install(
-            authorization,
-            handoff,
-            local_successor,
-            observed_height,
-            observed_hash,
-            &observed_root,
-        )
+        authorization.with_continuation(|authorization| {
+            store.install(
+                authorization,
+                handoff,
+                local_successor,
+                observed_height,
+                observed_hash,
+                &observed_root,
+            )
+        })
     })
     .await
     .map_err(|error| anyhow!("QUV handoff install task failed: {error}"))?
     .map_err(anyhow::Error::new)
+    .map(HandoffInstallOutcome::FreshLiveInstall)
 }
 
 async fn activate_installed_handoff<CS, ST, CE, V>(
@@ -774,6 +998,10 @@ where
             .unwrap_or(true)
         {
             context.last_executed_block = Some(boundary.clone());
+            super::context::remember_executed_header(
+                &mut context.recent_executed_headers,
+                &boundary,
+            );
         }
     }
 
@@ -908,10 +1136,27 @@ where
         &custody_key,
     )
     .map_err(anyhow::Error::msg)?;
+    let (provisioning_root, domains) = {
+        let context = context_arc.lock().await;
+        (
+            member_provisioning_root(
+                envelope.handoff.network_id,
+                successor_root,
+                &context.config.aft_quv_domain_policies,
+            )?,
+            member_provisioned_domains(
+                envelope.handoff.network_id,
+                successor_root,
+                &context.config.aft_quv_domain_policies,
+            )?,
+        )
+    };
     let member = ioi_consensus::aft::query_unanimity::DurableQuvMemberV0::open(
         &paths.quv_member_state,
         &paths.quv_member_anchor,
         *custody_key,
+        provisioning_root,
+        domains,
     )?;
     {
         let mut engine = engine.lock().await;
@@ -990,6 +1235,7 @@ where
     context.aft_async_custody_key = Some(custody_key);
     context.aft_cross_path_signing_fence = Some(Arc::new(std::sync::Mutex::new(signing_fence)));
     context.aft_quv_member = Some(Arc::new(Mutex::new(member)));
+    context.aft_quv_preparation_notify.notify_one();
     context.aft_quv_staged_successor = None;
     Ok(())
 }
@@ -1001,6 +1247,108 @@ where
 /// successor tip advances, only recovery from the durable local install gate
 /// is permitted; a fresh authorization is never retroactively created.
 /// Old-only members do not run this task.
+pub(crate) async fn run_preparation_worker<CS, ST, CE, V>(
+    context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    mut shutdown: tokio::sync::watch::Receiver<bool>,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    let notify = {
+        let context = context_arc.lock().await;
+        if !context.config.aft_quv_domain_policies.iter().any(|policy| {
+            matches!(
+                policy.bootstrap,
+                ioi_types::app::QuvDomainBootstrapV0::Fixed { .. }
+            )
+        }) {
+            return;
+        }
+        context.aft_quv_preparation_notify.clone()
+    };
+    let mut cursor = None;
+    loop {
+        if *shutdown.borrow() {
+            return;
+        }
+        let mut visited = BTreeSet::new();
+        loop {
+            let store = {
+                let context = context_arc.lock().await;
+                context.aft_quv_member.clone()
+            };
+            let Some(store) = store else {
+                break;
+            };
+            let store = store.lock_owned().await;
+            let selection =
+                tokio::task::spawn_blocking(move || store.next_preparation_candidate(cursor)).await;
+            let candidate = match selection {
+                Ok(Ok(Some(candidate))) => candidate,
+                Ok(Ok(None)) => break,
+                error => {
+                    tracing::warn!(target: "quv", ?error, "QUV preparation selection refused");
+                    break;
+                }
+            };
+            let domain = candidate.slot.domain_id;
+            if !visited.insert(domain) {
+                break;
+            }
+            cursor = Some(domain);
+            let mut nonce = [0; 32];
+            OsRng.fill_bytes(&mut nonce);
+            let request = QuvPushQueryV0 {
+                verifier_nonce: nonce,
+                candidate,
+            };
+            match begin_authorization(&context_arc, request, true).await {
+                Ok(result) => {
+                    tokio::select! {
+                        outcome = result => {
+                            tracing::debug!(target: "quv", event = "preparation_finished", nonce = %hex::encode(nonce), domain = %hex::encode(domain), accepted = matches!(outcome, Ok(Ok(_))));
+                        }
+                        _ = shutdown.changed() => return,
+                    }
+                    visited.clear();
+                }
+                Err(error) => {
+                    tracing::debug!(target: "quv", event = "preparation_refused", domain = %hex::encode(domain), %error)
+                }
+            }
+            if *shutdown.borrow() {
+                return;
+            }
+        }
+        tokio::select! {
+            _ = notify.notified() => {},
+            _ = shutdown.changed() => return,
+        }
+    }
+}
+
 pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
     context_arc: Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     mut shutdown: tokio::sync::watch::Receiver<bool>,
@@ -1179,7 +1527,8 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
                     }
                 }
                 match authorize_and_install_handoff(&context_arc).await {
-                    Ok(installed_root) => {
+                    Ok(outcome) => {
+                        let installed_root = outcome.configuration_root();
                         if installed_root != successor_root {
                             tracing::error!(target: "quv", "Installed QUV handoff root differs from the canonical successor; authority remains disabled");
                             return;
@@ -1193,7 +1542,14 @@ pub(crate) async fn run_handoff_coordinator<CS, ST, CE, V>(
                         .await
                         {
                             Ok(()) => {
-                                tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Activated successor from its local live old-root QUV install");
+                                match outcome {
+                                    HandoffInstallOutcome::ExistingGate(_) => {
+                                        tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Recovered QUV successor authority from its durable local install gate");
+                                    }
+                                    HandoffInstallOutcome::FreshLiveInstall(_) => {
+                                        tracing::info!(target: "quv", successor_root = %hex::encode(successor_root), "Activated successor from its local live old-root QUV install");
+                                    }
+                                }
                                 return;
                             }
                             Err(error) => {
@@ -1217,7 +1573,7 @@ async fn process_push<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
     requester: AccountId,
     query: QuvPushQueryV0,
-) -> Result<(AccountId, QuvReplyV0)>
+) -> Result<QuvMemberResponseV0>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -1237,6 +1593,12 @@ where
         + Debug
         + Encode
         + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     let (
         member_store,
@@ -1248,6 +1610,7 @@ where
         activation_height,
         policy,
         handoff_boundary,
+        completion_route,
     ) = {
         let context = context_arc.lock().await;
         let (set, keys) = context
@@ -1277,7 +1640,11 @@ where
                 "QUV requester is neither an old member nor a source-bound staged successor"
             ));
         }
-        let handoff_boundary = if staged_handoff_requester {
+        let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &query)?.clone();
+        let handoff_boundary = if matches!(
+            policy.bootstrap,
+            ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary { .. }
+        ) {
             let envelope = context
                 .aft_quv_handoff_envelope
                 .as_ref()
@@ -1285,21 +1652,25 @@ where
                     anyhow!("QUV staged-successor request has no canonical handoff source")
                 })?
                 .clone();
-            let certified = context
-                .aft_quv_certified_handoff
+            if envelope.candidate != query.candidate {
+                return Err(anyhow!(
+                    "QUV handoff query differs from the provisioned source"
+                ));
+            }
+            let staged = context
+                .aft_quv_staged_successor
                 .as_ref()
-                .ok_or_else(|| anyhow!("QUV old member has no certified handoff boundary"))?
+                .ok_or_else(|| anyhow!("QUV old member has no rooted staged successor"))?
                 .clone();
-            let boundary = context
-                .aft_quv_certified_handoff_block
-                .as_ref()
-                .ok_or_else(|| anyhow!("QUV old member has no certified handoff block"))?
-                .clone();
-            Some((boundary, envelope, certified))
+            Some((
+                envelope,
+                staged,
+                context.view_resolver.workload_client().clone(),
+                context.config.aft_safety_mode,
+            ))
         } else {
             None
         };
-        let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &query)?.clone();
         (
             context
                 .aft_quv_member
@@ -1323,13 +1694,41 @@ where
                 .unwrap_or(1),
             policy,
             handoff_boundary,
+            QuvMemberCompletionV0::new(
+                context.aft_quv_preparation_notify.clone(),
+                context.quv_swarm_commander.clone(),
+            ),
         )
     };
 
     require_qualified_membership(&policy, set.validators.len())?;
 
-    if let Some((executed, envelope, certified)) = handoff_boundary {
-        require_exact_handoff_boundary(&executed, &envelope, "old member QC-certified history")?;
+    if let Some((envelope, staged, workload, safety_mode)) = handoff_boundary {
+        // A correct member need not have assembled or cached the aggregate QC
+        // itself. Independently verify the source QC under the current old
+        // root, then match it to this member's exact local executed boundary.
+        // These checks validate the live request; the source alone still
+        // cannot authorize the relying successor or advance a member head.
+        validate_handoff_source(
+            &envelope,
+            &set,
+            &staged,
+            &keys,
+            std::slice::from_ref(&policy),
+            network_id,
+            safety_mode,
+        )?;
+        if workload.get_execution_status().await?.height < envelope.handoff.state_height {
+            return Err(anyhow!(
+                "QUV old member has not executed the handoff boundary"
+            ));
+        }
+        let executed = workload
+            .get_block_by_height(envelope.handoff.state_height)
+            .await?
+            .ok_or_else(|| anyhow!("QUV old member lacks the local executed handoff boundary"))?;
+        require_exact_handoff_boundary(&executed, &envelope, "old member local executed history")?;
+        let certified = &envelope.handoff.boundary_qc;
         if certified.height != executed.header.height
             || certified.view != executed.header.view
             || certified.block_hash != envelope.handoff.state_block_hash
@@ -1338,18 +1737,15 @@ where
                 "QUV old member's verified QC does not certify the source-bound handoff state"
             ));
         }
-        // Different old members may retain different valid aggregate QCs for
-        // the same height/view/block. Certificate bytes are not the boundary
-        // identity: both QCs have already been verified under the old root,
-        // and height + view + block hash bind them to the same immutable
-        // transition block.
     }
 
     // Tokio's mutex grants the single durable serializer in FIFO lock-request
     // order. Combined with one admitted request per authenticated account,
     // no member can place an unbounded prefix ahead of another member.
+    tracing::debug!(target: "quv", event = "member_work_queued", nonce = %hex::encode(query.verifier_nonce), ?requester, ?member);
+    let nonce = query.verifier_nonce;
     let store = member_store.lock_owned().await;
-    tokio::task::spawn_blocking(move || {
+    let result = tokio::task::spawn_blocking(move || {
         let validator = RootedQuvCandidateValidatorV0::new(
             &set,
             &keys,
@@ -1360,12 +1756,16 @@ where
         )?;
         let signer = RuntimeQuvSignerV0 { member, signer };
         let mut store = store;
-        store.process_push(&query, &validator, &signer)
+        let result = store.process_push(&query, &validator, &signer);
+        tracing::debug!(target: "quv", event = "member_work_completed", nonce = %hex::encode(query.verifier_nonce), ?requester, ?member, succeeded = result.is_ok());
+        result
     })
     .await
     .map_err(|error| anyhow!("QUV durable task failed: {error}"))?
     .map(|reply| (requester, reply))
-    .map_err(anyhow::Error::new)
+    .map_err(anyhow::Error::new);
+    tracing::debug!(target: "quv", event = "member_work_returned", nonce = %hex::encode(nonce), succeeded = result.is_ok());
+    completion_route.finish(result)
 }
 
 /// Admit at most one PUSHQUERY per authenticated rooted account and dispatch
@@ -1395,7 +1795,12 @@ pub(super) async fn dispatch_push_query<CS, ST, CE, V>(
         + Debug
         + Encode
         + Decode,
-    V: Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     let (rooted_requester, staged_requester, commander) = {
         let context = context_arc.lock().await;
@@ -1438,12 +1843,53 @@ pub(super) async fn dispatch_push_query<CS, ST, CE, V>(
             "Dropped QUV PUSHQUERY from an authenticated account outside admitted old/handoff membership"
         );
         let _ = commander
-            .send(SwarmCommand::CompleteQuvPush { requester })
+            .send(SwarmCommand::CompleteQuvPush {
+                requester,
+                nonce: query.verifier_nonce,
+            })
             .await;
         return;
     }
     {
         let mut context = context_arc.lock().await;
+        // Rooted per-identity serial-rate quota. An unprovisioned domain keeps
+        // its existing later refusal; the quota only applies when a policy
+        // resolves for the named domain.
+        let domain_id = query.candidate.slot.domain_id;
+        if let Some(push_admission) = context
+            .config
+            .aft_quv_domain_policies
+            .iter()
+            .find(|policy| policy.domain_id == domain_id)
+            .map(|policy| policy.push_admission)
+        {
+            let now = Instant::now();
+            let admitted = admit_push_within_quota_for(
+                &mut context.aft_quv_push_admission,
+                (domain_id, requester),
+                now,
+                push_admission,
+            );
+            if !admitted {
+                tracing::warn!(
+                    target: "quv",
+                    %from,
+                    requester = %hex::encode(requester.as_ref()),
+                    domain = %hex::encode(domain_id),
+                    max_requests_per_identity = push_admission.max_requests_per_identity,
+                    window_millis = push_admission.window_millis,
+                    "Dropped QUV PUSHQUERY beyond the rooted per-identity admission quota"
+                );
+                drop(context);
+                let _ = commander
+                    .send(SwarmCommand::CompleteQuvPush {
+                        requester,
+                        nonce: query.verifier_nonce,
+                    })
+                    .await;
+                return;
+            }
+        }
         if !context.aft_quv_push_inflight.insert(requester) {
             tracing::warn!(
                 target: "quv",
@@ -1451,10 +1897,20 @@ pub(super) async fn dispatch_push_query<CS, ST, CE, V>(
                 requester = %hex::encode(requester.as_ref()),
                 "Dropped QUV PUSHQUERY because this authenticated account already has durable work in flight"
             );
+            // The transport defers its ACK until completion; a dropped request
+            // must release its lane like every other refusal branch.
+            drop(context);
+            let _ = commander
+                .send(SwarmCommand::CompleteQuvPush {
+                    requester,
+                    nonce: query.verifier_nonce,
+                })
+                .await;
             return;
         }
     }
     let context = Arc::clone(context_arc);
+    let nonce = query.verifier_nonce;
     tokio::spawn(async move {
         handle_push_query(&context, requester, from, query).await;
         let commander = {
@@ -1463,7 +1919,7 @@ pub(super) async fn dispatch_push_query<CS, ST, CE, V>(
             locked.quv_swarm_commander.clone()
         };
         let _ = commander
-            .send(SwarmCommand::CompleteQuvPush { requester })
+            .send(SwarmCommand::CompleteQuvPush { requester, nonce })
             .await;
     });
 }
@@ -1494,23 +1950,19 @@ async fn handle_push_query<CS, ST, CE, V>(
         + Debug
         + Encode
         + Decode,
-    V: Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     match process_push(context_arc, requester, query).await {
-        Ok((recipient, reply)) => match codec::to_bytes_canonical(&reply) {
-            Ok(data) => {
-                let commander = context_arc.lock().await.quv_swarm_commander.clone();
-                if let Err(error) = commander
-                    .send(SwarmCommand::QueueQuvReply { recipient, data })
-                    .await
-                {
-                    tracing::warn!(target: "quv", %from, %error, "Failed to queue durable QUV reply");
-                }
+        Ok(response) => {
+            if let Err(error) = response.send().await {
+                tracing::warn!(target: "quv", %from, %error, "Failed to encode or queue durable QUV reply");
             }
-            Err(error) => {
-                tracing::warn!(target: "quv", %from, %error, "Failed to encode durable QUV reply")
-            }
-        },
+        }
         Err(error) => {
             tracing::warn!(target: "quv", %from, %error, "Refused QUV PUSHQUERY")
         }
@@ -1520,31 +1972,12 @@ async fn handle_push_query<CS, ST, CE, V>(
 /// Route an authenticated reply only into its live nonce-bound operation.
 /// Transport identity must match the signed member identity before the reply
 /// is retained for final verification.
-pub(super) async fn handle_reply<CS, ST, CE, V>(
-    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+pub(super) async fn handle_reply(
+    operations: &Mutex<std::collections::HashMap<QuvNonce, PendingQuvOperationV0>>,
     authenticated_member: AccountId,
     from: PeerId,
     reply: QuvReplyV0,
-) where
-    CS: CommitmentScheme + Clone + Send + Sync + 'static,
-    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Clone,
-    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
-    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
-    <CS as CommitmentScheme>::Proof: Serialize
-        + for<'de> serde::Deserialize<'de>
-        + Clone
-        + Send
-        + Sync
-        + 'static
-        + Debug
-        + Encode
-        + Decode,
-{
+) {
     if reply.member != authenticated_member {
         tracing::warn!(
             target: "quv",
@@ -1556,22 +1989,23 @@ pub(super) async fn handle_reply<CS, ST, CE, V>(
         return;
     }
     let nonce = reply.verifier_nonce;
-    let mut context = context_arc.lock().await;
-    let Some(pending) = context.aft_quv_operations.get_mut(&nonce) else {
+    tracing::debug!(target: "quv", event = "reply_handler_entered", nonce = %hex::encode(nonce), ?authenticated_member);
+    let mut operations = operations.lock().await;
+    tracing::debug!(target: "quv", event = "reply_routed", nonce = %hex::encode(nonce), ?authenticated_member, live_operation = operations.contains_key(&nonce));
+    let Some(pending) = operations.get_mut(&nonce) else {
         tracing::warn!(target: "quv", %from, "Dropped QUV reply with no live nonce-bound operation");
         return;
     };
     pending.operation.observe_reply(reply);
 }
 
-/// Start the executor-owned online operation. The returned single-use result
-/// is produced only after the complete provisioned decision interval. A send
-/// failure to any configured member aborts the operation; it never silently
-/// narrows the queried membership.
-pub(crate) async fn begin_online_authorization<CS, ST, CE, V>(
+/// Validate current rooted candidate and head eligibility before allocating
+/// effect storage. This guard performs no live interaction and grants no
+/// continuation; the admitted operation repeats validation before dispatch.
+pub(crate) async fn preflight_effect_candidate<CS, ST, CE, V>(
     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
-    request: QuvPushQueryV0,
-) -> Result<oneshot::Receiver<std::result::Result<QuvOnlineAuthorizationV0, String>>>
+    candidate: &ioi_types::app::QuvCandidateV0,
+) -> Result<()>
 where
     CS: CommitmentScheme + Clone + Send + Sync + 'static,
     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
@@ -1591,24 +2025,411 @@ where
         + Debug
         + Encode
         + Decode,
-    V: Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    // A resource-preparation guard only. The live operation repeats these
+    // checks after admission; no query, nonce or continuation is created here.
+    let context = context_arc.lock().await;
+    let (set, keys) = context
+        .aft_async_membership
+        .as_ref()
+        .ok_or_else(|| anyhow!("QUV requires a rooted all-ML-DSA membership"))?;
+    let request = QuvPushQueryV0 {
+        verifier_nonce: [0; 32],
+        candidate: candidate.clone(),
+    };
+    let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &request)?;
+    require_qualified_membership(policy, set.validators.len())?;
+    let height = context
+        .last_committed_block
+        .as_ref()
+        .map(|block| block.header.height.max(1))
+        .unwrap_or(1);
+    RootedQuvCandidateValidatorV0::new(
+        set,
+        keys,
+        height,
+        context.genesis_hash,
+        provisioned_policy_root(policy)?,
+        policy.owner,
+    )?
+    .validate_candidate(candidate)?;
+    match policy.bootstrap {
+        ioi_types::app::QuvDomainBootstrapV0::Fixed { .. } => {
+            let member = context
+                .aft_quv_member
+                .as_ref()
+                .ok_or_else(|| anyhow!("QUV effect executor has no local member history"))?;
+            member.lock().await.check_expected_slot(&candidate.slot)?;
+        }
+        ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary { .. } => {
+            if !context
+                .aft_quv_handoff_envelope
+                .as_ref()
+                .is_some_and(|envelope| envelope.candidate == *candidate)
+            {
+                return Err(anyhow!(
+                    "QUV handoff executor requires the exact provisioned source"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn effect_candidate_binding(
+    candidate: &ioi_types::app::QuvCandidateV0,
+) -> agentgres::consequence::OnlineEffectAuthorizationBindingV1 {
+    agentgres::consequence::OnlineEffectAuthorizationBindingV1 {
+        mode: ioi_types::app::EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
+        payload_hash: candidate.payload_hash,
+        configuration_root: candidate.slot.configuration_root,
+        conflict_domain_hash: candidate.slot.domain_id,
+        conflict_slot: candidate.slot.slot,
+        policy_root: candidate.slot.policy_root,
+        predecessor: candidate.slot.predecessor,
+        authority_mode: candidate.slot.authority_mode,
+    }
+}
+
+/// One admitted operation before dispatch. Owns the lane through preparation,
+/// network dispatch and eventual continuation; it contains no live authority.
+pub(crate) struct QuvReservedOperationV0 {
+    request: QuvPushQueryV0,
+    independent_preparation: bool,
+    admission: Arc<QuvActiveAdmissionV0>,
+    service_deadline: Option<Instant>,
+}
+
+impl QuvReservedOperationV0 {
+    pub(crate) fn check_service(&self) -> Result<()> {
+        self.check_service_at(Instant::now())
+    }
+
+    fn check_service_at(&self, observed: Instant) -> Result<()> {
+        finish_active_service(Ok(()), self.service_deadline, observed)
+    }
+}
+
+pub(crate) async fn reserve_online_authorization<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    request: QuvPushQueryV0,
+) -> Result<QuvReservedOperationV0>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    reserve_authorization(context_arc, request, false).await
+}
+
+async fn begin_authorization<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    request: QuvPushQueryV0,
+    independent_preparation: bool,
+) -> Result<oneshot::Receiver<std::result::Result<QuvAdmittedAuthorizationV0, anyhow::Error>>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    let reserved = reserve_authorization(context_arc, request, independent_preparation).await?;
+    start_reserved_authorization(context_arc, reserved).await
+}
+
+async fn reserve_authorization<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    request: QuvPushQueryV0,
+    independent_preparation: bool,
+) -> Result<QuvReservedOperationV0>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    // Waiting capacity is bounded per enrolled domain; preparation has one
+    // lifecycle caller. Every root/head check below is repeated after waiting.
+    let (gate, preparation_service, readiness) = {
+        let context = context_arc.lock().await;
+        let (set, keys) = context
+            .aft_async_membership
+            .as_ref()
+            .ok_or_else(|| anyhow!("QUV requires a rooted all-ML-DSA membership"))?;
+        let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &request)?;
+        require_qualified_membership(policy, set.validators.len())?;
+        let height = context
+            .last_committed_block
+            .as_ref()
+            .map(|block| block.header.height.max(1))
+            .unwrap_or(1);
+        RootedQuvCandidateValidatorV0::new(
+            set,
+            keys,
+            height,
+            context.genesis_hash,
+            provisioned_policy_root(policy)?,
+            policy.owner,
+        )?
+        .validate_candidate(&request.candidate)?;
+        let preparation_service = Some(active_service_budget(policy, independent_preparation)?);
+        let readiness = foreground_readiness_delay(policy, independent_preparation)
+            .map(|delay| {
+                Ok::<_, anyhow::Error>((
+                    context.aft_quv_member.clone().ok_or_else(|| {
+                        anyhow!("QUV fixed-domain executor has no local member history")
+                    })?,
+                    delay,
+                ))
+            })
+            .transpose()?;
+        (
+            context.aft_quv_admission.clone(),
+            preparation_service,
+            readiness,
+        )
+    };
+    let admission = if independent_preparation {
+        gate.preparation().await?
+    } else {
+        // The authorizer was validated against the rooted policy above; it is
+        // the queued-waiter key for the per-principal bound.
+        let waiting = gate.reserve_foreground(
+            request.candidate.slot.domain_id,
+            request.candidate.authorizer,
+        )?;
+        let deadline = if let Some((store, delay)) = readiness {
+            store
+                .lock()
+                .await
+                .foreground_readiness_deadline(&request.candidate.slot, delay)?
+        } else {
+            None
+        };
+        if deadline.is_some() {
+            tracing::debug!(target: "quv", event = "foreground_readiness_wait", nonce = %hex::encode(request.verifier_nonce), domain = %hex::encode(request.candidate.slot.domain_id), slot = request.candidate.slot.slot);
+        }
+        let wait_started = Instant::now();
+        let remaining = deadline.map(|deadline| deadline.saturating_duration_since(wait_started));
+        let admission = waiting.enter_after(deadline).await?;
+        if let (Some(deadline), Some(remaining)) = (deadline, remaining) {
+            let admitted_at = Instant::now();
+            tracing::debug!(target: "quv", event = "foreground_readiness_admitted", nonce = %hex::encode(request.verifier_nonce), domain = %hex::encode(request.candidate.slot.domain_id), slot = request.candidate.slot.slot, required_remaining_nanos = %remaining.as_nanos(), elapsed_nanos = %admitted_at.saturating_duration_since(wait_started).as_nanos(), deadline_elapsed = admitted_at >= deadline);
+        }
+        admission
+    };
+    let service_started = Instant::now();
+    let service_deadline = preparation_service
+        .map(|service| {
+            service_started
+                .checked_add(service)
+                .ok_or_else(|| anyhow!("QUV operation service deadline overflow"))
+        })
+        .transpose()?;
+    let nonce = request.verifier_nonce;
+    let admission = Arc::new(QuvActiveAdmissionV0::new(
+        admission,
+        nonce,
+        service_started,
+        service_deadline,
+    ));
+    Ok(QuvReservedOperationV0 {
+        request,
+        independent_preparation,
+        admission,
+        service_deadline,
+    })
+}
+
+pub(crate) async fn start_reserved_authorization<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    reserved: QuvReservedOperationV0,
+) -> Result<oneshot::Receiver<std::result::Result<QuvAdmittedAuthorizationV0, anyhow::Error>>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+{
+    reserved.check_service()?;
+    let QuvReservedOperationV0 {
+        request,
+        independent_preparation,
+        admission,
+        service_deadline,
+    } = reserved;
+    let nonce = request.verifier_nonce;
+    let admitted = admission::retain_admission_until_complete(
+        admission.clone(),
+        begin_admitted_authorization(
+            context_arc,
+            request,
+            independent_preparation,
+            admission,
+            service_deadline,
+        ),
+    );
+    match service_deadline {
+        Some(deadline) => match tokio::time::timeout_at(deadline.into(), admitted).await {
+            Ok(result) if Instant::now() < deadline => result,
+            _ => {
+                tracing::warn!(target: "quv", event = "operation_service_expired", nonce = %hex::encode(nonce), phase = "startup_dispatch");
+                abort_operation(
+                    context_arc,
+                    nonce,
+                    "QUV operation active service deadline exceeded".into(),
+                )
+                .await;
+                Err(anyhow!("QUV operation active service deadline exceeded"))
+            }
+        },
+        None => admitted.await,
+    }
+}
+
+async fn begin_admitted_authorization<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    request: QuvPushQueryV0,
+    independent_preparation: bool,
+    admission: Arc<QuvActiveAdmissionV0>,
+    service_deadline: Option<Instant>,
+) -> Result<oneshot::Receiver<std::result::Result<QuvAdmittedAuthorizationV0, anyhow::Error>>>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
 {
     let nonce = request.verifier_nonce;
-    let (members, local_endpoint, self_delivers, policy, commander) = {
-        let mut context = context_arc.lock().await;
-        if context.aft_quv_operations.contains_key(&nonce) {
+    let (members, local_endpoint, self_delivers, policy, commander, preparation_store, operations) = {
+        let context = context_arc.lock().await;
+        if context.aft_quv_operations.lock().await.contains_key(&nonce) {
             return Err(anyhow!("QUV verifier nonce is already live"));
-        }
-        if context.aft_quv_starting || !context.aft_quv_operations.is_empty() {
-            return Err(anyhow!(
-                "aft_quv_v0 permits one live executor operation per process"
-            ));
         }
         let (set, keys) = context
             .aft_async_membership
             .as_ref()
             .ok_or_else(|| anyhow!("QUV requires a rooted all-ML-DSA membership"))?;
         let policy = provisioned_policy(&context.config.aft_quv_domain_policies, &request)?.clone();
+        if matches!(
+            policy.bootstrap,
+            ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary { .. }
+        ) && !context
+            .aft_quv_handoff_envelope
+            .as_ref()
+            .is_some_and(|envelope| envelope.candidate == request.candidate)
+        {
+            return Err(anyhow!(
+                "QUV handoff executor requires the exact provisioned source"
+            ));
+        }
         require_qualified_membership(&policy, set.validators.len())?;
         let activation_height = context
             .last_committed_block
@@ -1624,6 +2445,32 @@ where
             policy.owner,
         )?
         .validate_candidate(&request.candidate)?;
+        if matches!(
+            policy.bootstrap,
+            ioi_types::app::QuvDomainBootstrapV0::Fixed { .. }
+        ) {
+            let store = context
+                .aft_quv_member
+                .as_ref()
+                .ok_or_else(|| anyhow!("QUV fixed-domain executor has no local member history"))?;
+            let store = store.lock().await;
+            store.check_expected_slot(&request.candidate.slot)?;
+            if !independent_preparation {
+                let ioi_types::app::QuvPreparationPolicyV0::Independent {
+                    readiness_millis, ..
+                } = policy.preparation
+                else {
+                    return Err(anyhow!("QUV fixed-domain readiness policy is missing"));
+                };
+                require_readiness_elapsed(
+                    store.foreground_readiness_deadline(
+                        &request.candidate.slot,
+                        Duration::from_millis(readiness_millis),
+                    )?,
+                    Instant::now(),
+                )?;
+            }
+        }
         let members = set
             .validators
             .iter()
@@ -1633,15 +2480,49 @@ where
             .aft_pq_local_account_id
             .ok_or_else(|| anyhow!("QUV local PQ endpoint is unavailable"))?;
         let self_delivers = members.contains(&local_endpoint);
-        context.aft_quv_starting = true;
         (
             members,
             local_endpoint,
             self_delivers,
             policy,
             context.quv_swarm_commander.clone(),
+            context.aft_quv_member.clone(),
+            context.aft_quv_operations.clone(),
         )
     };
+
+    let dispatch = QuvDispatchV0::new(
+        members.clone(),
+        Duration::from_millis(policy.delta_rt_millis),
+    )?;
+    finish_active_service(Ok(()), service_deadline, Instant::now())?;
+    if independent_preparation {
+        let candidate = request.candidate.clone();
+        let reservation_policy = policy.clone();
+        let reservation = async {
+            let store =
+                preparation_store.ok_or_else(|| anyhow!("QUV preparation has no local store"))?;
+            let mut store = store.lock_owned().await;
+            admission::spawn_durable_with_admission(admission.clone(), move || {
+                if service_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                    return Err(QuvError::ExpiredAuthorization);
+                }
+                store.reserve_preparation_attempt(&candidate, &reservation_policy)
+            })
+            .await
+            .map_err(|error| anyhow!("QUV preparation reservation task failed: {error}"))?
+            .map_err(anyhow::Error::new)
+        }
+        .await;
+        match reservation {
+            Ok(attempt) => {
+                tracing::debug!(target: "quv", event = "preparation_attempt_reserved", nonce = %hex::encode(nonce), attempt)
+            }
+            Err(error) => {
+                return Err(error);
+            }
+        }
+    }
 
     // The verifier interval starts only after the isolated swarm lane has
     // opened a fresh reply-admission epoch. This prevents stale traffic or a
@@ -1649,15 +2530,14 @@ where
     let (admission_ready, ready) = oneshot::channel();
     if let Err(error) = commander
         .send(SwarmCommand::BeginQuvOperation {
+            nonce,
             response: admission_ready,
         })
         .await
     {
-        context_arc.lock().await.aft_quv_starting = false;
         return Err(anyhow!("QUV command lane is unavailable: {error}"));
     }
     if ready.await.is_err() {
-        context_arc.lock().await.aft_quv_starting = false;
         return Err(anyhow!(
             "QUV command lane closed before admission was ready"
         ));
@@ -1672,18 +2552,21 @@ where
     ) {
         Ok(operation) => operation,
         Err(error) => {
-            context_arc.lock().await.aft_quv_starting = false;
-            let _ = commander.send(SwarmCommand::CompleteQuvOperation).await;
+            let _ = commander
+                .send(SwarmCommand::CompleteQuvOperation { nonce })
+                .await;
             return Err(error.into());
         }
     };
     let (completion, receiver) = oneshot::channel();
     let inserted = {
-        let mut context = context_arc.lock().await;
-        context.aft_quv_starting = false;
-        match context.aft_quv_operations.entry(nonce) {
+        let mut operations = operations.lock().await;
+        match operations.entry(nonce) {
             std::collections::hash_map::Entry::Vacant(entry) => {
                 entry.insert(PendingQuvOperationV0 {
+                    admission,
+                    dispatch,
+                    service_deadline,
                     operation,
                     completion,
                 });
@@ -1693,12 +2576,18 @@ where
         }
     };
     if !inserted {
-        let _ = commander.send(SwarmCommand::CompleteQuvOperation).await;
+        let _ = commander
+            .send(SwarmCommand::CompleteQuvOperation { nonce })
+            .await;
         return Err(anyhow!("QUV verifier nonce raced another operation"));
     }
+    tracing::debug!(target: "quv", event = "operation_started", independent_preparation, nonce = %hex::encode(nonce), payload = %hex::encode(request.candidate.payload_hash), ?local_endpoint, local_account_hex = %hex::encode(local_endpoint.as_ref()), members = ?members, decision_millis = policy.delta_rt_millis);
     let context_for_deadline = Arc::clone(context_arc);
     tokio::spawn(async move {
-        tokio::time::sleep(decision_interval).await;
+        let wait = service_deadline.map_or(decision_interval, |deadline| {
+            decision_interval.min(deadline.saturating_duration_since(Instant::now()))
+        });
+        tokio::time::sleep(wait).await;
         finish_operation(&context_for_deadline, nonce).await;
     });
 
@@ -1726,7 +2615,20 @@ where
             return Ok(receiver);
         }
         match queue_result.await {
-            Ok(Ok(())) => {}
+            Ok(Ok(())) => {
+                let mut operations = operations.lock().await;
+                let Some(pending) = operations.get_mut(&nonce) else {
+                    return Ok(receiver);
+                };
+                if let Err(error) = pending
+                    .dispatch
+                    .record(recipient, pending.operation.elapsed())
+                {
+                    drop(operations);
+                    abort_operation(context_arc, nonce, error.to_string()).await;
+                    return Ok(receiver);
+                }
+            }
             Ok(Err(error)) => {
                 abort_operation(context_arc, nonce, error).await;
                 return Ok(receiver);
@@ -1749,10 +2651,18 @@ where
         // no old-root member state and therefore never manufactures a
         // loopback reply.
         match process_push(context_arc, local_endpoint, request.clone()).await {
-            Ok((_, reply)) => {
-                let mut context = context_arc.lock().await;
-                if let Some(pending) = context.aft_quv_operations.get_mut(&nonce) {
-                    pending.operation.observe_reply(reply);
+            Ok(response) => {
+                let mut operations = operations.lock().await;
+                if let Some(pending) = operations.get_mut(&nonce) {
+                    pending.operation.observe_reply(response.reply);
+                    if let Err(error) = pending
+                        .dispatch
+                        .record(local_endpoint, pending.operation.elapsed())
+                    {
+                        drop(operations);
+                        abort_operation(context_arc, nonce, error.to_string()).await;
+                        return Ok(receiver);
+                    }
                 }
             }
             Err(error) => {
@@ -1789,18 +2699,46 @@ async fn abort_operation<CS, ST, CE, V>(
         + Encode
         + Decode,
 {
-    let (pending, commander) = {
-        let mut context = context_arc.lock().await;
+    let (operations, commander, notify) = {
+        let context = context_arc.lock().await;
         (
-            context.aft_quv_operations.remove(&nonce),
+            context.aft_quv_operations.clone(),
             context.quv_swarm_commander.clone(),
+            context.aft_quv_preparation_notify.clone(),
         )
     };
-    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvOperation) {
+    let pending = operations.lock().await.remove(&nonce);
+    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvOperation { nonce }) {
         tracing::error!(target: "quv", %error, "QUV completion exceeded its reserved command-lane capacity");
     }
     if let Some(pending) = pending {
-        let _ = pending.completion.send(Err(error));
+        drop(pending.admission);
+        let _ = pending.completion.send(Err(anyhow!(error)));
+        notify.notify_one();
+    }
+}
+
+/// The exact live decision the deadline timer applies to a pending table
+/// entry once dispatch is complete. `operation.finish` samples the operation's
+/// own monotonic clock, so a timer that wakes late finalizes late but never
+/// re-admits a reply the operation dropped at its rooted deadline. Also used
+/// by the runtime delayed-timer test; keep it the single decision path.
+fn finalize_operation_at_deadline<V, R>(
+    operation: QuvOnlineOperationV0,
+    service_deadline: Option<Instant>,
+    candidate_validator: &V,
+    reply_verifier: &R,
+) -> Result<QuvOnlineAuthorizationV0>
+where
+    V: QuvCandidateValidatorV0,
+    R: ioi_consensus::aft::query_unanimity::QuvReplyVerifierV0,
+{
+    let authorization = operation.finish(candidate_validator, reply_verifier)?;
+    match service_deadline {
+        Some(deadline) => authorization
+            .with_expiry_cap(deadline)
+            .map_err(anyhow::Error::new),
+        None => Ok(authorization),
     }
 }
 
@@ -1827,11 +2765,13 @@ async fn finish_operation<CS, ST, CE, V>(
         + Encode
         + Decode,
 {
-    let (pending, rooted, activation_height, network_id, policy, commander) = {
-        let mut context = context_arc.lock().await;
-        let Some(pending) = context.aft_quv_operations.remove(&nonce) else {
+    let (pending, rooted, activation_height, network_id, policy, member_store, commander) = {
+        let context = context_arc.lock().await;
+        let Some(pending) = context.aft_quv_operations.lock().await.remove(&nonce) else {
             return;
         };
+        // Keep local admission reserved until the accepted head is durable,
+        // including when the result receiver has disappeared.
         let rooted = context.aft_async_membership.clone();
         let policy = provisioned_policy(
             &context.config.aft_quv_domain_policies,
@@ -1849,49 +2789,611 @@ async fn finish_operation<CS, ST, CE, V>(
                 .unwrap_or(1),
             context.genesis_hash,
             policy,
+            context.aft_quv_member.clone(),
             context.quv_swarm_commander.clone(),
         )
     };
-    if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvOperation) {
-        tracing::error!(target: "quv", %error, "QUV completion exceeded its reserved command-lane capacity");
-    }
     let PendingQuvOperationV0 {
+        admission,
+        dispatch,
+        service_deadline,
         operation,
         completion,
     } = pending;
-    let Some((set, keys)) = rooted else {
-        let _ = completion.send(Err("QUV rooted membership disappeared".into()));
-        return;
+    let advance_fixed = policy.as_ref().is_some_and(|policy| {
+        matches!(
+            policy.bootstrap,
+            ioi_types::app::QuvDomainBootstrapV0::Fixed { .. }
+        )
+    });
+    let outcome = dispatch.finish(|| -> Result<QuvOnlineAuthorizationV0> {
+        let (set, keys) = rooted.ok_or_else(|| anyhow!("QUV rooted membership disappeared"))?;
+        let policy = policy.ok_or_else(|| anyhow!("QUV provisioned policy disappeared"))?;
+        let candidate_validator = RootedQuvCandidateValidatorV0::new(
+            &set,
+            &keys,
+            activation_height,
+            network_id,
+            provisioned_policy_root(&policy)?,
+            policy.owner,
+        )?;
+        let reply_verifier = RootedQuvReplyVerifierV0::new(&candidate_validator);
+        finalize_operation_at_deadline(
+            operation,
+            service_deadline,
+            &candidate_validator,
+            &reply_verifier,
+        )
+    });
+    let outcome = match outcome {
+        Ok(authorization) if advance_fixed => match member_store {
+            Some(store) => {
+                let mut store = store.lock_owned().await;
+                admission::spawn_durable_with_admission(admission.clone(), move || {
+                    store.advance_accepted_history(&authorization)?;
+                    Ok::<_, QuvError>(authorization)
+                })
+                .await
+                .map_err(|error| anyhow!("QUV accepted-history task failed: {error}"))
+                .and_then(|result| result.map_err(anyhow::Error::new))
+            }
+            None => Err(anyhow!(
+                "QUV fixed-domain executor lost its local history store"
+            )),
+        },
+        other => other,
     };
-    let Some(policy) = policy else {
-        let _ = completion.send(Err("QUV provisioned policy disappeared".into()));
-        return;
-    };
-    let outcome = provisioned_policy_root(&policy)
-        .map_err(|error| error.to_string())
-        .and_then(|policy_root| {
-            RootedQuvCandidateValidatorV0::new(
-                &set,
-                &keys,
-                activation_height,
-                network_id,
-                policy_root,
-                policy.owner,
-            )
-            .map_err(|error| error.to_string())
-        })
-        .and_then(|candidate_validator| {
-            let reply_verifier = RootedQuvReplyVerifierV0::new(&candidate_validator);
-            operation
-                .finish(&candidate_validator, &reply_verifier)
-                .map_err(|error| error.to_string())
-        });
+    {
+        let context = context_arc.lock().await;
+        if let Err(error) = commander.try_send(SwarmCommand::CompleteQuvOperation { nonce }) {
+            tracing::error!(target: "quv", %error, "QUV completion exceeded its reserved command-lane capacity");
+        }
+        context.aft_quv_preparation_notify.notify_one();
+    }
+    // An already-started atomic storage write cannot be undone by timeout.
+    // Report a service overrun as failure even if that write completed, and
+    // never return an expired grant or count it as timely preparation.
+    let completed_at = Instant::now();
+    let service_budgeted = service_deadline.is_some();
+    let service_budget_met = service_deadline.is_none_or(|deadline| completed_at < deadline);
+    let outcome = finish_active_service(outcome, service_deadline, completed_at);
+    if !service_budget_met {
+        tracing::warn!(target: "quv", event = "operation_service_expired", nonce = %hex::encode(nonce), phase = "finalization");
+    }
+    let outcome = outcome
+        .map(|authorization| QuvAdmittedAuthorizationV0::new(authorization, admission.clone()));
+    drop(admission);
+    tracing::debug!(target: "quv", event = "operation_finished", service_budgeted, service_budget_met, nonce = %hex::encode(nonce), accepted = outcome.is_ok(), error = ?outcome.as_ref().err());
     let _ = completion.send(outcome);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn push_quota_admits_up_to_limit_then_drops_until_window_slides() {
+        let policy = ioi_types::app::QuvPushAdmissionPolicyV0 {
+            max_requests_per_identity: 3,
+            window_millis: 1_000,
+        };
+        let origin = Instant::now();
+        let mut window = VecDeque::new();
+        for step in 0..3u64 {
+            assert!(
+                admit_push_within_quota(&mut window, origin + Duration::from_millis(step), policy),
+                "request {} inside the quota is admitted",
+                step + 1
+            );
+        }
+        assert_eq!(window.len(), 3);
+        // The N+1th request inside the window is dropped and records nothing.
+        assert!(!admit_push_within_quota(
+            &mut window,
+            origin + Duration::from_millis(500),
+            policy
+        ));
+        assert!(!admit_push_within_quota(
+            &mut window,
+            origin + Duration::from_millis(999),
+            policy
+        ));
+        assert_eq!(window.len(), 3, "refused requests never extend the window");
+        // Once the oldest admission is a full window old it evicts, freeing
+        // exactly one reservation; the next request is again refused.
+        let slid = origin + Duration::from_millis(1_000);
+        assert!(admit_push_within_quota(&mut window, slid, policy));
+        assert_eq!(window.len(), 3);
+        assert!(!admit_push_within_quota(&mut window, slid, policy));
+        // Well past the window every instant evicts and the full quota returns.
+        let far = origin + Duration::from_millis(5_000);
+        for _ in 0..3 {
+            assert!(admit_push_within_quota(&mut window, far, policy));
+        }
+        assert!(!admit_push_within_quota(&mut window, far, policy));
+    }
+
+    #[test]
+    fn push_quota_keys_are_independent_per_domain_and_account() {
+        let policy = ioi_types::app::QuvPushAdmissionPolicyV0 {
+            max_requests_per_identity: 1,
+            window_millis: 1_000,
+        };
+        let now = Instant::now();
+        let mut table = BTreeMap::new();
+        let exhausted = ([1; 32], AccountId([7; 32]));
+        assert!(admit_push_within_quota_for(
+            &mut table, exhausted, now, policy
+        ));
+        assert!(!admit_push_within_quota_for(
+            &mut table, exhausted, now, policy
+        ));
+        // Same account, different domain; same domain, different account.
+        assert!(admit_push_within_quota_for(
+            &mut table,
+            ([2; 32], AccountId([7; 32])),
+            now,
+            policy
+        ));
+        assert!(admit_push_within_quota_for(
+            &mut table,
+            ([1; 32], AccountId([8; 32])),
+            now,
+            policy
+        ));
+        assert!(
+            !admit_push_within_quota_for(&mut table, exhausted, now, policy),
+            "unrelated admissions do not refill the exhausted key"
+        );
+        assert_eq!(table.len(), 3);
+    }
+
+    #[test]
+    fn push_quota_table_is_capped_by_evicting_the_stalest_key() {
+        let policy = ioi_types::app::QuvPushAdmissionPolicyV0 {
+            max_requests_per_identity: 1,
+            window_millis: 1_000_000,
+        };
+        let origin = Instant::now();
+        let mut table = BTreeMap::new();
+        for index in 0..QUV_PUSH_ADMISSION_TABLE_MAX_ENTRIES {
+            let mut account = [0u8; 32];
+            account[..8].copy_from_slice(&(index as u64).to_le_bytes());
+            let key = ([1; 32], AccountId(account));
+            let at = origin + Duration::from_millis(index as u64 + 1);
+            assert!(admit_push_within_quota_for(&mut table, key, at, policy));
+        }
+        assert_eq!(table.len(), QUV_PUSH_ADMISSION_TABLE_MAX_ENTRIES);
+        let stalest = ([1; 32], AccountId([0; 32]));
+        assert!(table.contains_key(&stalest));
+        let fresh = ([9; 32], AccountId([9; 32]));
+        let later = origin + Duration::from_millis(10_000);
+        assert!(admit_push_within_quota_for(
+            &mut table, fresh, later, policy
+        ));
+        assert_eq!(table.len(), QUV_PUSH_ADMISSION_TABLE_MAX_ENTRIES);
+        assert!(!table.contains_key(&stalest), "oldest-newest entry evicted");
+        assert!(table.contains_key(&fresh));
+    }
+
+    #[test]
+    fn every_operation_role_has_a_rooted_active_service_budget() {
+        use ioi_types::app::{
+            QuvDomainBootstrapV0 as Bootstrap, QuvPreparationPolicyV0 as Preparation,
+        };
+        let mut policy = AftQuvDomainPolicyV0 {
+            authority_slots: 256,
+            domain_id: [1; 32],
+            bootstrap: Bootstrap::Fixed {
+                initial_slot: 1,
+                predecessor: [2; 32],
+            },
+            preparation: Preparation::Independent {
+                max_attempts_per_slot: 2,
+                service_millis: 1020,
+                readiness_millis: 3000,
+            },
+            operation_service_millis: 1050,
+            push_admission: ioi_types::app::QuvPushAdmissionPolicyV0 {
+                max_requests_per_identity: 64,
+                window_millis: 1000,
+            },
+            authority_mode: QuvAuthorityModeV0::Unowned,
+            owner: None,
+            delta_rt_millis: 1000,
+            continuation_millis: 50,
+            qualified_delta_rt_envelope_millis: 800,
+            qualified_max_configured_members: 4,
+        };
+        assert_eq!(
+            active_service_budget(&policy, false).unwrap(),
+            Duration::from_millis(1050)
+        );
+        assert_eq!(
+            active_service_budget(&policy, true).unwrap(),
+            Duration::from_millis(1020)
+        );
+        assert_eq!(
+            foreground_readiness_delay(&policy, false),
+            Some(Duration::from_millis(3000))
+        );
+        assert_eq!(foreground_readiness_delay(&policy, true), None);
+        for invalid in [0, 1000, 1019, 1051, u64::MAX] {
+            policy.operation_service_millis = invalid;
+            assert!(active_service_budget(&policy, false).is_err());
+            assert!(active_service_budget(&policy, true).is_err());
+        }
+        policy.operation_service_millis = 1050;
+        policy.preparation = Preparation::OneShot;
+        policy.bootstrap = Bootstrap::HandoffBoundary {
+            activation_height: 2,
+        };
+        policy.authority_mode = QuvAuthorityModeV0::Owned;
+        policy.owner = Some(AccountId([3; 32]));
+        assert_eq!(
+            active_service_budget(&policy, false).unwrap(),
+            Duration::from_millis(1050)
+        );
+        assert!(active_service_budget(&policy, true).is_err());
+        assert_eq!(foreground_readiness_delay(&policy, false), None);
+    }
+
+    #[tokio::test]
+    async fn reserved_preparation_owns_capacity_and_checks_service_edges() {
+        let active = Arc::new(tokio::sync::Semaphore::new(1));
+        let started = Instant::now();
+        let deadline = started + Duration::from_secs(1);
+        let request = QuvPushQueryV0 {
+            verifier_nonce: [1; 32],
+            candidate: QuvCandidateV0 {
+                slot: QuvSlotV0 {
+                    network_id: [2; 32],
+                    configuration_root: [3; 32],
+                    policy_root: [4; 32],
+                    domain_id: [5; 32],
+                    slot: 1,
+                    predecessor: [6; 32],
+                    authority_mode: QuvAuthorityModeV0::Unowned,
+                },
+                payload_hash: [7; 32],
+                authorizer: AccountId([8; 32]),
+                authority_signature: vec![],
+            },
+        };
+        let reserved = QuvReservedOperationV0 {
+            request,
+            independent_preparation: false,
+            admission: Arc::new(QuvActiveAdmissionV0::new(
+                active.clone().acquire_owned().await.unwrap(),
+                [1; 32],
+                started,
+                Some(deadline),
+            )),
+            service_deadline: Some(deadline),
+        };
+        assert_eq!(active.available_permits(), 0);
+        assert!(reserved
+            .check_service_at(deadline - Duration::from_nanos(1))
+            .is_ok());
+        assert!(reserved.check_service_at(deadline).is_err());
+        assert!(reserved
+            .check_service_at(deadline + Duration::from_nanos(1))
+            .is_err());
+        // Checking expiry does not release an in-progress preparation worker.
+        assert_eq!(active.available_permits(), 0);
+        drop(reserved);
+        assert_eq!(active.available_permits(), 1);
+    }
+
+    #[test]
+    fn readiness_revalidation_rejects_before_and_accepts_equal_or_after() {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        assert!(
+            require_readiness_elapsed(Some(deadline), deadline - Duration::from_nanos(1)).is_err()
+        );
+        assert!(require_readiness_elapsed(Some(deadline), deadline).is_ok());
+        assert!(
+            require_readiness_elapsed(Some(deadline), deadline + Duration::from_nanos(1)).is_ok()
+        );
+        assert!(require_readiness_elapsed(None, deadline).is_ok());
+    }
+
+    #[tokio::test]
+    async fn reply_handler_uses_captured_table_and_preserves_transport_binding() {
+        use ioi_consensus::aft::query_unanimity::{quv_candidate_hash, QuvReplyVerifierV0};
+        use std::{
+            collections::HashMap,
+            future::{poll_fn, Future},
+            task::Poll,
+        };
+        // This fixture tests routing, not PQ signature security or real elapsed time.
+        struct FixtureVerifier;
+        impl QuvCandidateValidatorV0 for FixtureVerifier {
+            fn validate_candidate(&self, _: &QuvCandidateV0) -> std::result::Result<(), QuvError> {
+                Ok(())
+            }
+        }
+        impl QuvReplyVerifierV0 for FixtureVerifier {
+            fn verify_reply_signature(
+                &self,
+                _: &AccountId,
+                _: &[u8],
+                _: &[u8],
+            ) -> std::result::Result<(), QuvError> {
+                Ok(())
+            }
+        }
+        let member = AccountId([2; 32]);
+        let candidate = QuvCandidateV0 {
+            slot: QuvSlotV0 {
+                configuration_root: [3; 32],
+                policy_root: [4; 32],
+                network_id: [5; 32],
+                domain_id: [6; 32],
+                slot: 1,
+                predecessor: [7; 32],
+                authority_mode: QuvAuthorityModeV0::Unowned,
+            },
+            payload_hash: [8; 32],
+            authorizer: member,
+            authority_signature: vec![],
+        };
+        let request = QuvPushQueryV0 {
+            verifier_nonce: [1; 32],
+            candidate: candidate.clone(),
+        };
+        let snapshot = vec![candidate.clone()];
+        let reply = QuvReplyV0 {
+            verifier_nonce: request.verifier_nonce,
+            member,
+            slot: candidate.slot.clone(),
+            candidate_hash: quv_candidate_hash(&candidate).unwrap(),
+            snapshot_hash: ioi_crypto::algorithms::hash::sha256(
+                codec::to_bytes_canonical(&(
+                    b"ioi/aft/quv-snapshot/v0".to_vec(),
+                    &candidate.slot,
+                    &snapshot,
+                ))
+                .unwrap(),
+            )
+            .unwrap(),
+            complete_snapshot: snapshot,
+            signature: vec![],
+        };
+        for matching_transport in [false, true] {
+            let table = Arc::new(Mutex::new(HashMap::new()));
+            // The lifecycle captures this handle once. Holding its owner lock
+            // cannot obstruct the actual reply-handler API.
+            let owner = Mutex::new(table.clone());
+            let owner_guard = owner.lock().await;
+            let (completion, _receiver) = oneshot::channel();
+            let members = BTreeSet::from([member]);
+            let interval = Duration::from_secs(30);
+            table.lock().await.insert(
+                request.verifier_nonce,
+                PendingQuvOperationV0 {
+                    admission: Arc::new(QuvActiveAdmissionV0::new(
+                        Arc::new(tokio::sync::Semaphore::new(1))
+                            .acquire_owned()
+                            .await
+                            .unwrap(),
+                        request.verifier_nonce,
+                        Instant::now(),
+                        None,
+                    )),
+                    dispatch: QuvDispatchV0::new(members.clone(), interval).unwrap(),
+                    service_deadline: None,
+                    operation: QuvOnlineOperationV0::start(
+                        request.clone(),
+                        members,
+                        interval,
+                        interval,
+                    )
+                    .unwrap(),
+                    completion,
+                },
+            );
+            let mut stale = reply.clone();
+            stale.verifier_nonce = [9; 32];
+            handle_reply(&table, member, PeerId::random(), stale).await;
+            let authenticated = if matching_transport {
+                member
+            } else {
+                AccountId([10; 32])
+            };
+            let mut handler = Box::pin(handle_reply(
+                &table,
+                authenticated,
+                PeerId::random(),
+                reply.clone(),
+            ));
+            poll_fn(|cx| {
+                assert!(handler.as_mut().poll(cx).is_ready());
+                Poll::Ready(())
+            })
+            .await;
+            drop(handler);
+            drop(owner_guard);
+            let pending = table.lock().await.remove(&request.verifier_nonce).unwrap();
+            let result = pending
+                .operation
+                .finish_at(interval, &FixtureVerifier, &FixtureVerifier);
+            if matching_transport {
+                assert!(result.is_ok());
+            } else {
+                assert!(matches!(result, Err(QuvError::NoValidReplies)));
+            }
+            // A late/stale event after removal cannot recreate an operation.
+            handle_reply(&table, member, PeerId::random(), reply.clone()).await;
+            assert!(table.lock().await.is_empty());
+        }
+    }
+
+    /// Runtime delayed-timer regression (R1 finding 003, validator side). The
+    /// deadline timer is a plain `sleep` then `finish_operation`; a late wake
+    /// must not turn a reply that arrived after the rooted decision interval
+    /// into an authorization. Both arms run the production decision path
+    /// (`dispatch.finish` around `finalize_operation_at_deadline`, then
+    /// `finish_active_service`, then the completion channel) with the timer
+    /// firing late. The exact-equality boundary needs the operation's private
+    /// clock and is covered in the consensus crate, not here.
+    #[tokio::test]
+    async fn late_timer_wake_cannot_admit_a_reply_observed_after_the_rooted_deadline() {
+        use ioi_consensus::aft::query_unanimity::{quv_candidate_hash, QuvReplyVerifierV0};
+        use std::collections::HashMap;
+        struct FixtureVerifier;
+        impl QuvCandidateValidatorV0 for FixtureVerifier {
+            fn validate_candidate(&self, _: &QuvCandidateV0) -> std::result::Result<(), QuvError> {
+                Ok(())
+            }
+        }
+        impl QuvReplyVerifierV0 for FixtureVerifier {
+            fn verify_reply_signature(
+                &self,
+                _: &AccountId,
+                _: &[u8],
+                _: &[u8],
+            ) -> std::result::Result<(), QuvError> {
+                Ok(())
+            }
+        }
+        let member = AccountId([2; 32]);
+        let candidate = QuvCandidateV0 {
+            slot: QuvSlotV0 {
+                configuration_root: [3; 32],
+                policy_root: [4; 32],
+                network_id: [5; 32],
+                domain_id: [6; 32],
+                slot: 1,
+                predecessor: [7; 32],
+                authority_mode: QuvAuthorityModeV0::Unowned,
+            },
+            payload_hash: [8; 32],
+            authorizer: member,
+            authority_signature: vec![],
+        };
+        let request = QuvPushQueryV0 {
+            verifier_nonce: [1; 32],
+            candidate: candidate.clone(),
+        };
+        let snapshot = vec![candidate.clone()];
+        let reply = QuvReplyV0 {
+            verifier_nonce: request.verifier_nonce,
+            member,
+            slot: candidate.slot.clone(),
+            candidate_hash: quv_candidate_hash(&candidate).unwrap(),
+            snapshot_hash: ioi_crypto::algorithms::hash::sha256(
+                codec::to_bytes_canonical(&(
+                    b"ioi/aft/quv-snapshot/v0".to_vec(),
+                    &candidate.slot,
+                    &snapshot,
+                ))
+                .unwrap(),
+            )
+            .unwrap(),
+            complete_snapshot: snapshot,
+            signature: vec![],
+        };
+        // Wide enough that a loaded box observes the timely reply well inside
+        // the interval, and the late wake well outside it.
+        let interval = Duration::from_millis(200);
+        let timer_delay = interval * 3;
+        for reply_after_deadline in [true, false] {
+            let table = Arc::new(Mutex::new(HashMap::new()));
+            let (completion, receiver) = oneshot::channel();
+            let members = BTreeSet::from([member]);
+            let mut dispatch = QuvDispatchV0::new(members.clone(), interval).unwrap();
+            dispatch.record(member, Duration::ZERO).unwrap();
+            let gate = Arc::new(tokio::sync::Semaphore::new(1));
+            let started = Instant::now();
+            table.lock().await.insert(
+                request.verifier_nonce,
+                PendingQuvOperationV0 {
+                    admission: Arc::new(QuvActiveAdmissionV0::new(
+                        gate.clone().acquire_owned().await.unwrap(),
+                        request.verifier_nonce,
+                        started,
+                        None,
+                    )),
+                    dispatch,
+                    service_deadline: None,
+                    operation: QuvOnlineOperationV0::start(
+                        request.clone(),
+                        members,
+                        interval,
+                        interval,
+                    )
+                    .unwrap(),
+                    completion,
+                },
+            );
+            if reply_after_deadline {
+                tokio::time::sleep(timer_delay).await;
+                assert!(started.elapsed() > interval);
+            }
+            // The production reply entry point: table lookup then
+            // `observe_reply` against the operation's own clock.
+            handle_reply(&table, member, PeerId::random(), reply.clone()).await;
+            if !reply_after_deadline {
+                assert!(
+                    started.elapsed() < interval,
+                    "timely arm must observe the reply inside the interval"
+                );
+                tokio::time::sleep(timer_delay).await;
+            }
+            // The timer wakes late in both arms.
+            let pending = table.lock().await.remove(&request.verifier_nonce).unwrap();
+            assert!(pending.operation.elapsed() > interval);
+            let PendingQuvOperationV0 {
+                admission,
+                dispatch,
+                service_deadline,
+                operation,
+                completion,
+            } = pending;
+            let outcome = dispatch.finish(|| {
+                finalize_operation_at_deadline(
+                    operation,
+                    service_deadline,
+                    &FixtureVerifier,
+                    &FixtureVerifier,
+                )
+            });
+            // No accepted-history write runs on an error outcome.
+            let accepted_audit_reachable = outcome.is_ok();
+            let outcome = finish_active_service(outcome, service_deadline, Instant::now());
+            let outcome = outcome.map(|authorization| {
+                QuvAdmittedAuthorizationV0::new(authorization, admission.clone())
+            });
+            drop(admission);
+            assert!(completion.send(outcome).is_ok());
+            let delivered = receiver.await.unwrap();
+            if reply_after_deadline {
+                let error = delivered.err().expect("no continuation is delivered");
+                assert!(
+                    matches!(
+                        error.downcast_ref::<QuvError>(),
+                        Some(QuvError::NoValidReplies)
+                    ),
+                    "late reply must abort as NoValidReplies, got {error}"
+                );
+                assert!(!accepted_audit_reachable);
+                // The admission share was released with the abort.
+                assert_eq!(gate.available_permits(), 1);
+            } else {
+                assert!(accepted_audit_reachable);
+                let continuation = delivered.expect("timely reply is accepted late");
+                assert_eq!(gate.available_permits(), 0);
+                let authorization = continuation.with_continuation(|authorization| authorization);
+                assert_eq!(
+                    authorization.candidate_hash(),
+                    quv_candidate_hash(&candidate).unwrap()
+                );
+                assert_eq!(authorization.verifier_nonce(), request.verifier_nonce);
+                assert_eq!(gate.available_permits(), 1);
+            }
+        }
+    }
     use ioi_api::crypto::{SerializableKey, SigningKeyPair};
     use ioi_consensus::aft::authenticated_quorum::consensus_vote_signing_bytes;
     use ioi_consensus::aft::query_unanimity::{
@@ -1902,6 +3404,27 @@ mod tests {
         account_id_from_key_material, ActiveKeyRecord, QuvAuthorityModeV0, QuvCandidateV0,
         QuvConfigurationHandoffV0, QuvSlotV0, SignatureSuite, ValidatorSetV1, ValidatorV1,
     };
+
+    #[test]
+    fn active_service_completion_never_reports_late_success() {
+        let deadline = Instant::now();
+        assert_eq!(
+            finish_active_service(Ok(7), Some(deadline), deadline - Duration::from_nanos(1))
+                .unwrap(),
+            7
+        );
+        for observed in [deadline, deadline + Duration::from_nanos(1)] {
+            assert!(finish_active_service(Ok(7), Some(deadline), observed).is_err());
+        }
+        assert_eq!(finish_active_service(Ok(7), None, deadline).unwrap(), 7);
+        let error = finish_active_service::<()>(
+            Err(anyhow!("live query refused")),
+            Some(deadline),
+            deadline - Duration::from_nanos(1),
+        )
+        .unwrap_err();
+        assert_eq!(error.to_string(), "live query refused");
+    }
 
     fn member(key_hash: [u8; 32], since_height: u64) -> ValidatorV1 {
         ValidatorV1 {
@@ -1916,8 +3439,86 @@ mod tests {
     }
 
     #[test]
+    fn provisioned_bootstrap_rejects_initial_coordinate_substitution() {
+        use ioi_types::app::QuvDomainBootstrapV0 as Bootstrap;
+        let mut policy = AftQuvDomainPolicyV0 {
+            authority_slots: 256,
+            preparation: ioi_types::app::QuvPreparationPolicyV0::Independent {
+                max_attempts_per_slot: 2,
+                service_millis: (1_000 as u64).saturating_add(50 as u64),
+                readiness_millis: 1_000_000,
+            },
+            domain_id: [7; 32],
+            bootstrap: Bootstrap::Fixed {
+                initial_slot: 9,
+                predecessor: [77; 32],
+            },
+            authority_mode: QuvAuthorityModeV0::Unowned,
+            owner: None,
+            delta_rt_millis: 1_000,
+            qualified_delta_rt_envelope_millis: 800,
+            qualified_max_configured_members: 4,
+            continuation_millis: 50,
+            operation_service_millis: (1_000 as u64).saturating_add(50 as u64),
+            push_admission: ioi_types::app::QuvPushAdmissionPolicyV0 {
+                max_requests_per_identity: 64,
+                window_millis: 1_000,
+            },
+        };
+        let mut query = QuvPushQueryV0 {
+            verifier_nonce: [1; 32],
+            candidate: QuvCandidateV0 {
+                slot: QuvSlotV0 {
+                    configuration_root: [2; 32],
+                    policy_root: provisioned_policy_root(&policy).unwrap(),
+                    network_id: [3; 32],
+                    domain_id: policy.domain_id,
+                    slot: 9,
+                    predecessor: [77; 32],
+                    authority_mode: QuvAuthorityModeV0::Unowned,
+                },
+                payload_hash: [4; 32],
+                authorizer: AccountId([5; 32]),
+                authority_signature: Vec::new(),
+            },
+        };
+        provisioned_policy(std::slice::from_ref(&policy), &query).unwrap();
+        query.candidate.slot.predecessor = [78; 32];
+        assert!(provisioned_policy(std::slice::from_ref(&policy), &query).is_err());
+        query.candidate.slot.predecessor = [77; 32];
+        query.candidate.slot.slot = 8;
+        assert!(provisioned_policy(std::slice::from_ref(&policy), &query).is_err());
+        policy.preparation = ioi_types::app::QuvPreparationPolicyV0::OneShot;
+        policy.bootstrap = Bootstrap::HandoffBoundary {
+            activation_height: 12,
+        };
+        policy.authority_mode = QuvAuthorityModeV0::Owned;
+        policy.owner = Some(AccountId([5; 32]));
+        query.candidate.slot.authority_mode = QuvAuthorityModeV0::Owned;
+        query.candidate.slot.policy_root = provisioned_policy_root(&policy).unwrap();
+        query.candidate.slot.slot = 12;
+        provisioned_policy(std::slice::from_ref(&policy), &query).unwrap();
+        for wrong_slot in [11, 13] {
+            query.candidate.slot.slot = wrong_slot;
+            assert!(provisioned_policy(std::slice::from_ref(&policy), &query).is_err());
+        }
+        // This helper checks bootstrap coordinates only. The production path
+        // separately authenticates candidates and verifies the local boundary.
+    }
+
+    #[test]
     fn runtime_refuses_membership_above_qualified_envelope() {
         let policy = AftQuvDomainPolicyV0 {
+            authority_slots: 256,
+            preparation: ioi_types::app::QuvPreparationPolicyV0::Independent {
+                max_attempts_per_slot: 2,
+                service_millis: (1_000 as u64).saturating_add(50 as u64),
+                readiness_millis: 1_000_000,
+            },
+            bootstrap: ioi_types::app::QuvDomainBootstrapV0::Fixed {
+                initial_slot: 1,
+                predecessor: [77; 32],
+            },
             domain_id: [7; 32],
             authority_mode: QuvAuthorityModeV0::Unowned,
             owner: None,
@@ -1925,6 +3526,11 @@ mod tests {
             qualified_delta_rt_envelope_millis: 800,
             qualified_max_configured_members: 4,
             continuation_millis: 50,
+            operation_service_millis: (1_000 as u64).saturating_add(50 as u64),
+            push_admission: ioi_types::app::QuvPushAdmissionPolicyV0 {
+                max_requests_per_identity: 64,
+                window_millis: 1_000,
+            },
         };
         require_qualified_membership(&policy, 4).expect("qualified membership is admitted");
         assert!(require_qualified_membership(&policy, 5).is_err());
@@ -1986,6 +3592,11 @@ mod tests {
         let successor_root = canonical_validator_set_hash(&successor).unwrap();
         let domain = quv_handoff_domain_id(network, old_root, successor_root, 8).unwrap();
         let policy = AftQuvDomainPolicyV0 {
+            authority_slots: 256,
+            preparation: ioi_types::app::QuvPreparationPolicyV0::OneShot,
+            bootstrap: ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary {
+                activation_height: 8,
+            },
             domain_id: domain,
             authority_mode: QuvAuthorityModeV0::Owned,
             owner: Some(owner),
@@ -1993,6 +3604,11 @@ mod tests {
             qualified_delta_rt_envelope_millis: 8,
             qualified_max_configured_members: 4,
             continuation_millis: 10,
+            operation_service_millis: (10 as u64).saturating_add(10 as u64),
+            push_admission: ioi_types::app::QuvPushAdmissionPolicyV0 {
+                max_requests_per_identity: 64,
+                window_millis: 10,
+            },
         };
         let vote_preimage = consensus_vote_signing_bytes(7, 0, &[5; 32]).unwrap();
         let mut boundary_signatures =
@@ -2062,6 +3678,25 @@ mod tests {
             AftSafetyMode::ClassicBft,
         )
         .expect("exact rooted source validates");
+
+        let mut wrong_bootstrap = policy.clone();
+        wrong_bootstrap.bootstrap = ioi_types::app::QuvDomainBootstrapV0::Fixed {
+            initial_slot: envelope.handoff.activation_height,
+            predecessor: envelope.candidate.slot.predecessor,
+        };
+        let error = validate_handoff_source(
+            &envelope,
+            &old,
+            &successor,
+            &keys,
+            std::slice::from_ref(&wrong_bootstrap),
+            network,
+            AftSafetyMode::ClassicBft,
+        )
+        .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("exact rooted boundary bootstrap"));
 
         let mut forged_qc = envelope.clone();
         forged_qc.handoff.boundary_qc.signatures[0].1[0] ^= 1;
