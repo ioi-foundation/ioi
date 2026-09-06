@@ -455,6 +455,8 @@ pub struct TestClusterBuilder {
     pq_consensus_profile: bool,
     quv_handoff_profile: Option<TestQuvHandoffProfile>,
     additional_quv_domain_policies: Vec<AftQuvDomainPolicyV0>,
+    validator_pqc_keypairs: Option<Vec<MldsaKeyPair>>,
+    validator_orchestration_env: BTreeMap<usize, BTreeMap<String, String>>,
 }
 
 #[derive(Clone)]
@@ -498,6 +500,8 @@ impl Default for TestClusterBuilder {
             pq_consensus_profile: false,
             quv_handoff_profile: None,
             additional_quv_domain_policies: Vec::new(),
+            validator_pqc_keypairs: None,
+            validator_orchestration_env: BTreeMap::new(),
         }
     }
 }
@@ -1010,6 +1014,33 @@ impl TestClusterBuilder {
         self
     }
 
+    /// Supply the per-process ML-DSA-44 keys in validator order instead of
+    /// generating them at build. A fixture that roots an owned QUV domain on
+    /// one process account must know that account before its policy is
+    /// provisioned; the harness still derives nothing from candidate bytes.
+    pub fn with_validator_pqc_keypairs(mut self, keypairs: Vec<MldsaKeyPair>) -> Self {
+        self.pq_consensus_profile = true;
+        self.validator_pqc_keypairs = Some(keypairs);
+        self
+    }
+
+    /// Add one environment binding to the initial launch (and every later
+    /// restart) of ONE validator's orchestration process. Process-boundary
+    /// fault fixtures use this for `IOI_TESTING_*` seams that must be active
+    /// from a process's first network message; ProcessBackend only.
+    pub fn with_validator_orchestration_env(
+        mut self,
+        index: usize,
+        key: &str,
+        value: &str,
+    ) -> Self {
+        self.validator_orchestration_env
+            .entry(index)
+            .or_default()
+            .insert(key.to_string(), value.to_string());
+        self
+    }
+
     pub fn with_chain_id(mut self, id: u32) -> Self {
         self.chain_id = id.into();
         self
@@ -1267,16 +1298,27 @@ impl TestClusterBuilder {
         let validator_pq_keys = if self.pq_consensus_profile
             && !matches!(state_plan, ClusterStatePlan::Resume { .. })
         {
-            let scheme = MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2);
-            Some(
-                (0..validator_keys.len())
-                    .map(|_| {
-                        scheme
-                            .generate_keypair()
-                            .map_err(|error| anyhow!(error.to_string()))
-                    })
-                    .collect::<Result<Vec<MldsaKeyPair>>>()?,
-            )
+            if let Some(supplied) = self.validator_pqc_keypairs.clone() {
+                if supplied.len() != validator_keys.len() {
+                    return Err(anyhow!(
+                        "supplied {} ML-DSA keypairs for {} validators",
+                        supplied.len(),
+                        validator_keys.len()
+                    ));
+                }
+                Some(supplied)
+            } else {
+                let scheme = MldsaScheme::new(ioi_crypto::security::SecurityLevel::Level2);
+                Some(
+                    (0..validator_keys.len())
+                        .map(|_| {
+                            scheme
+                                .generate_keypair()
+                                .map_err(|error| anyhow!(error.to_string()))
+                        })
+                        .collect::<Result<Vec<MldsaKeyPair>>>()?,
+                )
+            }
         } else {
             None
         };
@@ -1546,6 +1588,11 @@ impl TestClusterBuilder {
                 )?;
                 (
                     vec![AftQuvDomainPolicyV0 {
+                        authority_slots: 256,
+                        preparation: ioi_types::app::QuvPreparationPolicyV0::OneShot,
+                        bootstrap: ioi_types::app::QuvDomainBootstrapV0::HandoffBoundary {
+                            activation_height: profile.activation_height,
+                        },
                         domain_id,
                         authority_mode: QuvAuthorityModeV0::Owned,
                         owner: Some(*owner),
@@ -1558,6 +1605,12 @@ impl TestClusterBuilder {
                             .min(profile.delta_rt_millis),
                         qualified_max_configured_members: self.num_validators as u16,
                         continuation_millis: profile.continuation_millis,
+                        operation_service_millis: (profile.delta_rt_millis as u64)
+                            .saturating_add(profile.continuation_millis as u64),
+                        push_admission: ioi_types::app::QuvPushAdmissionPolicyV0 {
+                            max_requests_per_identity: 64,
+                            window_millis: profile.delta_rt_millis as u64,
+                        },
                     }],
                     Some(profile.source_path.clone()),
                 )
@@ -1640,6 +1693,11 @@ impl TestClusterBuilder {
             let captured_min_finality = self.min_finality_depth;
             let captured_policies = service_policies.clone();
             let captured_workload_env = self.workload_env.clone();
+            let captured_orchestration_env = self
+                .validator_orchestration_env
+                .get(&0)
+                .cloned()
+                .unwrap_or_default();
             let captured_inference_config = self.inference_config.clone();
             let captured_safety_mode = self.aft_safety_mode;
             let captured_quv_policies = aft_quv_domain_policies.clone();
@@ -1684,6 +1742,7 @@ impl TestClusterBuilder {
                 captured_min_finality,
                 captured_policies,
                 captured_workload_env,
+                captured_orchestration_env,
                 captured_inference_config,
                 role,
                 captured_safety_mode,
@@ -1742,6 +1801,11 @@ impl TestClusterBuilder {
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
                 let captured_workload_env = self.workload_env.clone();
+                let captured_orchestration_env = self
+                    .validator_orchestration_env
+                    .get(&i)
+                    .cloned()
+                    .unwrap_or_default();
                 let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_quv_policies = aft_quv_domain_policies.clone();
@@ -1794,6 +1858,7 @@ impl TestClusterBuilder {
                         captured_min_finality,
                         captured_policies,
                         captured_workload_env,
+                        captured_orchestration_env,
                         captured_inference_config,
                         role,
                         captured_safety_mode,
@@ -1844,6 +1909,11 @@ impl TestClusterBuilder {
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
                 let captured_workload_env = self.workload_env.clone();
+                let captured_orchestration_env = self
+                    .validator_orchestration_env
+                    .get(&i)
+                    .cloned()
+                    .unwrap_or_default();
                 let captured_inference_config = self.inference_config.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_quv_policies = aft_quv_domain_policies.clone();
@@ -1894,6 +1964,7 @@ impl TestClusterBuilder {
                         captured_min_finality,
                         captured_policies,
                         captured_workload_env,
+                        captured_orchestration_env,
                         captured_inference_config,
                         role,
                         captured_safety_mode,

@@ -179,8 +179,16 @@ fn workload_rust_log() -> Option<String> {
 }
 
 fn append_benchmark_trace_line(path: &Path, line: &str) {
-    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-        let _ = writeln!(file, "{line}");
+    let result = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .and_then(|mut file| writeln!(file, "{line}"));
+    if let Err(error) = result {
+        eprintln!(
+            "HARNESS_DIAGNOSTIC_WRITE_FAILURE: {}: {error}",
+            path.display()
+        );
     }
 }
 
@@ -519,6 +527,19 @@ impl TestValidator {
         Ok(())
     }
 
+    /// Remove one environment binding from subsequent local orchestration
+    /// restarts (the child is started with the key unset). Process-boundary
+    /// fault tests use this to retire a test-only override before teardown.
+    pub fn clear_orchestration_restart_env(&mut self, key: &str) -> Result<()> {
+        let backend = self
+            .backend
+            .as_any_mut()
+            .downcast_mut::<ProcessBackend>()
+            .ok_or_else(|| anyhow!("orchestration restart environment requires ProcessBackend"))?;
+        backend.clear_orchestration_restart_env(key);
+        Ok(())
+    }
+
     pub async fn kill_workload(&mut self) -> Result<()> {
         self.backend.kill_workload_process().await
     }
@@ -552,6 +573,7 @@ impl TestValidator {
         min_finality_depth: Option<u64>,
         service_policies: BTreeMap<String, ServicePolicy>,
         workload_env: BTreeMap<String, String>,
+        orchestration_env: BTreeMap<String, String>,
         inference_config: InferenceConfig,
         role: ValidatorRole,
         aft_safety_mode: AftSafetyMode,
@@ -1106,7 +1128,15 @@ impl TestValidator {
                     format!("http://{}", guardian_grpc_addr),
                 );
             }
+            // Per-process orchestration bindings from the builder (test-only
+            // fault injection for one validator). Applied before the command
+            // is remembered so restarts carry the same binding until a fixture
+            // clears it with `clear_orchestration_restart_env`.
+            for (key, value) in &orchestration_env {
+                orch_cmd.env(key, value);
+            }
             pb.remember_orchestration_command(&orch_cmd);
+            pb.orchestration_trace_path = benchmark_trace_component_log_path(base_port, "orch");
             pb.orchestration_process = Some(orch_cmd.spawn()?);
 
             Box::new(pb)

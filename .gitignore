@@ -35,7 +35,7 @@ dist/
 .tmp/
 .tlacache/
 formal/**/*_TTrace_*.tla
-formal/**/TLAPS.tla
+**/formal/**/TLAPS.tla
 CODEX.txt
 .env
 .env.mail-e2e.local

@@ -352,7 +352,7 @@ async fn connect(rpc_addr: &str) -> Result<PublicApiClient<Channel>> {
 
     PublicApiClient::connect(url)
         .await
-        .map_err(|e| anyhow!("Failed to connect to public gRPC: {}", e))
+        .map_err(|error| anyhow::Error::new(error).context("Failed to connect to public gRPC"))
 }
 
 /// Robust get_block_by_height:
@@ -453,6 +453,19 @@ pub async fn execute_aft_quv_effect(
     effect_id: &str,
     candidate: &ioi_types::app::QuvCandidateV0,
 ) -> Result<ExecuteAftQuvEffectResponse> {
+    Ok(
+        execute_aft_quv_effect_with_metadata(rpc_addr, effect_id, candidate)
+            .await?
+            .into_inner(),
+    )
+}
+
+/// Retain result diagnostics for process qualification. Metadata is not authority.
+pub async fn execute_aft_quv_effect_with_metadata(
+    rpc_addr: &str,
+    effect_id: &str,
+    candidate: &ioi_types::app::QuvCandidateV0,
+) -> Result<tonic::Response<ExecuteAftQuvEffectResponse>> {
     let mut client = connect(rpc_addr).await?;
     let candidate_bytes = codec::to_bytes_canonical(candidate)
         .map_err(|error| anyhow!("QUV candidate serialization failed: {error}"))?;
@@ -461,8 +474,7 @@ pub async fn execute_aft_quv_effect(
             effect_id: effect_id.into(),
             candidate_bytes,
         }))
-        .await?
-        .into_inner())
+        .await?)
 }
 
 /// Submits a transaction and waits for it to be COMMITTED.

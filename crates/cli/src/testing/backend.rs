@@ -81,6 +81,66 @@ pub trait TestBackend: Send {
 }
 
 // --- ProcessBackend Implementation ---
+#[cfg(all(test, unix))]
+mod diagnostic_retention_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn orchestration_restart_retains_diagnostics_and_refuses_unwritable_sink() {
+        let temp = tempfile::tempdir().unwrap();
+        let trace = temp.path().join("retained.log");
+        std::fs::write(&trace, "initial startup\n").unwrap();
+        let mut backend = ProcessBackend::new(
+            "127.0.0.1:2".into(),
+            "/ip4/127.0.0.1/tcp/1".parse().unwrap(),
+            temp.path().into(),
+            temp.path().join("unused.toml"),
+            "127.0.0.1:1".into(),
+            temp.path().join("certs"),
+            "unused-diagnostic-fixture".into(),
+        );
+        let mut command = TokioCommand::new("/bin/sh");
+        command.args(["-c", "printf '%s\\n' 'retained restart diagnostic' >&2"]);
+        backend.remember_orchestration_command(&command);
+        backend.orchestration_trace_path = Some(trace.clone());
+        let (sender, mut receiver) = broadcast::channel(8);
+        let handles = Arc::new(Mutex::new(Vec::new()));
+        for _ in 0..2 {
+            backend
+                .restart_orchestration_process(sender.clone(), handles.clone())
+                .await
+                .unwrap();
+            assert_eq!(
+                tokio::time::timeout(Duration::from_secs(5), receiver.recv())
+                    .await
+                    .unwrap()
+                    .unwrap(),
+                "retained restart diagnostic"
+            );
+            backend
+                .orchestration_process
+                .take()
+                .unwrap()
+                .wait()
+                .await
+                .unwrap();
+        }
+        for handle in handles.lock().await.drain(..) {
+            handle.await.unwrap();
+        }
+        assert_eq!(
+            std::fs::read_to_string(&trace).unwrap(),
+            "initial startup\nretained restart diagnostic\nretained restart diagnostic\n"
+        );
+        backend.orchestration_trace_path = Some(temp.path().into());
+        assert!(backend
+            .restart_orchestration_process(sender, handles)
+            .await
+            .is_err());
+        assert!(backend.orchestration_process.is_none());
+    }
+}
+
 #[derive(Debug)]
 pub struct ProcessBackend {
     pub orchestration_process: Option<Child>,
@@ -99,6 +159,7 @@ pub struct ProcessBackend {
     orchestration_program: Option<OsString>,
     orchestration_args: Vec<OsString>,
     orchestration_env: Vec<(OsString, Option<OsString>)>,
+    pub(crate) orchestration_trace_path: Option<PathBuf>,
 }
 
 impl ProcessBackend {
@@ -142,6 +203,7 @@ impl ProcessBackend {
             orchestration_program: None,
             orchestration_args: Vec::new(),
             orchestration_env: Vec::new(),
+            orchestration_trace_path: None,
         }
     }
 
@@ -164,6 +226,16 @@ impl ProcessBackend {
         self.orchestration_env
             .retain(|(existing, _)| existing != &key);
         self.orchestration_env.push((key, Some(value.into())));
+    }
+
+    /// Remove one environment binding from subsequent local orchestration
+    /// restarts. The key is explicitly unset for the child (not merely dropped
+    /// from the recorded list), so an inherited ambient value cannot survive.
+    pub(crate) fn clear_orchestration_restart_env(&mut self, key: impl Into<OsString>) {
+        let key = key.into();
+        self.orchestration_env
+            .retain(|(existing, _)| existing != &key);
+        self.orchestration_env.push((key, None));
     }
 
     async fn wait_for_workload_genesis_ready(
@@ -286,6 +358,18 @@ impl TestBackend for ProcessBackend {
             }
         }
         command.stderr(Stdio::piped()).kill_on_drop(true);
+        // Keep restarted-process diagnostics in the same retained stream as
+        // initial startup. Opening before spawn makes setup failure explicit.
+        let mut trace_file = self
+            .orchestration_trace_path
+            .as_ref()
+            .map(|path| {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+            })
+            .transpose()?;
         let mut child = command.spawn()?;
         let stderr = child
             .stderr
@@ -301,6 +385,12 @@ impl TestBackend for ProcessBackend {
         let handle = tokio::spawn(async move {
             let mut lines = tokio::io::BufReader::new(stderr).lines();
             while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(file) = trace_file.as_mut() {
+                    use std::io::Write as _;
+                    if let Err(error) = writeln!(file, "{line}") {
+                        eprintln!("HARNESS_DIAGNOSTIC_WRITE_FAILURE: {error}");
+                    }
+                }
                 if let Some(path) = restart_events.as_ref() {
                     if line.contains("\"target\":\"quv\"")
                         || line.contains("authority remains disabled")
