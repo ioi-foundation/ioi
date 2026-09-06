@@ -354,9 +354,13 @@ for required_case in valid_mac_record_with_foreign_scope_is_refused_before_repla
     exit 1
   fi
 done
+# The reserved-anchor primitive has its own test module; neither the core nor
+# the journal filter selects it, so it runs as its own mandatory phase.
+run_phase quv_anchor_reservation cargo test --locked -p ioi-consensus --features aft --lib aft::query_unanimity::journal::anchor_reservation::tests
+require_tests_ran quv_anchor_reservation
 for required_case in fixed_anchor_updates_reuse_both_inodes_and_keep_raw_authentication fixed_anchor_interruption_selects_only_the_active_name fixed_anchor_lost_spare_and_alias_refuse_before_writing; do
-  if ! grep -Eq "^test aft::query_unanimity::journal::anchor_reservation::tests::${required_case} \.\.\. ok$" "${OUTPUT_DIR}/quv_core.log"; then
-    echo "[M16Q] FAIL quv_core: missing passing reserved anchor regression ${required_case}" >&2
+  if ! grep -Eq "^test aft::query_unanimity::journal::anchor_reservation::tests::${required_case} \.\.\. ok$" "${OUTPUT_DIR}/quv_anchor_reservation.log"; then
+    echo "[M16Q] FAIL quv_anchor_reservation: missing passing reserved anchor regression ${required_case}" >&2
     exit 1
   fi
 done
