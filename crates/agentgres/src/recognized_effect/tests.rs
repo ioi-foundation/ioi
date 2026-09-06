@@ -42,6 +42,8 @@ fn consequence_manifest(effect_id: &str) -> EffectManifestV1 {
         conflict_slot: 1,
         authorization_mode: EffectAuthorizationModeV1::Portable,
         online_authorization_policy_root: None,
+        online_authorization_predecessor: None,
+        online_authorization_authority_mode: None,
         read_set: Vec::new(),
         write_set: vec![EffectResourceKeyV1 {
             key: "result".into(),

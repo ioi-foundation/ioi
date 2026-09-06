@@ -35,7 +35,9 @@ const COMPLETION_EVIDENCE_DOMAIN: &[u8] = b"ioi::aft::pq-channel::completion-evi
 const KDF_EXTRACT_DOMAIN: &[u8] = b"ioi::aft::pq-channel::extract::v1\0";
 const KDF_EXPAND_DOMAIN: &[u8] = b"ioi::aft::pq-channel::expand::v1\0";
 const RECORD_AAD_DOMAIN: &[u8] = b"ioi::aft::pq-channel::record::v1\0";
-const MAX_RECORD_PLAINTEXT: usize = 16 * 1024 * 1024;
+/// Maximum encoded plaintext accepted by the v1 record layer. Durable
+/// admission must apply this same bound before retaining a payload.
+pub const PQ_CHANNEL_MAX_RECORD_PLAINTEXT_V1: usize = 16 * 1024 * 1024;
 
 /// Rooted scope and carrier bindings for exactly one pairwise session.
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
@@ -143,6 +145,14 @@ pub enum PqChannelContentTypeV1 {
     OnlineAuthorization,
 }
 
+fn record_plaintext_limit(content_type: PqChannelContentTypeV1) -> usize {
+    if content_type == PqChannelContentTypeV1::OnlineAuthorization {
+        ioi_types::app::QUV_OUTBOX_MAX_PAYLOAD_BYTES_V0 as usize
+    } else {
+        PQ_CHANNEL_MAX_RECORD_PLAINTEXT_V1
+    }
+}
+
 /// One canonical AEAD-protected application record.
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, Serialize, Deserialize)]
 pub struct PqChannelRecordV1 {
@@ -216,7 +226,7 @@ impl PqChannelRecordSealer {
         content_type: PqChannelContentTypeV1,
         plaintext: &[u8],
     ) -> Result<PqChannelRecordV1> {
-        if plaintext.len() > MAX_RECORD_PLAINTEXT {
+        if plaintext.len() > record_plaintext_limit(content_type) {
             return Err(anyhow!("PQ channel record exceeds the plaintext limit"));
         }
         if self.next_sequence == u64::MAX {
@@ -279,7 +289,7 @@ impl PqChannelRecordOpener {
         }
         let plaintext_len = usize::try_from(record.plaintext_len)
             .map_err(|_| anyhow!("PQ channel plaintext length is invalid"))?;
-        if plaintext_len > MAX_RECORD_PLAINTEXT
+        if plaintext_len > record_plaintext_limit(record.content_type)
             || record.ciphertext.len() != plaintext_len.saturating_add(16)
         {
             return Err(anyhow!("PQ channel record length is invalid"));
@@ -926,6 +936,36 @@ mod tests {
         .unwrap();
         server.kem_ciphertext[0] ^= 1;
         assert!(finish_pq_channel(initiator_state, server).is_err());
+    }
+
+    #[test]
+    fn online_record_byte_limit_refuses_before_sequence_consumption() {
+        let key = [7; 32];
+        let transcript = [8; 32];
+        let direction = PqChannelDirectionV1::InitiatorToResponder;
+        let mut sealer = PqChannelRecordSealer::new(transcript, direction, &key);
+        let mut opener = PqChannelRecordOpener::new(transcript, direction, &key);
+        let cap = ioi_types::app::QUV_OUTBOX_MAX_PAYLOAD_BYTES_V0 as usize;
+        assert!(sealer
+            .seal(
+                PqChannelContentTypeV1::OnlineAuthorization,
+                &vec![1; cap + 1]
+            )
+            .is_err());
+        assert_eq!(sealer.next_sequence, 0);
+        let record = sealer
+            .seal(PqChannelContentTypeV1::OnlineAuthorization, &vec![1; cap])
+            .unwrap();
+        let mut oversized = record.clone();
+        oversized.plaintext_len += 1;
+        oversized.ciphertext.push(0);
+        assert!(opener.open(&oversized).is_err());
+        assert_eq!(opener.next_sequence, 0);
+        assert_eq!(opener.open(&record).unwrap().len(), cap);
+        let normal = sealer
+            .seal(PqChannelContentTypeV1::ConsensusVote, &vec![2; cap + 1])
+            .unwrap();
+        assert_eq!(opener.open(&normal).unwrap().len(), cap + 1);
     }
 
     #[test]

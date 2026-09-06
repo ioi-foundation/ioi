@@ -368,6 +368,16 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
         toml::from_str("consensus_type = \"Aft\"\nrpc_listen_address = \"127.0.0.1:0\"\n")
             .expect("AFT config parses");
     config.aft_quv_domain_policies = vec![AftQuvDomainPolicyV0 {
+        authority_slots: 256,
+        preparation: crate::app::QuvPreparationPolicyV0::Independent {
+            max_attempts_per_slot: 2,
+            service_millis: (1_000 as u64).saturating_add(50 as u64),
+            readiness_millis: 1_000_000,
+        },
+        bootstrap: crate::app::QuvDomainBootstrapV0::Fixed {
+            initial_slot: 1,
+            predecessor: [77; 32],
+        },
         domain_id: [7; 32],
         authority_mode: QuvAuthorityModeV0::Owned,
         owner: Some(AccountId([8; 32])),
@@ -375,12 +385,164 @@ fn quv_policy_requires_exact_authority_and_durable_roots() {
         qualified_delta_rt_envelope_millis: 800,
         qualified_max_configured_members: 4,
         continuation_millis: 50,
+        operation_service_millis: (1_000 as u64).saturating_add(50 as u64),
+        push_admission: crate::app::QuvPushAdmissionPolicyV0 {
+            max_requests_per_identity: 64,
+            window_millis: 1_000,
+        },
     }];
     assert!(config.validate().is_err(), "durable roots are mandatory");
 
     config.aft_pq_outbox_dir = Some("state".into());
     config.aft_external_anchor_dir = Some("external-anchor".into());
     config.validate().expect("complete QUV policy validates");
+    let saved_bootstrap = config.aft_quv_domain_policies[0].bootstrap;
+    let policy_json = serde_json::to_value(&config.aft_quv_domain_policies[0]).unwrap();
+    let decoded: AftQuvDomainPolicyV0 = serde_json::from_value(policy_json.clone()).unwrap();
+    assert_eq!(decoded, config.aft_quv_domain_policies[0]);
+    let policy_toml = toml::to_string(&decoded).unwrap();
+    assert_eq!(
+        toml::from_str::<AftQuvDomainPolicyV0>(&policy_toml).unwrap(),
+        decoded
+    );
+    let mut missing_horizon = policy_json.clone();
+    missing_horizon
+        .as_object_mut()
+        .unwrap()
+        .remove("authority_slots");
+    assert!(serde_json::from_value::<AftQuvDomainPolicyV0>(missing_horizon).is_err());
+    for invalid in [0, crate::app::QUV_MAX_AUTHORITY_SLOTS_V0 + 1] {
+        config.aft_quv_domain_policies[0].authority_slots = invalid;
+        assert!(config.validate().is_err());
+    }
+    config.aft_quv_domain_policies[0].authority_slots = 256;
+    let terminal_bootstrap = crate::app::QuvDomainBootstrapV0::Fixed {
+        initial_slot: u64::MAX,
+        predecessor: [1; 32],
+    };
+    assert!(terminal_bootstrap.is_valid_authority_slots(1));
+    assert!(!terminal_bootstrap.is_valid_authority_slots(2));
+    let mut missing_operation_service = policy_json.clone();
+    missing_operation_service
+        .as_object_mut()
+        .unwrap()
+        .remove("operation_service_millis");
+    assert!(serde_json::from_value::<AftQuvDomainPolicyV0>(missing_operation_service).is_err());
+    for invalid in [0, 1000, 1049, 1051, u64::MAX] {
+        config.aft_quv_domain_policies[0].operation_service_millis = invalid;
+        assert!(config.validate().is_err());
+    }
+    config.aft_quv_domain_policies[0].operation_service_millis = 1050;
+    let mut missing_push_admission = policy_json.clone();
+    missing_push_admission
+        .as_object_mut()
+        .unwrap()
+        .remove("push_admission");
+    assert!(
+        serde_json::from_value::<AftQuvDomainPolicyV0>(missing_push_admission).is_err(),
+        "push_admission is required and never defaulted"
+    );
+    let mut unknown_push_admission_field = policy_json.clone();
+    unknown_push_admission_field["push_admission"]["burst"] = serde_json::json!(1);
+    assert!(serde_json::from_value::<AftQuvDomainPolicyV0>(unknown_push_admission_field).is_err());
+    let saved_push_admission = config.aft_quv_domain_policies[0].push_admission;
+    use crate::app::QuvPushAdmissionPolicyV0 as PushAdmission;
+    for push_admission in [
+        PushAdmission {
+            max_requests_per_identity: 0,
+            window_millis: 1_000,
+        },
+        PushAdmission {
+            max_requests_per_identity: crate::app::QUV_MAX_PUSH_REQUESTS_PER_IDENTITY_V0 + 1,
+            window_millis: 1_000,
+        },
+        PushAdmission {
+            max_requests_per_identity: 64,
+            window_millis: 0,
+        },
+        PushAdmission {
+            max_requests_per_identity: 64,
+            window_millis: 999,
+        },
+    ] {
+        config.aft_quv_domain_policies[0].push_admission = push_admission;
+        assert!(
+            config.validate().is_err(),
+            "invalid push_admission {push_admission:?} must be refused"
+        );
+    }
+    for push_admission in [
+        PushAdmission {
+            max_requests_per_identity: 1,
+            window_millis: 1_000,
+        },
+        PushAdmission {
+            max_requests_per_identity: crate::app::QUV_MAX_PUSH_REQUESTS_PER_IDENTITY_V0,
+            window_millis: u64::MAX,
+        },
+    ] {
+        config.aft_quv_domain_policies[0].push_admission = push_admission;
+        config
+            .validate()
+            .expect("valid push_admission quota is accepted");
+    }
+    config.aft_quv_domain_policies[0].push_admission = saved_push_admission;
+    let mut missing_preparation = policy_json.clone();
+    missing_preparation
+        .as_object_mut()
+        .unwrap()
+        .remove("preparation");
+    assert!(serde_json::from_value::<AftQuvDomainPolicyV0>(missing_preparation).is_err());
+    let saved_preparation = config.aft_quv_domain_policies[0].preparation;
+    use crate::app::QuvPreparationPolicyV0 as Preparation;
+    for preparation in [
+        Preparation::OneShot,
+        Preparation::Independent {
+            max_attempts_per_slot: 0,
+            service_millis: 1_050,
+            readiness_millis: 1_000_000,
+        },
+        Preparation::Independent {
+            max_attempts_per_slot: 2,
+            service_millis: 1_000,
+            readiness_millis: 1_000_000,
+        },
+        Preparation::Independent {
+            max_attempts_per_slot: 2,
+            service_millis: 1_051,
+            readiness_millis: 1_000_000,
+        },
+        Preparation::Independent {
+            max_attempts_per_slot: 2,
+            service_millis: 1_050,
+            readiness_millis: 2_099,
+        },
+    ] {
+        config.aft_quv_domain_policies[0].preparation = preparation;
+        assert!(config.validate().is_err());
+    }
+    config.aft_quv_domain_policies[0].preparation = saved_preparation;
+    let mut absent = policy_json;
+    absent.as_object_mut().unwrap().remove("bootstrap");
+    assert!(serde_json::from_value::<AftQuvDomainPolicyV0>(absent).is_err());
+    for bootstrap in [
+        crate::app::QuvDomainBootstrapV0::Fixed {
+            initial_slot: 0,
+            predecessor: [77; 32],
+        },
+        crate::app::QuvDomainBootstrapV0::Fixed {
+            initial_slot: 1,
+            predecessor: [0; 32],
+        },
+        crate::app::QuvDomainBootstrapV0::HandoffBoundary {
+            activation_height: 1,
+        },
+    ] {
+        config.aft_quv_domain_policies[0].bootstrap = bootstrap;
+        assert!(config.validate().is_err());
+    }
+    config.aft_quv_domain_policies[0].bootstrap = saved_bootstrap;
+
     config.aft_quv_domain_policies[0].qualified_delta_rt_envelope_millis = 1_001;
     assert!(
         config.validate().is_err(),

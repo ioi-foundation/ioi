@@ -21,6 +21,10 @@ use std::any::Any;
 
 const LAST_HEIGHT_KEY: &[u8] = b"aft_effect_registry/v1/last_height";
 const MANIFEST_KEY_PREFIX: &[u8] = b"aft_effect_registry/v1/manifest/";
+const REGISTRY_PREFIX: &[u8] = b"aft_effect_registry/";
+const SCHEMA_KEY: &[u8] = b"aft_effect_registry/schema";
+const SCHEMA_V2: &[u8] = b"v2-unique-effect-identity";
+const IDENTITY_KEY_PREFIX: &[u8] = b"aft_effect_registry/v2/identity/";
 
 #[derive(Debug, Default, Clone)]
 pub struct AftEffectRegistryService;
@@ -35,6 +39,35 @@ fn manifest_key(manifest: &EffectManifestV1) -> Result<Vec<u8>, TransactionError
     Ok(key)
 }
 
+fn identity_key(effect_id: &str) -> Vec<u8> {
+    // The manifest's token validation bounds this exact key to 512 suffix
+    // bytes. It is an opaque state key, not a filesystem path or prefix lookup.
+    [IDENTITY_KEY_PREFIX, effect_id.as_bytes()].concat()
+}
+
+fn require_registry_schema(state: &dyn StateAccess) -> Result<(), TransactionError> {
+    match state.get(SCHEMA_KEY).map_err(TransactionError::State)? {
+        Some(schema) if schema == SCHEMA_V2 => Ok(()),
+        Some(_) => Err(TransactionError::Invalid(
+            "AFT effect registry schema is unsupported".into(),
+        )),
+        None => {
+            // Only an empty namespace can initialize the new identity index.
+            // Never infer completeness from an absent index in older state.
+            let mut entries = state
+                .prefix_scan(REGISTRY_PREFIX)
+                .map_err(TransactionError::State)?;
+            if let Some(entry) = entries.next() {
+                entry.map_err(TransactionError::State)?;
+                return Err(TransactionError::Invalid(
+                    "AFT effect registry requires an explicit identity-index migration".into(),
+                ));
+            }
+            Ok(())
+        }
+    }
+}
+
 #[async_trait]
 impl BlockchainService for AftEffectRegistryService {
     fn id(&self) -> &str {
@@ -46,7 +79,7 @@ impl BlockchainService for AftEffectRegistryService {
     }
 
     fn state_schema(&self) -> &str {
-        "v1"
+        "v2"
     }
 
     fn capabilities(&self) -> Capabilities {
@@ -81,6 +114,18 @@ impl BlockchainService for AftEffectRegistryService {
         manifest
             .validate()
             .map_err(|error| TransactionError::Invalid(error.to_string()))?;
+        require_registry_schema(state)?;
+
+        let identity = identity_key(&manifest.effect_id);
+        if state
+            .get(&identity)
+            .map_err(TransactionError::State)?
+            .is_some()
+        {
+            return Err(TransactionError::Invalid(
+                "AFT effect identity was already admitted".into(),
+            ));
+        }
 
         if state
             .get(LAST_HEIGHT_KEY)
@@ -97,11 +142,18 @@ impl BlockchainService for AftEffectRegistryService {
                 "AFT effect manifest was already admitted".into(),
             ));
         }
+        // These writes belong to the workload transaction's joint overlay.
+        // A failed transaction must not commit a partial identity index.
         state
-            .insert(&key, params)
-            .map_err(TransactionError::State)?;
-        state
-            .insert(LAST_HEIGHT_KEY, &ctx.block_height.to_le_bytes())
+            .batch_set(&[
+                (key.clone(), params.to_vec()),
+                (identity, key),
+                (
+                    LAST_HEIGHT_KEY.to_vec(),
+                    ctx.block_height.to_le_bytes().to_vec(),
+                ),
+                (SCHEMA_KEY.to_vec(), SCHEMA_V2.to_vec()),
+            ])
             .map_err(TransactionError::State)
     }
 }
@@ -132,7 +184,7 @@ mod tests {
     use std::{collections::BTreeMap, sync::Arc};
 
     #[derive(Default)]
-    struct MockState(BTreeMap<Vec<u8>, Vec<u8>>);
+    struct MockState(BTreeMap<Vec<u8>, Vec<u8>>, bool);
 
     impl StateAccess for MockState {
         fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, StateError> {
@@ -172,6 +224,11 @@ mod tests {
         }
 
         fn prefix_scan(&self, prefix: &[u8]) -> Result<StateScanIter<'_>, StateError> {
+            if self.1 {
+                return Ok(Box::new(std::iter::once(Err(StateError::Backend(
+                    "registry scan unavailable".into(),
+                )))));
+            }
             let rows = self
                 .0
                 .iter()
@@ -191,6 +248,8 @@ mod tests {
             conflict_slot: slot,
             authorization_mode: EffectAuthorizationModeV1::OnlineQueryUnanimityV0,
             online_authorization_policy_root: Some([12; 32]),
+            online_authorization_predecessor: Some([77; 32]),
+            online_authorization_authority_mode: Some(ioi_types::app::QuvAuthorityModeV0::Unowned),
             read_set: vec![EffectResourceKeyV1 {
                 key: "account/source".into(),
                 predecessor: Some([1; 32]),
@@ -235,7 +294,7 @@ mod tests {
 
     async fn register(
         service: &AftEffectRegistryService,
-        state: &mut MockState,
+        state: &mut dyn StateAccess,
         manifest: &EffectManifestV1,
         height: u64,
     ) -> Result<(), TransactionError> {
@@ -260,6 +319,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn registry_scan_failure_through_overlay_refuses_without_bootstrap_writes() {
+        let service = AftEffectRegistryService;
+        let first = manifest("scan-failure-effect", 1);
+        let mut base = MockState::default();
+        base.1 = true;
+        let mut overlay = ioi_api::state::StateOverlay::new(&base);
+        assert!(matches!(
+            register(&service, &mut overlay, &first, 7).await,
+            Err(TransactionError::State(StateError::Backend(message)))
+                if message == "registry scan unavailable"
+        ));
+        let (inserts, deletes) = overlay.into_ordered_batch();
+        assert!(inserts.is_empty());
+        assert!(deletes.is_empty());
+        assert!(base.0.is_empty());
+
+        // A restored readable empty namespace can bootstrap normally through
+        // the same production overlay. Nothing reaches base before commit.
+        base.1 = false;
+        let mut overlay = ioi_api::state::StateOverlay::new(&base);
+        register(&service, &mut overlay, &first, 7).await.unwrap();
+        let (inserts, deletes) = overlay.into_ordered_batch();
+        assert!(base.0.is_empty());
+        base.batch_apply(&inserts, &deletes).unwrap();
+        assert_eq!(base.get(SCHEMA_KEY).unwrap(), Some(SCHEMA_V2.to_vec()));
+        assert_eq!(
+            base.get(&identity_key(&first.effect_id)).unwrap(),
+            Some(manifest_key(&first).unwrap())
+        );
+        assert_eq!(
+            base.get(&manifest_key(&first).unwrap()).unwrap(),
+            Some(serde_jcs::to_vec(&first).unwrap())
+        );
+    }
+
+    #[tokio::test]
     async fn roots_one_exact_manifest_per_block_and_refuses_duplicates() {
         let service = AftEffectRegistryService;
         let mut state = MockState::default();
@@ -274,6 +369,72 @@ mod tests {
         assert!(register(&service, &mut state, &second, 7).await.is_err());
         register(&service, &mut state, &second, 8).await.unwrap();
         assert!(register(&service, &mut state, &second, 9).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn identity_substitution_refuses_without_invalidating_prior_admission() {
+        let service = AftEffectRegistryService;
+        let mut state = MockState::default();
+        let first = manifest("stable-effect", 1);
+        register(&service, &mut state, &first, 7).await.unwrap();
+        let original = state.0.clone();
+        let mut substituted = first.clone();
+        substituted.request_root = [99; 32];
+        assert_ne!(
+            first.commitment().unwrap(),
+            substituted.commitment().unwrap()
+        );
+        assert!(matches!(
+            register(&service, &mut state, &substituted, 8).await,
+            Err(TransactionError::Invalid(message)) if message == "AFT effect identity was already admitted"
+        ));
+        assert_eq!(state.0, original);
+        assert_eq!(
+            state.get(&identity_key(&first.effect_id)).unwrap(),
+            Some(manifest_key(&first).unwrap())
+        );
+        // A refused substitution consumes neither the original identity nor
+        // this block's sole admission opportunity for an unrelated effect.
+        let second = manifest("unrelated-effect", 2);
+        register(&service, &mut state, &second, 8).await.unwrap();
+        let mut restored = MockState(state.0.clone(), false);
+        let before = restored.0.clone();
+        assert!(matches!(
+            register(&service, &mut restored, &substituted, 9).await,
+            Err(TransactionError::Invalid(message)) if message == "AFT effect identity was already admitted"
+        ));
+        assert_eq!(restored.0, before);
+        assert_eq!(
+            restored.get(&manifest_key(&first).unwrap()).unwrap(),
+            Some(serde_jcs::to_vec(&first).unwrap())
+        );
+    }
+
+    #[tokio::test]
+    async fn unindexed_or_unknown_registry_schema_refuses_without_reinitializing() {
+        let service = AftEffectRegistryService;
+        let first = manifest("older-effect", 1);
+        let incoming = manifest("new-effect", 2);
+        for (key, value) in [
+            (LAST_HEIGHT_KEY.to_vec(), 7_u64.to_le_bytes().to_vec()),
+            (
+                manifest_key(&first).unwrap(),
+                serde_jcs::to_vec(&first).unwrap(),
+            ),
+            (SCHEMA_KEY.to_vec(), b"unknown-schema".to_vec()),
+            (
+                identity_key(&first.effect_id),
+                manifest_key(&first).unwrap(),
+            ),
+        ] {
+            let mut state = MockState(BTreeMap::from([(key, value)]), false);
+            let before = state.0.clone();
+            assert!(matches!(
+                register(&service, &mut state, &incoming, 8).await,
+                Err(TransactionError::Invalid(_))
+            ));
+            assert_eq!(state.0, before);
+        }
     }
 
     #[tokio::test]

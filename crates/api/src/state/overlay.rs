@@ -48,6 +48,12 @@ impl<'a> Iterator for MergingIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            // A failed base scan is neither exhaustion nor a key that local
+            // writes can shadow. Preserve it before choosing a merge branch;
+            // callers must not infer absence from unreadable backing state.
+            if self.base.peek().is_some_and(Result::is_err) {
+                return self.base.next();
+            }
             let base_key = self
                 .base
                 .peek()
@@ -177,5 +183,96 @@ impl<'a> StateAccess for StateOverlay<'a> {
             self.insert(key, value)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(key: &[u8], value: &[u8]) -> Result<StateKVPair, StateError> {
+        Ok((Arc::from(key), Arc::from(value)))
+    }
+
+    #[test]
+    fn merge_preserves_scan_errors_with_and_without_pending_writes() {
+        for pending_write in [false, true] {
+            let mut writes = BTreeMap::new();
+            if pending_write {
+                writes.insert(b"a".to_vec(), Some(b"local".to_vec()));
+            }
+            let base: StateScanIter<'_> = Box::new(
+                vec![
+                    Err(StateError::Backend("first scan failure".into())),
+                    Err(StateError::Decode("second scan failure".into())),
+                    row(b"z", b"base"),
+                ]
+                .into_iter(),
+            );
+            let mut merged = MergingIterator {
+                base: base.fuse().peekable(),
+                writes: writes.range::<Vec<u8>, _>(..).peekable(),
+            };
+            assert!(
+                matches!(merged.next(), Some(Err(StateError::Backend(message)))
+                if message == "first scan failure")
+            );
+            assert!(
+                matches!(merged.next(), Some(Err(StateError::Decode(message)))
+                if message == "second scan failure")
+            );
+            let remaining = merged.collect::<Result<Vec<_>, _>>().unwrap();
+            let keys: Vec<_> = remaining.iter().map(|(key, _)| key.as_ref()).collect();
+            assert_eq!(
+                keys,
+                if pending_write {
+                    vec![b"a".as_slice(), b"z".as_slice()]
+                } else {
+                    vec![b"z".as_slice()]
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn merge_keeps_order_overrides_and_deletes_around_scan_failure() {
+        let writes = BTreeMap::from([
+            (b"b".to_vec(), Some(b"override".to_vec())),
+            (b"c".to_vec(), None),
+            (b"d".to_vec(), Some(b"insert".to_vec())),
+        ]);
+        let base: StateScanIter<'_> = Box::new(
+            vec![
+                row(b"a", b"first"),
+                row(b"b", b"old"),
+                Err(StateError::Backend("middle scan failure".into())),
+                row(b"c", b"deleted"),
+                row(b"e", b"last"),
+                Err(StateError::Backend("trailing scan failure".into())),
+            ]
+            .into_iter(),
+        );
+        let merged = MergingIterator {
+            base: base.fuse().peekable(),
+            writes: writes.range::<Vec<u8>, _>(..).peekable(),
+        };
+        let output: Vec<_> = merged
+            .map(|entry| match entry {
+                Ok((key, value)) => (key.to_vec(), value.to_vec()),
+                Err(StateError::Backend(message)) => (Vec::new(), message.into_bytes()),
+                Err(error) => panic!("unexpected error: {error}"),
+            })
+            .collect();
+        assert_eq!(
+            output,
+            vec![
+                (b"a".to_vec(), b"first".to_vec()),
+                (b"b".to_vec(), b"override".to_vec()),
+                (Vec::new(), b"middle scan failure".to_vec()),
+                (b"d".to_vec(), b"insert".to_vec()),
+                (b"e".to_vec(), b"last".to_vec()),
+                (Vec::new(), b"trailing scan failure".to_vec()),
+            ]
+        );
     }
 }

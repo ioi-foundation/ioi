@@ -246,6 +246,8 @@ fn build_fixture() -> PortableAssuranceReceiptV1 {
         conflict_slot: 1,
         authorization_mode: EffectAuthorizationModeV1::Portable,
         online_authorization_policy_root: None,
+        online_authorization_predecessor: None,
+        online_authorization_authority_mode: None,
         read_set: vec![EffectResourceKeyV1 {
             key: "balance/source".into(),
             predecessor: Some([21; 32]),

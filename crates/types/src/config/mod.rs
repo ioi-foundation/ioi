@@ -1203,6 +1203,21 @@ impl Default for RpcHardeningConfig {
 pub struct AftQuvDomainPolicyV0 {
     /// Independently provisioned conflict-domain commitment.
     pub domain_id: [u8; 32],
+    /// Maximum number of distinct sequential slots in this authority's Fixed
+    /// history. Retained historical queries remain available; no wrap or reset.
+    /// Handoff domains remain one-shot regardless of this upper bound.
+    pub authority_slots: u32,
+    /// Required rooted starting rule; never defaulted from a request.
+    pub bootstrap: crate::app::QuvDomainBootstrapV0,
+    /// Required rooted preparation contract; never inferred or defaulted.
+    pub preparation: crate::app::QuvPreparationPolicyV0,
+    /// Required active-service contract for every operation, from exclusive
+    /// admission through startup, dispatch, live query, durable work and cleanup.
+    /// This does not itself qualify queue wait or actual storage completion.
+    pub operation_service_millis: u64,
+    /// Required rooted per-identity PUSHQUERY admission quota per sliding
+    /// window; never defaulted, so an older root cannot silently migrate.
+    pub push_admission: crate::app::QuvPushAdmissionPolicyV0,
     /// Candidate-authority rule for the complete domain.
     pub authority_mode: QuvAuthorityModeV0,
     /// Exact rooted owner in owned mode; absent in unowned mode.
@@ -1364,15 +1379,30 @@ impl OrchestrationConfig {
             let mut domains = std::collections::BTreeSet::new();
             for policy in &self.aft_quv_domain_policies {
                 if policy.domain_id == [0; 32]
+                    || !policy
+                        .bootstrap
+                        .is_valid_authority_slots(policy.authority_slots)
+                    || !policy.bootstrap.is_valid_for(policy.authority_mode)
+                    || !policy.preparation.is_valid_for(
+                        policy.bootstrap,
+                        policy.delta_rt_millis,
+                        policy.continuation_millis,
+                    )
                     || policy.delta_rt_millis == 0
                     || policy.qualified_delta_rt_envelope_millis == 0
                     || policy.qualified_delta_rt_envelope_millis > policy.delta_rt_millis
                     || policy.qualified_max_configured_members == 0
                     || usize::from(policy.qualified_max_configured_members)
                         > QUV_MAX_CONFIGURED_MEMBERS_V0
+                    || !policy.preparation.is_valid_operation_service(
+                        policy.operation_service_millis,
+                        policy.delta_rt_millis,
+                        policy.continuation_millis,
+                    )
                     || policy.continuation_millis == 0
+                    || !policy.push_admission.is_valid(policy.delta_rt_millis)
                 {
-                    return Err("Configuration Error: aft_quv_v0 policies require a nonzero domain and continuation_millis, a nonzero qualified_delta_rt_envelope_millis no larger than delta_rt_millis, and a qualified_max_configured_members within the protocol cap.".to_string());
+                    return Err("Configuration Error: aft_quv_v0 policies require compatible explicit bootstrap/preparation budgets and a finite nonwrapping authority_slots horizon, a nonzero domain and continuation_millis, a nonzero qualified_delta_rt_envelope_millis no larger than delta_rt_millis, a qualified_max_configured_members within the protocol cap, and a push_admission quota with a nonzero max_requests_per_identity within the protocol cap and a window_millis no shorter than delta_rt_millis.".to_string());
                 }
                 if !domains.insert(policy.domain_id) {
                     return Err(
