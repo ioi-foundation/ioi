@@ -1,0 +1,5 @@
+{
+  "first_launch": "PREPROCESS_ASSERTION_FAILED",
+  "reason": "Command index assertion failed before subprocess launch; no campaign was started",
+  "correction": "Replace exact old test name by value"
+}

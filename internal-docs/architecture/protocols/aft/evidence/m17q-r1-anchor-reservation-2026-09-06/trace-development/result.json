@@ -1,0 +1,7 @@
+{
+  "all_future_records_reserved_before_live_write": false,
+  "missing_reservation_sync_rejected": true,
+  "live_truncation_rejected": true,
+  "missing_anchor_sync_rejected": true,
+  "scope": "issued syscalls and reported blocks; filesystem semantics and timing remain assumptions"
+}

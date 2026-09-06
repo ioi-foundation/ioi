@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "name": "policy-admission-fields",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "6b73e6428ebb9b08eaa1794095555a7bc825240fcf653c07d8e8d9c7d19215a9"
+    }
+  ],
+  "baseline_sha256": "dc576c11d8c78ebab0d7cb3736c4c351bcda01578dd890e2c9f97a3fa35ec45f",
+  "restored": true
+}

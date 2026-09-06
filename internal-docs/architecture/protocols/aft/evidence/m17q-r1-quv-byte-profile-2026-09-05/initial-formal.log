@@ -1,0 +1,50 @@
+census OK: 67 modules = 54 executed + 13 manifest-marked (manual)
+(* created new ".tlacache/QuvByteReserveProof.tlaps/QuvByteReserveProof.thy" *)
+(* fingerprints written in ".tlacache/QuvByteReserveProof.tlaps/fingerprints" *)
+File "./QuvByteReserveProof.tla", line 9, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME NEW CONSTANT NormalBudget,
+                  NEW CONSTANT FrameBudget,
+                  NEW CONSTANT SharedBudget,
+                  NEW VARIABLE normal,
+                  NEW VARIABLE push,
+                  NEW VARIABLE reply,
+                  vars == <<normal, push, reply>>,
+                  NormalTraffic ==
+                    /\ normal' \in 0..NormalBudget
+                       /\ UNCHANGED <<push, reply>>,
+                  Push ==
+                    /\ push = 0
+                       /\ (\E cost \in 1..FrameBudget :
+                              /\ Capacity(cost) /\ push' = cost)
+                    /\ UNCHANGED <<normal, reply>>,
+                  Reply ==
+                    /\ reply = 0
+                       /\ (\E cost \in 1..FrameBudget :
+                              /\ Capacity(cost) /\ reply' = cost)
+                    /\ UNCHANGED <<normal, push>>,
+                  CompletePush == /\ push' = 0 /\ UNCHANGED <<normal, reply>>,
+                  CompleteReply ==
+                    /\ reply' = 0 /\ UNCHANGED <<normal, push>>,
+                  Next ==
+                    NormalTraffic \/ Push \/ Reply \/ CompletePush
+                    \/ CompleteReply,
+                  TypeOK ==
+                    /\ normal \in 0..NormalBudget /\ push \in 0..FrameBudget
+                       /\ reply \in 0..FrameBudget,
+                  Profile ==
+                    /\ NormalBudget \in Nat /\ FrameBudget \in Nat
+                    /\ FrameBudget > 0 /\ SharedBudget = FALSE,
+                  SMT 
+           PROVE  TypeOK /\ [Next]_vars => TypeOK'
+File "./QuvByteReserveProof.tla", line 1, character 1 to line 17, character 77:
+[ERROR]: 1/16 obligations failed.
+There were backend errors processing module `"QuvByteReserveProof"`.
+ tlapm ending abnormally with Failure("backend errors: there are unproved obligations")
+Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+Called from Tlapm_lib.process_module in file "src/tlapm_lib.ml", line 492, characters 12-77
+Called from Tlapm_lib.main.f in file "src/tlapm_lib.ml", line 621, characters 23-43
+Called from Stdlib__List.fold_left in file "list.ml", line 123, characters 24-34
+Called from Tlapm_lib.main in file "src/tlapm_lib.ml", line 624, characters 13-40
+Called from Tlapm_lib.init in file "src/tlapm_lib.ml", line 641, characters 8-59
+

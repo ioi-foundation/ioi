@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/context.rs",
+        "crates/validator/src/standard/orchestration/lifecycle.rs",
+        "crates/validator/src/standard/orchestration/quv/member_completion.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "sources": {
+    "crates/validator/src/standard/orchestration/quv.rs": "460d5785e5ccafa38e3dc603b001554207a8f3c6c31d0a777818f78a829ca182",
+    "crates/validator/src/standard/orchestration/context.rs": "6d7b99e7b0d1da46cd0bae760094606126f8f16c612f9d3054ce76a846edf338",
+    "crates/validator/src/standard/orchestration/lifecycle.rs": "df00d446a81397fb0998ae57ba2f9d8fece89d3b965dc50795be1c96a1a32f98",
+    "crates/validator/src/standard/orchestration/quv/member_completion.rs": "27028880c9f9e91bfd356ca2d106ab29be08c514d854fba1f3633611fa443a50",
+    ".github/scripts/run_aft_m16q_qualification.sh": "7eebec94f479f2f00ad6544477def3e342c30ed924936cff9d7e363452127e06"
+  },
+  "scope": "Local checks only; current-source process timing and whole R1 closure remain open"
+}

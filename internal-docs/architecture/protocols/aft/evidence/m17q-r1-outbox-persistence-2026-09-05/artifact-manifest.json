@@ -1,0 +1,26 @@
+{
+  "README.md": {
+    "sha256": "14b77fcb86e2db5a2b1fa9ff0b511c2516f89f3b865ea23f0b9f75f834fb7edf",
+    "bytes": 1847
+  },
+  "hygiene-checks.json": {
+    "sha256": "145a5cd9c805e588a57c4e22540c4dbd350f2c3f7386d5123a11c01b2ac239f8",
+    "bytes": 941
+  },
+  "networking-check.json": {
+    "sha256": "b013f688a5642d9d4a5310804a1405e892e2389806c342e721e44adf8b2fbdd6",
+    "bytes": 487
+  },
+  "networking.log": {
+    "sha256": "1c300797ad69f20d0b779d863557ae7149eb427a7fa00bd27bbb8cdc0b427970",
+    "bytes": 17014
+  },
+  "rustc.txt": {
+    "sha256": "b1008d5f7681db91d446d2bb0a07af00372bb6cb4d4599e95212e3a8edce4e11",
+    "bytes": 196
+  },
+  "source-manifest.json": {
+    "sha256": "c6b25bd555a32c6c046bf18bb2f178c8d9a98a8de10f85cf0ff8f4fc3a566b11",
+    "bytes": 1593
+  }
+}

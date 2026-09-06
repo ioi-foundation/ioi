@@ -1,0 +1,14 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib"
+  ],
+  "started_utc": "2026-09-05T02:06:54.350268+00:00",
+  "finished_utc": "2026-09-05T02:07:58.278066+00:00",
+  "exit_code": 0,
+  "log_sha256": "dee02fbb9abfb23d219532fe65973593b07b935b982325020dd204d5cfbe831a"
+}

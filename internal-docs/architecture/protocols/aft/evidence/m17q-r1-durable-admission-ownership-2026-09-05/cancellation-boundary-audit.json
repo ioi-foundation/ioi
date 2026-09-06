@@ -1,0 +1,30 @@
+{
+  "observed_utc": "2026-09-05T10:51:51.276892+00:00",
+  "sources_sha256": {
+    "crates/validator/src/standard/orchestration/quv.rs": "8a66e7943d35269ad275cb7c764cdaac678205b3d54d4d173fb9833aadab54b3",
+    "crates/validator/src/standard/orchestration/quv/admission.rs": "387299c6abd6c126cb93e8ed8cbf841b760ae9306d21ad922a3bfb5f1bcb65fd"
+  },
+  "boundaries": [
+    {
+      "boundary": "preparation reservation",
+      "ownership": "Shared active permit copied into blocking closure; timeout cannot free it before closure return/unwind",
+      "remaining": "Actual reservation/storage completion time is not bounded by cancellation."
+    },
+    {
+      "boundary": "accepted head commit",
+      "ownership": "Shared active permit copied into blocking closure; finalizer also holds share through command cleanup",
+      "remaining": "Finalizer context acquisition/cleanup and durable completion still require timing qualification."
+    },
+    {
+      "boundary": "abort_operation",
+      "ownership": "Removes exact nonce; releases pending share; blocking shares survive",
+      "remaining": "This is refusal/cleanup, not history or effect progress."
+    },
+    {
+      "boundary": "foreground/handoff startup",
+      "ownership": "Queued exclusive admission precedes lane readiness and operation timer",
+      "remaining": "No active service deadline currently applies to these callers. FIFO count does not bound elapsed wait."
+    }
+  ],
+  "scope": "Read-only source audit supporting next runtime service-contract work. No new process result, full refinement or R1 closure."
+}

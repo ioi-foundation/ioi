@@ -1,0 +1,29 @@
+[
+  {
+    "name": "process-checker",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "handoff-checker",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "runner-syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0
+  }
+]

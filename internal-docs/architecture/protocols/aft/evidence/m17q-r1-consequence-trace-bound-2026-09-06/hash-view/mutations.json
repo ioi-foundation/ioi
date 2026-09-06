@@ -1,0 +1,59 @@
+{
+  "cases": [
+    {
+      "case": "live",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "742dab27d378e28a47d6739531b7d8fc37ea4d51dbac6a44ee095f3dee9821cf",
+      "mutant_sha256": "9101bb5996e74ce351db72ec6b56be3a7fdfe9c28344a2187883bb2007965a2a",
+      "exit_code": 101,
+      "assertion_failure": true
+    },
+    {
+      "case": "recovery",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "742dab27d378e28a47d6739531b7d8fc37ea4d51dbac6a44ee095f3dee9821cf",
+      "mutant_sha256": "8d47686cdfa333d6aa3775b6001f4460d0d12ef59d1ab30151ad68f6c07ea5ed",
+      "exit_code": 101,
+      "assertion_failure": true
+    },
+    {
+      "case": "canonical",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::pq_resource_format_bounds_cover_maximum_tokens_and_refuse_noncanonical_evidence",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "742dab27d378e28a47d6739531b7d8fc37ea4d51dbac6a44ee095f3dee9821cf",
+      "mutant_sha256": "434f317bd4c877966b9e8ab2b6db34599c9a9fe108e61a6971b9135a80e918fe",
+      "exit_code": 101,
+      "assertion_failure": true
+    }
+  ],
+  "restored": true
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "config": "QuvLifetimeBudget.cfg",
+    "command": [
+      "java",
+      "-XX:ActiveProcessorCount=2",
+      "-Xmx512m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-cleanup",
+      "-deadlock",
+      "-workers",
+      "1",
+      "-config",
+      "QuvLifetimeBudget.cfg",
+      "QuvLifetimeBudget.tla"
+    ],
+    "exit_code": 0,
+    "expected_countermodel": null,
+    "passed": true
+  },
+  {
+    "config": "QuvLifetimeBudgetReuse.cfg",
+    "command": [
+      "java",
+      "-XX:ActiveProcessorCount=2",
+      "-Xmx512m",
+      "-cp",
+      "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+      "tlc2.TLC",
+      "-cleanup",
+      "-deadlock",
+      "-workers",
+      "1",
+      "-config",
+      "QuvLifetimeBudgetReuse.cfg",
+      "QuvLifetimeBudget.tla"
+    ],
+    "exit_code": 12,
+    "expected_countermodel": "Invariant ChargedRecordBytes is violated",
+    "passed": true
+  }
+]

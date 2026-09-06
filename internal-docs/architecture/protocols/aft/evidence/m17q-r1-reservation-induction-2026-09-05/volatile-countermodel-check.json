@@ -1,0 +1,17 @@
+{
+  "command": [
+    "java",
+    "-cp",
+    "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+    "tlc2.TLC",
+    "-cleanup",
+    "-deadlock",
+    "-config",
+    "ReconciliationBudgetVolatile.cfg",
+    "ReconciliationBudgetVolatile.tla"
+  ],
+  "exit_code": 12,
+  "expected_invariant_failure": true,
+  "model_sha256": "3315dd498606baf760de417b5834f96e6d24ce07870525cdb593fddbfc12fcbd",
+  "log_sha256": "599dbbddad2662a81685b1959cfee753933094f52612cacf6d69e72f58fd6321"
+}

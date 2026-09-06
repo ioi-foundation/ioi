@@ -1,0 +1,43 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl",
+      "readiness_observation_requires_positive_wait_and_exact_nonce",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_readiness_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  }
+]

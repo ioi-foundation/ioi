@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::handoff_final_continuation_deadline_edges_preserve_uninstalled_state",
+    "--",
+    "--exact"
+  ],
+  "baseline_sha256": "e037902fec79353aa58efdc5b7817a7922e7f0cc05f41d1a823a1e1a5f5e5677",
+  "mutant_sha256": "5fdc4f11e13cf6b5285388c62c247a95ba5bebcc5774e7d4ecec97a5567f00ff",
+  "exit_code": 101,
+  "expected_regression_failure": true,
+  "restored": true
+}

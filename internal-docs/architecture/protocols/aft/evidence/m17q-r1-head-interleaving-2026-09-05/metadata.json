@@ -1,0 +1,45 @@
+{
+  "status": "LOCAL_FINITE_DESIGN_CHECK_PASS_NOT_PRODUCTION_REFINEMENT",
+  "utc": "2026-09-05T02:54:30.849783+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "command": "bash .github/scripts/run_aft_formal_checks.sh --quv-parent-boundary-only",
+  "exit_code": 0,
+  "one_slot_two_values": {
+    "generated": 21501,
+    "distinct": 4328
+  },
+  "two_slots_two_values": {
+    "generated": 84409,
+    "distinct": 17314
+  },
+  "reachability": "Both correct members advance two slots using independent interleaved live operations; existential only",
+  "limitations": [
+    "Owned mode only, silent Byzantine peers",
+    "Fixed independently rooted genesis and configuration",
+    "Atomic durable capture and advance; non-rollback storage assumed",
+    "Exact operation routing and authenticated correct identities assumed",
+    "Complete correct-member observation required before decision; no deadline/scheduling proof",
+    "No production head implementation or T10/handoff refinement"
+  ],
+  "source_sha256": {
+    ".github/scripts/run_aft_formal_checks.sh": "61d2efc354a49eda3b0c92b6fafcba3f917def1c266901fd0c7d530041818a37",
+    ".github/scripts/run_aft_m16q_qualification.sh": "e83fcd45385c1d59901f2a7d54e4e66eb4e9d5e40e699877e7208e45faebc213",
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    "crates/consensus/src/aft/query_unanimity.rs": "153d5b0034b52df433fbd213ba602e0571fd938eac26d931995474a91843a932",
+    "crates/validator/src/standard/orchestration/quv.rs": "dcd662301759b5b88f3a5708c3e7832b6b9feaaf520702f2e8fb4656c19481e8",
+    "internal-docs/architecture/protocols/aft/IMPLEMENTATION_LEDGER.md": "630fa68b90122477119437d9865becd4150317c8dc9730557d2b4fed6e46053d",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.cfg": "5852eafac46a796f718379b98196711b23facffa5fbd039e6bee72014c9698ea",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.tla": "1b04deefc971b81804e6a864b564add1ad4028228b3fd2f463035e6a8652af3e",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverificationPersistence.cfg": "b978302ef8c7761b876d694fab651bb9b3da7f019c392bbf2e42ae9abe8a7af7",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.cfg": "021bb38e53cdc1cd1feb6642ef4b9ca53861bc186a10974a616725f1a181ac86",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla": "7508321d7cc52e5b869a20cb75c47f4d76d5ce30ab423b7f583148a691be0162",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingReachable.cfg": "5c9f7bcbee7e42db3e86a759fe5474e91fd24184be9e2ce27d36cc141f416734",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingTwoSlot.cfg": "6c976f757468095dd0b7e946bb3b2e5d36830340e67af076e12d252a42f8d6af",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.cfg": "3cf6a477adc80d88d95416f33957f7b0730467f451094fb104dd1ab8798d71e1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla": "c4f1d082acb95feaf03116a30f52f91519ddc897933ec8a123910cfe9abb6675",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationReachable.cfg": "c59d89e155a44dd6275db7194d86399232db47e0d8dce81e15f0f96a9e49091d",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationSolo.cfg": "ed49fda48dc3a63b9fd856654fbdb41641c70764b1c9439d42c7b896b3046098",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "6835fd7deffef8c1a2cc199acb4c48f03de0fc90eb53b64a2a2031c0c6b09d4d",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_head_state_design.md": "a2a6c5d3b3c2ca9875b36dc2b4ab6fa67fed96077da427d8cfad43d385adb5dd"
+  }
+}

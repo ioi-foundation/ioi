@@ -1,0 +1,1724 @@
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: type `ReservationLimits` is more private than the item `MemberJournal::open_reserved`
+   --> crates/consensus/src/aft/query_unanimity/journal.rs:261:5
+    |
+261 | /     pub(super) fn open_reserved(
+262 | |         directory: &Path,
+263 | |         anchor_path: &Path,
+264 | |         key: QuvHash,
+...   |
+269 | |         replay: impl FnMut(u64, &[u8]) -> Result<(), QuvError>,
+270 | |     ) -> Result<Self, QuvError> {
+    | |_______________________________^ associated function `MemberJournal::open_reserved` is reachable at visibility `pub(in crate::aft::query_unanimity)`
+    |
+note: but type `ReservationLimits` is only usable at visibility `pub(in crate::aft::query_unanimity::journal)`
+   --> crates/consensus/src/aft/query_unanimity/journal/reservation.rs:8:1
+    |
+  8 | pub(super) struct ReservationLimits {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 3 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: unused variable: `correct_runtime_root`
+   --> crates/cli/tests/aft_e2e_parts/quv_flood.rs:386:13
+    |
+386 |         let correct_runtime_root = cluster.validators[correct_process].validator().state_dir().join("ordering-finality");
+    |             ^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_correct_runtime_root`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-cli` (test "aft_e2e") generated 1 warning (run `cargo fix --test "aft_e2e" -p ioi-cli` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
+     Running tests/aft_e2e.rs (target/debug/deps/aft_e2e-f1897eb6b42f87f6)
+
+running 1 test
+--- Building Test Artifacts (one-time setup) ---
+Building component for mock-verifier in "/home/heathledger/Documents/ioi/repos/ioi/crates/cli/tests/fixtures/mock-verifier"
+WARN: `cargo-component` not found. Skipping build of 'mock-verifier'. Tests relying on this artifact may fail.
+--- Test Artifacts built successfully ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: type `ReservationLimits` is more private than the item `MemberJournal::open_reserved`
+   --> crates/consensus/src/aft/query_unanimity/journal.rs:261:5
+    |
+261 | /     pub(super) fn open_reserved(
+262 | |         directory: &Path,
+263 | |         anchor_path: &Path,
+264 | |         key: QuvHash,
+...   |
+269 | |         replay: impl FnMut(u64, &[u8]) -> Result<(), QuvError>,
+270 | |     ) -> Result<Self, QuvError> {
+    | |_______________________________^ associated function `MemberJournal::open_reserved` is reachable at visibility `pub(in crate::aft::query_unanimity)`
+    |
+note: but type `ReservationLimits` is only usable at visibility `pub(in crate::aft::query_unanimity::journal)`
+   --> crates/consensus/src/aft/query_unanimity/journal/reservation.rs:8:1
+    |
+  8 | pub(super) struct ReservationLimits {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 3 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+   Compiling ioi-validator v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/validator)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+test test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation has been running for over 60 seconds
+warning: `ioi-validator` (lib) generated 1 warning
+   Compiling ioi-node v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/node)
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 2m 37s
+--- Encrypting New Secure Key ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: type `ReservationLimits` is more private than the item `MemberJournal::open_reserved`
+   --> crates/consensus/src/aft/query_unanimity/journal.rs:261:5
+    |
+261 | /     pub(super) fn open_reserved(
+262 | |         directory: &Path,
+263 | |         anchor_path: &Path,
+264 | |         key: QuvHash,
+...   |
+269 | |         replay: impl FnMut(u64, &[u8]) -> Result<(), QuvError>,
+270 | |     ) -> Result<Self, QuvError> {
+    | |_______________________________^ associated function `MemberJournal::open_reserved` is reachable at visibility `pub(in crate::aft::query_unanimity)`
+    |
+note: but type `ReservationLimits` is only usable at visibility `pub(in crate::aft::query_unanimity::journal)`
+   --> crates/consensus/src/aft/query_unanimity/journal/reservation.rs:8:1
+    |
+  8 | pub(super) struct ReservationLimits {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 3 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.40s
+--- Encrypting New Secure Key ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: type `ReservationLimits` is more private than the item `MemberJournal::open_reserved`
+   --> crates/consensus/src/aft/query_unanimity/journal.rs:261:5
+    |
+261 | /     pub(super) fn open_reserved(
+262 | |         directory: &Path,
+263 | |         anchor_path: &Path,
+264 | |         key: QuvHash,
+...   |
+269 | |         replay: impl FnMut(u64, &[u8]) -> Result<(), QuvError>,
+270 | |     ) -> Result<Self, QuvError> {
+    | |_______________________________^ associated function `MemberJournal::open_reserved` is reachable at visibility `pub(in crate::aft::query_unanimity)`
+    |
+note: but type `ReservationLimits` is only usable at visibility `pub(in crate::aft::query_unanimity::journal)`
+   --> crates/consensus/src/aft/query_unanimity/journal/reservation.rs:8:1
+    |
+  8 | pub(super) struct ReservationLimits {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 3 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.43s
+--- Encrypting New Secure Key ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: type `ReservationLimits` is more private than the item `MemberJournal::open_reserved`
+   --> crates/consensus/src/aft/query_unanimity/journal.rs:261:5
+    |
+261 | /     pub(super) fn open_reserved(
+262 | |         directory: &Path,
+263 | |         anchor_path: &Path,
+264 | |         key: QuvHash,
+...   |
+269 | |         replay: impl FnMut(u64, &[u8]) -> Result<(), QuvError>,
+270 | |     ) -> Result<Self, QuvError> {
+    | |_______________________________^ associated function `MemberJournal::open_reserved` is reachable at visibility `pub(in crate::aft::query_unanimity)`
+    |
+note: but type `ReservationLimits` is only usable at visibility `pub(in crate::aft::query_unanimity::journal)`
+   --> crates/consensus/src/aft/query_unanimity/journal/reservation.rs:8:1
+    |
+  8 | pub(super) struct ReservationLimits {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 3 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.36s
+--- Encrypting New Secure Key ---
+--- Waiting for cluster to converge on a shared tip ---
+--- All nodes synced. Cluster is ready. ---
+[M16Q-REGISTRATION] manifests=20 last_committed_height=85 admitted_height=87
+[M16Q-QUV] case=initial_manifest_admission member_position=0 result=exact_signature_refusal
+[M16Q-QUV] case=initial_manifest_admission member_position=1 result=exact_signature_refusal
+[M16Q-QUV] case=initial_manifest_admission member_position=2 result=exact_signature_refusal
+[M16Q-QUV] case=initial_manifest_admission member_position=3 result=exact_signature_refusal
+[M16Q-QUV] case=invalid_signature_preparation member_position=0 per_effect_storage_unchanged=true result=rejected
+[M16Q-QUV] case=sole_correct member_position=0 process_index=2 terminal_replays=1 replay_elapsed_ms=33 elapsed_ms=6180 max_valid_reply_elapsed_ms=340 qualified_envelope_ms=4500 result=executed
+[M16Q-QUV] case=invalid_signature_preparation member_position=1 per_effect_storage_unchanged=true result=rejected
+[M16Q-QUV] case=sole_correct member_position=1 process_index=3 terminal_replays=1 replay_elapsed_ms=26 elapsed_ms=5921 max_valid_reply_elapsed_ms=306 qualified_envelope_ms=4500 result=executed
+[M16Q-QUV] case=invalid_signature_preparation member_position=2 per_effect_storage_unchanged=true result=rejected
+[M16Q-QUV] case=sole_correct member_position=2 process_index=0 terminal_replays=1 replay_elapsed_ms=27 elapsed_ms=5598 max_valid_reply_elapsed_ms=303 qualified_envelope_ms=4500 result=executed
+[M16Q-QUV] case=invalid_signature_preparation member_position=3 per_effect_storage_unchanged=true result=rejected
+[M16Q-QUV] case=sole_correct member_position=3 process_index=1 terminal_replays=1 replay_elapsed_ms=28 elapsed_ms=5600 max_valid_reply_elapsed_ms=347 qualified_envelope_ms=4500 result=executed
+[M16Q-QUV] case=recovered_results exact_nonportable_results=4 result=recorded
+[M16Q-QUV] case=authenticated_saturation operations=4 verifier_nonces=fdf8b332d87ed2ca17072f4c823c7fcb7c59ae3853809439171e2b644182771a,6e656ac9fa014183e2b6348e39246190a967ea3afb7090b5ae14709e1a7fc4f7,5bfaf499c58333c5464f5cc4d83701deafe1235d791c651f159c814fe49793bf,71b4924965e19ac54c00a089d42da1db6b359e531b19726348097f616f415c8f preparation_elapsed_ms=7632 rpc_launch_span_ms=0 elapsed_ms=8807 max_valid_reply_elapsed_ms=Some(2869) qualified_envelope_ms=4500 result=executed
+[M16Q-QUV] case=concurrent_valid_conflict accepts=1 conflict_rejections=1 durable_records=1 rejected_resources_unchanged=true elapsed_ms=13028 result=safe
+[M16Q-PREDECESSOR-FORK] case=owned-ab mode=owned order=ab refused_before_push=true refusals=1 same_executor=true refusal_rules=claim_index accepts=1 durable_records=1 predecessor_a=4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d predecessor_b=4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e accepted_payload=3c64e956a3c854d31c189d8bea95131efd3ff4f65af2341ea07287146774b049 refused_payload=067cc54fdb533b6ff2021ae553f8b204a1d68a8db45f851a725606c06b6f3d70 result=safe
+[M16Q-PREDECESSOR-FORK] case=owned-ba mode=owned order=ba refused_before_push=true refusals=2 same_executor=true refusal_rules=expected_head,claim_index accepts=1 durable_records=1 predecessor_a=4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d predecessor_b=4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e accepted_payload=428a4e18970511bfe890471da19b73bf1ef8fb15c1596b517cbb032a40bf12b3 refused_payload=8c5194d822cebbe7261b43306f6a3930bbd52bfdac8a1f5acceb00f48d99c283 result=safe
+[M16Q-PREDECESSOR-FORK] case=unowned-ab mode=unowned order=ab refused_before_push=true refusals=1 same_executor=false refusal_rules=expected_head accepts=1 durable_records=1 predecessor_a=4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d predecessor_b=4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e accepted_payload=8ac9a16b9d59dfd991e09b9302a7c55aeb3970ec18b62f69a53848b7d80a8072 refused_payload=90f4172cd5c0b85b010d45ed62537a88dd498c8ccc24dad383786d0f9593ea24 result=safe
+[M16Q-PREDECESSOR-FORK] case=unowned-ba mode=unowned order=ba refused_before_push=true refusals=2 same_executor=false refusal_rules=expected_head,expected_head accepts=1 durable_records=1 predecessor_a=4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d predecessor_b=4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e accepted_payload=0758312bba7a686e7a9cdd4ff8df72b5298dc76c547060e1d36c7ad8f4ee4d68 refused_payload=aefa67fa5c73c92a524bbc26821c11327d3cd4449bc20ac6870fcbf09a7c05ad result=safe
+[M16Q-QUV] case=unrelated_after_conflict elapsed_ms=8795 result=executed
+[M16Q-CONCURRENT-REPLAY] unrelated_elapsed_ms=8795 replay_count=14 replay_span_ms=9214 delta_rt_ms=5000 slack_ms=10000 replay_payload=9346de6b79f3591b79e56cc4a94f32bca0f16ba322953ef6588fd9dad90278bc unrelated_payload=2566162d0463ae94647fda2029f82bf30727b10486de345b8e92f322aefd496d lookup_only=true
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=126 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=126 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=126 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=127 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=128 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=128 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=129 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=130 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=130 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=131 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=131 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=132 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=132 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=133 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=133 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=134 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=134 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=135 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=135 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=136 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=136 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=137 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=137 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=137 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=138 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=138 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=139 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=139 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=140 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=140 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=141 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=141 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=141 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=142 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=142 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=142 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=143 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=143 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=143 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=144 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=144 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=145 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=145 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=146 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=146 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=147 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=147 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=147 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=148 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=148 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=148 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=149 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=149 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=150 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=150 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=150 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=151 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=151 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=152 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=152 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=152 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=153 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=153 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=154 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=154 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=155 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=155 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=155 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=156 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=156 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=156 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=157 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=157 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=157 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=158 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=158 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=158 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=159 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=159 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=160 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=160 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=161 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=161 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=161 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=162 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=162 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=162 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=163 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=163 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=164 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=164 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=164 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=165 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=165 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=166 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=166 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=167 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=167 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=167 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=168 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=168 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=168 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=169 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=169 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=170 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=170 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=171 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=171 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=172 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=172 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=172 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=173 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=173 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=174 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=174 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=175 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=175 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=175 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=176 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=176 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=176 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=177 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=177 receipt_unchanged=true portable_final_receipt=false
+[M16Q-EXPIRY-WAIT] expiry_height=177 observed_height=177 receipt_unchanged=true portable_final_receipt=false
+[M16Q-QUV] case=expired_result expiry_height=177 observed_height=178 elapsed_ms=182102 receipt_unchanged=true result=recorded
+[M16Q-STATUS-CLAIM-EXPECT] member_position=0 account=519fa13af1ae075b1998a8e46ad465b9806d0e96405ac529b9e33502e16abcab claimant_position=1 claimant_process=3 claimant_account=8fc5a9c370f34346092710cbac73c112767ff3c618e99e13071166bef2d11a49 claimant_peer=12D3KooWBoBRVKb4JQxCUzPVT1TY8y7SZiqdCvB8QNW4bfrM3hWt
+[M16Q-QUV] case=byzantine_status_claim claimed_account=519fa13af1ae075b1998a8e46ad465b9806d0e96405ac529b9e33502e16abcab claimant_process=3 claimant_peer=12D3KooWBoBRVKb4JQxCUzPVT1TY8y7SZiqdCvB8QNW4bfrM3hWt members_valid=4 override_warnings=15 claim_refusals=15 elapsed_ms=7903 max_valid_reply_elapsed_ms=1066 qualified_envelope_ms=4500 result=executed
+[M16Q-SUMMARY] sole_correct_elapsed_ms=[6180, 5921, 5598, 5600] conflict_elapsed_ms=13028 conflict_accepts=1 unrelated_elapsed_ms=8795 delta_rt_ms=5000
+test test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 1147.34s
+

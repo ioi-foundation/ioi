@@ -1,0 +1,23 @@
+[
+  {
+    "case": "disjoint-handoff",
+    "exit_code": 0,
+    "finished_utc": "2026-09-05T04:36:11.820311+00:00",
+    "changed_sources": [],
+    "checker_exit_code": 0
+  },
+  {
+    "case": "overlap-handoff",
+    "exit_code": 0,
+    "finished_utc": "2026-09-05T04:40:41.374789+00:00",
+    "changed_sources": [],
+    "checker_exit_code": 0
+  },
+  {
+    "case": "correct-member-campaign",
+    "exit_code": 0,
+    "finished_utc": "2026-09-05T04:44:59.063352+00:00",
+    "changed_sources": [],
+    "checker_exit_code": 0
+  }
+]

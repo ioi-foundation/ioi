@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "name": "early-release",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::admission::tests::delivered_continuation_holds_admission_through_effect_and_cancelled_worker",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "aad5bd0c73ad887be1fc8690a01f06c662660841c938723a795c4645d76f5243"
+    }
+  ],
+  "baseline_sha256": "7bacf064f2e5a80386ea0e2e29af19563147ef761e5f3d2d4e5996c7b6b578d4",
+  "restored": true
+}

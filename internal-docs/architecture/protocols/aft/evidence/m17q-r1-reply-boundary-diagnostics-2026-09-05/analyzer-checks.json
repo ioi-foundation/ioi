@@ -1,0 +1,8 @@
+{
+  "script_sha256": "88effccd11b821a5859355651a88e233a3728cecb999529079e77e8ec0e60687",
+  "positive_complete_trace": true,
+  "missing_stage_checks": 8,
+  "duplicate_boundary_rejected": true,
+  "noncanonical_hex_controls": 3,
+  "scope": "Synthetic diagnostic parser checks only"
+}

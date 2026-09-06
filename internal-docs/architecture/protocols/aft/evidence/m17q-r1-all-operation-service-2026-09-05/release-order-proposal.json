@@ -1,0 +1,6 @@
+{
+  "status": "UNAPPLIED_UNTESTED_PROPOSAL",
+  "source_sha256": "265973b40efc73b785e672571a069ac7611969e4dcd4ad40ebd87d334b75d315",
+  "scope": "Moves final completion sample after finalizer admission-share release. Does not derive selection/queue/restart bounds or instrument all cancellation paths. Regression and removed-rule validation remain required before treating as a repair.",
+  "limitation": "Moving the sample after finalizer-share drop is insufficient by itself; startup/dispatch must retain its own share, and actual final release must be distinguished from a share drop."
+}

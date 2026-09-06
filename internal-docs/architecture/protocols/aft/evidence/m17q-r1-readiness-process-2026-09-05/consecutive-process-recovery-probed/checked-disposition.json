@@ -1,0 +1,10 @@
+{
+  "disposition": "PASS_SCOPED_CAMPAIGN",
+  "process_exit_code": 0,
+  "changed_sources": [],
+  "checker_exit_codes": {
+    "recorded-readiness-check": 0,
+    "release-observations": 0
+  },
+  "scope": "Selected consecutive-slot/restart and unrelated-effect assertions; not aggregate timing/resources, full transition refinement, clean R2 or whole R1 closure"
+}

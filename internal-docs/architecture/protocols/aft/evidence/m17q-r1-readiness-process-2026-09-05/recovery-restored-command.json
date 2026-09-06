@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "recovery_probe_retries_only_startup_and_requires_exact_result",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 0,
+  "nonvacuous_pass": true
+}

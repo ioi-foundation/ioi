@@ -1,0 +1,141 @@
+census OK: 79 modules = 66 executed + 13 manifest-marked (manual)
+(* fingerprints file ".tlacache/PqReservedIndexProof.tlaps/fingerprints" removed *)
+(* created new ".tlacache/PqReservedIndexProof.tlaps/PqReservedIndexProof.thy" *)
+(* fingerprints written in ".tlacache/PqReservedIndexProof.tlaps/fingerprints" *)
+File "./PqReservedIndexProof.tla", line 1, character 1 to line 17, character 77:
+[INFO]: All 9 obligations proved.
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 32 and seed 5413461163880074682 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1812745] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/outbox/PqReservedIndex.tla
+Parsing file /tmp/tlc-3335132600046395400/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-3335132600046395400/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-3335132600046395400/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-3335132600046395400/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-3335132600046395400/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-3335132600046395400/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-3335132600046395400/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module PqReservedIndex
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module PqReservedIndex
+Starting... (2026-09-05 23:30:46)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 23:30:46.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 7.0E-18
+23 states generated, 10 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 8.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 2).
+Finished in 00s at (2026-09-05 23:30:46)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 47 and seed -5995261285947158049 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1812856] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.txKpeiHphp/PqReservedIndex.tla
+Parsing file /tmp/tlc-15875681502783972689/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-15875681502783972689/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-15875681502783972689/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-15875681502783972689/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-15875681502783972689/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-15875681502783972689/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-15875681502783972689/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module PqReservedIndex
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module PqReservedIndex
+Starting... (2026-09-05 23:30:46)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 23:30:46.
+Error: Invariant ActiveRecoverable is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ active = 0
+/\ persistedActive = 0
+/\ phase = "Idle"
+/\ valid = {0, 1}
+/\ allocated = {0, 1}
+
+State 2: <BeginWrite line 10, col 15 to line 14, col 76 of module PqReservedIndex>
+/\ active = 0
+/\ persistedActive = 0
+/\ phase = "Writing"
+/\ valid = {0}
+/\ allocated = {0, 1}
+
+State 3: <Exchange line 18, col 13 to line 20, col 62 of module PqReservedIndex>
+/\ active = 1
+/\ persistedActive = 0
+/\ phase = "Exchanged"
+/\ valid = {0}
+/\ allocated = {0, 1}
+
+5 states generated, 4 distinct states found, 1 states left on queue.
+The depth of the complete state graph search is 3.
+Finished in 00s at (2026-09-05 23:30:46)
+Trace exploration spec path: ./PqReservedIndex_TTrace_1788665446.tla
+expected counterexample observed: PqReservedIndex.tla: Invariant ActiveRecoverable is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 24 and seed -4915164979535214486 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1813084] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.lD9Vd06w41/PqReservedIndex.tla
+Parsing file /tmp/tlc-1773538384437378204/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-1773538384437378204/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-1773538384437378204/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-1773538384437378204/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-1773538384437378204/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-1773538384437378204/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-1773538384437378204/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module PqReservedIndex
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module PqReservedIndex
+Starting... (2026-09-05 23:30:47)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 23:30:47.
+Error: Invariant CapacityRetained is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ active = 0
+/\ persistedActive = 0
+/\ phase = "Idle"
+/\ valid = {0, 1}
+/\ allocated = {0, 1}
+
+State 2: <BeginWrite line 10, col 15 to line 14, col 76 of module PqReservedIndex>
+/\ active = 0
+/\ persistedActive = 0
+/\ phase = "Writing"
+/\ valid = {0}
+/\ allocated = {0}
+
+2 states generated, 2 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 2.
+Finished in 00s at (2026-09-05 23:30:47)
+Trace exploration spec path: ./PqReservedIndex_TTrace_1788665446.tla
+expected counterexample observed: PqReservedIndex.tla: Invariant CapacityRetained is violated

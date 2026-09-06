@@ -1,0 +1,65 @@
+{
+  "scope": "diagnostic observations, not coverage proof or authorization",
+  "timing": "wall-clock log timestamps; not the protocol monotonic deadline",
+  "sources": {
+    "validator-20000-orch.log": {
+      "sha256": "d64c7e005a0963d564e1c334a6b2f31718bb64ae280596c27ddc2595a03bc4f1",
+      "bytes": 17565
+    },
+    "validator-20100-orch.log": {
+      "sha256": "e9675d49422557dfe67dc865e152a0a70155e9c31f5575cfab42535672ed11c9",
+      "bytes": 13855
+    },
+    "validator-20200-orch.log": {
+      "sha256": "74f71d699453d79a25123c21175448866abafb801ea95f88bcb6a71689c391cc",
+      "bytes": 5566
+    },
+    "validator-20300-orch.log": {
+      "sha256": "b764c4bd8d74d524ee12793a33774dc0ef5dfe7e30f95286ee4a69572be81969",
+      "bytes": 9728
+    }
+  },
+  "unparsed_lines": 177,
+  "malformed_json_lines": 0,
+  "operations": {
+    "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6": {
+      "counts": {
+        "operation_started": 1,
+        "member_work_queued": 1,
+        "member_work_completed": 1
+      },
+      "events": [
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:11.1568571Z",
+          "event": "operation_started",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "payload": "94ada1142a52b444ade6ab8c7407f8e19f433f35b5d279febd861bfa3c2f1735",
+          "local_endpoint": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "members": "{AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133]), AccountId([110, 151, 143, 99, 213, 232, 211, 122, 101, 149, 255, 183, 181, 248, 93, 195, 225, 133, 174, 200, 251, 141, 188, 147, 56, 66, 15, 251, 147, 249, 116, 30]), AccountId([138, 204, 34, 162, 202, 151, 17, 71, 139, 224, 193, 160, 139, 71, 251, 145, 207, 149, 90, 224, 85, 242, 82, 172, 215, 80, 66, 21, 254, 148, 146, 62]), AccountId([165, 23, 49, 8, 156, 137, 56, 173, 208, 43, 98, 80, 66, 74, 187, 127, 169, 107, 131, 48, 248, 120, 7, 11, 225, 169, 73, 113, 236, 197, 131, 190])}",
+          "decision_millis": 5000,
+          "wall_millis_from_start_log": 0.0
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:11.212526811Z",
+          "event": "member_work_queued",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "wall_millis_from_start_log": 55.669
+        },
+        {
+          "node_log": "validator-20300-orch.log",
+          "timestamp": "2026-09-05T00:54:11.413487751Z",
+          "event": "member_work_completed",
+          "nonce": "4eb904177d5fc9dfffe960a6e6b0a09bf5d671a3f8e03b48768269f10ee8b2a6",
+          "requester": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "member": "AccountId([59, 81, 112, 237, 228, 23, 96, 109, 195, 243, 16, 114, 91, 92, 58, 26, 246, 248, 163, 124, 196, 145, 221, 190, 65, 217, 211, 88, 159, 177, 195, 133])",
+          "succeeded": true,
+          "wall_millis_from_start_log": 256.63
+        }
+      ]
+    }
+  }
+}

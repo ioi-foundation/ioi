@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "name": "owned-capacity",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::admission::tests::receipt_admission_bounds_history_preserves_fifo_and_protects_live_reopen",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": false,
+      "mutant_sha256": "a848f9879d263c8128014b925c498e0d4ce866771a8446006afe298d4ff55d7c"
+    }
+  ],
+  "baseline_sha256": "815ca2e94a3ce1f9217a17d4c9fd68d0ae4e585f19f3a211f26a121210b1452a",
+  "restored": true
+}

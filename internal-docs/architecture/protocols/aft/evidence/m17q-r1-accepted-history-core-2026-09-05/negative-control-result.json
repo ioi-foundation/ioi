@@ -1,0 +1,20 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::accepted_history_derives_scope_and_preserves_historical_predecessors",
+    "--",
+    "--exact"
+  ],
+  "mutation": "remove local predecessor and admissible-slot derivation check",
+  "original_sha256": "af8d9958c2bbee222f26491337e44cc81b89230020380e4ddb7b143cdbffe9a7",
+  "mutant_sha256": "c007e9c9c77a4f2cb2f82ba622738e954eb98d3d8eb9972e9be6c226e0fb8299",
+  "exit_code": 101,
+  "source_restored": true
+}

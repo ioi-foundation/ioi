@@ -1,0 +1,20 @@
+     Running unittests src/lib.rs (target/debug/deps/agentgres-834edda94e368887)
+
+running 1 test
+test consequence::tests::stable_key_claim_guard_refuses_second_effect_for_same_conflict_slot_before_invocation ... FAILED
+
+failures:
+
+---- consequence::tests::stable_key_claim_guard_refuses_second_effect_for_same_conflict_slot_before_invocation stdout ----
+
+thread 'consequence::tests::stable_key_claim_guard_refuses_second_effect_for_same_conflict_slot_before_invocation' (699737) panicked at crates/agentgres/src/consequence/tests.rs:2513:10:
+called `Result::unwrap_err()` on an `Ok` value: ConsequenceReceiptV1 { schema_version: "ioi.aft-consequence-receipt.v1", manifest: EffectManifestV1 { schema_version: V1, effect_id: "slot-claim-b", resource_id: "resource://test/b", conflict_
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    consequence::tests::stable_key_claim_guard_refuses_second_effect_for_same_conflict_slot_before_invocation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 127 filtered out; finished in 4.63s
+
+error: test failed, to rerun pass `-p agentgres --lib`

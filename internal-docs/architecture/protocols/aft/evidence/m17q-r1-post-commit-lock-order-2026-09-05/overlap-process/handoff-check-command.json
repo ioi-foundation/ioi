@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_quv_handoff_evidence.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-post-commit-lock-order-2026-09-05/overlap-process/process.log",
+    "--components",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-post-commit-lock-order-2026-09-05/overlap-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "9338fc66e949ed4c0f91be486a98e452e7e21cabee3462814219d41c4bb788d8"
+}

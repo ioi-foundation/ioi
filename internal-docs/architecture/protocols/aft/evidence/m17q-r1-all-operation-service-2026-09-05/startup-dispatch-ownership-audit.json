@@ -1,0 +1,13 @@
+{
+  "observed_utc": "2026-09-05T11:21:34.875027+00:00",
+  "source_sha256": "265973b40efc73b785e672571a069ac7611969e4dcd4ad40ebd87d334b75d315",
+  "scope": "Source-level ownership schedule, not a reproduced conflicting authorization or full process mutation",
+  "schedule": [
+    "begin_admitted_authorization moves its sole async admission share into PendingQuvOperationV0 before dispatch",
+    "the deadline finalizer is spawned before remote durable-admission response waits",
+    "finish_operation can remove pending at the decision boundary while startup is still waiting for a response",
+    "dispatch.finish refuses incomplete dispatch, but dropping the pending/finalizer share can release operation admission before the dispatch frame has returned"
+  ],
+  "required_repair": "Retain an admission share across the entire startup/dispatch future, including cancellation. Distinguish dropping a finalizer share from the final shared permit release when measuring actual service.",
+  "claim_boundary": "The complete-dispatch gate still refuses incomplete dispatch; no unsafe acceptance is inferred. Actual-work/queue-service ownership is incomplete."
+}

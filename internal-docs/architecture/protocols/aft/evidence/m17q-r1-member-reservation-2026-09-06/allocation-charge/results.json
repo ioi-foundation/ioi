@@ -1,0 +1,111 @@
+[
+  {
+    "name": "core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity"
+    ],
+    "started": "2026-09-06T01:12:00.562845+00:00",
+    "completed": "2026-09-06T01:13:49.856312+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T01:13:49.856603+00:00",
+    "completed": "2026-09-06T01:14:07.838899+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T01:14:07.839149+00:00",
+    "completed": "2026-09-06T01:14:14.152882+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T01:14:14.153593+00:00",
+    "completed": "2026-09-06T01:14:22.059618+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T01:14:22.059902+00:00",
+    "completed": "2026-09-06T01:14:22.061900+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-record-reservation-only"
+    ],
+    "started": "2026-09-06T01:14:22.070609+00:00",
+    "completed": "2026-09-06T01:14:23.371094+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "lifetime",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-lifetime-budget-only"
+    ],
+    "started": "2026-09-06T01:14:23.371340+00:00",
+    "completed": "2026-09-06T01:14:24.910776+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "trace",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_record_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-member-reservation-2026-09-06/allocation-charge/trace"
+    ],
+    "started": "2026-09-06T01:14:24.911028+00:00",
+    "completed": "2026-09-06T01:14:25.965841+00:00",
+    "exit_code": 0
+  }
+]

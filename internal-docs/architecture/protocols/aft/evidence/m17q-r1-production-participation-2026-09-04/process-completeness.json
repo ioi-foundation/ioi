@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-production-participation-2026-09-04/process.log"
+  ],
+  "exit_code": 0,
+  "verified_utc": "2026-09-05T00:09:12.461659+00:00",
+  "sources_match": true,
+  "checker_sha256": "ee48b5ab9888af6ba81015d2ed4a4f98bbc0703f8b1a47d49910953eb170cd77",
+  "output_sha256": "4538dc1d36259fdc93e852e24de7cabd861fdc9cfa7c7c07902d81dcf2ac3d53"
+}

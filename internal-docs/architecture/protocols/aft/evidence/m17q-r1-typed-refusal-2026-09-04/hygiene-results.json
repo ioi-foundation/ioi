@@ -1,0 +1,50 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--edition",
+      "2021",
+      "--check",
+      "crates/validator/src/standard/orchestration/quv.rs",
+      "crates/validator/src/standard/orchestration/mod.rs",
+      "crates/validator/src/standard/orchestration/grpc_public.rs",
+      "crates/cli/tests/aft_e2e.rs"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-0.log"
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-1.log"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_claim_discipline.sh"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-2.log"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_theorem_assumes.sh"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-3.log"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "log": "hygiene-4.log"
+  }
+]

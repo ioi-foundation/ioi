@@ -1,0 +1,32 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "reply_handler_uses_captured_table_and_preserves_transport_binding"
+  ],
+  "results": [
+    {
+      "case": "negative_transport_binding",
+      "exit_code": 101,
+      "source_sha256": "ad578e1c78941b968dc02dd7d289b98d78637d4a5888ee8733397ba77d6a3371"
+    },
+    {
+      "case": "negative_nonce_lookup",
+      "exit_code": 101,
+      "source_sha256": "5202654134d64c1ace60d7fbf09adad47b6f7510e022324bc919dbb2ca77eaab"
+    },
+    {
+      "case": "restored",
+      "exit_code": 0,
+      "source_sha256": "460d5785e5ccafa38e3dc603b001554207a8f3c6c31d0a777818f78a829ca182"
+    }
+  ],
+  "restored_sha256": "460d5785e5ccafa38e3dc603b001554207a8f3c6c31d0a777818f78a829ca182",
+  "scope": "Routing controls using fixture signature verification; not cryptographic or full process timing qualification"
+}

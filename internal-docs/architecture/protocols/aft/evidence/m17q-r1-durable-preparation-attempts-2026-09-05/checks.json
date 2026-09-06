@@ -1,0 +1,47 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2021",
+      "crates/consensus/src/aft/query_unanimity.rs"
+    ],
+    "exit_code": 0,
+    "log": "format.log"
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "log": "runner-syntax.log"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "log": "diff-check.log"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_claim_discipline.sh"
+    ],
+    "exit_code": 0,
+    "log": "claim-check.log"
+  },
+  {
+    "command": [
+      "bash",
+      ".github/scripts/check_aft_theorem_assumes.sh"
+    ],
+    "exit_code": 0,
+    "log": "theorem-check.log"
+  }
+]

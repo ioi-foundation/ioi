@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "consequence::tests::endpoint_reservation_refuses_lost_capacity_and_recovers_only_uncommitted_staging",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 101,
+  "expected_failure": true,
+  "restored": true,
+  "baseline_sha256": "21c56fc1c54086d7bf9516cffacecad29eb912e394352869f959853ece6556e2",
+  "mutant_sha256": "646211d0d64b156b44770e35719641cb479e9d132855465dfe205db68a530737"
+}

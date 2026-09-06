@@ -1,0 +1,145 @@
+[
+  {
+    "name": "core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity"
+    ],
+    "started": "2026-09-06T02:10:39.900830+00:00",
+    "completed": "2026-09-06T02:12:32.451879+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T02:12:32.452103+00:00",
+    "completed": "2026-09-06T02:12:51.694030+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T02:12:51.694378+00:00",
+    "completed": "2026-09-06T02:12:58.002389+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T02:12:58.002658+00:00",
+    "completed": "2026-09-06T02:13:06.245284+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T02:13:06.245751+00:00",
+    "completed": "2026-09-06T02:13:06.249532+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-record-reservation-only"
+    ],
+    "started": "2026-09-06T02:13:06.250240+00:00",
+    "completed": "2026-09-06T02:13:07.603961+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "anchor",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-anchor-reservation-only"
+    ],
+    "started": "2026-09-06T02:13:07.604195+00:00",
+    "completed": "2026-09-06T02:13:09.035952+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "continuation",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-install-continuation-only"
+    ],
+    "started": "2026-09-06T02:13:09.036202+00:00",
+    "completed": "2026-09-06T02:13:10.402456+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "lifetime",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-lifetime-budget-only"
+    ],
+    "started": "2026-09-06T02:13:10.402700+00:00",
+    "completed": "2026-09-06T02:13:11.919894+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "handoff_trace",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_handoff_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-handoff-reservation-2026-09-06/ancestry/deep-custody/handoff-trace"
+    ],
+    "started": "2026-09-06T02:13:11.920237+00:00",
+    "completed": "2026-09-06T02:13:13.841477+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "trace",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_quv_record_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-handoff-reservation-2026-09-06/ancestry/deep-custody/trace"
+    ],
+    "started": "2026-09-06T02:13:13.841733+00:00",
+    "completed": "2026-09-06T02:13:14.937824+00:00",
+    "exit_code": 0
+  }
+]

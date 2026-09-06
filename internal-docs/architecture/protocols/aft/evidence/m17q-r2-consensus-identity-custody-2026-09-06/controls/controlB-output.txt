@@ -1,0 +1,20 @@
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `pq_fallback_trigger` is never used
+   --> crates/consensus/src/aft/guardian_majority/tests_parts/authenticated_runtime.rs:306:4
+    |
+306 | fn pq_fallback_trigger(
+    |    ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib test) generated 3 warnings (run `cargo fix --lib -p ioi-consensus --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.75s
+     Running unittests src/lib.rs (target/debug/deps/ioi_consensus-db277b1d9587ff30)
+
+running 1 test
+test aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 322 filtered out; finished in 0.47s
+

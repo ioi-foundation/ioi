@@ -1,0 +1,2053 @@
+use super::*;
+
+#[cfg(test)]
+use ioi_types::app::bench_planted_delay::{planted_delay_for, PlantedPhase};
+#[cfg(test)]
+use ioi_types::app::KernelEvent;
+#[cfg(test)]
+use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(test)]
+use tokio::sync::broadcast;
+
+/// Server wall-clock milliseconds since the UNIX epoch.
+///
+/// Saturating rather than panicking: a host whose clock predates the epoch is
+/// a broken host, and a commit path is the wrong place to abort over it. The
+/// value is an OBSERVATION carried alongside the commit, never an input to
+/// admission, ordering, execution, or state.
+#[cfg(test)]
+fn server_wall_clock_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0))
+        .as_millis()
+        .min(u128::from(u64::MAX)) as u64
+}
+
+#[allow(dead_code)]
+pub(super) fn relay_fanout() -> usize {
+    std::env::var("IOI_AFT_TX_RELAY_FANOUT")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(1)
+}
+
+pub(super) fn post_commit_leader_fanout() -> usize {
+    std::env::var("IOI_AFT_POST_COMMIT_LEADER_FANOUT")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(1)
+}
+
+pub(super) fn post_commit_relay_limit() -> usize {
+    std::env::var("IOI_AFT_POST_COMMIT_RELAY_LIMIT")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(2048)
+}
+
+pub(super) fn post_commit_direct_relay_limit() -> usize {
+    std::env::var("IOI_AFT_POST_COMMIT_DIRECT_RELAY_LIMIT")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(256)
+}
+
+pub(super) fn post_commit_rekick_delays_ms() -> Vec<u64> {
+    std::env::var("IOI_AFT_POST_COMMIT_REKICK_DELAYS_MS")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .filter_map(|part| part.trim().parse::<u64>().ok())
+                .filter(|delay| *delay > 0)
+                .collect::<Vec<_>>()
+        })
+        .filter(|delays| !delays.is_empty())
+        .unwrap_or_else(|| vec![100, 300, 750])
+}
+
+pub(super) fn post_commit_vote_replay_delays_ms() -> Vec<u64> {
+    std::env::var("IOI_AFT_POST_COMMIT_VOTE_REPLAY_DELAYS_MS")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .filter_map(|part| part.trim().parse::<u64>().ok())
+                .filter(|delay| *delay > 0)
+                .collect::<Vec<_>>()
+        })
+        .filter(|delays| !delays.is_empty())
+        .unwrap_or_else(|| vec![150, 500, 1200])
+}
+
+pub(super) fn post_commit_proposal_replay_delays_ms() -> Vec<u64> {
+    std::env::var("IOI_AFT_POST_COMMIT_PROPOSAL_REPLAY_DELAYS_MS")
+        .ok()
+        .map(|value| {
+            value
+                .split(',')
+                .filter_map(|part| part.trim().parse::<u64>().ok())
+                .filter(|delay| *delay > 0)
+                .collect::<Vec<_>>()
+        })
+        .filter(|delays| !delays.is_empty())
+        .unwrap_or_else(|| vec![2_000, 6_000])
+}
+
+/// Runs the durable finalized-header update, and publishes `Committed` plus
+/// the per-transaction completion events for the block's transactions ONLY if
+/// that update succeeded.
+///
+/// The ordering is the invariant, so it is expressed STRUCTURALLY rather than
+/// by convention. `publish_committed_tx_statuses` and
+/// `publish_transaction_committed_events` are nested inside this function, not
+/// module siblings: there is no name in `post_commit` -- or anywhere else --
+/// that can write `Committed` into `tx_status_cache`, or emit
+/// `KernelEvent::TransactionCommitted`, for a finalized block. A regression
+/// that re-adds an early publication call to `finalize_and_broadcast_block`
+/// does not compile, which is a stronger guarantee than a test that only
+/// checks this helper's own orderings.
+///
+/// If the update fails, the status cache is left exactly as it was, NO event
+/// is emitted, and the error propagates -- so a client polling
+/// `get_transaction_status` continues to see the pre-commit status, and a
+/// client subscribed to the event stream observes nothing, instead of either
+/// one reporting a `Committed` the node cannot substantiate after a restart.
+///
+/// The event is published AFTER the status, not instead of it: a subscriber
+/// that reacts to the event by reading `get_transaction_status` must not race
+/// its own notification.
+#[cfg(test)]
+pub(super) async fn durably_update_header_then_publish_committed<F, Fut>(
+    durable_header_update: F,
+    receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
+    tx_status_cache: &Arc<
+        Mutex<lru::LruCache<String, crate::standard::orchestration::context::TxStatusEntry>>,
+    >,
+    event_broadcaster: &broadcast::Sender<KernelEvent>,
+    transactions: &[ChainTransaction],
+    block_height: u64,
+) -> Result<()>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<()>>,
+{
+    /// The exact hash a client holds for `tx`.
+    ///
+    /// `receipt_map` records the hex the submitting RPC handed back; the
+    /// fallback is the same digest computed locally, which is what the RPC
+    /// itself encodes. Both spellings are the key `get_transaction_status` is
+    /// served under, so the status entry and the event always name a
+    /// transaction by the SAME string.
+    fn client_visible_tx_hash(
+        receipts: &lru::LruCache<ioi_types::app::TxHash, String>,
+        hash: &ioi_types::app::TxHash,
+    ) -> String {
+        receipts
+            .peek(hash)
+            .cloned()
+            .unwrap_or_else(|| hex::encode(hash))
+    }
+
+    /// Writes `Committed` into the status cache for every transaction in a
+    /// block, and returns the exact hashes it published, in block order.
+    ///
+    /// NESTED ON PURPOSE -- see the parent's doc comment. Hoisting this back to
+    /// module scope re-opens the defect class, because it restores a name an
+    /// early caller could reach.
+    async fn publish_committed_tx_statuses(
+        receipt_map: &Arc<Mutex<lru::LruCache<ioi_types::app::TxHash, String>>>,
+        tx_status_cache: &Arc<
+            Mutex<lru::LruCache<String, crate::standard::orchestration::context::TxStatusEntry>>,
+        >,
+        transactions: &[ChainTransaction],
+        block_height: u64,
+    ) -> Vec<String> {
+        let receipt_guard = receipt_map.lock().await;
+        let mut status_guard = tx_status_cache.lock().await;
+        let mut published = Vec::with_capacity(transactions.len());
+
+        for tx in transactions {
+            let tx_hash_res: Result<ioi_types::app::TxHash, _> = tx.hash();
+            if let Ok(h) = tx_hash_res {
+                let tx_hash_hex = client_visible_tx_hash(&receipt_guard, &h);
+                if let Some(entry) = status_guard.get_mut(&tx_hash_hex) {
+                    entry.status = TxStatus::Committed;
+                    entry.block_height = Some(block_height);
+                } else {
+                    status_guard.put(
+                        tx_hash_hex.clone(),
+                        crate::standard::orchestration::context::TxStatusEntry {
+                            status: TxStatus::Committed,
+                            error: None,
+                            block_height: Some(block_height),
+                        },
+                    );
+                }
+                published.push(tx_hash_hex);
+            }
+        }
+        published
+    }
+
+    /// Emits one `TransactionCommitted` per transaction whose status was just
+    /// published.
+    ///
+    /// NESTED ON PURPOSE, for the same reason as its sibling: an event that
+    /// says a transaction committed is a durability claim, so no name outside
+    /// this seam may emit one. It is driven by the hashes
+    /// `publish_committed_tx_statuses` RETURNED rather than by re-walking the
+    /// transactions, so an event can only exist for a transaction whose status
+    /// was actually published -- the two cannot drift apart.
+    fn publish_transaction_committed_events(
+        event_broadcaster: &broadcast::Sender<KernelEvent>,
+        published_tx_hashes: &[String],
+        block_height: u64,
+        durable_commit_ms: u64,
+        published_at_ms: u64,
+    ) {
+        for tx_hash in published_tx_hashes {
+            // A send with no live subscriber is the ordinary case and is not
+            // an error: the stream is an optional observer of a commit that
+            // has already happened, never a participant in it.
+            let _ = event_broadcaster.send(KernelEvent::TransactionCommitted {
+                tx_hash: tx_hash.clone(),
+                height: block_height,
+                durable_commit_ms,
+                published_at_ms,
+            });
+        }
+    }
+
+    durable_header_update().await?;
+    let durable_commit_ms = server_wall_clock_ms();
+    // ARMED-ONLY OBSERVATION SEAM. Unarmed this resolves to `None` and adds
+    // nothing but two environment reads. Armed, it inflates exactly the
+    // interval between durable linearization and publication, which is the
+    // interval `durable_ack_publication` reports. A malformed or unarmed spec
+    // refuses here rather than running at full speed under a name that says
+    // otherwise.
+    if let Some(delay) = planted_delay_for(PlantedPhase::DurableAckPublication)? {
+        tokio::time::sleep(delay).await;
+    }
+    let published_tx_hashes =
+        publish_committed_tx_statuses(receipt_map, tx_status_cache, transactions, block_height)
+            .await;
+    let published_at_ms = server_wall_clock_ms().max(durable_commit_ms);
+    publish_transaction_committed_events(
+        event_broadcaster,
+        &published_tx_hashes,
+        block_height,
+        durable_commit_ms,
+        published_at_ms,
+    );
+    Ok(())
+}
+
+pub(super) async fn replay_committed_block_vote_once<CE>(
+    consensus_engine_ref: &Arc<Mutex<CE>>,
+    vote_signer: &LocalAftVoteSigner,
+    our_account_id: AccountId,
+    swarm_sender: &mpsc::Sender<SwarmCommand>,
+    block: &Block<ChainTransaction>,
+) where
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+{
+    if block.header.height == 0 || block.header.signature.is_empty() {
+        return;
+    }
+
+    let vote_hash_vec = match block.header.hash() {
+        Ok(hash) => hash,
+        Err(error) => {
+            tracing::debug!(
+                target: "consensus",
+                height = block.header.height,
+                view = block.header.view,
+                error = %error,
+                "Skipping committed block vote replay because the block hash could not be derived."
+            );
+            return;
+        }
+    };
+    let vote_hash = match to_root_hash(&vote_hash_vec) {
+        Ok(hash) => hash,
+        Err(error) => {
+            tracing::debug!(
+                target: "consensus",
+                height = block.header.height,
+                view = block.header.view,
+                error = %error,
+                "Skipping committed block vote replay because the block hash root conversion failed."
+            );
+            return;
+        }
+    };
+
+    let vote_payload = (block.header.height, block.header.view, vote_hash);
+    let vote_bytes = match codec::to_bytes_canonical(&vote_payload) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            tracing::debug!(
+                target: "consensus",
+                height = block.header.height,
+                view = block.header.view,
+                error = %error,
+                "Skipping committed block vote replay because the vote payload could not be encoded."
+            );
+            return;
+        }
+    };
+    let signature = match vote_signer.sign(&vote_bytes) {
+        Ok(signature) => signature,
+        Err(error) => {
+            tracing::debug!(
+                target: "consensus",
+                height = block.header.height,
+                view = block.header.view,
+                error = %error,
+                "Skipping committed block vote replay because the vote could not be signed."
+            );
+            return;
+        }
+    };
+
+    let vote = ConsensusVote {
+        height: block.header.height,
+        view: block.header.view,
+        block_hash: vote_hash,
+        voter: our_account_id,
+        signature,
+    };
+
+    if let Ok(vote_blob) = codec::to_bytes_canonical(&vote) {
+        let _ = swarm_sender
+            .send(SwarmCommand::BroadcastVote(vote_blob))
+            .await;
+    }
+
+    let mut engine = consensus_engine_ref.lock().await;
+    if let Err(error) = engine.handle_vote(vote).await {
+        tracing::debug!(
+            target: "consensus",
+            height = block.header.height,
+            view = block.header.view,
+            error = %error,
+            "Committed block vote replay loopback was ignored."
+        );
+        return;
+    }
+    let pending_qcs = engine.take_pending_quorum_certificates();
+    drop(engine);
+
+    for qc in pending_qcs {
+        if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
+            let _ = swarm_sender
+                .send(SwarmCommand::BroadcastQuorumCertificate(qc_blob))
+                .await;
+        }
+    }
+}
+
+pub(crate) fn schedule_committed_block_vote_replays<CE>(
+    consensus_engine_ref: Arc<Mutex<CE>>,
+    vote_signer: LocalAftVoteSigner,
+    our_account_id: AccountId,
+    swarm_sender: mpsc::Sender<SwarmCommand>,
+    block: Block<ChainTransaction>,
+) where
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+{
+    // Hash-async virtual envelopes deliberately carry no single-producer
+    // signature. Their executed-block certificate is the authority, so
+    // manufacturing native votes afterward would both cross certificate
+    // classes and keep a completed all-to-all instance alive under load.
+    if block.header.signature.is_empty() {
+        return;
+    }
+    for delay_ms in post_commit_vote_replay_delays_ms() {
+        let consensus_engine_ref = Arc::clone(&consensus_engine_ref);
+        let vote_signer = vote_signer.clone();
+        let swarm_sender = swarm_sender.clone();
+        let block = block.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            replay_committed_block_vote_once(
+                &consensus_engine_ref,
+                &vote_signer,
+                our_account_id,
+                &swarm_sender,
+                &block,
+            )
+            .await;
+        });
+    }
+}
+
+/// Re-publishes the producer's exact signed proposal independently of the
+/// consensus tick. A producer may be delayed after durable commit while it
+/// signs or loops back its own vote; proposal availability must not share that
+/// failure domain. The networking layer converts a duplicate gossip publish
+/// into direct request/response relay, while receivers discard an exact block
+/// they have already executed.
+fn schedule_committed_block_proposal_replays(
+    swarm_sender: mpsc::Sender<SwarmCommand>,
+    proposal_blob: Vec<u8>,
+) {
+    for delay_ms in post_commit_proposal_replay_delays_ms() {
+        let swarm_sender = swarm_sender.clone();
+        let proposal_blob = proposal_blob.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            let _ = swarm_sender
+                .send(SwarmCommand::PublishBlock(proposal_blob))
+                .await;
+        });
+    }
+}
+
+async fn local_vote_identity_for_block<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    block: &Block<ChainTransaction>,
+) -> Result<(AccountId, LocalAftVoteSigner)>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let (view_resolver, local_keypair, pqc_signer) = {
+        let context = context_arc.lock().await;
+        (
+            context.view_resolver.clone(),
+            context.local_keypair.clone(),
+            context.pqc_signer.clone(),
+        )
+    };
+    let parent_ref = StateRef {
+        height: block.header.height.saturating_sub(1),
+        state_root: block.header.parent_state_root.as_ref().to_vec(),
+        block_hash: block.header.parent_hash,
+    };
+    let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+    let encoded_sets = parent_view
+        .get(VALIDATOR_SET_KEY)
+        .await?
+        .ok_or_else(|| anyhow!("AFT validator set missing in committed block parent state"))?;
+    let sets = read_validator_sets(&encoded_sets)?;
+    let effective = effective_set_for_height(&sets, block.header.height);
+    select_local_aft_vote_signer(
+        &effective,
+        block.header.height,
+        &local_keypair,
+        pqc_signer.as_ref(),
+    )
+}
+
+pub(super) fn schedule_post_commit_rekicks(
+    tx_pool: Arc<Mempool>,
+    kick_tx: mpsc::UnboundedSender<()>,
+    kick_scheduled: Arc<AtomicBool>,
+) {
+    if tx_pool.is_empty() {
+        return;
+    }
+
+    for delay_ms in post_commit_rekick_delays_ms() {
+        let tx_pool = Arc::clone(&tx_pool);
+        let kick_tx = kick_tx.clone();
+        let kick_scheduled = Arc::clone(&kick_scheduled);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            if !tx_pool.is_empty() {
+                crate::standard::orchestration::schedule_consensus_kick(&kick_tx, &kick_scheduled);
+            }
+        });
+    }
+}
+
+pub(super) fn dispatch_swarm_command(
+    sender: &tokio::sync::mpsc::Sender<SwarmCommand>,
+    command: SwarmCommand,
+) {
+    match sender.try_send(command) {
+        Ok(()) => {}
+        Err(tokio::sync::mpsc::error::TrySendError::Full(command)) => {
+            let sender = sender.clone();
+            tokio::spawn(async move {
+                let _ = sender.send(command).await;
+            });
+        }
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+    }
+}
+
+struct PqRotationSnapshot<CE> {
+    workload_client: Arc<dyn WorkloadClientApi>,
+    current_hash: Option<[u8; 32]>,
+    was_strict: bool,
+    network_id: [u8; 32],
+    peer_id: libp2p::PeerId,
+    pq_signer: Option<MldsaKeyPair>,
+    outbox_root: Option<String>,
+    commander: mpsc::Sender<SwarmCommand>,
+    peer_accounts_ref: Arc<Mutex<std::collections::HashMap<libp2p::PeerId, AccountId>>>,
+    consensus_engine_ref: Arc<Mutex<CE>>,
+    aft_safety_mode: AftSafetyMode,
+    quv_enabled: bool,
+}
+
+/// Until the positive Q-EA7 coordinator consumes a live old-root QUV
+/// authorization into the rollback-anchored successor store, changing the
+/// effective configuration of a QUV node is forbidden. This guard is applied
+/// once before header authority/durability and again immediately before swarm
+/// manager replacement so neither seam can silently treat ordinary validator
+/// set promotion as a live handoff.
+pub(super) fn reject_unqualified_quv_rotation(
+    quv_enabled: bool,
+    current_hash: Option<[u8; 32]>,
+    desired_hash: [u8; 32],
+    next_height: u64,
+) -> Result<()> {
+    if quv_enabled && current_hash != Some(desired_hash) {
+        return Err(anyhow!(
+            "refusing aft_quv_v0 validator-set rotation at height {next_height} without a live Q-EA7 handoff authorization"
+        ));
+    }
+    Ok(())
+}
+
+async fn rotate_pq_channels_for_next_height<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    snapshot: PqRotationSnapshot<CE>,
+    next_height: u64,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let PqRotationSnapshot {
+        workload_client,
+        current_hash,
+        was_strict,
+        network_id,
+        peer_id,
+        pq_signer,
+        outbox_root,
+        commander,
+        peer_accounts_ref,
+        consensus_engine_ref,
+        aft_safety_mode,
+        quv_enabled,
+    } = snapshot;
+    let peers = peer_accounts_ref.lock().await.clone();
+    let encoded_sets = workload_client
+        .query_raw_state(VALIDATOR_SET_KEY)
+        .await?
+        .ok_or_else(|| anyhow!("AFT validator sets missing after committed state transition"))?;
+    let sets = read_validator_sets(&encoded_sets)?;
+    let effective = effective_set_for_height(&sets, next_height);
+    if quv_enabled
+        && effective
+            .validators
+            .iter()
+            .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44)
+    {
+        let desired_hash =
+            ioi_types::app::canonical_validator_set_hash(effective).map_err(anyhow::Error::msg)?;
+        if current_hash != Some(desired_hash) {
+            // Q-EA7 successors activate themselves from their process-local
+            // live install. The old-root finalizer retains old member service.
+            return Ok(());
+        }
+    }
+    let desired = build_aft_pq_channel_configuration(
+        effective,
+        next_height,
+        network_id,
+        peer_id,
+        pq_signer.as_ref(),
+        outbox_root.as_deref(),
+    )?;
+    let Some(desired) = desired else {
+        if was_strict {
+            return Err(anyhow!(
+                "refusing silent downgrade from strict PQ AFT channels at height {next_height}"
+            ));
+        }
+        return Ok(());
+    };
+    let desired_hash = desired.local.configuration_hash;
+    reject_unqualified_quv_rotation(quv_enabled, current_hash, desired_hash, next_height)?;
+    if current_hash == Some(desired_hash) {
+        return Ok(());
+    }
+    let local_account = desired.local.account_id;
+    let fallback_journal_path = super::super::consensus::aft_fallback_journal_path(
+        outbox_root.as_deref(),
+        desired_hash,
+        local_account,
+    )?;
+    if matches!(aft_safety_mode, AftSafetyMode::ClassicBft) {
+        let mut engine = consensus_engine_ref.lock().await;
+        if !engine.observe_validator_sets(next_height, &sets) {
+            return Err(anyhow!(
+                "consensus engine refused the next AFT validator set before PQ rotation"
+            ));
+        }
+        engine.configure_fallback_journal(
+            ioi_types::app::AftFallbackScopeV1 {
+                network_id,
+                configuration_hash: desired_hash,
+                epoch: effective.effective_from_height,
+            },
+            &fallback_journal_path,
+        )?;
+    }
+    let enrollments = peers
+        .into_iter()
+        .filter_map(|(peer_id, account_id)| {
+            (account_id != local_account).then(|| {
+                desired
+                    .peer_keys
+                    .get(&account_id)
+                    .copied()
+                    .map(|identity_key_hash| PqPeerEnrollment {
+                        peer_id,
+                        account_id,
+                        identity_key_hash,
+                    })
+            })
+        })
+        .flatten()
+        .collect();
+    let (configured_tx, configured_rx) = tokio::sync::oneshot::channel();
+    commander
+        .send(SwarmCommand::ConfigurePqChannels {
+            config: desired.local,
+            enrollments,
+            handoff_only: false,
+            response: configured_tx,
+        })
+        .await
+        .map_err(|error| anyhow!("failed to queue PQ channel rotation: {error}"))?;
+    configured_rx
+        .await
+        .map_err(|_| anyhow!("PQ channel rotation acknowledgement was dropped"))?
+        .map_err(|error| anyhow!("PQ channel rotation was refused: {error}"))?;
+    let mut context = context_arc.lock().await;
+    context.local_validator_account_id = Some(local_account);
+    context.aft_pq_configuration_hash = Some(desired_hash);
+    context.aft_pq_peer_keys = Some(desired.peer_keys);
+    Ok(())
+}
+
+pub(super) fn leader_accounts_for_upcoming_heights(
+    local_height: u64,
+    validator_ids: &[Vec<u8>],
+    fanout: usize,
+) -> Vec<AccountId> {
+    if validator_ids.is_empty() || fanout == 0 {
+        return Vec::new();
+    }
+
+    let mut leaders = Vec::new();
+    let mut seen = HashSet::new();
+    let validator_len = validator_ids.len() as u64;
+    let steps = fanout.min(validator_ids.len());
+    for offset in 1..=steps {
+        let target_height = local_height.saturating_add(offset as u64).max(1);
+        let leader_index = ((target_height - 1) % validator_len) as usize;
+        let Some(leader_bytes) = validator_ids.get(leader_index) else {
+            continue;
+        };
+        let Ok(leader_bytes) = <[u8; 32]>::try_from(leader_bytes.as_slice()) else {
+            continue;
+        };
+        let account = AccountId(leader_bytes);
+        if seen.insert(account) {
+            leaders.push(account);
+        }
+    }
+    leaders
+}
+
+/// Sync handlers acquire context before node state. Finalization must release
+/// node state before its continuation can acquire context or engine locks.
+pub(super) async fn after_synced_node_state<T>(
+    node_state: &Mutex<NodeState>,
+    continuation: impl std::future::Future<Output = T>,
+) -> T {
+    let mut state = node_state.lock().await;
+    if *state == NodeState::Syncing {
+        *state = NodeState::Synced;
+    }
+    drop(state);
+    continuation.await
+}
+
+pub async fn finalize_and_broadcast_block<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    mut final_block: Block<ChainTransaction>,
+    execution_receipts: Vec<ioi_api::chain::BlockExecutionReceipt>,
+    deferred_transactions: Vec<ChainTransaction>,
+    signer: Arc<dyn GuardianSigner>,
+    local_vote_identity: (AccountId, LocalAftVoteSigner),
+    swarm_commander: &mpsc::Sender<SwarmCommand>,
+    consensus_engine_ref: &Arc<Mutex<CE>>,
+    tx_pool: &Arc<Mempool>,
+    node_state_arc: &Arc<Mutex<NodeState>>,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let block_height = final_block.header.height;
+    if execution_receipts.len() != final_block.transactions.len() {
+        return Err(anyhow!(
+            "workload returned {} execution receipts for {} block transactions",
+            execution_receipts.len(),
+            final_block.transactions.len()
+        ));
+    }
+    for (index, (receipt, transaction)) in execution_receipts
+        .iter()
+        .zip(final_block.transactions.iter())
+        .enumerate()
+    {
+        let transaction_hash = transaction.hash()?;
+        if receipt.block_height != block_height
+            || receipt.transaction_index != index as u64
+            || receipt.transaction_hash != transaction_hash
+        {
+            return Err(anyhow!(
+                "workload execution receipt {index} does not bind the finalized block transaction"
+            ));
+        }
+    }
+    let (
+        aft_mode,
+        consensus_type,
+        pq_rotation_snapshot,
+        consensus_kick_tx,
+        consensus_kick_scheduled,
+    ) = {
+        let ctx = context_arc.lock().await;
+        let snapshot = matches!(
+            ctx.config.consensus_type,
+            ioi_types::config::ConsensusType::Aft
+        )
+        .then(|| PqRotationSnapshot {
+            workload_client: ctx.view_resolver.workload_client().clone(),
+            current_hash: ctx.aft_pq_configuration_hash,
+            was_strict: ctx.aft_pq_peer_keys.is_some(),
+            network_id: ctx.genesis_hash,
+            peer_id: ctx.local_keypair.public().to_peer_id(),
+            pq_signer: ctx.pqc_signer.clone(),
+            outbox_root: ctx.config.aft_pq_outbox_dir.clone(),
+            commander: ctx.swarm_commander.clone(),
+            peer_accounts_ref: ctx.peer_accounts_ref.clone(),
+            consensus_engine_ref: ctx.consensus_engine_ref.clone(),
+            aft_safety_mode: ctx.config.aft_safety_mode,
+            quv_enabled: !ctx.config.aft_quv_domain_policies.is_empty(),
+        });
+        (
+            ctx.config.aft_safety_mode,
+            ctx.config.consensus_type,
+            snapshot,
+            ctx.consensus_kick_tx.clone(),
+            ctx.consensus_kick_scheduled.clone(),
+        )
+    };
+    // Validate the post-transition carrier configuration before signing or
+    // durably publishing this header. The actual manager replacement remains
+    // after this height's vote/QC emission, but a malformed rotation or a
+    // strict-to-classical downgrade cannot strand a committed header between
+    // incompatible network epochs. The QUV candidate is derived later only
+    // after the old-root engine verifies a QC for the executed boundary,
+    // never from a proposal at this pre-publication seam.
+    if matches!(consensus_type, ioi_types::config::ConsensusType::Aft) {
+        let (
+            workload_client,
+            current_hash,
+            was_strict,
+            quv_enabled,
+            network_id,
+            peer_id,
+            pq_signer,
+            outbox_root,
+        ) = {
+            let context = context_arc.lock().await;
+            (
+                context.view_resolver.workload_client().clone(),
+                context.aft_pq_configuration_hash,
+                context.aft_pq_peer_keys.is_some(),
+                !context.config.aft_quv_domain_policies.is_empty(),
+                context.genesis_hash,
+                context.local_keypair.public().to_peer_id(),
+                context.pqc_signer.clone(),
+                context.config.aft_pq_outbox_dir.clone(),
+            )
+        };
+        let encoded_sets = workload_client
+            .query_raw_state(VALIDATOR_SET_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("AFT validator sets missing after state transition"))?;
+        let sets = read_validator_sets(&encoded_sets)?;
+        let next_height = block_height.saturating_add(1);
+        let effective_next = effective_set_for_height(&sets, next_height);
+        let quv_pq_preflight = quv_enabled
+            && effective_next
+                .validators
+                .iter()
+                .all(|validator| validator.consensus_key.suite == SignatureSuite::ML_DSA_44);
+        let desired = if quv_pq_preflight {
+            None
+        } else {
+            build_aft_pq_channel_configuration(
+                effective_next,
+                next_height,
+                network_id,
+                peer_id,
+                pq_signer.as_ref(),
+                outbox_root.as_deref(),
+            )?
+        };
+        if !quv_pq_preflight && was_strict && desired.is_none() {
+            return Err(anyhow!(
+                "refusing silent downgrade from strict PQ AFT channels at height {next_height} before header publication"
+            ));
+        }
+        if let Some(desired) = desired.as_ref() {
+            reject_unqualified_quv_rotation(
+                quv_enabled,
+                current_hash,
+                desired.local.configuration_hash,
+                next_height,
+            )?;
+        }
+    }
+    if matches!(aft_mode, AftSafetyMode::Asymptote) {
+        match build_single_member_committed_surface_canonical_order_certificate(
+            &final_block.header,
+            &final_block.transactions,
+        ) {
+            Ok(certificate) => {
+                final_block.header.canonical_order_certificate = Some(certificate);
+                let previous_publication_frontier = {
+                    let ctx = context_arc.lock().await;
+                    ctx.last_executed_block
+                        .as_ref()
+                        .and_then(|block| block.header.publication_frontier.clone())
+                };
+                match build_publication_frontier(
+                    &final_block.header,
+                    previous_publication_frontier.as_ref(),
+                ) {
+                    Ok(frontier) => {
+                        final_block.header.publication_frontier = Some(frontier);
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            target: "consensus",
+                            height = final_block.header.height,
+                            view = final_block.header.view,
+                            error = %error,
+                            "Failed to derive compact publication frontier; publishing canonical abort instead"
+                        );
+                        final_block.header.canonical_order_certificate = None;
+                        final_block.header.publication_frontier = None;
+                    }
+                }
+            }
+            Err(error) => {
+                tracing::warn!(
+                    target: "consensus",
+                    height = final_block.header.height,
+                    view = final_block.header.view,
+                    error = %error,
+                    "Failed to derive proof-carried canonical-order certificate; publishing canonical abort instead"
+                );
+                final_block.header.canonical_order_certificate = None;
+                final_block.header.publication_frontier = None;
+            }
+        }
+    }
+    let preimage = final_block.header.to_preimage_for_signing()?;
+    let preimage_hash = ioi_crypto::algorithms::hash::sha256(&preimage)?;
+    let bundle_started = Instant::now();
+    let bundle =
+        issue_consensus_bundle(context_arc, signer.as_ref(), &final_block, preimage_hash).await?;
+    let bundle_elapsed = bundle_started.elapsed();
+    if bundle_elapsed.as_millis() >= 250 {
+        tracing::warn!(
+            target: "consensus",
+            height = block_height,
+            tx_count = final_block.transactions.len(),
+            elapsed_ms = bundle_elapsed.as_millis(),
+            "issue_consensus_bundle() is slow"
+        );
+    }
+    final_block.header.signature = bundle.signature;
+    final_block.header.oracle_counter = bundle.counter;
+    final_block.header.oracle_trace_hash = bundle.trace_hash;
+    final_block.header.guardian_certificate = bundle.guardian_certificate;
+    final_block.header.sealed_finality_proof = bundle.sealed_finality_proof;
+    if matches!(
+        aft_mode,
+        AftSafetyMode::Asymptote | AftSafetyMode::ExperimentalNestedGuardian
+    ) {
+        let publisher = GuardianRegistryPublisher::from_context(context_arc).await;
+        if matches!(aft_mode, AftSafetyMode::Asymptote) {
+            let artifacts = build_canonical_order_publication_artifacts(
+                &final_block.header,
+                &final_block.transactions,
+            )?;
+            publish_canonical_order_artifacts(&publisher, &artifacts).await?;
+        }
+        publish_experimental_recovery_artifacts(&publisher, &final_block).await?;
+    }
+
+    // The workload header is durable execution material, not canonical
+    // ordering/finality truth. It is staged below and may be propagated as an
+    // AFT proposal, but no status, event, public tip, receipt ACK, or mempool
+    // removal is allowed until Agentgres admits the corresponding profile
+    // proof and redrives its committed outbox.
+    let workload_client = {
+        let ctx = context_arc.lock().await;
+        ctx.view_resolver.workload_client().clone()
+    };
+    let update_header_started = Instant::now();
+    workload_client
+        .update_block_header(final_block.clone())
+        .await
+        .map_err(|error| anyhow!("failed to persist finalized block header update: {error}"))?;
+    let update_header_elapsed = update_header_started.elapsed();
+    if update_header_elapsed.as_millis() >= 250 {
+        tracing::warn!(
+            target: "consensus",
+            height = final_block.header.height,
+            tx_count = final_block.transactions.len(),
+            elapsed_ms = update_header_elapsed.as_millis(),
+            "update_block_header() is slow"
+        );
+    }
+    {
+        let mut ctx = context_arc.lock().await;
+        super::super::runtime_finality::stage_runtime_block(
+            &ctx,
+            final_block.clone(),
+            execution_receipts.clone(),
+        )
+        .await?;
+        ctx.last_executed_block = Some(final_block.clone());
+    }
+
+    let data = codec::to_bytes_canonical(&final_block).map_err(|e| anyhow!(e))?;
+    dispatch_swarm_command(swarm_commander, SwarmCommand::PublishBlock(data.clone()));
+    if matches!(consensus_type, ioi_types::config::ConsensusType::Aft)
+        && !final_block.header.signature.is_empty()
+    {
+        schedule_committed_block_proposal_replays(swarm_commander.clone(), data);
+    }
+
+    if matches!(aft_mode, AftSafetyMode::Asymptote) {
+        let sealing_context = Arc::clone(context_arc);
+        let sealing_signer = Arc::clone(&signer);
+        let sealing_swarm = swarm_commander.clone();
+        let sealing_block = final_block.clone();
+        tokio::spawn(async move {
+            if let Err(error) = seal_and_publish_block(
+                &sealing_context,
+                sealing_block,
+                sealing_signer,
+                &sealing_swarm,
+            )
+            .await
+            {
+                tracing::warn!(
+                    target: "consensus",
+                    event = "asymptote_sealing_failed",
+                    error = %error
+                );
+            }
+        });
+    }
+
+    {
+        let accepted = observe_live_committed_chain_through_block(
+            &consensus_engine_ref,
+            consensus_type,
+            workload_client.as_ref(),
+            &final_block,
+        )
+        .await?;
+        let mut engine = consensus_engine_ref.lock().await;
+        if !accepted {
+            tracing::warn!(
+                target: "consensus",
+                height = final_block.header.height,
+                "Consensus engine ignored the committed block hint because it was not collapse-backed."
+            );
+        }
+        engine.reset(block_height);
+    }
+
+    after_synced_node_state(node_state_arc.as_ref(), async {
+    if !final_block.transactions.is_empty() {
+        tracing::info!(
+            target: "consensus",
+            "🧱 BLOCK #{} COMMITTED | Tx Count: {} | State Root: 0x{}",
+            final_block.header.height,
+            final_block.transactions.len(),
+            hex::encode(&final_block.header.state_root.0[..4])
+        );
+    } else {
+        tracing::debug!(target: "consensus", "Committed empty block #{}", final_block.header.height);
+    }
+
+    // [FIX] Self-Vote Logic for the Leader/Producer
+    // The producer must vote for their own block to ensure Quorum is reached.
+    if final_block.header.height > 0
+        && matches!(consensus_type, ioi_types::config::ConsensusType::Aft)
+        && !final_block.header.signature.is_empty()
+    {
+        // The caller already supplies the exact sender installed in the
+        // orchestration context. Re-locking the global context here can form a
+        // post-commit lock cycle with concurrent admission processing, leaving
+        // the producer durably advanced but unable to emit its own vote.
+        let swarm_sender = swarm_commander.clone();
+
+        let vote_height = final_block.header.height;
+        let vote_view = final_block.header.view;
+        let vote_hash = to_root_hash(&final_block.header.hash()?)?;
+        // Production already resolved this identity from the rooted parent
+        // validator set before it built the proposal. Re-resolving that same
+        // parent here can block behind the workload's post-commit state lock,
+        // stranding proposal recovery and the producer's own vote after the
+        // block was published. Carry the authorized identity across the
+        // commit boundary instead.
+        let (our_id, vote_signer) = local_vote_identity;
+        let vote_payload = (vote_height, vote_view, vote_hash);
+        let vote_bytes = codec::to_bytes_canonical(&vote_payload).map_err(anyhow::Error::msg)?;
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Signing producer self-vote.");
+        let vote = ConsensusVote {
+            height: vote_height,
+            view: vote_view,
+            block_hash: vote_hash,
+            voter: our_id,
+            signature: vote_signer.sign(&vote_bytes)?,
+        };
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Producer self-vote signed.");
+        let vote_blob = codec::to_bytes_canonical(&vote).map_err(anyhow::Error::msg)?;
+
+        dispatch_swarm_command(&swarm_sender, SwarmCommand::BroadcastVote(vote_blob));
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Waiting to loop back producer self-vote.");
+        let mut engine = consensus_engine_ref.lock().await;
+        tracing::debug!(target: "consensus", height = vote_height, view = vote_view, "Looping back producer self-vote.");
+        if let Err(error) = engine.handle_vote(vote).await {
+            tracing::warn!(target: "consensus", "Failed to handle own vote: {}", error);
+        } else {
+            let pending_qcs = engine.take_pending_quorum_certificates();
+            drop(engine);
+            for qc in pending_qcs {
+                if let Ok(qc_blob) = codec::to_bytes_canonical(&qc) {
+                    dispatch_swarm_command(
+                        &swarm_sender,
+                        SwarmCommand::BroadcastQuorumCertificate(qc_blob),
+                    );
+                }
+                if let Err(error) =
+                    super::super::quv::observe_certified_handoff(context_arc, &qc).await
+                {
+                    tracing::warn!(
+                        target: "quv",
+                        height = qc.height,
+                        view = qc.view,
+                        %error,
+                        "Could not record producer-formed QC as a QUV handoff boundary"
+                    );
+                }
+            }
+        }
+
+        tracing::info!(target: "consensus", "Self-Voted for block {} (H={} V={})", hex::encode(&vote_hash[..4]), vote_height, vote_view);
+
+        schedule_committed_block_vote_replays(
+            Arc::clone(consensus_engine_ref),
+            vote_signer,
+            our_id,
+            swarm_sender,
+            final_block.clone(),
+        );
+    }
+
+    // Install the exact effective configuration for the next height only
+    // after this height's final vote/QC traffic has been emitted. Replacing
+    // the swarm manager destroys every old traffic key and pending handshake;
+    // records from the prior configuration therefore fail before delivery.
+    if matches!(consensus_type, ioi_types::config::ConsensusType::Aft) {
+        rotate_pq_channels_for_next_height(
+            context_arc,
+            pq_rotation_snapshot.expect("AFT finalization captures PQ rotation inputs"),
+            block_height.saturating_add(1),
+        )
+        .await?;
+    }
+
+    // Self-voting (and any QC it completed) runs before this drain so native
+    // AFT evidence can admit the newly finalized ancestor immediately. Under
+    // single_authority_v1 the exact staged block is admitted here instead.
+    // Every publication consequence is redriven from the committed Agentgres
+    // outbox by this call; an empty drain publishes nothing.
+    // Consensus completion must not wait behind a long-running gossip handler
+    // that currently owns the coarse orchestration context. The execution and
+    // finality evidence are already durable at this point, and the admission
+    // coordinator/outbox is explicitly redrivable, so drain it in order on an
+    // independent task. A terminal refusal still quarantines the node.
+    {
+        let admission_context = Arc::clone(context_arc);
+        let admission_block = final_block.clone();
+        tokio::spawn(async move {
+            let mut ctx = admission_context.lock().await;
+            let admission =
+                super::super::runtime_finality::admit_available(&mut ctx, Some(&admission_block))
+                    .await;
+            if let Err(error) = admission {
+                ctx.is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "consensus",
+                    height = admission_block.header.height,
+                    error = %error,
+                    "Terminal post-commit runtime finality admission refusal; node frozen"
+                );
+                return;
+            }
+        });
+    }
+
+    {
+        let relay_context = Arc::clone(context_arc);
+        let relay_pool = Arc::clone(tx_pool);
+        let relay_block = final_block.clone();
+        let relay_deferred_transactions = deferred_transactions;
+        tokio::spawn(async move {
+            relay_remaining_mempool_to_upcoming_leaders(
+                &relay_context,
+                &relay_pool,
+                &relay_block,
+                relay_deferred_transactions,
+            )
+            .await;
+        });
+    }
+
+    // A committed block usually implies the next height is immediately actionable.
+    // Trigger the next consensus tick instead of waiting for the coarse timer loop.
+    let _ = consensus_kick_tx.send(());
+    schedule_post_commit_rekicks(
+        Arc::clone(tx_pool),
+        consensus_kick_tx,
+        consensus_kick_scheduled,
+    );
+
+    Ok(())
+    }).await
+}
+
+pub(super) async fn relay_remaining_mempool_to_upcoming_leaders<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    tx_pool: &Arc<Mempool>,
+    committed_block: &Block<ChainTransaction>,
+    deferred_transactions: Vec<ChainTransaction>,
+) where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let relay_limit = post_commit_relay_limit();
+    if relay_limit == 0 {
+        return;
+    }
+    let mut pending = if deferred_transactions.is_empty() {
+        tx_pool.select_transactions(relay_limit)
+    } else {
+        deferred_transactions
+    };
+    if pending.len() > relay_limit {
+        pending.truncate(relay_limit);
+    }
+    if pending.is_empty() {
+        return;
+    }
+
+    let (local_account_id, _leader_peer_targets, leader_peers, swarm_commander) = {
+        let ctx = context_arc.lock().await;
+        let local_account_id = AccountId(
+            account_id_from_key_material(
+                SignatureSuite::ED25519,
+                &ctx.local_keypair.public().encode_protobuf(),
+            )
+            .unwrap_or_default(),
+        );
+        let leader_accounts = leader_accounts_for_upcoming_heights(
+            committed_block.header.height,
+            &committed_block.header.validator_set,
+            post_commit_leader_fanout(),
+        );
+        let leader_peer_targets = leader_accounts
+            .iter()
+            .filter(|account_id| **account_id != local_account_id)
+            .count();
+        let leader_peers = {
+            let peers = ctx.peer_accounts_ref.lock().await;
+            leader_accounts
+                .into_iter()
+                .filter(|account_id| *account_id != local_account_id)
+                .filter_map(|leader_account_id| {
+                    peers.iter().find_map(|(peer_id, account_id)| {
+                        (*account_id == leader_account_id).then_some(*peer_id)
+                    })
+                })
+                .collect::<Vec<_>>()
+        };
+        (
+            local_account_id,
+            leader_peer_targets,
+            leader_peers,
+            ctx.swarm_commander.clone(),
+        )
+    };
+    tracing::debug!(
+        target: "consensus",
+        height = committed_block.header.height,
+        local = %hex::encode(&local_account_id.0[..4]),
+        remaining = pending.len(),
+        next_leaders = leader_peers.len(),
+        "Relaying remaining mempool transactions to upcoming leaders after local commit."
+    );
+
+    let direct_relay_limit = post_commit_direct_relay_limit();
+    for (idx, tx) in pending.into_iter().enumerate() {
+        if let Ok(data) = codec::to_bytes_canonical(&tx) {
+            dispatch_swarm_command(
+                &swarm_commander,
+                SwarmCommand::PublishTransaction(data.clone()),
+            );
+            if idx < direct_relay_limit {
+                for peer in &leader_peers {
+                    dispatch_swarm_command(
+                        &swarm_commander,
+                        SwarmCommand::RelayTransactionToPeer {
+                            peer: *peer,
+                            data: data.clone(),
+                        },
+                    );
+                }
+            }
+        }
+    }
+}
+
+async fn bind_consensus_bundle_to_producer_suite<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    final_block: &Block<ChainTransaction>,
+    preimage_hash: [u8; 32],
+    mut bundle: SignatureBundle,
+) -> Result<SignatureBundle>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    match final_block.header.producer_key_suite {
+        SignatureSuite::ED25519 => Ok(bundle),
+        SignatureSuite::ML_DSA_44 => {
+            let keypair =
+                context_arc.lock().await.pqc_signer.clone().ok_or_else(|| {
+                    anyhow!("ML-DSA block producer has no configured ML-DSA signer")
+                })?;
+            let public_key = keypair.public_key().to_bytes();
+            if public_key != final_block.header.producer_pubkey {
+                return Err(anyhow!(
+                    "configured ML-DSA signer does not match the block producer public key"
+                ));
+            }
+            let key_hash = account_id_from_key_material(SignatureSuite::ML_DSA_44, &public_key)?;
+            if key_hash != final_block.header.producer_pubkey_hash {
+                return Err(anyhow!(
+                    "configured ML-DSA signer does not match the block producer key hash"
+                ));
+            }
+            let mut signed_payload = Vec::with_capacity(72);
+            signed_payload.extend_from_slice(&preimage_hash);
+            signed_payload.extend_from_slice(&bundle.counter.to_be_bytes());
+            signed_payload.extend_from_slice(&bundle.trace_hash);
+            bundle.signature = keypair.sign(&signed_payload)?.to_bytes();
+            Ok(bundle)
+        }
+        suite => Err(anyhow!(
+            "unsupported block producer signature suite {suite:?}"
+        )),
+    }
+}
+
+pub(super) async fn issue_consensus_bundle<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    signer: &dyn GuardianSigner,
+    final_block: &Block<ChainTransaction>,
+    preimage_hash: [u8; 32],
+) -> Result<SignatureBundle>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let (mode, view_resolver, last_executed_block) = {
+        let ctx = context_arc.lock().await;
+        (
+            ctx.config.aft_safety_mode,
+            ctx.view_resolver.clone(),
+            ctx.last_executed_block.clone(),
+        )
+    };
+
+    if matches!(mode, AftSafetyMode::ClassicBft)
+        && final_block.header.producer_key_suite == SignatureSuite::ML_DSA_44
+    {
+        let keypair = context_arc
+            .lock()
+            .await
+            .pqc_signer
+            .clone()
+            .ok_or_else(|| anyhow!("ML-DSA block producer has no configured ML-DSA signer"))?;
+        return issue_pq_header_authority_bundle(&keypair, &final_block.header, preimage_hash);
+    }
+
+    if !matches!(
+        mode,
+        AftSafetyMode::ExperimentalNestedGuardian | AftSafetyMode::Asymptote
+    ) {
+        let bundle = signer
+            .sign_consensus_payload(
+                preimage_hash,
+                final_block.header.height,
+                final_block.header.view,
+                None,
+                None,
+            )
+            .await?;
+        return bind_consensus_bundle_to_producer_suite(
+            context_arc,
+            final_block,
+            preimage_hash,
+            bundle,
+        )
+        .await;
+    }
+
+    if matches!(mode, AftSafetyMode::Asymptote) {
+        let bundle = signer
+            .sign_consensus_payload(
+                preimage_hash,
+                final_block.header.height,
+                final_block.header.view,
+                None,
+                None,
+            )
+            .await?;
+        return bind_consensus_bundle_to_producer_suite(
+            context_arc,
+            final_block,
+            preimage_hash,
+            bundle,
+        )
+        .await;
+    }
+
+    let parent_ref = resolve_parent_state_ref(&last_executed_block, view_resolver.as_ref()).await?;
+    let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+    let current_epoch = match parent_view.get(CURRENT_EPOCH_KEY).await? {
+        Some(bytes) => codec::from_bytes_canonical::<u64>(&bytes)
+            .map_err(|e| anyhow!("failed to decode current epoch: {e}"))?,
+        None => 1,
+    };
+    let witness_set: GuardianWitnessSet = codec::from_bytes_canonical(
+        &parent_view
+            .get(&guardian_registry_witness_set_key(current_epoch))
+            .await?
+            .ok_or_else(|| anyhow!("active witness set missing for epoch {}", current_epoch))?,
+    )
+    .map_err(|e| anyhow!("failed to decode witness set: {e}"))?;
+    let witness_seed: GuardianWitnessEpochSeed = codec::from_bytes_canonical(
+        &parent_view
+            .get(&guardian_registry_witness_seed_key(current_epoch))
+            .await?
+            .ok_or_else(|| anyhow!("witness seed missing for epoch {}", current_epoch))?,
+    )
+    .map_err(|e| anyhow!("failed to decode witness seed: {e}"))?;
+
+    let mut last_error: Option<anyhow::Error> = None;
+    for reassignment_depth in 0..=witness_seed.max_reassignment_depth {
+        let assignment = derive_guardian_witness_assignment(
+            &witness_seed,
+            &witness_set,
+            final_block.header.producer_account_id,
+            final_block.header.height,
+            final_block.header.view,
+            reassignment_depth,
+        )
+        .map_err(|e| anyhow!(e))?;
+        let recovery_scaffold = build_experimental_recovery_scaffold_artifacts(
+            &final_block.header,
+            &final_block.transactions,
+            assignment.manifest_hash,
+            reassignment_depth,
+        )?;
+        match signer
+            .sign_consensus_payload(
+                preimage_hash,
+                final_block.header.height,
+                final_block.header.view,
+                Some((assignment.manifest_hash, reassignment_depth)),
+                Some(recovery_scaffold.recovery_binding()?),
+            )
+            .await
+        {
+            Ok(bundle) => {
+                if reassignment_depth > 0 {
+                    tracing::warn!(
+                        target: "consensus",
+                        event = "witness_reassigned",
+                        height = final_block.header.height,
+                        view = final_block.header.view,
+                        reassignment_depth,
+                        epoch = current_epoch,
+                        "Witness stratum assignment succeeded after reassignment"
+                    );
+                }
+                return bind_consensus_bundle_to_producer_suite(
+                    context_arc,
+                    final_block,
+                    preimage_hash,
+                    bundle,
+                )
+                .await;
+            }
+            Err(error) => {
+                let evidence = build_witness_omission_evidence(
+                    &assignment,
+                    final_block.header.producer_account_id,
+                    &error.to_string(),
+                )?;
+                if let Err(report_error) = signer.report_witness_fault(&evidence).await {
+                    tracing::warn!(
+                        target: "consensus",
+                        event = "witness_fault_report_failed",
+                        error = %report_error
+                    );
+                }
+                tracing::warn!(
+                    target: "consensus",
+                    event = "witness_assignment_failed",
+                    height = final_block.header.height,
+                    view = final_block.header.view,
+                    reassignment_depth,
+                    manifest_hash = %hex::encode(assignment.manifest_hash),
+                    error = %error
+                );
+                last_error = Some(error);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow!("witness stratum assignment failed")))
+}
+
+pub(super) async fn seal_and_publish_block<CS, ST, CE, V>(
+    context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+    mut sealed_block: Block<ChainTransaction>,
+    signer: Arc<dyn GuardianSigner>,
+    swarm_commander: &mpsc::Sender<SwarmCommand>,
+) -> Result<()>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    V: Verifier<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+{
+    let view_resolver = { context_arc.lock().await.view_resolver.clone() };
+    let parent_ref = StateRef {
+        height: sealed_block.header.height.saturating_sub(1),
+        state_root: sealed_block.header.parent_state_root.as_ref().to_vec(),
+        block_hash: sealed_block.header.parent_hash,
+    };
+    let parent_view = view_resolver.resolve_anchored(&parent_ref).await?;
+    let current_epoch = match parent_view.get(CURRENT_EPOCH_KEY).await? {
+        Some(bytes) => codec::from_bytes_canonical::<u64>(&bytes)
+            .map_err(|e| anyhow!("failed to decode current epoch: {e}"))?,
+        None => 1,
+    };
+    let policy: AsymptotePolicy = codec::from_bytes_canonical(
+        &parent_view
+            .get(&guardian_registry_asymptote_policy_key(current_epoch))
+            .await?
+            .ok_or_else(|| anyhow!("asymptote policy missing for epoch {}", current_epoch))?,
+    )
+    .map_err(|e| anyhow!("failed to decode asymptote policy: {e}"))?;
+    let witness_seed: GuardianWitnessEpochSeed = codec::from_bytes_canonical(
+        &parent_view
+            .get(&guardian_registry_witness_seed_key(current_epoch))
+            .await?
+            .ok_or_else(|| anyhow!("witness seed missing for epoch {}", current_epoch))?,
+    )
+    .map_err(|e| anyhow!("failed to decode witness seed: {e}"))?;
+    let observer_mode = policy.observer_rounds > 0 && policy.observer_committee_size > 0;
+    let observer_plan = if observer_mode {
+        let validator_set_bytes = parent_view
+            .get(VALIDATOR_SET_KEY)
+            .await?
+            .ok_or_else(|| anyhow!("active validator set missing for asymptote observer mode"))?;
+        let validator_sets = read_validator_sets(&validator_set_bytes)
+            .map_err(|e| anyhow!("failed to decode validator set: {e}"))?;
+        let active_set = effective_set_for_height(&validator_sets, sealed_block.header.height);
+        let mut observer_manifests = BTreeMap::new();
+        for validator in &active_set.validators {
+            if validator.account_id == sealed_block.header.producer_account_id {
+                continue;
+            }
+            let manifest_hash_bytes = parent_view
+                .get(&guardian_registry_committee_account_key(
+                    &validator.account_id,
+                ))
+                .await?
+                .ok_or_else(|| {
+                    anyhow!(
+                        "observer guardian manifest index missing for {}",
+                        hex::encode(validator.account_id)
+                    )
+                })?;
+            let manifest_hash: [u8; 32] = manifest_hash_bytes
+                .as_slice()
+                .try_into()
+                .map_err(|_| anyhow!("observer manifest hash must be 32 bytes"))?;
+            let manifest: GuardianCommitteeManifest = codec::from_bytes_canonical(
+                &parent_view
+                    .get(&guardian_registry_committee_key(&manifest_hash))
+                    .await?
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "observer guardian manifest missing for hash {}",
+                            hex::encode(manifest_hash)
+                        )
+                    })?,
+            )
+            .map_err(|e| anyhow!("failed to decode observer guardian manifest: {e}"))?;
+            observer_manifests.insert(validator.account_id, manifest);
+        }
+        derive_asymptote_observer_plan_entries(
+            &witness_seed,
+            active_set,
+            &observer_manifests,
+            sealed_block.header.producer_account_id,
+            sealed_block.header.height,
+            sealed_block.header.view,
+            policy.observer_rounds,
+            policy.observer_committee_size,
+            &policy.observer_correlation_budget,
+        )
+        .map_err(|e| anyhow!(e))?
+    } else {
+        Vec::new()
+    };
+    let (
+        witness_manifest_hashes,
+        witness_recovery_bindings,
+        witness_recovery_share_envelopes,
+        sealed_recovery_capsule,
+    ) = if observer_plan.is_empty() {
+        let witness_set: GuardianWitnessSet = codec::from_bytes_canonical(
+            &parent_view
+                .get(&guardian_registry_witness_set_key(current_epoch))
+                .await?
+                .ok_or_else(|| anyhow!("active witness set missing for epoch {}", current_epoch))?,
+        )
+        .map_err(|e| anyhow!("failed to decode witness set: {e}"))?;
+        let mut witness_manifests = Vec::with_capacity(witness_set.manifest_hashes.len());
+        for manifest_hash in &witness_set.manifest_hashes {
+            let manifest: GuardianWitnessCommitteeManifest = codec::from_bytes_canonical(
+                &parent_view
+                    .get(&guardian_registry_witness_key(manifest_hash))
+                    .await?
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "active witness manifest missing for hash {}",
+                            hex::encode(manifest_hash)
+                        )
+                    })?,
+            )
+            .map_err(|e| anyhow!("failed to decode witness manifest: {e}"))?;
+            witness_manifests.push(manifest);
+        }
+        let witness_assignments = derive_guardian_witness_assignments_for_strata(
+            &witness_seed,
+            &witness_set,
+            &witness_manifests,
+            sealed_block.header.producer_account_id,
+            sealed_block.header.height,
+            sealed_block.header.view,
+            0,
+            &policy.required_witness_strata,
+        )
+        .map_err(|e| anyhow!(e))?;
+        let witness_manifest_hashes = witness_assignments
+            .iter()
+            .map(|assignment| assignment.manifest_hash)
+            .collect::<Vec<_>>();
+        let witness_recovery_bindings = if let Some(recovery_threshold) =
+            experimental_multi_witness_parity_threshold_for_len(witness_assignments.len())
+        {
+            let plan = build_experimental_multi_witness_recovery_plan_from_assignments(
+                &sealed_block.header,
+                &sealed_block.transactions,
+                witness_seed.epoch,
+                witness_assignments,
+                0,
+                recovery_threshold,
+            )?;
+            let (capsule, binding_assignments) =
+                build_experimental_multi_witness_recovery_binding_assignments(
+                    sealed_block.header.height,
+                    &plan,
+                )?;
+            let share_envelopes = build_assigned_recovery_share_envelopes(
+                &capsule,
+                &materialize_experimental_multi_witness_recovery_share_materials_from_plan(
+                    &sealed_block.header,
+                    &sealed_block.transactions,
+                    &plan,
+                )?,
+            )?;
+            (binding_assignments, share_envelopes, Some(capsule))
+        } else {
+            (Vec::new(), Vec::new(), None)
+        };
+        (
+            witness_manifest_hashes,
+            witness_recovery_bindings.0,
+            witness_recovery_bindings.1,
+            witness_recovery_bindings.2,
+        )
+    } else {
+        (Vec::new(), Vec::new(), Vec::new(), None)
+    };
+    let sealed_recovery_bindings = witness_recovery_bindings.clone();
+    let preimage_hash =
+        ioi_crypto::algorithms::hash::sha256(&sealed_block.header.to_preimage_for_signing()?)?;
+    let mut sealed_finality_proof = signer
+        .seal_consensus_payload(
+            preimage_hash,
+            sealed_block.header.height,
+            sealed_block.header.view,
+            witness_manifest_hashes,
+            witness_recovery_bindings,
+            witness_recovery_share_envelopes,
+            observer_plan,
+            policy.clone(),
+        )
+        .await?;
+    let canonical_observer_artifacts = canonicalize_observer_sealed_finality_proof(
+        &sealed_block.header,
+        &policy,
+        preimage_hash,
+        &mut sealed_finality_proof,
+    )?;
+    let publisher = GuardianRegistryPublisher::from_context(context_arc).await;
+    if let Some(artifacts) = canonical_observer_artifacts.as_ref() {
+        publish_canonical_observer_artifacts(&publisher, artifacts).await?;
+    }
+    let (_, vote_signer) = local_vote_identity_for_block(context_arc, &sealed_block).await?;
+    sign_sealed_finality_proof(&mut sealed_finality_proof, &vote_signer)?;
+
+    sealed_block.header.sealed_finality_proof = Some(sealed_finality_proof);
+    view_resolver
+        .workload_client()
+        .update_block_header(sealed_block.clone())
+        .await?;
+    publish_experimental_sealed_recovery_artifacts(
+        &publisher,
+        &sealed_block,
+        sealed_recovery_capsule.as_ref(),
+        &sealed_recovery_bindings,
+    )
+    .await?;
+    let published_recovery_materials = if sealed_recovery_bindings.is_empty() {
+        Vec::new()
+    } else {
+        let recovery_witness_set: GuardianWitnessSet = codec::from_bytes_canonical(
+            &parent_view
+                .get(&guardian_registry_witness_set_key(current_epoch))
+                .await?
+                .ok_or_else(|| anyhow!("active witness set missing for epoch {}", current_epoch))?,
+        )
+        .map_err(|e| anyhow!("failed to decode witness set: {e}"))?;
+        publish_experimental_locally_held_recovery_share_materials(
+            &publisher,
+            signer.as_ref(),
+            &sealed_block,
+            &witness_seed,
+            &recovery_witness_set,
+            0,
+            &sealed_recovery_bindings,
+        )
+        .await?
+    };
+    let published_recovered = publish_experimental_recovered_publication_bundle(
+        &publisher,
+        &published_recovery_materials,
+    )
+    .await?;
+    let archived_profile = if published_recovered.is_some() {
+        Some(ensure_archived_recovered_history_profile(&publisher).await?)
+    } else {
+        None
+    };
+    let published_archived_segment = if let (Some(recovered), Some((profile, activation))) =
+        (published_recovered.as_ref(), archived_profile.as_ref())
+    {
+        publish_archived_recovered_history_segment(&publisher, recovered, profile, activation)
+            .await?
+    } else {
+        None
+    };
+    let mut canonical_collapse_object = derive_expected_aft_canonical_collapse_for_block(
+        view_resolver.workload_client().as_ref(),
+        &sealed_block,
+    )
+    .await?
+    .ok_or_else(|| {
+        anyhow!("failed to derive canonical collapse object for sealed block publication")
+    })?;
+    let mut canonical_archived_anchor = None;
+    if let (Some(recovered), Some(segment)) = (
+        published_recovered.as_ref(),
+        published_archived_segment.as_ref(),
+    ) {
+        let published_archived_page = publish_archived_recovered_restart_page(
+            &publisher,
+            segment,
+            &canonical_collapse_object,
+            recovered,
+            &published_recovery_materials,
+        )
+        .await?;
+        if let Some(page) = published_archived_page.as_ref() {
+            if let Some(checkpoint) =
+                publish_archived_recovered_history_checkpoint(&publisher, segment, page).await?
+            {
+                let mut published_receipt = None;
+                if let Some((profile, _)) = archived_profile.as_ref() {
+                    published_receipt = publish_archived_recovered_history_retention_receipt(
+                        &publisher,
+                        &checkpoint,
+                        profile,
+                    )
+                    .await?;
+                }
+                canonical_archived_anchor = resolve_archived_recovered_history_anchor_hashes(
+                    &publisher,
+                    Some(&checkpoint),
+                    published_receipt.as_ref(),
+                )
+                .await?;
+            }
+        }
+    }
+    if canonical_archived_anchor.is_none() {
+        canonical_archived_anchor =
+            resolve_archived_recovered_history_anchor_hashes(&publisher, None, None).await?;
+    }
+    if let Some((checkpoint_hash, activation_hash, receipt_hash)) = canonical_archived_anchor {
+        set_canonical_collapse_archived_recovered_history_anchor(
+            &mut canonical_collapse_object,
+            checkpoint_hash,
+            activation_hash,
+            receipt_hash,
+        )
+        .map_err(|error| anyhow!(error))?;
+    }
+    publish_canonical_collapse_object(&publisher, &canonical_collapse_object).await?;
+    let refreshed_consensus = {
+        let mut ctx = context_arc.lock().await;
+        let should_refresh_last_committed = ctx
+            .last_executed_block
+            .as_ref()
+            .map(|current| {
+                current.header.height == sealed_block.header.height
+                    && current.header.view == sealed_block.header.view
+                    && current.header.parent_hash == sealed_block.header.parent_hash
+                    && current.header.producer_account_id == sealed_block.header.producer_account_id
+            })
+            .unwrap_or(false);
+        if should_refresh_last_committed {
+            ctx.last_executed_block = Some(sealed_block.clone());
+            Some((
+                ctx.consensus_engine_ref.clone(),
+                ctx.consensus_kick_tx.clone(),
+            ))
+        } else {
+            None
+        }
+    };
+    if let Some((consensus_engine_ref, kick_tx)) = refreshed_consensus {
+        let accepted = observe_live_committed_chain_through_block(
+            &consensus_engine_ref,
+            context_arc.lock().await.config.consensus_type,
+            publisher.workload_client.as_ref(),
+            &sealed_block,
+        )
+        .await?;
+        let mut engine = consensus_engine_ref.lock().await;
+        if accepted {
+            engine.reset(sealed_block.header.height);
+        } else {
+            tracing::warn!(
+                target: "consensus",
+                height = sealed_block.header.height,
+                "Consensus engine ignored the sealed asymptote committed-block hint after publication."
+            );
+        }
+        let _ = kick_tx.send(());
+    }
+    let data = codec::to_bytes_canonical(&sealed_block).map_err(|e| anyhow!(e))?;
+    let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
+    let rebroadcast_block = sealed_block.clone();
+    let rebroadcast_sender = swarm_commander.clone();
+    tokio::spawn(async move {
+        for delay in [
+            Duration::from_millis(300),
+            Duration::from_millis(1200),
+            Duration::from_secs(3),
+            Duration::from_secs(6),
+        ] {
+            tokio::time::sleep(delay).await;
+            let Ok(bytes) = codec::to_bytes_canonical(&rebroadcast_block) else {
+                return;
+            };
+            let _ = rebroadcast_sender
+                .send(SwarmCommand::PublishBlock(bytes))
+                .await;
+        }
+    });
+    tracing::info!(
+        target: "consensus",
+        event = "asymptote_sealed_block_published",
+        height = sealed_block.header.height,
+        view = sealed_block.header.view
+    );
+    Ok(())
+}
+
+pub(super) fn build_witness_omission_evidence(
+    assignment: &ioi_types::app::GuardianWitnessAssignment,
+    producer_account_id: AccountId,
+    details: &str,
+) -> Result<GuardianWitnessFaultEvidence> {
+    let evidence_body = codec::to_bytes_canonical(&(
+        assignment.epoch,
+        producer_account_id,
+        assignment.height,
+        assignment.view,
+        assignment.manifest_hash,
+        details,
+    ))
+    .map_err(|e| anyhow!(e.to_string()))?;
+    let evidence_id = ioi_crypto::algorithms::hash::sha256(&evidence_body)?;
+    Ok(GuardianWitnessFaultEvidence {
+        evidence_id,
+        kind: GuardianWitnessFaultKind::Omission,
+        epoch: assignment.epoch,
+        producer_account_id,
+        height: assignment.height,
+        view: assignment.view,
+        expected_manifest_hash: assignment.manifest_hash,
+        observed_manifest_hash: [0u8; 32],
+        checkpoint_root: [0u8; 32],
+        witness_certificate: None,
+        details: details.to_string(),
+    })
+}
+
+pub(super) async fn resolve_parent_state_ref<V>(
+    last_executed_block: &Option<Block<ChainTransaction>>,
+    view_resolver: &dyn ioi_api::chain::ViewResolver<Verifier = V>,
+) -> Result<StateRef>
+where
+    V: Verifier,
+{
+    if let Some(last) = last_executed_block.as_ref() {
+        return Ok(StateRef {
+            height: last.header.height,
+            state_root: last.header.state_root.as_ref().to_vec(),
+            block_hash: to_root_hash(last.header.hash()?)?,
+        });
+    }
+
+    let genesis_root = view_resolver.genesis_root().await?;
+    Ok(StateRef {
+        height: 0,
+        state_root: genesis_root.clone(),
+        block_hash: to_root_hash(&genesis_root)?,
+    })
+}

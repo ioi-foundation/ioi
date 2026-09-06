@@ -1,0 +1,18 @@
+{
+  "observed_utc": "2026-09-05T03:24:36.372478+00:00",
+  "scope": "Read-only storage integration audit while process release build is live. Supplemental observations, not pre-build source binding for the current process campaign.",
+  "facts": [
+    "Initial member store opens in lifecycle.rs; successor member store opens in quv.rs. Both currently pass only state/anchor paths and custody key.",
+    "Storage paths are configuration/account scoped, not policy scoped. Bootstrap policy changes within one configuration reopen the same store.",
+    "Schema 3 member state authenticates magic/schema/generation/previous storage head/slot snapshots, but contains no provisioned-bootstrap commitment.",
+    "Pending generation+1 recovery advances the anchor after authentication before returning the store; a future bootstrap comparison must precede this recovery write to make changed-bootstrap refusal non-mutating.",
+    "Successor initialization needs explicit domain-frontier handoff semantics. Reusing Fixed bootstrap as a reset of an already accepted effect-domain history is not an admitted continuity mechanism."
+  ],
+  "next_implementation_obligation": "Bind immutable provisioned domain registry at both initial and successor open paths; compare it before any recovery mutation, without inferring accepted history from registry or file generation. Durable accepted frontier and live handoff of it remain separate requirements.",
+  "sources": {
+    "crates/validator/src/standard/orchestration/lifecycle.rs": "1aaf4f423c39876004833689082af865f63d845173b55919154b70a1daece306",
+    "crates/validator/src/standard/orchestration/quv.rs": "787ca69e6ddbc96861f6d9c5be3311a0cb54973fe6124beefaa524a15a80c73b",
+    "crates/validator/src/standard/orchestration/consensus.rs": "be93ad39eb87206f24ca65fc5358a7cf6573626773457594ae55750ba3c63af0",
+    "crates/consensus/src/aft/query_unanimity.rs": "87f1f9b508702f2df3ddc8e342933593504db8ae140769b8e1fadcdc14fe2018"
+  }
+}

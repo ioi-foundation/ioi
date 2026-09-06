@@ -1,0 +1,21 @@
+# Production member journal integration — 2026-09-05
+
+The member persistence path now uses schema 7: immutable authenticated typed records, independently retained anchor, complete-chain authentication before semantic replay, and in-memory apply only after record and anchor commit. The final live continuation check runs after encoding and headroom admission immediately before the first write. Handoff state remains schema 3. See the [current journal specification](../../specs/query_unanimity_journal.md).
+
+Earlier failing logs are retained in `intermediate-dispositions.json`. The initial run had seven fixture failures after converting the configured member-state path from a file to a directory; the next had one remaining file-length assumption. Directory-wide byte snapshots now preserve non-mutation assertions, corruption tests inspect each actual authenticated record, and re-authenticated synthetic delta sequences test missing accepted candidates in both current and pending recovery branches. Those failures are not passing qualification evidence. Intermediate source revisions without a retained source manifest are diagnostic history only.
+
+The ordinary bootstrap test passes with ancestry syncing removed, but its observed syscall trace is rejected by `check_aft_quv_journal_sync.py`. Both positive and removed-sync traces are retained. The checker also has one positive and five negative self-test fixtures. Traces show issued syscall ordering; filesystem durability and independently nonrollback custody remain explicit assumptions.
+
+`started.json` and `sources/` bind the final scoped checks to a source subset of the dirty worktree. `check-results.json` records commands and actual outcomes. The three-slot process run has its own `consecutive-process/started.json`, raw `run.log`, component evidence and terminal `result.json`. It must additionally pass the strict readiness and admission-release evidence checks before any scoped PASS disposition. This is not a clean-checkout M16Q R2 candidate, and no independent M17Q or M18Q admission is claimed.
+
+Remaining work includes the full rooted lifetime/byte/rate/slot/fairness profile, safe retention/compaction, aggregate recovery and service bounds, complete transition refinement, sustained flooding/restart qualification, full clean R2 and fresh independent review. All whole R1 critical/high findings remain open.
+
+## Final scoped disposition
+
+`PASS_SCOPED_PRODUCTION_JOURNAL_QUALIFICATION`: all six retained checks pass on the recorded unchanged source subset. This includes 60 QUV tests (the one default-ignored benchmark is separately executed), 20 runtime tests, CLI compilation, the 256-sample component benchmark, and the actual ancestry syscall trace/check. The process campaign passes in 489.91 seconds with strict readiness and admission-release evidence checks.
+
+All three executed slots include exactly the four expected valid members. Maximum valid-reply elapsed times are 1069, 857 and 729 ms, within the rooted 5000-ms decision interval and the fixture's 4000-ms reply envelope. Slot 2 waits 39,498,642,179 ns against 39,497,773,186 ns required; reopened slot 3 waits 38,236,896,320 ns against 38,235,259,414 ns required. The terminal parent replay is unchanged, and an unrelated effect on the same executor completes while slot 2 waits. Thirteen operations complete and seventeen final admission releases are retained; maximum observed active hold is 6,369,893 microseconds (foreground 6,131,691; preparation 6,369,893), below the fixture's 10-second limit. These are finite observations, not aggregate queue/readiness or sustained-load bounds.
+
+The benchmark uses the Rust test profile and 256 samples per measurement. In microseconds, `[min, p50, p95, p99, max]` is `[1563698, 1734227, 1845298, 1950043, 2123691]` for ML-DSA-44 signing of 4096 bytes, `[20866, 37186, 40028, 49294, 70573]` for durable write-before-reply with the hash test signer, and `[1699032, 1777394, 1881653, 1916865, 1921137]` for durable write-before-reply with ML-DSA-44. The benchmark finishes in 912.15 seconds. These component samples do not independently establish a production worst case.
+
+No clean-checkout R2, whole-finding closure, fresh independent review or M18Q admission follows from this scoped PASS.

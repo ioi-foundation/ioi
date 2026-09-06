@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-diagnostic-retention-2026-09-05/process-capture/process.log"
+  ],
+  "exit_code": 0,
+  "log_sha256": "97ea3150222029ceccaa99a16b12de5175903141d0258769f798745e341e0c15",
+  "four_nonempty_orchestration_logs": true
+}

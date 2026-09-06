@@ -1,0 +1,25 @@
+
+warning: `ioi-consensus` (lib test) generated 3 warnings (run `cargo fix --lib -p ioi-consensus --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.71s
+     Running unittests src/lib.rs (target/debug/deps/ioi_consensus-db277b1d9587ff30)
+
+running 1 test
+test aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot ... FAILED
+
+failures:
+
+---- aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot stdout ----
+
+thread 'aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot' (1021578) panicked at crates/consensus/src/aft/query_unanimity.rs:4503:9:
+assertion `left == right` failed
+  left: QuvConflictSlotV0 { configuration_root: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], policy_root: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], network_id: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], domain_id: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], slot: 7, predecessor: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4], authority_mode: Owned }
+ right: QuvConflictSlotV0 { configuration_root: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], policy_root: [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], network_id: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2], domain_id: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3], slot: 7, predecessor: [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99], authority_mode: Owned }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 322 filtered out; finished in 0.91s
+
+error: test failed, to rerun pass `-p ioi-consensus --lib`

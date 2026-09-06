@@ -1,0 +1,56 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/quv/event_dispatch.rs",
+        "crates/validator/src/standard/orchestration/lifecycle.rs"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "python3",
+        ".github/scripts/check_aft_m16q_process_evidence.py",
+        "--self-test"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"negative_cases\": 26, \"overlap\": {\"negative_cases\": 25, \"positive_cases\": 1}, \"positive_cases\": 2}\n",
+      "stderr": ""
+    }
+  ],
+  "sources": {
+    "crates/validator/src/standard/orchestration/quv.rs": "c65e5c37285ab82357b73073e4e3931b844efdb8a4705f049886499b0f89a94c",
+    "crates/validator/src/standard/orchestration/quv/event_dispatch.rs": "f97d2c24fd497a79615fb3e7c60f4fc6e86ad48251c8445e822b0f86e42337ee",
+    "crates/validator/src/standard/orchestration/lifecycle.rs": "63db2f426b133b96181387c9c044866fd4eac4edf038e02f67cc2de6aa84b60e",
+    ".github/scripts/run_aft_m16q_qualification.sh": "0815d4cab45b71f0088020a8f38f6354e29d93fd22c2bc78e729d1eaa394c456",
+    ".github/scripts/check_aft_m16q_process_evidence.py": "1283eef91ec592f1c50fc0358d9171f3882721a9846258dbb7d13d13ac3f3ee8"
+  },
+  "scope": "Local runtime/evidence checks; new process and full R2 qualification outstanding"
+}

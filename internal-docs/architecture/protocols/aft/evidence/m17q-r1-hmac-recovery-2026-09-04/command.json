@@ -1,0 +1,19 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "started_utc": "2026-09-04T23:08:05.292999+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests"
+  ],
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "source": "crates/consensus/src/aft/query_unanimity.rs",
+  "source_sha256": "2181d3148c80f16f8169e851c972c6d23f21025631d4b4c7bd98e84813b14050"
+}

@@ -1,0 +1,11 @@
+{
+  "command": [
+    "python3",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-final-admission-release-2026-09-05/analyze_admission_releases.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-final-admission-release-2026-09-05/foreground-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "analyzer_sha256": "a58f2e4e20db745fa37128e47e123891a1edc5e8109f6656cc204552c249b839",
+  "historical_summary_metrics_match": true
+}

@@ -1,0 +1,16 @@
+
+failures:
+
+---- aft::query_unanimity::tests::accepted_history_derives_scope_and_preserves_historical_predecessors stdout ----
+
+thread 'aft::query_unanimity::tests::accepted_history_derives_scope_and_preserves_historical_predecessors' (1063797) panicked at crates/consensus/src/aft/query_unanimity.rs:4125:13:
+assertion failed: history.check_slot(&changed).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    aft::query_unanimity::tests::accepted_history_derives_scope_and_preserves_historical_predecessors
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 322 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p ioi-consensus --lib`

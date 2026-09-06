@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tlaps-pre/install/bin/tlapm",
+    "--cleanfp",
+    "ReconciliationBudgetProof.tla"
+  ],
+  "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-reservation-induction-2026-09-05",
+  "exit_code": 0,
+  "model_sha256": "0b61dde27c312af70b4f287cfabe56ce167450bdca028b661fe0a178bb974973",
+  "proof_sha256": "900b5ee9286bbb78e662106548f9280b07c4f892cd5f065d3dfcac225b61be2c",
+  "log_sha256": "ae9379b49f4cb6d8e23cab9f7258dc87652d0c1186343904cd196fd326dc06c3"
+}

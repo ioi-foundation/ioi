@@ -1,0 +1,132 @@
+[
+  {
+    "name": "consequence",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib",
+      "consequence::"
+    ],
+    "started": "2026-09-06T06:39:06.833665+00:00",
+    "completed": "2026-09-06T06:39:11.901261+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime-finality",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::runtime_finality::tests::"
+    ],
+    "started": "2026-09-06T06:39:11.901470+00:00",
+    "completed": "2026-09-06T06:39:36.383556+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T06:39:36.383886+00:00",
+    "completed": "2026-09-06T06:39:44.629480+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "executor",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::grpc_public::quv_refusal_status_tests"
+    ],
+    "started": "2026-09-06T06:39:44.629741+00:00",
+    "completed": "2026-09-06T06:39:45.057935+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T06:39:45.058262+00:00",
+    "completed": "2026-09-06T06:40:02.907539+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T06:40:02.907843+00:00",
+    "completed": "2026-09-06T06:40:11.395495+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T06:40:11.395773+00:00",
+    "completed": "2026-09-06T06:40:11.397524+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-queued-preparation-only"
+    ],
+    "started": "2026-09-06T06:40:11.397702+00:00",
+    "completed": "2026-09-06T06:40:13.198674+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "receipt-syscalls",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_receipt_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-queued-preparation-2026-09-06/receipt-syscalls"
+    ],
+    "started": "2026-09-06T06:40:13.198913+00:00",
+    "completed": "2026-09-06T06:40:15.950023+00:00",
+    "exit_code": 0
+  }
+]

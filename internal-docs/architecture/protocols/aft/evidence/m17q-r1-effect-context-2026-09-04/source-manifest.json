@@ -1,0 +1,55 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "recorded_utc": "2026-09-04T23:34:07.207334+00:00",
+  "sources": {
+    "crates/agentgres/src/consequence.rs": "42824e44575f9832bc9a7b433970eb937e2aa41b418d9f85e587481adda8938e",
+    "crates/agentgres/src/consequence/tests.rs": "ccbfbf423f9cf3742872107d7e47e95552ef01cc44fbb891d54e467b444abfc7",
+    "crates/agentgres/src/recognized_effect/tests.rs": "3fafa30fa8c25f0d67beebb700b0f7e15f0a54c5627e9b6daca3c73208fa686d",
+    "crates/cli/tests/aft_e2e.rs": "b35dd7e6e603df4058d2f26654ab65e4a96ce4e11a01187bf7518ef33d629ffa",
+    "crates/consensus/src/aft/query_unanimity.rs": "f07bcd9b102cf0baa020e913cb3bba512f2a9f030bedbbd1306a43fef6295df1",
+    "crates/ioi-finality/src/portable_assurance/tests.rs": "9c591be6dd83ecb31f9ecb0849789a794eb4565f708f57a517f96e09c16774b0",
+    "crates/networking/src/libp2p/mod.rs": "3af0559f837f96756f4bfd4f1ef27f9e086c39f36ac817f7ff9b557e7ad25c51",
+    "crates/networking/src/libp2p/pq_channel.rs": "4bdee54d8ea6f4a5312f9f87d51db2080e069be0023e8c518353255454df90c9",
+    "crates/networking/src/libp2p/swarm.rs": "758f8f88d55ed56adc5946b7984531e9a2737163327754412546beb9119536bb",
+    "crates/networking/src/libp2p/types.rs": "2b1bb18f0169ba7004bd716e33352d4510533cc8e0920add16301f96b4caedf9",
+    "crates/node/src/bin/ioi-local.rs": "e4ab6a9f5c188784405238c88c446cb0818c047e4e9cfbe39685df360969df47",
+    "crates/services/src/aft_effect_registry.rs": "dda08d06568927a433ee29bb9fc573231d4d7a25749477641687a9a1fe32e778",
+    "crates/types/src/app/consequence.rs": "f27da3d042a2a1d0fbb594fa6cb217961a917bbd4a9580d205518397672a1945",
+    "crates/validator/src/standard/orchestration/events.rs": "3df4a0224d5b7338b864ab58cea068aa96324579a8597169357a11256f8e1312",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "f02b43fb5003e4e8dd4bd0ba85ad6ca50834707e9763a23065dc97ebeabc4b1f",
+    "crates/validator/src/standard/orchestration/mod.rs": "f547e053aa13d093d0f0614db1fe6518d7078eec3dd08c974c962eaf3c99bd54",
+    "crates/validator/src/standard/orchestration/quv.rs": "0a1ad0c2db1741e91a31e059fc44bd44afa392b118c76b838d6226ac877773da",
+    "crates/validator/src/standard/orchestration/runtime_finality.rs": "1e9f8dcf07b6ea88e124965f3adb572119c8cd3f1caba6b9659df4ea0972f143",
+    "crates/validator/src/standard/orchestration/sync.rs": "2f24c08c5619897492724e68242f31a3beffad4ef7dcf428187fecaf278e3dc3"
+  },
+  "cargo_lock_sha256": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "checks_in_progress": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-types",
+        "--lib",
+        "app::consequence::tests"
+      ],
+      "session": 15542,
+      "log": "/tmp/quv-manifest-types.log"
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib"
+      ],
+      "session": 25355,
+      "log": "/tmp/quv-context-agentgres.log"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "results": [
+    {
+      "case": "Equal",
+      "command": [
+        "java",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-cleanup",
+        "-config",
+        "QuvReadinessCompositionEqual.cfg",
+        "QuvReadinessComposition.tla"
+      ],
+      "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility",
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "expected_marker": "Model checking completed. No error has been found.",
+      "required_disposition_met": true
+    },
+    {
+      "case": "Unequal",
+      "command": [
+        "java",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-cleanup",
+        "-config",
+        "QuvReadinessCompositionUnequal.cfg",
+        "QuvReadinessComposition.tla"
+      ],
+      "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility",
+      "exit_code": 12,
+      "expected_exit_code": 12,
+      "expected_marker": "Invariant EveryIntroducedChildAdmissible is violated.",
+      "required_disposition_met": true
+    },
+    {
+      "case": "Reachable",
+      "command": [
+        "java",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-cleanup",
+        "-config",
+        "QuvReadinessCompositionReachable.cfg",
+        "QuvReadinessComposition.tla"
+      ],
+      "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility",
+      "exit_code": 12,
+      "expected_exit_code": 12,
+      "expected_marker": "Invariant NoCompletedSequence is violated.",
+      "required_disposition_met": true
+    }
+  ],
+  "jar_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+  "sources": {
+    "QuvReadinessComposition_TTrace_1788604293.tla": "f3520458fc0b5725931ced7a86fca74292a97f87e2b6da9f745850b5c000b201",
+    "QuvReadinessCompositionReachable.cfg": "4bbe0e1773ceb5fb3e803899fb1193dc4808e63da6233f4976389eb26df4e0eb",
+    "QuvReadinessCompositionEqual.cfg": "3417b3f104bf50e60b591bfbf344cbb5b32c9a7d0e209d47df1c7afe58522a1a",
+    "QuvReadinessCompositionUnequal.cfg": "5ed2cd5cc8d5f90a194a8cc60286f1d2c5d5d13dc4f4f2b93cff06d165bcc7b6",
+    "QuvReadinessComposition_TTrace_1788604294.tla": "b48b34cd0f746490a8457012c52bc5b3e28a2bc8c9dac9cf48e83191a15167d9",
+    "QuvReadinessComposition.tla": "7fec709da3ed64e891f5e487625f8ca2edff3ddf1634c4ca94810c5d20c2f559"
+  },
+  "scope": "Finite completion-schedule accounting for a proposed rule, not runtime refinement or an impossibility under Q-A3"
+}

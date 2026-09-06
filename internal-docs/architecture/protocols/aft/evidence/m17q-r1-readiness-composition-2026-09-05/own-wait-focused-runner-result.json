@@ -1,0 +1,13 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--quv-readiness-composition-only"
+  ],
+  "cwd": "/home/heathledger/Documents/ioi/repos/ioi",
+  "started_utc": "2026-09-05T10:37:37.865377+00:00",
+  "finished_utc": "2026-09-05T10:37:39.051187+00:00",
+  "exit_code": 0,
+  "runner_sha256": "4f0c4f82c67191b61e6e426d61df1f07eb5f2bb69bf8d148771e914b29e10190",
+  "scope": "One passing bounded schedule and two required witnesses; not full formal runner or R2"
+}

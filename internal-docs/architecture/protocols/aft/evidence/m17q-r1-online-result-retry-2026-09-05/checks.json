@@ -1,0 +1,32 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib",
+      "consequence::tests"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-09-05T01:29:50.414554+00:00",
+    "finished_utc": "2026-09-05T01:29:53.835111+00:00",
+    "log_sha256": "5bc0074f84cee36bb6753354ef806a3409d68804d9c49da35964ae9a7824058f"
+  },
+  {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft"
+    ],
+    "exit_code": 0,
+    "started_utc": "2026-09-05T01:29:53.835376+00:00",
+    "finished_utc": "2026-09-05T01:30:10.742001+00:00",
+    "log_sha256": "7b89d44b1fa25fd8b16d04b46c48b9089c1a402825a17651f47641c0e31686cb"
+  }
+]

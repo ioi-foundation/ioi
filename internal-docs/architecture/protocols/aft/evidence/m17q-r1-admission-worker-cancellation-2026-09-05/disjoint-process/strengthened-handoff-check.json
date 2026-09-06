@@ -1,0 +1,14 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_quv_handoff_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-worker-cancellation-2026-09-05/disjoint-process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-admission-worker-cancellation-2026-09-05/disjoint-process/components"
+  ],
+  "checker_sha256": "f956afe8112dc676069f45c0d191138926aaa1ff985e423d9ec4a0b9591cc536",
+  "exit_code": 0,
+  "stdout": "{\"components_sha256\": {\"validator-20000-orch.log\": \"2640dd47e1587de79c6c705246f4f7f52b08505bbfb70bad0ede3349699f3734\", \"validator-20100-orch.log\": \"976d9187d3a9412a0c3a397b66e3152572383ac2bcba90b28d58c8305b5384a9\", \"validator-20200-orch.log\": \"e42fe6f8dcdf2e4a254de163c0360ac8bb520872511abfe8ba485c7a46c7a783\", \"validator-20300-orch.log\": \"05cf915cd3c3286e7bbb2c5c3ee58b26910242ac746319f916dbfdeeacc44264\", \"validator-20400-orch.log\": \"7b48b54891bd9cd01ac3931c32cb5ae6fc093dcb2a132aadaf2a13c0c13b5006\", \"validator-20500-orch.log\": \"6103edba0867116a5447d58fdd72929b8d47b7a50bfdb0d641828150d431d1b2\", \"validator-20600-orch.log\": \"870ac4ead3fd9611af85cd2b00ae8066387e7a6c00e5616bab775709e9d8e4a9\", \"validator-20700-orch.log\": \"98d91faa4aea875fa98e3db03fec64891a067d4a3f4764eceebcf1d59f9e9db6\"}, \"expected_correct_members\": 4, \"log_sha256\": \"657dbffaa2f5b17272da3e72ec83f60b484472fc5dfd12ffed01190c1ae61b9d\", \"max_valid_reply_elapsed_millis\": 939, \"portable_final_receipt\": false, \"scope\": \"host diagnostics; no independent authorization or full timing proof\", \"successors\": 4}\n",
+  "stderr": "",
+  "scope": "Rechecking retained runtime evidence with a stronger checker; checker was changed after the process terminated"
+}

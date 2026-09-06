@@ -1,0 +1,32 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "standard::orchestration::quv::member_completion::tests::"
+  ],
+  "results": [
+    {
+      "case": "negative_notification",
+      "exit_code": 101,
+      "source_sha256": "a5792fbd4511dd05c5745339ea839edec388023015d9ce03e744937c93c5e159"
+    },
+    {
+      "case": "negative_recipient",
+      "exit_code": 101,
+      "source_sha256": "1667774df26c835b4b09ea175d69bc7adc4f2cf9cc324ea94997b08051840eac"
+    },
+    {
+      "case": "restored",
+      "exit_code": 0,
+      "source_sha256": "27028880c9f9e91bfd356ca2d106ab29be08c514d854fba1f3633611fa443a50"
+    }
+  ],
+  "restored_sha256": "27028880c9f9e91bfd356ca2d106ab29be08c514d854fba1f3633611fa443a50",
+  "scope": "Local completion behavior controls; no process lock-contention bound or whole R1 closure"
+}

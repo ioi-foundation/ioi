@@ -1,0 +1,32 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "blocked_push_admission_does_not_block_reply_or_hide_overflow"
+  ],
+  "results": [
+    {
+      "case": "negative_serial_admission",
+      "exit_code": 101,
+      "source_sha256": "1d19226c12395b201a06950028b8c44b547ff128cd6bd323045c6a6c4283e2ab"
+    },
+    {
+      "case": "negative_queue_capacity",
+      "exit_code": 101,
+      "source_sha256": "976d5ce4b5f88050a965f0580de7950becaf21e8d3751df778f924de7e381c88"
+    },
+    {
+      "case": "restored",
+      "exit_code": 0,
+      "source_sha256": "376c6115144a280f61e778a38eccaf84210831d2fd1b0b7ff1c443bdbdedcdc1"
+    }
+  ],
+  "restored_sha256": "376c6115144a280f61e778a38eccaf84210831d2fd1b0b7ff1c443bdbdedcdc1",
+  "scope": "Local scheduling and finite-capacity controls; no process timing or R1 closure"
+}

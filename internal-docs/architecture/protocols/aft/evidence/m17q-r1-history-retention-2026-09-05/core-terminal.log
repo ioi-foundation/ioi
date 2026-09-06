@@ -1,0 +1,62 @@
+warning: variable does not need to be mutable
+ --> crates/consensus/src/aft/guardian_majority/pacemaker/tests.rs:6:9
+  |
+6 |     let mut pm = Pacemaker::new(Duration::from_millis(100));
+  |         ----^^
+  |         |
+  |         help: remove this `mut`
+  |
+  = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `pq_fallback_trigger` is never used
+   --> crates/consensus/src/aft/guardian_majority/tests_parts/authenticated_runtime.rs:306:4
+    |
+306 | fn pq_fallback_trigger(
+    |    ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib test) generated 2 warnings (run `cargo fix --lib -p ioi-consensus --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.52s
+     Running unittests src/lib.rs (target/debug/deps/ioi_consensus-332e553035381bf6)
+
+running 37 tests
+test aft::query_unanimity::tests::m16q_profiles_mldsa_signing_and_durable_write_before_reply ... ignored, M16Q qualification benchmark; run explicitly and retain stdout
+test aft::query_unanimity::tests::expired_process_local_authorization_cannot_cross_the_effect_boundary ... ok
+test aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds ... ok
+test aft::query_unanimity::tests::policy_root_binds_bootstrap_kind_slot_and_predecessor ... ok
+test aft::query_unanimity::tests::policy_root_binds_preparation_limits_and_rejects_invalid_budgets ... ok
+test aft::query_unanimity::tests::provisioning_root_commits_complete_scope_and_canonical_policy_set ... ok
+test aft::query_unanimity::tests::live_handoff_candidate_binds_both_roots_and_complete_activation_state ... ok
+test aft::query_unanimity::tests::atomic_writer_rejects_over_budget_before_touching_any_file ... ok
+test aft::query_unanimity::tests::projected_member_size_matches_scale_compact_length_boundaries ... ok
+test aft::query_unanimity::tests::reply_admission_uses_the_operation_monotonic_clock ... ok
+test aft::query_unanimity::tests::accepted_history_terminal_slot_does_not_wrap_or_erase_history ... ok
+test aft::query_unanimity::tests::accepted_history_supports_unowned_grants_and_rejects_invalid_bootstrap ... ok
+test aft::query_unanimity::tests::reply_admission_deadline_edges_survive_delayed_finalization ... ok
+test aft::query_unanimity::tests::store_mac_matches_independent_sha256_fixture ... ok
+test aft::query_unanimity::tests::external_anchor_detects_state_rollback ... ok
+test aft::query_unanimity::tests::reply_observed_after_deadline_cannot_authorize_or_pass_audit ... ok
+test aft::query_unanimity::tests::changed_provisioning_refuses_without_writing_even_during_pending_recovery ... ok
+test aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot ... ok
+test aft::query_unanimity::tests::unauthenticated_crash_window_state_cannot_advance_handoff_anchor ... ok
+test aft::query_unanimity::tests::unauthenticated_crash_window_state_cannot_advance_member_anchor ... ok
+test aft::query_unanimity::tests::member_byte_headroom_refusal_preserves_state_and_allows_exact_fit ... ok
+test aft::query_unanimity::tests::owned_mode_rejects_a_disclosed_conflict ... ok
+test aft::query_unanimity::tests::silent_byzantine_member_does_not_block_single_candidate ... ok
+test aft::query_unanimity::tests::accepted_history_refuses_conflicting_or_expired_grants_without_mutation ... ok
+test aft::query_unanimity::tests::preparation_selection_recovers_and_rotates_without_advancing_history ... ok
+test aft::query_unanimity::tests::accepted_history_derives_scope_and_preserves_historical_predecessors ... ok
+test aft::query_unanimity::tests::writes_before_reply_and_recovers_monotone_snapshot ... ok
+test aft::query_unanimity::tests::member_persistence_error_requires_reopen_before_any_reply ... ok
+test aft::query_unanimity::tests::authenticated_advanced_history_covers_every_byte_in_pending_recovery ... ok
+test aft::query_unanimity::tests::durable_history_headroom_and_persistence_errors_preserve_recovery ... ok
+test aft::query_unanimity::tests::authenticated_member_state_covers_every_byte_and_pending_recovery ... ok
+test aft::query_unanimity::tests::preparation_selection_preserves_mode_rules_and_excludes_handoffs ... ok
+test aft::query_unanimity::tests::durable_history_requires_live_advance_and_retains_historical_queries ... ok
+test aft::query_unanimity::tests::live_authorization_is_consumed_into_rollback_anchored_successor_activation ... ok
+test aft::query_unanimity::tests::recovery_requires_snapshot_for_every_accepted_history_entry ... ok
+test aft::query_unanimity::tests::exact_context_binding_rejects_valid_cross_context_and_stale_nonce_replies ... ok
+test aft::query_unanimity::tests::rooted_owned_policy_is_not_nominated_by_the_candidate ... ok
+
+test result: ok. 36 passed; 0 failed; 1 ignored; 0 measured; 230 filtered out; finished in 1.83s

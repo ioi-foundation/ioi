@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-bounded-push-admission-2026-09-05/process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-bounded-push-admission-2026-09-05/process/components"
+  ],
+  "checker_sha256": "1283eef91ec592f1c50fc0358d9171f3882721a9846258dbb7d13d13ac3f3ee8",
+  "exit_code": 0,
+  "stderr": ""
+}

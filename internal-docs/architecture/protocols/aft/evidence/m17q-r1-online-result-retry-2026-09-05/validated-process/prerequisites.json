@@ -1,0 +1,26 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib",
+      "consequence::tests"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft"
+    ],
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "consequence::tests"
+  ],
+  "exit_code": 0,
+  "sources": {
+    "crates/agentgres/src/consequence.rs": "5305b8a393f277ef53393f7bd620e91fdf78181c6f760da875b75f63d1c4a0e9",
+    "crates/agentgres/src/consequence/tests.rs": "bebe28260ce66a13dda4af38fddaecc09944b5910166a1aff8844ed9a4f2f607",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  },
+  "log_sha256": "2633c31755a3e9d602cc906f12d5d21e3659bc0d01d04b524ad27c60f5fad95c"
+}

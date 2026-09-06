@@ -1,0 +1,79 @@
+[
+  {
+    "name": "candidate-capacity",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::candidate_byte_cap_precedes_validation_and_store_mutation",
+      "--",
+      "--exact"
+    ],
+    "started": "2026-09-06T07:43:16.748478+00:00",
+    "completed": "2026-09-06T07:43:19.387258+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "executor",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::grpc_public::quv_refusal_status_tests"
+    ],
+    "started": "2026-09-06T07:43:19.387494+00:00",
+    "completed": "2026-09-06T07:43:33.245132+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T07:43:33.245487+00:00",
+    "completed": "2026-09-06T07:43:40.919260+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T07:43:40.919555+00:00",
+    "completed": "2026-09-06T07:43:49.108446+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T07:43:49.108871+00:00",
+    "completed": "2026-09-06T07:43:49.112726+00:00",
+    "exit_code": 0
+  }
+]

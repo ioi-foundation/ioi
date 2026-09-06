@@ -1,0 +1,33 @@
+{
+  "goal_status": "active; incomplete",
+  "head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "live_jobs": [],
+  "immutable_candidate": null,
+  "dispositions": {
+    "M15Q": "REOPENED",
+    "M16Q": "R2_UNQUALIFIED",
+    "M17Q": "REPAIR_REQUIRED",
+    "M18Q": "NOT_ADMITTED"
+  },
+  "findings": "QUV-M17Q-001 through QUV-M17Q-013 remain OPEN as whole findings",
+  "closure_matrix": "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md",
+  "latest_production": "Overlay scan errors propagate into registry bootstrap refusal; API364 (unrelated ignored1), registry5, cleanup1, runtime-finality15, CLI, format, syntax and scoped formal pass. Later M16 runner complete-formal coverage has separate syntax/census evidence.",
+  "previous_integrated_evidence": "internal-docs/architecture/protocols/aft/evidence/m17q-r1-receipt-admission-2026-09-06/pressure-process",
+  "previous_integrated_limits": "Three slots/four exact members/restart plus 120 terminal replays pass; this predates the decoder guard and separately bound post-query model extension. No full R2 or benchmark rerun is claimed.",
+  "policy_root_profile": "v7-consequence-admission; fixture 5d93a2ea9a59eb1a306918647b4c8565e7a9656b15c32635666e48560b3ae58d",
+  "next_action": "Continue aggregate authority-lifetime allocation, ingress/authentication service and complete transition refinement; use complete formal corpus in full M16 only when integrated candidate ready. Preserve new scan read-barrier proof and source-binding split.",
+  "specific_remaining": [
+    "Public Server::builder does not apply configured RpcHardeningConfig; raw protobuf/HTTP connections and in-flight request memory precede the receipt gate. Candidate length now checked before SCALE decode; effect-id lookup and decoder allocation bounds still need accounting.",
+    "Distinct manifests and per-effect storage remain without a rooted aggregate lifetime bound; exact duplicate effect IDs now refuse without invalidating prior admission. Legacy unindexed registry refuses unchanged; no automatic migration.",
+    "Receipt FIFO bounds waiting slots N+2 plus active owner; general holder service S, both protected reopen costs, continuation deadline composition, physical metadata/RAM and cross-configuration retention remain unproved.",
+    "Complete production transition refinement and antecedents, full clean R2, freeze, fresh authorized independent review, and M18Q release handoff remain required."
+  ],
+  "historical_concern_checked": "BlockExecutionReceipt outcome enum currently has Success only; no failed-transaction receipt branch was established by source inspection.",
+  "preservation": "All source mutations restored. Two unrelated tracked architecture-document edits preserved; no public actions, candidate tag, reviewer, or owner handoff performed.",
+  "blockers": "No reproduced fixed-premise defeat or indispensable external blocker established.",
+  "design_constraints_identified": [
+    "Adding a local-member preparation write cannot silently require successor-only relying executors to become old-root members; their exact-source handoff path has different custody. No such change was made.",
+    "Per-effect preflight currently validates without disclosing candidates; distinct fully signed manifests can still allocate distinct receipts before live interaction. Need a production lifetime admission design preserving all admitted guarantees.",
+    "Public ingress global refusal alone does not establish fair authenticated domain/member service. Do not claim it does."
+  ]
+}

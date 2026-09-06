@@ -1,0 +1,36 @@
+{
+  "disposition": "LOCAL_REGRESSION_PASS_NOT_R2_ADMISSION",
+  "results": [
+    {
+      "case": "disjoint-handoff",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T04:36:11.820311+00:00",
+      "changed_sources": [],
+      "checker_exit_code": 0
+    },
+    {
+      "case": "overlap-handoff",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T04:40:41.374789+00:00",
+      "changed_sources": [],
+      "checker_exit_code": 0
+    },
+    {
+      "case": "correct-member-campaign",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T04:44:59.063352+00:00",
+      "changed_sources": [],
+      "checker_exit_code": 0
+    }
+  ],
+  "limitations": [
+    "Dirty worktree; not full clean M16Q R2",
+    "All whole R1 findings remain open",
+    "Earlier failures remain retained"
+  ],
+  "artifact_manifest_sha256": {
+    "correct-member-campaign/artifact-manifest.json": "935eccde0a1addc9069667159350a660b7f9921eb639dcccf406398a537a473a",
+    "disjoint-handoff/artifact-manifest.json": "eb655322fdb6cd7b0cd268e481c9b9e4777d087f388dc9059c4822bacf435d93",
+    "overlap-handoff/artifact-manifest.json": "b695a662f4cff142da02f044c9b5d2fd20cddcd85c48f19e190f66f505a9cdef"
+  }
+}

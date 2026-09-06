@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "consequence::tests::online_receipt_lost_reservation_refuses_before_claim_and_requires_reopen",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 101,
+  "expected_failure": true,
+  "restored": true,
+  "baseline_sha256": "15407f49da8b6b615a1b2911b1f1c24b69c0b804e6ffbfd082da6a1e652656cd",
+  "mutant_sha256": "f36a86b6b29878ab51e7953af9fd778354d12a060cf8554f8b8f701536a9366b"
+}

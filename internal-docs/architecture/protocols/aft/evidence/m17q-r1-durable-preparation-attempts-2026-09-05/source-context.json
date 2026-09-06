@@ -1,0 +1,15 @@
+{
+  "base_head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+  "cargo": "cargo 1.93.1 (083ac5135 2025-12-15)\n",
+  "scope": "Dirty working tree local checks; not clean R2 qualification.",
+  "source_sha256": {
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+    "crates/consensus/src/aft/query_unanimity.rs": "b1f4405ce53ad3093ca9374111ac31aea434452f5b564af1cb53bfbda0b0998e",
+    "crates/consensus/src/aft/query_unanimity/head.rs": "1144982b0d982d052ec2d8cec18b1d861fed39ea1151d5b18dda019955a73dac",
+    "crates/validator/src/standard/orchestration/quv.rs": "ea9438b27e35d358d7aebfcb07292a79b33e586af262c7c764f82892f35e6852",
+    "crates/types/src/config/mod.rs": "4f8af78c0ef6bd8189e38acf18c321122bd4700a5cbe9a9581c92b11ae90557f",
+    "crates/types/src/app/query_unanimity.rs": "fed96ec9ef660984c300754d316d68881bbea1cddff186b8abaab5bd0947039a",
+    ".github/scripts/run_aft_m16q_qualification.sh": "f2744255dc6b9f632b805d635f10de7573977ceb693ad993c911e71438f07383"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-networking",
+    "--lib"
+  ],
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "started_utc": "2026-09-04T23:24:37.280054+00:00",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "sources": {
+    "crates/networking/src/libp2p/pq_channel.rs": "4bdee54d8ea6f4a5312f9f87d51db2080e069be0023e8c518353255454df90c9",
+    "crates/networking/src/libp2p/swarm.rs": "758f8f88d55ed56adc5946b7984531e9a2737163327754412546beb9119536bb",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  }
+}

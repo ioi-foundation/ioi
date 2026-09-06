@@ -1,0 +1,285 @@
+// Path: crates/validator/src/standard/orchestration/context.rs
+
+use super::runtime_finality::RuntimeFinalityCoordinator;
+use crate::common::GuardianSigner;
+use crate::config::OrchestrationConfig;
+use crate::standard::orchestration::ingestion::ChainTipInfo;
+use crate::standard::orchestration::mempool::Mempool;
+use ioi_api::crypto::BatchVerifier;
+use ioi_api::{
+    chain::ChainStateMachine, commitment::CommitmentScheme, consensus::ConsensusEngine,
+    state::StateManager,
+};
+use ioi_consensus::aft::{
+    authenticated_quorum::ValidatorKeyRegistry,
+    hash_async::{DurableCrossPathSigningFence, HashAsyncSession},
+    query_unanimity::{DurableQuvHandoffV0, DurableQuvMemberV0},
+};
+use ioi_crypto::sign::dilithium::MldsaKeyPair;
+use ioi_ipc::public::TxStatus;
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::traits::NodeState;
+use ioi_types::app::KernelEvent; // [NEW]
+use ioi_types::app::{
+    AccountId, AftAsyncExecutedBlockCertificateV1, AftAsyncOrderingCertificateV1,
+    AftAsyncSelectedBatchWitnessV1, Block, ChainTransaction, OracleAttestation, QuorumCertificate,
+    QuvConfigurationHandoffEnvelopeV0, QuvNonce, TxHash, ValidatorSetV1,
+};
+use libp2p::{identity, PeerId};
+use lru::LruCache;
+use parity_scale_codec::{Decode, Encode};
+use serde::Serialize;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt::Debug;
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64},
+    Arc,
+};
+use tokio::sync::{mpsc, watch, Mutex}; // [FIX] Added imports
+use zeroize::Zeroizing;
+
+use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel}; // [FIX] Added InferenceRuntime
+                                                                  // [NEW] Import OsDriver trait
+use ioi_api::vm::drivers::os::OsDriver;
+use ioi_memory::MemoryRuntime;
+// [FIX] Removed unused Pacemaker import
+
+/// Type alias for the thread-safe reference to the chain state machine.
+pub type ChainFor<CS, ST> = Arc<
+    Mutex<
+        dyn ChainStateMachine<CS, ioi_tx::unified::UnifiedTransactionModel<CS>, ST> + Send + Sync,
+    >,
+>;
+
+/// Tracks the progress of block synchronization from a specific peer.
+#[derive(Debug, Clone)]
+pub struct SyncProgress {
+    /// The peer being synced from.
+    pub target: Option<PeerId>,
+    /// The target height (tip) we are trying to reach.
+    pub tip: u64,
+    /// The next height we need to request.
+    pub next: u64,
+    /// Whether a request is currently in flight.
+    pub inflight: bool,
+    /// Unique ID for the current request to match responses.
+    pub req_id: u64,
+    /// When the current or most recent sync request was issued.
+    pub requested_at: std::time::Instant,
+    /// Earliest instant at which an empty/failed response may be retried.
+    ///
+    /// A peer can truthfully advertise an execution tip ahead of its admitted
+    /// serving boundary.  Without this fence, alternating such peers creates
+    /// an unbounded request/empty-response loop in the main event task.
+    pub retry_not_before: Option<std::time::Instant>,
+}
+
+/// Stores the current status of a transaction for RPC queries.
+#[derive(Debug, Clone)]
+pub struct TxStatusEntry {
+    /// The current processing status (Pending, Committed, Rejected, etc.).
+    pub status: TxStatus,
+    /// Optional error message if the transaction failed.
+    pub error: Option<String>,
+    /// The block height where the transaction was committed, if applicable.
+    pub block_height: Option<u64>,
+}
+
+/// The central context shared across the orchestrator's main event loop.
+/// This struct holds references to all major components needed for consensus and networking.
+pub struct MainLoopContext<CS, ST, CE, V>
+where
+    CS: CommitmentScheme + Clone + Send + Sync + 'static,
+    ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone,
+    <CS as CommitmentScheme>::Commitment: Send + Sync + Debug,
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+    <CS as CommitmentScheme>::Proof: Serialize
+        + for<'de> serde::Deserialize<'de>
+        + Clone
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Encode
+        + Decode, // [FIX] Added Encode + Decode
+{
+    /// Configuration for the orchestration node.
+    pub config: OrchestrationConfig,
+    /// The unique identifier for the chain.
+    pub chain_id: ioi_types::app::ChainId,
+    /// The hash of the genesis block.
+    pub genesis_hash: [u8; 32],
+    /// The committed genesis state root used for anchored prechecks before a live tip exists.
+    pub genesis_root: Vec<u8>,
+    /// Reference to the chain state machine.
+    pub chain_ref: ChainFor<CS, ST>,
+    /// Resolver for creating state views.
+    pub view_resolver: Arc<dyn ioi_api::chain::ViewResolver<Verifier = V>>,
+
+    /// Reference to the transaction memory pool.
+    pub tx_pool_ref: Arc<Mempool>,
+
+    /// Channel for sending commands to the network swarm.
+    pub swarm_commander: mpsc::Sender<SwarmCommand>,
+    /// Dedicated bounded command lane for online QUV traffic.
+    pub quv_swarm_commander: mpsc::Sender<SwarmCommand>,
+    /// Reference to the consensus engine.
+    pub consensus_engine_ref: Arc<Mutex<CE>>,
+    /// Current high-level state of the node (Syncing, Synced, etc.).
+    pub node_state: Arc<Mutex<NodeState>>,
+    /// Local identity keypair for networking and signing.
+    pub local_keypair: identity::Keypair,
+    /// Optional post-quantum keypair for signing.
+    pub pqc_signer: Option<MldsaKeyPair>,
+    /// Stable validator account authorized by the effective rooted set. This
+    /// is deliberately distinct from either rotating consensus-key hash.
+    pub local_validator_account_id: Option<AccountId>,
+    /// Local ML-DSA transport identity. For an active member this equals
+    /// `local_validator_account_id`; for a pre-active Q-EA7 successor it is
+    /// present while consensus authority deliberately remains absent.
+    pub aft_pq_local_account_id: Option<AccountId>,
+    /// Set of currently connected and known peers.
+    pub known_peers_ref: Arc<Mutex<HashSet<PeerId>>>,
+    /// Mapping from connected peer IDs to validator account IDs learned during status handshakes.
+    pub peer_accounts_ref: Arc<Mutex<HashMap<PeerId, AccountId>>>,
+    /// Rooted ML-DSA channel identities for the active all-PQ AFT
+    /// configuration. `None` means the swarm remains in the explicitly
+    /// classical compatibility profile.
+    pub aft_pq_peer_keys: Option<HashMap<AccountId, [u8; 32]>>,
+    /// Accounts present only in the canonically staged successor set. Their
+    /// old-root sessions carry handoff PUSHQUERY/reply traffic and no
+    /// consensus authority.
+    pub aft_pq_handoff_only_accounts: HashSet<AccountId>,
+    /// Canonical future set observed beside the active old root. It is input
+    /// to Q-EA7 validation only and does not become active authority by being
+    /// present here.
+    pub aft_quv_staged_successor: Option<ValidatorSetV1>,
+    /// Effective-set commitment currently installed in the strict swarm.
+    pub aft_pq_configuration_hash: Option<[u8; 32]>,
+    /// Rooted membership and raw PQ verification keys for the active
+    /// normative asynchronous profile.
+    pub aft_async_membership: Option<(ValidatorSetV1, ValidatorKeyRegistry)>,
+    /// Domain-separated custody key for encrypted asynchronous journals. The
+    /// wrapper zeroizes it when the runtime context is dropped.
+    pub aft_async_custody_key: Option<Zeroizing<[u8; 32]>>,
+    /// Single persistent signing fence shared by optimistic and fallback
+    /// decision signers.
+    pub aft_cross_path_signing_fence: Option<Arc<std::sync::Mutex<DurableCrossPathSigningFence>>>,
+    /// Durable write-before-reply conflict state for the separately named
+    /// online QUV profile. Absent when no QUV domain is provisioned.
+    pub aft_quv_member: Option<Arc<Mutex<DurableQuvMemberV0>>>,
+    /// Owner-signed typed source currently admitted for the staged handoff.
+    /// These bytes are candidate input only and never portable authorization.
+    pub aft_quv_handoff_envelope: Option<QuvConfigurationHandoffEnvelopeV0>,
+    /// Exact old-root QC whose block may be exposed to staged successors and
+    /// proposed to QUV as the terminal handoff state. A QC is ordering
+    /// evidence, not final successor authority; the live operation remains
+    /// mandatory.
+    pub aft_quv_certified_handoff: Option<QuorumCertificate>,
+    /// Immutable locally executed block certified by
+    /// `aft_quv_certified_handoff`. Keeping the exact historical boundary in
+    /// memory lets overlapping old/new members validate late PUSHQUERY
+    /// traffic after the live tip has advanced, without granting network
+    /// handlers an ambient chain-read capability.
+    pub aft_quv_certified_handoff_block: Option<Block<ChainTransaction>>,
+    /// Exact predecessor of `aft_quv_certified_handoff_block`. The workload
+    /// may retain a different unadmitted projection at this height, so late
+    /// successors must receive this QC-boundary parent rather than pairing
+    /// the boundary with an unrelated local branch.
+    pub aft_quv_certified_handoff_parent_block: Option<Block<ChainTransaction>>,
+    /// Rollback-anchored process-local install gate for a local staged
+    /// successor. Absent on old-only members.
+    pub aft_quv_handoff_store: Option<Arc<Mutex<DurableQuvHandoffV0>>>,
+    /// At most one durable PUSHQUERY from each authenticated account may wait
+    /// for the member-state serializer. This bounds Byzantine queue occupancy
+    /// to the rooted membership size instead of accepting an unbounded flood.
+    pub(super) aft_quv_push_inflight: HashSet<AccountId>,
+    /// Bounded foreground queue and sole-operation permit, also used by preparation.
+    pub(super) aft_quv_admission: Arc<super::quv::admission::QuvOperationAdmissionV0>,
+    /// Wake independent preparation after durable work or operation completion.
+    pub(super) aft_quv_preparation_notify: Arc<tokio::sync::Notify>,
+    /// Separately locked live nonce-bound verifier operations. Abort/finalization
+    /// removes entries; delayed removal never extends the rooted observation
+    /// interval. Reply handling does not acquire the main context lock.
+    pub(super) aft_quv_operations: Arc<Mutex<HashMap<QuvNonce, super::quv::PendingQuvOperationV0>>>,
+    /// Active per-height hash-only fallback sessions.
+    pub aft_async_sessions: BTreeMap<u64, HashAsyncSession>,
+    /// Verified exact-q asynchronous certificates awaiting or completing the
+    /// sole block/finality admission path.
+    pub aft_async_finalized: BTreeMap<u64, AftAsyncOrderingCertificateV1>,
+    /// Canonical transaction batches reconstructed from the selected,
+    /// availability-certified payloads for each verified asynchronous result.
+    pub aft_async_finalized_batches: BTreeMap<u64, Vec<ChainTransaction>>,
+    /// Fully verified post-execution evidence awaiting or completing the sole
+    /// finality admission path.
+    pub aft_async_executed: BTreeMap<
+        u64,
+        (
+            AftAsyncExecutedBlockCertificateV1,
+            AftAsyncSelectedBatchWitnessV1,
+        ),
+    >,
+    /// Number of bootstrap peers configured at startup.
+    pub configured_bootstrap_peers: usize,
+    /// Flag indicating if the node is quarantined.
+    pub is_quarantined: Arc<AtomicBool>,
+    /// pending attestations for Oracle requests.
+    pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
+    /// The last block admitted by the canonical Agentgres finality spine.
+    /// Public completion, receipt, and tip surfaces must never advance beyond it.
+    pub last_committed_block: Option<Block<ChainTransaction>>,
+    /// The last block durably executed by the workload and staged for finality.
+    /// Under AFT this may be ahead of `last_committed_block` while the peer quorum
+    /// required for canonical admission is still forming.
+    pub last_executed_block: Option<Block<ChainTransaction>>,
+    /// The most recent tip vote replayed from workload state into the live consensus engine,
+    /// along with the replay timestamp for rate limiting.
+    pub last_tip_vote_replay: Option<(u64, u64, [u8; 32], std::time::Instant)>,
+    /// The most recent local production attempt for a specific (height, view, parent QC),
+    /// rate-limited to avoid re-building the same proposal repeatedly under bursty wakeups.
+    pub last_production_attempt: Option<(u64, u64, [u8; 32], std::time::Instant)>,
+    /// Bounded process-local memory of consensus-valid AFT replacements whose
+    /// deterministic workload replay was rejected. This cache grants no
+    /// authority and is discarded on restart; it only prevents a peer from
+    /// repeatedly charging the same invalid block to the execution path.
+    pub(crate) rejected_aft_replacements: LruCache<(u64, u64, [u8; 32]), ()>,
+    /// Channel to wake up the consensus loop.
+    pub consensus_kick_tx: mpsc::UnboundedSender<()>,
+    /// Shared debounce flag for consensus wakeups triggered outside the ingestion worker.
+    pub consensus_kick_scheduled: Arc<AtomicBool>,
+    /// Next scheduled millisecond wake-up for deferred block production.
+    pub next_due_wakeup_at_ms: Arc<AtomicU64>,
+    /// Current synchronization progress state.
+    pub sync_progress: Option<SyncProgress>,
+    /// Manager for tracking account nonces.
+    pub nonce_manager: Arc<Mutex<BTreeMap<AccountId, u64>>>,
+    /// The signer used for block headers (local or remote).
+    pub signer: Arc<dyn GuardianSigner>,
+    /// Verifier for batch signature verification.
+    pub batch_verifier: Arc<dyn BatchVerifier>,
+    /// Cache for transaction status queries.
+    pub tx_status_cache: Arc<Mutex<LruCache<String, TxStatusEntry>>>,
+    /// Watch channel for broadcasting chain tip updates.
+    pub tip_sender: watch::Sender<ChainTipInfo>,
+    /// Mapping of transaction hashes to their receipts.
+    pub receipt_map: Arc<Mutex<LruCache<TxHash, String>>>,
+    /// The local safety model for semantic analysis.
+    pub safety_model: Arc<dyn LocalSafetyModel>,
+    /// [NEW] The primary inference runtime (The "Brain") for intent resolution.
+    pub inference_runtime: Arc<dyn InferenceRuntime>,
+    /// [NEW] Added os_driver field
+    /// Driver for OS-level interactions.
+    pub os_driver: Arc<dyn OsDriver>,
+    /// Optional runtime-backed memory store for transcript and artifact retrieval.
+    pub memory_runtime: Option<Arc<MemoryRuntime>>,
+    /// [NEW] Event broadcaster for UI feedback
+    /// Broadcaster for kernel events to UI subscribers.
+    pub event_broadcaster: tokio::sync::broadcast::Sender<KernelEvent>,
+    /// Sole runtime ordering/finality admission coordinator.
+    pub(crate) runtime_finality: Arc<Mutex<RuntimeFinalityCoordinator>>,
+}

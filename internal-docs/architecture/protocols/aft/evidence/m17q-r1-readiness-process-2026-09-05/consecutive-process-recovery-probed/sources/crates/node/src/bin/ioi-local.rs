@@ -1,0 +1,1075 @@
+// Path: crates/node/src/bin/ioi-local.rs
+#![forbid(unsafe_code)]
+
+use anyhow::{anyhow, Result};
+use clap::Parser;
+use ioi_api::crypto::SerializableKey;
+use ioi_api::state::service_namespace_prefix;
+use ioi_api::state::{StateAccess, StateManager};
+use ioi_api::validator::container::Container;
+#[cfg(feature = "consensus-poa")]
+use ioi_consensus::proof_of_authority::ProofOfAuthorityEngine;
+use ioi_consensus::solo::SoloEngine;
+
+use ioi_crypto::sign::eddsa::Ed25519PrivateKey;
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::gui::IoiGuiDriver;
+use ioi_memory::MemoryRuntime;
+use ioi_state::primitives::hash::HashCommitmentScheme;
+use ioi_state::tree::flat::verifier::FlatVerifier;
+use ioi_state::tree::flat::RedbFlatStore;
+
+use ioi_types::app::{
+    account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, SignatureSuite,
+    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+};
+use ioi_types::config::{
+    ConsensusType, InitialServiceConfig, McpConfigEntry, McpContainmentConfig, McpContainmentMode,
+    McpIntegrityConfig, McpMode, McpServerSource, McpServerTier, OrchestrationConfig,
+    ValidatorRole, WorkloadConfig,
+};
+use ioi_types::service_configs::MigrationConfig;
+use ioi_validator::common::{GuardianContainer, LocalSigner};
+use ioi_validator::standard::orchestration::OrchestrationDependencies;
+use ioi_validator::standard::workload::setup::setup_workload;
+use ioi_validator::standard::Orchestrator;
+use libp2p::identity;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::{atomic::AtomicBool, Arc};
+use tokio::sync::Mutex as TokioMutex;
+use tokio::time::Duration;
+
+use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
+
+use ioi_api::chain::WorkloadClientApi;
+use ioi_consensus::Consensus;
+use ioi_validator::standard::orchestration::context::MainLoopContext;
+use ioi_validator::standard::orchestration::operator_tasks::{
+    run_agent_driver_task_with_handles, run_oracle_operator_task_with_client,
+};
+
+use ioi_api::vm::inference::{
+    HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel, UnavailableInferenceRuntime,
+};
+use ioi_drivers::os::NativeOsDriver;
+use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
+use ioi_services::agentic::runtime::RuntimeAgentService;
+use ioi_types::codec;
+
+// Import Market Service types
+use ioi_services::market::MarketService;
+// Import OptimizerService
+use ioi_services::agentic::optimizer::OptimizerService;
+use ioi_services::wallet_network::WalletNetworkService;
+
+// Import for SwarmCommand
+use ioi_networking::libp2p::SwarmCommand;
+use ioi_networking::noop::NoOpBlockSync;
+
+// Import for Skill Injection
+// Used in commented out blocks or future extensions, keeping to avoid churn if needed
+// use ioi_types::app::agentic::{AgentMacro, LlmToolDefinition};
+
+#[derive(Parser, Debug)]
+#[clap(name = "ioi-local", about = "IOI User Node (Mode 0)")]
+struct LocalOpts {
+    // Local-node product data home (state/genesis/identity), distinct from
+    // browser cache/profiles which live under `.ioi/browser/`.
+    #[clap(long, default_value = "./ioi-data")]
+    data_dir: PathBuf,
+}
+
+fn ensure_guardianized_local_signer_allowed(config: &OrchestrationConfig) -> Result<()> {
+    let guardianized_mode = !matches!(
+        config.aft_safety_mode,
+        ioi_types::config::AftSafetyMode::ClassicBft
+    );
+    let production_mode = matches!(
+        config.guardian_production_mode,
+        ioi_types::app::GuardianProductionMode::Production
+    );
+    if guardianized_mode || production_mode {
+        return Err(anyhow!(
+            "guardianized or production mode requires external guardian signing; LocalSigner is disabled"
+        ));
+    }
+    Ok(())
+}
+
+fn desktop_agent_allowed_system_prefixes() -> Vec<String> {
+    vec![
+        "upgrade::active::".to_string(),
+        String::from_utf8_lossy(&service_namespace_prefix("wallet_network")).to_string(),
+    ]
+}
+
+fn local_runtime_thread_stack_size_bytes() -> usize {
+    std::env::var("IOI_LOCAL_TOKIO_STACK_SIZE_BYTES")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value >= 4 * 1024 * 1024)
+        .unwrap_or(32 * 1024 * 1024)
+}
+
+fn local_interactive_policy_defaults(local_gpu_dev_mode: bool) -> DefaultPolicy {
+    if local_gpu_dev_mode {
+        DefaultPolicy::AllowAll
+    } else {
+        DefaultPolicy::RequireApproval
+    }
+}
+
+fn build_local_interactive_policy(local_gpu_dev_mode: bool) -> ActionRules {
+    ActionRules {
+        policy_id: "interactive-mode".to_string(),
+        defaults: local_interactive_policy_defaults(local_gpu_dev_mode),
+        ontology_policy: Default::default(),
+        pii_controls: Default::default(),
+        rules: vec![
+            Rule {
+                rule_id: Some("require-install-approval".into()),
+                target: "software::install_execute".into(),
+                conditions: Default::default(),
+                action: Verdict::RequireApproval,
+            },
+            Rule {
+                rule_id: Some("allow-ui-read".into()),
+                target: "gui::screenshot".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-lifecycle".into()),
+                target: "start@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-step".into()),
+                target: "step@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-resume".into()),
+                target: "resume@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-post-message".into()),
+                target: "post_message@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-deny".into()),
+                target: "deny@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-approval-authority-registration".into()),
+                target: "register_approval_authority@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-approval-authority-revocation".into()),
+                target: "revoke_approval_authority@v1".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-complete".into()),
+                target: "agent__complete".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-pause".into()),
+                target: "agent__pause".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-await".into()),
+                target: "agent__await".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-chat".into()),
+                target: "chat__reply".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            // Allow echo for the test macro.
+            Rule {
+                rule_id: Some("allow-sys-exec-echo".into()),
+                target: "sys::exec".into(),
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            // Allow screen control for UI-TARS.
+            Rule {
+                rule_id: Some("allow-computer".into()),
+                target: "gui::click".into(), // Maps to screen.left_click AND screen__click
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-computer-type".into()),
+                target: "gui::type".into(), // Maps to screen.type
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+            Rule {
+                rule_id: Some("allow-computer-mouse".into()),
+                target: "gui::mouse_move".into(), // Maps to screen.mouse_move
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            },
+        ],
+    }
+}
+
+fn main() -> Result<()> {
+    // Install default crypto provider for rustls 0.23+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    ioi_telemetry::init::init_tracing()?;
+    let runtime_stack_size = local_runtime_thread_stack_size_bytes();
+    println!(
+        "Configured tokio runtime worker stack size: {} bytes",
+        runtime_stack_size
+    );
+
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(runtime_stack_size)
+        .build()?
+        .block_on(async_main())
+}
+
+async fn async_main() -> Result<()> {
+    let opts = LocalOpts::parse();
+    fs::create_dir_all(&opts.data_dir)?;
+
+    let abs_data_dir = fs::canonicalize(&opts.data_dir)?;
+    let abs_data_dir_str = abs_data_dir.to_string_lossy().to_string();
+
+    // 1. Identity Setup
+    let key_path = opts.data_dir.join("identity.key");
+    let local_key = if key_path.exists() {
+        let raw = GuardianContainer::load_encrypted_file(&key_path)?;
+        identity::Keypair::from_protobuf_encoding(&raw)?
+    } else {
+        println!("Initializing new User Node Identity...");
+        let kp = identity::Keypair::generate_ed25519();
+        if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
+            std::env::set_var("IOI_GUARDIAN_KEY_PASS", "local-mode");
+        }
+        GuardianContainer::save_encrypted_file(&key_path, &kp.to_protobuf_encoding()?)?;
+        kp
+    };
+    let local_account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &local_key.public().encode_protobuf(),
+    )?);
+
+    // 2. Memory Runtime Setup
+    let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(
+        &opts.data_dir.join("desktop-memory.db"),
+    )?);
+
+    // Agent Meta
+    let mut agent_methods = std::collections::BTreeMap::new();
+    for method in [
+        "start@v1",
+        "step@v1",
+        "resume@v1",
+        "post_message@v1",
+        "pause@v1",
+        "cancel@v1",
+        "deny@v1",
+        "register_approval_authority@v1",
+        "revoke_approval_authority@v1",
+    ] {
+        agent_methods.insert(method.to_string(), MethodPermission::User);
+    }
+
+    let agent_meta = ActiveServiceMeta {
+        id: "desktop_agent".to_string(),
+        abi_version: 1,
+        state_schema: "v1".to_string(),
+        caps: Capabilities::empty(),
+        artifact_hash: [0u8; 32],
+        activated_at: 0,
+        methods: agent_methods,
+        allowed_system_prefixes: desktop_agent_allowed_system_prefixes(),
+        generation_id: 0,
+        parent_hash: None,
+        author: Some(local_account_id), // User owns their agent
+        context_filter: None,           // Initialize context_filter
+    };
+
+    let session_id = [0u8; 32];
+    let local_gpu_dev_mode = std::env::var("HYPERVISOR_LOCAL_GPU_DEV")
+        .ok()
+        .map(|value| matches!(value.trim(), "1" | "true" | "TRUE" | "yes" | "on"))
+        .unwrap_or(false);
+    let local_policy = build_local_interactive_policy(local_gpu_dev_mode);
+
+    // 3. Configuration Setup
+    let rpc_addr = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS")
+        .unwrap_or_else(|_| "0.0.0.0:9000".to_string());
+
+    let config = OrchestrationConfig {
+        chain_id: ioi_types::app::ChainId(0),
+        config_schema_version: 1,
+        validator_role: ValidatorRole::Consensus,
+        consensus_type: ConsensusType::ProofOfAuthority,
+        finality_profile: None,
+        aft_safety_mode: Default::default(),
+        aft_pq_outbox_dir: None,
+        aft_external_anchor_dir: None,
+        aft_quv_domain_policies: Vec::new(),
+        aft_quv_handoff_source: None,
+        guardian_production_mode: Default::default(),
+        key_authority: None,
+        rpc_listen_address: rpc_addr.clone(),
+        rpc_hardening: Default::default(),
+        initial_sync_timeout_secs: 0,
+        block_production_interval_secs: 1,
+        round_robin_view_timeout_secs: 2,
+        default_query_gas_limit: u64::MAX,
+        ibc_gateway_listen_address: None,
+        safety_model_path: None,
+        tokenizer_path: None,
+    };
+
+    let mut service_policies = ioi_types::config::default_service_policies();
+    service_policies.insert(
+        "desktop_agent".to_string(),
+        ioi_types::config::ServicePolicy {
+            methods: agent_meta.methods.clone(),
+            allowed_system_prefixes: desktop_agent_allowed_system_prefixes(),
+        },
+    );
+
+    let mut market_methods = std::collections::BTreeMap::new();
+    market_methods.insert("request_compute@v1".to_string(), MethodPermission::User);
+    market_methods.insert("settle_compute@v1".to_string(), MethodPermission::User);
+    market_methods.insert("publish_asset@v1".to_string(), MethodPermission::User);
+    market_methods.insert("purchase_license@v1".to_string(), MethodPermission::User);
+
+    service_policies.insert(
+        "market".to_string(),
+        ioi_types::config::ServicePolicy {
+            methods: market_methods.clone(),
+            allowed_system_prefixes: vec![],
+        },
+    );
+
+    let mut optimizer_methods = std::collections::BTreeMap::new();
+    optimizer_methods.insert("optimize_agent@v1".to_string(), MethodPermission::User);
+    optimizer_methods.insert("crystallize_skill@v1".to_string(), MethodPermission::User);
+    optimizer_methods.insert("deploy_skill@v1".to_string(), MethodPermission::User);
+    // Allow import_skill via CLI
+    optimizer_methods.insert("import_skill@v1".to_string(), MethodPermission::User);
+
+    service_policies.insert(
+        "optimizer".to_string(),
+        ioi_types::config::ServicePolicy {
+            methods: optimizer_methods,
+            allowed_system_prefixes: vec![
+                "agent::trace::".to_string(),
+                "upgrade::active::".to_string(),
+            ],
+        },
+    );
+
+    // Inference Config
+    let openai_key = std::env::var("OPENAI_API_KEY").ok();
+    let local_url = std::env::var("LOCAL_LLM_URL").ok();
+    let (provider, api_url, api_key, model_name) = if let Some(key) = openai_key {
+        let model = std::env::var("OPENAI_MODEL").unwrap_or("gpt-4o".to_string());
+        println!("🤖 OpenAI API Key detected.");
+        (
+            "openai",
+            "https://api.openai.com/v1/chat/completions".to_string(),
+            Some(key),
+            model,
+        )
+    } else if let Some(url) = local_url {
+        let local_model = std::env::var("LOCAL_LLM_MODEL")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                std::env::var("HYPERVISOR_LOCAL_RUNTIME_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .or_else(|| {
+                std::env::var("OPENAI_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .unwrap_or_else(|| "llama3".to_string());
+        println!("🤖 LOCAL_LLM_URL detected.");
+        ("local", url, None, local_model)
+    } else {
+        let local_model = std::env::var("LOCAL_LLM_MODEL")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                std::env::var("HYPERVISOR_LOCAL_RUNTIME_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .unwrap_or_else(|| "llama3".to_string());
+        let default_local_url = "http://localhost:11434/v1/chat/completions".to_string();
+        println!(
+            "⚠️ No inference credentials configured. Defaulting to local runtime at {}.",
+            default_local_url
+        );
+        ("local", default_local_url, None, local_model)
+    };
+
+    let user_home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    // Mount a specific workspace instead of full home to prevent timeouts on large dirs
+    let workspace_path = std::path::Path::new(&user_home).join("ioi-workspace");
+    std::fs::create_dir_all(&workspace_path)?;
+    let workspace_str = workspace_path.to_string_lossy().to_string();
+
+    println!("📂 Mounting User Space (Gated): {}", workspace_str);
+
+    let mut mcp_servers = std::collections::HashMap::new();
+    let mcp_profile = std::env::var("IOI_MCP_PROFILE")
+        .unwrap_or_else(|_| "disabled".to_string())
+        .to_ascii_lowercase();
+    let mcp_mode = if mcp_profile == "dev_filesystem" {
+        mcp_servers.insert(
+            "filesystem_dev".to_string(),
+            McpConfigEntry {
+                command: "npx".to_string(),
+                args: vec![
+                    "-y".to_string(),
+                    "@modelcontextprotocol/server-filesystem".to_string(),
+                    workspace_str.clone(),
+                ],
+                env: std::collections::HashMap::new(),
+                tier: McpServerTier::Unverified,
+                source: McpServerSource::PackageManager,
+                integrity: McpIntegrityConfig::default(),
+                containment: McpContainmentConfig {
+                    mode: McpContainmentMode::DeveloperUnconfined,
+                    allow_network_egress: true,
+                    allow_child_processes: true,
+                    workspace_root: Some(workspace_str.clone()),
+                },
+                allowed_tools: Vec::new(),
+            },
+        );
+        McpMode::Development
+    } else {
+        McpMode::Disabled
+    };
+
+    let workload_config = WorkloadConfig {
+        runtimes: vec!["wasm".to_string()],
+        state_tree: ioi_types::config::StateTreeType::IAVL,
+        commitment_scheme: ioi_types::config::CommitmentSchemeType::Hash,
+        consensus_type: ConsensusType::ProofOfAuthority,
+        genesis_file: opts
+            .data_dir
+            .join("genesis.json")
+            .to_string_lossy()
+            .to_string(),
+        state_file: opts.data_dir.join("state.db").to_string_lossy().to_string(),
+        srs_file_path: None,
+        fuel_costs: Default::default(),
+        initial_services: vec![
+            InitialServiceConfig::IdentityHub(MigrationConfig {
+                chain_id: 0,
+                grace_period_blocks: 100,
+                accept_staged_during_grace: true,
+                allowed_target_suites: vec![SignatureSuite::ED25519, SignatureSuite::ML_DSA_44],
+                allow_downgrade: false,
+            }),
+            InitialServiceConfig::Governance(Default::default()),
+            InitialServiceConfig::Oracle(Default::default()),
+            InitialServiceConfig::GuardianRegistry(Default::default()),
+        ],
+        service_policies,
+        min_finality_depth: 0,
+        keep_recent_heights: 1000,
+        epoch_size: 1000,
+        gc_interval_secs: 3600,
+        zk_config: Default::default(),
+        inference: ioi_types::config::InferenceConfig {
+            provider: provider.to_string(),
+            api_url: Some(api_url.clone()),
+            api_key: api_key.clone(),
+            model_name: Some(model_name.clone()),
+            connector_ref: None,
+        },
+        fast_inference: None,
+        reasoning_inference: None,
+        connectors: Default::default(),
+        mcp_servers,
+        mcp_mode,
+    };
+
+    // 4. Genesis Generation
+    if !Path::new(&workload_config.genesis_file).exists() {
+        println!("Generating new genesis file for local mode...");
+        use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+        use ioi_types::codec::to_bytes_canonical;
+        use ioi_types::keys::*;
+        use ioi_types::service_configs::{GovernancePolicy, GovernanceSigner};
+
+        let mut genesis_state = serde_json::Map::new();
+        let mut insert_raw = |key: &[u8], encoded_val: Vec<u8>| {
+            let key_str = format!("b64:{}", BASE64.encode(key));
+            let val_str = format!("b64:{}", BASE64.encode(encoded_val));
+            genesis_state.insert(key_str, serde_json::Value::String(val_str));
+        };
+
+        // Identity & Validator Set
+        let cred = ioi_types::app::Credential {
+            suite: SignatureSuite::ED25519,
+            public_key_hash: local_account_id.0,
+            activation_height: 0,
+            l2_location: None,
+            weight: 1,
+        };
+        let creds_key = [
+            service_namespace_prefix("identity_hub").as_slice(),
+            IDENTITY_CREDENTIALS_PREFIX,
+            local_account_id.as_ref(),
+        ]
+        .concat();
+        insert_raw(&creds_key, to_bytes_canonical(&[Some(cred), None]).unwrap());
+        insert_raw(
+            &[ACCOUNT_ID_TO_PUBKEY_PREFIX, local_account_id.as_ref()].concat(),
+            to_bytes_canonical(&local_key.public().encode_protobuf()).unwrap(),
+        );
+        let vs = ValidatorSetsV1 {
+            current: ValidatorSetV1 {
+                effective_from_height: 1,
+                total_weight: 1,
+                validators: vec![ValidatorV1 {
+                    account_id: local_account_id,
+                    weight: 1,
+                    consensus_key: ActiveKeyRecord {
+                        suite: SignatureSuite::ED25519,
+                        public_key_hash: local_account_id.0,
+                        since_height: 0,
+                    },
+                }],
+            },
+            next: None,
+        };
+        insert_raw(VALIDATOR_SET_KEY, to_bytes_canonical(&vs).unwrap());
+        insert_raw(
+            GOVERNANCE_KEY,
+            to_bytes_canonical(&GovernancePolicy {
+                signer: GovernanceSigner::Single(local_account_id),
+            })
+            .unwrap(),
+        );
+
+        let agent_key = ioi_types::keys::active_service_key("desktop_agent");
+        insert_raw(&agent_key, to_bytes_canonical(&agent_meta).unwrap());
+
+        let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
+        insert_raw(&policy_key, to_bytes_canonical(&local_policy).unwrap());
+        let desktop_agent_policy_key = [
+            service_namespace_prefix("desktop_agent").as_slice(),
+            policy_key.as_slice(),
+        ]
+        .concat();
+        insert_raw(
+            &desktop_agent_policy_key,
+            to_bytes_canonical(&local_policy).unwrap(),
+        );
+
+        let market_meta = ActiveServiceMeta {
+            id: "market".to_string(),
+            abi_version: 1,
+            state_schema: "v1".to_string(),
+            caps: Capabilities::empty(),
+            artifact_hash: [0u8; 32],
+            activated_at: 0,
+            methods: market_methods,
+            allowed_system_prefixes: vec![],
+            generation_id: 0,
+            parent_hash: None,
+            author: None,         // System service has no specific owner
+            context_filter: None, // Initialize context_filter
+        };
+        let market_key = ioi_types::keys::active_service_key("market");
+        insert_raw(&market_key, to_bytes_canonical(&market_meta).unwrap());
+
+        let json = serde_json::json!({ "genesis_state": genesis_state });
+        fs::write(
+            &workload_config.genesis_file,
+            serde_json::to_string_pretty(&json)?,
+        )?;
+    }
+
+    let genesis_bytes = fs::read(&workload_config.genesis_file)?;
+    let derived_genesis_hash: [u8; 32] = ioi_crypto::algorithms::hash::sha256(&genesis_bytes)?;
+
+    // 5. Driver Instantiation
+    let (event_tx, _event_rx) = tokio::sync::broadcast::channel(1000);
+    // Dedicated, higher-capacity channel for RuntimeThreadEvent carriers only — the
+    // event-log bridge drains this instead of the high-volume UI event_tx so it never
+    // lags and drops a managed-session/turn-execution event. Fed by the service's
+    // runtime_thread_event_sender (set below); the producer falls back to event_tx only
+    // when this is unset.
+    let (runtime_thread_event_tx, _runtime_thread_event_rx) = tokio::sync::broadcast::channel(4096);
+    // Runtime -> daemon event-log bridge: drain RuntimeThreadEvent carriers (e.g.
+    // managed_session.projected) and persist them onto the hypervisor daemon's event log
+    // so its HTTP projections see runtime output. Targets the daemon's state_dir (shared
+    // IOI_HYPERVISOR_DATA_DIR), falling back to this runtime's data_dir when co-located.
+    {
+        let bridge_state_dir =
+            std::env::var("IOI_HYPERVISOR_DATA_DIR").unwrap_or_else(|_| abs_data_dir_str.clone());
+        tokio::spawn(
+            ioi_services::agentic::runtime::event_log_bridge::run_event_log_bridge(
+                bridge_state_dir,
+                runtime_thread_event_tx.subscribe(),
+            ),
+        );
+    }
+    let os_driver = Arc::new(NativeOsDriver::new());
+
+    // Create GUI driver mutably to register lenses
+    let mut gui_driver = IoiGuiDriver::new()
+        .with_event_sender(event_tx.clone())
+        .with_memory_runtime(memory_runtime.clone())
+        .with_som(true); // Explicitly enable SoM Visual Grounding
+
+    // Register Auto-Lens as the fallback for "LiDAR"
+    // This allows the agent to semantically target ANY native app, not just Calculator.
+    // e.g. a button labeled "Play" becomes ID="btn_play".
+    gui_driver.register_lens(Box::new(ioi_drivers::gui::lenses::auto::AutoLens));
+
+    // [OPTIONAL] You can still register specific lenses (like ReactLens) first for higher fidelity.
+    // ReactLens is already registered by default in IoiGuiDriver::new(), so we are good.
+
+    // Wrap GUI driver in Arc for shared use
+    let gui_driver_arc = Arc::new(gui_driver);
+    let browser_driver = Arc::new(BrowserDriver::new());
+
+    println!("   - State: Redb Flat Store (Zero Hashing)");
+    let scheme = HashCommitmentScheme::new();
+    let flat_db_path = opts.data_dir.join("state_flat.redb");
+    let tree = RedbFlatStore::new(&flat_db_path, scheme.clone())
+        .map_err(|e| anyhow!("Failed to open flat store: {}", e))?;
+
+    let (workload_container, machine) = setup_workload(
+        tree,
+        scheme.clone(),
+        workload_config.clone(),
+        Some(gui_driver_arc.clone()),
+        Some(browser_driver.clone()),
+        Some(event_tx.clone()),
+        Some(os_driver.clone()),
+    )
+    .await?;
+
+    // Hot-Patch Policy & Meta
+    {
+        println!("Applying active security policy to state...");
+        let state_tree: Arc<tokio::sync::RwLock<RedbFlatStore<HashCommitmentScheme>>> =
+            workload_container.state_tree();
+        let mut state = state_tree.write().await;
+
+        let policy_key = [b"agent::policy::", session_id.as_slice()].concat();
+        let policy_bytes = codec::to_bytes_canonical(&local_policy).map_err(|e| anyhow!(e))?;
+        state
+            .insert(&policy_key, &policy_bytes)
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let desktop_agent_policy_key = [
+            service_namespace_prefix("desktop_agent").as_slice(),
+            policy_key.as_slice(),
+        ]
+        .concat();
+        state
+            .insert(&desktop_agent_policy_key, &policy_bytes)
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        let agent_key = ioi_types::keys::active_service_key("desktop_agent");
+        let meta_bytes = codec::to_bytes_canonical(&agent_meta).map_err(|e| anyhow!(e))?;
+        state
+            .insert(&agent_key, &meta_bytes)
+            .map_err(|e| anyhow!(e.to_string()))?;
+
+        let _ = state
+            .commit_version(0)
+            .map_err(|e| anyhow!(e.to_string()))?;
+    }
+
+    // 6. Runtime Execution
+    let workload_ipc_addr = "127.0.0.1:8555";
+    std::env::set_var("IPC_SERVER_ADDR", workload_ipc_addr);
+
+    let server_workload: Arc<
+        ioi_api::validator::WorkloadContainer<RedbFlatStore<HashCommitmentScheme>>,
+    > = workload_container.clone();
+    let server_machine = machine.clone();
+    let server_addr = workload_ipc_addr.to_string();
+
+    let mut workload_server_handle = tokio::spawn(async move {
+        let server = ioi_validator::standard::workload::ipc::WorkloadIpcServer::<
+            RedbFlatStore<HashCommitmentScheme>,
+            HashCommitmentScheme,
+        >::new(server_addr, server_workload, server_machine)
+        .await
+        .map_err(|e| anyhow!(e))?;
+        server.run().await.map_err(|e: anyhow::Error| anyhow!(e))
+    });
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    let ca_path = opts.data_dir.join("ca.pem");
+    let cert_path = opts.data_dir.join("orchestration.pem");
+    let key_path = opts.data_dir.join("orchestration.key");
+
+    let workload_client = Arc::new(
+        ioi_client::WorkloadClient::new(
+            workload_ipc_addr,
+            &ca_path.to_string_lossy(),
+            &cert_path.to_string_lossy(),
+            &key_path.to_string_lossy(),
+        )
+        .await?,
+    );
+
+    let syncer = Arc::new(NoOpBlockSync::new());
+
+    let (swarm_commander, mut swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
+    tokio::spawn(async move { while let Some(_) = swarm_rx.recv().await {} });
+    let (quv_swarm_commander, mut quv_swarm_rx) = tokio::sync::mpsc::channel::<SwarmCommand>(100);
+    tokio::spawn(async move {
+        while let Some(command) = quv_swarm_rx.recv().await {
+            if let SwarmCommand::BeginQuvOperation { response, .. } = command {
+                let _ = response.send(());
+            }
+        }
+    });
+
+    let (_dummy_tx, network_events) = tokio::sync::mpsc::channel(100);
+    let (_dummy_quv_tx, quv_network_events) = tokio::sync::mpsc::channel(100);
+
+    let (consensus_label, consensus_engine) = if cfg!(feature = "consensus-poa") {
+        #[cfg(feature = "consensus-poa")]
+        {
+            (
+                "Proof of Authority (Local Single-Validator Mode)",
+                ioi_consensus::Consensus::ProofOfAuthority(ProofOfAuthorityEngine::new()),
+            )
+        }
+        #[cfg(not(feature = "consensus-poa"))]
+        {
+            (
+                "Solo (Lite Mode)",
+                ioi_consensus::Consensus::Solo(SoloEngine::new()),
+            )
+        }
+    } else {
+        (
+            "Solo (Lite Mode)",
+            ioi_consensus::Consensus::Solo(SoloEngine::new()),
+        )
+    };
+    println!("   - Consensus: {}", consensus_label);
+    ensure_guardianized_local_signer_allowed(&config)?;
+
+    let sk_bytes = local_key.clone().try_into_ed25519()?.secret();
+    let internal_sk = Ed25519PrivateKey::from_bytes(sk_bytes.as_ref())?;
+    let internal_kp = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&internal_sk)?;
+    let signer = Arc::new(LocalSigner::new(internal_kp));
+
+    let inference_runtime: Arc<dyn InferenceRuntime> =
+        match workload_config.inference.provider.as_str() {
+            "openai" | "local" => {
+                let model_name = workload_config
+                    .inference
+                    .model_name
+                    .clone()
+                    .unwrap_or_else(|| {
+                        if workload_config.inference.provider == "openai" {
+                            "gpt-4o".to_string()
+                        } else {
+                            "llama3".to_string()
+                        }
+                    });
+                let api_url = workload_config
+                    .inference
+                    .api_url
+                    .clone()
+                    .unwrap_or_else(|| {
+                        if workload_config.inference.provider == "openai" {
+                            "https://api.openai.com/v1/chat/completions".to_string()
+                        } else {
+                            "http://localhost:11434/v1/chat/completions".to_string()
+                        }
+                    });
+                let api_key = workload_config.inference.api_key.clone().unwrap_or_default();
+                Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
+            }
+            _ => Arc::new(UnavailableInferenceRuntime::new(
+                "Local node inference runtime is unavailable. Configure OPENAI_API_KEY or LOCAL_LLM_URL, or provide a workload inference backend.",
+            )),
+        };
+
+    let safety_model: Arc<dyn LocalSafetyModel> =
+        Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
+
+    let verifier = FlatVerifier::default();
+
+    let deps = OrchestrationDependencies {
+        syncer,
+        network_event_receiver: network_events,
+        quv_network_event_receiver: quv_network_events,
+        swarm_command_sender: swarm_commander,
+        quv_swarm_command_sender: quv_swarm_commander,
+        consensus_engine,
+        local_keypair: local_key.clone(),
+        pqc_keypair: None,
+        is_quarantined: Arc::new(AtomicBool::new(false)),
+        genesis_hash: derived_genesis_hash,
+        verifier,
+        signer,
+        batch_verifier: Arc::new(ioi_crypto::sign::batch::CpuBatchVerifier::new()),
+        safety_model: safety_model,
+        inference_runtime: inference_runtime.clone(),
+        os_driver: os_driver.clone(),
+        memory_runtime: Some(memory_runtime.clone()),
+        event_broadcaster: Some(event_tx.clone()),
+        runtime_finality_root: opts.data_dir.join("ordering-finality"),
+    };
+
+    let orchestrator = Arc::new(Orchestrator::<
+        HashCommitmentScheme,
+        RedbFlatStore<HashCommitmentScheme>,
+        Consensus<ChainTransaction>,
+        FlatVerifier,
+    >::new(&config, deps, scheme)?);
+
+    orchestrator.set_chain_and_workload_client(machine.clone(), workload_client);
+
+    println!("\n✅ IOI User Node (Mode 0) configuration is valid.");
+    if local_gpu_dev_mode {
+        println!("   - Agency Firewall: Local GPU Dev Mode (default allow)");
+    } else {
+        println!("   - Agency Firewall: User-in-the-Loop Mode (Interactive Gates)");
+    }
+    println!("   - The Substrate: Mounted at {}", opts.data_dir.display());
+    println!("   - Memory Runtime: Active (SQLite)");
+    println!("   - GUI Automation: Enabled (Visual Grounding Active + LiDAR)");
+    println!("   - Browser Automation: Enabled");
+    if workload_config.mcp_mode == McpMode::Disabled {
+        println!("   - MCP: Disabled by default (native filesystem tools remain available).");
+    } else {
+        println!("   - MCP: Development profile enabled ({})", mcp_profile);
+    }
+    println!("   - Market: Active (Universal Asset Ledger)");
+    println!(
+        "   - RPC will listen on http://{}",
+        config.rpc_listen_address
+    );
+    println!("Starting main components (press Ctrl+C to exit)...");
+
+    Container::start(&*orchestrator, &config.rpc_listen_address)
+        .await
+        .map_err(|e| anyhow!("Failed to start: {}", e))?;
+
+    let agent = RuntimeAgentService::new_hybrid(
+        gui_driver_arc,
+        Arc::new(ioi_drivers::terminal::TerminalDriver::new()),
+        browser_driver,
+        inference_runtime.clone(),
+        inference_runtime.clone(),
+    )
+    .with_mcp_manager(Arc::new(ioi_drivers::mcp::McpManager::new()))
+    .with_memory_runtime(memory_runtime.clone())
+    .with_workspace_path(abs_data_dir_str.clone())
+    .with_event_sender(event_tx.clone())
+    .with_runtime_thread_event_sender(runtime_thread_event_tx.clone())
+    .with_os_driver(os_driver.clone())
+    .with_som(true); // Enable SoM in Agent
+
+    // Configure Optimizer with runtime-backed memory access
+    let safety_adapter: Arc<dyn LocalSafetyModel> =
+        Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
+    let optimizer_service =
+        OptimizerService::new(inference_runtime.clone(), safety_adapter.clone())
+            .with_memory_runtime(memory_runtime.clone());
+    let optimizer_arc = Arc::new(optimizer_service);
+
+    // Inject Optimizer into Agent Service for RSI
+    let agent = agent.with_optimizer(optimizer_arc.clone());
+
+    {
+        let mut machine_guard = machine.lock().await;
+        let service_arc = Arc::new(agent);
+        if let Err(e) = machine_guard.service_manager.register_service(service_arc) {
+            eprintln!("Failed to register enhanced RuntimeAgentService: {}", e);
+        } else {
+            println!("✅ Enhanced RuntimeAgentService (MCP+Path) registered via Hot Swap.");
+        }
+
+        let market_service = Arc::new(MarketService::default());
+        if let Err(e) = machine_guard
+            .service_manager
+            .register_service(market_service)
+        {
+            eprintln!("Failed to register MarketService: {}", e);
+        } else {
+            println!("✅ MarketService active (Skills, Agents, Compute).");
+        }
+
+        // Register Optimizer
+        if let Err(e) = machine_guard
+            .service_manager
+            .register_service(optimizer_arc)
+        {
+            eprintln!("Failed to register OptimizerService: {}", e);
+        } else {
+            println!("✅ OptimizerService active (Skill Injection Enabled).");
+        }
+
+        let wallet_service = Arc::new(WalletNetworkService);
+        if let Err(e) = machine_guard
+            .service_manager
+            .register_service(wallet_service)
+        {
+            eprintln!("Failed to register WalletNetworkService: {}", e);
+        } else {
+            println!("✅ WalletNetworkService active (Control Plane).");
+        }
+    }
+
+    let mut operator_ticker = tokio::time::interval(Duration::from_millis(500));
+    operator_ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                println!("\nShutdown signal received.");
+                break;
+            }
+            res = &mut workload_server_handle => {
+                match res {
+                    Ok(Err(e)) => return Err(anyhow!("Workload IPC Server crashed: {}", e)),
+                    Ok(Ok(_)) => return Err(anyhow!("Workload IPC Server exited unexpectedly.")),
+                    Err(e) => return Err(anyhow!("Workload IPC Server task panicked: {}", e)),
+                }
+            }
+            _ = operator_ticker.tick() => {
+                let ctx_opt_guard = orchestrator.main_loop_context.lock().await;
+                let ctx_opt: &Option<Arc<TokioMutex<MainLoopContext<
+                    HashCommitmentScheme,
+                    RedbFlatStore<HashCommitmentScheme>,
+                    Consensus<ChainTransaction>,
+                    FlatVerifier
+                >>>> = &*ctx_opt_guard;
+
+                if let Some(ctx) = ctx_opt {
+                    // Clone required handles first, then release context lock before any async work.
+                    let (
+                        workload_client,
+                        tx_pool_ref,
+                        local_keypair,
+                        chain_id,
+                        nonce_manager,
+                        consensus_kick_tx,
+                        memory_runtime,
+                    ) = {
+                        let ctx_guard = ctx.lock().await;
+                        let workload_client: Arc<dyn WorkloadClientApi> =
+                            ctx_guard.view_resolver.workload_client().clone();
+                        (
+                            workload_client,
+                            ctx_guard.tx_pool_ref.clone(),
+                            ctx_guard.local_keypair.clone(),
+                            ctx_guard.chain_id,
+                            ctx_guard.nonce_manager.clone(),
+                            ctx_guard.consensus_kick_tx.clone(),
+                            ctx_guard.memory_runtime.clone(),
+                        )
+                    };
+
+                    if let Err(e) = run_oracle_operator_task_with_client(workload_client.clone()).await
+                    {
+                        tracing::error!(target: "operator_task", "Oracle operator failed: {}", e);
+                    }
+
+                    match run_agent_driver_task_with_handles(
+                        workload_client,
+                        tx_pool_ref,
+                        local_keypair,
+                        chain_id,
+                        nonce_manager,
+                        consensus_kick_tx,
+                        memory_runtime,
+                    )
+                    .await {
+                        Ok(true) => {
+                             // Removed aggressive reset to prevent runaway execution loops (e.g. opening 100 windows).
+                             // operator_ticker.reset();
+                        },
+                        Ok(false) => {
+                        },
+                        Err(e) => {
+                             tracing::error!(target: "operator_task", "Agent driver failed: {}", e);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("\nShutting down...");
+    workload_server_handle.abort();
+    Container::stop(&*orchestrator).await?;
+    println!("Bye!");
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn local_gpu_dev_policy_still_requires_install_approval() {
+        let policy = build_local_interactive_policy(true);
+
+        assert!(matches!(policy.defaults, DefaultPolicy::AllowAll));
+        let install_rule = policy
+            .rules
+            .iter()
+            .find(|rule| rule.target == "software::install_execute")
+            .expect("local interactive policy should gate install mutation");
+
+        assert_eq!(
+            install_rule.rule_id.as_deref(),
+            Some("require-install-approval")
+        );
+        assert!(matches!(install_rule.action, Verdict::RequireApproval));
+    }
+
+    #[test]
+    fn normal_local_policy_defaults_to_approval() {
+        let policy = build_local_interactive_policy(false);
+
+        assert!(matches!(policy.defaults, DefaultPolicy::RequireApproval));
+    }
+}

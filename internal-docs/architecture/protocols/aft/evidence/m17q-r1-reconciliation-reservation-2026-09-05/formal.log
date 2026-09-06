@@ -1,0 +1,70 @@
+census OK: 47 modules = 34 executed + 13 manifest-marked (manual)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 19 and seed 5033034750745178548 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2278968] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/consequence/AtMostOnceExternalization.tla
+Parsing file /tmp/tlc-8342110545461458254/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-8342110545461458254/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-8342110545461458254/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-8342110545461458254/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-8342110545461458254/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-8342110545461458254/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-8342110545461458254/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module AtMostOnceExternalization
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module AtMostOnceExternalization
+Starting... (2026-09-04 21:53:09)
+Computing initial states...
+Finished computing initial states: 2 distinct states generated at 2026-09-04 21:53:10.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 5.5E-17
+66 states generated, 42 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 8.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 2).
+Finished in 00s at (2026-09-04 21:53:10)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 125 and seed -6584165575510482106 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2279253] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.tla
+Parsing file /tmp/tlc-18029699028940024516/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-18029699028940024516/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-18029699028940024516/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-18029699028940024516/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-18029699028940024516/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-18029699028940024516/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-18029699028940024516/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module ReconciliationBudget
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module ReconciliationBudget
+Starting... (2026-09-04 21:53:10)
+Computing initial states...
+Computed 2 initial states...
+Finished computing initial states: 4 distinct states generated at 2026-09-04 21:53:10.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.9E-17
+54 states generated, 30 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 2).
+Finished in 00s at (2026-09-04 21:53:10)

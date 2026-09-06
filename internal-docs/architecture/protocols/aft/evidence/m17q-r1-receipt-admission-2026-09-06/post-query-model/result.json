@@ -1,0 +1,21 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--quv-queued-preparation-only"
+  ],
+  "exit_code": 0,
+  "recorded_at": "2026-09-06T07:36:31.644012+00:00",
+  "sources": {
+    ".github/scripts/run_aft_formal_checks.sh": "7e0f0e56271d9b53df381c3a0807a10d4d082794a983d1aa03741a93bf58e8e3",
+    ".github/scripts/run_aft_m16q_qualification.sh": "1ee944c9c0e228eb1ee8cfaaa5d2579404e38f1297aa9b9d0c3d47b79f7be6ef",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparationFinal.cfg": "7547dce13f875c497f47343fd68654d4cad552ddb2c85dc852bee8b01ffcd38b",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparationStale.cfg": "cc1f44d1f5596aab166694176b9be1bff83a221e308194d4e363ac098bcd3460",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparationLocked.cfg": "bb1b87b27120786d906bb5bf31cf3008b9de829bbeaef3a34e2af926723f4bac",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparation.cfg": "6ea571f37c8503064e3bec0995a58192dfb58e1261a47518b45d8e17e400590f",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparationEarly.cfg": "f0c1075ffba7d7eede76b0286d3eb70f34b8aeedbbac871a38fb7264ae2ebb07",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparation.tla": "be936ec25e76e5ae6d59bb24065b082836044e074d21799298a081ac4abf7493",
+    "internal-docs/architecture/protocols/aft/formal/consequence/QuvQueuedEffectPreparationProof.tla": "8f8e4a1675e5b0688e2980f335d358a90e8d4964581156c901280624a1d4527a"
+  },
+  "scope": "proof/model-only extension after the passing process campaign; production Rust unchanged; conditional model, not full refinement"
+}

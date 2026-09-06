@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-active-service-2026-09-05/check_worker_service_observations.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-active-service-2026-09-05/process/components"
+  ],
+  "checker_sha256": "35f51e4f27ffbdd01d8248b743266911635737e270bccba0332450d8d3aa62b8",
+  "exit_code": 0,
+  "stdout": "{\"accepted_worker_completions\": 15, \"components_sha256\": {\"validator-20000-orch.log\": \"48d12ce6e923b5c74101874d8f5a8fcf3df266d8c8e88a85d82176edfff75182\", \"validator-20100-orch.log\": \"11d1f79b5a24879ff566f1d49576074bea207286a2a7a471d2b59cf919bd8627\", \"validator-20200-orch.log\": \"b0b1e00415d110124eecf5e0128358a9c4223343427c0248c319289914ced89d\", \"validator-20300-orch.log\": \"61de6c16817c1ebb5a50a450f82fc90b803e49a49672374b03e6fe4e973748cc\"}, \"evidence_negative_controls\": 5, \"scope\": \"host diagnostics matched to own live acceptance and active-service checks; not aggregate readiness, storage/refinement or clean timing proof\", \"worker_starts\": 23, \"workers_with_accepted_completion\": 4}\n",
+  "stderr": "",
+  "process_disposition": "FAILED; scoped worker check does not change campaign status"
+}

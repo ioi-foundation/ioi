@@ -1,0 +1,13 @@
+{
+  "recorded_utc": "2026-09-05T02:35:25.253189+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "sources": {
+    "crates/types/src/config/mod.rs": "c6cbdb2007ed290f9f413d93344527f23ad063b4e6d2f4ebc603344a5e6b4f6b",
+    "crates/validator/src/standard/orchestration/quv.rs": "dcd662301759b5b88f3a5708c3e7832b6b9feaaf520702f2e8fb4656c19481e8",
+    "crates/networking/src/libp2p/swarm.rs": "758f8f88d55ed56adc5946b7984531e9a2737163327754412546beb9119536bb",
+    "crates/consensus/src/aft/query_unanimity.rs": "153d5b0034b52df433fbd213ba602e0571fd938eac26d931995474a91843a932"
+  },
+  "design_sha256": "30c9d85c0577f7b5ed0a388e2a02a48941376720240cb982573aa5ac47ca5d5a",
+  "scope": "read-only source analysis and implementation design; no runtime head enforcement added"
+}

@@ -1,0 +1,30 @@
+{
+  "completed_utc": "2026-09-05T06:07:54.485698+00:00",
+  "disposition": "ROOTED_PREPARATION_POLICY_BINDING_TESTED_NOT_SCHEDULER_ENFORCEMENT",
+  "policy_root_domain": "ioi/aft/quv-policy/v2-preparation",
+  "member_schema": 5,
+  "handoff_schema": 3,
+  "config_tests": 1,
+  "core_tests": 35,
+  "ignored_component_benchmark": 1,
+  "runtime_tests": 3,
+  "cli_check": "pass",
+  "negative_control": "omitting preparation from hash preimage fails binding regression; source restored",
+  "source_sha256": {
+    "crates/types/src/app/query_unanimity.rs": "fed96ec9ef660984c300754d316d68881bbea1cddff186b8abaab5bd0947039a",
+    "crates/types/src/config/mod.rs": "4f8af78c0ef6bd8189e38acf18c321122bd4700a5cbe9a9581c92b11ae90557f",
+    "crates/types/src/config/tests.rs": "fbd698250b9f726eaa1870d8165db7b67de6c8dae2524dec0c86e33fc3aa8c06",
+    "crates/consensus/src/aft/query_unanimity.rs": "02c46707d6d48cedc8bb19563ab6d475c6eeef3f29a41d4c8ae1632862df417a",
+    "crates/validator/src/standard/orchestration/quv.rs": "ea9438b27e35d358d7aebfcb07292a79b33e586af262c7c764f82892f35e6852",
+    "crates/cli/tests/aft_e2e.rs": "7e8fc323f8a02fb99378495436832e51559c32ba924ef5d18a2072f791f1a836",
+    "crates/cli/src/testing/cluster.rs": "5b94a62df52beda58243595649f52ad507c4c7deecf99d3593aa2a63898da31a"
+  },
+  "runner_sha256": "9bc0c1f14f3d20930e041a455c2a1bd4ac39d484d8f18b09be9651523d18a923",
+  "remaining": [
+    "durable preparation-attempt reservation",
+    "worker and aggregate fair/bounded service",
+    "child-readiness and restart enforcement",
+    "new process/refinement/qualification evidence",
+    "R1 closure, clean R2, independent review and M18Q"
+  ]
+}

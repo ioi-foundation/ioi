@@ -1,0 +1,94 @@
+census OK: 77 modules = 64 executed + 13 manifest-marked (manual)
+(* created new ".tlacache/QuvInstallContinuationProof.tlaps/QuvInstallContinuationProof.thy" *)
+(* fingerprints written in ".tlacache/QuvInstallContinuationProof.tlaps/fingerprints" *)
+File "./QuvInstallContinuationProof.tla", line 11, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME NEW CONSTANT Deadline,
+                  NEW CONSTANT MaxTime,
+                  NEW CONSTANT RestartLimit,
+                  NEW CONSTANT SkipFinalFence,
+                  NEW CONSTANT RehydrateGrant,
+                  NEW VARIABLE now,
+                  NEW VARIABLE phase,
+                  NEW VARIABLE epoch,
+                  NEW VARIABLE grantEpoch,
+                  NEW VARIABLE grant,
+                  NEW VARIABLE consumedAt,
+                  NEW VARIABLE durable,
+                  NEW VARIABLE installed,
+                  vars ==
+                    <<now, phase, epoch, grantEpoch, grant, consumedAt,
+                      durable, installed>>,
+                  Acquire ==
+                    /\ phase = "Idle" /\ now =< Deadline
+                    /\ grant' = TRUE /\ grantEpoch' = epoch
+                       /\ phase' = "Preparing"
+                    /\ UNCHANGED <<now, epoch, consumedAt, durable,
+                                   installed>>,
+                  Tick ==
+                    /\ now < MaxTime /\ now' = now + 1
+                    /\ UNCHANGED <<phase, epoch, grantEpoch, grant,
+                                   consumedAt, durable, installed>>,
+                  Claim ==
+                    /\ phase = "Preparing" /\ grant
+                    /\ SkipFinalFence \/ now =< Deadline
+                    /\ grant' = FALSE /\ consumedAt' = now
+                       /\ phase' = "Claimed"
+                    /\ UNCHANGED <<now, epoch, grantEpoch, durable,
+                                   installed>>,
+                  Sync ==
+                    /\ phase = "Claimed" /\ durable' = TRUE
+                       /\ phase' = "Synced"
+                    /\ UNCHANGED <<now, epoch, grantEpoch, grant, consumedAt,
+                                   installed>>,
+                  Publish ==
+                    /\ phase = "Synced" /\ installed' = TRUE
+                       /\ phase' = "Installed"
+                    /\ UNCHANGED <<now, epoch, grantEpoch, grant, consumedAt,
+                                   durable>>,
+                  Crash ==
+                    /\ epoch < RestartLimit /\ epoch' = epoch + 1
+                    /\ grant' = FALSE /\ installed' = FALSE
+                       /\ phase' = "Recovery"
+                    /\ UNCHANGED <<now, grantEpoch, consumedAt, durable>>,
+                  Recover ==
+                    /\ phase = "Recovery" /\ installed' = durable
+                    /\ phase' = (IF durable THEN "Installed" ELSE "Idle")
+                    /\ grant' = RehydrateGrant
+                    /\ UNCHANGED <<now, epoch, grantEpoch, consumedAt,
+                                   durable>>,
+                  Next ==
+                    Acquire \/ Tick \/ Claim \/ Sync \/ Publish \/ Crash
+                    \/ Recover,
+                  TypeOK ==
+                    /\ now \in 0..MaxTime /\ epoch \in 0..RestartLimit
+                    /\ grantEpoch \in 0..epoch /\ grant \in BOOLEAN
+                    /\ consumedAt \in -1..MaxTime /\ durable \in BOOLEAN
+                       /\ installed \in BOOLEAN
+                    /\ phase
+                       \in {"Idle", "Preparing", "Claimed", "Synced",
+                            "Installed", "Recovery"},
+                  LiveAtClaim == consumedAt =< Deadline,
+                  ProcessLocal ==
+                    grant => grantEpoch = epoch /\ phase = "Preparing",
+                  InstalledDurably == installed => durable,
+                  Profile ==
+                    /\ Deadline \in Nat /\ MaxTime \in Nat
+                       /\ RestartLimit \in Nat
+                    /\ SkipFinalFence = FALSE /\ RehydrateGrant = FALSE,
+                  Inv ==
+                    TypeOK /\ LiveAtClaim /\ ProcessLocal /\ InstalledDurably,
+                  Profile ,
+                  SMT 
+           PROVE  Inv /\ [Next]_vars => Inv'
+File "./QuvInstallContinuationProof.tla", line 1, character 1 to line 14, character 77:
+[ERROR]: 1/10 obligations failed.
+There were backend errors processing module `"QuvInstallContinuationProof"`.
+ tlapm ending abnormally with Failure("backend errors: there are unproved obligations")
+Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+Called from Tlapm_lib.process_module in file "src/tlapm_lib.ml", line 492, characters 12-77
+Called from Tlapm_lib.main.f in file "src/tlapm_lib.ml", line 621, characters 23-43
+Called from Stdlib__List.fold_left in file "list.ml", line 123, characters 24-34
+Called from Tlapm_lib.main in file "src/tlapm_lib.ml", line 624, characters 13-40
+Called from Tlapm_lib.init in file "src/tlapm_lib.ml", line 641, characters 8-59
+

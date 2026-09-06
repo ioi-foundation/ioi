@@ -1,0 +1,28 @@
+{
+  "goal_status": "active; incomplete",
+  "head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "live_jobs": [],
+  "immutable_candidate": null,
+  "dispositions": {
+    "M15Q": "REOPENED",
+    "M16Q": "R2_UNQUALIFIED",
+    "M17Q": "REPAIR_REQUIRED",
+    "M18Q": "NOT_ADMITTED"
+  },
+  "findings": "QUV-M17Q-001 through QUV-M17Q-013 remain OPEN as whole findings",
+  "closure_matrix": "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md",
+  "latest_production": "decode_quv_candidate checks rooted encoded capacity before public request decoding; all scoped checks and the restored omission control pass",
+  "previous_integrated_evidence": "internal-docs/architecture/protocols/aft/evidence/m17q-r1-receipt-admission-2026-09-06/pressure-process",
+  "previous_integrated_limits": "Three slots/four exact members/restart plus 120 terminal replays pass; this predates the decoder guard and separately bound post-query model extension. No full R2 or benchmark rerun is claimed.",
+  "policy_root_profile": "v7-consequence-admission; fixture 5d93a2ea9a59eb1a306918647b4c8565e7a9656b15c32635666e48560b3ae58d",
+  "next_action": "Continue integrated pre-gate request/transport/authentication and aggregate admission profile. Inspect actual tonic 0.11 server path in lifecycle.rs and committed manifest registration/storage paths before implementing resource admission; preserve fair correct-member and admitted-operation guarantees. Do not simply impose global refusal quotas and call them fairness.",
+  "specific_remaining": [
+    "Public Server::builder does not apply configured RpcHardeningConfig; raw protobuf/HTTP connections and in-flight request memory precede the receipt gate. Candidate length now checked before SCALE decode; effect-id lookup and decoder allocation bounds still need accounting.",
+    "AftEffectRegistry admits one manifest per block without a rooted aggregate authority-lifetime allocation bound. Do not cap per-slot manifests without binding candidate validity at admission; otherwise unqueried inputs can consume a singleton operation capacity.",
+    "Receipt FIFO bounds waiting slots N+2 plus active owner; general holder service S, both protected reopen costs, continuation deadline composition, physical metadata/RAM and cross-configuration retention remain unproved.",
+    "Complete production transition refinement and antecedents, full clean R2, freeze, fresh authorized independent review, and M18Q release handoff remain required."
+  ],
+  "historical_concern_checked": "BlockExecutionReceipt outcome enum currently has Success only; no failed-transaction receipt branch was established by source inspection.",
+  "preservation": "All source mutations restored. Two unrelated tracked architecture-document edits preserved; no public actions, candidate tag, reviewer, or owner handoff performed.",
+  "blockers": "No reproduced fixed-premise defeat or indispensable external blocker established."
+}

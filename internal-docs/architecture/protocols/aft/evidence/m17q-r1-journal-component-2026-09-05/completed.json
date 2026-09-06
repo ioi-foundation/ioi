@@ -1,0 +1,39 @@
+{
+  "completed_utc": "2026-09-05T14:49:59.388686+00:00",
+  "head": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "worktree": "dirty; source subset retained, not an immutable R2 candidate",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+  "sources": [
+    {
+      "path": "crates/consensus/src/aft/query_unanimity.rs",
+      "sha256": "6e67310899669e6b8d6de2ad1756148ef673cdcb6ef1f62fce482e4318f62eeb"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal.rs",
+      "sha256": "0c09935c6758ce0291bf1c33a4b1a902d41b4eb6fb233f6415e83fe359e6205c"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal/tests.rs",
+      "sha256": "c0a4c2f5cbf1a7607f8c4493d766cb4f9562631a37179b1a42812e2f731c8a35"
+    }
+  ],
+  "commands": [
+    {
+      "command": "cargo test -p ioi-consensus --features aft --lib aft::query_unanimity::journal --no-fail-fast",
+      "exit_code": 0,
+      "log": "component-tests.log",
+      "passed": 7
+    },
+    {
+      "command": "cargo test -p ioi-consensus --features aft --lib aft::query_unanimity --no-fail-fast",
+      "exit_code": 0,
+      "log": "quv-tests.log",
+      "passed": 48,
+      "ignored": 1
+    }
+  ],
+  "disposition": "PASS_SCOPED_COMPONENT_TESTS",
+  "production_integration": false,
+  "clean_R2": false,
+  "whole_R1_findings_closed": []
+}

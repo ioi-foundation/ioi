@@ -1,0 +1,389 @@
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+   Compiling ioi-consensus v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/consensus)
+warning: variable does not need to be mutable
+ --> crates/consensus/src/aft/guardian_majority/pacemaker/tests.rs:6:9
+  |
+6 |     let mut pm = Pacemaker::new(Duration::from_millis(100));
+  |         ----^^
+  |         |
+  |         help: remove this `mut`
+  |
+  = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: type `aft::query_unanimity::journal::reservation::ReservationLimits` is more private than the item `aft::query_unanimity::journal::MemberJournal::open_reserved`
+   --> crates/consensus/src/aft/query_unanimity/journal.rs:246:5
+    |
+246 | /     pub(super) fn open_reserved(
+247 | |         directory: &Path,
+248 | |         anchor_path: &Path,
+249 | |         key: QuvHash,
+...   |
+254 | |         replay: impl FnMut(u64, &[u8]) -> Result<(), QuvError>,
+255 | |     ) -> Result<Self, QuvError> {
+    | |_______________________________^ associated function `aft::query_unanimity::journal::MemberJournal::open_reserved` is reachable at visibility `pub(in crate::aft::query_unanimity)`
+    |
+note: but type `aft::query_unanimity::journal::reservation::ReservationLimits` is only usable at visibility `pub(in crate::aft::query_unanimity::journal)`
+   --> crates/consensus/src/aft/query_unanimity/journal/reservation.rs:8:1
+    |
+  8 | pub(super) struct ReservationLimits {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: function `pq_fallback_trigger` is never used
+   --> crates/consensus/src/aft/guardian_majority/tests_parts/authenticated_runtime.rs:306:4
+    |
+306 | fn pq_fallback_trigger(
+    |    ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib test) generated 3 warnings (run `cargo fix --lib -p ioi-consensus --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.35s
+     Running unittests src/lib.rs (target/debug/deps/ioi_consensus-332e553035381bf6)
+
+running 75 tests
+test aft::query_unanimity::tests::atomic_writer_rejects_over_budget_before_touching_any_file ... ok
+test aft::query_unanimity::journal::tests::total_byte_limit_is_checked_before_disk_mutation ... ok
+test aft::query_unanimity::journal::tests::capacity_admission_precedes_the_final_continuation_check ... ok
+test aft::query_unanimity::journal::tests::final_continuation_refusal_is_nonmutating_and_precedes_any_write ... ok
+test aft::query_unanimity::journal::tests::capacity_refusal_preserves_disk_and_keeps_store_usable ... ok
+test aft::query_unanimity::journal::tests::interrupted_record_write_quarantines_until_authenticated_reopen ... ok
+test aft::query_unanimity::journal::tests::interrupted_anchor_write_recovers_the_durable_pending_record ... ok
+test aft::query_unanimity::journal::tests::recovery_cleans_only_unacknowledged_next_temporary_record ... ok
+test aft::query_unanimity::tests::expired_process_local_authorization_cannot_cross_the_effect_boundary ... ok
+test aft::query_unanimity::journal::tests::bootstrap_interruption_recovers_only_the_provisioned_initial_record ... ok
+test aft::query_unanimity::journal::tests::append_retains_prior_records_and_replays_in_order ... ok
+test aft::query_unanimity::tests::accepted_history_terminal_slot_does_not_wrap_or_erase_history ... ok
+test aft::query_unanimity::journal::tests::exclusive_open_and_complete_chain_validation_precede_replay ... ok
+test aft::query_unanimity::journal::tests::semantic_refusal_preserves_partial_next_record_for_inspection ... ok
+test aft::query_unanimity::journal::tests::pending_record_requires_successful_semantic_replay_before_anchor_advance ... ok
+test aft::query_unanimity::journal::tests::corrupt_reservation_root_preserves_pending_bytes_and_anchor ... ok
+test aft::query_unanimity::journal::tests::reserved_record_anchor_failure_requires_semantic_replay_before_recovery ... ok
+test aft::query_unanimity::journal::tests::streaming_recovery_refuses_missing_or_noncanonical_record_indices ... ok
+test aft::query_unanimity::journal::tests::reserved_records_preserve_allocation_and_inode_through_complete_lifetime ... ok
+test aft::query_unanimity::journal::tests::streaming_recovery_reauthenticates_records_and_preserves_pending_anchor ... ok
+test aft::query_unanimity::journal::tests::partial_or_unallocated_reserved_records_require_authenticated_restart ... ok
+test aft::query_unanimity::tests::live_handoff_candidate_binds_both_roots_and_complete_activation_state ... ok
+test aft::query_unanimity::tests::m16q_profiles_mldsa_signing_and_durable_write_before_reply ... ignored, M16Q qualification benchmark; run explicitly and retain stdout
+test aft::query_unanimity::tests::journal_replay_tests::startup_reserves_complete_rooted_lifetime_before_creating_a_journal ... ok
+test aft::query_unanimity::tests::accepted_history_supports_unowned_grants_and_rejects_invalid_bootstrap ... ok
+test aft::query_unanimity::tests::candidate_byte_cap_precedes_validation_and_store_mutation ... ok
+test aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds ... ok
+test aft::query_unanimity::tests::policy_root_binds_bootstrap_kind_slot_and_predecessor ... ok
+test aft::query_unanimity::tests::policy_root_binds_operation_service_and_refuses_invalid_limits ... ok
+test aft::query_unanimity::tests::policy_root_binds_preparation_limits_and_rejects_invalid_budgets ... ok
+test aft::query_unanimity::tests::external_anchor_detects_state_rollback ... ok
+test aft::query_unanimity::tests::journal_replay_tests::typed_replay_refuses_owned_conflict_reservation_but_retains_both_candidates ... ok
+test aft::query_unanimity::tests::journal_replay_tests::typed_replay_refuses_invalid_order_scope_and_counters_without_mutation ... ok
+test aft::query_unanimity::tests::journal_replay_tests::authenticated_pending_record_cannot_advance_anchor_if_typed_replay_refuses ... ok
+test aft::query_unanimity::tests::journal_format_refuses_authenticated_schema_six_without_migration ... ok
+test aft::query_unanimity::tests::owned_mode_rejects_a_disclosed_conflict ... ok
+test aft::query_unanimity::tests::provisioning_root_commits_complete_scope_and_canonical_policy_set ... ok
+test aft::query_unanimity::tests::accepted_history_derives_scope_and_preserves_historical_predecessors ... ok
+test aft::query_unanimity::tests::accepted_history_refuses_conflicting_or_expired_grants_without_mutation ... ok
+test aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot ... ok
+test aft::query_unanimity::tests::journal_replay_tests::journal_member_commit_refusal_and_anchor_failure_do_not_publish_memory ... ok
+test aft::query_unanimity::tests::projected_member_size_matches_scale_compact_length_boundaries ... ok
+test aft::query_unanimity::tests::journal_replay_tests::rooted_preparation_format_refuses_schema_seven_without_mutation ... ok
+test aft::query_unanimity::tests::member_byte_headroom_refusal_preserves_state_and_allows_exact_fit ... ok
+test aft::query_unanimity::tests::rooted_owned_policy_is_not_nominated_by_the_candidate ... ok
+test aft::query_unanimity::tests::rooted_slot_horizon_survives_reopen_and_keeps_historical_queries ... ok
+test aft::query_unanimity::tests::store_mac_matches_independent_sha256_fixture ... ok
+test aft::query_unanimity::tests::reply_admission_uses_the_operation_monotonic_clock ... ok
+test aft::query_unanimity::tests::reply_admission_deadline_edges_survive_delayed_finalization ... ok
+test aft::query_unanimity::tests::unauthenticated_crash_window_state_cannot_advance_handoff_anchor ... ok
+test aft::query_unanimity::tests::changed_provisioning_refuses_without_writing_even_during_pending_recovery ... ok
+test aft::query_unanimity::tests::reply_observed_after_deadline_cannot_authorize_or_pass_audit ... ok
+test aft::query_unanimity::tests::preparation_attempts_preflight_authenticate_and_recover_uncertain_write ... ok
+test aft::query_unanimity::tests::preparation_selection_preserves_mode_rules_and_excludes_handoffs ... ok
+test aft::query_unanimity::tests::summary_validation_refuses_omitted_singleton_and_duplicate_conflict_entries ... ok
+test aft::query_unanimity::tests::authenticated_advanced_history_covers_every_byte_in_pending_recovery has been running for over 60 seconds
+test aft::query_unanimity::tests::authenticated_member_state_covers_every_byte_and_pending_recovery has been running for over 60 seconds
+test aft::query_unanimity::tests::authorization_expiry_cap_never_extends_or_revives_a_grant has been running for over 60 seconds
+test aft::query_unanimity::tests::durable_history_headroom_and_persistence_errors_preserve_recovery has been running for over 60 seconds
+test aft::query_unanimity::tests::durable_history_requires_live_advance_and_retains_historical_queries has been running for over 60 seconds
+test aft::query_unanimity::tests::exact_context_binding_rejects_valid_cross_context_and_stale_nonce_replies has been running for over 60 seconds
+test aft::query_unanimity::tests::journal_replay_tests::journal_member_cached_size_matches_compact_history_boundaries has been running for over 60 seconds
+test aft::query_unanimity::tests::journal_replay_tests::preparation_policy_is_rechecked_on_replay_and_exhaustion_survives_reopen has been running for over 60 seconds
+test aft::query_unanimity::tests::journal_replay_tests::typed_journal_replay_matches_live_member_across_three_slots_and_reopens has been running for over 60 seconds
+test aft::query_unanimity::tests::journal_replay_tests::preparation_policy_is_rechecked_on_replay_and_exhaustion_survives_reopen ... ok
+test aft::query_unanimity::tests::durable_history_headroom_and_persistence_errors_preserve_recovery ... ok
+test aft::query_unanimity::tests::unauthenticated_crash_window_state_cannot_advance_member_anchor ... ok
+test aft::query_unanimity::tests::live_authorization_is_consumed_into_rollback_anchored_successor_activation has been running for over 60 seconds
+test aft::query_unanimity::tests::unconfigured_reply_identities_cannot_consume_verifier_capacity ... ok
+test aft::query_unanimity::tests::member_persistence_error_requires_reopen_before_any_reply has been running for over 60 seconds
+test aft::query_unanimity::tests::preparation_attempts_are_rooted_durable_and_retire_only_on_advance ... FAILED
+test aft::query_unanimity::tests::durable_history_requires_live_advance_and_retains_historical_queries ... ok
+test aft::query_unanimity::tests::member_persistence_error_requires_reopen_before_any_reply ... ok
+test aft::query_unanimity::tests::silent_byzantine_member_does_not_block_single_candidate ... FAILED
+test aft::query_unanimity::tests::journal_replay_tests::journal_member_cached_size_matches_compact_history_boundaries ... ok
+test aft::query_unanimity::tests::writes_before_reply_and_recovers_monotone_snapshot ... ok
+test aft::query_unanimity::tests::authorization_expiry_cap_never_extends_or_revives_a_grant ... ok
+test aft::query_unanimity::tests::preparation_selection_recovers_and_rotates_without_advancing_history has been running for over 60 seconds
+test aft::query_unanimity::tests::preparation_selection_recovers_and_rotates_without_advancing_history ... ok
+test aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset ... ok
+test aft::query_unanimity::tests::saturated_summary_replies_remain_valid_bounded_and_preserve_first_winner ... ok
+test aft::query_unanimity::tests::recovery_requires_snapshot_for_every_accepted_history_entry ... ok
+test aft::query_unanimity::tests::live_authorization_is_consumed_into_rollback_anchored_successor_activation ... ok
+test aft::query_unanimity::tests::authenticated_advanced_history_covers_every_byte_in_pending_recovery ... ok
+test aft::query_unanimity::tests::exact_context_binding_rejects_valid_cross_context_and_stale_nonce_replies ... ok
+test aft::query_unanimity::tests::journal_replay_tests::typed_journal_replay_matches_live_member_across_three_slots_and_reopens ... ok
+test aft::query_unanimity::tests::authenticated_member_state_covers_every_byte_and_pending_recovery ... ok
+
+failures:
+
+---- aft::query_unanimity::tests::preparation_attempts_are_rooted_durable_and_retire_only_on_advance stdout ----
+
+thread 'aft::query_unanimity::tests::preparation_attempts_are_rooted_durable_and_retire_only_on_advance' (2586798) panicked at crates/consensus/src/aft/query_unanimity.rs:3601:13:
+assertion failed: matches!(member.advance_accepted_history_with_byte_limit(&grant, advanced_size
+    - 1), Err(QuvError::StoreCapacityExceeded))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- aft::query_unanimity::tests::silent_byzantine_member_does_not_block_single_candidate stdout ----
+
+thread 'aft::query_unanimity::tests::silent_byzantine_member_does_not_block_single_candidate' (2593343) panicked at crates/consensus/src/aft/query_unanimity.rs:2566:14:
+called `Result::unwrap()` on an `Err` value: NoValidReplies
+
+
+failures:
+    aft::query_unanimity::tests::preparation_attempts_are_rooted_durable_and_retire_only_on_advance
+    aft::query_unanimity::tests::silent_byzantine_member_does_not_block_single_candidate
+
+test result: FAILED. 72 passed; 2 failed; 1 ignored; 0 measured; 230 filtered out; finished in 106.59s
+
+error: test failed, to rerun pass `-p ioi-consensus --lib`

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-all-operation-service-2026-09-05/foreground-process/process.log",
+    "--components",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-all-operation-service-2026-09-05/foreground-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "0d61506d3b224753b7cdf10f70400f8c86e67b87afcfdcdf1cd1746c4e55b692"
+}

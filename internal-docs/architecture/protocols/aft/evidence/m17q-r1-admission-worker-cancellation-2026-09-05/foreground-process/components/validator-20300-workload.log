@@ -1,0 +1,8 @@
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+{"timestamp":"2026-09-05T10:23:33.593260586Z","level":"WARN","fields":{"message":"Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests"},"target":"execution"}
+WORKLOAD_IPC_LISTENING_ON_127.0.0.1:20302
+{"timestamp":"2026-09-05T10:23:34.242606892Z","level":"WARN","fields":{"message":"Rolled back a bounded unrecognized AFT workload branch under exact projection fences","replacement_target_height":1,"retired_live_height":2,"restored_height":0,"restored_root":"15c11dfe96ca23a9ce6c3720abf808501c223f82ac8ae452b707ed9dbccbd921"},"target":"execution"}
+{"timestamp":"2026-09-05T10:23:34.687427969Z","level":"WARN","fields":{"message":"Rolled back a bounded unrecognized AFT workload branch under exact projection fences","replacement_target_height":1,"retired_live_height":2,"restored_height":0,"restored_root":"15c11dfe96ca23a9ce6c3720abf808501c223f82ac8ae452b707ed9dbccbd921"},"target":"execution"}
+{"timestamp":"2026-09-05T10:23:34.739259206Z","level":"WARN","fields":{"message":"Rolled back a bounded unrecognized AFT workload branch under exact projection fences","replacement_target_height":1,"retired_live_height":2,"restored_height":0,"restored_root":"15c11dfe96ca23a9ce6c3720abf808501c223f82ac8ae452b707ed9dbccbd921"},"target":"execution"}
+{"timestamp":"2026-09-05T10:23:55.750295113Z","level":"WARN","fields":{"message":"nonce record missing for signer 0234f94c373216a09a7ebee41c4a0279b61295e4f171714e5d7569a6487c4651; allowing nonce=0 for bootstrap"},"target":"ante"}

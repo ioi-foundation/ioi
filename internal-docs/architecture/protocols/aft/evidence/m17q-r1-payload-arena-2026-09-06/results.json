@@ -1,0 +1,132 @@
+[
+  {
+    "name": "network",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-networking",
+      "--lib",
+      "pq_channel"
+    ],
+    "started": "2026-09-06T00:14:37.757559+00:00",
+    "completed": "2026-09-06T00:14:55.639293+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T00:14:55.639513+00:00",
+    "completed": "2026-09-06T00:15:18.831837+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T00:15:18.832225+00:00",
+    "completed": "2026-09-06T00:15:26.070884+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T00:15:26.071149+00:00",
+    "completed": "2026-09-06T00:15:34.781463+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T00:15:34.781752+00:00",
+    "completed": "2026-09-06T00:15:34.783724+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--pq-reserved-index-only"
+    ],
+    "started": "2026-09-06T00:15:34.786741+00:00",
+    "completed": "2026-09-06T00:15:36.173108+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "arena_formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-payload-arena-only"
+    ],
+    "started": "2026-09-06T00:15:36.173349+00:00",
+    "completed": "2026-09-06T00:15:37.531636+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "index_formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--pq-outbox-index-only"
+    ],
+    "started": "2026-09-06T00:15:37.531910+00:00",
+    "completed": "2026-09-06T00:15:38.913694+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "ancestry",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_pq_outbox_ancestry.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-payload-arena-2026-09-06/ancestry"
+    ],
+    "started": "2026-09-06T00:15:38.913953+00:00",
+    "completed": "2026-09-06T00:15:39.916511+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "reservation",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_pq_outbox_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-payload-arena-2026-09-06/reservation"
+    ],
+    "started": "2026-09-06T00:15:39.916728+00:00",
+    "completed": "2026-09-06T00:15:41.198466+00:00",
+    "exit_code": 0
+  }
+]

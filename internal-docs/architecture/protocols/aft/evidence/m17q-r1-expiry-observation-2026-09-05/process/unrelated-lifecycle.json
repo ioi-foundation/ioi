@@ -1,0 +1,168 @@
+{
+  "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+  "records": [
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:39.920691315Z",
+      "fields": {
+        "event": "operation_started",
+        "independent_preparation": false,
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "payload": "95b5acab5757f83aa11906599effc184e6afc233bf81c782e28b59b7793d9ecd",
+        "local_endpoint": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "local_account_hex": "bad5d5abdf8396264d6bfc699728b89e8622f974259675e7766592e87d7dc782",
+        "members": "{AccountId([62, 155, 67, 6, 66, 0, 29, 160, 46, 196, 66, 130, 59, 147, 203, 27, 81, 109, 203, 188, 9, 47, 184, 57, 72, 0, 108, 217, 87, 70, 220, 107]), AccountId([118, 228, 106, 20, 15, 20, 18, 0, 115, 157, 38, 35, 106, 79, 118, 7, 8, 21, 250, 12, 246, 232, 16, 22, 240, 190, 26, 152, 193, 82, 237, 91]), AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130]), AccountId([241, 25, 195, 79, 136, 124, 175, 233, 181, 157, 71, 108, 16, 250, 144, 35, 172, 191, 190, 163, 79, 0, 156, 41, 246, 211, 66, 178, 13, 131, 206, 227])}",
+        "decision_millis": 5000
+      }
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "timestamp": "2026-09-05T08:31:40.256017885Z",
+      "fields": {
+        "event": "member_work_queued",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([62, 155, 67, 6, 66, 0, 29, 160, 46, 196, 66, 130, 59, 147, 203, 27, 81, 109, 203, 188, 9, 47, 184, 57, 72, 0, 108, 217, 87, 70, 220, 107])"
+      }
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "timestamp": "2026-09-05T08:31:40.649195264Z",
+      "fields": {
+        "event": "member_work_completed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([62, 155, 67, 6, 66, 0, 29, 160, 46, 196, 66, 130, 59, 147, 203, 27, 81, 109, 203, 188, 9, 47, 184, 57, 72, 0, 108, 217, 87, 70, 220, 107])",
+        "succeeded": true
+      }
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "timestamp": "2026-09-05T08:31:40.657905103Z",
+      "fields": {
+        "event": "member_work_queued",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([118, 228, 106, 20, 15, 20, 18, 0, 115, 157, 38, 35, 106, 79, 118, 7, 8, 21, 250, 12, 246, 232, 16, 22, 240, 190, 26, 152, 193, 82, 237, 91])"
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:40.851458055Z",
+      "fields": {
+        "event": "reply_routed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "authenticated_member": "AccountId([62, 155, 67, 6, 66, 0, 29, 160, 46, 196, 66, 130, 59, 147, 203, 27, 81, 109, 203, 188, 9, 47, 184, 57, 72, 0, 108, 217, 87, 70, 220, 107])",
+        "live_operation": true
+      }
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "timestamp": "2026-09-05T08:31:41.101190979Z",
+      "fields": {
+        "event": "member_work_completed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([118, 228, 106, 20, 15, 20, 18, 0, 115, 157, 38, 35, 106, 79, 118, 7, 8, 21, 250, 12, 246, 232, 16, 22, 240, 190, 26, 152, 193, 82, 237, 91])",
+        "succeeded": true
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:41.319586379Z",
+      "fields": {
+        "event": "member_work_queued",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])"
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:41.876825638Z",
+      "fields": {
+        "event": "member_work_completed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "succeeded": true
+      }
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "timestamp": "2026-09-05T08:31:42.484396223Z",
+      "fields": {
+        "event": "member_work_queued",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([241, 25, 195, 79, 136, 124, 175, 233, 181, 157, 71, 108, 16, 250, 144, 35, 172, 191, 190, 163, 79, 0, 156, 41, 246, 211, 66, 178, 13, 131, 206, 227])"
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:42.781641337Z",
+      "fields": {
+        "event": "reply_routed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "authenticated_member": "AccountId([118, 228, 106, 20, 15, 20, 18, 0, 115, 157, 38, 35, 106, 79, 118, 7, 8, 21, 250, 12, 246, 232, 16, 22, 240, 190, 26, 152, 193, 82, 237, 91])",
+        "live_operation": true
+      }
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "timestamp": "2026-09-05T08:31:42.933740983Z",
+      "fields": {
+        "event": "member_work_completed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "requester": "AccountId([186, 213, 213, 171, 223, 131, 150, 38, 77, 107, 252, 105, 151, 40, 184, 158, 134, 34, 249, 116, 37, 150, 117, 231, 118, 101, 146, 232, 125, 125, 199, 130])",
+        "member": "AccountId([241, 25, 195, 79, 136, 124, 175, 233, 181, 157, 71, 108, 16, 250, 144, 35, 172, 191, 190, 163, 79, 0, 156, 41, 246, 211, 66, 178, 13, 131, 206, 227])",
+        "succeeded": true
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:45.217548674Z",
+      "fields": {
+        "event": "reply_routed",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "authenticated_member": "AccountId([241, 25, 195, 79, 136, 124, 175, 233, 181, 157, 71, 108, 16, 250, 144, 35, 172, 191, 190, 163, 79, 0, 156, 41, 246, 211, 66, 178, 13, 131, 206, 227])",
+        "live_operation": true
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:45.227236877Z",
+      "fields": {
+        "event": "operation_accepted_audit",
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "configuration_root": "dd3eaf6f69c0f9bde8e91f6670de8b1926a305745502b0d17a1758b8ecf85b8f",
+        "domain_id": "2a7b643aeaf01d0a6383b564175a092b85ee85c161919c33396fc61f9abbcca0",
+        "candidate_hash": "28085f8ad6704086d091c995e9b2ac2b863442c28e6b71cb71d7e832447f2cf4",
+        "configured_members": "3e9b430642001da02ec442823b93cb1b516dcbbc092fb83948006cd95746dc6b,76e46a140f141200739d26236a4f76070815fa0cf6e81016f0be1a98c152ed5b,bad5d5abdf8396264d6bfc699728b89e8622f974259675e7766592e87d7dc782,f119c34f887cafe9b59d476c10fa9023acbfbea34f009c29f6d342b20d83cee3",
+        "valid_members": "3e9b430642001da02ec442823b93cb1b516dcbbc092fb83948006cd95746dc6b,bad5d5abdf8396264d6bfc699728b89e8622f974259675e7766592e87d7dc782,76e46a140f141200739d26236a4f76070815fa0cf6e81016f0be1a98c152ed5b",
+        "max_valid_reply_elapsed_millis": 2864,
+        "decision_interval_millis": 5000,
+        "portable_final_receipt": false
+      }
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "timestamp": "2026-09-05T08:31:45.30233562Z",
+      "fields": {
+        "event": "operation_finished",
+        "service_budgeted": false,
+        "service_budget_met": true,
+        "nonce": "1b842635dcf8d583ffa10ff50719f7527ef3e4dd7addc7d23752092d19821739",
+        "accepted": true,
+        "error": "None"
+      }
+    }
+  ],
+  "components_sha256": {
+    "validator-20200-orch.log": "a8a44506fad315fdf598a40122f09ac1e1f015eb354d16a0fb24dc487141898d",
+    "validator-20100-orch.log": "063a4d5f24d82da01be19cc830e1b978607a34c783cccbf760de820b259b1122",
+    "validator-20300-orch.log": "41d3c01fe111a99db4bc120412ef7990db06e8a0dc5adf6895de0dd881ac54dd",
+    "validator-20000-orch.log": "fbf7c5f1f58bb8568cd3a76f2728ba484fd553bc5968cca1494b7cbede484be7"
+  },
+  "scope": "Same-host wall-clock diagnostic ordering, not qualified monotonic timing or root-cause proof"
+}

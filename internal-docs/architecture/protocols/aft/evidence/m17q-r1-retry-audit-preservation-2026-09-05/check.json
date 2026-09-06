@@ -1,0 +1,22 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "consequence::tests"
+  ],
+  "started_utc": "2026-09-05T01:26:11.829486+00:00",
+  "finished_utc": "2026-09-05T01:26:15.293574+00:00",
+  "exit_code": 0,
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "sources": {
+    "crates/agentgres/src/consequence.rs": "f88e635ee07794603b0ab4e4a431c76e97074bfd59c8d2fa13058e898313be63",
+    "crates/agentgres/src/consequence/tests.rs": "73d59a8b2fe2e7536011ecb1802f0a884552dba4a8ab1abb495a688b34dd9f49",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  },
+  "log_sha256": "2d7306cd10211e37af6633eb246503e5a23bd1c9a56e233a4f2089c03d1ab679"
+}

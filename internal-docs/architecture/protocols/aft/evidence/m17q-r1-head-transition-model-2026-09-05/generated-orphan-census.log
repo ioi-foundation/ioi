@@ -1,0 +1,2 @@
+CENSUS FAIL:
+  - module neither executed by the harness nor manifest-marked: maximal_visibility/QuvHeadPreparation_TTrace_1788576505.tla

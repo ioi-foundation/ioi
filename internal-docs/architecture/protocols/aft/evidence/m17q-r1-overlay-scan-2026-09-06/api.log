@@ -1,0 +1,502 @@
+   Compiling cc v1.2.56
+   Compiling openssl-sys v0.9.111
+   Compiling ring v0.17.14
+   Compiling openssl v0.10.75
+   Compiling native-tls v0.2.18
+   Compiling snow v0.9.6
+   Compiling tokio-native-tls v0.3.1
+   Compiling hyper-tls v0.5.0
+   Compiling libp2p-noise v0.44.0
+   Compiling reqwest v0.11.27
+   Compiling libp2p v0.53.2
+   Compiling ioi-types v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/types)
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+   Compiling ioi-api v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 16s
+     Running unittests src/lib.rs (target/debug/deps/ioi_api-c7cd4ea7ac749ce9)
+
+running 365 tests
+test chain::tests::an_empty_block_validates_with_zero_receipts ... ok
+test chain::tests::a_receipt_bound_to_another_block_is_rejected ... ok
+test chain::tests::an_absent_proof_is_reported_as_absent_rather_than_as_a_placeholder ... ok
+test chain::tests::a_receipt_unbound_from_its_proof_is_rejected ... ok
+test chain::tests::a_receipt_bound_to_another_transaction_is_rejected ... ok
+test chain::tests::a_missing_receipt_is_rejected ... ok
+test chain::tests::an_integer_beyond_jcs_range_is_refused_rather_than_rounded ... ok
+test chain::tests::a_complete_in_order_receipt_set_validates ... ok
+test chain::tests::body_binds_schema_version_domain_and_the_observed_execution_facts ... ok
+test chain::tests::duplicated_receipts_are_rejected ... ok
+test chain::tests::distinct_transactions_produce_distinct_receipt_bodies ... ok
+test chain::tests::receipt_gas_accounting_refuses_u64_overflow ... ok
+test chain::tests::schema_version_or_domain_drift_is_rejected ... ok
+test chain::tests::reordered_receipts_are_rejected ... ok
+test chain::tests::receipt_gas_must_account_for_the_block_total ... ok
+test chat::generation::candidate_materialization::tests::fast_runtime_sanity_keeps_interactive_html_on_local_runtime ... ok
+test chain::tests::material_matches_the_registered_bundle_v2_shape ... ok
+test chat::generation::candidate_materialization::tests::fast_runtime_sanity_respects_explicit_render_verification_for_document_html ... ok
+test chat::generation::candidate_materialization::tests::fast_runtime_sanity_skips_plain_document_html_on_local_runtime ... ok
+test chain::tests::state_rooted_receipt_journal_round_trips_and_refuses_changed_bytes ... ok
+test chat::generation::candidate_materialization::tests::warning_only_primary_ready_render_eval_does_not_request_repair ... ok
+test chat::generation::candidate_materialization::tests::warning_only_primary_ready_render_eval_does_not_block ... ok
+test chat::generation::runtime_materialization::tests::local_document_html_with_boundary_skips_continuation ... ok
+test chat::generation::runtime_materialization::tests::local_document_html_without_boundary_keeps_continuation_available ... ok
+test chat::generation::runtime_materialization::tests::local_interactive_html_closed_main_ignores_trailing_script_start_for_stream_settle ... ok
+test chat::generation::runtime_materialization::tests::local_interactive_html_closed_main_settles_without_full_html_stop ... ok
+test chat::generation::runtime_materialization::tests::local_interactive_html_salvage_prefers_renderable_main_over_partial_script ... ok
+test chain::tests::the_body_hash_binds_every_field_the_receipt_claims ... ok
+test chat::intent_signals::tests::inline_run_command_literal_maps_to_shell_runtime_action ... ok
+test chat::intent_signals::tests::unquoted_known_executable_still_maps_to_shell_runtime_action ... ok
+test chat::intent_signals::tests::inline_code_symbol_without_command_shape_stays_conversational ... ok
+test chat::intent_signals::tests::unquoted_rerun_validation_instruction_stays_model_loop_instruction ... ok
+test chat::generation::runtime_materialization::tests::raw_direct_author_fragment_is_rejected_by_primary_view_contract ... ok
+test chat::tests::artifact_contract::artifact_brief_prompt_preserves_request_specific_concepts ... ok
+test chat::generation::runtime_materialization::tests::local_interactive_html_direct_author_budget_allows_structural_completion ... ok
+test chat::tests::artifact_contract::canonicalize_brief_for_request_rewrites_identifier_style_interactions ... ok
+test chat::tests::artifact_contract::artifact_brief_field_repair_prompt_keeps_failure_previews ... ok
+test chat::generation::runtime_materialization::tests::form_control_deterministic_repair_marks_visible_result_box_as_live_response ... ok
+test chat::generation::runtime_materialization::tests::form_control_deterministic_repair_supports_number_inputs_and_evidence_surfaces ... ok
+test chat::tests::artifact_contract::artifact_brief_prompt_compacts_large_refinement_context ... ok
+test chat::tests::artifact_contract::derived_blueprint_for_html_brief_emits_structure_and_skill_needs ... ok
+test chat::tests::artifact_contract::edit_intent_prompt_requires_json_wrapper_for_refinements ... ok
+test chat::tests::artifact_contract::edit_intent_prompt_compacts_large_refinement_context ... ok
+test chat::generation::runtime_materialization::tests::primary_view_contract_deterministic_repair_removes_html_comments_and_adds_response_region ... ok
+test chat::runtime_locality::tests::resolve_placeholder_requires_runtime_scope ... ok
+test chat::tests::artifact_contract::compiled_artifact_ir_captures_scaffold_tokens_and_render_checks ... ok
+test chat::tests::artifact_contract::exemplar_query_prefers_structural_grounding_over_text_copy ... ok
+test chat::runtime_locality::tests::timezone_identifier_maps_to_scope ... ok
+test chat::tests::artifact_contract::html_scaffold_registry_supplies_design_spine_and_component_contracts ... ok
+test chat::generation::validation_preview::tests::single_pass_canonical_preview_preserves_full_primary_file_body ... ok
+test chat::generation::validation_preview::tests::work_graph_canonical_preview_preserves_full_primary_file_body ... ok
+test chat::tests::artifact_contract::interactive_html_render_acceptance_policy_scales_actionable_threshold_with_goal_count ... ok
+test chat::tests::artifact_contract::edit_intent_repair_prompt_requires_json_wrapper_after_missing_payload ... ok
+test chat::tests::artifact_contract::interactive_html_brief_validation_rejects_single_word_interactions_and_missing_evidence ... ok
+test chat::tests::artifact_contract::interactive_html_brief_validation_rejects_ungrounded_widget_metaphors ... ok
+test chat::tests::artifact_contract::jsx_scaffold_registry_supplies_renderer_specific_design_spine_and_contracts ... ok
+test chat::tests::artifact_contract::markdown_blueprint_uses_document_native_contracts ... ok
+test chat::tests::artifact_contract::browser_backed_render_eval_timeout_is_bounded ... ok
+test chat::tests::artifact_contract::local_html_artifact_brief_prompt_is_compact_for_runtime ... ok
+test chat::tests::artifact_contract::chat_artifact_production_sources_do_not_special_case_quantum_fixture ... ok
+test chat::tests::artifact_contract::artifact_connector_grounding_enriches_brief_without_duplicate_noise ... ok
+test chat::tests::artifact_contract::parse_chat_artifact_brief_coerces_scalar_and_array_shapes ... ok
+test chat::tests::artifact_contract::modal_first_refinement_directives_do_not_force_shared_detail_panels ... ok
+test chat::tests::artifact_contract::parse_chat_artifact_edit_intent_coerces_scalar_and_object_shapes ... ok
+test chat::tests::artifact_contract::markdown_render_acceptance_policy_uses_document_thresholds ... ok
+test chat::tests::artifact_contract::quantum_explainer_maps_to_structural_component_packs_without_domain_branching ... ok
+test chat::tests::artifact_contract::render_eval_merge_downgrades_markdown_typography_block_to_warning ... ok
+test chat::tests::artifact_contract::render_eval_merge_keeps_primary_view_for_contract_cleared_warning_only_regressions ... ok
+test chat::tests::artifact_contract::render_eval_merge_keeps_primary_view_for_warning_only_regressions_above_threshold ... ok
+test chat::tests::artifact_contract::render_eval_merge_adds_strength_for_clean_desktop_and_mobile_captures ... ok
+test chat::tests::artifact_contract::render_eval_merge_blocks_pass_when_required_execution_obligations_fail ... ok
+test chat::tests::artifact_contract::render_eval_merge_blocks_primary_view_when_first_paint_fails ... ok
+test chat::tests::artifact_contract::render_evaluation_required_preserves_html_first_paint_checks ... ok
+test chat::tests::artifact_contract::render_evaluation_required_skips_default_markdown_requests ... ok
+test chat::tests::artifact_contract::render_eval_merge_ignores_unsupported_markdown_failures ... ok
+test chat::tests::artifact_contract::requested_follow_up_pass_keeps_repairing_nontrivial_blocks ... ok
+test chat::tests::artifact_contract::svg_render_eval_promotes_advisory_static_visual_findings_after_contract_clears ... ok
+test chat::generation::runtime_materialization::tests::local_interactive_html_raw_document_accepts_without_semantic_repair_heuristics ... ok
+test chat::tests::artifact_contract::requested_follow_up_pass_prefers_polish_for_warning_only_render_eval_repairs ... ok
+test chat::tests::artifact_contract::svg_render_acceptance_policy_allows_single_static_visual_surface ... ok
+test chat::tests::artifact_contract::pdf_materialization_prompt_uses_pdf_scaffold_contract_labels ... ok
+test chat::tests::artifact_contract::requested_follow_up_pass_prefers_structural_repair_for_repairable_accept_mismatch ... ok
+test chat::generation::runtime_materialization::tests::local_interactive_html_prefers_complete_stream_buffer_over_return_buffer ... ok
+test chat::tests::artifact_contract::request_grounded_html_brief_prefers_subject_from_full_prompt_over_imperative_title ... ok
+test chat::tests::artifact_contract::requested_follow_up_pass_stops_for_clean_acceptance_clear ... ok
+test chat::tests::artifact_contract::request_grounded_markdown_brief_prefers_subject_from_full_prompt_over_truncated_title ... ok
+test chat::tests::artifact_contract::jsx_materialization_prompt_uses_jsx_scaffold_contract_labels_and_hooks ... ok
+test chat::tests::artifact_contract::svg_materialization_prompt_uses_svg_scaffold_contract_labels ... ok
+test chat::tests::direct_author::direct_author_continuation_prompt_keeps_small_partial_document_context ... ok
+test chat::tests::direct_author::direct_author_completed_incomplete_document_salvages_terminal_closure_without_follow_up ... ok
+test chat::tests::direct_author::direct_author_deterministic_repair_strips_broken_inline_script_blocks ... ok
+test chat::tests::direct_author::direct_author_continuation_prompt_requires_full_document_for_semantic_underbuild ... ok
+test chat::tests::direct_author::direct_author_broken_inline_handlers_are_stripped_before_deterministic_repair ... ok
+test chat::tests::direct_author::direct_author_generic_button_deterministic_repair_injects_fallback_detail_region ... ok
+test chat::tests::direct_author::direct_author_completed_underbuilt_document_prefers_continuation_over_repair ... ok
+test chat::tests::artifact_contract::direct_author_fast_surface_skips_acceptance_runtime ... ok
+test chat::tests::direct_author::direct_author_local_html_document_prompt_does_not_force_interaction_scaffolding ... ok
+test chat::tests::direct_author::direct_author_form_response_deterministic_repair_keeps_single_goal_slider_without_repair ... ok
+test chat::tests::artifact_contract::materialization_repair_prompt_preserves_candidate_metadata_and_view ... ok
+test chat::tests::direct_author::direct_author_local_html_follow_up_refinement_stays_on_raw_document_path ... ok
+test chat::tests::direct_author::direct_author_incomplete_empty_shell_sections_prefer_continuation_over_repair ... ok
+test chat::tests::direct_author::direct_author_local_document_timeout_surfaces_provisional_candidate_without_continuation ... ok
+test chat::tests::direct_author::direct_author_form_response_deterministic_repair_falls_through_to_repair_when_first_paint_underbuilt ... ok
+test chat::tests::direct_author::direct_author_local_html_document_skips_continuation_and_repairs_directly ... ok
+test chat::tests::direct_author::direct_author_markdown_generation_uses_raw_document_contract ... ok
+test chat::tests::direct_author::direct_author_form_control_deterministic_repair_wires_inert_range_inputs ... ok
+test chat::tests::direct_author::direct_author_local_html_repair_stays_within_compact_follow_up_budget ... ok
+test chat::tests::direct_author::direct_author_repair_accepts_suffix_mode_when_merged_document_validates ... ok
+test chat::tests::direct_author::direct_author_repairs_structurally_truncated_document_with_terminal_closers ... ok
+test chat::tests::direct_author::direct_author_runtime_failure_reason_ignores_boot_noise_after_observed_state_change ... ok
+test chat::tests::direct_author::direct_author_runtime_failure_reason_ignores_console_noise_after_passed_state_change ... ok
+test chat::tests::direct_author::complex_local_html_materialization_prefers_plan_backed_direct_author_streaming ... ok
+test chat::tests::direct_author::direct_author_continues_incomplete_raw_document_without_terminalizing_preview ... ok
+test chat::tests::direct_author::direct_author_repair_accepts_raw_html_without_json_envelope ... ok
+test chat::tests::direct_author::direct_author_modal_first_dead_controls_deterministic_repair_avoids_repair ... ok
+test chat::tests::direct_author::direct_author_missing_controls_skips_continuation_and_repairs_directly ... ok
+test chat::tests::direct_author::direct_author_mismatched_nesting_is_repaired_locally_before_follow_up ... ok
+test chat::tests::direct_author::direct_author_runtime_repair_trims_raw_html_trailing_fragment_to_renderable_prefix ... ok
+test chat::tests::direct_author::direct_author_runtime_repair_accepts_raw_html_with_preamble_as_full_document ... ok
+test chat::tests::direct_author::direct_author_incomplete_raw_html_remediates_before_terminal_failure ... ok
+test chat::tests::direct_author::direct_author_stage_navigation_deterministic_repair_synthesizes_missing_controls ... ok
+test chat::tests::direct_author::direct_author_interrupted_closed_document_repairs_without_continuation ... ok
+test chat::tests::direct_author::local_direct_author_prompt_omits_materialization_json_scaffolding ... ok
+test chat::tests::direct_author::direct_author_invalid_stream_marks_preview_failed_after_recovery_attempts ... ok
+test chat::tests::direct_author::direct_author_stream_timeout_trims_incomplete_trailing_fragment_before_validation ... ok
+test chat::tests::direct_author::local_direct_author_prompt_strips_codebase_context_envelope ... ok
+test chat::tests::direct_author::direct_author_stage_navigation_deterministic_repair_avoids_repair ... ok
+test chat::tests::direct_author::direct_author_semantic_underbuild_skips_continuation_and_repairs_directly ... ok
+test chat::tests::direct_author::direct_author_stream_timeout_uses_follow_up_inference_for_truncated_modal_first_html ... ok
+test chat::tests::direct_author::direct_author_local_document_surfaces_provisional_snapshot_without_continuation ... ok
+test chat::tests::direct_author::direct_author_structurally_closed_partial_html_is_trimmed_locally_before_repair ... ok
+test chat::tests::direct_author::direct_author_streams_token_preview_into_generation_progress ... ok
+test chat::tests::direct_author::direct_author_local_document_html_skips_artifact_validation_roundtrip ... ok
+test chat::tests::direct_author::direct_author_timed_out_underbuilt_closed_document_prefers_continuation_over_repair ... ok
+test chat::tests::direct_author::local_document_direct_author_prompt_does_not_force_interactivity ... ok
+test chat::tests::direct_author::direct_author_large_incomplete_document_prefers_continuation_over_repair ... ok
+test chat::tests::direct_author::direct_author_html_generation_preserves_raw_document_contract_after_planning_context ... ok
+test chat::tests::payload_validation::enrich_generated_svg_payload_adds_brief_grounded_title_and_desc ... ok
+test chat::tests::payload_validation::html_local_runtime_materialization_repair_budget_limits_to_single_pass ... ok
+test chat::tests::direct_author::direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_recovery ... ok
+test chat::tests::direct_author::local_html_interaction_truth_repair_promotes_scroll_nav_buttons_into_stateful_controls ... ok
+test chat::tests::payload_validation::html_remote_runtime_materialization_repair_budget_allows_three_passes ... ok
+test chat::tests::payload_validation::ensure_minimum_html_sectioning_elements_groups_consecutive_controls_and_marks ... ok
+test chat::tests::html_work_graph_semantic_conflict_rejects_cross_boundary_patch ... ok
+test chat::tests::payload_validation::local_generation_remote_acceptance_keeps_html_generation_on_primary_runtime ... ok
+test chat::tests::payload_validation::local_generation_remote_acceptance_policy_falls_back_truthfully_when_acceptance_is_unavailable ... ok
+test chat::tests::payload_validation::local_generation_remote_acceptance_prefers_local_specialist_for_download_bundle_acceptance ... ok
+test chat::tests::payload_validation::charted_evidence_failure_directives_require_visible_secondary_surface ... ok
+test chat::tests::payload_validation::local_generation_remote_acceptance_prefers_local_specialist_for_markdown_generation_and_acceptance ... ok
+test chat::tests::payload_validation::local_html_direct_author_budget_matches_local_materialization_budget ... ok
+test chat::tests::payload_validation::local_html_materialization_repair_prefers_local_specialist_runtime ... ok
+test chat::tests::payload_validation::modal_first_html_direct_author_budget_stays_bounded_for_local_gpu_runs ... ok
+test chat::tests::payload_validation::modal_first_html_local_runtime_candidate_generation_uses_single_candidate ... ok
+test chat::tests::payload_validation::main_region_failure_directives_require_markup_first_scaffold ... ok
+test chat::tests::payload_validation::modal_first_html_local_runtime_materialization_token_budget_expands_completion_room ... ok
+test chat::tests::payload_validation::modal_first_html_local_runtime_refinement_budget_allows_one_pass ... ok
+test chat::tests::payload_validation::modal_first_html_normalization_closes_unclosed_inner_elements_before_terminal_html_closer ... ok
+test chat::tests::payload_validation::accepts_html_payloads_with_negated_placeholder_wording_and_no_comments ... ok
+test chat::tests::payload_validation::modal_first_html_normalization_closes_missing_terminal_suffix ... ok
+test chat::tests::payload_validation::modal_first_html_normalization_closes_unclosed_inner_elements_when_stream_cut_short ... ok
+test chat::tests::payload_validation::local_download_bundle_candidate_prevalidation_accepts_docx_exports ... ok
+test chat::tests::payload_validation::modal_first_html_validation_accepts_browser_complete_documents_without_terminal_html_closers ... ok
+test chat::tests::payload_validation::modal_first_local_generation_remote_acceptance_keeps_html_generation_on_primary_runtime ... ok
+test chat::tests::payload_validation::modal_first_html_requires_real_interaction_instead_of_injected_disclosure ... ok
+test chat::tests::payload_validation::modal_first_html_validation_rejects_truncated_documents ... ok
+test chat::tests::payload_validation::modal_first_quantum_html_budget_stays_user_viable ... ok
+test chat::tests::payload_validation::modal_first_quantum_html_budget_reopens_for_validation_backed_runtime_profile ... ok
+test chat::tests::payload_validation::modal_first_local_html_prompt_pushes_authored_interactive_explainers ... ok
+test chat::tests::payload_validation::local_runtime_bundle_manifest_materialization_falls_back_after_non_json_output ... ok
+test chat::tests::payload_validation::parse_and_validate_accepts_file_content_aliases_for_download_cards ... ok
+test chat::tests::payload_validation::modal_first_local_html_materialization_prompt_stays_compact_for_landing_pages ... ok
+test chat::tests::payload_validation::materialization_repair_prompt_handles_missing_json_payload_for_html ... ok
+test chat::tests::payload_validation::local_runtime_download_card_materialization_falls_back_after_local_refusal ... ok
+test chat::tests::payload_validation::normalize_generated_artifact_payload_unwraps_nested_html_json_envelopes ... ok
+test chat::tests::payload_validation::parse_and_validate_recovers_download_card_missing_readme_and_placeholder_csv ... ok
+test chat::tests::payload_validation::parse_and_validate_adds_missing_spreadsheet_export_for_download_cards ... ok
+test chat::tests::payload_validation::parse_and_validate_extracts_html_from_mixed_json_and_html_output ... ok
+test chat::tests::payload_validation::parse_and_validate_recovers_raw_markdown_payloads ... ok
+test chat::tests::payload_validation::parse_and_validate_recovers_raw_svg_payloads ... ok
+test chat::tests::payload_validation::normalize_generated_artifact_payload_decodes_json_escaped_html_bodies ... ok
+test chat::tests::payload_validation::parse_and_validate_rejects_static_interactive_html_without_real_controls ... ok
+test chat::tests::payload_validation::parse_and_validate_rejects_structurally_truncated_svg_even_with_terminal_closer ... ok
+test chat::tests::payload_validation::pdf_materialization_repair_budget_allows_three_passes ... ok
+test chat::tests::payload_validation::pdf_parse_failure_directives_require_json_wrapping ... ok
+test chat::tests::payload_validation::pdf_placeholder_failure_directives_require_concrete_copy ... ok
+test chat::tests::payload_validation::parse_generated_payload_tolerates_duplicate_json_fields ... ok
+test chat::tests::payload_validation::rejects_generated_pdf_payload_when_source_is_too_short ... ok
+test chat::tests::payload_validation::parse_and_validate_normalizes_external_chart_runtime_into_inline_svg_fallback ... ok
+test chat::tests::payload_validation::parse_and_validate_recovers_missing_docx_body_for_download_cards ... ok
+test chat::tests::payload_validation::rollover_failure_directives_require_focusable_detail_marks ... ok
+test chat::tests::payload_validation::shortlist_widens_for_near_tied_primary_view_candidates ... ok
+test chat::tests::direct_author::direct_author_local_html_repairs_runtime_failure_before_surface ... ok
+test chat::tests::payload_validation::parse_and_validate_preserves_authored_controls_without_injecting_disclosure ... ok
+test chat::tests::payload_validation::simple_local_runtime_renderers_use_single_candidate_budgets ... ok
+test chat::tests::payload_validation::pdf_structure_failure_directives_require_visible_section_breaks ... ok
+test chat::tests::payload_validation::validates_generated_markdown_payload ... ok
+test chat::tests::payload_validation::view_switching_failure_directives_require_panel_scaffold ... ok
+test chat::tests::planning_and_routing::communication_projection_infers_message_compose_lane_and_missing_slots ... ok
+test chat::tests::direct_author::direct_author_large_local_incomplete_html_prefers_raw_continuation_over_repair ... ok
+test chat::tests::planning_and_routing::communication_draft_without_recipient_context_does_not_gate ... ok
+test chat::tests::planning_and_routing::complete_specialized_lanes_select_specialized_source_not_generic_web ... ok
+test chat::tests::planning_and_routing::complete_specialized_source_overrides_model_live_data_clarification ... ok
+test chat::tests::payload_validation::parse_and_validate_normalizes_html_mime_parameters_and_paths ... ok
+test chat::tests::planning_and_routing::active_interactive_artifact_follow_up_preserves_typed_contract ... ok
+test chat::tests::planning_and_routing::explicit_inline_answer_request_removes_workspace_clarification ... ok
+test chat::tests::planning_and_routing::explain_this_workspace_requires_grounding_without_clarification ... ok
+test chat::tests::planning_and_routing::example_request_does_not_materialize_artifact_without_artifact_signal ... ok
+test chat::tests::payload_validation::parse_and_validate_recovers_raw_html_payloads_and_normalizes_custom_fonts ... ok
+test chat::tests::planning_and_routing::explicit_install_intent_exposes_structured_host_mutation_contract ... ok
+test chat::tests::direct_author::local_html_materialization_repairs_runtime_failure_before_surface ... ok
+test chat::tests::planning_and_routing::explicit_places_lookup_still_routes_to_places_widget ... ok
+test chat::tests::planning_and_routing::explicit_install_projection_blocks_direct_answer_and_projects_install_tools ... ok
+test chat::tests::planning_and_routing::explicit_workspace_file_read_requires_workspace_grounding ... ok
+test chat::tests::planning_and_routing::harness_validation_request_requires_workspace_grounding ... ok
+test chat::tests::planning_and_routing::local_outcome_router_prompt_uses_summarized_active_artifact_context ... ok
+test chat::tests::planning_and_routing::local_runtime_action_frame_blocks_direct_answer_and_projects_tools ... ok
+test chat::tests::planning_and_routing::explicit_table_artifact_overrides_conversation_router_output ... ok
+test chat::tests::planning_and_routing::harness_probe_requests_require_workspace_grounding ... ok
+test chat::tests::planning_and_routing::interactive_adjustable_calculator_overrides_user_input_gate ... ok
+test chat::tests::planning_and_routing::local_outcome_router_uses_text_json_contract ... ok
+test chat::tests::planning_and_routing::message_compose_domain_policy_bundle_is_explicit_and_medium_risk ... ok
+test chat::tests::planning_and_routing::local_outcome_router_repairs_non_json_router_output_once ... ok
+test chat::tests::planning_and_routing::outcome_router_prompt_spells_out_html_vs_jsx_contracts ... ok
+test chat::tests::planning_and_routing::no_edit_coding_plan_requires_workspace_grounding ... ok
+test chat::tests::planning_and_routing::outcome_router_prompt_compacts_for_local_runtime ... ok
+test chat::tests::planning_and_routing::parses_html_iframe_payload_with_document_defaults ... ok
+test chat::tests::planning_and_routing::low_risk_conversation_answers_with_uncertainty_instead_of_overasking ... ok
+test chat::tests::planning_and_routing::parses_planning_payload_preserves_execution_strategy ... ok
+test chat::tests::planning_and_routing::local_html_brief_planner_uses_text_json_contract ... ok
+test chat::tests::planning_and_routing::parses_planning_payload_with_missing_scope_and_verification_defaults ... ok
+test chat::tests::planning_and_routing::parses_planning_payload_with_null_scope_and_verification_defaults ... ok
+test chat::tests::planning_and_routing::parses_planning_payload_with_renderer_derived_defaults ... ok
+test chat::tests::planning_and_routing::parses_planning_payload_with_wrapped_text ... ok
+test chat::tests::planning_and_routing::places_anchor_phrase_preserves_multi_segment_locations ... ok
+test chat::tests::planning_and_routing::outcome_router_prompt_surfaces_active_artifact_context_for_follow_ups ... ok
+test chat::tests::planning_and_routing::messy_task_list_with_coffee_does_not_escalate_to_places_widget ... ok
+test chat::tests::planning_and_routing::places_anchor_extraction_drops_presentation_suffixes ... ok
+test chat::tests::planning_and_routing::places_current_area_requests_resolve_runtime_locality_without_near_me_placeholder ... ok
+test chat::tests::payload_validation::local_html_work_graph_strategy_repairs_and_passes_quantum_artifact_regression ... ok
+test chat::tests::payload_validation::validate_generated_html_accepts_data_view_controls_mapped_to_panel_ids ... ok
+test chat::tests::planning_and_routing::projection_does_not_reclassify_install_from_raw_prompt_without_evidence ... ok
+test chat::tests::planning_and_routing::request_grounded_html_document_brief_keeps_interactions_optional ... ok
+test chat::tests::planning_and_routing::request_grounded_artifact_brief_uses_user_request_inside_context_envelope ... ok
+test chat::tests::planning_and_routing::places_anchor_phrase_parses_bare_follow_up_prefixes ... ok
+test chat::tests::planning_and_routing::request_grounded_interactive_html_brief_does_not_invent_inspection_or_sequence_goals ... ok
+test chat::tests::planning_and_routing::retained_weather_widget_state_inherits_follow_up_without_tool_hint ... ok
+test chat::tests::planning_and_routing::retained_widget_state_backfills_weather_scope_and_domain_policy_bundle ... ok
+test chat::tests::planning_and_routing::using_repo_docs_request_requires_workspace_grounding ... ok
+test chat::tests::planning_and_routing::weather_current_area_requests_resolve_runtime_locality_without_placeholder_slots ... ok
+test chat::tests::planning_and_routing::weather_missing_scope_uses_domain_specific_degradation_reason ... ok
+test chat::tests::planning_and_routing::weather_scope_extraction_separates_location_from_temporal_suffix ... ok
+test chat::tests::work_graph_plans::markdown_work_graph_plan_uses_coarse_adapter_workers ... ok
+test chat_mock::tests::mock_brief_preserves_prior_subject_for_selected_refinement_follow_up ... ignored, legacy html contract coverage superseded by typed query-profile path
+test chat::tests::planning_and_routing::source_citation_question_requires_workspace_grounding_even_without_repo_phrase ... ok
+test chat::tests::planning_and_routing::runtime_lifecycle_mermaid_request_requires_workspace_grounding ... ok
+test chat_mock::tests::mock_brief_decodes_serialized_chat_prompt_with_non_empty_fields ... ok
+test chat::tests::planning_and_routing::weather_route_derives_lane_request_normalized_request_and_source_decision ... ok
+test chat::tests::planning_and_routing::weather_advice_route_uses_weather_widget_without_weather_keyword ... ok
+test chat::tests::validate_work_graph_generated_artifact_payload_repairs_default_primary_renderable_flag ... ok
+test chat_mock::tests::mock_router_decodes_serialized_chat_prompt_for_workspace_requests ... ok
+test chat::tests::work_graph_plans::html_work_graph_plan_is_stable_and_scoped ... ok
+test chat_mock::tests::mock_validation_marks_targeted_patch_as_patched_existing_artifact ... ok
+test chat_mock::tests::mock_mermaid_materialization_mentions_approval_pipeline ... ok
+test chat::tests::planning_and_routing::install_route_selection_modules_do_not_embed_app_targets ... ok
+test chat_mock::tests::mock_pdf_validation_accepts_substantial_pdf_brief ... ok
+test chat_mock::tests::mock_materialization_repair_prompt_returns_schema_valid_payload ... ok
+test chat_mock::tests::mock_refiner_prompt_returns_schema_valid_payload ... ok
+test chat_mock::tests::mock_html_materialization_contains_real_interaction_hooks ... ok
+test chat::tests::payload_validation::local_html_work_graph_strategy_breaks_complex_mission_control_query_into_iterative_waves ... ok
+test chat::tests::payload_validation::renderer_contract_allows_near_pass_html_after_normalization_repairs ... ok
+test chat::tests::direct_author::direct_author_follow_up_timeout_marks_preview_failed_after_interrupted_stream ... ok
+test contextual_notifications::export_bindings_artifacttype ... ok
+test chat::tests::direct_author::direct_author_continuation_timeout_falls_through_to_repair ... ok
+test chat::tests::artifact_contract::render_eval_wrapper_passes_through_non_local_results ... ok
+test chat::tests::direct_author::local_html_hybrid_raw_document_timeout_is_bounded ... ok
+test contextual_notifications::tests::every_notification_target_variant_names_its_connector ... ok
+test contextual_notifications::tests::exported_bindings_match_the_consumed_wire_shape ... ok
+test contextual_notifications::tests::record_round_trips_through_its_camel_case_wire_form ... ok
+test contextual_notifications::export_bindings_contextualnotificationclass ... ok
+test execution::tests::annotate_execution_envelope_carries_mode_decision_budget_and_invariant ... ok
+test execution::tests::artifact_outcomes_default_single_document_renderers_to_direct_author ... ok
+test execution::tests::block_work_graph_work_item_on_adds_runtime_blockers ... ok
+test execution::tests::build_execution_envelope_derives_strategy_and_domain_kind_from_work_graph ... ok
+test execution::tests::build_execution_envelope_preserves_graph_and_repair_receipts ... ok
+test execution::tests::derive_execution_mode_decision_preserves_requested_conversation_work_graph ... ok
+test execution::tests::derive_execution_mode_decision_routes_fresh_bounded_document_to_direct_author ... ok
+test execution::tests::derive_execution_mode_decision_routes_simple_conversation_to_single_pass ... ok
+test execution::tests::derive_execution_mode_decision_routes_workspace_artifacts_to_adaptive_work_graph ... ok
+test execution::tests::dispatch_batch_parallelism_cap_defers_overflow ... ok
+test execution::tests::dispatch_batches_respect_dependencies_and_lease_conflicts ... ok
+test execution::tests::exclusive_write_leases_conflict_on_the_same_target ... ok
+test execution::tests::execution_envelope_rejects_tampered_workflow_root_hash ... ok
+test execution::tests::parse_execution_strategy_id_accepts_legacy_work_graph_alias ... ok
+test execution::tests::spawn_follow_up_work_item_preserves_parent_lineage_and_increments_version ... ok
+test state::namespaced::tests::namespaced_reads_can_access_upgrade_active_registry_without_allowlist ... ok
+test state::namespaced::tests::namespaced_writes_to_upgrade_active_registry_remain_namespaced ... ok
+test state::overlay::tests::merge_keeps_order_overrides_and_deletes_around_scan_failure ... ok
+test state::overlay::tests::merge_preserves_scan_errors_with_and_without_pending_writes ... ok
+test state::pins::tests::test_concurrent_pinning ... ok
+test state::pins::tests::test_multiple_pins ... ok
+test state::pins::tests::test_pin_and_unpin ... ok
+test state::pins::tests::test_pinguard_drop_no_runtime ... ok
+test state::pins::tests::test_pinguard_lifecycle ... ok
+test vm::inference::http_adapter::tests::daemon_openai_compatible_route_is_not_rewritten_to_ollama_native_chat ... ok
+test vm::inference::http_adapter::tests::explicit_http_timeout_override_takes_precedence ... ok
+test vm::inference::http_adapter::tests::explicit_stream_idle_timeout_override_takes_precedence ... ok
+test vm::inference::http_adapter::tests::local_embedding_routes_use_local_model_defaults ... ok
+test contextual_notifications::export_bindings_notificationdeliverystate ... ok
+test contextual_notifications::export_bindings_notificationactionstyle ... ok
+test vm::inference::http_adapter::tests::local_openai_tool_requests_do_not_force_streaming_without_token_sink ... ok
+test contextual_notifications::export_bindings_notificationpolicyrefs ... ok
+test vm::inference::http_adapter::tests::local_qwen_no_think_prompt_is_not_added_when_reasoning_policy_is_explicit ... ok
+test chat::tests::direct_author::direct_author_idle_fast_finish_ignores_trailing_whitespace_dribble ... ok
+test chat::tests::direct_author::direct_author_boundary_fast_finish_uses_completed_document_prefix ... ok
+test vm::inference::http_adapter::tests::local_reasoning_effort_policy_can_be_explicitly_omitted ... ok
+test vm::inference::http_adapter::tests::local_runtime_defaults_to_longer_http_timeout ... ok
+test vm::inference::http_adapter::tests::local_runtime_defaults_to_shorter_stream_idle_timeout ... ok
+test contextual_notifications::export_bindings_notificationpreviewmode ... ok
+test vm::inference::http_adapter::tests::ollama_native_request_options_forward_html_document_stop_sequences ... ok
+test vm::inference::http_adapter::tests::ollama_native_request_options_preserve_non_document_stop_sequences ... ok
+test vm::inference::http_adapter::tests::openai_embedding_routes_keep_openai_default_model ... ok
+test chat::tests::direct_author::direct_author_idle_fast_finish_uses_stable_stream_snapshot ... ok
+test contextual_notifications::export_bindings_notificationprivacy ... ok
+test contextual_notifications::export_bindings_artifactref ... ok
+test contextual_notifications::export_bindings_notificationseverity ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_accepts_final_message_tool_calls ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_accepts_final_message_function_call ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_accepts_object_arguments_from_message_tool_calls ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_accepts_legacy_delta_function_call ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_collects_text_until_stop ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_finalizes_text_on_done ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_restores_configured_stop_sequence ... ok
+test vm::inference::http_adapter::tests::openai_stream_accumulator_waits_for_tool_call_finish_before_returning ... ok
+test contextual_notifications::export_bindings_notificationsource ... ok
+test vm::inference::http_adapter::tests::remote_openai_tool_requests_can_still_stream_without_token_sink ... ok
+test vm::inference::http_adapter::tests::restore_consumed_stop_sequence_appends_boundary_for_stop_finish_reason ... ok
+test vm::inference::http_adapter::tests::stop_sequence_match_accepts_case_insensitive_html_closure ... ok
+test vm::inference::http_adapter::tests::stop_sequence_match_accepts_html_closure_with_internal_whitespace ... ok
+test vm::inference::router::tests::claude_request_selects_anthropic_candidate ... ok
+test vm::inference::router::tests::public_prompt_can_use_remote_when_egress_is_allowed ... ok
+test vm::inference::router::tests::remote_candidate_is_blocked_when_egress_is_not_allowed ... ok
+test vm::inference::router::tests::sensitive_prompt_prefers_local_and_rejects_remote_without_explicit_allowance ... ok
+test vm::inference::http_adapter::tests::local_non_qwen_ollama_requests_default_reasoning_effort_to_none ... ok
+test contextual_notifications::export_bindings_notificationtarget ... ok
+test contextual_notifications::export_bindings_contextualnotificationstatus ... ok
+test contextual_notifications::export_bindings_observationtier ... ok
+test execution::export_bindings_executionstage ... ok
+test contextual_notifications::export_bindings_notificationrail ... ok
+test contextual_notifications::export_bindings_notificationaction ... ok
+test contextual_notifications::export_bindings_contextualnotificationrecord ... ok
+test chat::tests::direct_author::direct_author_stream_timeout_salvages_complete_partial_document ... ok
+test vm::inference::http_adapter::tests::local_openai_requests_include_ollama_num_ctx_when_configured ... ok
+test vm::inference::http_adapter::tests::local_qwen_requests_disable_reasoning_effort_and_prefix_no_think ... ok
+test vm::inference::http_adapter::tests::openai_requests_include_stop_sequences_when_configured ... ok
+test vm::inference::http_adapter::tests::openai_non_stream_requests_serialize_stream_false_explicitly ... ok
+test vm::inference::http_adapter::tests::openai_parse_response_does_not_wait_for_chunked_connection_close ... ok
+test vm::inference::http_adapter::tests::openai_streaming_requests_still_serialize_stream_true ... ok
+test vm::inference::http_adapter::tests::openai_tool_requests_skip_redundant_json_object_mode ... ok
+test vm::inference::http_adapter::tests::local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams ... ok
+test vm::inference::http_adapter::tests::local_qwen_raw_text_requests_use_native_ollama_chat_streaming ... ok
+test vm::inference::http_adapter::tests::local_runtime_load_model_uses_tiny_chat_warmup_request ... ok
+test chat::tests::direct_author::local_html_hybrid_materialization_fast_finishes_when_main_closes ... ok
+test chat::tests::direct_author::local_html_hybrid_materialization_fast_finishes_when_body_closes ... ok
+test chat::tests::direct_author::local_html_hybrid_materialization_uses_raw_document_authoring_and_fast_finishes ... ok
+test chat::tests::direct_author::local_html_hybrid_materialization_fast_finishes_from_stable_renderable_prefix_before_trailing_chatter ... ok
+
+test result: ok. 364 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.92s
+

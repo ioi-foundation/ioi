@@ -1,0 +1,9 @@
+{
+  "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla": "c4f1d082acb95feaf03116a30f52f91519ddc897933ec8a123910cfe9abb6675",
+  "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla": "103e953a641b71f6b0edb873cdd274e586fdda634359b6984c52a0a446966c97",
+  "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparation.tla": "43d1d4dddfdc4c5001ba1fa271eeb5152ec719871f0f84076593d11d19f60dbc",
+  "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparationUnowned.cfg": "cf0254756f41275f0050ac7eeb9b75b92c204a9a96594869c00716acacdfa36c",
+  "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparationOwned.cfg": "7dd6023e3ecec56787b2ce9daf2c186978ae64a57c910c16c5cc4b7fd5df1359",
+  "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparationDisabled.cfg": "0abdde9ac14d1deae89dcb83dfac23b627eac1d0b0fb5dd45e9398549fea6e4a",
+  ".github/scripts/run_aft_formal_checks.sh": "b5337d6703d17e13bee8f2172f2d996ac75266dd22b5ada9e0a281a75ed82425"
+}

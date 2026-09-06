@@ -1,0 +1,9 @@
+{
+  "observed_utc": "2026-09-05T11:12:47.614526+00:00",
+  "source": "crates/validator/src/standard/orchestration/quv.rs",
+  "source_sha256": "265973b40efc73b785e672571a069ac7611969e4dcd4ad40ebd87d334b75d315",
+  "finding": "Final completion sample precedes drop(admission). Scheduling delay after the sample can be included in actual admission holding time but omitted from service_budget_met.",
+  "impact": "The diagnostic alone cannot establish the actual release-time premise required by the FIFO/readiness bound. This audit does not demonstrate conflicting acceptance or bypass of the live effect fence.",
+  "required_repair": "Sample service completion after releasing the finalizer admission share; retain ownership through any outstanding durable closure. Account separately for queue dispatch/resumption and cancellation paths.",
+  "qualification": "Current process campaign remains unchanged and live. Its final evidence must not be presented as an actual admission-release bound."
+}

@@ -1,0 +1,22 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests::changed_provisioning_refuses_without_writing_even_during_pending_recovery",
+    "--",
+    "--exact"
+  ],
+  "mutation": "remove only authenticated provisioning comparison before recovery",
+  "original_sha256": "2f82b8a176dabcc31fc5b657dbc7dc8f6a759d43f177f07d5b69d92a667029a1",
+  "mutant_sha256": "1862e0f37ee07b39d15b5bdeb0ae6058c7371c42336584f6e8050edda9ff2a15",
+  "started_utc": "2026-09-05T04:26:40.909770+00:00",
+  "exit_code": 101,
+  "source_restored": true,
+  "finished_utc": "2026-09-05T04:26:43.079816+00:00"
+}

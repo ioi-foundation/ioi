@@ -1,0 +1,21 @@
+{
+  "disposition": "LOCAL_INSTRUMENTED_CAMPAIGN_PASSED",
+  "exit_code": 0,
+  "changed_sources": [],
+  "strict_process_check": "PASS",
+  "worker_service_check": "PASS",
+  "sole_correct_placements": 4,
+  "saturation_effects": 4,
+  "conflict_accepts": 1,
+  "typed_conflict_rejections": 1,
+  "unrelated_effect": "EXECUTED_WITH_EXACT_PARTICIPATION",
+  "expired_result": {
+    "expiry_height": 65,
+    "observed_height": 70,
+    "receipt_unchanged": true
+  },
+  "common_workload_overlap_ms": 4153.826,
+  "worker_starts": 17,
+  "accepted_worker_completions": 14,
+  "scope": "Development evidence for exact recorded sources only; earlier failures retained, root causes not established, all whole R1 findings and clean R2 remain open"
+}

@@ -1,0 +1,23 @@
+{
+  "started": "2026-09-06T05:48:30.946093+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "environment_overrides": {
+    "IOI_TEST_ORCH_RUST_LOG": "quv=debug,network=debug",
+    "IOI_AFT_BENCH_TRACE_DIR": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-continuation-admission-2026-09-06/process-recovery/admission-diagnostic/components"
+  },
+  "scope": "scoped dirty-worktree process campaign; not immutable R2"
+}

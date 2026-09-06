@@ -1,0 +1,11 @@
+{
+  "anchor": "/tmp/.tmpCAsj1L/custody.anchor",
+  "pid": "453411",
+  "anchor_rename_line": 38,
+  "ancestry_sync_lines": {
+    "/tmp/.tmpCAsj1L": 30,
+    "/tmp": 32,
+    "/": 34
+  },
+  "scope": "observed syscall order; power-loss durability still assumes filesystem fsync/rename semantics"
+}

@@ -1,0 +1,15 @@
+test aft::query_unanimity::tests::preparation_selection_recovers_and_rotates_without_advancing_history ... ok
+test aft::query_unanimity::tests::journal_replay_tests::journal_member_cached_size_matches_compact_history_boundaries ... ok
+test aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset ... ok
+test aft::query_unanimity::tests::recovery_requires_snapshot_for_every_accepted_history_entry ... ok
+test aft::query_unanimity::tests::saturated_summary_replies_remain_valid_bounded_and_preserve_first_winner has been running for over 60 seconds
+test aft::query_unanimity::tests::saturated_summary_replies_remain_valid_bounded_and_preserve_first_winner ... ok
+test aft::query_unanimity::tests::preparation_attempts_are_rooted_durable_and_retire_only_on_advance ... ok
+test aft::query_unanimity::tests::exact_context_binding_rejects_valid_cross_context_and_stale_nonce_replies ... ok
+test aft::query_unanimity::tests::live_authorization_is_consumed_into_rollback_anchored_successor_activation ... ok
+test aft::query_unanimity::tests::journal_replay_tests::typed_journal_replay_matches_live_member_across_three_slots_and_reopens ... ok
+test aft::query_unanimity::tests::authenticated_advanced_history_covers_every_byte_in_pending_recovery ... ok
+test aft::query_unanimity::tests::authenticated_member_state_covers_every_byte_and_pending_recovery ... ok
+
+test result: ok. 85 passed; 0 failed; 1 ignored; 0 measured; 230 filtered out; finished in 226.83s
+

@@ -1,0 +1,27 @@
+[
+  [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "agentgres",
+    "--lib",
+    "--no-run",
+    "--message-format=json"
+  ],
+  [
+    "strace",
+    "-f",
+    "-y",
+    "-s",
+    "256",
+    "-e",
+    "trace=fsync,fallocate,ftruncate,rename,openat,write,close",
+    "-o",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-receipt-reservation-2026-09-06/final-syscalls/reservation.trace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/agentgres-834edda94e368887",
+    "--exact",
+    "consequence::tests::online_pq_endpoint_consumes_reserved_inode_and_retains_active_authority",
+    "--nocapture"
+  ]
+]

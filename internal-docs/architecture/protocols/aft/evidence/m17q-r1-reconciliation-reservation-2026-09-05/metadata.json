@@ -1,0 +1,16 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "recorded_utc": "2026-09-05T01:54:50.502709+00:00",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+  "sources_and_tools": {
+    "crates/agentgres/src/consequence.rs": "5305b8a393f277ef53393f7bd620e91fdf78181c6f760da875b75f63d1c4a0e9",
+    "crates/agentgres/src/consequence/tests.rs": "bebe28260ce66a13dda4af38fddaecc09944b5910166a1aff8844ed9a4f2f607",
+    ".github/scripts/run_aft_formal_checks.sh": "7a93fec0d5b822f78ef7077f50d300bca3a8b6ecb6e26d6fbc41b12bef667303",
+    ".github/scripts/run_aft_m16q_qualification.sh": "477445b80066035ff9fbd920f92d5f709dc89c5a9dd55af299e1668b2053666e",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.tla": "0b61dde27c312af70b4f287cfabe56ce167450bdca028b661fe0a178bb974973",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.cfg": "7d399b1ba666c00c27761fdb3df5a1e725260215e065ce54f3cc8f50526c7117",
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  }
+}

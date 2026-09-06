@@ -1,0 +1,1485 @@
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+   Compiling ioi-consensus v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/consensus)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling ioi-networking v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/networking)
+   Compiling ioi-execution v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/execution)
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+   Compiling ioi-validator v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/validator)
+   Compiling ioi-cli v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/cli)
+   Compiling transport-verifier v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/plugins/transport-verifier)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.73s
+     Running tests/aft_e2e.rs (target/debug/deps/aft_e2e-3ebab74920d2a953)
+
+running 1 test
+--- Building Test Artifacts (one-time setup) ---
+Building component for mock-verifier in "/home/heathledger/Documents/ioi/repos/ioi/crates/cli/tests/fixtures/mock-verifier"
+WARN: `cargo-component` not found. Skipping build of 'mock-verifier'. Tests relying on this artifact may fail.
+--- Test Artifacts built successfully ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+   Compiling ioi-consensus v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/consensus)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling ioi-networking v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/networking)
+   Compiling ioi-execution v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/execution)
+   Compiling ioi-validator v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/validator)
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+   Compiling ioi-node v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/node)
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+test test_aft_quv_consecutive_slots_wait_and_reopen_without_blocking_unrelated_effects has been running for over 60 seconds
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 3m 16s
+--- Encrypting New Secure Key ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.46s
+--- Encrypting New Secure Key ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.47s
+--- Encrypting New Secure Key ---
+--- Building node binaries with profile=release features: validator-bins,consensus-aft,state-iavl,commitment-hash,vm-wasm ---
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:5223:9
+     |
+5223 |     pub runtimeTruthSource: Option<GoalRunV1RuntimeTruthSource>,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+     |
+     = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9220:9
+     |
+9220 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentOperationV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9221:9
+     |
+9221 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentOperationV1AgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9480:9
+     |
+9480 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1RuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9718:9
+     |
+9718 |     pub runtimeTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationRuntimeTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `agentgresTruthSource` should have a snake case name
+    --> crates/types/src/app/generated/architecture_contracts.rs:9719:9
+     |
+9719 |     pub agentgresTruthSource: ArtifactAvailabilityIncidentV1AgentgresOperationAgentgresTruthSource,
+     |         ^^^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `agentgres_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26731:9
+      |
+26731 |     pub requiresDaemonGate: HarnessSessionBindingAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:26732:9
+      |
+26732 |     pub runtimeTruthSource: HarnessSessionBindingAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27154:9
+      |
+27154 |     pub runtimeTruthSource: HarnessSessionBindingV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27566:9
+      |
+27566 |     pub requiresDaemonGate: HarnessSessionReadinessV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27567:9
+      |
+27567 |     pub runtimeTruthSource: HarnessSessionReadinessV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27844:9
+      |
+27844 |     pub requiresDaemonGate: HarnessSessionSpawnV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:27845:9
+      |
+27845 |     pub runtimeTruthSource: HarnessSessionSpawnV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28316:9
+      |
+28316 |     pub requiresDaemonGate: HarnessSessionTerminalAttachV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28317:9
+      |
+28317 |     pub runtimeTruthSource: HarnessSessionTerminalAttachV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:28756:9
+      |
+28756 |     pub runtimeTruthSource:
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `requiresDaemonGate` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31709:9
+      |
+31709 |     pub requiresDaemonGate: HypervisorSessionLaunchRecipeAdmissionV1RequiresDaemonGate,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `requires_daemon_gate`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:31710:9
+      |
+31710 |     pub runtimeTruthSource: HypervisorSessionLaunchRecipeAdmissionV1RuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: structure field `runtimeTruthSource` should have a snake case name
+     --> crates/types/src/app/generated/architecture_contracts.rs:93444:9
+      |
+93444 |     pub runtimeTruthSource: ManagedWorkerInstanceStateV1LastTransitionAdmissionRuntimeTruthSource,
+      |         ^^^^^^^^^^^^^^^^^^ help: convert the identifier to snake case: `runtime_truth_source`
+
+warning: `ioi-types` (lib) generated 19 warnings
+warning: unused doc comment
+   --> crates/agentgres/src/event_stream.rs:229:1
+    |
+229 | / /// Confirm the substrate log is durable on disk.
+230 | | ///
+231 | | /// The fault-injection hook travels WITH the discipline: a durability
+232 | | /// confirmation whose failure path is unreachable in test is a confirmation
+...   |
+235 | | /// pre-lift implementation so the M4 fault-injection proofs keep exercising
+236 | | /// this exact path.
+    | |_-------------------^
+    |   |
+    |   rustdoc does not generate documentation for macro invocations
+    |
+    = help: to document an item produced by a macro, the macro must produce the documentation as part of its expansion
+    = note: `#[warn(unused_doc_comments)]` (part of `#[warn(unused)]`) on by default
+
+warning: `agentgres` (lib) generated 1 warning
+warning: unused imports: `chat_reply_looks_like_source_candidate_list`, `chat_reply_looks_like_tool_plan`, and `workspace_chat_reply_looks_terminal`
+  --> crates/services/src/agentic/runtime/service/tool_execution/processing/phases/execute_tool_phase/tool_outcome.rs:23:5
+   |
+23 |     chat_reply_looks_like_source_candidate_list, chat_reply_looks_like_tool_plan,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |     file_mutation_policy_action_report_candidate, goal_requires_fresh_retrieval_before_chat_reply,
+25 |     source_candidate_chat_reply_blocker, workspace_chat_reply_looks_terminal,
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `HandoverAcceptance` and `HandoverApproval`
+   --> crates/services/src/guardian_registry/mod.rs:107:55
+    |
+107 |     GuardianWitnessFaultEvidence, GuardianWitnessSet, HandoverAcceptance, HandoverApproval,
+    |                                                       ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused import: `require_identity`
+ --> crates/services/src/wallet_network/handlers/identity.rs:6:46
+  |
+6 |     is_encrypted_secret_payload, load_typed, require_identity, store_typed,
+  |                                              ^^^^^^^^^^^^^^^^
+
+warning: function `append_event_line` is never used
+   --> crates/services/src/agentic/runtime/event_log_bridge.rs:233:4
+    |
+233 | fn append_event_line(state_dir: &str, event_stream_id: &str, event: &Value) -> Result<(), String> {
+    |    ^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/repository_workflow.rs:195:8
+    |
+194 | impl RepositoryWorkflowProjectionRecord {
+    | --------------------------------------- method in this implementation
+195 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `set_array_strings` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_conversation_artifact_control.rs:570:4
+    |
+570 | fn set_array_strings(value: &mut Value, key: &str, values: &[String]) {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs:196:8
+    |
+195 | impl RuntimeLifecycleProjectionRecord {
+    | ------------------------------------- method in this implementation
+196 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:635:8
+    |
+634 | impl RuntimeMcpServeToolCallPlanRecord {
+    | -------------------------------------- method in this implementation
+635 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs:664:8
+    |
+663 | impl RuntimeMcpServeToolResultProjectionRecord {
+    | ---------------------------------------------- method in this implementation
+664 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs:144:8
+    |
+143 | impl RuntimeToolCatalogProjectionRecord {
+    | --------------------------------------- method in this implementation
+144 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: method `to_value` is never used
+   --> crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs:137:8
+    |
+136 | impl SkillHookRegistryProjectionRecord {
+    | -------------------------------------- method in this implementation
+137 |     fn to_value(&self) -> Value {
+    |        ^^^^^^^^
+
+warning: function `require_identity` is never used
+  --> crates/services/src/wallet_network/support.rs:25:15
+   |
+25 | pub(super) fn require_identity(state: &dyn StateAccess) -> Result<VaultIdentity, TransactionError> {
+   |               ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `public_inputs`
+   --> crates/plugins/zk-driver-succinct/src/lib.rs:121:9
+    |
+121 |         public_inputs: &CanonicalCollapseContinuityPublicInputs,
+    |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_public_inputs`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-services` (lib) generated 12 warnings (run `cargo fix --lib -p ioi-services` to apply 3 suggestions)
+warning: `zk-driver-succinct` (lib) generated 1 warning (run `cargo fix --lib -p zk-driver-succinct` to apply 1 suggestion)
+warning: unused imports: `AnchoredRegenesisRoot`, `LineageRelation`, and `lineage_relation`
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:15:5
+   |
+15 |     lineage_relation, AnchoredRegenesisRoot, BoundaryRingConfig, LineageRelation,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^                      ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `honest_ring` is never used
+  --> crates/consensus/src/aft/adversarial_campaigns.rs:73:15
+   |
+73 | pub(crate) fn honest_ring(members: &[u8]) -> BoundaryRingMembershipSim {
+   |               ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-consensus` (lib) generated 2 warnings (run `cargo fix --lib -p ioi-consensus` to apply 1 suggestion)
+warning: function `forced_hash_fallback_spec_matches` is never used
+  --> crates/validator/src/standard/orchestration/consensus/production.rs:80:15
+   |
+80 | pub(super) fn forced_hash_fallback_spec_matches(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-validator` (lib) generated 1 warning
+warning: unused import: `async_trait::async_trait`
+  --> crates/node/src/bin/orchestration.rs:75:5
+   |
+75 | use async_trait::async_trait;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ChainTransaction`
+  --> crates/node/src/bin/orchestration.rs:76:52
+   |
+76 | use ioi_types::app::{account_id_from_key_material, ChainTransaction, SignatureSuite};
+   |                                                    ^^^^^^^^^^^^^^^^
+
+warning: unused import: `tokio::sync::Mutex`
+  --> crates/node/src/bin/orchestration.rs:83:5
+   |
+83 | use tokio::sync::Mutex;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ioi_api::vm::drivers::os::OsDriver`
+  --> crates/node/src/bin/orchestration.rs:86:5
+   |
+86 | use ioi_api::vm::drivers::os::OsDriver;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `MempoolAdapter` is never constructed
+   --> crates/node/src/bin/orchestration.rs:190:8
+    |
+190 | struct MempoolAdapter {
+    |        ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ioi-node` (bin "orchestration") generated 5 warnings (run `cargo fix --bin "orchestration" -p ioi-node` to apply 4 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.44s
+--- Encrypting New Secure Key ---
+--- Waiting for cluster to converge on a shared tip ---
+--- All nodes synced. Cluster is ready. ---
+[M16Q-READINESS-EXPECT] configuration=bf52fcec40b408324d6eb5323cbf4bae4f2fb022b195dee637183fcf0bf4170e domain=dda586dd62930af45cd7cfeadbe07b94c3b5a556e5f9b4ac2025dbc4bde52f50 probe_domain=bad7a29db5e8a9d3abde74ed7e1b61eee4117488f2ccbd006213a18ec247b049 executor=4732771b6404e350444bef480efa2b513c7178943b0107bc382e58488cdb0496 members=4732771b6404e350444bef480efa2b513c7178943b0107bc382e58488cdb0496,73cab6d460afa67b59ee353a73f388cf74edc0ee599b5a3f8bf7f7eed82803fd,8c94bd0c4c4e45fb54c2aacc8d41cad3dd60b3d803f7e01dcf6adc42c3847ff6,e708ba12079ff5a700d1d00fb017d62dc1d62e9bdbd40f9ba1099b511febe4de candidates=a92f64eb6262c89ccef1d9077347d844537d7df9cd22f47ca8c231f78c4bd48b,2755b3406e8f713132a06abfa616608c6090305f80855f40e3a50473ca5cbe55,93a2a065d600496337c408761f31d51f8f1a16dbf2ec388b17c41af2e7b19057 probe_candidate=b269c8134c503c253d0efc565bbb8da4b6043343dbdfe0e6a4cd3322d9be7d7d decision_millis=5000 readiness_millis=40000 reply_envelope_millis=4000
+[M16Q-READINESS] slot=1 nonce=606d289c4851e378d587419c9133a6babbfd7f1f8b9a82b3e9608281eafd278b result=executed max_valid_reply_elapsed_ms=1069
+[M16Q-READINESS] case=unrelated_during_wait nonce=3abe7040e47ae9bc6a2d5ea1414ac66aaad0df41a050b7c5de7e75e7a5678d52 result=executed terminal_parent_replay=true
+[M16Q-READINESS] slot=2 nonce=014b2983355e19e7277e37ad5e631f90202fdd7672d144ceb0026b47c9f533ae result=executed restarted=false max_valid_reply_elapsed_ms=857 required_remaining_nanos="39497773186" elapsed_nanos="39498642179"
+[M16Q-READINESS-RECOVERY] exact_terminal_parent_replay=true startup_budget_millis=20000
+[M16Q-READINESS] slot=3 nonce=6d0ab264c04db34463fcd9d124e8d190a0bc3b333f708041e8dac1dac7152c04 result=executed restarted=true max_valid_reply_elapsed_ms=729 required_remaining_nanos="38235259414" elapsed_nanos="38236896320"
+test test_aft_quv_consecutive_slots_wait_and_reopen_without_blocking_unrelated_effects ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 489.91s
+

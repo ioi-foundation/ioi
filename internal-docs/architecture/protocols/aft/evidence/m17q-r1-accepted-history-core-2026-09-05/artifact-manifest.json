@@ -1,0 +1,13 @@
+{
+  "claim-discipline.log": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d",
+  "core-tests.log": "d8460b9a4f7bdae7866cd2f77d6224e590150b32c0211aa9f61b75ea3b057f84",
+  "hygiene-0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "hygiene-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "hygiene-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "mutation-original.rs": "af8d9958c2bbee222f26491337e44cc81b89230020380e4ddb7b143cdbffe9a7",
+  "negative-control-result.json": "d53a67090bed532022425e0176a1d069380cf7f2bb4c2d3ae8a567bf5f21b3b1",
+  "removed-predecessor-negative-control.log": "a5de4cce711957316d5f71f6d3e4fa89e2901edab73e5771647d481fefb2a9cc",
+  "restored-core-tests.log": "4be4a428958ef9c2e9c8465b53f0416ebffd0bcb57926381b0ed792cb7b616ce",
+  "results.json": "8561fc39374e4b867708fd7e1a3322bce5ee78fdcfa52ede8d852ccd260bf13d",
+  "theorem-assumes.log": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1"
+}

@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-expiry-observation-2026-09-05/process/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-expiry-observation-2026-09-05/process/components"
+  ],
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 274, in <module>\n    result = validate(raw.decode(\"utf-8\"))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 154, in validate\n    executed(single(\"unrelated_after_conflict\"))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 107, in single\n    raise ValueError(f\"expected exactly one {case} case\")\nValueError: expected exactly one unrelated_after_conflict case\n"
+}

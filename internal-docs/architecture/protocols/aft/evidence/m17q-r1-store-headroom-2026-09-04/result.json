@@ -1,0 +1,27 @@
+{
+  "recorded_utc": "2026-09-04T23:14:19.632388+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests"
+  ],
+  "source": "crates/consensus/src/aft/query_unanimity.rs",
+  "source_sha256": "242975e6edf4206e9073658e8a3e9a342a84c2a262d29acb12751dcdb33ad2e8",
+  "cargo_lock_sha256": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "live_exec_session": 44531,
+  "log_source": "/tmp/quv-headroom-tests.log",
+  "exit_code": 0,
+  "passed": 21,
+  "ignored_benchmarks": 1,
+  "completion_observed_utc": "2026-09-04T23:16:39.280380+00:00",
+  "log_sha256": "c3817477cd716951395e4fa0b6fa7b2b4ec567f944a685bbd96c0076e95fd816"
+}

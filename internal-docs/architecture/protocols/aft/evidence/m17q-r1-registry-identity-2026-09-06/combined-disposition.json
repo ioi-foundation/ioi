@@ -1,0 +1,10 @@
+{
+  "completed": "2026-09-06T08:26:59.311476+00:00",
+  "scoped_checks_pass_after_retry": true,
+  "initial_failure_preserved": "transaction-write-cleanup.log: rustc LLVM ENOSPC during compilation; completed.json remains passing=false",
+  "retry": "transaction-write-cleanup-retry.log; retry-completed.json",
+  "source_changes": [],
+  "scope": "selected dirty-worktree source; not immutable qualification",
+  "immutable_candidate": null,
+  "whole_findings_closed": []
+}

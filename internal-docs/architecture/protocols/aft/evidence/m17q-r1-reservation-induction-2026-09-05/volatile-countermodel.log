@@ -1,0 +1,57 @@
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 39 and seed 3330923907301472043 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2693363] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-reservation-induction-2026-09-05/ReconciliationBudgetVolatile.tla
+Parsing file /tmp/tlc-542307394289170624/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-542307394289170624/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-542307394289170624/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-542307394289170624/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-542307394289170624/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-542307394289170624/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-542307394289170624/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module ReconciliationBudgetVolatile
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module ReconciliationBudgetVolatile
+Starting... (2026-09-04 22:15:21)
+Computing initial states...
+Computed 2 initial states...
+Finished computing initial states: 4 distinct states generated at 2026-09-04 22:15:21.
+Error: Invariant ReservedBeforeLookup is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ legacy = 0
+/\ reserved = 0
+/\ calls = 0
+/\ ready = FALSE
+
+State 2: <Reserve line 14, col 12 to line 18, col 41 of module ReconciliationBudgetVolatile>
+/\ legacy = 0
+/\ reserved = 1
+/\ calls = 0
+/\ ready = TRUE
+
+State 3: <Lookup line 19, col 11 to line 22, col 43 of module ReconciliationBudgetVolatile>
+/\ legacy = 0
+/\ reserved = 1
+/\ calls = 1
+/\ ready = FALSE
+
+State 4: <Crash line 23, col 10 to line 25, col 39 of module ReconciliationBudgetVolatile>
+/\ legacy = 0
+/\ reserved = 0
+/\ calls = 1
+/\ ready = FALSE
+
+19 states generated, 12 distinct states found, 3 states left on queue.
+The depth of the complete state graph search is 4.
+Finished in 00s at (2026-09-04 22:15:21)
+Trace exploration spec path: ./ReconciliationBudgetVolatile_TTrace_1788574521.tla

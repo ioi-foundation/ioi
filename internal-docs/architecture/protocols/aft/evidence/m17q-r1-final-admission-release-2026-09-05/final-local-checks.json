@@ -1,0 +1,31 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2021",
+      "crates/validator/src/standard/orchestration/quv.rs"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "output": ""
+  }
+]

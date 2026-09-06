@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-post-commit-lock-order-2026-09-05/analyze_admission_releases.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-post-commit-lock-order-2026-09-05/disjoint-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "a58f2e4e20db745fa37128e47e123891a1edc5e8109f6656cc204552c249b839"
+}

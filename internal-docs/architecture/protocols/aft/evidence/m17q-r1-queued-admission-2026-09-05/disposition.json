@@ -1,0 +1,45 @@
+{
+  "completed_utc": "2026-09-05T07:04:33.423285+00:00",
+  "disposition": "QUEUED_ADMISSION_AND_WORKER_DEVELOPMENT_CAMPAIGN_PASS_NOT_R1_CLOSURE",
+  "runtime_passed": 5,
+  "admission_rule_mutations": 2,
+  "process_exit_code": 0,
+  "worker_starts": 17,
+  "accepted_worker_completions": 13,
+  "workers_with_accepted_completion": 4,
+  "uncompleted_worker_starts_at_shutdown": 4,
+  "source_manifest": "process/started.json",
+  "process_checker": "process/evidence-check.log",
+  "worker_checker": "worker-observations.json",
+  "checks": [
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "remaining": [
+    "dispatch cancellation acceptance gate",
+    "worker runtime mutation and restart coverage",
+    "service and child-readiness enforcement",
+    "storage quotas/WAL and full transition refinement",
+    "R1 closure, clean full R2, fresh independent review and M18Q"
+  ]
+}

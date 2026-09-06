@@ -1,0 +1,7 @@
+commit 24a9888e3b88383c18dfbfea0f2e7fa44b99fa64
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Fri Sep 4 17:48:36 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Fri Sep 4 17:48:36 2026 -0400
+
+    docs(aft): close M16Q and commission M17Q

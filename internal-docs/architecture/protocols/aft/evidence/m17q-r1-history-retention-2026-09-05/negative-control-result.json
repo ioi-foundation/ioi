@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "recovery_requires_snapshot_for_every_accepted_history_entry"
+  ],
+  "removed_check_exit": 101,
+  "restored_exit": 0,
+  "restored_sha256": "80f4e53b94e9d3c036e9c6e61c4e18041bfe50cb67408cc7cf90559ed748e920",
+  "completed_utc": "2026-09-05T06:13:16.666762+00:00"
+}

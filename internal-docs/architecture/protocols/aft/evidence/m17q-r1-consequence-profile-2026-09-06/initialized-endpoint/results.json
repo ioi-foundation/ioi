@@ -1,0 +1,192 @@
+[
+  {
+    "name": "core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity"
+    ],
+    "started": "2026-09-06T03:53:21.667196+00:00",
+    "completed": "2026-09-06T03:56:04.840475+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "consequence",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "agentgres",
+      "--lib",
+      "consequence::tests::"
+    ],
+    "started": "2026-09-06T03:56:04.840685+00:00",
+    "completed": "2026-09-06T03:56:09.023781+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "types",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-types",
+      "--lib",
+      "app::consequence::tests"
+    ],
+    "started": "2026-09-06T03:56:09.024102+00:00",
+    "completed": "2026-09-06T03:56:57.227582+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-06T03:56:57.228006+00:00",
+    "completed": "2026-09-06T03:57:57.755647+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "executor",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::grpc_public::quv_refusal_status_tests"
+    ],
+    "started": "2026-09-06T03:57:57.755904+00:00",
+    "completed": "2026-09-06T03:57:58.189349+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T03:57:58.189604+00:00",
+    "completed": "2026-09-06T03:58:36.797026+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T03:58:36.797312+00:00",
+    "completed": "2026-09-06T03:58:45.251802+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T03:58:45.252087+00:00",
+    "completed": "2026-09-06T03:58:45.253747+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--consequence-trace-lifetime-only"
+    ],
+    "started": "2026-09-06T03:58:45.253953+00:00",
+    "completed": "2026-09-06T03:58:46.328348+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "endpoint-syscalls",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_endpoint_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-consequence-profile-2026-09-06/initialized-endpoint/final-syscalls"
+    ],
+    "started": "2026-09-06T03:58:46.328628+00:00",
+    "completed": "2026-09-06T03:58:50.280849+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "receipt-syscalls",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_receipt_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-consequence-profile-2026-09-06/initialized-endpoint/final-receipt-syscalls"
+    ],
+    "started": "2026-09-06T03:58:50.281272+00:00",
+    "completed": "2026-09-06T03:58:53.035687+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "reserved-index-proof",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--pq-reserved-index-only"
+    ],
+    "started": "2026-09-06T03:58:53.035998+00:00",
+    "completed": "2026-09-06T03:58:54.380245+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "reservation-proof",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-record-reservation-only"
+    ],
+    "started": "2026-09-06T03:58:54.380523+00:00",
+    "completed": "2026-09-06T03:58:55.792364+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "t10",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--consequence-t10-only"
+    ],
+    "started": "2026-09-06T03:58:55.792667+00:00",
+    "completed": "2026-09-06T03:58:57.100652+00:00",
+    "exit_code": 0
+  }
+]

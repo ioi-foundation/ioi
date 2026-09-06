@@ -1,0 +1,16 @@
+{
+  "scope": "Same-host observations only; not worst-case timing qualification",
+  "foreground_operations": 11,
+  "remote_replies": 21,
+  "missing_remote_stages": 0,
+  "max_adjacent_gaps_ms": {
+    "member_work_completed->member_work_returned": 0.083,
+    "member_work_returned->reply_command_waiting": 0.023,
+    "reply_command_waiting->reply_command_sending": 0.008,
+    "reply_command_sending->reply_command_sent": 0.007,
+    "reply_command_sent->reply_network_admitted": 381.829,
+    "reply_network_admitted->reply_event_forwarded": 0.032,
+    "reply_event_forwarded->reply_handler_entered": 36.217,
+    "reply_handler_entered->reply_routed": 0.021
+  }
+}

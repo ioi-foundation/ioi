@@ -1,0 +1,13 @@
+{
+  "verified_utc": "2026-09-04T23:50:28.041027+00:00",
+  "artifacts": {
+    "README.md": "7f36b372e5c41a8e769baf0588c622bd2cf75e0f2fef30c4ed3ceadd4734c1d1",
+    "check.json": "71e04cd17ae9706be6e7a6d57644fc75bfe0d8a36b5af335b504ea062dca1d10",
+    "consequence.log": "51faef3c238b632a979c8ff1a0366d597c7b153571ba9278ab399be68fb4ceee",
+    "hygiene-0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hygiene-1.log": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d",
+    "hygiene-2.log": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1",
+    "hygiene-3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hygiene-results.json": "184e5236dec29cb2933624c296b0029c59ddefaa8f3b3f93b23088d6ef1aa68f"
+  }
+}

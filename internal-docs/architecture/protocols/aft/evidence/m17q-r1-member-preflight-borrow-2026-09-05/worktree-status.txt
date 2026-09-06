@@ -1,0 +1,77 @@
+ M .github/scripts/run_aft_formal_checks.sh
+ M .github/scripts/run_aft_m16q_qualification.sh
+ M crates/agentgres/src/consequence.rs
+ M crates/agentgres/src/consequence/tests.rs
+ M crates/agentgres/src/recognized_effect/tests.rs
+ M crates/cli/src/testing/backend.rs
+ M crates/cli/src/testing/rpc.rs
+ M crates/cli/src/testing/validator.rs
+ M crates/cli/tests/aft_e2e.rs
+ M crates/consensus/src/aft/query_unanimity.rs
+ M crates/ioi-finality/src/portable_assurance/tests.rs
+ M crates/networking/src/libp2p/mod.rs
+ M crates/networking/src/libp2p/pq_channel.rs
+ M crates/networking/src/libp2p/swarm.rs
+ M crates/networking/src/libp2p/types.rs
+ M crates/node/src/bin/ioi-local.rs
+ M crates/services/src/aft_effect_registry.rs
+ M crates/types/src/app/consequence.rs
+ M crates/validator/src/standard/orchestration/events.rs
+ M crates/validator/src/standard/orchestration/grpc_public.rs
+ M crates/validator/src/standard/orchestration/mod.rs
+ M crates/validator/src/standard/orchestration/quv.rs
+ M crates/validator/src/standard/orchestration/runtime_finality.rs
+ M crates/validator/src/standard/orchestration/sync.rs
+ M internal-docs/architecture/protocols/aft/IMPLEMENTATION_LEDGER.md
+ M internal-docs/architecture/protocols/aft/MAXIMAL_CONSENSUS_ACTION_PLAN.md
+ M internal-docs/architecture/protocols/aft/evidence/m16q-quv-qualification-2026-09-04.md
+ M internal-docs/architecture/protocols/aft/packets/M17Q-quv-independent-review.md
+ M internal-docs/architecture/protocols/aft/specs/p4_claim_adjudication.md
+ M internal-docs/architecture/protocols/aft/specs/query_unanimity_end_to_end_theorems.md
+ M internal-docs/architecture/protocols/aft/specs/query_unanimity_theorems.md
+ M internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md
+?? .github/scripts/check_aft_m16q_process_evidence.py
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-claimed-readmission-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-conditional-formal-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-diagnostic-retention-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-effect-context-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-expired-result-process-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-expired-result-retrieval-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-head-interleaving-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-head-provisioning-analysis-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-head-transition-model-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-hmac-recovery-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-import-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-local-remediation-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-member-preflight-borrow-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-online-result-retry-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-outbox-persistence-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-parent-reverification-boundary-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-pq-enrollment-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-production-participation-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-quv-store-reopen-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-reconciliation-exhaustion-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-reconciliation-reservation-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-reservation-induction-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-retry-audit-preservation-2026-09-05/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-store-headroom-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-typed-refusal-2026-09-04/
+?? internal-docs/architecture/protocols/aft/evidence/m17q-r1-workload-overlap-gate-2026-09-05/
+?? internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.cfg
+?? internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.tla
+?? internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudgetProof.tla
+?? internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudgetVolatile.cfg
+?? internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudgetVolatile.tla
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.tla
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverificationPersistence.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingReachable.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleavingTwoSlot.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationReachable.cfg
+?? internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationSolo.cfg
+?? internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md
+?? internal-docs/architecture/protocols/aft/specs/query_unanimity_head_state_design.md

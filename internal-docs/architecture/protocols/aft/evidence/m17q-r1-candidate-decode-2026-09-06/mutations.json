@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "name": "decode-length",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests::candidate_byte_cap_precedes_validation_and_store_mutation",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "3c649b98d719b93b731de1f2f538aa9eff35020b1645521d5924986c6d6ce348"
+    }
+  ],
+  "baseline_sha256": "e910502dc8c1b2a4a8384753a7de705a2431dc8d88af8f057070578dc27c5c70",
+  "restored": true
+}

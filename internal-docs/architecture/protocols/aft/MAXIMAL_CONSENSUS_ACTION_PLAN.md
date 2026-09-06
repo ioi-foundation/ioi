@@ -554,9 +554,13 @@ exercise to terminal safety.
 | M18Q | QUV public admission | Exact known-synchronous online claim admitted on an immutable release; portable finality remains false |
 
 Only one milestone may be the critical path. Exact R5 qualification closed M10
-and `AFT-M10-003`; local implementation evidence closes M15Q subject to M17Q
-review; and the clean 15-phase run at code commit `ab8d2e58103a` closes M16Q.
-M17Q is now the critical path. Original M13-M18 remain blocked by M12a.
+and `AFT-M10-003`. M17Q R1 returned `REPAIR_REQUIRED`, reopening M14Q
+refinement, M15Q implementation, and M16Q qualification. M17Q R1 remediation
+is the sole critical path. The earlier 15-phase M16Q pass remains historical
+evidence and cannot admit the repaired candidate. See
+`evidence/m17q-r1-import-2026-09-04/README.md` for the unchanged attributable
+report, 13 open findings, and incomplete R1 reproduction. Original M13-M18
+remain blocked by M12a.
 M13Q-M18Q are the separately named interactive path admitted by M12b's
 independently reviewed `PASS_CONSTRUCTION`, and remain non-production claims
 until their own gates close.
@@ -612,25 +616,58 @@ resume point and the minimum evidence the owner must supply.
 
 ## 9. Immediate next actions
 
-1. Preserve M10's closed R5 qualification and the exact M12b R4
-   `PASS_CONSTRUCTION` report and immutable
-   candidate identity; do not broaden it into a consensus or production claim.
-2. Preserve M15Q's locally complete implementation through code commit
-   `ab8d2e58103a`. The eight-process disjoint-root fixture covers
-   pre-install restart, the state-durable/anchor-pending crash window, exact
-   recovery, rollback restoration refusal, successor progress, ceremony, and
-   executor-to-T10 consequence execution. The seven-process overlap fixture
-   proves a retained member performs and recovers its own successor-scoped
-   live authorization. Keep all audit evidence non-authorizing and do not
-   reopen portable receipt authority.
-3. Preserve the complete clean M16Q run at
-   `evidence/m16q-runs/20260904T204403Z-ab8d2e58103a` and its exact source and
-   artifact hashes. Do not reinterpret a passing bounded campaign as a proof
-   beyond its recorded scope.
-4. Execute M17Q against the frozen evidence-bearing candidate. Require fresh
-   source/theorem inspection, clean reproduction of the full M16Q runner, an
-   independent spec-only executable twin, an independence disclosure, and
-   stable attributable findings. Remediate critical/high findings and obtain a
-   fresh review of the replacement candidate.
-5. Keep original M13-M18 blocked and `portable_final_receipt=false`; do not
-   admit a public QUV claim until M17Q and M18Q pass.
+Current profile pointer (2026-09-06): the dated status notes below record the
+schema-7/8/9 progression chronologically. The authoritative current version
+statement is the "Current profile" header of every QUV specification (policy
+root `v8-push-admission`, member schema 9, handoff schema 3); the single closure
+index is `specs/query_unanimity_fault_property_matrix.md`.
+
+1. Preserve M10 R5, M12a, and M12b R4 dispositions and exact scope.
+2. Complete R1 remediation with all 13 stable findings retained. Existing
+   uncommitted repairs require inspection and qualification; none closes a
+   finding by its presence alone.
+3. Complete production enforcement, regression, mutation, and transition-level
+   refinement evidence, retaining conditional lifting assumptions explicitly.
+4. Run clean full M16Q R2 qualification and bind raw evidence to the exact
+   source, configuration, toolchain, commands, and hashes.
+5. Freeze an immutable R2 candidate, then obtain fresh owner-authorized
+   automated independent M17Q review. Repeat repair, qualification, freeze,
+   and review until that exact candidate has no unresolved critical/high finding.
+6. Execute M18Q claim and release admission on the reviewed candidate. Keep
+   original M13-M18 blocked and `portable_final_receipt=false`; public push,
+   deployment, disclosure, and publication remain owner actions.
+
+### 2026-09-05 — R1 journal remediation status
+
+Production member storage is now schema 7, with immutable authenticated typed records and external anchor commit before memory publication. The preceding schema-6 format is refused without migration; handoff remains schema 3. The scoped unit/runtime/benchmark and three-slot/restart process qualification passes, with exact four-member participation and strict release/readiness checks. R1 remediation remains the critical path: rooted lifetime/rate/storage/fairness profiles, safe retention/compaction and full transition refinement are still incomplete. No whole critical/high R1 finding, clean M16Q R2, fresh M17Q review or M18Q admission is closed by this result. See the schema-7 journal specification and `evidence/m17q-r1-journal-production-2026-09-05` for the exact source subset, raw checks, intermediate failures and scoped disposition.
+
+### 2026-09-05 — current remediation dependency
+
+The member store now uses schema 8 with rooted preparation-policy replay checks; preparation waiting is explicitly bounded. See the [single closure index](specs/query_unanimity_fault_property_matrix.md). Complete the rooted finite resource/lifetime/retention and service profile and its full transition refinement before clean R2; no whole R1 closure or admission follows from these scoped repairs.
+
+
+### Schema-9 finite-profile disposition (2026-09-05)
+
+The current production policy commits a finite slot horizon, first-two conflict
+representation, candidate byte cap and encoded record/lifetime budgets.
+Historical queries preserve retained conflict knowledge after the forward slot
+horizon is exhausted. Enrollment rejects insufficient encoded lifetime headroom
+before creating files. The abstract summary and lifetime proofs are mandatory
+formal gates, including the event-reuse negative control.
+
+This remains R1 remediation. Encoded accounting does not reserve physical disk
+space or discharge transport/authentication, fair service, recovery duration,
+cross-configuration retention or full transition refinement. The integrated
+Q-A3/Q-A5/Q-A9 obligations are open. See the current journal specification and
+single fault/property closure matrix. No whole finding, clean R2, independent
+review or M18Q claim is admitted by these component results.
+
+
+Current storage remediation now includes schema-9 member record/anchor reservation
+and schema-3 exact handoff reservation before live QUV, with the final handoff
+continuation fence and one-shot recovery shape. Scoped evidence is indexed in
+`specs/query_unanimity_fault_property_matrix.md`. R1 remediation remains the sole
+critical path: metadata/RAM/consequence bounds, aggregate fair service/recovery,
+cross-configuration retention and full transition refinement precede clean full
+M16Q R2, immutable candidate, fresh independent review and honest M18Q admission.
+All 13 whole findings remain OPEN; component evidence changes no admission gate.

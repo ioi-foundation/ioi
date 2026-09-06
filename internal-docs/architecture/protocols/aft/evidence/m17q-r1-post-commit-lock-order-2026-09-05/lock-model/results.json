@@ -1,0 +1,48 @@
+{
+  "results": [
+    {
+      "case": "Released",
+      "command": [
+        "java",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-cleanup",
+        "-config",
+        "PostCommitLockOrderReleased.cfg",
+        "PostCommitLockOrder.tla"
+      ],
+      "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-post-commit-lock-order-2026-09-05/lock-model",
+      "exit_code": 0,
+      "expected_marker": "Model checking completed. No error has been found.",
+      "required_disposition_met": true
+    },
+    {
+      "case": "Retained",
+      "command": [
+        "java",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-cleanup",
+        "-config",
+        "PostCommitLockOrderRetained.cfg",
+        "PostCommitLockOrder.tla"
+      ],
+      "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-post-commit-lock-order-2026-09-05/lock-model",
+      "exit_code": 12,
+      "expected_marker": "Invariant NoCircularWait is violated.",
+      "required_disposition_met": true
+    }
+  ],
+  "finished_utc": "2026-09-05T12:08:35.206543+00:00",
+  "jar_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+  "scope": "Independent finite two-caller lock-order model with weak fairness, not full runtime refinement or process root-cause proof",
+  "sources_sha256": {
+    "PostCommitLockOrder.tla": "2d5f2b4703884c774d5df0c3b71db1e3d499c0892f3e9d417c87cf4ef67c0894",
+    "PostCommitLockOrderReleased.cfg": "66fc12694b6a51fd97c8abecad3ce280caf635484d145552f7a89afcbad4366f",
+    "PostCommitLockOrderRetained.cfg": "51cc02e25b522f4f6fd566605aeb7360f75ee4280834c15abfd020fc16fbfc2a"
+  },
+  "positive_distinct_states": 17,
+  "runner_integration": "PENDING: runtime campaign source hashes are held fixed; this standalone check is not yet a mandatory runner phase"
+}

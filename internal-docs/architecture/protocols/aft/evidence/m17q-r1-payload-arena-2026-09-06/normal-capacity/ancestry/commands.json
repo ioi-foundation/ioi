@@ -1,0 +1,24 @@
+[
+  [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-networking",
+    "--lib",
+    "--no-run",
+    "--message-format=json"
+  ],
+  [
+    "strace",
+    "-f",
+    "-y",
+    "-e",
+    "trace=fsync,mkdir,mkdirat,rename,openat,close",
+    "-o",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-payload-arena-2026-09-06/normal-capacity/ancestry/ancestry.trace",
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/deps/ioi_networking-025cb87be49762dd",
+    "--exact",
+    "libp2p::pq_channel::tests::indexed_outbox_recovers_commit_boundaries_without_resurrecting_retirements"
+  ]
+]

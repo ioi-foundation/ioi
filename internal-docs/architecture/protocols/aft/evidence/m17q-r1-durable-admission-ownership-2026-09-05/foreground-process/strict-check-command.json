@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-durable-admission-ownership-2026-09-05/foreground-process/process.log",
+    "--components",
+    "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-durable-admission-ownership-2026-09-05/foreground-process/components"
+  ],
+  "exit_code": 0,
+  "stderr": "",
+  "checker_sha256": "d8677acfbd775b3161680e76bd29871749718fa0450b737afd6fca14b7340865"
+}

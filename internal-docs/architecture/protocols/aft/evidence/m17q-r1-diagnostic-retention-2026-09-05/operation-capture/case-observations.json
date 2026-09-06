@@ -1,0 +1,30 @@
+[
+  {
+    "observed_utc": "2026-09-05T00:54:16.455946+00:00",
+    "line": "[M16Q-QUV] case=sole_correct member_position=0 process_index=3 elapsed_ms=5313 max_valid_reply_elapsed_ms=256 qualified_envelope_ms=4000 result=executed"
+  },
+  {
+    "observed_utc": "2026-09-05T00:54:23.700340+00:00",
+    "line": "[M16Q-QUV] case=sole_correct member_position=1 process_index=2 elapsed_ms=5354 max_valid_reply_elapsed_ms=280 qualified_envelope_ms=4000 result=executed"
+  },
+  {
+    "observed_utc": "2026-09-05T00:54:30.918340+00:00",
+    "line": "[M16Q-QUV] case=sole_correct member_position=2 process_index=0 elapsed_ms=5347 max_valid_reply_elapsed_ms=288 qualified_envelope_ms=4000 result=executed"
+  },
+  {
+    "observed_utc": "2026-09-05T00:54:38.029971+00:00",
+    "line": "[M16Q-QUV] case=sole_correct member_position=3 process_index=1 elapsed_ms=5316 max_valid_reply_elapsed_ms=263 qualified_envelope_ms=4000 result=executed"
+  },
+  {
+    "observed_utc": "2026-09-05T00:54:51.283819+00:00",
+    "line": "[M16Q-QUV] case=authenticated_saturation operations=4 elapsed_ms=13248 max_valid_reply_elapsed_ms=Some(2198) qualified_envelope_ms=4000 result=executed"
+  },
+  {
+    "observed_utc": "2026-09-05T00:55:02.402153+00:00",
+    "line": "[M16Q-QUV] case=concurrent_valid_conflict accepts=1 conflict_rejections=1 durable_records=1 rejected_resources_unchanged=true elapsed_ms=7221 result=safe"
+  },
+  {
+    "observed_utc": "2026-09-05T00:55:10.637423+00:00",
+    "line": "[M16Q-QUV] case=unrelated_after_conflict elapsed_ms=6276 result=executed"
+  }
+]

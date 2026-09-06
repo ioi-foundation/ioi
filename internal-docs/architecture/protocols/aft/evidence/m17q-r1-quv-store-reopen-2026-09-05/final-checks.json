@@ -1,0 +1,30 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "query_unanimity"
+    ],
+    "exit_code": 0,
+    "log_sha256": "322ab0f0fcb0ec17d7540011ed3d0f596a346c3e70b79291e455eb836611ab16"
+  },
+  {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft"
+    ],
+    "exit_code": 0,
+    "log_sha256": "e24f2dc6a042d3a516981f0d232377c61d1d6b00a87dbd58acfda00342ff64e2"
+  }
+]

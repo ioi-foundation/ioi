@@ -1,0 +1,176 @@
+{
+  "completed_operations": 26,
+  "release_records": 32,
+  "max_observed_active_release_micros": 7142340,
+  "foreground_max_micros": 6818118,
+  "preparation_max_micros": 7142340,
+  "scope": "Runtime monotonic samples after final semaphore release; finite host observations, not a worst-case service/queue/readiness guarantee",
+  "release_records_detail": [
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "3487920c58f83b546b3821a0671b7d1dc68ffbd00f07d91dbd13e183a46756c0",
+      "elapsed_micros": 5400832
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "390f37c75d80541b563efc5a36a7820b5013fc0f149e8637349b3c685a47fd7b",
+      "elapsed_micros": 6371533
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "394c74802aafc8d8d3e08175ee8ef164233c735d034dacb8b3d3121f5920c4b8",
+      "elapsed_micros": 6078014
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "47c6d3aca121dba3baf7dc4f5c8d8c1c344ee46bfed9d437420108ce6ec28360",
+      "elapsed_micros": 5043626
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "4e6ddb4400c95faffe2e1a65c762e6de7b5ab20e5b704d89061246b4ea9c0dcd",
+      "elapsed_micros": 1076
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "af5f689366dd92ea626c91a8c93fa54cc2ebc9876279dc97c1d759105c6b6b99",
+      "elapsed_micros": 5460028
+    },
+    {
+      "file": "validator-20000-orch.log",
+      "nonce": "c611f2cd37fda7fcc621b98476f24c5e8c428fd2ff4de205c21a56a7dfcdd4eb",
+      "elapsed_micros": 5253515
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "19bff37479ac8db0010e5c2dd5e6a57f6286a5e808223468ed78640f224f1f1a",
+      "elapsed_micros": 5976797
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "47a5139399d8195ca38c6ee455fd0626dbf56456cf48ef9b0f02b49b5a991a6f",
+      "elapsed_micros": 6345358
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "632a1a3f45b806f67516fc98d2cf335f18ebd63b6c1e4c02678117c56ab36f7d",
+      "elapsed_micros": 6658965
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "6906179a5e489f4e88876371a4a28e65c73996be0aa6e2da6c02c9802f8d8c30",
+      "elapsed_micros": 1095
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "719416a2a707bed8ac56d98aa49d7bde919aa734fa4a531ea00190e3262d4e8a",
+      "elapsed_micros": 5051503
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "85de7782b4bb805935bdd68daa6cdaf4787d327b36075e177b65ae29dd5b8c5e",
+      "elapsed_micros": 2136
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "9bd8e08917e27d47ccd9560bf5f2ee04ca4754c869339c3448048ebe0c0fac89",
+      "elapsed_micros": 5174060
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "eb48eef55a54b1b3bf0a13d645b9ea21dc76e6a31465cad5a408963c89c167f5",
+      "elapsed_micros": 5156888
+    },
+    {
+      "file": "validator-20100-orch.log",
+      "nonce": "fd5d30e7ec193b51349cdddc65fcab8c8286d3db2c6164752f34e2d1236628e4",
+      "elapsed_micros": 5491499
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "00c9f8007ff19967165682f093cf701998eac61e624c27603215236c2b40d967",
+      "elapsed_micros": 6818118
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "05d2767729c662ac2b04684c50846e803bab2fccc2150488909fa5e3c3764d65",
+      "elapsed_micros": 7142340
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "2d2e567a1f4d12ec9f09bdf0dd379b3bf695e09778de723eca545a093ecd9d47",
+      "elapsed_micros": 1006
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "658d1dfbba931c69a70670d83cdda43ad279b41eb9857d4c8dec4f4cc2d3cc75",
+      "elapsed_micros": 5302598
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "6d2118b0eb9030f573d0fae96b98df1f0a78815b58add6de65c7c9858f816f7c",
+      "elapsed_micros": 6618119
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "bac4741c0f051e3279feb21644d47718d6f7239028963ffa682425c56ad40e9d",
+      "elapsed_micros": 6384388
+    },
+    {
+      "file": "validator-20200-orch.log",
+      "nonce": "c95ea328fe513ef6567fc87b953bbb7b03f1afec4d175e15bc176b1215caa31b",
+      "elapsed_micros": 5043185
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "2a573412cd7e069e228fcc3bc33f134ce5f2aeed8f1566cbfa77de654e2bdb47",
+      "elapsed_micros": 1050
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "40cbb93506dccb42b8fe92ab7143a6d3012cedafe4ea6fb19feeca1f586a07a6",
+      "elapsed_micros": 5158342
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "8fc4a70b12b0ae8354c2b2dbc7f103a88b8a34718cf02f083628a4d9bdf7c07a",
+      "elapsed_micros": 6433425
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "9c309ba07572aeae60077327f5ed3335253e4daeb7ef8343407576ebde9c19e0",
+      "elapsed_micros": 6419106
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "a5331b753d2a79438d565891fbfafee7f1aaccf442e621964837191d49a8e369",
+      "elapsed_micros": 5275670
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "d32cc74724da779040452e007dc26788ce6667fd5af59c9daf7ad52e8092e52f",
+      "elapsed_micros": 5061526
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "e87c5f7f6079165d3d94d951d7b90407d63a23096871b5297747e7e82f2bd4f6",
+      "elapsed_micros": 1107
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "f492dba6a22863515d746b5ec0cb9a440d54c428ae79b8ee17e3c6c997d666d9",
+      "elapsed_micros": 6245502
+    },
+    {
+      "file": "validator-20300-orch.log",
+      "nonce": "f7d69912a8917686a0dd011090ddbe78c2a6c83ac58a4caebee3de690f799461",
+      "elapsed_micros": 5172565
+    }
+  ],
+  "component_sha256": {
+    "validator-20000-orch.log": "c4da7c009b02c938e8b8442ba063f65042c5902ca5f2839590b3b629bfafadc0",
+    "validator-20100-orch.log": "bea1f33fe2bdf8dfdd8ac1e8d21789fbbfc6308122961e57624d584340f96c00",
+    "validator-20200-orch.log": "810b3239b335a4813426b5892b478f3f1dcbb0d70cf13f3509436918e9644de2",
+    "validator-20300-orch.log": "e3916da15d5e4b0e3b8483b5e0556ea428e0a6a69e817e759517036b22d9d611"
+  }
+}

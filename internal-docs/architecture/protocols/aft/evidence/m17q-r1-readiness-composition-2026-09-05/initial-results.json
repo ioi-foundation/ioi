@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "case": "Equal",
+      "command": [
+        "java",
+        "-cp",
+        "/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar",
+        "tlc2.TLC",
+        "-cleanup",
+        "-config",
+        "QuvReadinessCompositionEqual.cfg",
+        "QuvReadinessComposition.tla"
+      ],
+      "cwd": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility",
+      "exit_code": 150,
+      "expected_exit_code": 0
+    }
+  ],
+  "jar_sha256": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+  "sources": {
+    "QuvReadinessCompositionReachable.cfg": "4bbe0e1773ceb5fb3e803899fb1193dc4808e63da6233f4976389eb26df4e0eb",
+    "QuvReadinessCompositionEqual.cfg": "3417b3f104bf50e60b591bfbf344cbb5b32c9a7d0e209d47df1c7afe58522a1a",
+    "QuvReadinessCompositionUnequal.cfg": "5ed2cd5cc8d5f90a194a8cc60286f1d2c5d5d13dc4f4f2b93cff06d165bcc7b6",
+    "QuvReadinessComposition.tla": "271d78d37fbee6fa30fb809cc1cd3c9e95644c6df64a456ecc661f6c3b9c183a"
+  },
+  "scope": "Finite completion-schedule accounting for a proposed rule, not runtime refinement or an impossibility under Q-A3"
+}

@@ -1,0 +1,5 @@
+{
+  "reserved_state_then_anchor": true,
+  "missing_state_sync_rejected": true,
+  "missing_anchor_sync_rejected": true
+}

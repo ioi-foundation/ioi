@@ -1,0 +1,116 @@
+[
+  {
+    "name": "quv-core",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity",
+      "--no-fail-fast"
+    ],
+    "started": "2026-09-05T21:47:40.404046+00:00",
+    "completed": "2026-09-05T21:48:59.861686+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "quv-runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-05T21:48:59.861927+00:00",
+    "completed": "2026-09-05T21:49:55.211964+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "config",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-types",
+      "--lib",
+      "quv_policy_requires_exact_authority_and_durable_roots"
+    ],
+    "started": "2026-09-05T21:49:55.212219+00:00",
+    "completed": "2026-09-05T21:50:40.970000+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli-check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-05T21:50:40.970357+00:00",
+    "completed": "2026-09-05T21:51:21.725740+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-05T21:51:21.726007+00:00",
+    "completed": "2026-09-05T21:51:30.016320+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runner-syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh",
+      ".github/scripts/run_aft_formal_checks.sh"
+    ],
+    "started": "2026-09-05T21:51:30.016775+00:00",
+    "completed": "2026-09-05T21:51:30.022641+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "conflict-summary-formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-conflict-summary-only"
+    ],
+    "started": "2026-09-05T21:51:30.022902+00:00",
+    "completed": "2026-09-05T21:51:30.315950+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "lifetime-formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--quv-lifetime-budget-only"
+    ],
+    "started": "2026-09-05T21:51:30.316189+00:00",
+    "completed": "2026-09-05T21:51:31.878077+00:00",
+    "exit_code": 0
+  }
+]

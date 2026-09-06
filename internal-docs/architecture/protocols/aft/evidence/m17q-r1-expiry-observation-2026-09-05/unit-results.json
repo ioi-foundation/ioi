@@ -1,0 +1,40 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "quv_expired_result_requires_strict_admitted_height_and_unchanged_receipt",
+    "--",
+    "--exact"
+  ],
+  "results": [
+    {
+      "case": "positive",
+      "exit_code": 0,
+      "source_sha256": "bf33653f0e5722e27d777e0015959e53fbab9323779f5da50062b873218ae314"
+    },
+    {
+      "case": "negative_inclusive_height",
+      "exit_code": 101,
+      "source_sha256": "f6ff2b985d8ce96e25cf218b786ce77b4bb3c3703d9faa13357de83e31915fde"
+    },
+    {
+      "case": "negative_receipt_guard",
+      "exit_code": 101,
+      "source_sha256": "6bf1d704defd1cb24cc0ad3358f5d0e7a73091a50d080eba96e57d4c097236d9"
+    },
+    {
+      "case": "negative_portable_guard",
+      "exit_code": 101,
+      "source_sha256": "709768631e10be2b40dcacc641abac70cfccb5307541032a62a60307b2c24948"
+    }
+  ],
+  "restored_sha256": "bf33653f0e5722e27d777e0015959e53fbab9323779f5da50062b873218ae314",
+  "scope": "Local regression and removed-rule controls; not process or R2 evidence"
+}

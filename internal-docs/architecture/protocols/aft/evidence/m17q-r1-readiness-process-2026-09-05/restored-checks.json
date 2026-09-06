@@ -1,0 +1,51 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::grpc_public::quv_refusal_status_tests::quv_wait_releases_consequence_lock_and_reopen_restores_exclusion",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity::tests::readiness_observes_durable_head_and_reopen_without_retry_reset",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl",
+      "readiness_observation_requires_positive_wait_and_exact_nonce",
+      "--",
+      "--exact"
+    ],
+    "exit_code": 0
+  }
+]

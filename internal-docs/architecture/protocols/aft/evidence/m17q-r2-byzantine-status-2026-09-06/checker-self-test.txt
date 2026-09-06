@@ -1,0 +1,2 @@
+{"flood": {"negative_cases": 54, "positive_cases": 2}, "negative_cases": 85, "no_push": {"negative_cases": 9, "positive_cases": 1}, "overlap": {"negative_cases": 38, "positive_cases": 1}, "positive_cases": 2, "status_claim": {"negative_cases": 10, "positive_cases": 1}}
+exit=0

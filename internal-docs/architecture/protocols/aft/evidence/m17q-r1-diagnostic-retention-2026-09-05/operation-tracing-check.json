@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo",
+    "check",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft"
+  ],
+  "source": "crates/validator/src/standard/orchestration/quv.rs",
+  "source_sha256": "dcd662301759b5b88f3a5708c3e7832b6b9feaaf520702f2e8fb4656c19481e8",
+  "started_utc": "2026-09-05T00:46:05.114387+00:00",
+  "exit_code": 0,
+  "finished_utc": "2026-09-05T00:46:45.212700+00:00",
+  "log_sha256": "da4fd6cee0abb10c3d9034581c3e34db17e581e43f9d4452e98d181a75cbc0f1"
+}

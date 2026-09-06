@@ -1,0 +1,10 @@
+{
+  "disposition": "PASS_SCOPED_CAMPAIGN",
+  "process_exit_code": 0,
+  "changed_sources": [],
+  "checker_exit_codes": {
+    "readiness-evidence": 0,
+    "admission-releases": 0
+  },
+  "scope": "production schema-7 three-slot/restart and unrelated-effect assertions; not full rooted resource/fairness profile, sustained flood, complete refinement, clean R2 or whole R1 closure"
+}

@@ -1,0 +1,19 @@
+[Network] Swarm loop started.
+{"timestamp":"2026-09-06T11:21:54.376659808Z","level":"INFO","fields":{"event":"listening","address":"/ip4/127.0.0.1/tcp/20300"},"target":"network"}
+{"timestamp":"2026-09-06T11:21:54.379861357Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWB94kk9CcL4wMzkUDoYpjg9oDfXDLdcaEA1TDKhwPfKw4"},"target":"network"}
+{"timestamp":"2026-09-06T11:21:54.379935291Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWNB5NuqEXddXLJmyZqi8WjqmmhVfWQt3G654GVn8Xnkfe"},"target":"network"}
+{"timestamp":"2026-09-06T11:21:54.37998864Z","level":"INFO","fields":{"event":"connected","peer_id":"12D3KooWPVxC13xm98vHasbWSehh8D8TPGeVCMdMnKzAUKx3dUWx"},"target":"network"}
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:20301
+{"timestamp":"2026-09-06T11:21:55.976803398Z","level":"INFO","fields":{"event":"pq_channel_strict_mode_enabled"},"target":"network"}
+ORCHESTRATION_STARTUP_COMPLETE
+{"timestamp":"2026-09-06T11:21:55.996257112Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWB94kk9CcL4wMzkUDoYpjg9oDfXDLdcaEA1TDKhwPfKw4"},"target":"network"}
+{"timestamp":"2026-09-06T11:21:55.996273004Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWNB5NuqEXddXLJmyZqi8WjqmmhVfWQt3G654GVn8Xnkfe"},"target":"network"}
+{"timestamp":"2026-09-06T11:21:55.996277083Z","level":"INFO","fields":{"event":"peer_connected","peer_id":"12D3KooWPVxC13xm98vHasbWSehh8D8TPGeVCMdMnKzAUKx3dUWx"},"target":"network"}
+{"timestamp":"2026-09-06T11:34:22.923036297Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWB94kk9CcL4wMzkUDoYpjg9oDfXDLdcaEA1TDKhwPfKw4"},"target":"network"}
+{"timestamp":"2026-09-06T11:34:22.923055762Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWB94kk9CcL4wMzkUDoYpjg9oDfXDLdcaEA1TDKhwPfKw4","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T11:34:22.923080549Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWB94kk9CcL4wMzkUDoYpjg9oDfXDLdcaEA1TDKhwPfKw4"},"target":"network"}
+{"timestamp":"2026-09-06T11:34:22.940471222Z","level":"INFO","fields":{"event":"disconnected","peer_id":"12D3KooWNB5NuqEXddXLJmyZqi8WjqmmhVfWQt3G654GVn8Xnkfe"},"target":"network"}
+{"timestamp":"2026-09-06T11:34:22.94050134Z","level":"DEBUG","fields":{"event":"redial_after_disconnect_failed","peer_id":"12D3KooWNB5NuqEXddXLJmyZqi8WjqmmhVfWQt3G654GVn8Xnkfe","error":"NoAddresses"},"target":"network"}
+{"timestamp":"2026-09-06T11:34:22.940538694Z","level":"INFO","fields":{"event":"peer_disconnected","peer_id":"12D3KooWNB5NuqEXddXLJmyZqi8WjqmmhVfWQt3G654GVn8Xnkfe"},"target":"network"}

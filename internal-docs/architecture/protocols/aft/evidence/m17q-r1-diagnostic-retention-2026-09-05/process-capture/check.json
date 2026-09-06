@@ -1,0 +1,87 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "purpose": "retain restart/transport diagnosis for unresolved intermittent saturation failure; not performance admission",
+  "started_utc": "2026-09-05T00:38:44.069224+00:00",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "aft_e2e",
+    "--features",
+    "consensus-aft,vm-wasm,state-iavl",
+    "test_aft_quv_m16q_each_single_correct_member_and_conflict_isolation",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "environment_overrides": {
+    "IOI_TEST_ORCH_RUST_LOG": "quv=debug,network=debug",
+    "IOI_AFT_BENCH_TRACE_DIR": "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-diagnostic-retention-2026-09-05/process-capture/components"
+  },
+  "sources": {
+    "crates/agentgres/src/consequence.rs": "a6985fb50b5af99ddb44760f223efd56c0f43f7a296860d137930915695abe76",
+    "crates/agentgres/src/consequence/tests.rs": "8dd585a22909d44fd96456ebdcdc57e3d8f34576af0fecf8044c54b59df57b80",
+    "crates/agentgres/src/recognized_effect/tests.rs": "3fafa30fa8c25f0d67beebb700b0f7e15f0a54c5627e9b6daca3c73208fa686d",
+    "crates/cli/src/testing/backend.rs": "064e3977bf70941aa6461c577545d8ee6fb2dbdb2f431573297759cffd8b55e6",
+    "crates/cli/src/testing/validator.rs": "668b211aa31ad6df952ada475e2397f62733a633ae175d2ea22be5adeba3e622",
+    "crates/cli/tests/aft_e2e.rs": "f18d2fa162c5d14b1b230bc4dac3e625c644c2f87f1d1d875b4adaa15f1357ec",
+    "crates/consensus/src/aft/query_unanimity.rs": "f07bcd9b102cf0baa020e913cb3bba512f2a9f030bedbbd1306a43fef6295df1",
+    "crates/ioi-finality/src/portable_assurance/tests.rs": "9c591be6dd83ecb31f9ecb0849789a794eb4565f708f57a517f96e09c16774b0",
+    "crates/networking/src/libp2p/mod.rs": "3af0559f837f96756f4bfd4f1ef27f9e086c39f36ac817f7ff9b557e7ad25c51",
+    "crates/networking/src/libp2p/pq_channel.rs": "4bdee54d8ea6f4a5312f9f87d51db2080e069be0023e8c518353255454df90c9",
+    "crates/networking/src/libp2p/swarm.rs": "758f8f88d55ed56adc5946b7984531e9a2737163327754412546beb9119536bb",
+    "crates/networking/src/libp2p/types.rs": "2b1bb18f0169ba7004bd716e33352d4510533cc8e0920add16301f96b4caedf9",
+    "crates/node/src/bin/ioi-local.rs": "e4ab6a9f5c188784405238c88c446cb0818c047e4e9cfbe39685df360969df47",
+    "crates/services/src/aft_effect_registry.rs": "dda08d06568927a433ee29bb9fc573231d4d7a25749477641687a9a1fe32e778",
+    "crates/types/src/app/consequence.rs": "f27da3d042a2a1d0fbb594fa6cb217961a917bbd4a9580d205518397672a1945",
+    "crates/validator/src/standard/orchestration/events.rs": "3df4a0224d5b7338b864ab58cea068aa96324579a8597169357a11256f8e1312",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "115c9686ff2fdbe1f32748e35c3b6960a6576b59b66ec135c7cd3843704fdffe",
+    "crates/validator/src/standard/orchestration/mod.rs": "12b3160ea896d88525b9ae37bac089f01738d6ef722e09521f3c0f36a924192b",
+    "crates/validator/src/standard/orchestration/quv.rs": "fd29f70ac5e7e26780634ab2c0a646e35993e8aa05a8c61f29eef45738c6f75a",
+    "crates/validator/src/standard/orchestration/runtime_finality.rs": "1e9f8dcf07b6ea88e124965f3adb572119c8cd3f1caba6b9659df4ea0972f143",
+    "crates/validator/src/standard/orchestration/sync.rs": "2f24c08c5619897492724e68242f31a3beffad4ef7dcf428187fecaf278e3dc3",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a",
+    ".github/scripts/check_aft_m16q_process_evidence.py": "ee48b5ab9888af6ba81015d2ed4a4f98bbc0703f8b1a47d49910953eb170cd77"
+  },
+  "exit_code": 0,
+  "finished_utc": "2026-09-05T00:43:00.212085+00:00",
+  "log_sha256": "ceb52333ce08a44ce7763ed3789e8ebe7a176f0463ec72eeee1886747240c0e4",
+  "component_logs": {
+    "validator-20000-orch.log": {
+      "bytes": 37762,
+      "sha256": "8edacda4fa67e089777c6582701858dc6bb8e1281970c24bb16544da1a4efeb5"
+    },
+    "validator-20000-workload.log": {
+      "bytes": 599,
+      "sha256": "9ebfdfa5230bff8c90a82ccf68ccc1b9027f82137f84ed1fcf84b2f6a3d248d8"
+    },
+    "validator-20100-orch.log": {
+      "bytes": 29928,
+      "sha256": "d7dec542b88bbefe05e018dbef1e0a58572a083c0378f62f58849af1641acca6"
+    },
+    "validator-20100-workload.log": {
+      "bytes": 599,
+      "sha256": "8495699cca6b3e81297d743a71b4f15a14fd6f47f75ca9b0087a81639ca9fca0"
+    },
+    "validator-20200-orch.log": {
+      "bytes": 17302,
+      "sha256": "7be688aeb42cfa6a1e66b27ecbbe16c81417f63d735acf9cad8c9580856bc998"
+    },
+    "validator-20200-workload.log": {
+      "bytes": 599,
+      "sha256": "326cf1875ff5a5e41516be45f7cf627a2be9da6b8cd11e5e114c1421de0f1732"
+    },
+    "validator-20300-orch.log": {
+      "bytes": 23639,
+      "sha256": "611fa05ac0801755455276d1b3111ea26946b26c08a2e84ec6a18290c5986d35"
+    },
+    "validator-20300-workload.log": {
+      "bytes": 1989,
+      "sha256": "5f450beeb7d071750e59e15a2bf4a1f3a2c08334ce15dceb943a5099a58d2812"
+    }
+  }
+}

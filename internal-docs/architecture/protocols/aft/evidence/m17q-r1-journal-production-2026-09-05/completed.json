@@ -1,0 +1,202 @@
+{
+  "completed_utc": "2026-09-05T20:10:30.961241+00:00",
+  "source_manifest": "started.json",
+  "source_subset_unchanged": true,
+  "member_schema": 7,
+  "handoff_schema": 3,
+  "checks": [
+    {
+      "name": "restored-quv-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity",
+        "--no-fail-fast"
+      ],
+      "exit_code": 0,
+      "started_utc": "2026-09-05T19:33:02.343511+00:00",
+      "completed_utc": "2026-09-05T19:33:38.380117+00:00",
+      "log": "restored-quv-tests.log"
+    },
+    {
+      "name": "runtime-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::"
+      ],
+      "exit_code": 0,
+      "started_utc": "2026-09-05T19:33:38.380329+00:00",
+      "completed_utc": "2026-09-05T19:34:09.913942+00:00",
+      "log": "runtime-tests.log"
+    },
+    {
+      "name": "cli-check",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--test",
+        "aft_e2e",
+        "--features",
+        "consensus-aft,vm-wasm,state-iavl"
+      ],
+      "exit_code": 0,
+      "started_utc": "2026-09-05T19:34:09.914187+00:00",
+      "completed_utc": "2026-09-05T19:34:24.852230+00:00",
+      "log": "cli-check.log"
+    },
+    {
+      "name": "durability-benchmark",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::tests::m16q_profiles_mldsa_signing_and_durable_write_before_reply",
+        "--",
+        "--exact",
+        "--ignored",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "started_utc": "2026-09-05T19:34:24.852570+00:00",
+      "completed_utc": "2026-09-05T19:49:37.421330+00:00",
+      "log": "durability-benchmark.log"
+    },
+    {
+      "name": "ancestry-trace",
+      "command": [
+        "strace",
+        "-f",
+        "-yy",
+        "-e",
+        "trace=fsync,rename,openat,mkdir",
+        "-o",
+        "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/restored-ancestry.strace",
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-consensus",
+        "--features",
+        "aft",
+        "--lib",
+        "aft::query_unanimity::journal::tests::bootstrap_interruption_recovers_only_the_provisioned_initial_record",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "started_utc": "2026-09-05T19:49:37.421599+00:00",
+      "completed_utc": "2026-09-05T19:49:38.719810+00:00",
+      "log": "ancestry-trace.log"
+    },
+    {
+      "name": "ancestry-check",
+      "command": [
+        "python3",
+        ".github/scripts/check_aft_quv_journal_sync.py",
+        "--trace",
+        "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/restored-ancestry.strace",
+        "--result",
+        "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-journal-production-2026-09-05/ancestry-trace.log"
+      ],
+      "exit_code": 0,
+      "started_utc": "2026-09-05T19:49:38.720091+00:00",
+      "completed_utc": "2026-09-05T19:49:38.755221+00:00",
+      "log": "ancestry-check.log"
+    }
+  ],
+  "quv_tests": {
+    "passed": 60,
+    "ignored": 1,
+    "ignored_benchmark_executed_separately": true
+  },
+  "runtime_tests_passed": 20,
+  "component_benchmark": {
+    "fields": [
+      "samples",
+      "min_us",
+      "p50_us",
+      "p95_us",
+      "p99_us",
+      "max_us"
+    ],
+    "measurements": {
+      "mldsa44_sign_4096b": [
+        256,
+        1563698,
+        1734227,
+        1845298,
+        1950043,
+        2123691
+      ],
+      "durable_write_before_reply_hash_signer": [
+        256,
+        20866,
+        37186,
+        40028,
+        49294,
+        70573
+      ],
+      "durable_write_before_reply_mldsa44": [
+        256,
+        1699032,
+        1777394,
+        1881653,
+        1916865,
+        1921137
+      ]
+    }
+  },
+  "process": {
+    "disposition": "PASS_SCOPED_CAMPAIGN",
+    "process_exit_code": 0,
+    "changed_sources": [],
+    "checker_exit_codes": {
+      "readiness-evidence": 0,
+      "admission-releases": 0
+    },
+    "scope": "production schema-7 three-slot/restart and unrelated-effect assertions; not full rooted resource/fairness profile, sustained flood, complete refinement, clean R2 or whole R1 closure"
+  },
+  "process_assertions": {
+    "components_sha256": {
+      "validator-20000-orch.log": "4a77601158c98b33653f50204fc64ed810c7cb7eebb60c8a2eda80f29fc92f64",
+      "validator-20100-orch.log": "febfb4668542fa69ecb8636323132c8af15f70f58f99d758872a4a67de339acb",
+      "validator-20200-orch.log": "bacc2ca00c9fe3cb454126999213207853b71257384d8e5a59f881b65e03b08e",
+      "validator-20300-orch.log": "b8c2549472c439c7043d9ceb49d92a434710638d469b4be2ac5ba3f954b6ea0a"
+    },
+    "correct_members": 4,
+    "executed_slots": 3,
+    "log_sha256": "5a792c6ffba35b8d30dd5c5b6f9b7f3c0520dd35d3fa70e719f9c77f003a4ca7",
+    "portable_final_receipt": false,
+    "restarted_slot": 3,
+    "scope": "Finite host observations; not aggregate timing, full refinement or independent authorization",
+    "unrelated_during_wait": true
+  },
+  "completed_operations": 13,
+  "admission_release_records": 17,
+  "max_observed_active_release_micros": 6369893,
+  "disposition": "PASS_SCOPED_PRODUCTION_JOURNAL_QUALIFICATION",
+  "clean_R2": false,
+  "whole_R1_findings_closed": []
+}

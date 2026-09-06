@@ -1,0 +1,121 @@
+[
+  {
+    "name": "network",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-networking",
+      "--lib",
+      "pq_channel"
+    ],
+    "started": "2026-09-05T23:59:13.441015+00:00",
+    "completed": "2026-09-05T23:59:31.759975+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "runtime",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "started": "2026-09-05T23:59:31.760198+00:00",
+    "completed": "2026-09-06T00:00:03.520319+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "cli",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "started": "2026-09-06T00:00:03.520682+00:00",
+    "completed": "2026-09-06T00:00:17.151914+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T00:00:17.152173+00:00",
+    "completed": "2026-09-06T00:00:25.132813+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T00:00:25.133138+00:00",
+    "completed": "2026-09-06T00:00:25.134756+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--pq-reserved-index-only"
+    ],
+    "started": "2026-09-06T00:00:25.137024+00:00",
+    "completed": "2026-09-06T00:00:26.499866+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "index_formal",
+    "command": [
+      "bash",
+      ".github/scripts/run_aft_formal_checks.sh",
+      "--pq-outbox-index-only"
+    ],
+    "started": "2026-09-06T00:00:26.500171+00:00",
+    "completed": "2026-09-06T00:00:27.855124+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "ancestry",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_pq_outbox_ancestry.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-index-reservation-2026-09-05/ancestry"
+    ],
+    "started": "2026-09-06T00:00:27.855462+00:00",
+    "completed": "2026-09-06T00:00:28.797985+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "reservation",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_pq_outbox_reservation.py",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/evidence/m17q-r1-index-reservation-2026-09-05/reservation"
+    ],
+    "started": "2026-09-06T00:00:28.798245+00:00",
+    "completed": "2026-09-06T00:00:30.113241+00:00",
+    "exit_code": 0
+  }
+]

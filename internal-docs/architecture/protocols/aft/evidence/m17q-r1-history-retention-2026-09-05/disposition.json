@@ -1,0 +1,80 @@
+{
+  "completed_utc": "2026-09-05T06:14:24.214730+00:00",
+  "disposition": "LOCAL_RECOVERY_RETENTION_CHECK_TESTED_NOT_R1_CLOSURE",
+  "core_command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests"
+  ],
+  "core_exit_code": 0,
+  "core_log_scope": "terminal output; early dependency warnings not retained",
+  "core_passed": 36,
+  "benchmark_ignored": 1,
+  "source_sha256": {
+    "crates/consensus/src/aft/query_unanimity.rs": "80f4e53b94e9d3c036e9c6e61c4e18041bfe50cb67408cc7cf90559ed748e920",
+    "crates/consensus/src/aft/query_unanimity/head.rs": "1144982b0d982d052ec2d8cec18b1d861fed39ea1151d5b18dda019955a73dac",
+    ".github/scripts/run_aft_m16q_qualification.sh": "ad2b2d633d3bee389aac18f8b7ecaee67035ee137cbfc3dc910032261be9bc89"
+  },
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "crates/consensus/src/aft/query_unanimity.rs",
+        "crates/consensus/src/aft/query_unanimity/head.rs"
+      ],
+      "exit_code": 0,
+      "log": "format.log"
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0,
+      "log": "runner-syntax.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "diff-check.log"
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0,
+      "log": "claim-check.log"
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0,
+      "log": "theorem-check.log"
+    }
+  ],
+  "remaining": [
+    "durable preparation attempts",
+    "worker and readiness enforcement",
+    "bounded fair service and storage",
+    "production refinement",
+    "R1 closure and clean R2",
+    "fresh independent review and M18Q"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "recorded_utc": "2026-09-05T06:36:28.940919+00:00",
+  "disposition": "WORKER_INTEGRATED_PROCESS_CAMPAIGN_PENDING",
+  "validator_check_exit": 0,
+  "process_session_id": 98666,
+  "process_status": "Last handle poll was live; re-poll before relying on status.",
+  "source_sha256": {
+    "crates/validator/src/standard/orchestration/quv.rs": "341d629578ac4f9199ed8d1a3d3f4bab9745f266b8b9d4a72491be50921e856e",
+    "crates/validator/src/standard/orchestration/context.rs": "36e1d610984f60a9f2d222d399f9e92f73b06cf700696a09e0b8bbe4e27dd314",
+    "crates/validator/src/standard/orchestration/lifecycle.rs": "5a446525d74235a9222c1f216d1ea9a307ddf0cc87c6758607395160c68513b4",
+    "crates/consensus/src/aft/query_unanimity.rs": "b1f4405ce53ad3093ca9374111ac31aea434452f5b564af1cb53bfbda0b0998e",
+    "crates/consensus/src/aft/query_unanimity/head.rs": "1144982b0d982d052ec2d8cec18b1d861fed39ea1151d5b18dda019955a73dac"
+  },
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/context.rs",
+        "crates/validator/src/standard/orchestration/lifecycle.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "remaining": [
+    "process result and exact worker evidence",
+    "worker removed-rule regression",
+    "rooted service enforcement",
+    "fair operation admission",
+    "child readiness and restart timing",
+    "full R1 closure, R2, independent review, M18Q"
+  ]
+}

@@ -1,0 +1,6 @@
+test aft::query_unanimity::tests::policy_root_binds_operation_service_and_refuses_invalid_limits ... ok
+test aft::query_unanimity::tests::policy_root_binds_preparation_limits_and_rejects_invalid_budgets ... ok
+test aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds ... ok
+test aft::query_unanimity::tests::policy_root_binds_bootstrap_kind_slot_and_predecessor ... ok
+test aft::query_unanimity::tests::policy_root_binds_push_admission_and_refuses_invalid_quota ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 311 filtered out; finished in 0.00s

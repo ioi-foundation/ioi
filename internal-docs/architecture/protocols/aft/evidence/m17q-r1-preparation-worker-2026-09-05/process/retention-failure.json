@@ -1,0 +1,7 @@
+{
+  "observed_utc": "2026-09-05T06:39:49.094769+00:00",
+  "failure": "IOI_AFT_BENCH_TRACE_DIR directory was not created before process start; HARNESS_DIAGNOSTIC_WRITE_FAILURE present in process.log",
+  "action": "Created missing directory to retain remaining diagnostics; earlier records remain missing.",
+  "qualification_eligible": false,
+  "process_status": "Continue polling original session 98666 to terminal; no restart based on this observation."
+}

@@ -1,0 +1,39 @@
+{
+  "status": "LOCAL_MODEL_CHECK_PASS_NOT_PRODUCTION_REFINEMENT",
+  "utc": "2026-09-05T02:50:40.521251+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "command": "bash .github/scripts/run_aft_formal_checks.sh --quv-parent-boundary-only",
+  "exit_code": 0,
+  "two_correct": {
+    "generated": 5221,
+    "distinct": 522
+  },
+  "one_correct": {
+    "generated": 349,
+    "distinct": 70
+  },
+  "reachability": "Both correct members independently query and advance both slots; existential witness only",
+  "limitations": [
+    "Atomic completed Query abstraction",
+    "Atomic non-rollback storage assumption",
+    "Fixed independently rooted genesis and configuration",
+    "Silent Byzantine peers",
+    "Two slots, two values",
+    "No runtime scheduling, transport timing, admission, continuation, handoff or T10 refinement"
+  ],
+  "source_sha256": {
+    ".github/scripts/run_aft_formal_checks.sh": "f1ddbb5062459bf58f26f56b6af81f829d6c60b78fb4a5df1e40226408095ca9",
+    ".github/scripts/run_aft_m16q_qualification.sh": "f8e9e866f6d1ed53510821559eafc32f437dd58cd1e6aa8ca9dfe57115f7a75f",
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    "internal-docs/architecture/protocols/aft/IMPLEMENTATION_LEDGER.md": "a2d49f3c25ccdfaddb2900ab428a207199b0e9a9c2747da022ddc5e87a319b14",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.cfg": "5852eafac46a796f718379b98196711b23facffa5fbd039e6bee72014c9698ea",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.tla": "1b04deefc971b81804e6a864b564add1ad4028228b3fd2f463035e6a8652af3e",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverificationPersistence.cfg": "b978302ef8c7761b876d694fab651bb9b3da7f019c392bbf2e42ae9abe8a7af7",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.cfg": "3cf6a477adc80d88d95416f33957f7b0730467f451094fb104dd1ab8798d71e1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla": "c4f1d082acb95feaf03116a30f52f91519ddc897933ec8a123910cfe9abb6675",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationReachable.cfg": "c59d89e155a44dd6275db7194d86399232db47e0d8dce81e15f0f96a9e49091d",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparationSolo.cfg": "ed49fda48dc3a63b9fd856654fbdb41641c70764b1c9439d42c7b896b3046098",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "90082e3e1730b229805eabf212d037a295fc6d4517fdb6e6c254823b1d16a008",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_head_state_design.md": "5df619233f63f1213f84143cb8a820875c82045c6d405aa974fa8dda107141ac"
+  }
+}

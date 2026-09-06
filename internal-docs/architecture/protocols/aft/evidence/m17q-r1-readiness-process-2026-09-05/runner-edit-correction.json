@@ -1,0 +1,4 @@
+{
+  "initial": "Pre-write assertion failed because aft_e2e.rs is the final SHA input with output redirection, not a continued argument",
+  "correction": "Insert new source before the final SHA input; no runner mutation occurred on the failed attempt"
+}

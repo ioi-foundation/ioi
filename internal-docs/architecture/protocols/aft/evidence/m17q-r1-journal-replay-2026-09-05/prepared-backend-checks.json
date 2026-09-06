@@ -1,0 +1,51 @@
+[
+  {
+    "name": "prepared-backend-quv-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "aft::query_unanimity",
+      "--no-fail-fast"
+    ],
+    "exit_code": 0,
+    "log": "prepared-backend-quv-tests.log"
+  },
+  {
+    "name": "prepared-backend-runtime-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::"
+    ],
+    "exit_code": 0,
+    "log": "prepared-backend-runtime-tests.log"
+  },
+  {
+    "name": "prepared-backend-cli-check",
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "exit_code": 0,
+    "log": "prepared-backend-cli-check.log"
+  }
+]

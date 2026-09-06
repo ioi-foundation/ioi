@@ -1,0 +1,9 @@
+test aft::query_unanimity::journal::tests::fully_valid_record_at_scratch_name_is_deleted_not_replayed ... ok
+test aft::query_unanimity::journal::tests::valid_mac_record_with_foreign_scope_is_refused_before_replay ... ok
+test aft::query_unanimity::journal::tests::valid_mac_record_with_mismatched_generation_field_is_refused ... ok
+test aft::query_unanimity::tests::handoff_installed_fields_cannot_change_under_a_retained_tag ... ok
+test aft::query_unanimity::tests::handoff_member_refuses_candidate_with_unexpected_predecessor ... ok
+test aft::query_unanimity::tests::authenticated_handoff_state_and_anchor_cover_every_byte ... ok
+test aft::query_unanimity::tests::predecessor_substitution_shares_one_conflict_slot ... ok
+test aft::query_unanimity::tests::unauthenticated_one_generation_ahead_handoff_cannot_mint_activation_gate ... ok
+test result: ok. 92 passed; 0 failed; 1 ignored; 0 measured; 230 filtered out; finished in 183.93s

@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/quv/member_completion.rs"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "sources": {
+    "crates/validator/src/standard/orchestration/quv.rs": "29ff0a813d6a7226aa985eea3380a04c846332ef01c70b03a85212acb39c3186",
+    "crates/validator/src/standard/orchestration/quv/member_completion.rs": "27028880c9f9e91bfd356ca2d106ab29be08c514d854fba1f3633611fa443a50",
+    ".github/scripts/run_aft_m16q_qualification.sh": "d16e4b0eb0415da6db99cac90c5fe698a071d274149c6b4336afdee8edce12b6"
+  },
+  "scope": "Local checks only; process timing and whole R1 closure remain open"
+}

@@ -1,0 +1,650 @@
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Running breadth-first search Model-Checking with fp 21 and seed -2143463137277973784 with 6 workers on 24 cores with 10923MB heap and 64MB offheap memory [pid: 1561922] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvEndToEndRefinement
+Starting... (2026-09-06 06:17:32)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-06 06:17:32.
+Error: Invariant NoClaimAfterExpiryOrFence is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ height = 0
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 0
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 0)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {}, first |-> "none"] ) )
+/\ anchorGen = (m1 :> 0)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 2: <AdvanceHeight line 145, col 5 to line 146, col 46 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 0
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 0)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {}, first |-> "none"] ) )
+/\ anchorGen = (m1 :> 0)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 3: <Next line 438, col 16 to line 439, col 54 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 0
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 0)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {}, first |-> "none"] ) )
+/\ anchorGen = (m1 :> 0)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 4: <Record(m1,m1) line 184, col 5 to line 211, col 48 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 0
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {}, first |-> "none"] ) )
+/\ anchorGen = (m1 :> 0)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 1,
+        auth |-> TRUE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {"X"}, first |-> "X"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 1,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 5: <Commit(m1) line 217, col 5 to line 231, col 47 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {"X"}, first |-> "X", kind |-> "snapshot"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 0
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 6: <Tick line 139, col 5 to line 143, col 49 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {"X"}, first |-> "X", kind |-> "snapshot"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 1
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 7: <Tick line 139, col 5 to line 143, col 49 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {"X"}, first |-> "X", kind |-> "snapshot"]) ] )
+/\ accepted = (m1 :> {})
+/\ now = 2
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 8: <Decide(m1) line 286, col 5 to line 305, col 88 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = ( m1 :>
+      { [ root |-> "r0",
+          dom |-> d1,
+          slot |-> 1,
+          pred |-> "init",
+          value |-> "X" ] } )
+/\ now = 2
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 2,
+        height |-> 1 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 9: <Tick line 139, col 5 to line 143, col 49 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = ( m1 :>
+      { [ root |-> "r0",
+          dom |-> d1,
+          slot |-> 1,
+          pred |-> "init",
+          value |-> "X" ] } )
+/\ now = 3
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 2,
+        height |-> 1 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<>>))
+
+State 10: <Advance(m1) line 310, col 5 to line 315, col 45 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = ( m1 :>
+      { [ root |-> "r0",
+          dom |-> d1,
+          slot |-> 1,
+          pred |-> "init",
+          value |-> "X" ] } )
+/\ now = 3
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 0, rid |-> "ra", claimed |-> FALSE])
+/\ claims = (m1 :> {})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> FALSE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 1,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 2,
+        height |-> 1 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<"X">>))
+
+State 11: <Claim(m1) line 335, col 5 to line 345, col 73 of module QuvEndToEndRefinement>
+/\ height = 1
+/\ boundary = (m1 :> FALSE)
+/\ op = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        start |-> 0,
+        rid |-> "ra",
+        replies |->
+            (m1 :> [cands |-> {}, first |-> "none", kind |-> "none"]) ] )
+/\ accepted = ( m1 :>
+      { [ root |-> "r0",
+          dom |-> d1,
+          slot |-> 1,
+          pred |-> "init",
+          value |-> "X" ] } )
+/\ now = 3
+/\ inflight = (m1 :> [dom |-> d1, slot |-> 1, rid |-> "ra", claimed |-> TRUE])
+/\ claims = (m1 :> {[dom |-> d1, slot |-> 1, rid |-> "*"]})
+/\ gateLive = (m1 :> FALSE)
+/\ register = {}
+/\ activeRoot = (m1 :> "r0")
+/\ crashed = (m1 :> FALSE)
+/\ gate = (m1 :> FALSE)
+/\ authGen = (m1 :> 1)
+/\ anchor = ( m1 :>
+      ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+            [cands |-> {"X"}, first |-> "X"] ) )
+/\ anchorGen = (m1 :> 1)
+/\ lateClaim = (m1 :> TRUE)
+/\ calls = (m1 :> ([dom |-> d1, slot |-> 1] :> 0))
+/\ staged = ( m1 :>
+      [ gen |-> 0,
+        auth |-> FALSE,
+        content |->
+            ( [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"] :>
+                  [cands |-> {}, first |-> "none"] ),
+        exec |-> m1,
+        key |-> [root |-> "r0", dom |-> d1, slot |-> 1, pred |-> "any"],
+        req |->
+            [ root |-> "r0",
+              dom |-> d1,
+              slot |-> 0,
+              pred |-> "init",
+              value |-> "X",
+              start |-> 0 ] ] )
+/\ grant = ( m1 :>
+      [ root |-> "r0",
+        dom |-> d1,
+        slot |-> 0,
+        pred |-> "init",
+        value |-> "X",
+        rid |-> "ra",
+        expires |-> 0,
+        height |-> 0 ] )
+/\ bytes = (m1 :> FALSE)
+/\ head = (m1 :> (d1 :> <<"X">>))
+
+2242 states generated, 945 distinct states found, 187 states left on queue.
+The depth of the complete state graph search is 14.
+Finished in 00s at (2026-09-06 06:17:32)
+Trace exploration spec path: ./QuvEndToEndRefinement_TTrace_1788689852.tla

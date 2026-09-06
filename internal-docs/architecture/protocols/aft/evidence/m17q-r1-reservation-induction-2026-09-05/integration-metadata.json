@@ -1,0 +1,14 @@
+{
+  "recorded_utc": "2026-09-05T02:18:39.220506+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "sources": {
+    ".github/scripts/run_aft_formal_checks.sh": "26364915528ed3d975434834ab7e70f63e87aa081a84c12751b7089f33eb84c8",
+    ".github/scripts/run_aft_m16q_qualification.sh": "2e2249e97b58c7437bfd87f9878614ebe2aa09e8b4b9bdc4c9b7b7c4009d4edd",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudgetProof.tla": "900b5ee9286bbb78e662106548f9280b07c4f892cd5f065d3dfcac225b61be2c",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudgetVolatile.tla": "e9630d12e9e9d6d6708c577adaab5be138912a48141487eb889b7547754f629a",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.tla": "0b61dde27c312af70b4f287cfabe56ce167450bdca028b661fe0a178bb974973",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudget.cfg": "7d399b1ba666c00c27761fdb3df5a1e725260215e065ce54f3cc8f50526c7117",
+    "internal-docs/architecture/protocols/aft/formal/consequence/ReconciliationBudgetVolatile.cfg": "ea9e0ebde707ea24ac6fc1681c63eca9242eb9081103deef3cdf686efe35bd0c"
+  }
+}

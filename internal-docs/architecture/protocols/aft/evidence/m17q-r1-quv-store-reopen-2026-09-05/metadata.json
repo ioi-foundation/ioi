@@ -1,0 +1,10 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "recorded_utc": "2026-09-05T02:27:47.266060+00:00",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)\nbinary: rustc\ncommit-hash: 01f6ddf7588f42ae2d7eb0a2f21d44e8e96674cf\ncommit-date: 2026-02-11\nhost: x86_64-unknown-linux-gnu\nrelease: 1.93.1\nLLVM version: 21.1.8\n",
+  "sources": {
+    "crates/consensus/src/aft/query_unanimity.rs": "153d5b0034b52df433fbd213ba602e0571fd938eac26d931995474a91843a932",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  }
+}

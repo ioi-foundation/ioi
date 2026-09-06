@@ -1,0 +1,33 @@
+[
+  {
+    "log": "initial-production-check.log",
+    "exit_code": 0,
+    "scope": "intermediate compile diagnostic, not final-source qualification"
+  },
+  {
+    "log": "initial-production-quv-tests.log",
+    "exit_code": 101,
+    "passed": 52,
+    "failed": 7,
+    "ignored": 1,
+    "disposition": "FORMAT_ADAPTER_REQUIRED",
+    "reason": "single-file metadata, staging-file paths, and snapshot mutation fixtures no longer represented the journal directory"
+  },
+  {
+    "log": "directory-adapted-quv-tests.log",
+    "exit_code": 101,
+    "passed": 58,
+    "failed": 1,
+    "ignored": 1,
+    "disposition": "FORMAT_ADAPTER_REQUIRED",
+    "reason": "one remaining directory metadata length was compared to a logical encoded-state byte limit"
+  },
+  {
+    "log": "production-quv-tests.log",
+    "exit_code": 0,
+    "passed": 60,
+    "failed": 0,
+    "ignored": 1,
+    "scope": "before the later directory-ancestry sync addition; not final-source qualification"
+  }
+]

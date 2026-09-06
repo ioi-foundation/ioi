@@ -1,0 +1,46 @@
+[
+  {
+    "name": "probe",
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl",
+      "recovery_probe_retries_only_startup_and_requires_exact_result",
+      "--",
+      "--exact"
+    ],
+    "started": "2026-09-06T05:29:55.927785+00:00",
+    "completed": "2026-09-06T05:30:01.597536+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "started": "2026-09-06T05:30:01.597756+00:00",
+    "completed": "2026-09-06T05:30:09.845400+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "syntax",
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "started": "2026-09-06T05:30:09.845759+00:00",
+    "completed": "2026-09-06T05:30:09.847320+00:00",
+    "exit_code": 0
+  }
+]

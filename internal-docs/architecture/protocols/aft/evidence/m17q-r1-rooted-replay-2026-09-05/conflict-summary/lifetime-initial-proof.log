@@ -1,0 +1,90 @@
+(* created new ".tlacache/QuvLifetimeBudgetProof.tlaps/QuvLifetimeBudgetProof.thy" *)
+(* fingerprints written in ".tlacache/QuvLifetimeBudgetProof.tlaps/fingerprints" *)
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvLifetimeBudgetProof.tla", line 24, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME NEW CONSTANT Horizon,
+                  NEW CONSTANT Attempts,
+                  NEW CONSTANT RecordBudget,
+                  NEW CONSTANT ReuseEvent,
+                  NEW VARIABLE seen,
+                  NEW VARIABLE charged,
+                  TypeOK ==
+                    /\ seen \subseteq Universe /\ IsFiniteSet(seen)
+                    /\ charged \in Nat,
+                  ChargedRecordBytes ==
+                    charged =< Cardinality(seen) * RecordBudget,
+                  LifetimeBytes ==
+                    charged =< Horizon * (Attempts + 3) * RecordBudget,
+                  Profile ==
+                    /\ Horizon \in Nat /\ Horizon > 0
+                    /\ Attempts \in Nat /\ Attempts > 0
+                    /\ RecordBudget \in Nat /\ RecordBudget > 0
+                    /\ ReuseEvent = FALSE,
+                  Inv == TypeOK /\ ChargedRecordBytes,
+                  Profile ,
+                  FiniteEventSpace ,
+                  FS_Subset ,
+                  SMT 
+           PROVE  Inv => LifetimeBytes
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvLifetimeBudgetProof.tla", line 18, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME NEW CONSTANT Horizon,
+                  NEW CONSTANT Attempts,
+                  NEW CONSTANT RecordBudget,
+                  NEW CONSTANT ReuseEvent,
+                  NEW VARIABLE seen,
+                  NEW VARIABLE charged,
+                  vars == <<seen, charged>>,
+                  Record ==
+                    \E event
+                       \in IF ReuseEvent THEN Universe ELSE Universe \ seen,
+                       cost \in 1..RecordBudget :
+                       /\ seen' = seen \cup {event}
+                       /\ charged' = charged + cost,
+                  Next == Record,
+                  TypeOK ==
+                    /\ seen \subseteq Universe /\ IsFiniteSet(seen)
+                    /\ charged \in Nat,
+                  ChargedRecordBytes ==
+                    charged =< Cardinality(seen) * RecordBudget,
+                  Profile ==
+                    /\ Horizon \in Nat /\ Horizon > 0
+                    /\ Attempts \in Nat /\ Attempts > 0
+                    /\ RecordBudget \in Nat /\ RecordBudget > 0
+                    /\ ReuseEvent = FALSE,
+                  Inv == TypeOK /\ ChargedRecordBytes,
+                  Profile ,
+                  FS_AddElement ,
+                  SMT 
+           PROVE  Inv /\ [Next]_vars => Inv'
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvLifetimeBudgetProof.tla", line 12, characters 3-4:
+[ERROR]: Could not prove or check:
+           ASSUME NEW CONSTANT Horizon,
+                  NEW CONSTANT Attempts,
+                  NEW CONSTANT RecordBudget,
+                  NEW CONSTANT ReuseEvent,
+                  NEW VARIABLE seen,
+                  NEW VARIABLE charged,
+                  Universe == (1..Horizon) \X (1..Attempts + 3),
+                  Profile ==
+                    /\ Horizon \in Nat /\ Horizon > 0
+                    /\ Attempts \in Nat /\ Attempts > 0
+                    /\ RecordBudget \in Nat /\ RecordBudget > 0
+                    /\ ReuseEvent = FALSE,
+                  Profile ,
+                  FS_Interval ,
+                  FS_Product ,
+                  SMT 
+           PROVE  /\ IsFiniteSet(Universe)
+                  /\ Cardinality(Universe) = Horizon * (Attempts + 3)
+File "./internal-docs/architecture/protocols/aft/formal/resource_profile/QuvLifetimeBudgetProof.tla", line 1, character 1 to line 27, character 77:
+[ERROR]: 3/26 obligations failed.
+There were backend errors processing module `"QuvLifetimeBudgetProof"`.
+ tlapm ending abnormally with Failure("backend errors: there are unproved obligations")
+Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+Called from Tlapm_lib.process_module in file "src/tlapm_lib.ml", line 492, characters 12-77
+Called from Tlapm_lib.main.f in file "src/tlapm_lib.ml", line 621, characters 23-43
+Called from Stdlib__List.fold_left in file "list.ml", line 123, characters 24-34
+Called from Tlapm_lib.main in file "src/tlapm_lib.ml", line 624, characters 13-40
+Called from Tlapm_lib.init in file "src/tlapm_lib.ml", line 641, characters 8-59
+

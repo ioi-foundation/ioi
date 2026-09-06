@@ -1,0 +1,32 @@
+[
+  {
+    "command": [
+      "rustfmt",
+      "--check",
+      "--edition",
+      "2021",
+      "crates/cli/src/testing/rpc.rs",
+      "crates/cli/tests/aft_e2e_parts/quv_readiness.rs"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "bash",
+      "-n",
+      ".github/scripts/run_aft_m16q_qualification.sh"
+    ],
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "output": ""
+  }
+]

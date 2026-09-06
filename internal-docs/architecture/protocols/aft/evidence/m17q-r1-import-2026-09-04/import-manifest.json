@@ -1,0 +1,174 @@
+{
+  "review_source": "/tmp/ioi-m17q-daybreak.u6nAwg/review-output",
+  "review_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be",
+  "reviewed_candidate": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "review_status": "REPAIR_REQUIRED",
+  "reproduction_status": "INCOMPLETE",
+  "files": [
+    {
+      "path": "review-output/M17Q-quv-independent-review-daybreak-2026-09-04.md",
+      "sha256": "ecb97be6880ab527a1f5a10e46256694f04ebb579b1b3e5ff69f5bbbef05caf4",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/carrier-squat-reproduction.patch",
+      "sha256": "ca94cc0babb45efe294ce5d22c36f295df4f30eb21a8c958082eb22d4ab555d1",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/core-four-reproductions.patch",
+      "sha256": "a759c968a7c8b92acd7bfedc20af776b28a087468288aad7b9908073227c9820",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/immutable-preflight.txt",
+      "sha256": "e17a248c535c9bf1b10128e59109a0a4c122842cf82ed1cf1a629a17068f4687",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/m17q_spec_twin.log",
+      "sha256": "cb7c46e7096d08215f546d62c0f41f4e3a87df6f58b16c38b0a6782dedff4ae0",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/m17q_spec_twin.py",
+      "sha256": "2dbb89bb13bacd767804476d88178ae1dca335ca20a51b8b63798c4d961026af",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/m17q_spec_twin_results.json",
+      "sha256": "4627cee2cdabbdfc3c06a1ec1c996001993c49433e491d21fd964a0a5146eb93",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/quv-theorem-only.typescript",
+      "sha256": "f16721889b2e70236791a7efa362df73d13914ec4855b3e3291cd489dbc7cac8",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/review-commands.txt",
+      "sha256": "d4a776d133b2cb1244c4c445029c12edc6da2070706efd661c8118d0a7c46069",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "review-output/t10-tlc.typescript",
+      "sha256": "65645a55bc3dd23f1eec25f3c0486e30f2a75b98134f4d2ee7137af2fa4c5a23",
+      "source_commit": "b68e26be6679412794fa1b9d6540c630f4ff69be"
+    },
+    {
+      "path": "partial-reproduction/commit.txt",
+      "sha256": "85607b9e714fc7a3501dcf3f89ee556279a763f30e3a64b87422d26f0da9401d",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/commit.txt"
+    },
+    {
+      "path": "partial-reproduction/consequence_t10.command.txt",
+      "sha256": "d543c2d336ef611a472d739fc66d16f66e1e3df474a7c0ffec4ffe9c8a3999d5",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/consequence_t10.command.txt"
+    },
+    {
+      "path": "partial-reproduction/consequence_t10.log",
+      "sha256": "a8650797aa5925e9ee259669d11bfd205c3195abaf79ad26aee8e6fd3cae9a3c",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/consequence_t10.log"
+    },
+    {
+      "path": "partial-reproduction/environment.txt",
+      "sha256": "874dda5e5a227db5acec410c669786d8e3c03b78444d8503f7abb094e024288d",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/environment.txt"
+    },
+    {
+      "path": "partial-reproduction/formal_r4.command.txt",
+      "sha256": "44b1e4da6517d2abf79ea51f3008b34bebb18991196da8dcd3d16c3540a1958c",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/formal_r4.command.txt"
+    },
+    {
+      "path": "partial-reproduction/formal_r4.log",
+      "sha256": "55ef9cc76c3e92c11c16f36b8e87a36c13635e26f4753cea09122140ed0c1161",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/formal_r4.log"
+    },
+    {
+      "path": "partial-reproduction/phase-results.tsv",
+      "sha256": "31a59f753e0f760b49b823df1460327c498c153774510ac9e792894903191697",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/phase-results.tsv"
+    },
+    {
+      "path": "partial-reproduction/pq_swarm_admission.command.txt",
+      "sha256": "4d61261dbfb541b242813f146d96c42cbde9ad272ba23ec818b3424bb3347e0e",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/pq_swarm_admission.command.txt"
+    },
+    {
+      "path": "partial-reproduction/pq_swarm_admission.log",
+      "sha256": "c2c05d128f57b20ea72cb9afcdd01552145610ac0531065800d9e8dcfd003554",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/pq_swarm_admission.log"
+    },
+    {
+      "path": "partial-reproduction/pq_transport.command.txt",
+      "sha256": "825bf0e4990fdb47064643d0d31faf34f898e377044aa50c187d0f3ff4cadc3d",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/pq_transport.command.txt"
+    },
+    {
+      "path": "partial-reproduction/pq_transport.log",
+      "sha256": "c1b3657c2616a651cfcd7d95babcb55daf73676cbac2e112dc087d351dfd207c",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/pq_transport.log"
+    },
+    {
+      "path": "partial-reproduction/quv_component_timing.command.txt",
+      "sha256": "a870f5e695b2c0a1d093611c0ffb9df3694bc354a207452e675e7582412408f5",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/quv_component_timing.command.txt"
+    },
+    {
+      "path": "partial-reproduction/quv_component_timing.log",
+      "sha256": "3d6b9208b9e4b5e6bb7047219fccdcf966341cb64b4f081622c434bb0f636f47",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/quv_component_timing.log"
+    },
+    {
+      "path": "partial-reproduction/quv_core.command.txt",
+      "sha256": "fa63c9628e042a03a1fe3ce56cdc11e3b4bf254cfc71a28b6a7ea90ea797de61",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/quv_core.command.txt"
+    },
+    {
+      "path": "partial-reproduction/quv_core.log",
+      "sha256": "5dfae2020169cc842c540256b2b45d051ecc5d6bbc7e0b24848b4a06faa2c3b7",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/quv_core.log"
+    },
+    {
+      "path": "partial-reproduction/quv_single_correct_process.command.txt",
+      "sha256": "4ac4102f867c0d1734d6b5feb696767e75a72a39e3cd1c0cb14cd64b744e33b0",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/quv_single_correct_process.command.txt"
+    },
+    {
+      "path": "partial-reproduction/quv_single_correct_process.log",
+      "sha256": "4f5529b5cef9c8af247449235302c60623e056b11e09d60f44b349c182228a43",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/quv_single_correct_process.log"
+    },
+    {
+      "path": "partial-reproduction/source-sha256.txt",
+      "sha256": "3f73e699e8c1c571ddafc87ad75ea111fdaf23d365b7ca286cd0a2838ca922dc",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/source-sha256.txt"
+    },
+    {
+      "path": "partial-reproduction/terminal_seal_receipts.command.txt",
+      "sha256": "13a5c2df5fd3dbc7bf6d5a15169ad680edaf6c777edfa8f40df839cad9e4324d",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/terminal_seal_receipts.command.txt"
+    },
+    {
+      "path": "partial-reproduction/terminal_seal_receipts.log",
+      "sha256": "0a544f32cef0081ae405597749b65c2a380b68e011ce264ad1c595b338757387",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/terminal_seal_receipts.log"
+    },
+    {
+      "path": "partial-reproduction/terminal_seal_sim.command.txt",
+      "sha256": "d82c5be58df1cf8354ebecf5b3ae8d1421872448311f1b1c227cd7c863258da3",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/terminal_seal_sim.command.txt"
+    },
+    {
+      "path": "partial-reproduction/terminal_seal_sim.log",
+      "sha256": "8776381a5ae8640de6ed546ecff77c0248f810720bb9e90a3bbd4febabe82f09",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/terminal_seal_sim.log"
+    },
+    {
+      "path": "partial-reproduction/worktree-status.txt",
+      "sha256": "3b6f9ee549acb3e1196f6d902d8578ed9d1586ddc9152837015bf8f8d28b9d6f",
+      "source_path": "/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/evidence/m16q-runs/20260904T215026Z-24a9888e3b88/worktree-status.txt"
+    }
+  ]
+}

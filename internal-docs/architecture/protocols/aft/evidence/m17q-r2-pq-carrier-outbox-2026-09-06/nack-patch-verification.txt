@@ -1,0 +1,17 @@
+sha256 before: sync.rs=a8df1f1885ba917dec44558e66f397d4b271d2a15661fc7315fa1ea51a7d6168 swarm.rs=5a149dfbc39dcfabf8ab6520a3f73552701cd2d676083452f708381d865b7a13
+--- cargo check (patched tree)
+    Checking ioi-networking v0.1.0 (/home/heathledger/Documents/ioi/repos/ioi/crates/networking)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.23s
+cargo exit: 0
+--- NACK-sensitive tests (patched tree)
+test libp2p::swarm::tests::protected_payload_routes_only_after_aead_and_type_agreement ... ok
+test libp2p::swarm::tests::current_push_is_refused_without_ack_while_a_stale_push_holds_the_lane ... ok
+test libp2p::swarm::tests::nack_keeps_the_senders_durable_record ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 49 filtered out; finished in 7.94s
+cargo exit: 0
+wrote internal-docs/architecture/protocols/aft/evidence/m17q-r2-pq-carrier-outbox-2026-09-06/required-networking-sync-nack-patch.diff (65 lines)
+sha256 after restore: sync.rs=a8df1f1885ba917dec44558e66f397d4b271d2a15661fc7315fa1ea51a7d6168 swarm.rs=5a149dfbc39dcfabf8ab6520a3f73552701cd2d676083452f708381d865b7a13
+RESTORE: exact
+sync.rs: unmodified in git (as before)
+--- git apply --check of the emitted diff against the restored tree
+git apply --check: OK

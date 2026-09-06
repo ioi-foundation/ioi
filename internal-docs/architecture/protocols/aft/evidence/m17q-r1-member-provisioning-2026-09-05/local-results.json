@@ -1,0 +1,69 @@
+{
+  "disposition": "LOCAL_TEST_PASS_NOT_R1_CLOSURE_OR_R2_ADMISSION",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "recorded_utc": "2026-09-05T04:27:41.375649+00:00",
+  "core_tests": {
+    "passed": 25,
+    "ignored_benchmark": 1
+  },
+  "runtime_tests": {
+    "passed": 3,
+    "ignored": 0
+  },
+  "cli_check": "pass",
+  "negative_control": "removing provisioning comparison fails regression; exact source restored",
+  "checks": [
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "--config",
+        "skip_children=true",
+        "crates/consensus/src/aft/query_unanimity.rs",
+        "crates/validator/src/standard/orchestration/quv.rs",
+        "crates/validator/src/standard/orchestration/lifecycle.rs"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "source_sha256": {
+    "crates/consensus/src/aft/query_unanimity.rs": "2f82b8a176dabcc31fc5b657dbc7dc8f6a759d43f177f07d5b69d92a667029a1",
+    "crates/validator/src/standard/orchestration/quv.rs": "28106cf81f29055ece3c5cfb420ef6c954cfa731b2bd7dd6e0e2545dd0428dc7",
+    "crates/validator/src/standard/orchestration/lifecycle.rs": "567a693c26c6459a3a293367c8d00494ecd46d1410750b465c00b10d91d60340",
+    ".github/scripts/run_aft_m16q_qualification.sh": "5549c46437645873c8f153d678d885b53a098913626f0a6cd43470c376a9417c"
+  },
+  "artifact_sha256": {
+    "claim-discipline.log": "c7f552891909f2d5768ca6d09eaae8bb9f01ad48fc4b1075345274855723528d",
+    "cli-check.log": "8b5536d2d3f4ddeb78e57859f5b8b91eed6eaa2c151599bb2e838bb05e001a96",
+    "consensus-tests.log": "51f640968cbd9ba14ec550522c5950ba96b084deb9406383027f44260b19926c",
+    "diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hygiene-0.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hygiene-1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "hygiene-2.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutation-original.rs": "2f82b8a176dabcc31fc5b657dbc7dc8f6a759d43f177f07d5b69d92a667029a1",
+    "negative-control-result.json": "5a5be0c47613750371e0c6bb99e32e853457ece5a020c09a687e6f3c69908bb0",
+    "removed-comparison-negative-control.log": "75ddac0eddc863add4fb51fdf2927769783e3400e00887a46c66935b2a423ad9",
+    "restored-consensus-tests.log": "666deba48c0eaf6adc4440b14224c99d6667a2d5dd1e84dde041af2ee6351859",
+    "theorem-assumes.log": "2aa93f0d18f78e2313e8887058f4218e61222afa789cf13d0760ca2df5ea27b1",
+    "validator-tests.log": "eed31dff8f4fb3e41220fb3613080c3707803ab2c6cb8fe11d1b658af9b2ce7c"
+  }
+}

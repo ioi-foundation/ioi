@@ -1,0 +1,26 @@
+[
+  {
+    "case": "checker-positive",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 0,
+    "stdout": "{\"negative_cases\": 26, \"overlap\": {\"negative_cases\": 25, \"positive_cases\": 1}, \"positive_cases\": 2}\n",
+    "stderr": "",
+    "source_sha256": "1283eef91ec592f1c50fc0358d9171f3882721a9846258dbb7d13d13ac3f3ee8"
+  },
+  {
+    "case": "checker-negative-missing-admission-guard",
+    "command": [
+      "python3",
+      ".github/scripts/check_aft_m16q_process_evidence.py",
+      "--self-test"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "Traceback (most recent call last):\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 275, in <module>\n    print(json.dumps(self_test(), sort_keys=True))\n                     ^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 264, in self_test\n    \"overlap\": overlap_self_test()}\n               ^^^^^^^^^^^^^^^^^^^\n  File \"/home/heathledger/Documents/ioi/repos/ioi/.github/scripts/check_aft_m16q_process_evidence.py\", line 225, in overlap_self_test\n    raise AssertionError(f\"invalid overlap evidence sample {index} was accepted\")\nAssertionError: invalid overlap evidence sample 16 was accepted\n",
+    "source_sha256": "ee99f0dca0975e172a76524f074a29c0e4d96cb2a5f7c3a92237a96e3d0f5d24"
+  }
+]

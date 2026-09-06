@@ -1,0 +1,21 @@
+{
+  "command": [
+    "bash",
+    ".github/scripts/run_aft_formal_checks.sh",
+    "--quv-readiness-composition-only"
+  ],
+  "cwd": "/home/heathledger/Documents/ioi/repos/ioi",
+  "started_utc": "2026-09-05T10:39:58.773851+00:00",
+  "finished_utc": "2026-09-05T10:40:00.332386+00:00",
+  "exit_code": 0,
+  "sources_sha256": {
+    ".github/scripts/run_aft_formal_checks.sh": "0f087ee4ac29fc20e6a0416d59ad69190b67369f29afa23a608bc7cb2342675d",
+    ".github/scripts/run_aft_m16q_qualification.sh": "9bc642d2656d40933395c6a68885df70b3570aebb5c2abaa3f5778da8c262d32",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessCompositionReachable.cfg": "d4c72db79d96ea33414e7e6b26c6721a83d9930905616c2bf434a99f54999f58",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessCompositionEqual.cfg": "62d3b60539d02d8f65feceb5aa02468041baf63b3c3d90787b4732f7d740a695",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessCompositionImmediatePreparation.cfg": "8aa91e6530ad19b843fb8bef47e5dceba3f34bf3a14e9d59fd9db0d27e2f98c1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessCompositionUnequal.cfg": "feba0bf723bf4842f4a44912fe485501bf789dceffce1150bd795ff4ef06caa6",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvReadinessComposition.tla": "434ede93f7ef2c6ad279f585ea7b3ddbb9932107009efde004c60b62169e7fe2"
+  },
+  "scope": "Two passing bounded schedules and two required witnesses; not runtime refinement, full formal runner or R2"
+}

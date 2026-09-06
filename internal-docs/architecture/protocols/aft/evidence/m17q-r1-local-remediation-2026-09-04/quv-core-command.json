@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "aft::query_unanimity::tests"
+  ],
+  "started_utc": "2026-09-04T22:51:52.387280+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "source_sha256": "7fcb9219c24a31dbbb06b064101f1cca9d8ef104673db47e185102d21589b6eb",
+  "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+  "scope": "local development only; not clean M16Q qualification"
+}

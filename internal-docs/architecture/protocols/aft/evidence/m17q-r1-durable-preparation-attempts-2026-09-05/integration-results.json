@@ -1,0 +1,33 @@
+{
+  "source_sha256": "b1f4405ce53ad3093ca9374111ac31aea434452f5b564af1cb53bfbda0b0998e",
+  "results": [
+    {
+      "name": "runtime-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "standard::orchestration::quv::tests"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "cli-check",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--features",
+        "consensus-aft"
+      ],
+      "exit_code": 0
+    }
+  ]
+}

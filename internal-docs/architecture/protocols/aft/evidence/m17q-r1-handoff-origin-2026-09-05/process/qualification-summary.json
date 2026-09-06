@@ -1,0 +1,36 @@
+{
+  "disposition": "LOCAL_REGRESSION_PASS_NOT_R2_ADMISSION",
+  "results": [
+    {
+      "case": "disjoint-handoff",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T04:11:46.868847+00:00",
+      "changed_sources": [],
+      "checker_exit_code": 0
+    },
+    {
+      "case": "overlap-handoff",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T04:16:15.599637+00:00",
+      "changed_sources": [],
+      "checker_exit_code": 0
+    },
+    {
+      "case": "correct-member-campaign",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T04:20:29.920940+00:00",
+      "changed_sources": [],
+      "checker_exit_code": 0
+    }
+  ],
+  "limitations": [
+    "Dirty worktree; not clean full M16Q R2",
+    "All whole R1 findings remain open",
+    "Previous failed campaigns retained; later passes do not erase failures"
+  ],
+  "artifacts": {
+    "correct-member-campaign/artifact-manifest.json": "d79d6135de5efbf942a5b9f1e1ebd9c5730045a05341778cb2151359a47f0451",
+    "disjoint-handoff/artifact-manifest.json": "d5728ddf67d3aa696f18b983601d3ba36e106f1a36e4cd0f2fcc7f29a74f5d57",
+    "overlap-handoff/artifact-manifest.json": "453ab38f8f07c4ed621debd9871368d4f260af867301e4be1ec04e01268bcf96"
+  }
+}

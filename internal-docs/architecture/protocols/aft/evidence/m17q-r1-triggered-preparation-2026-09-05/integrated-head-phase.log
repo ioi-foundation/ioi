@@ -1,0 +1,2795 @@
+census OK: 54 modules = 41 executed + 13 manifest-marked (manual)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 5 and seed 6617470223128949355 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1325031] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparation.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /tmp/tlc-2231983555735141122/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-2231983555735141122/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-2231983555735141122/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-2231983555735141122/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-2231983555735141122/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-2231983555735141122/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-2231983555735141122/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module QuvHeadInterleaving
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadTriggeredPreparation
+Linting of module QuvHeadPreparation
+Linting of module QuvHeadInterleaving
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadTriggeredPreparation
+Starting... (2026-09-05 00:45:40)
+Warning: The invariant TriggeredPremises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:40.
+Progress(29) at 2026-09-05 00:45:40: 547 states generated, 232 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 232 total distinct states at (2026-09-05 00:45:40)
+Finished checking temporal properties in 00s at 2026-09-05 00:45:40
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 4.0E-15
+547 states generated, 232 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 29.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 3).
+Finished in 00s at (2026-09-05 00:45:40)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 127 and seed 5203285244117256509 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1325190] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadTriggeredPreparation.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /tmp/tlc-16138697522214837601/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-16138697522214837601/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-16138697522214837601/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-16138697522214837601/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-16138697522214837601/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-16138697522214837601/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-16138697522214837601/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module QuvHeadInterleaving
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadTriggeredPreparation
+Linting of module QuvHeadPreparation
+Linting of module QuvHeadInterleaving
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadTriggeredPreparation
+Starting... (2026-09-05 00:45:41)
+Warning: The invariant TriggeredPremises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:41.
+Progress(29) at 2026-09-05 00:45:41: 547 states generated, 232 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 232 total distinct states at (2026-09-05 00:45:41)
+Finished checking temporal properties in 00s at 2026-09-05 00:45:41
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 4.0E-15
+547 states generated, 232 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 29.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 3).
+Finished in 00s at (2026-09-05 00:45:41)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 42 and seed -3839355724470738653 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1325417] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.dAOxUsoB4X/QuvHeadTriggeredPreparation.tla
+Parsing file /tmp/tmp.dAOxUsoB4X/QuvHeadInterleaving.tla
+Parsing file /tmp/tlc-11982537583029816364/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tmp.dAOxUsoB4X/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-11982537583029816364/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-11982537583029816364/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-11982537583029816364/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-11982537583029816364/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-11982537583029816364/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-11982537583029816364/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module QuvHeadInterleaving
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadTriggeredPreparation
+Linting of module QuvHeadPreparation
+Linting of module QuvHeadInterleaving
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadTriggeredPreparation
+Starting... (2026-09-05 00:45:41)
+Warning: The invariant TriggeredPremises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:41.
+Progress(11) at 2026-09-05 00:45:41: 19 states generated, 15 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 15 total distinct states at (2026-09-05 00:45:41)
+Error: Temporal property AllTriggeredHistoriesAdvance was violated.
+
+Error: The following behavior constitutes a counter-example:
+
+State 1: <Initial predicate>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 2: <TriggeredBegin(m1,"A") line 10, col 5 to line 14, col 18 of module QuvHeadTriggeredPreparation>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 3: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 4: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 5: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 6: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 7: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 8: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 9: <TriggeredBegin(m1,"A") line 10, col 5 to line 14, col 18 of module QuvHeadTriggeredPreparation>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 10: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 11: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 12: Stuttering
+Finished checking temporal properties in 00s at 2026-09-05 00:45:41
+19 states generated, 15 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 11.
+Finished in 00s at (2026-09-05 00:45:41)
+Trace exploration spec path: ./QuvHeadTriggeredPreparation_TTrace_1788583541.tla
+expected counterexample observed: QuvHeadTriggeredPreparation.tla: Temporal property AllTriggeredHistoriesAdvance was violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 93 and seed 1781584608774948867 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1325632] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgress.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /tmp/tlc-6338919515431799816/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-6338919515431799816/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-6338919515431799816/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-6338919515431799816/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-6338919515431799816/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-6338919515431799816/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-6338919515431799816/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module QuvHeadInterleaving
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadProgress
+Linting of module QuvHeadPreparation
+Linting of module QuvHeadInterleaving
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadProgress
+Starting... (2026-09-05 00:45:42)
+Warning: The invariant ProgressPremises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:42.
+Progress(29) at 2026-09-05 00:45:42: 877 states generated, 353 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 353 total distinct states at (2026-09-05 00:45:42)
+Finished checking temporal properties in 00s at 2026-09-05 00:45:42
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.0E-14
+877 states generated, 353 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 29.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 2).
+Finished in 00s at (2026-09-05 00:45:42)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 51 and seed -4991218608454545103 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1325834] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgress.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /tmp/tlc-16274997949698015153/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-16274997949698015153/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-16274997949698015153/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-16274997949698015153/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-16274997949698015153/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-16274997949698015153/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-16274997949698015153/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module QuvHeadInterleaving
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadProgress
+Linting of module QuvHeadPreparation
+Linting of module QuvHeadInterleaving
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadProgress
+Starting... (2026-09-05 00:45:42)
+Warning: The invariant ProgressPremises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:42.
+Progress(29) at 2026-09-05 00:45:43: 877 states generated, 353 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 353 total distinct states at (2026-09-05 00:45:43)
+Finished checking temporal properties in 00s at 2026-09-05 00:45:43
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.0E-14
+877 states generated, 353 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 29.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 2).
+Finished in 00s at (2026-09-05 00:45:43)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 40 and seed 2905987056135042943 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1326145] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.J4E9P9HZS3/QuvHeadProgress.tla
+Parsing file /tmp/tmp.J4E9P9HZS3/QuvHeadInterleaving.tla
+Parsing file /tmp/tlc-16313979359933145947/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tmp.J4E9P9HZS3/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-16313979359933145947/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-16313979359933145947/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-16313979359933145947/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-16313979359933145947/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-16313979359933145947/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-16313979359933145947/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module QuvHeadInterleaving
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadProgress
+Linting of module QuvHeadPreparation
+Linting of module QuvHeadInterleaving
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadProgress
+Starting... (2026-09-05 00:45:43)
+Warning: The invariant ProgressPremises is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:43.
+Progress(29) at 2026-09-05 00:45:43: 1,191 states generated, 407 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 407 total distinct states at (2026-09-05 00:45:43)
+Error: Temporal property AllHistoriesAdvance was violated.
+
+Error: The following behavior constitutes a counter-example:
+
+State 1: <Initial predicate>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 2: <BeginPrepared(m1,"A") line 9, col 24 to line 10, col 37 of module QuvHeadProgress>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 3: <BeginPrepared(m2,"A") line 9, col 24 to line 10, col 37 of module QuvHeadProgress>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 4: <Capture(m2,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+
+State 5: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 6: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 7: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 8: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 9: <Observe(m2,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 10: <Observe(m2,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 11: <Decide(m2) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 12: <ConcurrentAdvance(m2) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 13: <BeginPrepared(m2,"A") line 9, col 24 to line 10, col 37 of module QuvHeadProgress>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+
+State 14: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 15: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 16: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 17: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 18: <BeginPrepared(m1,"A") line 9, col 24 to line 10, col 37 of module QuvHeadProgress>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 19: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 20: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 21: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 22: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 23: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 2, value |-> "A", parent |-> "A"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 24: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 25: <Capture(m2,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 26: <Observe(m2,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m2} ] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 27: <Observe(m2,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 28: <Decide(m2) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 2, value |-> "A", parent |-> "A"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+State 29: <BeginPrepared(m2,"A") line 9, col 24 to line 10, col 37 of module QuvHeadProgress>
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+
+Back to state 24: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+
+Finished checking temporal properties in 00s at 2026-09-05 00:45:43
+1191 states generated, 407 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 29.
+Finished in 00s at (2026-09-05 00:45:43)
+Trace exploration spec path: ./QuvHeadProgress_TTrace_1788583543.tla
+expected counterexample observed: QuvHeadProgress.tla: Temporal property AllHistoriesAdvance was violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 29 and seed 3879335925751166191 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1326404] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-4258439925989213366/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4258439925989213366/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4258439925989213366/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4258439925989213366/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4258439925989213366/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4258439925989213366/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-4258439925989213366/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadInterleaving
+Linting of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadInterleaving
+Starting... (2026-09-05 00:45:44)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:44.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.2E-9
+  based on the actual fingerprints:  val = 6.3E-11
+369031 states generated, 75249 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 38.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 2).
+Finished in 02s at (2026-09-05 00:45:46)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 31 and seed 4971020310268112256 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1327230] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-4264353202990909595/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-4264353202990909595/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-4264353202990909595/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-4264353202990909595/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-4264353202990909595/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-4264353202990909595/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-4264353202990909595/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadInterleaving
+Linting of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadInterleaving
+Starting... (2026-09-05 00:45:46)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:46.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.0E-15
+392 states generated, 171 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 23.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 2).
+Finished in 00s at (2026-09-05 00:45:46)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 37 and seed 559014424049041566 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1327446] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.ZQX2VSXNqf/QuvHeadInterleaving.tla
+Parsing file /tmp/tmp.ZQX2VSXNqf/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-2373659495444192246/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-2373659495444192246/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-2373659495444192246/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-2373659495444192246/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-2373659495444192246/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-2373659495444192246/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-2373659495444192246/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadInterleaving
+Linting of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadInterleaving
+Starting... (2026-09-05 00:45:46)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:47.
+Error: Invariant NoCompletedConfiguredHistory is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 2: <Begin(m1,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 3: <Begin(m2,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 4: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 5: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 6: <Capture(m2,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 7: <Observe(m2,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 8: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 9: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 10: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] )
+
+State 11: <Observe(m2,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 12: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 13: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 14: <Begin(m1,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 15: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 16: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 17: <Decide(m2) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 18: <ConcurrentAdvance(m2) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 19: <Begin(m2,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 20: <Capture(m2,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 21: <Observe(m2,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 22: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 23: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 24: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] )
+
+State 25: <Observe(m2,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 26: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 2, value |-> "A", parent |-> "A"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 27: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 28: <Decide(m2) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 2, value |-> "A", parent |-> "A"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 29: <ConcurrentAdvance(m2) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+206307 states generated, 48702 distinct states found, 7679 states left on queue.
+The depth of the complete state graph search is 29.
+Finished in 01s at (2026-09-05 00:45:48)
+Trace exploration spec path: ./QuvHeadInterleaving_TTrace_1788583546.tla
+expected counterexample observed: QuvHeadInterleaving.tla: Invariant NoCompletedConfiguredHistory is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 112 and seed 2461622501345538230 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1327980] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-10320726367044707841/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-10320726367044707841/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-10320726367044707841/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-10320726367044707841/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-10320726367044707841/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-10320726367044707841/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-10320726367044707841/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadInterleaving
+Linting of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadInterleaving
+Starting... (2026-09-05 00:45:48)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:48.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.1E-11
+35207 states generated, 7097 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 19.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 2).
+Finished in 00s at (2026-09-05 00:45:48)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 40 and seed -2458344520945731849 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1328123] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadInterleaving.tla
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-15755551470325195569/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-15755551470325195569/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-15755551470325195569/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-15755551470325195569/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-15755551470325195569/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-15755551470325195569/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-15755551470325195569/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadInterleaving
+Linting of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadInterleaving
+Starting... (2026-09-05 00:45:49)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:49.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.6E-10
+  based on the actual fingerprints:  val = 1.2E-10
+132551 states generated, 27217 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 33.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 2).
+Finished in 01s at (2026-09-05 00:45:50)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 86 and seed 3599985098642123160 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1328524] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.wb1hBTkyIT/QuvHeadInterleaving.tla
+Parsing file /tmp/tmp.wb1hBTkyIT/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-3577494024181816925/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-3577494024181816925/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-3577494024181816925/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-3577494024181816925/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-3577494024181816925/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-3577494024181816925/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-3577494024181816925/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module QuvHeadPreparation
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadInterleaving
+Linting of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadInterleaving
+Starting... (2026-09-05 00:45:50)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:50.
+Error: Invariant NoCompletedConfiguredHistory is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 2: <Begin(m1,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 3: <Begin(m2,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"unseen", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 4: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 5: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 6: <Capture(m2,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 7: <Observe(m2,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"unseen", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 8: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 9: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 10: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] )
+
+State 11: <Observe(m2,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 12: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 13: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 14: <Begin(m1,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "unseen">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 15: <Capture(m1,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 16: <Observe(m1,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 1,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 17: <Decide(m2) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 18: <ConcurrentAdvance(m2) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 19: <Begin(m2,"A") line 18, col 5 to line 26, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 20: <Capture(m2,m1) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 21: <Observe(m2,m1) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "unseen">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 22: <Capture(m1,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 23: <Observe(m1,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "unseen"),
+        received |-> {m1} ] )
+
+State 24: <Capture(m2,m2) line 28, col 5 to line 38, col 38 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1} ] )
+
+State 25: <Observe(m2,m2) line 40, col 5 to line 44, col 55 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 26: <Decide(m1) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 2, value |-> "A", parent |-> "A"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 27: <ConcurrentAdvance(m1) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 2,
+        value |-> "A",
+        parent |-> "A",
+        captured |-> (m1 :> {"A"} @@ m2 :> {"A"}),
+        capturedFirst |-> (m1 :> "A" @@ m2 :> "A"),
+        received |-> {m1, m2} ] )
+
+State 28: <Decide(m2) line 46, col 5 to line 57, col 47 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 2, value |-> "A", parent |-> "A"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+State 29: <ConcurrentAdvance(m2) line 58, col 25 to line 58, col 73 of module QuvHeadInterleaving>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ firstSeen = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+/\ operations = ( m1 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] @@
+  m2 :>
+      [ slot |-> 0,
+        value |-> "A",
+        parent |-> "rooted genesis",
+        captured |-> (m1 :> {} @@ m2 :> {}),
+        capturedFirst |-> (m1 :> "unseen" @@ m2 :> "unseen"),
+        received |-> {} ] )
+
+119827 states generated, 25738 distinct states found, 1399 states left on queue.
+The depth of the complete state graph search is 29.
+Finished in 01s at (2026-09-05 00:45:51)
+Trace exploration spec path: ./QuvHeadInterleaving_TTrace_1788583550.tla
+expected counterexample observed: QuvHeadInterleaving.tla: Invariant NoCompletedConfiguredHistory is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 60 and seed 6921739434278471373 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1328981] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-5927104254475936491/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-5927104254475936491/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-5927104254475936491/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-5927104254475936491/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-5927104254475936491/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-5927104254475936491/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-5927104254475936491/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadPreparation
+Starting... (2026-09-05 00:45:51)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:51.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.3E-13
+5221 states generated, 522 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 12.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 8 and the 95th percentile is 3).
+Finished in 00s at (2026-09-05 00:45:51)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 83 and seed 620421714133485581 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1329184] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-15638745266885915327/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-15638745266885915327/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-15638745266885915327/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-15638745266885915327/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-15638745266885915327/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-15638745266885915327/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-15638745266885915327/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadPreparation
+Starting... (2026-09-05 00:45:52)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:52.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.1E-15
+349 states generated, 70 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 5 and the 95th percentile is 4).
+Finished in 00s at (2026-09-05 00:45:52)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 13 and seed -5739777735529164885 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1329373] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.Z7Cmx0SuAn/QuvHeadPreparation.tla
+Parsing file /tmp/tlc-14708061152593879391/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-14708061152593879391/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-14708061152593879391/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-14708061152593879391/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-14708061152593879391/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-14708061152593879391/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-14708061152593879391/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module QuvHeadPreparation
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module QuvHeadPreparation
+Starting... (2026-09-05 00:45:52)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:52.
+Error: Invariant NoCompletedTwoSlotHistory is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ seen = (m1 :> <<{}, {}>> @@ m2 :> <<{}, {}>>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+
+State 2: <Query(m1,1,"A","rooted genesis") line 26, col 5 to line 35, col 26 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ grants = ( m1 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+
+State 3: <Query(m2,1,"A","rooted genesis") line 26, col 5 to line 35, col 26 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ grants = ( m1 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<>> @@ m2 :> <<>>)
+
+State 4: <Advance(m1) line 38, col 5 to line 44, col 21 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 1, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<>>)
+
+State 5: <Advance(m2) line 38, col 5 to line 44, col 21 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {}>> @@ m2 :> <<{"A"}, {}>>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+
+State 6: <Query(m1,2,"A","A") line 26, col 5 to line 35, col 26 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ grants = ( m1 :> [slot |-> 2, value |-> "A", parent |-> "A"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+
+State 7: <Query(m2,2,"A","A") line 26, col 5 to line 35, col 26 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ grants = ( m1 :> [slot |-> 2, value |-> "A", parent |-> "A"] @@
+  m2 :> [slot |-> 2, value |-> "A", parent |-> "A"] )
+/\ histories = (m1 :> <<"A">> @@ m2 :> <<"A">>)
+
+State 8: <Advance(m1) line 38, col 5 to line 44, col 21 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 2, value |-> "A", parent |-> "A"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A">>)
+
+State 9: <Advance(m2) line 38, col 5 to line 44, col 21 of module QuvHeadPreparation>
+/\ seen = (m1 :> <<{"A"}, {"A"}>> @@ m2 :> <<{"A"}, {"A"}>>)
+/\ grants = ( m1 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] @@
+  m2 :> [slot |-> 0, value |-> "A", parent |-> "rooted genesis"] )
+/\ histories = (m1 :> <<"A", "A">> @@ m2 :> <<"A", "A">>)
+
+1297 states generated, 238 distinct states found, 98 states left on queue.
+The depth of the complete state graph search is 9.
+Finished in 00s at (2026-09-05 00:45:52)
+Trace exploration spec path: ./QuvHeadPreparation_TTrace_1788583552.tla
+expected counterexample observed: QuvHeadPreparation.tla: Invariant NoCompletedTwoSlotHistory is violated
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 83 and seed 6848576267923764393 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1329567] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/heathledger/Documents/ioi/repos/ioi/internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.tla
+Parsing file /tmp/tlc-5463066370837624134/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-5463066370837624134/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-5463066370837624134/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-5463066370837624134/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-5463066370837624134/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-5463066370837624134/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-5463066370837624134/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module OwnedParentReverification
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module OwnedParentReverification
+Starting... (2026-09-05 00:45:53)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:53.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 5.1E-17
+65 states generated, 22 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 4.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 3).
+Finished in 00s at (2026-09-05 00:45:53)
+TLC2 Version 2026.08.11.125311 (rev: 0894c34)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 12 and seed -1277233503178559902 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 1329745] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.AhxHJMSm6v/OwnedParentReverification.tla
+Parsing file /tmp/tlc-12971466969600965783/Naturals.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-12971466969600965783/FiniteSets.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-12971466969600965783/Sequences.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-12971466969600965783/_TLCTrace.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-12971466969600965783/TLC.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-12971466969600965783/TLCExt.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-12971466969600965783/Integers.tla (jar:file:/home/heathledger/Documents/ioi/repos/ioi/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module OwnedParentReverification
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module OwnedParentReverification
+Starting... (2026-09-05 00:45:53)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-09-05 00:45:53.
+Error: Invariant PriorAcceptancePersists is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ results = <<>>
+/\ seen = {}
+
+State 2: <Query("A") line 16, col 13 to line 21, col 54 of module OwnedParentReverification>
+/\ results = <<[candidate |-> "A", accepted |-> TRUE]>>
+/\ seen = {"A"}
+
+State 3: <Introduce("B") line 13, col 17 to line 15, col 36 of module OwnedParentReverification>
+/\ results = <<[candidate |-> "A", accepted |-> TRUE]>>
+/\ seen = {"A", "B"}
+
+State 4: <Query("A") line 16, col 13 to line 21, col 54 of module OwnedParentReverification>
+/\ results = << [candidate |-> "A", accepted |-> TRUE],
+   [candidate |-> "A", accepted |-> FALSE] >>
+/\ seen = {"A", "B"}
+
+33 states generated, 18 distinct states found, 8 states left on queue.
+The depth of the complete state graph search is 4.
+Finished in 00s at (2026-09-05 00:45:53)
+Trace exploration spec path: ./OwnedParentReverification_TTrace_1788583553.tla
+expected counterexample observed: OwnedParentReverification.tla: Invariant PriorAcceptancePersists is violated

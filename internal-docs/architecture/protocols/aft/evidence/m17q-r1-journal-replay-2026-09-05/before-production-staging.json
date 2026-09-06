@@ -1,0 +1,28 @@
+{
+  "sources": [
+    {
+      "path": "crates/consensus/src/aft/query_unanimity.rs",
+      "sha256": "140b445e75cb7e1122d5c7611672c385db14b1a76cf9510273beaf140803c59a"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/head.rs",
+      "sha256": "6782c273c9f80b08dd3e4399090d6338fc4dbde709861f4263346ca5cc1e3fd4"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/member_delta.rs",
+      "sha256": "b185d5d847b817122f9e9710ffd650d791d2c4c84bb8a172aa924873ab76aa1d"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/member_delta_tests.rs",
+      "sha256": "8395c3c8542ab3ea9930dc17436828a118503bffb85b63e289813f5f71226d89"
+    },
+    {
+      "path": "crates/consensus/src/aft/query_unanimity/journal.rs",
+      "sha256": "d7a6813c72e63aa7e1d64af8f11b7afcff06a09d8a082d5e13b6839e18e195a7"
+    }
+  ],
+  "command": "cargo test -p ioi-consensus --features aft --lib journal_replay_tests --no-fail-fast",
+  "exit_code": 0,
+  "passed": 4,
+  "scope": "component replay compared against preceding snapshot implementation, not independent review"
+}

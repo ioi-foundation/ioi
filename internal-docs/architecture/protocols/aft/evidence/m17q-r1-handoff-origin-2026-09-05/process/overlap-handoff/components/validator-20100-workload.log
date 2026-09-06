@@ -1,0 +1,6 @@
+[Storage] Replaying WAL from height > 0
+[Storage] Background persistence thread started
+{"timestamp":"2026-09-05T04:12:33.492214832Z","level":"WARN","fields":{"message":"Genesis timestamp defaulted to zero; set IOI_GENESIS_TIMESTAMP_MS or IOI_GENESIS_TIMESTAMP_SECS for deterministic block-timing tests"},"target":"execution"}
+WORKLOAD_IPC_LISTENING_ON_127.0.0.1:20102
+{"timestamp":"2026-09-05T04:14:49.168652889Z","level":"WARN","fields":{"message":"Rolled back a bounded unrecognized AFT workload branch under exact projection fences","replacement_target_height":1,"retired_live_height":2,"restored_height":0,"restored_root":"baa62231f3f25b4b6739a41f584e2186fdccad0e7ea0805375803be4a60fa2c3"},"target":"execution"}
+{"timestamp":"2026-09-05T04:14:49.247825493Z","level":"WARN","fields":{"message":"Rolled back a bounded unrecognized AFT workload branch under exact projection fences","replacement_target_height":1,"retired_live_height":2,"restored_height":0,"restored_root":"baa62231f3f25b4b6739a41f584e2186fdccad0e7ea0805375803be4a60fa2c3"},"target":"execution"}

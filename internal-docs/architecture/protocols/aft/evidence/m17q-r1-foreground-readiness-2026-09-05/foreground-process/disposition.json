@@ -1,0 +1,12 @@
+{
+  "disposition": "PASS_SCOPED_CAMPAIGN",
+  "process_exit_code": 0,
+  "changed_sources": [],
+  "checker_exit_codes": {
+    "release-observations": 0,
+    "strict-check": 0,
+    "worker-service-check": 0,
+    "reply-boundaries": 0
+  },
+  "scope": "Selected initial-slot foreground assertions and host observations; does not exercise noninitial readiness, full R2, a worst-case bound or whole R1 closure."
+}

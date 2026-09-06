@@ -1,0 +1,17 @@
+{
+  "completed_utc": "2026-09-05T08:18:40.006531+00:00",
+  "disposition": "PROCESS_CAMPAIGN_FAILED_EXPIRED_RESULT_ASSERTION",
+  "process_exit": 101,
+  "conflict_accepts": 0,
+  "conflict_scope": "Two typed rejections establish non-mutation safety only; zero inclusion/effect progress in that domain.",
+  "reported_active_service_overruns": 0,
+  "accepted_worker_completions_by_file": {
+    "validator-20000-orch.log": 3,
+    "validator-20100-orch.log": 4,
+    "validator-20200-orch.log": 4,
+    "validator-20300-orch.log": 4
+  },
+  "expiry_failure": "Combined assertion did not report whether height, portability or receipt equality failed. Public block/status readiness is weaker than effect-endpoint admitted-height metadata. Root cause not yet proven.",
+  "next_step": "Wait specifically for exact readmission height; reject changed or portable receipts at every observation; retain explicit diagnostics.",
+  "r1_closure": false
+}

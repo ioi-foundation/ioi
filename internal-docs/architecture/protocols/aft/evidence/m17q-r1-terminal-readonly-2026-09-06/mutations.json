@@ -1,0 +1,23 @@
+{
+  "results": [
+    {
+      "name": "terminal-reinitialization",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::checked_preparation_refuses_before_storage_and_keeps_terminal_readmission_non_authorizing",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 101,
+      "expected_failure": true,
+      "mutant_sha256": "2555838b66b537150f9112569e868e3117151267d822a31667377628f5c29993"
+    }
+  ],
+  "baseline_sha256": "186b1031695410532706b8d9ca614115e95350849e0922ec34fb8f24a5702ad0",
+  "restored": true
+}

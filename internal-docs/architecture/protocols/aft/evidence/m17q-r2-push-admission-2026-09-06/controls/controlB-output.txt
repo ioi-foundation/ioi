@@ -1,0 +1,12 @@
+test aft::query_unanimity::tests::policy_root_binds_operation_service_and_refuses_invalid_limits ... ok
+test aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds ... FAILED
+test aft::query_unanimity::tests::policy_root_binds_push_admission_and_refuses_invalid_quota ... FAILED
+test aft::query_unanimity::tests::policy_root_binds_preparation_limits_and_rejects_invalid_budgets ... ok
+test aft::query_unanimity::tests::policy_root_binds_bootstrap_kind_slot_and_predecessor ... ok
+thread 'aft::query_unanimity::tests::policy_root_binds_authority_and_complete_timing_bounds' (635520) panicked at crates/consensus/src/aft/query_unanimity.rs:5362:9:
+  left: "62191909f9900ad9a0717f3804c6dcff3e924fdbdfd0f6c8c66cd21f68058aef"
+ right: "ae67b82d343da98afd762f34c1ae28d4b0b265ef885c878e4dc43a136fcaa2ea"
+thread 'aft::query_unanimity::tests::policy_root_binds_push_admission_and_refuses_invalid_quota' (635524) panicked at crates/consensus/src/aft/query_unanimity.rs:5512:9:
+  left: [98, 25, 25, 9, 249, 144, 10, 217, 160, 113, 127, 56, 4, 198, 220, 255, 62, 146, 79, 219, 223, 208, 246, 200, 198, 108, 210, 31, 104, 5, 138, 239]
+ right: [98, 25, 25, 9, 249, 144, 10, 217, 160, 113, 127, 56, 4, 198, 220, 255, 62, 146, 79, 219, 223, 208, 246, 200, 198, 108, 210, 31, 104, 5, 138, 239]
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 311 filtered out; finished in 0.00s

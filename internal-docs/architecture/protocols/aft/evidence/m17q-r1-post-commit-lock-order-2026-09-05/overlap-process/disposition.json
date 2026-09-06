@@ -1,0 +1,10 @@
+{
+  "disposition": "PASS_SCOPED_CAMPAIGN",
+  "process_exit_code": 0,
+  "changed_sources": [],
+  "checker_exit_codes": {
+    "handoff-check": 0,
+    "release-observations": 0
+  },
+  "scope": "Selected handoff/release assertions; not full restart/refinement, worst-case timing, clean R2 or whole R1 closure."
+}

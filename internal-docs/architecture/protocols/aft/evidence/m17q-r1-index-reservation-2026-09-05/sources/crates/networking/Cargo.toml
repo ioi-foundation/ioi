@@ -1,0 +1,40 @@
+# Path: crates/networking/Cargo.toml
+[package]
+name = "ioi-networking"
+version = "0.1.0"
+rust-version = "1.78"
+edition = "2021"
+description = "Block synchronization and networking components for the IOI Kernel"
+license-file = "../../LICENSE-BBSL"
+repository = "https://github.com/ioi-foundation/ioi"
+
+[dependencies]
+ioi-api = { path = "../api" }
+ioi-types = { path = "../types" }
+ioi-consensus = { path = "../consensus" }
+ioi-telemetry = { path = "../telemetry" }
+ioi-tx = { path = "../tx" }
+ioi-state = { path = "../state" }
+ioi-crypto = { path = "../crypto" }
+parity-scale-codec = { workspace = true, features = ["std"] }
+once_cell = { workspace = true }
+log = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_bytes = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+# [FIX] Added 'ping' feature to support connection keep-alive
+libp2p = { workspace = true, features = ["ping"] }
+futures = { workspace = true }
+async-trait = { workspace = true }
+fs2 = { workspace = true }
+libc = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[features]
+default = []

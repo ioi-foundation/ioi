@@ -1,0 +1,40 @@
+Script started on 2026-09-04 18:00:36-04:00 [COMMAND="/usr/bin/time -f "T10_WALL_SECONDS=%e\nT10_MAX_RSS_KB=%M\nT10_EXIT_STATUS=%x" java -cp "$(git rev-parse --show-toplevel)/.internal/formal-cache/tools/tla/tla2tools.jar" tlc2.TLC -cleanup -deadlock -config AtMostOnceExternalization.cfg AtMostOnceExternalization.tla" <not executed on terminal>]
+TLC2 Version 2026.09.04.170753 (rev: b123b22)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 49 and seed -7157633087983757741 with 1 worker on 24 cores with 24000MB heap and 64MB offheap memory [pid: 2390043] (Linux 6.17.9-76061709-generic amd64, Ubuntu 21.0.10 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/ioi-m17q-daybreak.u6nAwg/review-clone/internal-docs/architecture/protocols/aft/formal/consequence/AtMostOnceExternalization.tla
+Parsing file /tmp/tlc-11184894262433334564/Naturals.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-11184894262433334564/TLC.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-11184894262433334564/_TLCTrace.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-11184894262433334564/Sequences.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-11184894262433334564/FiniteSets.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-11184894262433334564/TLCExt.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-11184894262433334564/Integers.tla (jar:file:/tmp/ioi-m17q-daybreak.u6nAwg/review-clone/.internal/formal-cache/tools/tla/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module AtMostOnceExternalization
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module AtMostOnceExternalization
+Starting... (2026-09-04 18:00:37)
+Computing initial states...
+Finished computing initial states: 2 distinct states generated at 2026-09-04 18:00:37.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 5.5E-17
+66 states generated, 42 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 8.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 2).
+Finished in 00s at (2026-09-04 18:00:37)
+T10_WALL_SECONDS=0.88
+T10_MAX_RSS_KB=180424
+T10_EXIT_STATUS=0
+
+Script done on 2026-09-04 18:00:37-04:00 [COMMAND_EXIT_CODE="0"]

@@ -1,0 +1,28 @@
+{
+  "time": "2026-09-06T08:37:42.886324+00:00",
+  "change": "Seven partial formal invocations replaced by one default complete scheduled corpus invocation",
+  "runner_sha256": "c8bf250a869ab04f30461e44dfc8fe982fa66a414c0b7e36c2cc55099a3077da",
+  "checks": [
+    {
+      "name": "qualification-syntax",
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "formal-census",
+      "command": [
+        "bash",
+        ".github/scripts/run_aft_formal_checks.sh",
+        "--census-only"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "full_qualification_run": false,
+  "scope": "Earlier scoped completed.json binds the pre-change runner; production Rust and formal source unchanged. Default corpus includes explicit manual debt outside QUV; those are not certified or promoted by this change.",
+  "overlay_in_source_manifest": true
+}

@@ -1,0 +1,13 @@
+{
+  "releases": 17,
+  "max_release_elapsed_micros": 6080323,
+  "all_service_budgeted": true,
+  "all_service_budget_met": true,
+  "terminal_pressure_receipts": 120,
+  "terminal_pressure_span_millis": 5773,
+  "slot_max_valid_reply_millis": [
+    394,
+    646,
+    495
+  ]
+}

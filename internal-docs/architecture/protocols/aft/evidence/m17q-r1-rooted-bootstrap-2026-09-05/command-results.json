@@ -1,0 +1,60 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-types",
+      "--lib",
+      "quv_policy_requires_exact_authority_and_durable_roots"
+    ],
+    "log": "types-tests.log",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-validator",
+      "--features",
+      "consensus-aft",
+      "--lib",
+      "standard::orchestration::quv::tests"
+    ],
+    "log": "validator-tests.log",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "cargo",
+      "check",
+      "--locked",
+      "-p",
+      "ioi-cli",
+      "--test",
+      "aft_e2e",
+      "--features",
+      "consensus-aft,vm-wasm,state-iavl"
+    ],
+    "log": "cli-check.log",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "ioi-consensus",
+      "--features",
+      "aft",
+      "--lib",
+      "query_unanimity"
+    ],
+    "log": "final-consensus-tests.log",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-consensus",
+    "--features",
+    "aft",
+    "--lib",
+    "query_unanimity"
+  ],
+  "exit_code": 0,
+  "source_sha256": "229ba120df8ad30cb9896933e5c84b4060e50a2044b32f7bd3b4ceb7f306e929",
+  "log_sha256": "ae44818075ad9c767a8f66b61fb9787f3d61865e22b3c943783f332b0e7608d5"
+}

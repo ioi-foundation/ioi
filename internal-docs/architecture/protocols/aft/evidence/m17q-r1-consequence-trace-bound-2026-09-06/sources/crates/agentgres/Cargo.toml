@@ -1,0 +1,39 @@
+[package]
+name = "agentgres"
+version = "0.1.0"
+edition = "2021"
+description = "Agentgres substrate contract v0: deterministic single-writer admission engine (append / validate / advance-head / root / project) with group commit, batch rooting, and O(1) checkpoints. Doctrine: docs/architecture/components/agentgres/doctrine.md (Substrate Contract Doctrine)."
+
+[dependencies]
+base64 = { workspace = true }
+fs2 = { workspace = true }
+hex = { workspace = true }
+ioi-crypto = { path = "../crypto" }
+ioi-api = { path = "../api" }
+ioi-finality = { path = "../ioi-finality" }
+ioi-types = { path = "../types" }
+serde = { version = "1", features = ["derive"] }
+serde_bytes = { workspace = true }
+serde_json = "1"
+serde_jcs = { workspace = true }
+sha2 = "0.10"
+
+[dev-dependencies]
+ioi-types = { path = "../types" }
+tempfile = { workspace = true }
+
+[[bin]]
+name = "substrate-bench"
+path = "src/bin/bench.rs"
+
+[[bin]]
+name = "substrate-shadow"
+path = "src/bin/shadow.rs"
+
+[[bin]]
+name = "substrate-parity"
+path = "src/bin/parity.rs"
+
+[[bin]]
+name = "substrate-replica"
+path = "src/bin/replica.rs"

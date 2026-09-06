@@ -1,0 +1,5 @@
+{
+  "ancestry_before_first_staging_write": true,
+  "removed_root_sync_rejected": true,
+  "scope": "issued syscalls only; filesystem durability remains an assumption"
+}

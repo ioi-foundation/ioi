@@ -1,0 +1,31 @@
+{
+  "scope": "Read-only production head-advance integration audit; no production frontier implemented",
+  "recorded_utc": "2026-09-05T04:30:05.317008+00:00",
+  "source_sha256": {
+    "crates/validator/src/standard/orchestration/quv.rs": "28106cf81f29055ece3c5cfb420ef6c954cfa731b2bd7dd6e0e2545dd0428dc7",
+    "crates/consensus/src/aft/query_unanimity.rs": "2f82b8a176dabcc31fc5b657dbc7dc8f6a759d43f177f07d5b69d92a667029a1",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvHeadProgress.tla": "5a12324cd7a50b6540c270eb9a1880b4f8be29b9a40cd02c14fb1a9f696ca2a1"
+  },
+  "observations": [
+    {
+      "function": "begin_online_authorization",
+      "observation": "Admission rejects while aft_quv_starting or any live operation exists; there is no explicit finishing/frontier-persistence phase."
+    },
+    {
+      "function": "finish_operation",
+      "observation": "Removes the operation under the context lock, then unlocks and sends CompleteQuvOperation before constructing the accepted authorization. It sends the result over a oneshot and ignores receiver disappearance."
+    },
+    {
+      "function": "QuvOnlineAuthorizationV0",
+      "observation": "Non-Clone, non-serializable local authorization exposes candidate/slot/payload/nonce; expiry and audit are private to the consensus module. No durable frontier transition consumes or borrows this grant."
+    }
+  ],
+  "implementation_consequences": [
+    "Adding frontier advancement only in the receiver would lose the grant if the receiver disappears; this cannot implement the model assumption that a completed grant is preserved until Advance.",
+    "A future durable advance must reserve the local finishing phase until it has committed or entered authenticated-reopen-required state. Removing the operation from the map alone currently allows Begin to admit another operation.",
+    "The own-live-authorization check, expiry check and expected-old-frontier compare must be adjacent to the durable write, before exposing the advanced head or forwarding the effect grant.",
+    "Remote candidates and completion audits remain data, never transferable frontier authority.",
+    "Each correct member still needs its own parent-preparation operation; adding only the local transition does not make the next slot admissible at the other members."
+  ],
+  "disposition": "R1_001_005_009_OPEN; scheduling and grant-preservation integration required, not a new lower bound"
+}

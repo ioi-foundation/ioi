@@ -1,0 +1,17 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-networking",
+    "--lib"
+  ],
+  "started_utc": "2026-09-05T01:23:22.662552+00:00",
+  "finished_utc": "2026-09-05T01:23:37.612811+00:00",
+  "exit_code": 0,
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "source_sha256": "36c60081c0b4ae74ca6a954fc02c1a2d4af19a5ba532078441ecebed4d45f467",
+  "log_sha256": "1c300797ad69f20d0b779d863557ae7149eb427a7fa00bd27bbb8cdc0b427970"
+}

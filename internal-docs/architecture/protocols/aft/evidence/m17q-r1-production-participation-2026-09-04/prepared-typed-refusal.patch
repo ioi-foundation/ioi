@@ -1,0 +1,199 @@
+--- a/crates/validator/src/standard/orchestration/quv.rs
++++ b/crates/validator/src/standard/orchestration/quv.rs
+@@ -51,7 +51,7 @@
+ 
+ pub(super) struct PendingQuvOperationV0 {
+     operation: QuvOnlineOperationV0,
+-    completion: oneshot::Sender<std::result::Result<QuvOnlineAuthorizationV0, String>>,
++    completion: oneshot::Sender<std::result::Result<QuvOnlineAuthorizationV0, anyhow::Error>>,
+ }
+ 
+ struct RuntimeQuvSignerV0 {
+@@ -630,8 +630,7 @@
+     let authorization = begin_online_authorization(context_arc, request)
+         .await?
+         .await
+-        .map_err(|_| anyhow!("QUV handoff operation completion was dropped"))?
+-        .map_err(anyhow::Error::msg)?;
++        .map_err(|_| anyhow!("QUV handoff operation completion was dropped"))??;
+     let handoff = envelope.handoff;
+     let store = store.lock_owned().await;
+     tokio::task::spawn_blocking(move || {
+@@ -1575,7 +1574,7 @@
+ pub(crate) async fn begin_online_authorization<CS, ST, CE, V>(
+     context_arc: &Arc<Mutex<MainLoopContext<CS, ST, CE, V>>>,
+     request: QuvPushQueryV0,
+-) -> Result<oneshot::Receiver<std::result::Result<QuvOnlineAuthorizationV0, String>>>
++) -> Result<oneshot::Receiver<std::result::Result<QuvOnlineAuthorizationV0, anyhow::Error>>>
+ where
+     CS: CommitmentScheme + Clone + Send + Sync + 'static,
+     ST: StateManager<Commitment = CS::Commitment, Proof = CS::Proof>
+@@ -1809,7 +1808,7 @@
+         tracing::error!(target: "quv", %error, "QUV completion exceeded its reserved command-lane capacity");
+     }
+     if let Some(pending) = pending {
+-        let _ = pending.completion.send(Err(error));
++        let _ = pending.completion.send(Err(anyhow!(error)));
+     }
+ }
+ 
+@@ -1869,15 +1868,15 @@
+         completion,
+     } = pending;
+     let Some((set, keys)) = rooted else {
+-        let _ = completion.send(Err("QUV rooted membership disappeared".into()));
++        let _ = completion.send(Err(anyhow!("QUV rooted membership disappeared")));
+         return;
+     };
+     let Some(policy) = policy else {
+-        let _ = completion.send(Err("QUV provisioned policy disappeared".into()));
++        let _ = completion.send(Err(anyhow!("QUV provisioned policy disappeared")));
+         return;
+     };
+     let outcome = provisioned_policy_root(&policy)
+-        .map_err(|error| error.to_string())
++        .map_err(anyhow::Error::new)
+         .and_then(|policy_root| {
+             RootedQuvCandidateValidatorV0::new(
+                 &set,
+@@ -1887,13 +1886,13 @@
+                 policy_root,
+                 policy.owner,
+             )
+-            .map_err(|error| error.to_string())
++            .map_err(anyhow::Error::new)
+         })
+         .and_then(|candidate_validator| {
+             let reply_verifier = RootedQuvReplyVerifierV0::new(&candidate_validator);
+             operation
+                 .finish(&candidate_validator, &reply_verifier)
+-                .map_err(|error| error.to_string())
++                .map_err(anyhow::Error::new)
+         });
+     let _ = completion.send(outcome);
+ }
+--- a/crates/validator/src/standard/orchestration/mod.rs
++++ b/crates/validator/src/standard/orchestration/mod.rs
+@@ -461,8 +461,7 @@
+         .await?;
+         let authorization = receiver
+             .await
+-            .map_err(|_| anyhow!("QUV online operation terminated without a decision"))?
+-            .map_err(anyhow::Error::msg)?;
++            .map_err(|_| anyhow!("QUV online operation terminated without a decision"))??;
+         // Re-derive from committed admission after the network wait, and keep
+         // that admission/height stable through the synchronous claim/call.
+         let finality = runtime_finality.lock().await;
+--- a/crates/validator/src/standard/orchestration/grpc_public.rs
++++ b/crates/validator/src/standard/orchestration/grpc_public.rs
+@@ -23,6 +23,26 @@
+ use tokio::sync::{mpsc, Mutex};
+ use tokio_stream::wrappers::ReceiverStream;
+ use tonic::{Request, Response, Status};
++
++// A conflict diagnosis is attached only to the verifier's typed refusal.
++// This metadata is not an authorization or transferable conflict proof.
++#[cfg(feature = "consensus-aft")]
++fn quv_operation_failure_status(error: anyhow::Error) -> Status {
++    use ioi_consensus::aft::query_unanimity::QuvError;
++    if matches!(
++        error.downcast_ref::<QuvError>(),
++        Some(QuvError::ConflictDisclosed)
++    ) {
++        let mut status = Status::aborted(error.to_string());
++        status.metadata_mut().insert(
++            "ioi-quv-refusal",
++            tonic::metadata::MetadataValue::from_static("conflict-disclosed-v0"),
++        );
++        status
++    } else {
++        Status::failed_precondition(error.to_string())
++    }
++}
+ 
+ use crate::metrics::rpc_metrics as metrics;
+ use ioi_api::chain::WorkloadClientApi;
+@@ -207,7 +227,7 @@
+         let authorization = receiver
+             .await
+             .map_err(|_| Status::unavailable("QUV operation ended without a decision"))?
+-            .map_err(Status::failed_precondition)?;
++            .map_err(quv_operation_failure_status)?;
+         // Keep committed admission and height stable through the synchronous
+         // claim/call boundary. The online wait may have outlived the admission
+         // snapshot used to start the operation.
+@@ -366,3 +386,30 @@
+         self.handle_execute_aft_quv_effect(request).await
+     }
+ }
++
++#[cfg(all(test, feature = "consensus-aft"))]
++mod quv_refusal_status_tests {
++    use super::quv_operation_failure_status;
++    use ioi_consensus::aft::query_unanimity::QuvError;
++
++    #[test]
++    fn conflict_status_preserves_type_and_never_classifies_message_text() {
++        let typed =
++            anyhow::Error::new(QuvError::ConflictDisclosed).context("online verifier finished");
++        let status = quv_operation_failure_status(typed);
++        assert_eq!(status.code(), tonic::Code::Aborted);
++        assert_eq!(
++            status.metadata().get("ioi-quv-refusal").unwrap(),
++            "conflict-disclosed-v0"
++        );
++        for error in [
++            anyhow::anyhow!("a valid conflict was disclosed"),
++            anyhow::Error::new(QuvError::NoValidReplies),
++            anyhow::Error::new(QuvError::Io("a valid conflict was disclosed".into())),
++        ] {
++            let status = quv_operation_failure_status(error);
++            assert_eq!(status.code(), tonic::Code::FailedPrecondition);
++            assert!(status.metadata().get("ioi-quv-refusal").is_none());
++        }
++    }
++}
+--- a/crates/cli/tests/aft_e2e.rs
++++ b/crates/cli/tests/aft_e2e.rs
+@@ -276,7 +276,13 @@
+ 
+ fn require_quv_conflict_rejection(error: &anyhow::Error) -> Result<()> {
+     let rendered = format!("{error:#}");
+-    if rendered.contains("a valid conflict was disclosed") {
++    if error.downcast_ref::<tonic::Status>().is_some_and(|status| {
++        status.code() == tonic::Code::Aborted
++            && status
++                .metadata()
++                .get("ioi-quv-refusal")
++                .is_some_and(|value| value == "conflict-disclosed-v0")
++    }) {
+         Ok(())
+     } else {
+         Err(anyhow::anyhow!(
+@@ -2566,3 +2572,26 @@
+     }
+     Ok(())
+ }
++
++#[test]
++fn quv_conflict_assertion_requires_structured_refusal() {
++    fn marked(code: tonic::Code, marker: &'static str) -> tonic::Status {
++        let mut status = tonic::Status::new(code, "diagnostic text may change");
++        status.metadata_mut().insert(
++            "ioi-quv-refusal",
++            tonic::metadata::MetadataValue::from_static(marker),
++        );
++        status
++    }
++    let typed = anyhow::Error::new(marked(tonic::Code::Aborted, "conflict-disclosed-v0"))
++        .context("executor request");
++    require_quv_conflict_rejection(&typed).unwrap();
++    for error in [
++        anyhow::anyhow!("a valid conflict was disclosed"),
++        anyhow::Error::new(tonic::Status::aborted("a valid conflict was disclosed")),
++        anyhow::Error::new(marked(tonic::Code::Unavailable, "conflict-disclosed-v0")),
++        anyhow::Error::new(marked(tonic::Code::Aborted, "unknown-refusal")),
++    ] {
++        assert!(require_quv_conflict_rejection(&error).is_err());
++    }
++}

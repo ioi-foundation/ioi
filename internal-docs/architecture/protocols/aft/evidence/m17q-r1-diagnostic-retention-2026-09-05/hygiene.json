@@ -1,0 +1,56 @@
+{
+  "recorded_utc": "2026-09-05T00:38:09.039380+00:00",
+  "sources": {
+    "crates/cli/src/testing/backend.rs": "064e3977bf70941aa6461c577545d8ee6fb2dbdb2f431573297759cffd8b55e6",
+    "crates/cli/src/testing/validator.rs": "668b211aa31ad6df952ada475e2397f62733a633ae175d2ea22be5adeba3e622",
+    ".github/scripts/run_aft_m16q_qualification.sh": "dffa34eea69abc0cc8ea81201e39643d392ea940a4f87749b03f0c0f028706a0"
+  },
+  "checks": [
+    {
+      "command": [
+        "rustfmt",
+        "--edition",
+        "2021",
+        "--check",
+        "crates/cli/src/testing/backend.rs",
+        "crates/cli/src/testing/validator.rs"
+      ],
+      "exit_code": 0,
+      "log": "hygiene-0.log"
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0,
+      "log": "hygiene-1.log"
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_claim_discipline.sh"
+      ],
+      "exit_code": 0,
+      "log": "hygiene-2.log"
+    },
+    {
+      "command": [
+        "bash",
+        ".github/scripts/check_aft_theorem_assumes.sh"
+      ],
+      "exit_code": 0,
+      "log": "hygiene-3.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "hygiene-4.log"
+    }
+  ]
+}

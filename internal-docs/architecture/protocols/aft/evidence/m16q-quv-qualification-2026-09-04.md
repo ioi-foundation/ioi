@@ -2,6 +2,12 @@
 
 Status: `PASS`
 
+Current gate disposition: **REOPENED after M17Q R1 `REPAIR_REQUIRED`**.
+The PASS below records the historical commands on the exact subject; it is
+not admission evidence for the current implementation or for coverage absent
+from that runner. See `m17q-r1-import-2026-09-04/README.md`. All R1 repairs
+require clean full R2 qualification and fresh independent review.
+
 ## Exact subject
 
 - Code commit: `ab8d2e58103a2eef3e39c1c6042ffefd7d3c86f4`

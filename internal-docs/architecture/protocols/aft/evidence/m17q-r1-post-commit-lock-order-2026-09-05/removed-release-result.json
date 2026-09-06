@@ -1,0 +1,18 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-validator",
+    "--features",
+    "consensus-aft",
+    "--lib",
+    "standard::orchestration::finalize::tests::finalization_releases_node_state_before_waiting_for_context",
+    "--",
+    "--exact"
+  ],
+  "exit_code": 101,
+  "mutation": "Keep node-state lock across finalization continuation, matching prior scope",
+  "mutant_sha256": "b7484f7cf88a548bc57653084bca4a6d0ee86c7284f0737a7597707d48e6a277"
+}

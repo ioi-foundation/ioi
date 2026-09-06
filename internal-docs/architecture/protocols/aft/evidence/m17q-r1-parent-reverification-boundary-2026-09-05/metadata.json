@@ -1,0 +1,28 @@
+{
+  "status": "LOCAL_SCOPED_PASS_NOT_R2_ADMISSION",
+  "utc": "2026-09-05T02:45:43.215692+00:00",
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "command": "bash .github/scripts/run_aft_formal_checks.sh --quv-parent-boundary-only",
+  "positive": {
+    "generated": 65,
+    "distinct": 22,
+    "depth": 4
+  },
+  "expected_negative": "Invariant PriorAcceptancePersists is violated",
+  "scope": "sequential atomic completed live queries; one durable correct witness; silent Byzantine peers; two valid owner values; no production refinement or interactive impossibility claim",
+  "sources": {
+    ".github/scripts/run_aft_formal_checks.sh": "a06b0170ef126c0c826e92eb4ea4c6dacc239dc106f8ec956fa3af70f0a361fa",
+    ".github/scripts/run_aft_m16q_qualification.sh": "3067f2483aa656e7e91446310f54e902825164b90f830f334de8c5462e7db428",
+    ".internal/formal-cache/tools/tla/tla2tools.jar": "ab323b79802aedc3203b3f9af37c6aca3ed43f4e0225b36f2aa77b26de46c05f",
+    "internal-docs/architecture/protocols/aft/IMPLEMENTATION_LEDGER.md": "30c53305cd99a49ee3bcb412051d6baa75dd758b1bac4ddb3018c693c783692c",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.cfg": "5852eafac46a796f718379b98196711b23facffa5fbd039e6bee72014c9698ea",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverification.tla": "1b04deefc971b81804e6a864b564add1ad4028228b3fd2f463035e6a8652af3e",
+    "internal-docs/architecture/protocols/aft/formal/maximal_visibility/OwnedParentReverificationPersistence.cfg": "b978302ef8c7761b876d694fab651bb9b3da7f019c392bbf2e42ae9abe8a7af7",
+    "internal-docs/architecture/protocols/aft/specs/p4_claim_adjudication.md": "450f513df0d26ab04ce1f41c110aecf1c1a1373d3fd887d5f2fbccc5d408fb5c",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_end_to_end_theorems.md": "7ee65a692f0a09c164b2a5fafaed470c668a44acd3c05ccae8685b184711eecf",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_fault_property_matrix.md": "e63acd1c7e2bc2c8955b6e621f79cde9cbd6d9fff0c44822c971c6d822615242",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_head_state_design.md": "8cda05a08656c61bd97cb6241485a7976c29da5b5008714c8a10e2510dd4c409",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_theorems.md": "f03071cfe2e387ad6175183b9a27073ec2da7149c1275714771c5c98407b506e",
+    "internal-docs/architecture/protocols/aft/specs/query_unanimity_verification.md": "aa17d2896230da480505a3f2a19a881f4353f8c0bfcac8c83789ed14fc22f686"
+  }
+}

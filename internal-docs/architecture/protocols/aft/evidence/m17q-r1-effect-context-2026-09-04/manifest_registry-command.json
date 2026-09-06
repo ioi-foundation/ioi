@@ -1,0 +1,13 @@
+{
+  "name": "manifest_registry",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "ioi-services",
+    "--lib",
+    "aft_effect_registry"
+  ],
+  "started_utc": "2026-09-04T23:36:08.188497+00:00"
+}

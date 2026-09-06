@@ -1,0 +1,8 @@
+
+running 1 test
+AFT_RECEIPT_LIVE_BEGIN
+AFT_RECEIPT_LIVE_END
+test consequence::tests::online_receipt_bound_covers_named_resource_execution_and_complete_budget ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 119 filtered out; finished in 2.51s
+

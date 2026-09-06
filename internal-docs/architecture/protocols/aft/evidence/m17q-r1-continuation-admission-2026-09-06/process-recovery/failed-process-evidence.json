@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".github/scripts/check_aft_m16q_process_evidence.py",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-continuation-admission-2026-09-06/process-recovery/process.log",
+    "--components",
+    "internal-docs/architecture/protocols/aft/evidence/m17q-r1-continuation-admission-2026-09-06/process-recovery/components"
+  ],
+  "exit_code": 1,
+  "checker_sha256": "b02e5a204195cb3cfe623af748d4e4409164f89825c094d0889cd8131cc0d3e8",
+  "disposition": "mandatory evidence checker rejects the incomplete failed process run"
+}

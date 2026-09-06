@@ -1,0 +1,39 @@
+{
+  "scope": "checker regression using previously recorded nonce selection, not a new receipt-bound production run; historical logs unchanged",
+  "checker_sha256": "410ac3e11c38ae32acf732fc41914d01c70f1ca76c0b85da4f271d4a4e9cf820",
+  "results": [
+    {
+      "fixture": "internal-docs/architecture/protocols/aft/evidence/m17q-r1-diagnostic-retention-2026-09-05/operation-capture",
+      "nonce_selection_sha256": "b343a88f80522ac0b72f332047385790b417cb149ac1199556f3ba2b1cc11119",
+      "expected_acceptance": false,
+      "accepted": false,
+      "outcome": {
+        "error": "four-way verifier overlap was not observed"
+      }
+    },
+    {
+      "fixture": "internal-docs/architecture/protocols/aft/evidence/m17q-r1-diagnostic-retention-2026-09-05/prepared-rpc-capture",
+      "nonce_selection_sha256": "e92576ca046e5601a25baedcb385d3a9560964350a457bd1e74a564dcdd4bff5",
+      "expected_acceptance": true,
+      "accepted": true,
+      "outcome": {
+        "scope": "same-host wall-clock workload observation, not protocol deadline proof",
+        "verifier_nonces": [
+          "1dbde0e83b144c8c89d3b3c35edf99565163da940e3de1ecd3e0f28ab909fa94",
+          "93853fc4844e2dd856d8215ad46d5aaa6f05456bdb807bf924e4f2e54fc0fc3e",
+          "a2cdf6618d1c8ff086b5ef62cf18844c25187942ce6acd1f19b2cb0c0563048f",
+          "a2b1d71500bb6e532b1330576d1665cceb1298f94ba99a05649acd28e5b5b202"
+        ],
+        "component_sha256": {
+          "validator-20000-orch.log": "c80920667b2305b1597b76ed6047a85477c319160b82733edd205190ff75b271",
+          "validator-20100-orch.log": "059f1e86ad246567ad7f0ec999e24c480b5920482059e6ce083b92e6eebb8733",
+          "validator-20200-orch.log": "d86d8a8e94aec5dba28d43d6416a6516c8b4fe6466c03d1f0a717777e892fb4d",
+          "validator-20300-orch.log": "e9a7132eac913081408912ed5c3c2394c737598f5b18541ef33eb16758cbefbc"
+        },
+        "four_way_overlap_observed": true,
+        "start_span_millis": 739.821,
+        "common_overlap_millis": 4358.785
+      }
+    }
+  ]
+}

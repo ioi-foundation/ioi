@@ -1,0 +1,41 @@
+{
+  "cases": [
+    {
+      "case": "live",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "152bcc5cde7f205d035722e2158bc6855171cbe391350c6bcc6ac9489341a178",
+      "mutant_sha256": "a442f3221c7196da6a54ade8b2625a3a0a50d2addc5b6f34908ff4fd63ae8b34",
+      "exit_code": 101,
+      "assertion_failure": true
+    },
+    {
+      "case": "recovery",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "agentgres",
+        "--lib",
+        "consequence::tests::receipt_trace_bound_refuses_extra_ambiguity_without_mutating_state",
+        "--",
+        "--exact"
+      ],
+      "baseline_sha256": "152bcc5cde7f205d035722e2158bc6855171cbe391350c6bcc6ac9489341a178",
+      "mutant_sha256": "d033f026fa46b833fdc7019e2b3b414eddb11f4c4dc6b17aa71675b2aa3088ed",
+      "exit_code": 101,
+      "assertion_failure": true
+    }
+  ],
+  "restored": true
+}

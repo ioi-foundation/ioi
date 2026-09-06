@@ -1,0 +1,17 @@
+{
+  "scope": "selected dirty-worktree sources; not clean R2",
+  "checks": [
+    {
+      "command": "cargo test --locked -p ioi-networking --lib pq_channel",
+      "exit_code": 0,
+      "passed": 23,
+      "note": "Production source complete; allocation-probe assertions subsequently strengthened."
+    },
+    {
+      "command": "cargo test --locked -p ioi-networking --lib entry_budget_rejects_declared_vector_before_reading_body",
+      "exit_code": 0,
+      "passed": 1,
+      "note": "Final allocation probe and removed-rule control."
+    }
+  ]
+}

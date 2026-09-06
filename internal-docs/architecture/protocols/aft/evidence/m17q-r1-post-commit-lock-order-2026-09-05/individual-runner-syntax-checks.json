@@ -1,0 +1,23 @@
+{
+  "reason": "Each script must be the script argument to bash -n; the earlier two-path invocation only parsed the first file.",
+  "checks": [
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_formal_checks.sh"
+      ],
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "command": [
+        "bash",
+        "-n",
+        ".github/scripts/run_aft_m16q_qualification.sh"
+      ],
+      "exit_code": 0,
+      "output": ""
+    }
+  ]
+}

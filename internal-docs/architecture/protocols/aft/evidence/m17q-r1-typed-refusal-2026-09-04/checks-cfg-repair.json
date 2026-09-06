@@ -1,0 +1,66 @@
+{
+  "base_commit": "24a9888e3b88383c18dfbfea0f2e7fa44b99fa64",
+  "tree_dirty": true,
+  "sources": {
+    "crates/validator/src/standard/orchestration/quv.rs": "fd29f70ac5e7e26780634ab2c0a646e35993e8aa05a8c61f29eef45738c6f75a",
+    "crates/validator/src/standard/orchestration/mod.rs": "12b3160ea896d88525b9ae37bac089f01738d6ef722e09521f3c0f36a924192b",
+    "crates/validator/src/standard/orchestration/grpc_public.rs": "115c9686ff2fdbe1f32748e35c3b6960a6576b59b66ec135c7cd3843704fdffe",
+    "crates/cli/tests/aft_e2e.rs": "4021ae86a10b66f1538e4bce5bf57255a7c9eb96cee17c68bd15e3b48cbff433",
+    "Cargo.lock": "4c1fd4d3f6949ef79d973192bcd1e6965c01ee6bc4177c31527b4ed56f14572a"
+  },
+  "checks": [
+    {
+      "phase": "default_validator_cfg_repair",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "-p",
+        "ioi-validator"
+      ],
+      "started_utc": "2026-09-05T00:14:23.895047+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T00:14:29.094958+00:00",
+      "log_sha256": "fdd05ee59baf491583830257cc6e69978c43220cb675b5d3cbbcf4ed2b35e5b0"
+    },
+    {
+      "phase": "server_mapping_cfg_repair",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-validator",
+        "--features",
+        "consensus-aft",
+        "--lib",
+        "conflict_status_preserves_type_and_never_classifies_message_text"
+      ],
+      "started_utc": "2026-09-05T00:14:29.095383+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T00:14:34.932005+00:00",
+      "log_sha256": "1245dbbebb8e2c227f4c1df4443e621af2c39620a5b94687ef91e70df8d13f41"
+    },
+    {
+      "phase": "client_assertion_cfg_repair",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "ioi-cli",
+        "--test",
+        "aft_e2e",
+        "--features",
+        "consensus-aft,vm-wasm,state-iavl",
+        "quv_conflict_assertion_requires_structured_refusal",
+        "--",
+        "--exact"
+      ],
+      "started_utc": "2026-09-05T00:14:34.932309+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-09-05T00:14:44.374772+00:00",
+      "log_sha256": "6f7cbfeb9aed74ca6a92948b8170e29698d9de77e691af6771df819546953d74"
+    }
+  ]
+}
