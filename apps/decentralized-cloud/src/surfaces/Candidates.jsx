@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { intentRef, keptState } from "../logic/read.mjs";
 import { classify, stamp } from "../logic/classify.mjs";
@@ -49,13 +49,39 @@ export default function Candidates({ announce }) {
   // ascending, so the first item seen for a venue IS its cheapest and the groups fall
   // into cheapest-first order by the order venues first appear — one sort, no second
   // derivation of "cheapest".
+  // RESOURCE-TABLE CONTROLS. A venue filter (pressed buttons carrying the daemon's
+  // venue names and their live counts) and a sort that a reader can flip from the
+  // price and good-for headers. Cheapest first is the default and the only order the
+  // headline's "cheapest" is checked against; sorting by good-for puts the quote
+  // with the most window left first. Groups stay grouped by venue in either order,
+  // ordered by their own first row, so the shape the readers asked for survives.
+  const [venueFilter, setVenueFilter] = useState("all");
+  const [sort, setSort] = useState({ key: "price", dir: "asc" });
+  const venueCounts = venues.map((v) => ({ venue: v, n: live.filter((c) => c.provider_kind === v).length }));
+  const filtered = venueFilter === "all" ? live : live.filter((c) => c.provider_kind === venueFilter);
+  const keyOf = (c) => (sort.key === "price" ? c.quote.usd_per_hour : Date.parse(c.expires_at || "") || 0);
+  const sorted = [...filtered].sort((a, b) => (sort.dir === "asc" ? keyOf(a) - keyOf(b) : keyOf(b) - keyOf(a)));
   const groups = [];
-  for (const c of live) {
+  for (const c of sorted) {
     const v = c.provider_kind || "—";
     let g = groups.find((x) => x.venue === v);
     if (!g) { g = { venue: v, items: [] }; groups.push(g); }
     g.items.push(c);
   }
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "price" ? "asc" : "desc" }));
+  const sortTh = (key, label, note) => (
+    <th scope="col" aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className="sort-btn" onClick={() => toggleSort(key)}>
+        {label}
+        <span className="sort-mark" aria-hidden="true">{sort.key === key ? (sort.dir === "asc" ? "↑" : "↓") : "↕"}</span>
+      </button>
+      {note && <span className="meta"> · {note}</span>}
+    </th>
+  );
+  const orderWord = sort.key === "price"
+    ? (sort.dir === "asc" ? "cheapest first" : "dearest first")
+    : (sort.dir === "desc" ? "longest window first" : "soonest to expire first");
 
   useEffect(() => {
     if (state.phase === "first") return;
@@ -102,17 +128,17 @@ export default function Candidates({ announce }) {
           same thing" — reader on the direction canvases). */}
       <table className="table t-quotes">
         <caption className="sr-only">
-          Live quotes for this intent, from the most recent sweep, grouped by venue, cheapest first within each
+          Live quotes for this intent, from the most recent sweep, grouped by venue, {orderWord} within each
         </caption>
         <thead>
           <tr>
             {/* The order is STATED where the reader is looking, rather than left to be
                 inferred from the numbers. A sorted table that does not say it is
                 sorted asks every reader to verify it by eye. */}
-            <th scope="col">USD / hour <span className="meta">· cheapest first</span></th>
+            {sortTh("price", "USD / hour", sort.key === "price" ? orderWord : null)}
             <th scope="col">Offer</th>
             <th scope="col">Basis</th>
-            <th scope="col">Good for</th>
+            {sortTh("expires", "Good for", sort.key === "expires" ? orderWord : null)}
           </tr>
         </thead>
         {groups.map((g) => (
@@ -121,7 +147,7 @@ export default function Candidates({ announce }) {
               <th scope="rowgroup" colSpan={4}>
                 <span className="tgroup-venue">{g.venue}</span>
                 <span className="tgroup-count">{g.items.length} live</span>
-                <span className="tgroup-cheapest mono">cheapest {price(g.items[0].quote.usd_per_hour)}/hr</span>
+                <span className="tgroup-cheapest mono">cheapest {price(Math.min(...g.items.map((c) => c.quote.usd_per_hour)))}/hr</span>
                 <Chip kind="live">live_evidence</Chip>
               </th>
             </tr>
@@ -189,6 +215,25 @@ export default function Candidates({ announce }) {
         <p className="prose">{verdict.body}</p>
       </div>
 
+      {live.length > 0 && venues.length > 1 && (
+        <div className="filter-row" role="group" aria-label="Filter by venue">
+          <button type="button" className={`filter-btn${venueFilter === "all" ? " is-on" : ""}`}
+            aria-pressed={venueFilter === "all"} onClick={() => setVenueFilter("all")}>
+            all venues <span className="meta">{live.length}</span>
+          </button>
+          {venueCounts.map(({ venue, n }) => (
+            <button key={venue} type="button" className={`filter-btn mono${venueFilter === venue ? " is-on" : ""}`}
+              aria-pressed={venueFilter === venue} onClick={() => setVenueFilter(venueFilter === venue ? "all" : venue)}>
+              {venue} <span className="meta">{n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {live.length > 0 && (
+        <p className="meta" aria-live="polite">
+          {venueFilter === "all" ? `all ${live.length} live quotes` : `${sorted.length} of ${live.length} live quotes — ${venueFilter}`} · {orderWord}
+        </p>
+      )}
       {live.length > 0 && table}
 
       {live.length === 0 && (

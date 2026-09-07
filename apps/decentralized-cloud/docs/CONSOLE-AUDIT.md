@@ -291,6 +291,26 @@ says "asking the daemon" until it does.
 |---|---|---|
 | All resources (catalogue) + anchors | 7 9 7 8 6 7 7 7 → 8 9 7 8 6 7 7 7 | `009-anchors/catalog-compute-1440.png`, `-390.png` |
 
+## Iteration 010 — Candidates: venue filter and sortable price / good-for (2026-09-07)
+
+**Should look and feel like:** the price table with a console's controls — a venue
+filter row carrying each venue's live count, the price and good-for headers
+sortable — while the venue grouping the readers asked for stays, and cheapest first
+stays the default so the headline still equals row one. **Route:** candidates
+latest, unchanged.
+
+Captures: `.artifacts/console/010-candidates/` (6). Before: `001-shell/candidates-1440.png`.
+
+What the captures show and the browser measured (1440): filter row "all venues 42 ·
+runpod 18 · vast 24"; pressing vast narrows 42 → 24 rows in one group; the price
+header flips to descending and the first row becomes $7.8900 from $0.0222, with the
+live line reading "all 42 live quotes · dearest first"; `aria-sort` follows. The
+grouped shape, per-venue cheapest and freshness bars are unchanged.
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| Candidates | 4 9 7 8 7 8 7 7 → 6 9 7 8 8 8 8 7 | `010-candidates/candidates-1440.png`, `-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
@@ -299,7 +319,7 @@ says "asking the daemon" until it does.
 4. ~~Sources & health as a health panel~~ — landed in iteration 006.
 5. ~~Jobs list as a resource table~~ — landed in iteration 007 (sort, filter, sticky head at ≥1300).
 6. ~~Catalogue anchors~~ — landed in iteration 009.
-7. **Candidates**: sort and filter controls, sticky header.
+7. ~~Candidates: sort and filter controls~~ — landed in iteration 010 (no sticky head: the grouped table's row-group heads are the anchors).
 8. Phone chrome: ~430px before the h1 at 390 (`001-shell-r2/supply-390.png`); the
    hero's routing drawing at 390; chip wrap mid-token on Sources.
 9. 404 and daemon-down as compositions.
