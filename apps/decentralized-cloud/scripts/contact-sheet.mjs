@@ -53,6 +53,10 @@ const CONTENT_OF = {
   receipts: ".t-receipts .trow",
   api: ".t-api .trow",
   job: null,
+  spend: ".t-pairs .trow",
+  iam: ".t-leases .trow",
+  supply: ".t-supply .trow",
+  settings: ".t-pairs .trow",
 };
 // FAIL CLOSED. An unlisted surface used to get `undefined`, skip the wait, and be
 // photographed mid-load with nothing saying so — which is how three cold readers came

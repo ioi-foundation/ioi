@@ -121,6 +121,15 @@ export const FIELD_CONTRACT = {
     sampled: ["currency"],
     optional: ["name", "limit", "remaining", "spent"],
   },
+  // Answered by the surface itself and never by the daemon — but Settings reads it by
+  // name, and a name read is a name declared, whichever process answers.
+  "/api/face-config": {
+    read_by: "src/surfaces/Settings.jsx",
+    container: null,
+    every: [],
+    sampled: [],
+    root: ["refresh_cadence_seconds", "daemon_reads", "capability", "note"],
+  },
 };
 
 // Resolve a dotted path against an object. Returns { present, value }.

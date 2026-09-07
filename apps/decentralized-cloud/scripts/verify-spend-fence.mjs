@@ -61,12 +61,24 @@ const stub = createServer((req, res) => {
 });
 await new Promise((r) => stub.listen(STUB_PORT, "127.0.0.1", r));
 
+// THE PROXY REFUSES TO START WITHOUT A BUILD DIRECTORY, by design — a server with
+// nothing behind it must not announce "face on". This fence tests the WRITE LANE and
+// never fetches the shell, so it hands the proxy an empty scratch directory to stand
+// behind rather than depending on dist/ having been built first: in a fresh worktree
+// the fence runs before the face gate, which is the step that builds dist/, and it
+// failed there with "the proxy under test did not start" — a fault in the fence's own
+// ordering reported as though the proxy were broken.
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
+const SCRATCH_DIST = mkdtempSync(path.join(os.tmpdir(), "dc-spend-fence-"));
+
 async function withProxy(scriptPath, fn) {
   const server = spawn("node", [scriptPath], {
     env: {
       ...process.env,
       IOI_DC_PORT: String(FACE_PORT),
       IOI_HYPERVISOR_DAEMON_URL: `http://127.0.0.1:${STUB_PORT}`,
+      IOI_DC_DIST: SCRATCH_DIST,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -137,4 +149,5 @@ console.log(`\n${results.length - fail}/${results.length} passed`);
 console.log(`spend fence: ${fail ? "FAIL" : "OK"}`);
 console.log("No provider was contacted and nothing was spent: every request in this file");
 console.log("went to a stub on localhost that runs nothing.");
+rmSync(SCRATCH_DIST, { recursive: true, force: true });
 process.exit(fail ? 1 : 0);

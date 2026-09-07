@@ -30,19 +30,46 @@
 // (No milestone identifier here. This module is BUNDLED AND SERVED, comments included,
 // and the gate's absence check reads served bytes — it caught this line. The identifier
 // belongs in the programme's records, not in a stranger's browser.)
+//
+// GROUP is the console rail's section. The rail is the shape a stranger from another
+// console reads first: a product list down the left, in the order they would look for
+// things — the catalogue, then obtaining capacity, then running it, then the account
+// and the surface itself. The group names are product words, not the estate's.
+//
+// SPEND, IAM AND SUPPLY REGISTRY ARE UNWIRED. Each is drawn in full and says so on its
+// own surface: no route on the capability table reads settled provider spend, a
+// wallet principal's leases, or the supply registry, and this surface will not invent
+// one. Registering them unwired is what puts them in the rail honestly — a console
+// with no Spend entry hides the question; one with a Spend entry that reads nothing
+// and says nothing would be lying. SETTINGS is wired: it renders the surface's own
+// configuration route, which never leaves the process.
 export const SURFACES = [
   // The landing. Every resource class the router can be asked for, by category, and
   // every venue that can supply it, with its state read from the daemon on every
   // render — the decentralized counterpart of a console's "all services" page. It is
   // wired: it reads candidate-sources and the latest candidates batch.
-  { id: "catalog", label: "All resources", wired: true },
-  { id: "candidates", label: "Candidates", wired: true },
-  { id: "sources", label: "Sources", wired: true },
-  { id: "placement", label: "Placement", wired: true },
-  { id: "job", label: "Submit a job", wired: true },
-  { id: "redundancy", label: "Redundancy", wired: false },
-  { id: "receipts", label: "Receipts", wired: true },
-  { id: "api", label: "API", wired: true },
+  { id: "catalog", label: "All resources", group: "console", wired: true },
+  { id: "candidates", label: "Candidates", group: "obtain", wired: true },
+  { id: "placement", label: "Placement", group: "obtain", wired: true },
+  { id: "job", label: "Submit a job", group: "obtain", wired: true },
+  { id: "receipts", label: "Receipts", group: "run", wired: true },
+  { id: "redundancy", label: "Redundancy", group: "run", wired: false },
+  { id: "spend", label: "Spend", group: "account", wired: false },
+  { id: "sources", label: "Sources & health", group: "account", wired: true },
+  { id: "iam", label: "IAM · leases", group: "account", wired: false },
+  { id: "supply", label: "Supply registry", group: "account", wired: false },
+  { id: "api", label: "API", group: "surface", wired: true },
+  { id: "settings", label: "Settings", group: "surface", wired: true },
+];
+
+// The rail's sections, in rail order, with the words a reader sees. A group named
+// here and carried by no surface is not drawn.
+export const GROUPS = [
+  { id: "console", label: "" },
+  { id: "obtain", label: "Obtain capacity" },
+  { id: "run", label: "Run" },
+  { id: "account", label: "Account" },
+  { id: "surface", label: "This surface" },
 ];
 
 export const SURFACE_IDS = SURFACES.map((s) => s.id);
@@ -56,3 +83,13 @@ export const surfaceFromHash = (hash) => {
 };
 
 export const hashForSurface = (name) => `#/${isSurface(name) ? name : DEFAULT_SURFACE}`;
+
+// The rail's search. It matches a surface by label or id, case-insensitively, and
+// returns the registry order — a filter, not a ranking, because a ranking of twelve
+// names would be a scorer of nothing. It searches SURFACES ONLY: resources and
+// records are not indexed on this branch and the box says so.
+export const searchSurfaces = (query) => {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return SURFACES;
+  return SURFACES.filter((s) => s.label.toLowerCase().includes(q) || s.id.includes(q));
+};

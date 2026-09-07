@@ -84,15 +84,24 @@
     <div class="kicker">Brand identity — v1</div>
     <h1>decentralized.cloud</h1>
     <p class="lede">Primary lockups, mark variants, the app icon, the reduction glyph, the colour system and usage rules. Every file on this page is generated from one geometry module — the same one the product's header draws from — so a downloaded asset and the served lockup cannot disagree.</p>
-    <p class="note">Wordmark set in IOI Display, the family face. Source of record: <code>apps/decentralized-cloud/brand/mark/source/FInal-CLOUD-v3.svg</code> (designer's file, 2026-09-06); geometry: <code>brand/mark/mark.mjs</code>.</p>
+    <p class="note">Wordmark set in IOI Display, the family face. Sources of record: <code>apps/decentralized-cloud/brand/mark/source/cloud-hover.html</code> and <code>brand-identity.dc.html</code> (the owner's files, 2026-09-06, confirmed 2026-09-07); geometry: <code>brand/mark/mark.mjs</code>. The mark is a cloud that opens into a network: the hover cloud is the hero treatment, and everything below is its static system.</p>
   </header>
 
   <section class="stack">
+    <h2>Hero — the hover cloud</h2>
+    <iframe src="/brand/hover.html" title="The hover cloud — move the pointer across it to open the network" style="display:block;width:100%;aspect-ratio:16/8;border:1px solid var(--rule);border-radius:8px;background:var(--navy)"></iframe>
+    <p class="note">The owner's cloud-hover.html, geometry and timing verbatim, in the brand gradient on substrate navy. Move the pointer across the cloud to relocate the opening. Web hero use only; it honours reduced motion by drawing the closed cloud once. <a href="/brand/hover.html">hover.html</a></p>
+    <h2>Animated mark — SVG (no WebGL)</h2>
+    <iframe src="/brand/mark-animated.html" title="The animated mark — the cloud dissolves into a network and reabsorbs it, on an eleven-second loop" style="display:block;width:100%;aspect-ratio:16/7;border:1px solid var(--rule);border-radius:8px;background:var(--navy)"></iframe>
+    <p class="note">The same geometry as the hero, rendered as pure SVG DOM — no canvas, no WebGL. This is the mark the console's header carries as the animated primary lockup (owner ruling, 2026-09-07), drawn there from the one geometry module; under reduced motion the header shows the static mark below. Without script this file degrades to the closed cloud. <a href="/brand/mark-animated.html">mark-animated.html</a></p>
+  </section>
+
+  <section class="stack">
     <h2>Primary lockup — dark</h2>
-    <div class="plate dark"><img src="/brand/lockup-dark.svg" alt="decentralized.cloud lockup: three-lobed gradient cloud beside the two-line wordmark, white on navy"></div>
+    <div class="plate dark"><img src="/brand/lockup-dark.svg" alt="decentralized.cloud lockup: gradient cloud with a three-node network knocked out, beside the two-line wordmark, white on navy"></div>
     <h2>Primary lockup — light</h2>
     <div class="plate light"><img src="/brand/lockup-light.svg" alt="decentralized.cloud lockup, black wordmark on white"></div>
-    <p class="note">The lockup is one block: the mark's height equals the wordmark's height, from CLOUD's baseline to the top of DECENTRALIZED. The dot before CLOUD carries the gradient and stands on the baseline, spaced as a sixth letter.</p>
+    <p class="note">The owner's proportions: the mark's height is 2.65× the wordmark block (CLOUD's baseline to the top of DECENTRALIZED); the gap between mark and wordmark is 7.5% of the mark's width; the wordmark is centred on the mark's height. The dot before CLOUD carries the gradient and stands on the baseline, spaced as a sixth letter. The console's 56px header cannot hold that ratio legibly and wears a compact setting — mark 1.9× the block — named here as the one deviation.</p>
   </section>
 
   <section>
@@ -125,7 +134,7 @@
       <div class="g"><img src="/brand/favicon.svg" width="32" height="32" alt="glyph at 32"><span>32</span></div>
       <div class="g"><img src="/brand/favicon.svg" width="16" height="16" alt="glyph at 16"><span>16</span></div>
       <div class="g"><img src="/brand/glyph-mono-white.svg" width="48" height="48" alt="mono white glyph"><span>mono</span></div>
-      <p>The three lobes closed into one silhouette, with a three-node network knocked out — the cutout is true transparency, so the network takes the colour of whatever sits behind it. The network holds to 32px. At 16px it is one to two device pixels and the glyph reads as the closed cloud; that is the honest floor, and it is why the lobed mark itself is never used below 48px. Files: <a href="/brand/favicon.svg">favicon.svg</a>, <a href="/brand/glyph-mono-white.svg">glyph-mono-white.svg</a>, <a href="/brand/glyph-mono-navy.svg">glyph-mono-navy.svg</a>.</p>
+      <p>The cloud silhouette with the three-node network knocked out — the cutout is true transparency, so the network takes the colour of whatever sits behind it. Two shapes, one idea. The network holds to 32px. At 16px it is one to two device pixels and the glyph reads as the closed cloud; that is the honest floor. Files: <a href="/brand/favicon.svg">favicon.svg</a>, <a href="/brand/glyph-mono-white.svg">glyph-mono-white.svg</a>, <a href="/brand/glyph-mono-navy.svg">glyph-mono-navy.svg</a>.</p>
     </div>
   </section>
 
@@ -144,14 +153,14 @@
   <section>
     <h2>Usage rules</h2>
     <div class="rules">
-      <div><strong>Proportions.</strong> Measured on the source, in units where the block is 67.188 tall: mark 130 wide; clear between mark and wordmark 19.84 (0.295 of the block); DECENTRALIZED cap 22.072, CLOUD cap 38, 7.116 between the lines; the dot 7.6 square, radius a quarter of its side, on the baseline. Never restyle these relationships.</div>
-      <div><strong>Clear space.</strong> Keep a margin of one CLOUD cap height (38 units at the used scale) on all sides of the lockup, and of one lobe-gap × 4 around the mark alone.</div>
+      <div><strong>Proportions.</strong> Mark height is 2.65× the wordmark block height. Gap between mark and wordmark is 7.5% of the mark's width. Inside the block: DECENTRALIZED cap 22.072, CLOUD cap 38, 7.116 between the lines; the dot 7.6 square, radius a quarter of its side, on the baseline. Never restyle these relationships.</div>
+      <div><strong>Clear space.</strong> Keep a margin of one node-square (the network node size at the used scale) × 4 on all sides of the lockup.</div>
       <div><strong>Minimum sizes.</strong> Full lockup: 200px wide (block 24px). Mark alone: 48px wide. Below that, use the reduction glyph; below 32px expect the glyph's network to close.</div>
       <div><strong>Colour discipline.</strong> Only the palette above. No added hues, no brighter cyan, no glow, blur or drop shadow on the flat marks. Mono variants for single-colour contexts (engraving, print, embroidery). Cyan is a mark colour, not a text colour on light grounds.</div>
       <div><strong>The dot.</strong> The dot before CLOUD is a fixed brand device — it always carries the cloud gradient, never plain white or black, even in the mono lockups' wordmark.</div>
       <div><strong>The wordmark.</strong> Set only in IOI Display, two lines, DECENTRALIZED over CLOUD with CLOUD tracked so every letter gap equals the dot's gap. Never re-set it in another face, never one line, never animate it. Drawn letters are not permitted (owner ruling, 2026-09-05).</div>
-      <div><strong>The gradient.</strong> Each lobe carries its own bottom-left → top-right ramp; do not merge the three into one ramp across the mark. That per-lobe lightening is what makes the lobes read as three.</div>
-      <div><strong>Motion.</strong> This page is the static system. A dimensional hover treatment of the cloud exists as the designer's layered reference and is not yet an asset here; when it ships it is the web hero only.</div>
+      <div><strong>The gradient.</strong> One ramp across the whole cloud, bottom-left indigo to top-right cyan. Never per-shape, never reversed.</div>
+      <div><strong>Motion.</strong> The hover cloud above is the hero treatment for web, and the animated SVG mark is the lockup the site header carries. Static lockups everywhere else. Never animate the wordmark. Every animation stops under reduced motion.</div>
     </div>
   </section>
 
@@ -165,7 +174,9 @@
           <tr><td><a href="/brand/lockup-light.svg">lockup-light.svg</a></td><td>Mark + two-line wordmark, black ink, gradient dot</td><td>On white or pale grounds</td></tr>
           <tr><td><a href="/brand/wordmark-dark.svg">wordmark-dark.svg</a></td><td>Wordmark and dot only, white</td><td>Where the mark is already present</td></tr>
           <tr><td><a href="/brand/wordmark-light.svg">wordmark-light.svg</a></td><td>Wordmark and dot only, black</td><td>Where the mark is already present</td></tr>
-          <tr><td><a href="/brand/mark.svg">mark.svg</a></td><td>The three-lobe mark, gradient, transparent ground</td><td>48px and up, any ground</td></tr>
+          <tr><td><a href="/brand/hover.html">hover.html</a></td><td>The hover cloud — the animated hero, the owner's geometry and timing</td><td>Web hero only</td></tr>
+          <tr><td><a href="/brand/mark-animated.html">mark-animated.html</a></td><td>The animated mark, pure SVG — the header's lockup</td><td>Web, where the mark moves</td></tr>
+          <tr><td><a href="/brand/mark.svg">mark.svg</a></td><td>The cloud with the network knocked out, gradient, transparent ground</td><td>48px and up, any ground</td></tr>
           <tr><td><a href="/brand/mark-mono-white.svg">mark-mono-white.svg</a></td><td>The mark in one colour, white</td><td>Single-colour on dark</td></tr>
           <tr><td><a href="/brand/mark-mono-navy.svg">mark-mono-navy.svg</a></td><td>The mark in one colour, navy</td><td>Single-colour on light</td></tr>
           <tr><td><a href="/brand/app-icon.svg">app-icon.svg</a></td><td>White rounded tile with the gradient mark</td><td>App badges, launchers, store listings</td></tr>

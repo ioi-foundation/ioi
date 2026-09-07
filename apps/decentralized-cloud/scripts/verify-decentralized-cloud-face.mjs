@@ -222,6 +222,7 @@ const SRC_FILES = [
   // in the same second.
   "src/components/Freshness.jsx",
   "src/components/Lockup.jsx",
+  "src/components/AnimatedMark.jsx",
   "src/surfaces/Candidates.jsx",
   "src/surfaces/Sources.jsx",
   "src/surfaces/Placement.jsx",
@@ -229,6 +230,13 @@ const SRC_FILES = [
   "src/surfaces/Redundancy.jsx",
   "src/surfaces/Receipts.jsx",
   "src/surfaces/Api.jsx",
+  // The console shell and its surfaces.
+  "src/components/Rail.jsx",
+  "src/components/Topbar.jsx",
+  "src/surfaces/Spend.jsx",
+  "src/surfaces/Iam.jsx",
+  "src/surfaces/Supply.jsx",
+  "src/surfaces/Settings.jsx",
 ];
 
 const srcText = () => SRC_FILES.map((f) => readFileSync(path.join(APP, f), "utf8")).join("\n");
@@ -371,8 +379,13 @@ function checkUnwiredSurfaces() {
   // Comments are still stripped, because the assertion is about what a surface SAYS
   // to a reader, and source a reader never sees cannot satisfy a claim about what
   // they are told.
+  // The console's three drawn-and-unwired surfaces join Redundancy here. Each names
+  // the canonical object it draws, and each must carry the label a reader is owed.
   for (const [file, surface, shape] of [
     ["src/surfaces/Redundancy.jsx", "Redundancy", "RedundancyPosture"],
+    ["src/surfaces/Spend.jsx", "Spend", "SpendEstimate"],
+    ["src/surfaces/Iam.jsx", "IAM", "CapabilityLease"],
+    ["src/surfaces/Supply.jsx", "Supply registry", "CloudSupplyRegistration"],
   ]) {
     const body = stripComments(readFileSync(path.join(APP, file), "utf8"));
     ok(`${surface} is labelled designed, not connected`,
@@ -393,11 +406,14 @@ function checkUnwiredSurfaces() {
   // renders <NotConnected>, or an unwired one that has quietly lost its label, is a
   // disagreement between what the app believes and what it tells a reader.
   const registry = readFileSync(path.join(APP, "src/logic/surfaces.mjs"), "utf8");
-  ok("the registry marks redundancy unwired while it renders an unwired label",
-    /id:\s*"redundancy"[^}]*wired:\s*false/.test(registry));
-  // The two that were unwired and now are not. This is asserted so the flag cannot be
-  // flipped back to false while the door still exists, or forward while it does not.
-  for (const id of ["job", "receipts"]) {
+  for (const id of ["redundancy", "spend", "iam", "supply"]) {
+    ok(`the registry marks ${id} unwired while it renders an unwired label`,
+      new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*false`).test(registry));
+  }
+  // The two that were unwired and now are not, plus Settings, which reads the
+  // surface's own configuration route. This is asserted so the flag cannot be flipped
+  // back to false while the door still exists, or forward while it does not.
+  for (const id of ["job", "receipts", "settings"]) {
     ok(`the registry marks ${id} wired, and the door it names exists`,
       new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*true`).test(registry));
   }
@@ -992,9 +1008,9 @@ async function checkServer() {
     ok("the served surface carries the mark's own geometry, with the product's name on it",
       hasMark,
       hasMark
-        ? `all ${marks.MARK_PATHS.length} lobes served with mark.mjs's exact path data, ` +
+        ? `all ${marks.MARK_PATHS.length} cloud paths served with mark.mjs's exact path data, ` +
           "accessible name on the mark"
-        : `only ${servedLobes.length} of ${marks.MARK_PATHS.length} lobes match mark.mjs` +
+        : `only ${servedLobes.length} of ${marks.MARK_PATHS.length} cloud paths match mark.mjs` +
           (named ? "" : ", and the accessible name is absent") +
           " — the served drawing and its one source have drifted, or the mark has been " +
           "dropped again the way the port once dropped it by omission with every gate green",
@@ -1006,7 +1022,10 @@ async function checkServer() {
     // designer's mark replaced. A shell carrying any of them, or two drawings at once,
     // is the state this catches — the same argument the pre-override Z assertion used
     // to make, pointed at the other end of the change.
-    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue", "mark-bits"].filter((s) => shell.includes(s));
+    // THE THREE-LOBE MARK JOINS THE RETIRED LIST — owner ruling, 2026-09-07: "this is
+    // not the final mark". Its first lobe's path data is unique to that drawing.
+    const retired = ["M 41.44 0.00 C 38.66 0.00", "cloud-cue", "mark-bits", "M 1.497 54.71C 0.67 61.602"]
+      .filter((s) => shell.includes(s));
     if (/cx:\s*32\s*,\s*cy:\s*38\s*,\s*r:\s*17\b/.test(shell)) retired.push("the dissolving cloud's first lobe");
     ok("no retired mark is in any byte this server sends",
       retired.length === 0,
@@ -1772,6 +1791,10 @@ async function checkResponsiveLayout() {
         candidates: ".t-quotes", sources: ".t-sources", placement: ".t-decision",
         redundancy: ".t-postures", receipts: ".t-receipts", api: ".t-api",
         job: null, // no table until a job is submitted; genuinely table-free here
+        // The console surfaces. Spend and IAM and Supply are drawn and unwired; each
+        // renders a real table of its own shape synchronously. Settings renders after
+        // the in-process config read, which is fast.
+        spend: ".t-pairs", iam: ".t-leases", supply: ".t-supply", settings: ".t-pairs",
       };
       // FAIL CLOSED ON AN UNLISTED SURFACE. `TABLE_OF[unknown]` is undefined, and
       // `if (want)` then SKIPS the wait with `arrived` still true — the surface is

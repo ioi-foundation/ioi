@@ -89,8 +89,22 @@ a:hover { color: #3e7f5c; }
    because green had once carried three meanings and colour was not asked to carry the
    period; the brand's rule now is that the dot is always the gradient, and blue still
    means nothing on the surface but the identity. */
-.lockup { display: flex; align-items: center; gap: 0.2953em; font-size: 36px; height: 1em; }
-.mark { display: block; flex-shrink: 0; width: 1.9349em; height: 1em; overflow: visible; }
+/* THE MARK IS THE OWNER'S CLOUD (2026-09-07 ruling): 448 × 268 in its own units, the
+   network knocked out of its right side. The owner's lockup rule puts the mark at
+   2.65× the wordmark block, which the downloadable lockups on /brand/ follow exactly.
+   The console's header cannot: at a 56px bar that ratio leaves DECENTRALIZED's cap
+   under 6px. So the header wears the COMPACT setting — mark 1.9× the block, gap
+   0.35em — and the brand page names it as the header's deviation. */
+.lockup { display: flex; align-items: center; gap: 0.35em; font-size: 36px; height: 1.9em; }
+.mark { display: block; flex-shrink: 0; width: 3.1761em; height: 1.9em; overflow: visible; }
+/* THE ANIMATED MARK (owner ruling, 2026-09-07: the header carries the animated
+   primary lockup). Its parts are painted in the mark's own gradient; these names
+   exist so the pieces can be found and measured. Nothing here has a duration — the
+   timing is the owner's, in mark.mjs, and the whole thing is replaced by the static
+   mark under prefers-reduced-motion. */
+.mark-live { overflow: visible; }
+.mark-fibres { opacity: 0.75; }
+.mark-signals { pointer-events: none; }
 .wordmark { display: block; flex-shrink: 0; width: 6.0904em; height: 1em; overflow: visible;
   font-family: var(--brand); font-weight: 400; }
 /* The two lines by name — sizes and positions are attributes from mark.mjs; only the
@@ -135,41 +149,82 @@ a:hover { color: #3e7f5c; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
 @media (prefers-reduced-motion: reduce) { .refreshing .dot { animation: none; } }
 
-/* ── Chrome ───────────────────────────────────────────────────────────────── */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 32px;
-  padding: 0 40px; height: 66px; border-bottom: 1px solid var(--hairline);
+/* ── THE CONSOLE SHELL ────────────────────────────────────────────────────────
+   A top bar across the whole width, a product rail down the left, the surface in
+   the remaining column. The rail is the thing a stranger from another console reads
+   first, so it is where the surfaces live; the top bar carries identity, search,
+   and the two chips every console keeps top-right — who is asking and where work is
+   placed — each of which, here, is a link to the surface that says what it honestly
+   can. Colour keeps its meanings in the chrome: the current surface is marked in ink,
+   never in green, because green is live evidence and chrome is not a claim. */
+.console { display: grid; grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr); min-height: 100vh; }
+.topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 20px;
+  padding: 0 24px 0 20px; height: 56px; border-bottom: 1px solid var(--hairline);
   position: sticky; top: 0; background: var(--paper); z-index: 2; }
-/* `min-width: 0` on both, because a flex item defaults to min-width:auto — it refuses
-   to shrink below its content — and that is what stops `overflow-x: auto` from ever
-   engaging on the nav. Without it the nav measured 627px inside a 390px viewport and
-   pushed the body, which is the bug the scroll container was added to prevent. */
-.topbar-left { display: flex; align-items: center; gap: 40px; min-width: 0; }
-.topbar-status { display: flex; align-items: center; gap: 14px; min-width: 0; }
-/* The gap is 16 rather than 22 to pay for the tap-target padding below: adding 6px
-   either side of seven buttons widened the bar by 84px and pushed the status block
-   20px off a 1440 viewport, which is a regression this file caused and measured. */
-/* `overflow-x: auto` at EVERY width, not only under a breakpoint.
-   `min-width: 0` above lets these flex items shrink below their content, which is what
-   stops the body scrolling — but a shrunken box whose content does not scroll simply
-   spills, and the spill slides UNDER the neighbouring block. That is a collision, and
-   no overflow measurement can see one: the gate reported 0px of scroll and a nav
-   button sitting on top of the status text at 1520px, which is a wide viewport. It
-   appeared the moment the status chip's wording got longer.
-   The pair is the fix: the container scrolls, and its children refuse to shrink. */
-.nav { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; min-width: 0;
-  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-.nav::-webkit-scrollbar { display: none; }
+.topbar-left { display: flex; align-items: center; min-width: 0; flex: 0 0 auto; width: 212px; }
+/* At a 22px block the compact lockup is 42px tall and about 212px wide — the rail's
+   width — so the wordmark ends where the search begins. */
+.topbar .lockup { font-size: 22px; }
+/* THE SEARCH BOX sits where every console puts one. It filters the rail and says so
+   in its own scope line; it does not search resources on this branch, and a box that
+   looked like global search while filtering twelve names would be a promise it
+   cannot keep. */
+.console-search { display: flex; align-items: center; gap: 10px; flex: 1 1 320px; min-width: 0;
+  max-width: 560px; }
+.console-search-box { flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 12px;
+  border: 1px solid var(--control-border); border-radius: 7px; background: var(--paper);
+  color: var(--ink); font: inherit; font-size: 14px; }
+.console-search-box::placeholder { color: var(--label); }
+.console-search-box:hover { border-color: var(--ink); }
+.console-search-scope { font-size: 11px; color: var(--label); white-space: nowrap; flex-shrink: 0; }
+/* `min-width: 0` because a flex item defaults to min-width:auto — it refuses to
+   shrink below its content — and the status block used to push the body sideways at
+   1520 for exactly that reason. Children refuse to shrink; the block wraps instead. */
+.topbar-status { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: auto;
+  flex-wrap: wrap; justify-content: flex-end; }
 .topbar-status > * { flex-shrink: 0; }
-/* `flex-shrink: 0` at every width, for the reason the narrow breakpoint already
-   carried it: a scroll container whose items shrink does not scroll, it compresses
-   them until they overlap each other. The nav scrolls at all widths now, so its
-   children must refuse to shrink at all widths too. */
-.nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
-  color: var(--label); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-/* Green marks live evidence and nothing else, so the current-surface underline is
-   ink. A selection colour that is also the evidence colour makes chrome look like
-   a claim. */
-.nav button[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+/* The two console chips are LINKS wearing the absence chip: neither sets anything,
+   and each goes to the surface that draws what it stands for. */
+.topbar-status a.chip { text-decoration: none; color: var(--ink); }
+.topbar-status a.chip:hover { border-color: var(--ink); }
+/* Named so each can be found and measured on its own; the posture chip is the longer
+   of the two and is the first to wrap when the bar tightens. */
+.topbar-posture, .topbar-principal { white-space: nowrap; }
+
+/* THE RAIL. A <nav> of grouped buttons; the group labels are eyebrows. It is sticky
+   under the top bar and scrolls in its own box if it ever outgrows the viewport, so
+   twelve surfaces cost the body nothing at any height. */
+.nav.console-rail { grid-column: 1; display: flex; flex-direction: column; gap: 18px;
+  padding: 18px 12px 24px 12px; border-right: 1px solid var(--hairline); background: var(--surface);
+  position: sticky; top: 56px; align-self: start; min-height: calc(100vh - 56px); max-height: calc(100vh - 56px);
+  overflow-y: auto; overscroll-behavior: contain; }
+.rail-group { display: flex; flex-direction: column; gap: 2px; }
+.rail-eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--label); padding: 0 8px 6px; }
+/* 24x24 is WCAG 2.2 SC 2.5.8's floor; these are 34 tall and the rail's full width. */
+.nav button { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; min-height: 34px; padding: 6px 8px; border: 0; border-radius: 7px;
+  background: none; font: inherit; font-size: 14px; color: var(--ink); text-align: left;
+  cursor: pointer; white-space: nowrap; }
+.nav button:hover { background: var(--hairline-soft); }
+/* The current surface: an ink bar on the rail's edge and the paper ground, so it reads
+   as "you are here" and not as evidence. */
+.nav button[aria-current="page"] { background: var(--paper); box-shadow: inset 3px 0 0 var(--ink);
+  color: var(--ink); }
+.rail-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* An unwired surface carries the absence affordance in the rail as well: a dashed
+   ring, the same device the absent chip and the unwired panel wear. */
+.rail-mark { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
+  border: 1px dashed var(--muted); }
+/* The rail's foot: which daemon, and the generated capability sentence — the
+   console's project line, kept where a reader looks for it and out of the top bar,
+   which at 1440 could not hold it beside the search and the two console chips
+   without wrapping into a second row. The chip wraps here; it is a sentence. */
+.rail-foot { margin-top: auto; padding: 18px 8px 0; border-top: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.rail-foot .chip { white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+.rail-foot #daemon-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 
 /* A control that sits inside a sentence. It is a BUTTON, not a styled span with a
    click handler: it toggles what the table shows, it is reachable by keyboard, and it
@@ -181,7 +236,7 @@ a:hover { color: #3e7f5c; }
   text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .linklike:hover { text-decoration-thickness: 2px; }
 
-main { padding: 34px 40px 56px; max-width: 1560px; }
+main { grid-column: 2; min-width: 0; padding: 34px 40px 56px; max-width: 1560px; }
 
 h1 { margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400; }
 h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; font-weight: 400; }
@@ -592,13 +647,6 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .trow > *, .srow > *, .rail, .panel { min-width: 0; }
 .mono { overflow-wrap: anywhere; }
 
-/* Tap targets. WCAG 2.2 SC 2.5.8 wants 24x24; the "API" button measured 23x29.
-   `flex-shrink: 0` because the nav is now a scroll container whose items may shrink
-   below their content: without it the seven labels squeezed on top of one another at
-   390px and rendered as overlapping text. A scroll container's children must keep
-   their size — that is the whole point of scrolling them. */
-.nav button { padding: 4px 6px; min-width: 24px; min-height: 24px; flex-shrink: 0; }
-
 @media (max-width: 1180px) {
   .split { grid-template-columns: minmax(0, 1fr); }
 }
@@ -621,20 +669,30 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
    its own scroll container and the API button disappeared entirely on a wide desktop.
    A breakpoint set anywhere below the content's real floor hides a surface rather than
    reflowing to it. */
-@media (max-width: 1640px) {
-  /* The topbar becomes two rows: identity and status, then the surfaces. */
-  .topbar { height: auto; flex-wrap: wrap; align-items: center; padding: 10px 24px 0;
-    row-gap: 4px; column-gap: 16px; }
-  .topbar-left { flex: 1 1 100%; order: 1; gap: 0; flex-wrap: wrap; }
-  .topbar-status { order: 0; flex: 1 1 auto; justify-content: flex-end; }
-  .lockup { flex: 1 1 auto; }
-  /* The nav scrolls in ITS OWN box, so seven surfaces at any width cost the body
-     nothing. The negative margin lets the first and last button reach the page edge
-     rather than sitting inside a padding well the reader cannot see past. */
-  .nav { flex: 1 1 100%; order: 2; overflow-x: auto; overscroll-behavior-x: contain;
-    scrollbar-width: none; gap: 18px; margin: 0 -24px; padding: 6px 24px 0; }
-  .nav::-webkit-scrollbar { display: none; }
-  main { padding: 26px 24px 48px; }
+/* BELOW 1180 THE RAIL BECOMES A ROW. A 232px rail beside a 768px content column
+   leaves the tables no room, so the shell drops to one column: top bar, then the
+   surfaces as a wrapping row of buttons, then the surface. Every button stays on
+   screen at every width — a horizontal scroller hid three surfaces at 390 on an
+   earlier build with no affordance that they were there, and a reader cannot open
+   what they cannot see. The group eyebrows go; twelve short labels wrap into two or
+   three rows and the row is the whole map. */
+@media (max-width: 1180px) {
+  .console { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); }
+  .topbar { height: auto; flex-wrap: wrap; padding: 10px 24px; row-gap: 8px; }
+  .topbar-left { width: auto; }
+  .console-search { flex: 1 1 260px; max-width: none; order: 2; }
+  .topbar-status { order: 1; margin-left: auto; }
+  .nav.console-rail { grid-column: 1; position: static; min-height: 0; max-height: none; overflow: visible;
+    flex-direction: row; flex-wrap: wrap; gap: 4px 6px; padding: 8px 24px 10px;
+    border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .rail-group { flex-direction: row; flex-wrap: wrap; gap: 4px 6px; }
+  .rail-eyebrow { display: none; }
+  .nav button { width: auto; min-height: 30px; padding: 4px 10px; }
+  /* In a row, "you are here" is an underline, not an edge bar. */
+  .nav button[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
+  .rail-foot { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center;
+    gap: 6px 12px; margin-top: 4px; padding: 8px 0 0; }
+  main { grid-column: 1; padding: 26px 24px 48px; }
   .unwired-banner { padding: 14px 24px; }
 }
 
@@ -656,18 +714,6 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
      collisions on the LANDING surface only and reported the layout fixed; four of the
      seven were never opened at 390px. */
   .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
-
-  /* THE NAV WRAPS INSTEAD OF SCROLLING, below this width.
-     A horizontal scroll container costs the body nothing, which is why it was chosen —
-     but at 390px it measured 627px of content in a 390px box with Redundancy, Receipts
-     and API entirely off-screen and NO VISIBLE AFFORDANCE that they were there. A
-     blind reviewer reported three surfaces as unreachable, and the nav-visibility
-     assertion measured their visible boxes at 1x29, -104x29 and -186x29.
-     "It scrolls" is only true if a reader can tell. Seven short labels wrap into two
-     rows and every surface is on screen, which costs a row of height and hides
-     nothing. */
-  .nav { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; margin: 0;
-    padding: 6px 0 0; }
 }
 
 /* A chip is `white-space: nowrap` so a state name never breaks mid-token, and that is
@@ -707,7 +753,11 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .catalog-filter { width: min(420px, 100%); }
 /* Two-up at 1440, not three: at three-up the state column measured tight enough that
    "no supply now" wrapped into a two-line oval and "1 account connected" broke. */
-.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 26px 40px; }
+/* 520, not 560: beside a 232px rail the content column at 1440 is 1128px, and two
+   560px tracks plus the 40px gap did not fit, so the directory fell to one column and
+   grew from 3,461 to 4,415px tall (iteration 001 captures). Two 520s fit with 48 to
+   spare, and the state column still holds "no supply now" on one line. */
+.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 26px 40px; }
 .cat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .table.t-catalog { min-width: 0; table-layout: fixed; }
@@ -737,31 +787,10 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 }
 
 @media (max-width: 430px) {
-  .topbar { padding: 10px 16px 0; }
-  /* THE DAEMON LABEL WAS BEING CLIPPED OFF THE LEFT EDGE, and this is the difference
-     between visible and invisible truncation.
-     `.topbar-status` is `justify-content: flex-end` and every child is
-     `flex-shrink: 0`, so at 390px the capability chip — "reads · two writes, neither
-     spends", the longest string in the chrome — pushed the daemon label past the
-     viewport's left edge. It read "mon 127.0.0.1:4211". A reader cannot tell that the
-     word "daemon" is missing; there is no ellipsis, no fade, nothing. A hard clip at
-     the viewport edge is a truncation that does not announce itself, which is the
-     shape of defect this whole surface exists to refuse — and a cold reader had
-     already reported it on an earlier build ("the word daemon is clipped off the
-     left"), on every surface, at every narrow width.
-     The status row wraps now, and the label truncates with an ELLIPSIS if it still
-     cannot fit: an ellipsis says "there is more here", a viewport clip says nothing. */
-  .topbar-status { flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }
-  .topbar-status #daemon-label { flex-shrink: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .nav { margin: 0 -16px; padding: 6px 16px 0; gap: 14px; }
+  .topbar { padding: 10px 16px; }
+  .nav.console-rail { padding: 8px 16px 10px; }
   main { padding: 22px 16px 44px; }
   .unwired-banner { padding: 12px 16px; flex-direction: column; gap: 6px; }
-  /* The narrow lockup: mark and wordmark are both in em on .lockup, so one number
-     steps the pair down together. 28px is the block height: the lockup is then 233px
-     wide — above the brand's 200px floor for the full lockup and well inside 390 —
-     with DECENTRALIZED's cap at 9.2px. The gap is in em and steps down with it. */
-  .lockup { font-size: 28px; }
   pre.code { padding: 14px 14px; font-size: 11px; }
 }
 
@@ -883,7 +912,7 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .hero-door-link { color: var(--on-onyx-text); text-decoration: none; font-size: 15px; }
 .hero-door-link:hover { text-decoration: underline; text-underline-offset: 3px; color: var(--paper); }
 
-@media (max-width: 1640px) { .hero { margin: -26px -24px 26px; padding: 36px 24px 32px; } }
+@media (max-width: 1180px) { .hero { margin: -26px -24px 26px; padding: 36px 24px 32px; } }
 @media (max-width: 1000px) {
   .hero-price { font-size: 120px; }
   .rt-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -923,25 +952,41 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .receipt-compact { padding: 8px 0 10px; gap: 4px; border-top-width: 1px; }
 
 /* ── THE PHONE CHROME ─────────────────────────────────────────────────────────
-   At 390 the header was four rows — status, lockup, two rows of nav — about 165px
-   of chrome before a word of product, with the honesty chip pushed to the very top
-   where it read as the page's title. Below 700 the order becomes what a phone
-   reader needs: the name, the surfaces, then one quiet status line — daemon host and
-   the generated capability sentence together, still every word of it. Measured at
-   390 after the change: the status wraps to two short lines under the nav, so the
-   chrome is lockup + two rows of nav + two lines of status, about 150px — down from
-   165 with the honesty chip no longer standing where a title would. */
+   Below 700 the top bar is three short rows: the name, the search, then one quiet
+   status line — the two console chips, the daemon host and the generated capability
+   sentence, every word of it, wrapping as it must. The daemon label truncates with an
+   ELLIPSIS if it still cannot fit: an ellipsis says "there is more here", a viewport
+   clip says nothing, and a cold reader once found the word "daemon" clipped off the
+   left edge on every surface. */
 @media (max-width: 700px) {
-  .topbar { padding: 12px 16px 0; row-gap: 6px; }
+  .topbar { padding: 12px 16px 8px; row-gap: 8px; }
   .topbar-left { order: 0; }
-  .topbar-status { order: 3; flex: 1 1 100%; justify-content: flex-start; gap: 10px;
-    padding: 0 0 8px; }
-  .topbar-status #daemon-label { flex-shrink: 1; min-width: 0; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .console-search { order: 1; flex: 1 1 100%; }
+  .topbar-status { order: 2; flex: 1 1 100%; justify-content: flex-start; gap: 6px 10px;
+    margin-left: 0; }
   .topbar-status .chip { font-size: 11px; padding: 2px 8px 2px 7px; }
-  .nav { padding-top: 4px; gap: 4px 14px; }
-  .nav button { font-size: 14px; }
+  .rail-foot #daemon-label { font-size: 11px; }
+  .rail-foot .chip { font-size: 11px; padding: 2px 8px 2px 7px; }
+  .nav button { font-size: 13px; padding: 4px 9px; }
 }
+
+/* ── THE UNWIRED PLACEHOLDER — where a figure would stand ─────────────────────
+   Dashed, on the surface tint, with no digit in it: the same absence device the
+   absent chip and the rail mark wear. It is deliberately not a skeleton or a shimmer,
+   because those say "loading" and this is not loading — it is not wired, and it says
+   which route it waits on. */
+.unwired { border: 1px dashed var(--muted); border-radius: 8px; background: var(--surface);
+  padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.unwired-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.unwired-route { font-size: 12px; color: var(--label); overflow-wrap: anywhere; }
+.unwired-would { margin: 0; font-size: 13px; line-height: 1.5; color: var(--label); }
+.spend-panels { gap: 20px; }
+.spend-panel { gap: 10px; }
+/* Four and five column tables scroll on a phone rather than reflow: at 390 the five
+   supply headers squeezed to one word per column and "Evidence mode" was painted over
+   "Fee basis" — the gate's collision probe caught it. */
+.table.t-leases { min-width: 700px; }
+.table.t-supply { min-width: 760px; }
 
 /* ── TWO-COLUMN TABLES REFLOW ON A PHONE INSTEAD OF SCROLLING ─────────────────
    A table with two columns fits a phone if its cells wrap; forcing it to 620px and
@@ -950,7 +995,7 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
    carry machine strings that cannot wrap without becoming unreadable, and the
    price-first order puts the fact that matters in the visible part. */
 @media (max-width: 700px) {
-  .table.t-sources, .table.t-decision, .table.t-catalog { min-width: 0; }
+  .table.t-sources, .table.t-decision, .table.t-catalog, .table.t-pairs { min-width: 0; }
   .table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 42%; }
   .table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 58%; }
   /* A chip whose text is one unbroken token — live_quote_source, a reason code —

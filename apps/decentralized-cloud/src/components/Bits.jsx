@@ -88,6 +88,25 @@ export const NotConnected = ({ children }) => (
   </div>
 );
 
+// UNWIRED — the place a number would stand on a surface the daemon does not feed yet.
+//
+// A console panel drawn for a read that is not on the capability table gets one of
+// these where its figure would go: the name of what would stand there and the route
+// it would come from, in a dashed box, with no digit in it. One grep for "Unwired"
+// finds every such placeholder on the face. A panel that drew a plausible figure — a
+// zero, a dash in a currency cell, an empty sparkline — would be indistinguishable
+// from a panel that read one, which is the one thing this surface refuses.
+export const Unwired = ({ would, route, children }) => (
+  <div className="unwired">
+    <div className="unwired-head">
+      <span className="eyebrow">not wired</span>
+      {route && <span className="mono unwired-route">{route}</span>}
+    </div>
+    {would && <p className="unwired-would">would show: {would}</p>}
+    {children}
+  </div>
+);
+
 // A kept answer, dimmed and dated. Stale-while-refresh shows the previous reading
 // immediately rather than an empty page, because an empty surface here has to keep
 // meaning "no live price" and can never also come to mean "loading".

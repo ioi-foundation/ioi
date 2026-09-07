@@ -1,3 +1,0 @@
-LEFT = Isometric blocks (A)
-RIGHT = Dissolving cloud (B)
-rendered 2026-09-05T07:10:21.894Z

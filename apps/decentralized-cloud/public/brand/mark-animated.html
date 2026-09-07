@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>decentralized.cloud — the animated mark (SVG, no WebGL)</title>
+<!-- THE OWNER'S ANIMATED MARK, pure SVG DOM — geometry and timing verbatim from the
+     owner's file (brand/mark/source/mark-animated.html, 2026-09-06). Two changes,
+     both colour: the prototype blue is the brand gradient and the pulses ride in
+     identity white; the ground is substrate navy. Without script it degrades to the
+     closed cloud, and under reduced motion it holds the built network still. The
+     header's lockup is this same animation, drawn by src/components/AnimatedMark.jsx
+     from brand/mark/mark.mjs. -->
+<style>
+  :root { --bg: #000c26; }
+  html, body { margin: 0; height: 100%; background: var(--bg); }
+  body { display: flex; align-items: center; justify-content: center; }
+  svg { width: min(96vw, 900px); height: auto; max-width: 100%; display: block; }
+  .edge  { stroke: url(#g); stroke-width: 2.6; stroke-linecap: round; fill: none; }
+  .thin  { stroke-width: 1.8; }
+  .fiber { stroke: url(#g); stroke-width: 1.3; stroke-linecap: round; fill: none; opacity: .75; }
+  .node, .px { fill: url(#g); }
+  .pulse { fill: #ffffff; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 665 384" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A cloud dissolving into scattered pixels that feed a network of connected squares, then swelling to reabsorb it">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="122" y1="332" x2="570" y2="64"><stop offset="0" stop-color="#3f3dfa"/><stop offset="1" stop-color="#41dbf9"/></linearGradient>
+    <clipPath id="cut"><rect id="cutRect" x="0" y="0" width="288" height="384"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#cut)" fill="url(#g)">
+    <circle cx="188" cy="264" r="66"/>
+    <circle cx="268" cy="198" r="82"/>
+    <circle cx="338" cy="160" r="96"/>
+    <circle cx="488" cy="250" r="82"/>
+    <rect x="188" y="198" width="300" height="132"/>
+  </g>
+
+  <g id="pixels"></g>
+  <g id="fibers"></g>
+  <g id="edges"></g>
+  <g id="nodes"></g>
+  <g id="signals">
+    <circle class="pulse" r="2.8"><animateMotion dur="1.8s" repeatCount="indefinite" path="M392,118 L450,142 L456,212 L478,262"/></circle>
+    <circle class="pulse" r="2.8"><animateMotion dur="1.9s" begin=".7s" repeatCount="indefinite" path="M400,300 L452,312 L478,262 L456,212 L398,210"/></circle>
+    <circle class="pulse" r="2.8"><animateMotion dur="1.5s" begin="1.2s" repeatCount="indefinite" path="M398,210 L392,118 L450,142"/></circle>
+  </g>
+</svg>
+
+<script>
+(function () {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const EDGE_X = 288, FULL_X = 482;
+
+  const D = 11;
+  const T = { build: 0.2, buildDur: 1.4, live: 2.0, sweep: 6.0, sweepEnd: 8.3, recede: 9.3, recedeEnd: 10.5 };
+
+  const easeOut = x => 1 - Math.pow(1 - x, 3);
+  const easeInOut = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3) / 2;
+  const clamp01 = x => Math.max(0, Math.min(1, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  let seed = 23;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+
+  const inCloud = (x, y) => [[188,264,66],[268,198,82],[338,160,96],[488,250,82]].some(([cx,cy,r]) => (x-cx)**2 + (y-cy)**2 <= r*r)
+                          || (x >= 188 && x <= 488 && y >= 198 && y <= 330);
+
+  const nodes = [
+    { x: 392, y: 118, s: 24 }, { x: 450, y: 142, s: 24 }, { x: 398, y: 210, s: 26 }, { x: 456, y: 212, s: 24 },
+    { x: 400, y: 300, s: 24 }, { x: 452, y: 312, s: 24 }, { x: 478, y: 262, s: 24 },
+    { x: 360, y: 138, s: 11 }, { x: 362, y: 204, s: 11 }, { x: 358, y: 262, s: 11 }, { x: 362, y: 318, s: 11 },
+  ];
+  nodes.forEach(n => n.d = clamp01((n.x - 358) / (478 - 358)));
+  const edges = [
+    [7,0,true],[8,2,true],[9,2,true],[10,4,true],
+    [0,1],[0,2],[1,2],[1,3],[2,3],[2,4],[3,5],[4,5],[3,6],[5,6],
+  ];
+
+  const pixels = [];
+  for (let gx = 284; gx <= 372; gx += 8) {
+    const u = (gx - 284) / 88;
+    const keep = 1 - u * u * 0.98 - u * 0.15;
+    for (let gy = 60; gy <= 336; gy += 8) {
+      if (rnd() > keep) continue;
+      const s = Math.max(3, Math.round(lerp(8, 3.5, u) + (rnd() - .5) * 3));
+      const x = gx + (rnd() - .5) * 3, y = gy + (rnd() - .5) * 3;
+      if (!inCloud(x + s / 2, y + s / 2)) continue;
+      pixels.push({ x, y, s, d: u * 0.7 + rnd() * 0.3 });
+    }
+  }
+
+  const fibers = [];
+  nodes.slice(7).forEach((n, i) => {
+    for (let k = 0; k < 3; k++) {
+      const ex = 318 + rnd() * 22, ey = n.y + (k - 1) * 14 + (rnd() - .5) * 8;
+      if (!inCloud(ex, ey)) continue;
+      fibers.push({ sat: 7 + i, ex, ey, c1x: n.x - 14, c1y: n.y, c2x: ex + 16, c2y: ey });
+    }
+  });
+
+  const nodeEls = nodes.map(() => { const r = document.createElementNS(NS,'rect'); r.setAttribute('class','node'); r.setAttribute('rx', 4); $('nodes').appendChild(r); return r; });
+  const edgeEls = edges.map(e => { const l = document.createElementNS(NS,'line'); l.setAttribute('class', e[2] ? 'edge thin' : 'edge'); $('edges').appendChild(l); return l; });
+  const pxEls = pixels.map(() => { const r = document.createElementNS(NS,'rect'); r.setAttribute('class','px'); r.setAttribute('rx', 1); $('pixels').appendChild(r); return r; });
+  const fiberEls = fibers.map(() => { const p = document.createElementNS(NS,'path'); p.setAttribute('class','fiber'); $('fibers').appendChild(p); return p; });
+  const cut = $('cutRect'), signals = $('signals');
+
+  function front(t) {
+    if (t < T.sweep) return EDGE_X;
+    if (t < T.sweepEnd) return lerp(EDGE_X, FULL_X, easeInOut((t - T.sweep) / (T.sweepEnd - T.sweep)));
+    if (t < T.recede) return FULL_X;
+    if (t < T.recedeEnd) return lerp(FULL_X, EDGE_X, easeInOut((t - T.recede) / (T.recedeEnd - T.recede)));
+    return EDGE_X;
+  }
+
+  function nodeState(n, t, fx) {
+    const t0 = T.build + 0.35 + n.d * T.buildDur;
+    let k = 0, x = n.x;
+    if (t >= t0 && t < T.sweep) {
+      const q = clamp01((t - t0) / 0.45);
+      k = q < .6 ? easeOut(q / .6) * 1.2 : lerp(1.2, 1, (q - .6) / .4);
+    } else if (t >= T.sweep && t < T.sweepEnd) {
+      const p = (fx - EDGE_X) / (FULL_X - EDGE_X);
+      x = n.x - p * (n.x - EDGE_X) * 0.45;
+      k = clamp01((x - fx) / 28);
+    }
+    return { x, y: n.y, k };
+  }
+  const settledSince = (n, t) => t - (T.build + 0.35 + n.d * T.buildDur + 0.25);
+
+  function frame(now) {
+    const t = ((now / 1000) % D + D) % D;
+    const fx = front(t);
+    cut.setAttribute('width', fx);
+
+    pixels.forEach((p, i) => {
+      let k = 0, dx = 0;
+      if (t < T.sweep) { const q = clamp01((t - T.build - p.d * 0.9) / 0.35); k = easeOut(q); dx = lerp(-10, 0, k); }
+      else if (t < T.sweepEnd) k = clamp01((p.x + p.s / 2 - fx) / 14);
+      else if (t >= T.recede) { const q = clamp01((t - T.recede - 0.25 - p.d * 0.8) / 0.35); k = easeOut(q); dx = lerp(-10, 0, k); k = Math.min(k, clamp01((p.x + p.s / 2 - fx) / 14)); }
+      const s = p.s * k, el = pxEls[i];
+      el.setAttribute('x', p.x + dx + (p.s - s) / 2); el.setAttribute('y', p.y + (p.s - s) / 2);
+      el.setAttribute('width', s); el.setAttribute('height', s);
+    });
+
+    const st = nodes.map(n => nodeState(n, t, fx));
+    nodes.forEach((n, i) => {
+      const { x, y, k } = st[i], s = n.s * k, el = nodeEls[i];
+      el.setAttribute('x', x - s / 2); el.setAttribute('y', y - s / 2);
+      el.setAttribute('width', s); el.setAttribute('height', s);
+    });
+
+    fibers.forEach((f, i) => {
+      const S = st[f.sat], el = fiberEls[i];
+      let k = 0;
+      if (t < T.sweep) k = easeOut(clamp01(settledSince(nodes[f.sat], t) / 0.5));
+      else if (t < T.sweepEnd) k = S.k > 0 && f.ex > fx ? 1 : 0;
+      const dxs = S.x - nodes[f.sat].x;
+      el.setAttribute('d', `M${S.x},${S.y} C${f.c1x + dxs},${f.c1y} ${f.c2x},${f.c2y} ${f.ex},${f.ey}`);
+      const len = el.getTotalLength();
+      el.setAttribute('stroke-dasharray', len); el.setAttribute('stroke-dashoffset', len * (1 - k));
+      el.style.opacity = k > 0 ? 0.75 * Math.min(S.k, 1) : 0;
+    });
+
+    edges.forEach(([a, b], i) => {
+      const A = st[a], B = st[b], el = edgeEls[i];
+      let k = 0;
+      if (t < T.sweep) k = easeOut(clamp01(Math.min(settledSince(nodes[a], t), settledSince(nodes[b], t)) / 0.5));
+      else if (t < T.sweepEnd) k = Math.min(A.k, B.k) > 0 ? 1 : 0;
+      const len = Math.hypot(B.x - A.x, B.y - A.y);
+      el.setAttribute('x1', A.x); el.setAttribute('y1', A.y); el.setAttribute('x2', B.x); el.setAttribute('y2', B.y);
+      el.setAttribute('stroke-dasharray', len); el.setAttribute('stroke-dashoffset', len * (1 - k));
+      el.style.opacity = k > 0 ? Math.min(A.k, B.k, 1) : 0;
+    });
+
+    signals.style.opacity = t >= T.live && t < T.sweep ? clamp01(Math.min((t - T.live) / 0.4, (T.sweep - t) / 0.3)) : 0;
+    if (!reduce) requestAnimationFrame(frame);
+  }
+
+  if (reduce) { frame(4000); signals.style.opacity = 0; } else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -8,7 +8,38 @@ true about intent and false about mechanism.
 
 Everything below has been moved out of the served shell and lives here instead.
 
-## The designer's mark — shipped 2026-09-07
+## The owner's mark — the cloud that opens into a network, shipped 2026-09-07
+
+The owner ruled on 2026-09-07 that the three-lobe file below is **not the final
+mark**. The current identity is the one their brand page describes
+(`brand/mark/source/brand-identity.dc.html`): a cloud that opens into a network. The
+hero is the hover cloud (`brand/mark/source/cloud-hover.html`, served verbatim in
+geometry and timing at `/brand/hover.html`, recoloured to the brand gradient); the
+static mark is that cloud — the file's four circles and rect — with a three-node
+network knocked out of its right side as true transparency. `brand/mark/mark.mjs`
+is the one source; the shell, the eleven SVGs on `/brand/` and the face gate read it.
+The owner's lockup rule (mark 2.65× the wordmark block, gap 7.5% of the mark's
+width) is followed exactly in the downloadable lockups; the console's 56px header
+wears a compact setting (mark 1.9× the block) and says so on the brand page. The
+three-lobe drawing is asserted absent from the served bytes. No blind reader has
+scored this mark yet.
+
+**The header carries the animated primary lockup** (owner ruling, later the same
+day): the owner's pure-SVG "cloud to network" animation
+(`brand/mark/source/mark-animated.html`, served at `/brand/mark-animated.html`) is
+ported as `src/components/AnimatedMark.jsx` from `ANIM` in `mark.mjs` — the cloud
+clipped at a seam, a pixel field and a network building on the right, pulses, a
+sweep and a recession on an eleven-second loop. It pauses in hidden tabs and is
+the static cut mark under reduced motion.
+
+**The retired drawings left `brand/` on 2026-09-07** at the owner's request, so the
+folder holds one mark: the three-lobe source file, the dissolving-cloud direction
+plates (`canvas-directions/`), the reserved-d monogram, the exploration rounds
+(`concepts`, `round2`–`round4` and their canvases, `skeletons`, `wide`, `archive`)
+and the compose scripts. They last live in commit `d9e22de35`; the sections below
+are kept as the record of what was tried and why it failed.
+
+## The designer's three-lobe mark — shipped 2026-09-07, retired the same day
 
 The new-mark phase below closed without a mark. The owner's designer then delivered
 one: `brand/mark/source/FInal-CLOUD-v3.svg` (2026-09-06) — three lobes of a cloud in
