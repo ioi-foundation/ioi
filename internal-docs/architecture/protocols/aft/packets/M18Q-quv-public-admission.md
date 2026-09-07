@@ -23,8 +23,12 @@ paid engagement, disclosure or publication; those remain owner actions.
   record that does not alter the candidate)
 - Retained clean run: `../evidence/m16q-runs/20260907T152920Z-9ce911fe798b/`
   (candidate code commit `9ce911fe7`; result PASS, 63 phases, 7217 s, clean non-quick tree)
-- Independent review of that exact commit: PENDING (report path, model
-  identity, disposition, independence disclosure)
+- Independent review of that exact commit: BLOCKED (owner decision). Attempt 1
+  on 2026-09-07 was refused by the reviewer service's usage limit before any
+  work (`../evidence/m17q-r2-review-2026-09-07/attempt-1-usage-limit/`;
+  retry named for Sep 12th, 2026 6:46 PM). Purchasing credits or substituting
+  a reviewer is an owner action; report path, model identity, disposition and
+  independence disclosure remain PENDING.
 
 ## 2. The exact claim admitted
 

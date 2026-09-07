@@ -4248,3 +4248,17 @@ claim is neither weakened by the pending review nor strengthened beyond it.
 The PDF rebuilt (171 pages) and the claim-discipline gate passes. The
 M18Q checklist item "yellow-paper wording agrees" is prepared, not yet
 ticked: it is ticked only with the review disposition.
+
+### Fresh M17Q review commission blocked by the reviewer service (2026-09-07)
+
+The authorized reviewer (`gpt-daybreak-blue-latest` via Codex CLI 0.153.0)
+was commissioned at 17:33:02 UTC against the frozen tag in a clean disposable
+clone; the service refused before any work with a usage-limit error naming
+"Sep 12th, 2026 6:46 PM" as the retry time. The attempt is retained
+byte-for-byte in `evidence/m17q-r2-review-2026-09-07/attempt-1-usage-limit/`.
+Purchasing credits is a paid engagement and substituting a reviewer changes
+the authorized commission, so both are owner decisions. Steps D–F are
+blocked on that decision; nothing in the candidate is established or refuted
+by the failed attempt. Dispositions unchanged: M15Q reopened, M16Q R2
+qualification evidence retained on the frozen candidate, M17Q
+`REPAIR_REQUIRED` (R1; R2 candidate unreviewed), M18Q `NOT_ADMITTED`.

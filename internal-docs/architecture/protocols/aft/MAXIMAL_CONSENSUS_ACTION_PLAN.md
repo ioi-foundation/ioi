@@ -712,3 +712,11 @@ M17Q review of that exact tag is the next gate. M18Q admission
 (`packets/M18Q-quv-public-admission.md`) stays NOT ADMITTED until that
 review reports no unresolved critical/high finding and the clean-checkout
 reproduction matches the retained run.
+
+Review commission (2026-09-07): the authorized reviewer service refused the
+commission with a usage limit (retry named for Sep 12th, 2026 6:46 PM);
+attempt retained under `evidence/m17q-r2-review-2026-09-07/`. Owner
+decision required: purchase credits, wait for the retry window, or authorize
+a different independent reviewer. The candidate, its qualification run and
+the yellow-paper wording are complete and frozen; nothing else is pending on
+this side.

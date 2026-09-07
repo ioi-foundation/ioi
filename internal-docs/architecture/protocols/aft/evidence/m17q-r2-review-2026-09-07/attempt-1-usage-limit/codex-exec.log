@@ -1,0 +1,22 @@
+OpenAI Codex v0.153.0
+--------
+workdir: /tmp/ioi-m17q-r2-daybreak.gY8W3X/review-clone
+model: gpt-daybreak-blue-latest
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /tmp/ioi-m17q-r2-daybreak.gY8W3X/review-output]
+reasoning effort: ultra
+reasoning summaries: none
+session id: 01a07cee-3cc0-7532-b9ae-9116e671d178
+--------
+user
+You are a fresh, context-isolated automated reviewer (gpt-daybreak-blue-latest). You did not implement this candidate and must disclose any prior exposure.
+
+Subject: annotated tag aft-quv-v0-m17q-candidate-r2-2026-09-07 in a clean disposable clone of /home/heathledger/Documents/ioi/repos/ioi (clone with --no-hardlinks, fetch tags, check out the peeled commit, record `git rev-parse TAG` and `TAG^{}`, confirm a clean worktree). Do not read or modify the commissioning checkout; do not accept uncommitted files.
+
+Your commission is `internal-docs/architecture/protocols/aft/packets/M17Q-quv-independent-review.md` in that clone. Follow it exactly: required source review (R1 list plus the R2 delta), mandatory full non-quick reproduction of `bash .github/scripts/run_aft_m16q_qualification.sh` from the clean checkout (retain the complete run directory), process-boundary exercise, an independent spec-only executable twin or equivalent model with the required negative mutations, answers to the 15 adversarial questions, explicit re-adjudication of QUV-M17Q-001..013 (closed / repaired-but-unqualified / open) and any new QUV-M17Q-014+ findings, and exactly one disposition: PASS, REPAIR_REQUIRED, or REJECT.
+
+Write everything under /tmp/ioi-m17q-r2-daybreak.gY8W3X/review-output (outside the clone): the Markdown report `M17Q-quv-independent-review-r2-daybreak-<date>.md`, twin source and raw results, full reproduction logs, commands, environment, hashes, and an independence disclosure with model identity and start/end times. This is automated independent review, not human peer review or institutional certification. Never treat a passing runner as proof beyond its recorded scope. Do not push, deploy, spend, or contact anyone.
+
+ERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 12th, 2026 6:46 PM.
+ERROR: You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Sep 12th, 2026 6:46 PM.
