@@ -282,9 +282,14 @@ run_phase() {
   started="$(date +%s)"
   echo "[M16Q] START ${phase}: ${rendered}" | tee "${OUTPUT_DIR}/${phase}.command.txt"
   set +e
-  "$@" > >(tee "${OUTPUT_DIR}/${phase}.log") 2>&1
+  # Write the phase log directly. A process-substitution tee would be forked
+  # as a child of the phase command; under a tracing phase (strace -f) that
+  # child is traced and the tracer then waits for the tee that waits for the
+  # tracer's own stdout, a deadlock observed on the first clean R2 attempt.
+  "$@" > "${OUTPUT_DIR}/${phase}.log" 2>&1
   status=$?
   set -e
+  cat "${OUTPUT_DIR}/${phase}.log"
   ended="$(date +%s)"
   elapsed=$((ended - started))
   if [[ ${status} -eq 0 ]]; then
