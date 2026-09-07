@@ -4215,3 +4215,14 @@ evidence exists on one immutable candidate; M15Q, M17Q and M18Q remain
 review of the exact tagged commit reports no unresolved critical/high
 finding. Next: freeze `aft-quv-v0-m17q-candidate-r2-2026-09-07`, commission
 the review, import its report byte-for-byte.
+
+Frozen (2026-09-07): annotated tag `aft-quv-v0-m17q-candidate-r2-2026-09-07`,
+tag object `f0932c71c630ab6c85676cda3606dc285a755070`, peeled commit
+`0d8d50d4f22c4f02b98ed06b4066c7aefd6d5992` (adds the retained run on
+`9ce911fe798b`). Manifest:
+`evidence/m16q-runs/candidate-aft-quv-v0-m17q-candidate-r2-2026-09-07.manifest.txt`.
+A first freeze attempt minutes earlier carried a run-id placeholder in its
+message; that local, unreferenced tag was deleted and the freeze repeated
+before any use. Push, deployment and publication remain owner actions; the
+owner-only commands are printed by the freeze script and recorded in the
+M18Q packet.

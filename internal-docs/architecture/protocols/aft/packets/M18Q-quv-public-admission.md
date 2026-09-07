@@ -13,8 +13,14 @@ paid engagement, disclosure or publication; those remain owner actions.
   `.github/scripts/freeze_aft_quv_candidate.sh` on the commit that adds the
   retained run; the tag object and peeled commit below are filled in the
   follow-up manifest commit, which does not alter the candidate)
-- Tag object: PENDING
-- Peeled commit: PENDING (must equal the commit that adds the retained run)
+- Tag object: `f0932c71c630ab6c85676cda3606dc285a755070` (annotated tag)
+- Peeled commit: `0d8d50d4f22c4f02b98ed06b4066c7aefd6d5992` (the commit that adds
+  the retained run; its parent `9ce911fe798b` is the run commit)
+- Candidate manifest and checksums:
+  `../evidence/m16q-runs/candidate-aft-quv-v0-m17q-candidate-r2-2026-09-07.manifest.txt`
+  (source SHA-256 from the retained run and the retained run's artifact
+  checksum list; written by the freeze script, committed in the follow-up
+  record that does not alter the candidate)
 - Retained clean run: `../evidence/m16q-runs/20260907T152920Z-9ce911fe798b/`
   (candidate code commit `9ce911fe7`; result PASS, 63 phases, 7217 s, clean non-quick tree)
 - Independent review of that exact commit: PENDING (report path, model
