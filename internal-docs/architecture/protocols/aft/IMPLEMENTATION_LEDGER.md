@@ -4056,6 +4056,17 @@ removes those links itself. They are untracked and the pattern is now
 `**/formal/**/TLAPS.tla`. A stale dangling link had also made the
 test-node build refuse to resolve a source revision.
 
+Clean R2 attempts (2026-09-06): the first clean run on `e5928c321` passed
+the formal corpus (2622 s), the core and journal gates, and then failed on a
+latent runner defect: the three reserved-anchor regressions were required
+from a phase whose filter never ran their module (`b4fb23106` gives them
+their own phase). The second run on `b4fb23106` passed formal (2591 s), core,
+journal, anchor and every reservation gate, then deadlocked in the
+strace-wrapped journal-ancestry phase because the runner's process-substitution
+tee was forked as a traced child (`2404a79e6` writes phase logs directly).
+Both runs are retained outside the candidate as runner-defect history; the
+definitive clean R2 run must start from the fixed commit.
+
 Disposition after this wave: unchanged. M15Q reopened, M16Q R2 unqualified
 (process campaigns on the integrated tree are running; earlier attempts under
 concurrent builds failed and are retained), M17Q `REPAIR_REQUIRED`, M18Q

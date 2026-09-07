@@ -182,3 +182,17 @@ passed. The retry is the recorded result.
 - The `CompleteQuvPush` addition in the in-flight drop branch is compile- and
   symmetry-verified only: no orchestration test constructs a
   `MainLoopContext`, so the branch is not unit-observable in this crate.
+
+
+## Join-time principal share (2026-09-07)
+
+The clean R2 attempt on `b4fb23106` refused the consecutive-readiness
+fixture's unrelated same-principal effect with `QUV principal already has a
+waiting foreground request` while the principal's child slot was waiting out
+its readiness delay. The per-principal share is now acquired in
+`QuvWaitingForegroundV0::enter` (the active-queue join) instead of
+`reserve_foreground`; a readiness-waiting reservation holds only its domain
+permit. `per_principal_waiting_bound_refuses_second_queued_request_and_releases_on_cancel`
+now asserts that a second reservation succeeds, the join is refused with the
+typed error, and the domain permit is released on that refusal. Runtime suite
+30/30 on the repaired source.

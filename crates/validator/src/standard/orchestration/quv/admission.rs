@@ -296,13 +296,15 @@ impl QuvOperationAdmissionV0 {
             .clone()
             .try_acquire_owned()
             .map_err(|_| anyhow!("QUV domain already has a waiting foreground request"))?;
-        // Refusal here drops the domain permit just taken: nothing is retained.
-        let principal_waiting = self
-            .waiting_principals
-            .try_acquire(principal, "foreground")?;
+        // The per-principal share is taken only when the request joins the
+        // active-lane queue (`enter`), never across a child slot's readiness
+        // delay: a principal waiting out `readiness_millis` in one domain must
+        // still be able to run an unrelated effect in another. The domain
+        // permit alone is held across the delay.
         Ok(QuvWaitingForegroundV0 {
             waiting,
-            principal_waiting,
+            principal,
+            principals: Arc::clone(&self.waiting_principals),
             active: self.active.clone(),
         })
     }
@@ -345,7 +347,8 @@ impl QuvOperationAdmissionV0 {
 /// The independent preparation worker can still enter the active lane.
 pub(super) struct QuvWaitingForegroundV0 {
     waiting: OwnedSemaphorePermit,
-    principal_waiting: QuvPrincipalWaitingV0,
+    principal: AccountId,
+    principals: Arc<QuvPrincipalWaitersV0>,
     active: Arc<Semaphore>,
 }
 
@@ -361,13 +364,15 @@ impl QuvWaitingForegroundV0 {
     }
 
     pub(super) async fn enter(self) -> Result<OwnedSemaphorePermit> {
+        // Refusal here drops the domain permit: nothing is retained.
+        let principal_waiting = self.principals.try_acquire(self.principal, "foreground")?;
         let active = self
             .active
             .acquire_owned()
             .await
             .map_err(|_| anyhow!("QUV operation admission is closed"))?;
         drop(self.waiting);
-        drop(self.principal_waiting);
+        drop(principal_waiting);
         Ok(active)
     }
 }
@@ -445,13 +450,22 @@ mod tests {
         let mut first = Box::pin(gate.foreground_as([1; 32], one));
         require_pending(first.as_mut()).await;
         assert_eq!(gate.waiting_principals.held(one), WAITING_PER_PRINCIPAL);
-        // The same principal cannot also queue on a free, different domain;
-        // the refusal is typed and leaves that domain's slot untouched.
+        // The same principal may still RESERVE a free, different domain (a
+        // child slot waiting out its readiness delay holds only the domain
+        // permit and no principal share), but cannot JOIN the active queue a
+        // second time: the refusal is typed, surfaces at the join, and
+        // releases that domain's slot.
         for domain in [[2; 32], [3; 32]] {
-            let refused = gate
+            let reserved = gate
                 .reserve_foreground(domain, one)
+                .expect("a readiness-waiting reservation takes no principal share");
+            assert_eq!(gate.waiting_principals.held(one), WAITING_PER_PRINCIPAL);
+            assert_eq!(gate.waiting_domains[&domain].available_permits(), 0);
+            let refused = reserved
+                .enter()
+                .await
                 .err()
-                .expect("second queued request by the same principal is refused");
+                .expect("second queued request by the same principal is refused at the join");
             assert_eq!(
                 refused.to_string(),
                 "QUV principal already has a waiting foreground request"
@@ -469,7 +483,12 @@ mod tests {
         assert_eq!(gate.waiting_domains[&[1; 32]].available_permits(), 1);
         let mut replacement = Box::pin(gate.foreground_as([3; 32], one));
         require_pending(replacement.as_mut()).await;
-        assert!(gate.reserve_foreground([1; 32], one).is_err());
+        assert!(gate
+            .reserve_foreground([1; 32], one)
+            .expect("reservation alone is not a queued waiter")
+            .enter()
+            .await
+            .is_err());
         // Admission releases the principal share: the admitted operation is
         // no longer a queued waiter, so its principal may queue once more.
         drop(active);

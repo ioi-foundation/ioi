@@ -260,9 +260,15 @@ charge (two allocation units per claimed slot) is committed in policy-root v8.
 Executor entry admission (2026-09-06). Both effect entry points bound queued
 waiters per authorizing principal (`WAITING_PER_PRINCIPAL`, policy-root v8)
 across all domains and across the historical receipt lane, in addition to the
-per-domain waiting bound. Refusal is typed and non-mutating; cancellation
-releases the principal share. This is a queued-waiter bound, not wall-clock
-fairness or a worst-case service proof.
+per-domain waiting bound. The principal share is taken only when a request
+joins the active-lane queue, after any child-slot readiness delay: a
+reservation waiting out `readiness_millis` holds its domain permit but no
+principal share, so a principal with a long readiness wait in one domain can
+still run an unrelated effect in another (the clean R2 attempt on
+`b4fb23106` refused exactly that and was repaired). Refusal is typed,
+non-mutating and surfaces at the join; cancellation releases the share. This
+is a queued-waiter bound, not wall-clock fairness or a worst-case service
+proof.
 
 Reply admission after a late timer wake (2026-09-06). The runtime finalization
 closure is the same function for on-time and late timer wakes; a reply first
