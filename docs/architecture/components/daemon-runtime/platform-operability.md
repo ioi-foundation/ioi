@@ -807,7 +807,10 @@ rollback, and receipt path before activation.
 
 The standalone startup, blocked-diagnostic, attach/detach, and dependency-
 closure consequences are specified by
-`sovereign-local-completeness.md`.
+[`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
+minimum-L0 proof profile* and
+[`core-clients-surfaces.md`](../hypervisor/core-clients-surfaces.md)
+§ *Standalone Local Completeness*.
 
 ## Conformance
 

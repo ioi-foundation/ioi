@@ -382,6 +382,15 @@ The runtime receives:
 
 It should not receive raw refresh tokens or long-lived secrets.
 
+A connector is usable from a Session only when that Session's closed
+authority profile names it; the profile is declared at session create, defaults
+to the empty set, and is enforced by daemon admission on the connector invoke
+path (owner:
+[`core-clients-surfaces.md`](../hypervisor/core-clients-surfaces.md)
+§ *Session authority profile*). The Connections cockpit remains the only place
+a binding is created, inspected, or revoked; a session never widens its own
+profile.
+
 ## Connector Mappings and Data Recipes
 
 Connectors expose provider data. They do not define the domain by themselves.

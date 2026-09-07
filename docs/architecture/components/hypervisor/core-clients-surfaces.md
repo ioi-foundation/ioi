@@ -192,10 +192,13 @@ System. Hypervisor clients continue to resolve the same public semantic
 contracts across standalone and connected postures; capacity, availability,
 custody, and assurance differences remain explicit.
 
-The claim is gated by
-`sovereign-local-completeness.md`;
-the contract currently defines target evidence and does not claim a shipped
-end-to-end standalone product.
+The claim's fixture and target-evidence contract is stated in
+[`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
+minimum-L0 proof profile* (the former separate conformance document was
+retired on 2026-08-12); the contract currently defines target evidence and
+does not claim a shipped end-to-end standalone product. The narrower
+base-platform alpha is owned by
+[`bounded-alpha-profile.md`](./bounded-alpha-profile.md).
 
 ## Zero-To-Operable Local Deployment
 
@@ -2995,6 +2998,49 @@ A Session binds:
 - Agentgres refs and receipt obligations;
 - adapter targets;
 - replay and restore metadata.
+
+### Session authority profile
+
+> Declared 2026-09-07 (ADR 0052 Decision 3; the M13 session-authority binding).
+
+Every Session records at create a **closed authority profile**: the set of
+Connections-estate connectors (the objects the Connections cockpit owns, per
+[`connectors-tools/doctrine.md`](../connectors-tools/doctrine.md)
+§ *Connector Authority*) that the session's runtime tool surface may resolve.
+
+```text
+HypervisorSession.authority_profile:
+  schema_version: ioi.hypervisor.session_authority_profile.v1
+  connection_refs: [ "connector:<connector_id>", ... ]   # closed set; default []
+  declared_at: <iso8601>
+```
+
+Rules:
+
+- **Default is empty, not the workspace.** A session created without a
+  profile names no connection; the workspace's connector estate confers
+  nothing on it.
+- **Closed at create.** Each `connection_refs` entry must resolve to an
+  existing connector the caller may use at create time; an unknown or
+  already-revoked connector refuses the create with a typed reason. The set
+  is immutable for the session's lifetime.
+- **Admission narrows to the profile.** A connector invocation made on behalf
+  of a session (the request names `session_ref`) is admitted only when the
+  connector is in that session's profile; otherwise the daemon refuses with
+  `session_authority_out_of_profile` before any credential is resolved. The
+  refusal is the daemon's, independent of catalog filtering or any client.
+- **Widening is a new binding, never an in-run mutation.** To use another
+  connection, create a new session naming it, or attach it through the
+  Connections cockpit as a new binding record; no route mutates a live
+  profile.
+- **Revocation fences.** Deleting a connector or revoking its credential
+  refuses every subsequent invocation from every session that named it; the
+  fence survives daemon restart because both the profile and the connector's
+  state are durable records.
+- **No new primitive.** The profile is a binding of the existing Session
+  object to existing connector/lease objects; possession, admission, refusal
+  and receipts remain daemon truth, and the profile confers no authority the
+  named connector's own lease does not carry.
 
 Sessions are bounded execution truth windows. A Session view should be able to show
 the live or historical transcript, step graph, tool/model calls,

@@ -303,9 +303,9 @@ invalidate locally owned Systems, packages, Agentgres truth, receipts, restore
 material, or export paths.
 
 The isolated, attachment, detachment, and migration consequences are tested by
-the target
-`sovereign-local-completeness.md`
-contract; no current end-to-end evaluator is implied.
+the target sovereign-local fixture contract in
+[`execution-horizons.md`](../../_meta/execution-horizons.md) § *Selected
+minimum-L0 proof profile*; no current end-to-end evaluator is implied.
 
 ## General VM And Runtime Lifecycle
 

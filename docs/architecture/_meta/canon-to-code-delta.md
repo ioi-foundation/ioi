@@ -1186,7 +1186,7 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 
 ## Related Canon
 
-- [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form index (the wider matrix).
+- [`work-items/`](./work-items/) — the machine-checked work-item status records this ledger pairs with (the former implementation matrix is an archived stub).
 - [`execution-horizons.md`](./execution-horizons.md) — horizon framing + the contract-first build sequence.
 - [`source-of-truth-map.md`](./source-of-truth-map.md) — subject-to-owner map.
 - [`../foundations/institutional-learning-boundary.md`](../foundations/institutional-learning-boundary.md) — enterprise-owned learning compiler, portability, and model-independence owner.

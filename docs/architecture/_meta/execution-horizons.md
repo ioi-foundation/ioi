@@ -208,8 +208,13 @@ IOI-managed hosting, identity-preserving migration, AIIP, IOI L1, marketplace,
 cTEE, and physical-action claims remain conditional until their own fixtures
 pass.
 
-The target cases and claim-scoped fixture requirements live in
-`sovereign-local-completeness.md`.
+The target cases and claim-scoped fixture requirements were once held by a
+separate `sovereign-local-completeness` conformance document; that document
+class was retired on 2026-08-12 and the file no longer exists. The claim-scoped
+requirements now live in this section, in
+[`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+§ *Standalone Local Completeness*, and in each owner document's
+`Implementation status:` header; no fixture data for this claim is tracked.
 
 At minimum the proof records time to verified release, time to operable,
 diagnostic detection and recovery, time to first valid preview, time to genesis,
@@ -261,7 +266,42 @@ non-shipping provenance is isolated reference evidence plus required notices;
 an external source is never a runtime dependency, fallback, taxonomy owner, or
 product surface.
 
-## The first proof — a ruling
+## The Hypervisor base-platform alpha — a separate proof class
+
+> Adopted 2026-09-07 by
+> [ADR 0052](../../decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md).
+
+The selected minimum-L0 profile, the undeniable-product gate and the
+first-proof ruling below belong to the **flagship class**: they prove the
+openly packaged ioi.ai orchestration application composed over the substrate.
+They are not the platform's own front-door proof, and an ordinary Hypervisor
+user is never routed through a goal template, genesis, a GoalRun or an
+OutcomeRoom to obtain one.
+
+The platform's front-door proof is the **Hypervisor bounded-alpha profile**,
+owned by
+[`bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md):
+one invited technical operator on one supported Linux host, deployment-local
+identity and authority, one qualified harness/model route in one disclosed
+execution venue, and the journey install → bootstrap → readiness → project →
+harness/model/connections → useful work → inspect → stop/revoke → restart and
+recover → back up/restore → diagnostics → update/rollback, with App and
+headless client agreeing on daemon-owned state. Its acceptance is separate
+from, and never summed with, optional application, System-conformance,
+marketplace, cloud, network and flagship proofs; those keep their own claims
+and their own gates.
+
+Three consequences for sequencing:
+
+- the base-alpha journey and the M13 session-authority binding sit on the
+  platform's critical path ahead of the flagship proofs, and the flagship
+  proofs compose over them rather than substitute for them;
+- landing the flagship first proof does not, by itself, establish the base
+  alpha, and an unfinished room feature never blocks the base alpha;
+- installing the orchestration application on an alpha deployment uses the
+  same authority and execution boundaries as any other application.
+
+## The first proof — a ruling (flagship class)
 
 The flagship proofs — sovereign-local completeness, one logical DAS across two
 failure domains, two sovereign DASs over AIIP, and the north-star external
@@ -269,9 +309,11 @@ Worker proof — were declared targets without an answer to the question that
 decides sequencing: **which single proof, landed first, most changes what
 everything else can claim?**
 
-The ruling: **sovereign-local completeness is the first proof** — the
+The ruling: **sovereign-local completeness is the first flagship proof** — the
 `embedded_single_operator_offline` fixture plus undeniable-product profile 1,
-on the selected bounded software-change OutcomeRoom institution.
+on the selected bounded software-change OutcomeRoom institution. It ranks the
+flagship proofs among themselves; the base-platform alpha above is a separate
+class and is not ranked by this ruling.
 
 Why this one and not another:
 
@@ -293,10 +335,9 @@ Why this one and not another:
   proof exists, those are positioning claims; after it, they are demonstrable
   properties.
 - **It is the cheapest flagship.** Single node, no consensus, no federation,
-  no payments, no cTEE — the conformance matrix
-  (`sovereign-local-completeness.md`)
-  already exists as fixture data; what is missing is the runner and the
-  passing estate.
+  no payments, no cTEE. The retired conformance tree once carried a fixture
+  matrix for this claim; it is not tracked today, so what is missing is the
+  matrix, the runner and the passing estate.
 
 What it costs: the contract-first build steps 1–9 below, the
 sovereign-local-completeness runner and isolated-egress harness, and the
@@ -810,6 +851,6 @@ shipped claim. The selected software-change journey binds risk-selected WorkRun 
 ## Related Canon
 
 - [`doc-classes.md`](./doc-classes.md) — the status-axis vocabulary.
-- [`implementation-matrix.md`](./implementation-matrix.md) — per-concept durable-form status.
-- [`canon-to-code-delta.md`](./canon-to-code-delta.md) — the object-level canon-to-code delta and deferred UX backlog.
+- [`canon-to-code-delta.md`](./canon-to-code-delta.md) and the [`work-items/`](./work-items/) records — the live per-object implementation status (the former implementation matrix is an archived stub).
+- [`../components/hypervisor/bounded-alpha-profile.md`](../components/hypervisor/bounded-alpha-profile.md) — the base-platform alpha profile and its readiness matrix.
 - [`../foundations/economic-flywheel-and-pricing-boundaries.md`](../foundations/economic-flywheel-and-pricing-boundaries.md) — what monetizes at each layer.
