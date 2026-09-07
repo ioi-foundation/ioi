@@ -385,6 +385,20 @@ second forward. One connected-but-silent recipient holds at most one live
 push and one reply in its reserved lanes across any number of operations;
 the only remaining enqueue error is a quarantined outbox.
 
+Shared-lane reply latency (2026-09-07 clean-run observation). In the
+consecutive-readiness campaign a child operation's members completed
+write-before-reply and handed their replies to the swarm within 1.0 s of the
+push, yet two replies reached the executor 2.9–3.2 s later
+(`max_valid_reply_elapsed_millis=4210`, inside the rooted 5000 ms interval,
+operation accepted) while three members' own preparation operations and an
+ordering commit used the same single-in-flight PQ request lane per peer. The
+retained logging has no per-record lane events, so the wait is not
+attributed. Deployment obligation: the declared reply envelope for this host
+is 4500 ms in both the flood and readiness profiles; operators must size
+`delta_rt` against reply latency measured with concurrent preparation and
+ordering traffic, not against an idle carrier. Q-A3 remains an assumption the
+deployment must establish; these campaigns measure it, they do not prove it.
+
 Cold first-operation latency (2026-09-06 requalification observation). The
 first full-membership operation after process start delivered its pushes to
 every remote member 4.7–4.9 s after dispatch, beyond the qualified 4000 ms

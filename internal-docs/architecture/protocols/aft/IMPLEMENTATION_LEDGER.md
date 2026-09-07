@@ -4167,3 +4167,22 @@ records the numbers. Qualification campaigns must not share the host with
 CPU-heavy work; the relaunch is gated on a quiet host and its load trace is
 retained. Evidence: `evidence/m17q-r2-flood-host-contention-2026-09-07/`.
 Dispositions unchanged.
+
+### Fourth clean R2 attempt: readiness reply envelope on shared PQ lanes (2026-09-07)
+
+The quiet-host clean run on `4826d4bdb` (`20260907T115443Z-4826d4bdb394`)
+passed 48 phases and failed `quv_consecutive_readiness`: the slot-2 child's
+accepted audit recorded a 4210 ms valid reply against the fixture's 4000 ms
+declared envelope (inside the rooted 5000 ms interval; operation accepted,
+all members valid). Members handed their replies to the swarm within 1.0 s
+of the push; two replies then took 2.9–3.2 s to reach the executor while
+three members' preparation operations and an ordering commit shared the
+single in-flight PQ peer lanes. The retained logging has no per-record lane
+events, so the wait is recorded, not attributed. Repair sized from
+measurement: the readiness profile declares the same 4500 ms envelope as the
+flood profile (`QUALIFIED_ENVELOPE_MS`), and its evidence checker pins 4500;
+interval, readiness bound, service budgets and discard-after-interval are
+unchanged. Retained readiness maxima: 2075, 2217, 2524, 2731, 4210 ms.
+Evidence: `evidence/m17q-r2-readiness-reply-envelope-2026-09-07/`. Recorded
+for the reviewer as a transport cost (shared lane) rather than a closed item.
+Dispositions unchanged.

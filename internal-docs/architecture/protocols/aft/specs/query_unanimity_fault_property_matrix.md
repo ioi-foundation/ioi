@@ -1412,3 +1412,14 @@ flood fixture's continuation is now 11 s (16 s budget); interval, envelope
 and failure semantics are unchanged. The executor's runtime-finality critical
 section remains an unqualified timing cost, not a guarantee. Evidence:
 `evidence/m17q-r2-flood-host-contention-2026-09-07/`.
+
+### Readiness reply envelope resized from measurement (2026-09-07)
+
+Measured cost, no row change: a child operation's valid reply reached the
+executor 4210 ms after dispatch (members replied within 1.0 s; the replies
+waited 2.9–3.2 s on the shared single-in-flight PQ peer lanes beside
+concurrent preparation pushes and an ordering commit), inside the 5000 ms
+interval and outside the readiness fixture's 4000 ms declared envelope. The
+readiness profile now declares 4500 ms like the flood profile; the checker
+pins it. Lane waits are not attributed at the retained logging level.
+Evidence: `evidence/m17q-r2-readiness-reply-envelope-2026-09-07/`.

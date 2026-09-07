@@ -695,3 +695,10 @@ campaign by 9.5 ms against its 13 s service budget under unrelated host load;
 the flood budget is resized from three campaigns' measurements to 16 s
 (`evidence/m17q-r2-flood-host-contention-2026-09-07/`) and the definitive
 clean run restarts from that commit on a quiet host.
+
+The fourth clean R2 run on `4826d4bdb` (quiet host) passed 48 phases and
+failed the readiness campaign on a 4210 ms valid reply against its 4000 ms
+declared envelope (replies waited about 3 s on the shared PQ peer lanes);
+the readiness profile now declares the same 4500 ms envelope as the flood
+profile (`evidence/m17q-r2-readiness-reply-envelope-2026-09-07/`) and the
+definitive clean run restarts from that commit on a quiet host.

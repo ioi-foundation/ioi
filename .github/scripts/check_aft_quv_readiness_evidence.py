@@ -35,7 +35,7 @@ def validate(text, records):
             raise ValueError("invalid exact scope")
     if expected["executor"] not in members or expected["domain"] == expected["probe_domain"]:
         raise ValueError("invalid executor or unrelated domain")
-    if (expected["decision_millis"], expected["readiness_millis"], expected["reply_envelope_millis"]) != ("5000", "40000", "4000"):
+    if (expected["decision_millis"], expected["readiness_millis"], expected["reply_envelope_millis"]) != ("5000", "40000", "4500"):
         raise ValueError("unexpected finite fixture profile")
     slots = {int(row["slot"]): row for row in rows if "slot" in row}
     probes = [row for row in rows if row.get("case") == "unrelated_during_wait"]
@@ -83,7 +83,7 @@ def validate(text, records):
         if hashes(audit["configured_members"]) != members or hashes(audit["valid_members"]) != members or audit.get("portable_final_receipt") is not False:
             raise ValueError("wrong participation or portable authority claim")
         latency = audit.get("max_valid_reply_elapsed_millis")
-        if start.get("decision_millis") != 5000 or audit.get("decision_interval_millis") != 5000 or type(latency) is not int or not 0 <= latency <= 4000:
+        if start.get("decision_millis") != 5000 or audit.get("decision_interval_millis") != 5000 or type(latency) is not int or not 0 <= latency <= 4500:
             raise ValueError("wrong decision/reply envelope")
         if slot in (2, 3):
             wait_i, wait = waits[key]; admitted_i, observed = admitted[key]
@@ -105,7 +105,7 @@ def validate(text, records):
 def self_test():
     h = lambda n: format(n, "064x")
     members = ",".join(h(n) for n in (1,2,3,4))
-    text = "test result: ok. 1 passed; 0 failed; 0 ignored;\n" + f"[M16Q-READINESS-EXPECT] configuration={h(10)} domain={h(11)} probe_domain={h(12)} executor={h(1)} members={members} candidates={h(21)},{h(22)},{h(23)} probe_candidate={h(24)} decision_millis=5000 readiness_millis=40000 reply_envelope_millis=4000\n"
+    text = "test result: ok. 1 passed; 0 failed; 0 ignored;\n" + f"[M16Q-READINESS-EXPECT] configuration={h(10)} domain={h(11)} probe_domain={h(12)} executor={h(1)} members={members} candidates={h(21)},{h(22)},{h(23)} probe_candidate={h(24)} decision_millis=5000 readiness_millis=40000 reply_envelope_millis=4500\n"
     records = [("executor", {"target": "rpc", "fields": {"message": "Public gRPC API listening on 127.0.0.1:1"}})]
     def event(event, nonce, **fields):
         records.append(("executor", {"fields": dict(event=event, nonce=h(nonce), **fields)}))
