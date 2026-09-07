@@ -432,3 +432,30 @@ NetworkGoalBudgetEnvelope:
     draft | funded | active | exhausted | paused | disputed |
     settling | settled | refunded | expired | revoked
 ```
+
+## GoalRun Profiles Surface
+
+> Moved here from `core-clients-surfaces.md` on 2026-09-07 (ADR 0052
+> Decision 4): the surface is contributed by the ioi.ai orchestration
+> application through the product-surface registration family and is owned
+> here, not by Hypervisor core.
+
+`GoalRunProfile` is the reusable product object for adaptive pursuit. Studio
+may author and compare profile revisions; Packages versions, distributes,
+recalls, and revokes released revisions; Work / Goals and ioi.ai select or
+explain the profile for a GoalRun; Improvement proposes successor revisions;
+Provenance exposes the resolution snapshot and receipt. None of those surfaces
+creates a second runtime owner.
+
+New Goal UX may present a friendly Recipe or mode name, but the backing
+`goal-run-profile://.../revision/...` ref must be inspectable. Direct ad hoc
+work resolves through the versioned generic-adaptive profile. Advanced editors
+may expose optional WorkflowTemplate refs, role/topology requirements,
+SkillManifest and tool requirements, verifier and acceptance contracts,
+budgets, stop/recovery/escalation policy, compatible domains, and permitted
+override schema. They must not embed credentials, live leases, selected
+RuntimeAssignments, attempts, artifacts, or domain lifecycle state.
+
+Ordinary Hypervisor sessions need no `GoalRunProfile`: the Default Harness
+Profile executes a direct session with no application present
+([`harness-application-profile.md`](./harness-application-profile.md)).

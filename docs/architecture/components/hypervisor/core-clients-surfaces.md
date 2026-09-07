@@ -2938,23 +2938,15 @@ adapter, but vendor/process mechanics never become a HarnessProfile family.
 The resulting HarnessInvocation must emit the common boundary objects and obey
 daemon gates.
 
-## GoalRun Profiles
+## Application-Contributed Surfaces
 
-`GoalRunProfile` is the reusable product object for adaptive pursuit. Studio
-may author and compare profile revisions; Packages versions, distributes,
-recalls, and revokes released revisions; Work / Goals and ioi.ai select or
-explain the profile for a GoalRun; Improvement proposes successor revisions;
-Provenance exposes the resolution snapshot and receipt. None of those surfaces
-creates a second runtime owner.
-
-New Goal UX may present a friendly Recipe or mode name, but the backing
-`goal-run-profile://.../revision/...` ref must be inspectable. Direct ad hoc
-work resolves through the versioned generic-adaptive profile. Advanced editors
-may expose optional WorkflowTemplate refs, role/topology requirements,
-SkillManifest and tool requirements, verifier and acceptance contracts,
-budgets, stop/recovery/escalation policy, compatible domains, and permitted
-override schema. They must not embed credentials, live leases, selected
-RuntimeAssignments, attempts, artifacts, or domain lifecycle state.
+Surfaces an application contributes through the product-surface registration
+family are owned by that application's canon, not here. The ioi.ai
+orchestration application's GoalRun Profiles surface (authoring, packaging,
+selection, improvement and provenance of `GoalRunProfile` revisions) is owned
+by [`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md) § *GoalRun
+Profiles Surface* (moved 2026-09-07, ADR 0052 Decision 4). Direct ad hoc work
+on Hypervisor needs no such profile and no application to be installed.
 
 ## Hypervisor Sessions
 
@@ -4520,8 +4512,11 @@ HypervisorWorkQueue:
   system_ref: system://... | null
   owner_ref: wallet://... | org://...
   queue_kind:
-    one_off_handoffs | automation_runs | goal_runs | review_queue |
+    one_off_handoffs | automation_runs | application_subjects | review_queue |
     incident_queue | service_requests | custom
+  # application_subjects: a queue whose items carry an owner-registered
+  # subject attachment (e.g. the ioi.ai goal family); the platform names no
+  # application family as a queue kind (ADR 0022 sub-ruling 4, ADR 0052).
   intake_policy_ref: policy://...
   default_environment_profile_ref: hypervisor_environment_ops:... | null
   default_harness_selection_ref: harness_selection:... | null
@@ -4537,12 +4532,16 @@ HypervisorWorkItem:
   project_ref: project://... | null
   system_ref: system://... | null
   automation_run_ref: automation-run://... | null
-  goal_run_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
-  work_claim_ref: work-claim://... | null
+  # Application-owned subjects (the ioi.ai goal/room/claim family among them)
+  # attach through the typed seam, never as named core fields (ADR 0022
+  # sub-ruling 7; the same seam HypervisorSession uses):
+  subject_attachments:
+    - subject_kind: <owner-registered>
+      subject_ref: <owner scheme>://...
+      attachment_role: primary | context | claim
   source_kind:
     new_session | automation_trigger | pull_request | issue_event |
-    webhook | schedule | human_comment | api | collaborative_outcome
+    webhook | schedule | human_comment | api | application_subject
   original_request_ref: artifact://... | null
   normalized_intent_ref: intent://... | null
   code_context:
@@ -4567,11 +4566,12 @@ HypervisorWorkRun:
   session_ref: session://...
   system_ref: system://... | null
   automation_run_ref: automation-run://... | null
-  goal_run_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
-  room_participant_lease_ref: participant-lease://... | null
-  work_claim_ref: work-claim://... | null
-  attempt_ref: attempt://... | null
+  # Application-owned subjects and their leases/attempts attach through the
+  # typed seam (ADR 0022 sub-ruling 7); the run itself is generic execution truth.
+  subject_attachments:
+    - subject_kind: <owner-registered>
+      subject_ref: <owner scheme>://...
+      attachment_role: primary | context | claim | attempt
   runtime_assignment_ref: runtime-assignment://... | null
   workflow_action_ref: workflow_action:... | null
   accountable_actor_ref:
@@ -4715,19 +4715,11 @@ it serves, not a direct Work subject. Fleet allocation and other domain leases
 remain facets or linked domain objects unless they acquire an independently
 owned work lifecycle and canonical detail route.
 
-HypervisorOutcomeRoomProjection:
-  projection_id: hypervisor_outcome_room_projection:...
-  outcome_room_ref: outcome-room://...
-  objective_and_acceptance_ref: outcome-room://...
-  work_frontier_projection_ref: projection://...
-  participant_projection_ref: projection://...
-  attempts_findings_projection_ref: projection://...
-  evaluation_challenge_projection_ref: projection://...
-  authority_privacy_projection_ref: projection://...
-  budget_spend_projection_ref: projection://...
-  contribution_lineage_projection_ref: projection://...
-  replay_ref: replay://...
-  read_model_only: true
+# Application-contributed read models (the ioi.ai HypervisorOutcomeRoomProjection
+# among them) are owned by their application canon — see
+# domains/ioi-ai/collaborative-outcome-pattern.md § Minimal Implementation
+# Objects (moved 2026-09-07, ADR 0052 Decision 4). Work / detail renders them
+# through the typed subject-attachment seam, never through a core field.
 
 SessionAccessToken:
   token_id: session_access_token:...

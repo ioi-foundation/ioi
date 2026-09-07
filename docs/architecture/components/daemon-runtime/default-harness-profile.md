@@ -2,10 +2,15 @@
 
 Status: canonical reference harness profile.
 Canonical owner: this file for HarnessProfile and AgentHarnessAdapter runtime
-semantics plus the Default Harness Profile reference scaffold/fallback. It
-consumes the GoalRunProfile, GoalRun, Goal Kernel, topology, context, handoff,
-invocation, and result contracts owned by the common-object canon; it does not
-redefine their state or ownership.
+semantics plus the Default Harness Profile reference scaffold/fallback —
+harness selection, invocation, tool boundaries, model configuration, lifecycle
+and evidence for every session, with or without an application present. It
+consumes the topology, context, handoff, invocation, and result contracts owned
+by the common-object canon; the application-supplied inputs (the ioi.ai
+GoalRunProfile, GoalRun, Goal Kernel pursuit policy, and room context) are
+owned by
+[`harness-application-profile.md`](../../domains/ioi-ai/harness-application-profile.md)
+and this file does not redefine their state or ownership.
 Supersedes: standalone harness-profile wording that implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
 Last alignment pass: 2026-07-22.
@@ -148,65 +153,16 @@ ground objective, state, constraints, and acceptance
   -> repair, escalate, update admitted learning, continue, or close
 ```
 
-## GoalRun Admission Path Decision
+## Application Admission Paths
 
-The Hypervisor Daemon is the sole admitting owner for selecting whether an
-admitted GoalRun uses the direct non-System path or requires a System-bound
-path. A client, surface, profile, harness, model, workflow, or correlation
-reference may request a path but cannot select or upgrade it. The daemon emits
-one `GoalRunAdmissionPathDecision` and binds its exact decision receipt before
-GoalRun execution begins.
-
-The direct non-System path is eligible only when every predicate below is
-resolved true from admitted policy and live runtime facts:
-
-- the request creates or continues exactly one bounded work subject;
-- no System membership, constitutional state, shared frontier, OutcomeRoom,
-  collective scheduler, or multi-party admission owner is required;
-- the declared capability, authority, resource, budget, risk, isolation, and
-  receipt requirements fit one admitted execution without widening;
-- no unresolved dependency requires System-owned state or coordination; and
-- no applicable policy requires the System-bound path.
-
-Any false or unknown predicate makes direct admission ineligible. The daemon
-returns `system_bound_required` with typed reason codes when the System-bound
-path is available, or a typed `refused` decision when its prerequisites are not
-available. It never silently downgrades System-bound work to the direct path,
-silently widens the direct path, or treats a requested path as an admission
-fact. Direct work still freezes the built-in generic-adaptive
-`GoalRunProfile` revision and content hash, effective constraint hash, policy,
-authority, resolved component set, result profile, and decision receipt. It is
-not a profileless, authority-free, or receipt-free exception.
-
-The canonical non-software M3 conformance profile is `research`. The minimum
-positive proof emits a `WorkResult` with `result_profile: research`, a
-profile-owned payload reference, claims and uncertainty, supporting and
-contradicting evidence where present, exact producer-component resolution, and
-a terminal receipt. Negative, inconclusive, challenged, and superseded research
-results remain first-class retained outputs. This selection fixes a proof
-profile; it does not make research the only non-software result family or move
-result ownership into the harness.
-
-The registered wire contract is
-`schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1`. ADR 0029 records
-the durable owner ruling. Implementing or proving this direct-path contract
-does not satisfy the System-bound prerequisites, close M3, or admit P0.
-
-The live first implementation is intentionally narrower than this target. It
-admits only `parallel_implement_reconcile`, uses one deterministic conductor,
-at most two implementers, software-shaped task briefs/results, isolated
-candidate workspaces, deterministic candidate verification, and one admitted
-reconciliation. That is a valid bounded software profile, not evidence that
-open participation, dynamic topology, generic results, or cross-domain room
-coordination is already implemented.
-
-Persistent workspace intelligence is separate from any selected model or
-harness. Skills, memory, wiki state, learned tool affordances, and durable
-behavior-affecting context belong to the workspace/project/domain through
-Agent Wiki / `ioi-memory`, Agentgres-admitted mutations, receipts, provenance,
-and policy. Swapping from one model or harness to another should not discard
-that intelligence when workspace identity, compatibility, and authority remain
-valid.
+Application-specific admission decisions that select how a harness invocation
+is admitted — the ioi.ai GoalRun admission-path decision, its pursuit policy,
+and the room context of a claimed subgoal — are owned by the application:
+[`harness-application-profile.md`](../../domains/ioi-ai/harness-application-profile.md)
+(moved 2026-09-07, ADR 0052 Decision 4). This profile owns harness selection,
+invocation, tool boundaries, model configuration, lifecycle and evidence for
+every session; the same qualified harness executes a direct session without
+any application present.
 
 ## Profile Record
 
