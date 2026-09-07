@@ -225,13 +225,41 @@ state chips break mid-token (`live_quote_sour/ce`), open since the baseline (ite
 |---|---|---|
 | Sources & health | 4 9 6 7 5 7 7 6 → 7 9 7 7 6 7 8 7 | `006-sources/sources-1440.png`, `sources-390.png` |
 
+## Iteration 007 — Jobs & receipts as a resource table (2026-09-07)
+
+**Should look and feel like:** the ledger a console user expects — sortable from the
+column headers (time, receipts, venue, state), a row of state filters carrying the
+daemon's own state words with counts, a header that stays in view down a long
+ledger — with every row still carrying its receipts as objects. **Route:** jobs,
+unchanged. The rail entry reads "Jobs & receipts".
+
+Captures: `.artifacts/console/007-jobs/` (6) and `007-jobs-r2/` (after the sticky
+fix); scratch `jobs-sticky.png`. Before: `000-baseline/receipts-1440.png`.
+
+What the captures show. At 1440 (`007-jobs-r2/receipts-1440.png`) the filter row
+reads all 33 · admitted_proposal 5 · placed 18 · refused_authority 8 ·
+refused_provider_operation 2; the Job header carries the sort arrow. Measured in a
+browser: the sort button flips `aria-sort` to ascending and the first row changes;
+pressing a filter narrows 33 → 5 rows; the live region announces the count and the
+sort; after scrolling 900px the header's top edge sits at 56px, flush under the top
+bar. Round 1 defect, fixed in r2: the first cut capped the ledger at 70vh with an
+inner vertical scroll and no cue — three rows then the notes in a full-page capture
+(the silent truncation standing practice §8 names). The header now sticks to the page
+at 1300px and up, where the ledger needs no sideways scroll; below that it scrolls
+sideways as before with no sticky head. At 390 only Job and Authority are visible
+before scrolling, so the state that the filters act on is off-screen (open).
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| Jobs & receipts | 3 9 6 7 6 7 7 6 → 7 9 7 7 8 7 8 7 | `007-jobs-r2/receipts-1440.png`, `receipts-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
 2. ~~Home~~ — landed in iteration 003 (R 8 H 9 C 7 T 8 D 6 M 7 A 7 K 7).
 3. ~~Spend wired to budgets~~ — landed in iteration 004.
 4. ~~Sources & health as a health panel~~ — landed in iteration 006.
-5. **Jobs list** as a resource table (sortable, sticky header) with Receipts as detail.
+5. ~~Jobs list as a resource table~~ — landed in iteration 007 (sort, filter, sticky head at ≥1300).
 6. **Catalogue anchors** — Compute / Storage / Network / Runtime as rail entries that
    open the catalogue filtered.
 7. **Candidates**: sort and filter controls, sticky header.

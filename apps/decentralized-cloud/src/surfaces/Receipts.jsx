@@ -39,24 +39,55 @@ export default function Receipts({ announce }) {
   // 01:31 → 01:02 → 23:24 → 23:25 → 23:26. A ledger in arbitrary order is not a
   // ledger. Records with no timestamp sort last rather than being treated as old.
   const unsorted = showGate ? allJobs : allJobs.filter((j) => !j.gateAdmitted);
-  const jobs = [...unsorted].sort((a, b) => {
-    const at = Date.parse(a.createdAt || "") || -Infinity;
-    const bt = Date.parse(b.createdAt || "") || -Infinity;
-    return bt - at;
+  // A RESOURCE TABLE: sortable from its column headers, filterable by state. The
+  // sort key and direction are state; "time, newest first" is the default and the
+  // header says which column holds the order. Records missing the sorted field sort
+  // last in either direction rather than being treated as old, empty or alphabetically
+  // first.
+  const [sort, setSort] = useState({ key: "time", dir: "desc" });
+  const [stateFilter, setStateFilter] = useState("all");
+  const states = [...new Set(unsorted.map((j) => j.state || "state absent"))].sort();
+  const filtered = stateFilter === "all" ? unsorted : unsorted.filter((j) => (j.state || "state absent") === stateFilter);
+  const keyOf = (j) => {
+    if (sort.key === "time") return Date.parse(j.createdAt || "") || null;
+    if (sort.key === "state") return j.state || null;
+    if (sort.key === "venue") return j.venue || null;
+    if (sort.key === "receipts") return j.receipts.length;
+    return null;
+  };
+  const jobs = [...filtered].sort((a, b) => {
+    const ka = keyOf(a), kb = keyOf(b);
+    if (ka === null && kb === null) return 0;
+    if (ka === null) return 1;
+    if (kb === null) return -1;
+    const c = typeof ka === "number" ? ka - kb : String(ka).localeCompare(String(kb));
+    return sort.dir === "asc" ? c : -c;
   });
+  const toggleSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "time" ? "desc" : "asc" }));
+  // A sortable header is a BUTTON inside the th, with aria-sort on the th, so the
+  // order is announced and reachable — a clickable th is a th nobody can Tab to.
+  const sortTh = (key, label) => (
+    <th scope="col" aria-sort={sort.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" className="sort-btn" onClick={() => toggleSort(key)}>
+        {label}
+        <span className="sort-mark" aria-hidden="true">{sort.key === key ? (sort.dir === "asc" ? "↑" : "↓") : "↕"}</span>
+      </button>
+    </th>
+  );
 
   const withReceipts = jobs.filter((j) => j.receipts.length > 0);
   const unattributed = jobs.filter(originUnknown);
 
   useEffect(() => {
     if (state.phase === "first") return;
-    announce(`Receipts — ${jobs.length} job records, newest first, ${withReceipts.length} carrying receipts`);
-  }, [state.phase, jobs.length, withReceipts.length, announce]);
+    announce(`Jobs — ${jobs.length} job records, sorted by ${sort.key} ${sort.dir === "asc" ? "ascending" : "descending"}, ${withReceipts.length} carrying receipts`);
+  }, [state.phase, jobs.length, withReceipts.length, sort.key, sort.dir, announce]);
 
   if (state.phase === "first") return (
     <Waiting
       what="job records"
-      title="Receipts"
+      title="Jobs &amp; receipts"
       willShow={
         "A receipt is the daemon's record that something happened: what kind of event " +
         "it was, a hash you can check it against, and whether a fee was minted. It is " +
@@ -69,7 +100,7 @@ export default function Receipts({ announce }) {
 
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
-      <h1>Receipts</h1>
+      <h1>Jobs &amp; receipts</h1>
       {/* SHOWN, HIDDEN, AND THE TOTAL — all three, because two of them alone are worse
           than either. A cold reader: "30 records shown, 37 hidden. The header count
           says 30 without saying whether 30 includes or excludes the 37. From the
@@ -103,22 +134,38 @@ export default function Receipts({ announce }) {
         </p>
       )}
 
+      {/* THE STATE FILTER — every state the records carry, as pressed buttons, with
+          the count each holds; the daemon's own state words, never paraphrased. */}
+      {unsorted.length > 0 && (
+        <div className="filter-row" role="group" aria-label="Filter by state">
+          <button type="button" className={`filter-btn${stateFilter === "all" ? " is-on" : ""}`}
+            aria-pressed={stateFilter === "all"} onClick={() => setStateFilter("all")}>
+            all <span className="meta">{unsorted.length}</span>
+          </button>
+          {states.map((s) => (
+            <button key={s} type="button" className={`filter-btn mono${stateFilter === s ? " is-on" : ""}`}
+              aria-pressed={stateFilter === s} onClick={() => setStateFilter(stateFilter === s ? "all" : s)}>
+              {s} <span className="meta">{unsorted.filter((j) => (j.state || "state absent") === s).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
       {jobs.length > 0 && (
-        <div className="table-scroll">
+        <div className="table-scroll table-sticky">
           <table className="table t-receipts">
             <caption className="sr-only">
               Job records held by the daemon, and the receipts each one carries
             </caption>
             <thead>
               <tr>
-                <th scope="col">Job <span className="meta">· newest first</span></th>
+                {sortTh("time", "Job")}
                 <th scope="col">Authority</th>
-                <th scope="col">Receipts</th>
+                {sortTh("receipts", "Receipts")}
                 {/* WHERE IT WENT. A receipts ledger that cannot say which venue the
                     placement chose is missing the fact most readers open it for, and
                     the job record has carried it all along. */}
-                <th scope="col">Venue</th>
-                <th scope="col">State</th>
+                {sortTh("venue", "Venue")}
+                {sortTh("state", "State")}
               </tr>
             </thead>
             <tbody>

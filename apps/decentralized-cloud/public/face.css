@@ -1052,6 +1052,36 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .health-n { font-size: 26px; }
 }
 
+/* ── RESOURCE-TABLE CONTROLS — sortable headers, a state filter, a sticky head ──
+   A sortable header is a button inside the th (aria-sort on the th), in the header's
+   own face; the arrow is the only mark. The filter row is pressed buttons carrying
+   the daemon's state words and their counts. The sticky head keeps the column names
+   in view down a long ledger without leaving the table layout. */
+.sort-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; letter-spacing: inherit;
+  text-transform: inherit; cursor: pointer; display: inline-flex; align-items: baseline; gap: 6px; }
+.sort-btn:hover { color: var(--ink); }
+.sort-mark { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+th[aria-sort="ascending"] .sort-mark, th[aria-sort="descending"] .sort-mark { color: var(--ink); }
+.filter-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter-btn { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid var(--hairline); border-radius: 999px;
+  background: var(--paper); color: var(--ink); cursor: pointer; }
+.filter-btn.mono { font-family: var(--mono); font-size: 12px; }
+.filter-btn:hover { border-color: var(--ink); }
+.filter-btn.is-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.filter-btn.is-on .meta { color: var(--hairline); }
+/* STICKY TO THE PAGE, NOT TO AN INNER SCROLL. The first cut capped the ledger at
+   70vh with its own vertical scroll: a full-page capture showed three rows and then
+   the notes, and nothing said the rest was behind a scroll — the silent-truncation
+   defect standing practice §8 names. A sticky header inside an overflow container
+   sticks to that container, so here the container gives up its overflow where the
+   ledger no longer needs to scroll sideways (content column ≥ the table's 900px
+   floor, which is 1300px and up beside the rail) and the head sticks under the top
+   bar. Below that the ledger scrolls sideways as before, with no sticky head. */
+@media (min-width: 1300px) {
+  .table-sticky { overflow: visible; background: none; }
+  .table-sticky thead > tr > th { position: sticky; top: 56px; background: var(--paper); z-index: 1; }
+}
+
 /* ── THE UNWIRED PLACEHOLDER — where a figure would stand ─────────────────────
    Dashed, on the surface tint, with no digit in it: the same absence device the
    absent chip and the rail mark wear. It is deliberately not a skeleton or a shimmer,

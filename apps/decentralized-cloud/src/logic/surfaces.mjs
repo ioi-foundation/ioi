@@ -56,7 +56,7 @@ export const SURFACES = [
   { id: "candidates", label: "Candidates", group: "obtain", wired: true },
   { id: "placement", label: "Placement", group: "obtain", wired: true },
   { id: "job", label: "Submit a job", group: "obtain", wired: true },
-  { id: "receipts", label: "Receipts", group: "run", wired: true },
+  { id: "receipts", label: "Jobs & receipts", group: "run", wired: true },
   { id: "redundancy", label: "Redundancy", group: "run", wired: false },
   // Spend reads the daemon's budgets; settled spend stays a labelled door on the page.
   { id: "spend", label: "Spend", group: "account", wired: true },
