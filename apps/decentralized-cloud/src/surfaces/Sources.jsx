@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { stamp, duration } from "../logic/classify.mjs";
 import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
@@ -12,6 +12,8 @@ import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
 
 export default function Sources({ announce }) {
   const state = useSurfaceRead("sources", "/api/candidate-sources");
+  // Which set the ledger shows; "all" until a tile is pressed.
+  const [filter, setFilter] = useState("all");
   const body = state.data;
 
   const sources = Array.isArray(body?.sources) ? body.sources : [];
@@ -27,7 +29,7 @@ export default function Sources({ announce }) {
   if (state.phase === "first") return (
     <Waiting
       what="source health"
-      title="Sources"
+      title="Sources &amp; health"
       willShow={
         "This page lists every place a price can come from: each venue's endpoint, " +
         "whether it answered, how many offers it returned, and the daemon's own words " +
@@ -93,17 +95,53 @@ export default function Sources({ announce }) {
     </tr>
   );
 
+  // THE HEALTH PANEL. A console's health page opens on the counts, each a tile that
+  // names its set in the daemon's own state word and filters the ledger beneath when
+  // pressed. The counts are the same three sets the population line publishes; the
+  // tiles are BUTTONS with aria-pressed, so a keyboard reader can narrow the ledger
+  // and a screen reader is told which filter holds. Green is the quoting tile only,
+  // because green is live evidence; the other two are grey and dashed grey, the
+  // absence device the chips already wear.
+  const shown = filter === "quoting" ? quoting : filter === "answering" ? answering : filter === "absent" ? absent : [...quoting, ...answering, ...absent];
+  const tile = (key, kind, n, label, word) => (
+    <button
+      type="button"
+      className={`health-tile health-${kind}${filter === key ? " is-on" : ""}`}
+      aria-pressed={filter === key}
+      onClick={() => setFilter(filter === key ? "all" : key)}
+    >
+      <span className="health-n">{n}</span>
+      <span className="health-label">{label}</span>
+      <span className="health-word mono">{word}</span>
+    </button>
+  );
+
   const view = (
     <div className="stack" style={{ gap: "18px" }}>
-      <h1>Sources</h1>
+      <h1>Sources &amp; health</h1>
       <p className="meta">
-        {quoting.length} quoting · {answering.length} answering without a price ·{" "}
-        {absent.length} unavailable · read in {duration(state.ms)}
+        {sources.length} sources asked · read at {stamp(state.at)} in {duration(state.ms)} · GET /api/candidate-sources
       </p>
+      <div className="health-strip" role="group" aria-label="Source health — press a tile to filter the ledger">
+        {tile("quoting", "live", quoting.length, "quoting live prices", "live_quote_source")}
+        {tile("answering", "muted", answering.length, "answering, no price", "available · credential_preflight_only · storage_backends_engaged")}
+        {tile("absent", "absent", absent.length, "unavailable, by name", "candidate_source_unavailable")}
+      </div>
       <p className="prose">
         A source without an adapter or without a credential says so in the row where a
         price would have been. Nothing here is inferred: every line is a field the
-        daemon returned for that source.
+        daemon returned for that source, and <span className="mono">state</span> is
+        what the daemon last persisted — a fixed adapter reports unavailable until a
+        refresh runs.
+      </p>
+      <p className="meta" aria-live="polite">
+        {filter === "all" ? `showing all ${shown.length}` : `showing ${shown.length} of ${sources.length} — ${filter === "absent" ? "unavailable" : filter}`}
+        {filter !== "all" && (
+          <>
+            {" · "}
+            <button type="button" className="linklike" onClick={() => setFilter("all")}>show all</button>
+          </>
+        )}
       </p>
       <div className="table-scroll">
         <table className="table t-sources">
@@ -114,7 +152,7 @@ export default function Sources({ announce }) {
               <th scope="col">What the daemon said</th>
             </tr>
           </thead>
-          <tbody>{[...quoting, ...answering, ...absent].map(row)}</tbody>
+          <tbody>{shown.map(row)}</tbody>
         </table>
       </div>
       {sources.length === 0 && (

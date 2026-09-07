@@ -1031,6 +1031,27 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .widget { padding: 14px 14px 12px; }
 }
 
+/* ── THE HEALTH STRIP — three tiles that count and filter ─────────────────────
+   Each is a button: the count large and tabular, the set in words, the daemon's
+   state word small in mono. Pressed = ink edge, like the rail's current surface.
+   Only the quoting tile's count is green: green is live evidence and nothing else. */
+.health-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.health-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;
+  padding: 14px 16px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--paper);
+  font: inherit; color: var(--ink); cursor: pointer; min-width: 0; }
+.health-tile:hover { border-color: var(--ink); }
+.health-tile.is-on { box-shadow: inset 3px 0 0 var(--ink); background: var(--surface); }
+.health-n { font-size: 34px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.health-live .health-n { color: var(--live); }
+.health-absent { border-style: dashed; border-color: var(--border-strong); }
+.health-label { font-size: 14px; }
+.health-word { font-size: 11px; color: var(--label); overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .health-strip { grid-template-columns: minmax(0, 1fr); }
+  .health-tile { flex-direction: row; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .health-n { font-size: 26px; }
+}
+
 /* ── THE UNWIRED PLACEHOLDER — where a figure would stand ─────────────────────
    Dashed, on the surface tint, with no digit in it: the same absence device the
    absent chip and the rail mark wear. It is deliberately not a skeleton or a shimmer,

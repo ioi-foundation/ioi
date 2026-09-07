@@ -204,12 +204,33 @@ dense dark block with cyan points; hover motion is visible; the static mark unde
 reduced motion reads cleanly. Open: no blind reader has scored the owner's mark on
 the face; the header's compact 1.9× ratio against the owner's 2.65× rule stands.
 
+## Iteration 006 — Sources & health as a health panel (2026-09-07)
+
+**Should look and feel like:** a health page — three tiles that count the sets a
+console user asks about first (quoting, answering without a price, unavailable by
+name), each naming the daemon's state word, each a button that narrows the evidence
+ledger beneath. **Route:** candidate-sources, unchanged.
+
+Captures: `.artifacts/console/006-sources/` (6). Before: `000-baseline/sources-1440.png`.
+
+What the captures show. At 1440 (`006-sources/sources-1440.png`) the three tiles sit
+above the ledger: 2 quoting in green, 3 answering, 8 unavailable in a dashed tile;
+the heading reads "Sources & health" and the meta line names the route and read time.
+At 390 the tiles stack as rows. Measured in a browser: the first tile is reached at
+the 17th Tab, Enter narrows the ledger from 13 to 8 rows, `aria-pressed` flips on the
+pressed tile, and the focus ring is a solid 2px outline. Still visible at 390: the
+state chips break mid-token (`live_quote_sour/ce`), open since the baseline (item 8).
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| Sources & health | 4 9 6 7 5 7 7 6 → 7 9 7 7 6 7 8 7 | `006-sources/sources-1440.png`, `sources-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
 2. ~~Home~~ — landed in iteration 003 (R 8 H 9 C 7 T 8 D 6 M 7 A 7 K 7).
 3. ~~Spend wired to budgets~~ — landed in iteration 004.
-4. **Sources & health as a health panel** — a status strip above the ledger.
+4. ~~Sources & health as a health panel~~ — landed in iteration 006.
 5. **Jobs list** as a resource table (sortable, sticky header) with Receipts as detail.
 6. **Catalogue anchors** — Compute / Storage / Network / Runtime as rail entries that
    open the catalogue filtered.
