@@ -147,7 +147,10 @@ its verified constituents (`GuaranteeMeet` model, M4 no-laundering theorem).
 
 Release notes: PENDING (generated from this packet and the retained run once
 Section 8 is complete). Manifest and checksums: written by the freeze script
-next to the retained run. Owner-only commands, not performed:
+next to the retained run. The two push commands below were executed on
+2026-09-07 by owner authorization (master fast-forwarded to `d5f19a0a0`; the
+tag object on the remote is `f0932c71c630ab6c85676cda3606dc285a755070`).
+Deployment, disclosure and publication remain unperformed owner actions:
 
 ```text
 git push origin <peeled-commit>:refs/heads/master

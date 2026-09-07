@@ -4262,3 +4262,20 @@ blocked on that decision; nothing in the candidate is established or refuted
 by the failed attempt. Dispositions unchanged: M15Q reopened, M16Q R2
 qualification evidence retained on the frozen candidate, M17Q
 `REPAIR_REQUIRED` (R1; R2 candidate unreviewed), M18Q `NOT_ADMITTED`.
+
+### Owner-authorized push and review deferral (2026-09-07)
+
+The owner decided to keep the program, defer the independent review to the
+reviewer service's retry window (Sep 12th, 2026), and push the current
+results so unrelated branches can merge. Pushed by owner authorization:
+`origin/master` fast-forwarded `023526469..d5f19a0a0` (55 commits) and
+`refs/tags/aft-quv-v0-m17q-candidate-r2-2026-09-07` (tag object
+`f0932c71c630ab6c85676cda3606dc285a755070`) now exists on the remote. The
+reviewed object is the tag, not the branch tip: later merges onto master do
+not alter it, and any repair the review requires (step E) starts a new
+candidate from a new clean run and a new tag. Merges that touch
+`crates/consensus/src/aft`, `crates/validator/src/standard/orchestration`,
+`crates/networking/src/libp2p/pq_channel*`, `crates/agentgres/src/consequence*`
+or the M16Q runner and checkers before the review lands will need their
+own qualification before they can enter a later candidate; they do not
+invalidate this one. No deployment, disclosure or publication was performed.
