@@ -4226,3 +4226,25 @@ message; that local, unreferenced tag was deleted and the freeze repeated
 before any use. Push, deployment and publication remain owner actions; the
 owner-only commands are printed by the freeze script and recorded in the
 M18Q packet.
+
+### Yellow paper: interactive-visibility section (2026-09-07)
+
+`specs/yellow_paper.tex` (revised September 7, 2026) now prints the
+interactive-visibility result at exactly its proved strength and no more:
+a new Section 12 states the M12a portable-visibility lower bound
+(Theorem, mechanized as `MaximalVisibilityDilemma.tla`), the QUV operation,
+the Q-A1–Q-A10 ledger, theorems Q-T1–Q-T4 with their Assumes lines and
+mechanization names, the Q-EA1–Q-EA8 composition premises and Q-E1–Q-E4,
+the five-way separation of guarantees with the no-laundering rule, the
+frozen production profile identifiers, host-measured costs with their
+reproduction path, and the explicit non-claims. The scope list, the claims
+list, the non-claims list, the residual list (RES-QUV: candidate under
+independent review; shared-lane and cold-start transport costs), the
+assumption-surface table, the implementation-correspondence table and the
+embedded formal appendix (four QUV modules) carry the same result. No
+existing promoted claim was changed or weakened; the admission box records
+the frozen tag, tag object and peeled commit and states that the printed
+claim is neither weakened by the pending review nor strengthened beyond it.
+The PDF rebuilt (171 pages) and the claim-discipline gate passes. The
+M18Q checklist item "yellow-paper wording agrees" is prepared, not yet
+ticked: it is ticked only with the review disposition.

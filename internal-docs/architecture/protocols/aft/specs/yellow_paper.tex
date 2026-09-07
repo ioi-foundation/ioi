@@ -94,7 +94,7 @@
 
 \title{Asymptote Fault Tolerance (AFT): Maximal Deterministic Byzantine Safety --- All-But-One (\(n-1\) of \(n\)), Relay-Free, Fully Attributable}
 \author{IOI}
-\date{March 17, 2026 (revised August 23, 2026)}
+\date{March 17, 2026 (revised September 7, 2026)}
 
 \begin{document}
 
@@ -218,6 +218,10 @@ The instantiated protocol surfaces are:
 \begin{itemize}[leftmargin=1.5em]
 \item \code{classic\_bft} as the sole admitted AFT PQ v1 production mode,
 using ML-DSA live votes and the mandatory hash-only asynchronous path.
+\item \code{aft\_quv\_v0}, the interactive-visibility (query-unanimity)
+authorization profile for irreversible effects at the all-but-one
+(\(n-1\) of \(n\)) threshold (Section~\ref{sec:quv}); frozen as the
+immutable M17Q R2 review candidate after complete M16Q qualification.
 \item unanimous, configuration-enrolled SLH-DSA boundary seals as the terminal
 irreversible-effects profile.
 \item \code{CanonicalOrdering} through the live
@@ -289,6 +293,16 @@ echo, and then proves the close-or-abort safety surface in that model.
 Proof-carrying public evidence, endogenous historical retrievability, restart
 continuity, and collapse-gated durability are the realizing architecture of
 that claim, not a residual semantic gap.
+
+\paragraph{The interactive edge of the same threshold.}
+One result stands beside the singular ordering theorem rather than inside
+it. At the irreversible edge, where an executor must act now, no finite
+portable byte string derived from copyable participant state can certify
+non-conflict at \(f = n-1\) (Theorem~\ref{thm:m12a}); what \emph{can} hold
+at that threshold is an interactive, known-synchronous, non-portable
+guarantee obtained by the executor itself from one reachable correct member
+(Section~\ref{sec:quv}). It is a separate profile with its own assumption
+ledger, and it raises no coordinate of the ordering or sealing claims.
 
 \paragraph{Claim ladder.}
 The full promoted claim should be read as a constructed ladder:
@@ -2109,6 +2123,428 @@ code takes that the model refuses is a red build, which makes the
 proven-spec-beside-divergent-code defect class --- the class the program
 was founded on --- structurally visible.
 
+\section{Interactive Visibility: Query-Unanimity Verification (QUV)}
+\label{sec:quv}
+
+The common-boundary program (Section~\ref{sec:aft-cb-corpus}) proves that a
+closed boundary admits at most one execution object and that a sealed effect
+releases only through that boundary. It left one question open at the
+irreversible edge: whether an executor that must act \emph{now} --- an
+external call that cannot be undone --- can decide from bytes alone that no
+conflicting authorization exists, when as many as \(n-1\) of the \(n\)
+configured participants may be Byzantine. This section closes that question
+in both directions. First it states the negative result: no finite, portable,
+byte-only offline authorization can do this (M12a). Then it states the
+positive result that replaces the portable target with an interactive one:
+one reachable correct member out of \(n\) suffices for online
+conflict-qualified accepted-value non-conflict and for no-conflict singleton
+progress, when every relying executor performs a fresh push/write-before-reply
+verification against every configured member inside a rooted known-synchronous
+deadline (M12b, realized as \code{aft\_quv\_v0}). Both results keep the
+all-but-one (\(n-1\) of \(n\)) threshold of the rest of this paper. Neither
+amplifies the other, and neither raises any coordinate of the ordering or
+sealing claims (Section~\ref{sec:quv-separation}).
+
+\doctrinebox{\textbf{Admission status of this section.} The M12a lower bound
+is proved impossible under its stated constraints, with an upheld
+independent review of the immutable lower-bound candidate. The M12b
+construction, its theorems Q-T1--Q-T4, its end-to-end lifts Q-E1--Q-E4, and
+the production profile \code{aft\_quv\_v0} are frozen as one immutable review
+candidate after the complete sixty-three-gate M16Q R2 qualification passed
+on a clean checkout of that commit:
+\par\smallskip
+\begin{tabular}{@{}ll@{}}
+lower-bound tag & \code{aft-maximal-visibility-lower-bound-candidate-r3-2026-09-03} \\
+candidate tag & \code{aft-quv-v0-m17q-candidate-r2-2026-09-07} \\
+tag object & \code{f0932c71c630ab6c85676cda3606dc285a755070} \\
+peeled commit & \code{0d8d50d4f22c4f02b98ed06b4066c7aefd6d5992} \\
+\end{tabular}
+\par\smallskip
+The claim printed here is exactly the claim that qualification and the
+mechanized kernels support; it is not weakened by the pending independent
+review and it is not strengthened beyond it. Public admission (M18Q) records
+the disposition of that review; the sentence in the claims list is the only
+sentence admitted for publication, together with its assumptions and the
+costs of Section~\ref{sec:quv-costs}.}
+
+\subsection{The lower bound: portable byte-only authorization (M12a)}
+\label{sec:quv-lower-bound}
+
+The original target (M11) was a portable authorization: a finite byte string,
+derived from the copyable state of participants, that any later party could
+check offline and that would simultaneously give a lone honest executor
+non-\code{Abort} liveness and give every checker transferable non-conflict at
+\(f = n-1\).
+
+\begin{theorem}[M12a, portable visibility dilemma]
+\label{thm:m12a}
+No finite, portable, byte-only offline authorization derived from copyable
+participant state can simultaneously provide solo non-\code{Abort} effect
+liveness and transferable non-conflict at \(f = n-1\).
+\end{theorem}
+
+\noindent\textbf{Assumes.} Participant state is copyable; the identity of the
+sole correct member is unknown to the checker; the authorization is a finite
+byte string checked without further interaction; \(f = n-1\).
+
+\noindent\textbf{Why.} With one unknown correct member, any byte string that
+a lone honest executor can complete without the cooperation of the others can
+also be completed, byte for byte, by \(n-1\) Byzantine members holding copies
+of that state for a conflicting candidate; a checker that accepts the first
+cannot reject the second. Mechanized as \code{MaximalVisibilityDilemma.tla}
+(Appendix~\ref{app:quv-dilemma}). The result is specific to portable bytes
+derived from copyable state. It does not generalize to every participant-only
+pure-software protocol, and it does not touch the ordering and sealing
+theorems, whose objects are public boundary closes rather than portable
+effect authorizations.
+
+The consequence is architectural, not a defeat: a lone executor can be safe
+at \(f = n-1\) only by \emph{interacting} with the configuration at the moment
+it acts, and the guarantee it obtains is a fact about that moment, which no
+later party can recover from bytes. The rest of this section is the
+interactive construction and its exact reach.
+
+\subsection{The operation}
+\label{sec:quv-operation}
+
+Let \(P\) be the rooted configured membership of a domain, \(n = |P| \ge 2\),
+and let \(H \subseteq P\) be the unknown set of correct members with
+\(|H| \ge 1\). A \term{conflict domain} is a rooted namespace of
+\term{slots}; each slot may carry at most one accepted candidate. A rooted
+\term{policy root} fixes the domain, its authority mode (owned or unowned),
+the decision interval \(\delta_{\mathrm{rt}}\), the continuation budget, the
+preparation policy, the admission quotas, and the typed initial bootstrap
+rule; every candidate binds that root, the domain, the slot, the exact
+predecessor candidate hash, and its payload hash (Q-EA1 below).
+
+An executor that intends an irreversible effect for slot \(s\) runs one
+\term{operation}:
+\begin{enumerate}[leftmargin=1.5em]
+\item it draws a fresh verifier nonce, binds it to the candidate and the exact
+context, and pushes the complete request (\code{PUSHQUERY}) directly to every
+member of \(P\) over authenticated ML-DSA channels;
+\item each correct member linearizes requests per
+\((\text{configuration},\text{domain},\text{slot})\), records the candidate in
+its durable grow-only conflict journal \emph{before} signing, and only then
+signs a reply that discloses every candidate it has retained for that slot
+(\term{write-before-reply});
+\item the executor admits at most the first authenticated reply from each
+member, validates its exact binding and signature, and evaluates a total
+decision predicate at the end of one complete \(\delta_{\mathrm{rt}}\)
+interval: \code{Accept}\((c)\) only when every admitted correct snapshot is
+consistent with the single candidate \(c\); otherwise a typed
+\code{Abort}, a typed conflict disclosure, or an attributable owner
+equivocation record;
+\item an accepted operation is consumed once, immediately, by the same
+process: the executor re-derives authorization from the currently committed
+admission, enters T10's durable \code{Claimed} state on the stable resource
+key, and only then calls the external resource
+(Section~\ref{sec:quv-end-to-end}).
+\end{enumerate}
+Silence, timeouts, cached transcripts, relays, notaries, trusted hardware,
+and hidden honest-majority custody create no authority at any step. A reply
+that arrives after the interval is discarded. A late release, a missed
+budget, or a saturated lane is a declared failure of the operation, never a
+lower-assurance success.
+
+\subsection{Assumption ledger (Q-A1--Q-A10)}
+\label{sec:quv-assumptions}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.09\textwidth} X >{\raggedright\arraybackslash}p{0.17\textwidth}}
+\toprule
+\textbf{ID} & \textbf{Assumption} & \textbf{Class} \\
+\midrule
+\textbf{Q-A1} & Rooted member and authority signatures are unforgeable and domain separated & cryptographic \\
+\textbf{Q-A2} & Every honest executor sends its complete request directly to every member of the rooted configuration & network \\
+\textbf{Q-A3} & For every honest executor operation and every \(c \in H\): request delivery, admission and queueing, validation, atomic durable processing, response delivery, and the maximum clock error complete within the rooted \(\delta_{\mathrm{rt}}\) & timing and availability \\
+\textbf{Q-A4} & Each correct member linearizes requests per (configuration, domain, slot) and durably writes before it signs the corresponding reply & storage \\
+\textbf{Q-A5} & Correct conflict knowledge is grow-only, survives restart, cannot roll back, and is retained and reachable for the authority lifetime & storage \\
+\textbf{Q-A6} & Every honest executor performs QUV itself immediately before irreversible externalization and never trusts a cached assertion that another verifier waited & execution \\
+\textbf{Q-A7} & Candidate validity and authority are fixed by the independently provisioned root; local arrival, timeout, and silence create no candidate authority & authorization \\
+\textbf{Q-A8} & During one live operation the verifier admits at most the first authenticated response from each rooted member and then validates its exact binding and signature; a correct member emits exactly one valid response, and later Byzantine duplicates are irrelevant to non-conflict & verifier \\
+\textbf{Q-A9} & Admission control reserves enough authenticated capacity for every correct member to satisfy Q-A3 despite Byzantine query traffic & resource and timing \\
+\textbf{Q-A10} & The fault assignment is static for the rooted configuration and authority lifetime; the result does not tolerate a mobile adversary that later corrupts the last correct state holder & adversary \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Q-A3 is a \emph{safety} assumption, not a liveness convenience: if a correct
+reply may arrive after the deadline, two conflicting accepts become possible.
+The result is therefore known-synchronous safety. It is not asynchronous
+safety and not eventual-synchronous safety before an independently
+established bound is active. Every production domain also declares an
+operator envelope \code{qualified\_delta\_rt\_envelope\_millis} strictly
+inside \(\delta_{\mathrm{rt}}\) and a membership envelope
+\code{qualified\_max\_configured\_members}; both are deployment-local
+assertions backed by the retained measurements of
+Section~\ref{sec:quv-costs}, and startup fails closed when either is absent or
+out of range.
+
+\subsection{Theorems (Q-T1--Q-T4)}
+\label{sec:quv-theorems}
+
+\begin{theorem}[Q-T1, accepted-value non-conflict]
+\label{thm:quv-t1}
+For arbitrary membership size, arbitrary nonempty correct subset, and any
+number of operations, two owned-mode accepts or two unowned-mode accepts for
+one rooted configuration, domain, slot, and predecessor name the same
+candidate.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-A1--Q-A10, a fixed rooted configuration, domain,
+slot, and predecessor, \(H \neq \emptyset\), and every honest executor follows
+the complete-deadline algorithm. \textbf{Proof sketch.} Fix any correct
+\(c \in H\). In owned mode, pairwise serialization at \(c\) (Q-A4) places one
+operation's candidate in the other operation's snapshot at \(c\), so an
+accepting singleton union forces equality. In unowned mode each accept must
+equal every correct member's immutable first winner (Q-A5), so choosing any
+\(c\) forces equality. Mechanized for arbitrary sets as
+\code{QOwnedNonConflict}, \code{QUnownedNonConflict},
+\code{QOwnedOutcomeNonConflict}, and \code{QUnownedOutcomeNonConflict} in
+\code{QueryUnanimityProof.tla} (Appendix~\ref{app:quv-proof}).
+
+\begin{theorem}[Q-T2, external validity]
+\label{thm:quv-t2}
+Every non-\code{Abort} outcome belongs to the independently valid candidate
+set; invalid and forged replies never enter an acceptance predicate.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-A1, Q-A7, Q-A8, and rooted candidate validation.
+\par\noindent Mechanized as \code{QOwnedExternalValidity},
+\code{QUnownedExternalValidity}, \code{QOwnedOutcomeTyped}, and
+\code{QUnownedOutcomeTyped}.
+
+\begin{theorem}[Q-T3, bounded typed termination]
+\label{thm:quv-t3}
+An honest operation returns a typed candidate or \code{Abort} after one
+complete \(\delta_{\mathrm{rt}}\) decision interval. Byzantine silence cannot
+extend that interval; missing the bound invalidates the model rather than
+producing a lower-assurance certificate.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-A2, Q-A3, Q-A6, Q-A8, Q-A9, a live honest
+executor, and a fixed rooted operation start. The proof kernel mechanizes
+total outcome typing once the complete snapshots exist; the timing bridge is
+definitional from Q-A3 and the algorithm, which evaluates a total predicate
+at the deadline. This is known-synchronous termination, not asynchronous or
+eventual-synchronous progress, and it is \emph{decision} termination: a
+typed \code{Abort}, refusal, freeze, veto, or equivocation record is not
+inclusion and not effect liveness.
+
+\begin{theorem}[Q-T4, no-conflict progress]
+\label{thm:quv-t4}
+If exactly one independently valid candidate \(s\) is introduced for the
+slot and no separately valid conflict is disclosed, every honest operation on
+\(s\) accepts by its deadline, including with every Byzantine member
+permanently silent. If all members are correct and introduce the same \(s\),
+the same argument gives all-correct same-input validity.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-A1--Q-A10 and the singleton premise. Mechanized
+for arbitrary sets as \code{QOwnedSingleCandidateProgress} and
+\code{QUnownedSingleCandidateProgress}; the explicit-time R4 model separately
+enumerates fresh and pre-populated member state under Byzantine silence and
+non-conflicting replies for both authority modes. No fairness among competing
+valid submissions is claimed.
+
+\paragraph{Necessity witnesses.} Each theorem is paired with a mutation that
+removes one assumption and recovers a conflict in the model: a different
+timely correct witness per operation (split witness) yields conflicts in
+2 of 16 enumerated cases; a one-way request bound without the observed reply
+recovers conflicts (Q-T3); reply-before-durable plus crash loses the
+operation intersection (Q-A4); unbound cross-slot or cross-configuration
+replies replay (Q-A1/Q-A8 context binding); and a prior acceptance does not
+guarantee fresh acceptance after a later valid owner conflict, so the
+singleton premise of Q-T4 is exact (\code{OwnedParentReverification.tla}).
+
+\subsection{End-to-end composition (Q-EA1--Q-EA8, Q-E1--Q-E4)}
+\label{sec:quv-end-to-end}
+
+QUV is an authorization operation; the effect path around it is what makes an
+authorization safe to act on. The composition premises are:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.10\textwidth} X}
+\toprule
+\textbf{ID} & \textbf{Premise} \\
+\midrule
+\textbf{Q-EA1} & Every ordered candidate binds its rooted configuration, the independently provisioned policy root (authority, timing, preparation budget, and the typed initial bootstrap rule), domain, slot number, exact predecessor candidate hash, authority mode, and payload/manifest hash. \\
+\textbf{Q-EA2} & A correct runtime appends only the unique accepted candidate for its next slot and durably commits candidate, predecessor, and new head before exposing it. \\
+\textbf{Q-EA3} & Correct recovery begins from that durable head, never truncates or rewrites it, and replays no effect mutation from chain state alone. \\
+\textbf{Q-EA4} & Every irreversible executor performs its own QUV operation against the active rooted membership immediately before entering T10's durable \code{Claimed} state; after the online wait it re-derives authorization from currently committed admission, keeps that admission and execution height stable through claim and call, and validates the process-local continuation immediately before the claim and any resumed call. \\
+\textbf{Q-EA5} & The effect manifest derives one stable idempotency key from the rooted conflict domain and slot, not from the candidate payload, and commits the exact atomic-resource profile. \\
+\textbf{Q-EA6} & The external resource and executor satisfy T10's atomic idempotency-register and claim-before-call assumptions. \\
+\textbf{Q-EA7} & Reconfiguration is a typed handoff candidate under the old root that binds the exact old-root boundary block, state root, and authenticated ordering QC; before old-root expiry every correct new member performs QUV against every old correct member within the old rooted bound, independently verifies that QC under the old root, and durably installs the accepted predecessor and state root before activating. Successor-root history reaching a process as synced or gossiped bytes never activates it; a process without a successor identity refuses such history and stops. \\
+\textbf{Q-EA8} & A client joining after the old authority is no longer reachable receives the current root through an independently provisioned trust channel; historical bytes alone do not establish currentness. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{theorem}[Q-E1, prefix-compatible accepted ordering]
+Any two correct durable histories of one conflict domain are prefix
+compatible.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-T1, Q-EA1--Q-EA3, correct runtime admission.
+\par\noindent Mechanized as \code{QHistoryPrefixCompatibility} in
+\code{QueryUnanimityCompositionProof.tla}
+(Appendix~\ref{app:quv-composition}).
+
+\begin{theorem}[Q-E2, accepted-consequence non-conflict]
+Two mutation candidates admitted for the same rooted domain and slot are
+equal; an executor's \code{Abort}, ambiguity, or attributable owner
+equivocation record authorizes no other mutation candidate.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-T1, Q-T2, Q-EA1, Q-EA4, exact manifest
+validation. Mechanized as \code{QConsequenceCandidateNonConflict}.
+
+\begin{theorem}[Q-E3, at-most-once physical externalization]
+A rooted conflict-domain slot causes at most one modeled external-resource
+mutation.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-E2 and Q-EA4--Q-EA6. Q-E2 gives one candidate
+class; Q-EA5 gives every duplicate delivery the same stable key; T10's atomic
+put-if-absent register admits one record and its claim-before-call recovery
+machine never blindly reinvokes after ambiguity, reconciling by lookup only.
+The result composes QUV with T10; it infers no endpoint semantics from
+consensus.
+
+\begin{theorem}[Q-E4, live reconfiguration continuity]
+No two correct new members activate conflicting handoff roots; with one valid
+handoff and no conflict, every new-correct operation completes within the old
+bound. A conflict may fail closed and prevent reconfiguration; it cannot
+create a second lineage.
+\end{theorem}
+\noindent\textbf{Assumes.} Q-T1--Q-T4, Q-EA1--Q-EA3, Q-EA7, and at least one
+correct member in both rooted configurations. This is live-overlap handoff,
+not portable long-range verification; Q-EA8 is mandatory for later bootstrap.
+The composed transition model \code{QuvEndToEndRefinement.tla}
+(Appendix~\ref{app:quv-refinement}) and its registered countermodels are part
+of the mandatory formal corpus.
+
+\subsection{Separation of guarantees and no laundering}
+\label{sec:quv-separation}
+
+The interactive result is deliberately printed as five separate properties,
+because a reader who merges them would read a stronger claim than the one
+proved.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth} X >{\raggedright\arraybackslash}p{0.22\textwidth}}
+\toprule
+\textbf{Guarantee} & \textbf{Statement} & \textbf{Where} \\
+\midrule
+Accepted-value non-conflict & No two honest executor operations accept different candidates for one rooted conflict-domain slot & Q-T1, Q-S1; \code{QueryUnanimityProof.tla}; R4 timed model; composed transition model; process campaigns \\
+Decision termination & Every honest operation ends with a typed outcome after at most its rooted interval plus service budget & Q-T3; runtime service budgets; late replies discarded \\
+Inclusion & Not a QUV guarantee & --- \\
+Effect authorization & An irreversible effect executes only as the continuation of the executor's own live operation against the currently committed admission & Q-E2, Q-EA4; executor entries, claim-time fences, claim index, T10 \\
+Externalization at most once & Claim before call on the stable key; ambiguous calls reconcile by lookup only & Q-E3, T10; \code{AtMostOnceExternalization.tla} \\
+Fairness & Not claimed; bounded queued waiters per domain and per principal only & admission tests; measured costs \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+No coordinate of the guarantee vector is raised by composition. PQ v1
+ordering and the QUV effect path stay separate profiles with an isolated
+dependency graph; a QUV audit transcript is a non-authorizing observation and
+never raises a portable-finality coordinate; every consequence receipt carries
+\code{portable\_final\_receipt = false}; a rooted policy never raises an
+assurance beyond its verified constituents (the M4 no-laundering theorem and
+the \code{GuaranteeMeet} model). The Hypervisor graph does not import QUV and
+QUV supplies it no fallback authority.
+
+\subsection{Production profile}
+\label{sec:quv-profile}
+
+The frozen candidate instantiates one profile, and the profile identifiers
+are the single version statement shared by the specifications, the code, the
+receipts, and this paper: policy root
+\code{ioi/aft/quv-policy/v8-push-admission}; member store schema~9
+(journal records \code{AFTQJ001}, anchors \code{AFTQJA01}); handoff store
+schema~3; PQ outbox logical schema~v2 inside \code{AFTPQI04} reserved
+envelopes with \code{AFTPQI05} indices and \code{AFTPQA01} payload arenas;
+consequence receipt envelope \code{AFTCR001}. Members and executors sign with
+ML-DSA-44 over strict PQ channels only; the v0 protocol caps configured
+membership so that its isolated request/reply lane remains bounded; every
+storage charge (record, anchor, receipt envelope, endpoint record, claim
+index, outbox arena) is committed by the policy root and reserved before the
+live operation, so that a member that admits a request already holds the
+space its write-before-reply needs.
+
+\subsection{Explicit costs, host-measured}
+\label{sec:quv-costs}
+
+Every number below was measured on the qualification host (one 24-core
+laptop-class machine, four validator processes per campaign) by the retained
+clean M16Q R2 run and the retained standalone campaigns around it. Following
+Section~\ref{sec:measured-costs}, these are host measurements with their
+reproduction path, not bounds, and the deployment obligation is to measure
+them again on the target host before rooting a policy.
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Synchrony.} Rooted \(\delta_{\mathrm{rt}} = 5000\) ms;
+operator-declared reply envelope 4500 ms in both the flood and readiness
+profiles. Measured valid-reply maxima: under live Byzantine flood 1249, 1368,
+2921, 4010 ms (earlier campaigns) and 2389 / 1572 / 424 ms (retained run); in
+readiness campaigns 2075, 2217, 2524, 2731, 4210 ms, the last with replies
+waiting about 3 s on the shared single-in-flight PQ peer lanes beside
+concurrent preparation pushes and an ordering commit; handoff campaigns
+786 ms (disjoint) and 689 ms (overlapping). Cold start: the first
+full-membership operation after a process start delivered its pushes
+4.7--4.9 s late; operators warm lanes or treat the first typed abort as
+expected.
+\item \textbf{Reachability.} Every correct member must be reachable by every
+relying executor for every operation; a member that misses the interval is
+not correct for that operation and yields a typed abort, never authority.
+\item \textbf{Service.} The active service budget is charged from exclusive
+admission and includes reserved-storage initialization and the executor's
+runtime-finality critical section. Flood profile: 16 s (5 s interval, 11 s
+continuation) after measured release maxima of 10.25, 10.20, 13.01 (under
+unrelated host load, an 11 s finality stall inside the operation), 10.78,
+and 10.80 s. Readiness profile: 10 s, with maxima below 9.6 s. A late
+release is a declared failure.
+\item \textbf{End-to-end singleton cost.} 5.6--6.6 s unflooded; 8.4--11.0 s
+under terminal replay pressure; 7.3--10.8 s under live Byzantine flood;
+non-starvation fence three intervals; at most one waiting foreground
+operation per principal.
+\item \textbf{Durability and storage.} Schema-9 authenticated journal with
+reserved record and anchor allocations per domain under rooted lifetime
+budgets; reserved receipt envelopes of tens of MiB per effect, initialized
+before the live operation; reserved endpoint records, claim-index files, and
+outbox arenas; a persistence error quarantines the member until authenticated
+reopen.
+\item \textbf{Post-quantum.} ML-DSA-44 identities, pushes, and replies;
+provisional carrier claims bounded to 4 per account and 4096 in total for
+30 s; a single durable in-flight record per peer lane, so ordering traffic,
+pushes, and replies serialize per peer.
+\item \textbf{Reconfiguration.} Live old-root handoff with a QC-certified
+boundary; retained disjoint and overlapping successor campaigns (328 s and
+289 s in the retained run) including restart from the durable local install
+gate, refusal of a rollback image, refusal of a missing gate, and the
+retirement of an old-only process that is offered successor-root history.
+\item \textbf{Qualification.} The retained clean run executes sixty-three
+mandatory gates in 7217 s: the complete formal corpus (2623 s), unit and
+mutation kernels, reservation and syscall-ancestry gates, and eight process
+campaigns with evidence checkers that reject any missing member, any missed
+envelope, any late release, and any scheduling or service failure.
+\item \textbf{Audit and consequence.} Transcripts are non-authorizing
+observations. The consequence path is T10 claim-before-call on reserved
+storage with the reconciliation budget taken from the manifest.
+\end{itemize}
+
+\subsection{What the interactive result is not}
+\label{sec:quv-boundaries}
+
+Not admitted, and not printed anywhere in this corpus: portable or offline
+finality; asynchronous or eventually-synchronous safety before an
+independently established bound is active; exact-decision Byzantine
+agreement; classical Byzantine consensus among the members; a transferable
+finality certificate; inclusion or effect liveness for any input that is
+refused, aborted, vetoed, frozen, or equivocated; fairness among competing
+valid submissions; tolerance of a mobile adversary; and any guarantee for
+external resources that do not satisfy T10's atomic register contract. The
+original portable milestones M13--M18 remain blocked by Theorem~\ref{thm:m12a};
+their interactive counterparts M13Q--M18Q are what this section reports.
+
 \section{NestedGuardian: Witness-Augmented Research Mode}
 
 \code{NestedGuardian} explores a layered threshold construction:
@@ -2261,6 +2697,7 @@ Base finality & current manifests, current epoch state, majority thresholds, gua
 Canonical ordering & objective publication, compact publication-frontier binding and contradiction rules, canonical cutoff, deterministic eligibility, append-only bulletin commitment, proof soundness, protocol-native retrievability profile / manifest / custody / challenge surface, canonical bulletin-close extraction-or-abort, cheap omission verification, accountable omission publication & loss of compact frontier consistency, deterministic extraction-or-abort, accountability, or the ordering theorem \\
 Sealed finality & valid asymptote policy, current witness seed, valid witness or observer assignments, checkpoint freshness, valid log consistency proofs, deterministic transcript/challenge derivation, accountable challenge publication & incorrect sealed release, loss of accountability, or fail-closed stalling \\
 Sealed effects & correct finality-tier policy, sound verifier metadata, nullifier uniqueness, intent/public-input binding & replay or unsafe irreversible effect release \\
+Interactive visibility (QUV) & Q-A1--Q-A10 of Section~\ref{sec:quv-assumptions}: unforgeable rooted signatures, direct push to every member, known end-to-end synchrony within the rooted interval, write-before-reply, grow-only non-rollback retained conflict state, fresh per-executor operation before every irreversible effect, root-fixed authority, first-reply admission, reserved correct-member capacity, static faults & two conflicting accepts (if Q-A3 or Q-A5 fails) or typed abort and fail-closed stalling (every other failure) \\
 NestedGuardian & sound witness assignment and registration, correct reassignment handling, witness committee non-equivocation & degraded safety or open liveness behavior \\
 \bottomrule
 \end{tabularx}
@@ -2901,6 +3338,28 @@ therefore relies on a reference recursive proof-carrying continuity relation
 rather than on a recomputed predecessor digest alone, and only treats continuity-linked
 headers as progress-bearing.
 
+\subsection{Interactive visibility (QUV) symbols}
+
+\begin{center}
+\scriptsize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.37\textwidth} X}
+\toprule
+\textbf{Responsibility} & \textbf{Current runtime symbols} \\
+\midrule
+Policy root and profile identifiers & \shortstack[l]{\code{POLICY\_ROOT\_DOMAIN\_V0} =\\\code{ioi/aft/quv-policy/v8-push-admission},\\\code{quv\_policy\_root}, \code{AftQuvDomainPolicyV0},\\\code{QuvPushAdmissionPolicyV0},\\\code{QuvPreparationPolicyV0}} \\
+Canonical conflict identity and expected head & \shortstack[l]{\code{QuvConflictSlotV0}, \code{quv\_candidate\_hash},\\\code{check\_expected\_slot}, \code{process\_push\_with\_byte\_limit}} \\
+Member write-before-reply and durable conflict state & \shortstack[l]{\code{DurableQuvMemberV0} (schema 9, \code{AFTQJ001} / \code{AFTQJA01}),\\\code{MemberDelta::\{InsertCandidate, ReservePreparation, AcceptHead\}}} \\
+Executor operation and deadline finalization & \shortstack[l]{\code{execute\_aft\_quv\_effect}, \code{handle\_execute\_aft\_quv\_effect},\\\code{reserve\_online\_authorization}, \code{finalize\_operation\_at\_deadline},\\\code{finish\_active\_service}, \code{QuvOperationAdmissionV0}} \\
+Accepted audit and non-portable receipt & \shortstack[l]{\code{QuvAcceptedAuditEvidenceV0},\\\code{QuvOnlineAuthorizationV0},\\\code{ConsequenceReceiptV1} with\\\code{portable\_final\_receipt = false},\\envelope \code{AFTCR001}} \\
+Claim-before-call consequence path & \shortstack[l]{\code{agentgres::consequence} claim index and receipt reservation,\\\code{ImmediateOnlineEffectAuthorizationV1::consume}} \\
+Live handoff and successor activation & \shortstack[l]{\code{DurableQuvHandoffV0} (schema 3), \code{validate\_quv\_handoff\_candidate},\\\code{authorize\_and\_install\_handoff}, \code{activate\_installed\_handoff},\\\code{select\_aft\_pq\_startup\_root}, \code{select\_aft\_pq\_local\_role},\\\code{quv\_successor\_root\_gate}, \code{QUV\_RETIRED\_SIGNER\_REFUSAL}} \\
+Strict PQ carrier and reserved outbox & \shortstack[l]{\code{PqChannelManager}, \code{QueueQuvPushQuery}, \code{QueueQuvReply},\\\code{CompleteQuvPush}, outbox envelopes \code{AFTPQI04} / \code{AFTPQI05} / \code{AFTPQA01}} \\
+Qualification runner and evidence checkers & \shortstack[l]{\code{run\_aft\_m16q\_qualification.sh}, \code{run\_aft\_formal\_checks.sh},\\\code{check\_aft\_m16q\_process\_evidence.py}, \code{check\_aft\_quv\_readiness\_evidence.py},\\\code{check\_aft\_quv\_handoff\_evidence.py}, \code{freeze\_aft\_quv\_candidate.sh}} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+
 \section{Benchmark Context}
 
 The performance evidence in this paper has two sources:
@@ -3265,6 +3724,16 @@ implemented in the hardened signer,
 \item a witness-augmented mode for layered threshold constructions,
 \item machine-checked deterministic safety kernels for the major protocol
 surfaces.
+\item at the irreversible edge, the interactive-visibility result of
+Section~\ref{sec:quv}: one reachable correct configured member out of
+\(n\) suffices for online conflict-qualified accepted-value non-conflict
+and no-conflict singleton progress when every relying executor performs
+fresh push/write-before-reply verification against every configured
+member within a rooted known-synchronous end-to-end deadline, and
+correct-member conflict state is atomic, durable, monotone, correctly
+scoped, and non-rollback (Q-T1--Q-T4, Q-E1--Q-E4), paired with the
+portable-visibility lower bound (Theorem~\ref{thm:m12a}) that makes the
+interactive form necessary at \(f = n-1\),
 \end{itemize}
 
 \subsection{Non-claims}
@@ -3290,6 +3759,14 @@ obligations, or proof-soundness assumptions,
 self-extracting inside the classical authenticated-message model,
 \item a full asynchronous liveness theorem under arbitrary registry, log,
 witness, and outage schedules,
+\item for the interactive-visibility result: portable or offline
+finality; asynchronous or eventually-synchronous safety before an
+independently established bound is active; exact-decision Byzantine
+agreement or classical Byzantine consensus among the members; a
+transferable finality certificate; inclusion or effect liveness for any
+input that is refused, aborted, vetoed, frozen, or equivocated; fairness
+among competing valid submissions; or tolerance of a mobile adversary
+(Section~\ref{sec:quv-boundaries}),
 \item an apples-to-apples measured throughput superiority over
 \code{HotStuff}, \code{Narwhal}, \code{Tusk}, or \code{Bullshark} from the
 current repository alone.
@@ -3345,6 +3822,18 @@ attestation, so physical-host placement is unproven.
 refinement-proven UBC verifier remains a design-permitted residual; its
 outward complement (an independent twin implementation against exported
 conformance vectors) is filed as an owner packet.
+\item \textbf{RES-QUV --- the interactive-visibility candidate under
+review.} The construction, proofs, and production profile of
+Section~\ref{sec:quv} are frozen as one immutable candidate whose
+sixty-three-gate qualification passed; the fresh independent M17Q review of
+that exact commit is the admission gate, and the packet admits only the
+sentence printed in the claims list with its assumptions and costs. Two
+measured transport costs are carried as deployment obligations rather than
+guarantees: replies share the single in-flight PQ lane per peer with
+ordering traffic and preparation pushes (a 4210 ms valid reply was
+observed inside the 5000 ms interval), and the first operation after a
+process start delivers late. Neither is attributed to a specific record at
+the retained logging level, and neither is a theorem premise.
 \end{itemize}
 
 \subsection{Model-delta public-state-continuity theorem}
@@ -3687,6 +4176,39 @@ than as a raw repository dump.
   {app:cb-succession-proof}
   {\detokenize{internal-docs/architecture/protocols/aft/formal/common_boundary/SuccessionClockProof.tla}}
   {\detokenize{../formal/common_boundary/SuccessionClockProof.tla}}
+
+\artifactgroup
+  {Interactive Visibility (QUV)}
+  {The mechanized kernels of Section~\ref{sec:quv}: the portable
+  visibility dilemma (Theorem~\ref{thm:m12a}), the arbitrary-set
+  query-unanimity proof (Q-T1--Q-T4), the composition proof (Q-E1, Q-E2),
+  and the composed end-to-end transition model checked with its
+  countermodels in the mandatory formal corpus.}
+
+\embedartifact
+  {MaximalVisibilityDilemma.tla}
+  {app:quv-dilemma}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/maximal_visibility/MaximalVisibilityDilemma.tla}}
+  {\detokenize{../formal/maximal_visibility/MaximalVisibilityDilemma.tla}}
+
+\embedartifact
+  {QueryUnanimityProof.tla}
+  {app:quv-proof}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/maximal_visibility/QueryUnanimityProof.tla}}
+  {\detokenize{../formal/maximal_visibility/QueryUnanimityProof.tla}}
+
+\embedartifact
+  {QueryUnanimityCompositionProof.tla}
+  {app:quv-composition}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/maximal_visibility/QueryUnanimityCompositionProof.tla}}
+  {\detokenize{../formal/maximal_visibility/QueryUnanimityCompositionProof.tla}}
+
+\embedartifact
+  {QuvEndToEndRefinement.tla}
+  {app:quv-refinement}
+  {\detokenize{internal-docs/architecture/protocols/aft/formal/maximal_visibility/QuvEndToEndRefinement.tla}}
+  {\detokenize{../formal/maximal_visibility/QuvEndToEndRefinement.tla}}
+
 
 \begin{thebibliography}{99}
 
