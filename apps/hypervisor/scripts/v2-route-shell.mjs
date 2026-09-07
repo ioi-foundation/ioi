@@ -30,6 +30,18 @@
 //                  "vendor_spa" → declared here, deliberately passed through: the vendored SPA
 //                                 already serves the canonical experience at this exact route
 //                  "reserved"   → registered planned + nonlaunchable; page states that
+//   serve          ADR 0052 Decision 5 (2026-09-07): a canonical route whose serving lane exists
+//                  SERVES that lane at the canonical route instead of a route-map page.
+//                    { kind: "rewrite",  to: "/__ioi/…", heading: "<h1 the lane renders>" }
+//                      → the serve dispatches the lane's handler at this route, stamps the
+//                        canonical ownership marker + headers on the rendered document, and the
+//                        smoke asserts `heading` (what the page really says), never a fabricated
+//                        title. Subpaths (deep links) still resolve to the honest shell page.
+//                    { kind: "redirect", to: "/ai" | "/__ioi/login" | … }
+//                      → 302 to a lane the serve cannot wrap (the vendored SPA, the login page).
+//                  Absent → the route renders the landing page (surface name, where to go,
+//                  estate navigation); build waves and build state live ONLY on the developer
+//                  route ledger (/__ioi/route-ledger), never on an ordinary product screen.
 import { escHtml } from "../surfaces/kit.mjs";
 
 export const V2_ROUTE_TABLE = [
@@ -40,6 +52,7 @@ export const V2_ROUTE_TABLE = [
     rule: "—",
     waves: "W0.1 · W1",
     build_state: "shell-only (W0.1) — Wave 1 read-first build pending (surfaces/home.md §5); the explorer Home rehomes here",
+    serve: { kind: "redirect", to: "/ai" },
     serving_today: [
       { href: "/ai", label: "Explorer Home", note: "owned read-first governed-work explorer at `/` and `/ai` — composes seven daemon reads, fabricates nothing" },
       { href: "/__ioi/home", label: "Home full readout", note: "legacy native readout; rehomes into this route in Wave 1" },
@@ -52,6 +65,7 @@ export const V2_ROUTE_TABLE = [
     rule: "remains a one-click action",
     waves: "W0.1 · W1",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The admitted-session create itself is daemon truth and is proven by check:launch-chain (POST /v1/hypervisor/sessions → 202 + provision receipt, subject_attachments EXACTLY [] at create) and check:session-authority — the surface that used to expose it is gone, the authority is not",
+    serve: { kind: "redirect", to: "/ai#new-session" },
     serving_today: [
       { href: "/ai#new-session", label: "New Session composer", note: "the live composer with the governed launcher — the one entry that serves this action today" },
     ],
@@ -63,7 +77,9 @@ export const V2_ROUTE_TABLE = [
     rule: "no fabricated System rows before honest read models",
     waves: "W1 · W3 (interface-binding plane)",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The autonomous-system read projection and the genesis crossings are daemon truth and keep their own surface: the M1.6/M1.7 genesis cockpit below, proven by check:system-genesis-product-journey",
+    serve: { kind: "rewrite", to: "/__ioi/systems/packages", heading: "Packages — Autonomous System lifecycle" },
     serving_today: [
+      { href: "/__ioi/systems/packages", label: "Systems — packages and lifecycle", note: "the system-genesis cockpit's package/lifecycle landing over daemon truth (the /__ioi/systems root resolves here)" },
       { href: "/__ioi/systems", label: "Systems genesis readout", note: "the M1.6/M1.7 system-genesis cockpit over daemon truth — the live Systems surface" },
     ],
   },
@@ -86,6 +102,7 @@ export const V2_ROUTE_TABLE = [
     rule: "one catalog/compiler projection",
     waves: "W0.2 · W1",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The one catalog/compiler projection keeps its live readouts below — the W0.2 compiled navigation band still feeds the shell pages and the native shell's own launcher modal",
+    serve: { kind: "rewrite", to: "/__ioi/applications", heading: "Applications" },
     serving_today: [
       { href: "/__ioi/applications", label: "Applications estate readout", note: "renders the compiled product-surface projection (W0.2) — the live Applications surface" },
       { href: "/__ioi/home", label: "Estate launcher", note: "the owned launcher lanes — fed by the same compiled projection as of W0.2" },
@@ -98,6 +115,7 @@ export const V2_ROUTE_TABLE = [
     rule: "typed views only; Sessions is /work/sessions",
     waves: "W0.6 · W1 · W3 (lineage) · W4 (Cut #2)",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The Work grammar the retired slice had rehomed lives on its protected seeds below; bare /sessions is still retired with a typed 410 pointing at /work/sessions",
+    serve: { kind: "rewrite", to: "/__ioi/sessions", heading: "Sessions" },
     serving_today: [
       { href: "/__ioi/missions", label: "Jobs readout", note: "protected seed — goal-orchestration run queue (absorbed into Work); keeps serving untouched" },
       { href: "/__ioi/missions/incidents", label: "Incidents inbox", note: "protected seed — run-failure + goal-blocker inbox (absorbed into Work); keeps serving untouched" },
@@ -113,6 +131,7 @@ export const V2_ROUTE_TABLE = [
     rule: "Sessions is a Work view, never a peer application; bare /sessions is retired with a typed 410 (no redirect alias)",
     waves: "W0.6 (sessions/overview) · W1 · W4 (execution loop Cut #2)",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. This route stays the canonical replacement bare /sessions is retired ONTO (the typed 410 names it), and the session plane itself is daemon truth proven by check:launch-chain + check:session-authority",
+    serve: { kind: "rewrite", to: "/__ioi/sessions", heading: "Sessions" },
     serving_today: [
       { href: "/__ioi/sessions", label: "Sessions root readout", note: "the T2 readout the retired view's grammar was rehomed from — the live Sessions surface" },
       { href: "/__ioi/run-timeline", label: "Run Timeline", note: "per-run governed-work timeline" },
@@ -139,6 +158,7 @@ export const V2_ROUTE_TABLE = [
     rule: "authentication entry; not an application registration",
     waves: "W0.1",
     build_state: "shell-only (W0.1) — the owned login page serves authentication today and rehomes here at cutover",
+    serve: { kind: "redirect", to: "/__ioi/login" },
     serving_today: [
       { href: "/__ioi/login", label: "Sign in", note: "owned login: password + SSO (OIDC PKCE via the daemon)" },
     ],
@@ -301,7 +321,9 @@ export const V2_ROUTE_TABLE = [
     rule: "—",
     waves: "W2",
     build_state: "shell-only (W0.1) — Wave 2 build (surfaces/developer-console.md §5); conformance / developer-app registration families are on the Wave 3 build-list",
+    serve: { kind: "rewrite", to: "/__ioi/developer-console", heading: "Developer Console" },
     serving_today: [
+      { href: "/__ioi/developer-console", label: "Developer Console", note: "application/OAuth registration and guided create over daemon truth" },
       { href: "/__ioi/odk", label: "ODK dev kit planes", note: "ontology / recipe / descriptor / manifest on-ramps" },
       { href: "/__ioi/domain-apps", label: "Domain apps", note: "DomainApp over ODK descriptor; governed mount/serve ladder" },
     ],
@@ -313,6 +335,7 @@ export const V2_ROUTE_TABLE = [
     rule: "—",
     waves: "W1 · W2",
     build_state: "shell-only (W0.1) — Wave 1 read-first build (surfaces/environments.md §5); W0.5 deletes the two adapter lies (logs-token fabrication, mark-active no-op)",
+    serve: { kind: "rewrite", to: "/__ioi/environments", heading: "Environments" },
     serving_today: [
       { href: "/__ioi/environments", label: "Environments readout", note: "environment lifecycle facts over daemon truth" },
     ],
@@ -324,6 +347,7 @@ export const V2_ROUTE_TABLE = [
     rule: "—",
     waves: "W1 · W2",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The runtime/failover truth the retired slice composed keeps its own surface: the T2 Operations readout below, which the estate's provider/custody/failover verifiers drive directly",
+    serve: { kind: "rewrite", to: "/__ioi/operations", heading: "Operations" },
     serving_today: [
       { href: "/__ioi/operations", label: "Operations readout", note: "the T2 rehome source — runs / failures / failover posture over daemon truth; the live Operations surface" },
     ],
@@ -437,6 +461,12 @@ const PAGE_CSS = `
   code{font-size:11.5px;color:#3b4450;background:#f2f4f6;padding:1px 5px;border-radius:4px}
   pre{background:#f6f8fa;border:1px solid #e5e8eb;border-radius:8px;padding:12px;overflow:auto;font:11.5px/1.5 ui-monospace,monospace;color:#3b4450;white-space:pre-wrap;word-break:break-all}
   .foot{color:#5f6b7c;font-size:12.5px;margin-top:28px;border-top:1px solid #e5e8eb;padding-top:14px}
+  .meta{color:#5f6b7c;font-size:12px}
+  table.ledger{border-collapse:collapse;width:100%;font-size:12.5px}
+  table.ledger th,table.ledger td{border:1px solid #e5e8eb;padding:8px 10px;vertical-align:top;text-align:left}
+  table.ledger th{background:#fafbfc;color:#5f6b7c;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  main[style]{max-width:none}
+  .wrap:has(table.ledger){max-width:1400px}
   @media(max-width:700px){
     .wrap{padding:28px 16px 56px}
     .grid{grid-template-columns:minmax(0,1fr);gap:3px;padding:14px}
@@ -490,38 +520,83 @@ export function renderV2RouteShellPage(row, compiled, options = {}) {
   const requestedPath = subpath ? `${row.route}/${subpath}` : row.route;
   const requested = query ? `${requestedPath}?${query}` : requestedPath;
   const serving = (row.serving_today || [])
-    .map((s) => `<a class="card" href="${esc(s.href)}"><div class="main"><div class="name">${esc(s.label)}</div><div class="meta">${esc(s.note)}</div></div><span class="pill muted">${esc(s.href)}</span></a>`)
+    .map((s) => `<a class="card" href="${esc(s.href)}"><div class="main"><div class="name">${esc(s.label)}</div><div class="meta">${esc(s.note)}</div></div><span class="pill muted">Open →</span></a>`)
     .join("");
+  // ADR 0052 Decision 5: an ordinary product screen shows what the user can do here and what is
+  // needed next; it never narrates build waves, retirement history, plane counts or source files.
+  // Those live on the developer route ledger (/__ioi/route-ledger), one link away.
   const servingBlock = serving
-    ? `${serving}<p class="sub" style="margin-top:10px">These lanes keep serving untouched; they rehome into this route at this surface's Wave&nbsp;1 build / Wave&nbsp;4 cutover — nothing is deleted or redirected at W0.1.</p>`
-    : `<div class="empty">Nothing serves this surface today. This page states that honestly — no fixture rows, no fabricated counts, no placeholder data.</div>`;
+    ? serving
+    : `<div class="empty">${
+      reserved
+        ? "Nothing is available here yet. This application is registered as planned and cannot be opened until it is built; no surface, readout or build exists for it today."
+        : "Nothing is available here yet. This route is registered but no surface serves it today; there is no prerequisite you can satisfy from this page."
+    }</div>`;
+  const nextAction = reserved
+    ? "Use the estate navigation below to reach a surface that is available today."
+    : serving
+      ? (row.serving_today.length === 1 ? "Open the surface below." : "Open one of the surfaces below.")
+      : "Use the estate navigation below to reach a surface that is available today.";
   const deepLinkRows = subpath
-    ? `<dt>Requested deep link</dt><dd><code>${esc(requested)}</code></dd>
-      <dt>Deep-link state</dt><dd>resolves to this surface's canonical root (W1.3 deep-link grammar); detail rendering for <code>${esc(subpath)}</code> lands with this surface's wave build — the lanes below are what serve this surface today</dd>`
+    ? `<dt>Requested link</dt><dd><code>${esc(requested)}</code></dd>
+      <dt>Where it resolves</dt><dd>this surface's root; a detail view for <code>${esc(subpath)}</code> is not available yet — open one of the surfaces below</dd>`
     : "";
   return pageShell(
     row.surface,
     `<main data-ioi-surface-route="${esc(row.route)}" data-ioi-surface-owner="${esc(row.kind)}"${subpath ? ` data-ioi-surface-subpath="${esc(subpath)}"` : ""}${embed ? ' data-ioi-embed="1"' : ""}>
-    ${embed ? "" : '<div class="brand">IOI Hypervisor · v2 route shell (W0.1)</div>'}
-    <h1>${esc(row.surface)}${reserved ? '<span class="pill warn">reserved · nonlaunchable</span>' : ""}</h1>
-    <p class="sub">${
-      reserved
-        ? "This owner application is registered <b>planned</b> and is <b>nonlaunchable until built</b>. The route is reserved by the canonical route ledger; no surface, readout, or build exists or is scheduled in the current run."
-        : "Honest surface shell: this canonical route resolves as of W0.1. The panes below name what is real today; everything else arrives wave by wave — nothing here is fabricated."
-    }</p>
+    ${embed ? "" : '<div class="brand">IOI Hypervisor</div>'}
+    <h1>${esc(row.surface)}${reserved ? '<span class="pill warn">planned · not yet available</span>' : ""}</h1>
+    <p class="sub">${esc(nextAction)}</p>
     <h2>Registration</h2>
     <dl class="grid">
       <dt>Canonical route</dt><dd><code>${esc(row.route)}</code></dd>${deepLinkRows}
-      <dt>Owner kind</dt><dd>${esc(row.kind)}</dd>
-      <dt>Route-ledger rule</dt><dd>${esc(row.rule)}</dd>
-      <dt>Wave assignments</dt><dd>${esc(row.waves)}</dd>
-      <dt>Build state</dt><dd>${esc(row.build_state)}</dd>
+      <dt>Owner</dt><dd>${esc(row.kind)}</dd>
+      <dt>Availability</dt><dd>${reserved ? "planned — not yet available" : serving ? `${row.serving_today.length} surface${row.serving_today.length === 1 ? "" : "s"} available` : "no surface available yet"}</dd>
     </dl>
-    <h2>Serving this surface today</h2>
+    <h2>${reserved ? "Status" : "Where to go"}</h2>
     ${servingBlock}
-    ${embed ? "" : `<h2>Estate navigation — compiled product-surface projection (W0.2)</h2>
+    ${embed ? "" : `<h2>Estate navigation</h2>
     ${navBand(row, compiled)}
-    <div class="foot">Route declared in the canonical target-route ledger (core-clients-surfaces.md § Canonical Target Routes) and resolved by the route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>`}
+    <div class="foot"><a href="/ai">← Home</a> · <a href="/__ioi/route-ledger">Technical details (route ledger)</a></div>`}
+    </main>`,
+  );
+}
+
+// Developer diagnostics: the complete canonical route ledger with the registration facts that
+// ordinary product screens no longer print — wave assignments, build state, serving lanes and
+// how each route is served. Read-only; fabricates nothing; the table IS the source of truth.
+export function renderRouteLedgerPage(compiled) {
+  const esc = escHtml;
+  const serveOf = (row) => {
+    if (row.disposition === "vendor_spa") return "passed through to the vendored SPA";
+    if (row.disposition === "reserved") return "reserved — nonlaunchable";
+    if (row.serve?.kind === "redirect") return `302 → ${row.serve.to}`;
+    if (row.serve?.kind === "rewrite") return `serves ${row.serve.to} at the canonical route (heading “${row.serve.heading}”)`;
+    return "landing page (surface name, where to go, estate navigation)";
+  };
+  const rows = V2_ROUTE_TABLE.map((row) => `<tr>
+      <td><a href="${esc(row.route)}"><code>${esc(row.route)}</code></a><div class="meta">${esc(row.surface)}</div></td>
+      <td>${esc(row.kind)}<div class="meta">${esc(row.rule)}</div></td>
+      <td>${esc(serveOf(row))}</td>
+      <td>${(row.serving_today || []).map((s) => `<div><a href="${esc(s.href)}"><code>${esc(s.href)}</code></a> — ${esc(s.label)}</div>`).join("") || "<span class=\"meta\">none</span>"}</td>
+      <td><div class="meta">${esc(row.waves)}</div>${esc(row.build_state)}</td>
+    </tr>`).join("");
+  const retired = Object.entries(RETIRED_UI_ROUTES).map(([from, to]) => `<div><code>${esc(from)}</code> → typed 410, canonical replacement <code>${esc(to)}</code></div>`).join("");
+  return pageShell(
+    "Route ledger",
+    `<main data-ioi-surface-route="/__ioi/route-ledger" data-ioi-surface-owner="developer diagnostics" style="max-width:none">
+    <div class="brand">IOI Hypervisor · developer diagnostics</div>
+    <h1>Route ledger</h1>
+    <p class="sub">Every canonical route in the target-route ledger (core-clients-surfaces.md § Canonical Target Routes), how the serve resolves it today, the lanes that serve it, and its build state. This page is the technical record; ordinary product screens do not print it.</p>
+    <div style="overflow-x:auto"><table class="ledger">
+      <thead><tr><th>Canonical route</th><th>Owner · rule</th><th>Served as</th><th>Serving lanes</th><th>Waves · build state</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <h2>Retired routes</h2>
+    ${retired}
+    <h2>Estate navigation</h2>
+    ${navBand({ route: "/__ioi/route-ledger" }, compiled)}
+    <div class="foot">Resolved by the route table (<code>apps/hypervisor/scripts/v2-route-shell.mjs</code>); navigation compiled by <code>apps/hypervisor/scripts/surface-compiler.mjs</code>. <a href="/ai">← Home</a></div>
     </main>`,
   );
 }

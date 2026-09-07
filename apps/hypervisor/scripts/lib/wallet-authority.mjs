@@ -27,6 +27,60 @@ export async function mintTestGrant({ policyHash, requestHash }) {
   return mintApprovalGrant({ policyHash, requestHash });
 }
 
+// ---- The deployment-local approver (ADR 0052; the bounded-alpha single-operator profile) ------
+//
+// The alpha profile's authority is a deployment-local wallet.network node whose approval key the
+// OPERATOR holds. IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH names that key: a file the operator
+// custodies (32-byte seed as 64 hex chars, or the raw 32 bytes), readable only by the serve's
+// user. Unlike the test signer, this key NEVER signs automatically: a lane that needs a grant
+// parks in `awaiting_operator_approval` with the exact effect, and only an explicit operator
+// approval action (the Sessions surface / the approve endpoint, under the operator's own session)
+// calls mintLocalApproverGrant for that one challenge. Deny mints nothing. The daemon still
+// resolves the deployment authority independently and refuses a grant from any other signer.
+export const LOCAL_APPROVER_KEY_PATH = "IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH";
+
+export function localApproverEnabled() {
+  return typeof process.env[LOCAL_APPROVER_KEY_PATH] === "string" && process.env[LOCAL_APPROVER_KEY_PATH].length > 0;
+}
+
+async function readLocalApproverSeedHex() {
+  const keyPath = process.env[LOCAL_APPROVER_KEY_PATH];
+  const { readFileSync, statSync } = await import("node:fs");
+  const stat = statSync(keyPath);
+  if ((stat.mode & 0o077) !== 0) {
+    throw new Error(`local approver key ${keyPath} is readable by group/other (mode ${(stat.mode & 0o777).toString(8)}); refusing to sign with a shared key`);
+  }
+  const raw = readFileSync(keyPath);
+  const text = raw.toString("utf8").trim();
+  if (/^[0-9a-fA-F]{64}$/u.test(text)) return text.toLowerCase();
+  if (raw.length === 32) return raw.toString("hex");
+  throw new Error(`local approver key ${keyPath} is neither 64 hex characters nor 32 raw bytes`);
+}
+
+// Mint ONE grant for ONE exact challenge with the deployment-held approver key. Only an operator
+// approval action may call this; nothing else in the serve imports it.
+export async function mintLocalApproverGrant({ policyHash, requestHash }) {
+  if (!localApproverEnabled()) return null;
+  if (!policyHash || !requestHash) throw new Error("local approver refuses to sign without both policy_hash and request_hash");
+  const seed = await readLocalApproverSeedHex();
+  const { mintApprovalGrant } = await import("../../../../scripts/lib/mint-approval-grant.mjs");
+  return mintApprovalGrant({ seed, policyHash, requestHash });
+}
+
+// The typed parked state when the deployment-local approver holds the key: the run waits for the
+// operator's explicit decision on the exact effect. Hashes are public commitments, never secrets.
+export function awaitingOperatorApproval(approval) {
+  return {
+    ok: false,
+    status: "awaiting_operator_approval",
+    error: {
+      code: "operator_approval_required",
+      message: "this crossing needs the operator's approval of the exact effect — review it on Work / Sessions and approve or deny",
+    },
+    approval: approval || null,
+  };
+}
+
 // The typed parked state for lanes that need a grant and have no signer: the challenge rides
 // verbatim (hashes only name WHAT to sign — they are public commitments, never secrets).
 export function awaitingWalletAuthority(approval) {

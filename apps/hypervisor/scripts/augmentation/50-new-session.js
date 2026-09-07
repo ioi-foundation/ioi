@@ -66,6 +66,25 @@
       if (body) body.innerHTML = '<div class="ioi-ns-empty">Context unavailable — the daemon did not answer. The launcher offers no fabricated options.<br><button id="ioi-ns-retry" class="ioi-ns-btn" style="margin-top:10px">Retry</button></div>';
     });
   }
+  // ── Connections this session may use — the session's CLOSED authority profile (ADR 0052
+  // Decision 3). Nothing is selected by default: a session names only what the operator ticks
+  // here, the daemon binds that set at create, and a connector outside it refuses at admission.
+  // Widening later means a new session or a new Connections binding, never an in-run change.
+  function nsConnectionsSection() {
+    const cx = (nsCtx && nsCtx.connections) || [];
+    const rows = cx.length
+      ? cx.map(function (c) {
+        return '<label class="ioi-ns-cx' + (c.selectable ? "" : " ioi-ns-cx-off") + '" title="' + esc(c.connection_ref) + '">' +
+          '<input type="checkbox" class="ioi-ns-cx-box" value="' + esc(c.connection_ref) + '"' + (c.selectable ? "" : " disabled") + "> " +
+          "<b>" + esc(c.name) + "</b> <span>" + esc(c.service || c.kind || "") + (c.reason ? " — " + esc(c.reason) : "") + "</span></label>";
+      }).join("")
+      : '<div class="ioi-ns-cx-empty">No connections in this workspace yet. The session will have none — add one under <a href="/__ioi/connections" target="_top">Connections</a> when the work needs it.</div>';
+    return '<div class="ioi-ns-field"><label>Connections this session may use <span style="font-weight:400;opacity:.75">(none by default; closed once the session starts)</span></label>' +
+      '<div class="ioi-ns-cx-list">' + rows + "</div></div>";
+  }
+  function nsSelectedConnections() {
+    return Array.prototype.slice.call(document.querySelectorAll(".ioi-ns-cx-box:checked")).map(function (b) { return b.value; });
+  }
   function renderNs() {
     const body = document.getElementById("ioi-ns-body");
     if (!body || !nsCtx) return;
@@ -123,6 +142,7 @@
       '<div class="ioi-ns-field"><label>Reasoning</label><select id="ioi-ns-reasoning"></select></div>' +
       '<div class="ioi-ns-field"><label>Speed</label><select id="ioi-ns-speed"></select></div>' +
       "</div>" +
+      nsConnectionsSection() +
       '<div class="ioi-ns-preview" id="ioi-ns-preview"></div>' +
       '<button class="ioi-ns-btn" id="ioi-ns-launch">Start with IOI Agent</button>' +
       '<div id="ioi-ns-result" style="display:none"></div>';
@@ -445,6 +465,7 @@
     }
     var editorSel = document.getElementById("ioi-ns-editor");
     if (editorSel && editorSel.value) body.editor_target_ref = editorSel.value;
+    body.authority_profile = { connection_refs: nsSelectedConnections() };
     const p = nsProfile();
     if (p) {
       body.harness_profile_ref = p.profile_ref;

@@ -8,7 +8,7 @@
 //   as the env exists and the run is registered; the harness runs async and this registry
 //   tracks status + transcript + changed files for GetAgentExecution / ListAgentExecutions
 //   and the conversation stream. The daemon EXECUTES; this is an app-side view of its run.
-import { mintTestGrant } from "./lib/wallet-authority.mjs";
+import { mintTestGrant, localApproverEnabled, mintLocalApproverGrant } from "./lib/wallet-authority.mjs";
 import { daemonEnvToIOI } from "./ioi-projection.mjs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -68,6 +68,7 @@ function runRecord(run) {
     activity_log: run.activityLog || [],
     summary: run.summary || null,
     authority: run.authority || null,
+    pending_approval: run.pendingApproval || null,
     capability_lease_ref: run.capabilityLeaseRef || null,
     proposal_ref: run.proposalRef || null,
     publication_proposal_ref: run.publicationProposalRef || null,
@@ -106,6 +107,7 @@ function recordToRun(r) {
     error: r.error || null,
     activityLog: r.activity_log || [],
     authority: r.authority || null,
+    pendingApproval: r.pending_approval || null,
     capabilityLeaseRef: r.capability_lease_ref || null,
     proposalRef: r.proposal_ref || null,
     publicationProposalRef: r.publication_proposal_ref || null,
@@ -197,7 +199,7 @@ function deriveName(prompt) {
 // Project a registry run onto the IOI AgentExecution shape the SPA renders.
 export function runToAgentExecution(run) {
   const phase =
-    run.status === "running" || run.status === "waiting"
+    run.status === "running" || run.status === "waiting" || run.status === "awaiting_operator_approval"
       ? "AGENT_EXECUTION_PHASE_RUNNING"
       : run.status === "failed"
         ? "AGENT_EXECUTION_PHASE_FAILED"
@@ -608,8 +610,26 @@ async function executeRun(run, base, dj) {
     }
     const grant = await mintTestGrant({ policyHash, requestHash }).catch(() => null);
     if (!grant) {
-      run.status = "awaiting_wallet_authority";
       run.authority = { policyHash, requestHash, grantId: null, expiresAt: null, mintedAt: null };
+      if (localApproverEnabled()) {
+        // ADR 0052 (alpha profile): the deployment-local approver holds the key, so the run
+        // parks on the EXACT effect until the operator approves or denies it on Work / Sessions.
+        // Nothing is signed here; approveRun() signs exactly once, for this challenge only.
+        run.status = "awaiting_operator_approval";
+        run.pendingApproval = {
+          kind: "session_execute",
+          session_ref: run.sessionRef,
+          intent: run.prompt,
+          policy_hash: policyHash,
+          request_hash: requestHash,
+          required_scopes: challenge.body?.required_scopes || [],
+          requested_at: nowIso(),
+          decision: null,
+        };
+        bump(run, "Waiting for your approval — review the exact effect on Work / Sessions and approve or deny");
+        return;
+      }
+      run.status = "awaiting_wallet_authority";
       bump(run, "Run parked: awaiting wallet authority — no signer is attached (dev test signer only under IOI_WALLET_TEST_SIGNER=1)");
       return;
     }
@@ -631,6 +651,76 @@ async function executeRun(run, base, dj) {
     run.error = String(error?.message || error);
     bump(run, `Failed: ${run.error}`);
   }
+}
+
+// Operator decision on a parked run (the deployment-local approver, ADR 0052). `approve` mints ONE
+// grant for the parked challenge's exact policy/request hashes and resumes the daemon execute;
+// `deny` records the refusal and mints nothing. Both are the operator's own act (the caller's
+// daemon identity headers ride the resumed request), and both are durable through bump().
+export async function decideRunApproval({ runId, decision, reason = "", daemonHeaders = {} }) {
+  const run = runs.get(runId);
+  if (!run) return { ok: false, status: 404, error: { code: "run_not_found", message: "unknown run" } };
+  if (run.status !== "awaiting_operator_approval" || !run.pendingApproval) {
+    return { ok: false, status: 409, error: { code: "run_not_awaiting_approval", message: `run is ${run.status}; nothing is awaiting a decision` } };
+  }
+  const pending = run.pendingApproval;
+  if (decision === "deny") {
+    run.status = "denied";
+    run.pendingApproval = { ...pending, decision: "denied", decided_at: nowIso(), reason: String(reason || "").slice(0, 400) };
+    run.error = "Denied by the operator; nothing was executed.";
+    bump(run, `Denied by the operator${reason ? ` — ${String(reason).slice(0, 120)}` : ""}; nothing ran`);
+    return { ok: true, status: 200, run_id: run.id, decision: "denied" };
+  }
+  if (decision !== "approve") {
+    return { ok: false, status: 400, error: { code: "decision_invalid", message: "decision must be approve or deny" } };
+  }
+  let grant;
+  try {
+    grant = await mintLocalApproverGrant({ policyHash: pending.policy_hash, requestHash: pending.request_hash });
+  } catch (error) {
+    return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
+  }
+  if (!grant) return { ok: false, status: 501, error: { code: "local_approver_not_configured", message: "no deployment-local approver key is configured" } };
+  run.daemonHeaders = boundedDaemonHeaders(daemonHeaders);
+  run.status = "running";
+  run.pendingApproval = { ...pending, decision: "approved", decided_at: nowIso() };
+  run.authority = {
+    policyHash: pending.policy_hash,
+    requestHash: pending.request_hash,
+    grantId: grant?.grant_id || grant?.id || grant?.approval_id || null,
+    expiresAt: grant?.expires_at || grant?.expiresAt || null,
+    mintedAt: nowIso(),
+    approver: "deployment_local_operator",
+  };
+  bump(run, "Approved by the operator — authorizing the run with the deployment approver key…");
+  const base = DAEMON;
+  const dj = async (method, path, payload) => {
+    const res = await fetch(base + path, {
+      method,
+      headers: runDaemonHeaders(run, Boolean(payload)),
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+    const text = await res.text();
+    let parsed = {};
+    try { parsed = text ? JSON.parse(text) : {}; } catch { parsed = { _raw: text }; }
+    return { status: res.status, body: parsed };
+  };
+  const execPath = `/v1/hypervisor/sessions/${encodeURIComponent(run.sessionRef)}/execute`;
+  bump(run, "Agent working in the environment…");
+  // The execute is long-running; resume it asynchronously exactly like executeRun and let the
+  // conversation stream / Sessions surface follow it. Never throws into the caller.
+  void dj("POST", execPath, { intent: pending.intent, wallet_approval_grant: grant })
+    .then((result) => finalize(run, result))
+    .catch((error) => {
+      run.status = "failed";
+      run.error = String(error?.message || error);
+      bump(run, `Failed: ${run.error}`);
+    });
+  return { ok: true, status: 202, run_id: run.id, decision: "approved" };
+}
+
+export function listRunsAwaitingApproval() {
+  return [...runs.values()].filter((run) => run.status === "awaiting_operator_approval" && run.pendingApproval);
 }
 
 function finalize(run, result) {

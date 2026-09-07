@@ -335,6 +335,28 @@ for (const target of staticTargets) {
   assertManifestRoutes(target, target.routes);
 }
 
+// GRE-2 redirect-class transfers (owner go 2026-08-20; apps/hypervisor/scripts/serve-product-ui.mjs
+// GRE2_TRANSFERS): these canonical roots 302 to their designated seed shells. Declared here so the
+// smoke asserts the transfer instead of failing on the lane it lands on.
+const GRE2_TRANSFERS = {
+  "/automations": "/__ioi/automations/monitors",
+  "/evaluations": "/__ioi/evaluations/evalsuites",
+  "/foundry": "/__ioi/foundry/models",
+  "/provenance": "/__ioi/lineage",
+  "/improvement": "/__ioi/improvement/changes",
+  "/governance": "/__ioi/governance/approvals",
+  "/packages/marketplace": "/__ioi/marketplace/listings",
+};
+
+// GRE-2 build-class family landings (serve-product-ui.mjs FAMILY_LANDINGS): served AT the canonical
+// route under the family's designated landing title, which is the text the page really renders.
+const FAMILY_LANDING_TITLES = {
+  "/data": "Data",
+  "/ontology": "Ontology",
+  "/studio": "Studio",
+  "/developer-workspace": "Workbench",
+};
+
 const rawProductFilter =
   process.env.IOI_PRODUCT_SMOKE_PRODUCT?.trim() || null;
 const legacyProductAliases = new Map([
@@ -977,21 +999,46 @@ try {
     name: "hypervisor-owned-served-ui",
     port: 44173,
     routes: hypervisorRoutes,
-    expectedPaths: { "/": "/projects" },
+    // ADR 0052 Decision 5: a canonical route declared `serve.kind === "redirect"` lands on its
+    // lane (the vendored SPA home, the login page); `serve.kind === "rewrite"` serves the lane's
+    // document AT the canonical route, so the heading asserted is the one the lane really
+    // renders (declared in the route table), never a fabricated title.
+    expectedPaths: {
+      "/": "/projects",
+      ...GRE2_TRANSFERS,
+      ...Object.fromEntries(
+        canonicalSurfaceRows
+          .filter((surface) => surface.serve?.kind === "redirect")
+          .map((surface) => [surface.route, String(surface.serve.to).split("#")[0]]),
+      ),
+    },
+    // A transferred or redirected root lands on its lane's own document, whose wording the lane
+    // owns; only a document rendered AT the canonical route carries a route-level semantic.
     semantics: Object.fromEntries([
       ["/", ["Projects"]],
       ...canonicalSurfaceRows.map((surface) => [
         surface.route,
-        [surface.surface],
+        [
+          GRE2_TRANSFERS[surface.route] || surface.serve?.kind === "redirect"
+            ? ""
+            : FAMILY_LANDING_TITLES[surface.route]
+              ? FAMILY_LANDING_TITLES[surface.route]
+              : surface.serve?.kind === "rewrite"
+                ? surface.serve.heading
+                : surface.surface,
+        ].filter(Boolean),
       ]),
       ...SURFACES.map((surface) => [surface.route, [surface.title]]),
-      ...canonicalSurfaceMounts.map((surface) => [surface.canonical_route, [surface.title]]),
+      ...canonicalSurfaceMounts.map((surface) => [
+        surface.canonical_route,
+        [GRE2_TRANSFERS[surface.canonical_route] ? "" : surface.title].filter(Boolean),
+      ]),
     ]),
     surfaceContracts: Object.fromEntries([
       ...canonicalSurfaceRows.map((surface) => [
         surface.route,
         {
-          heading: surface.surface,
+          heading: FAMILY_LANDING_TITLES[surface.route] || (surface.serve?.kind === "rewrite" ? surface.serve.heading : surface.surface),
           owner: surface.kind,
           source: "v2-route-table",
           require_owned_marker: surface.disposition !== "vendor_spa",

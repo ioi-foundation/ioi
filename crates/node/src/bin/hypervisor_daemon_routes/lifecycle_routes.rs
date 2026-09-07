@@ -10649,6 +10649,181 @@ fn session_record_key(session_ref: &str) -> String {
     format!("session_{}", session_identity_digest(session_ref))
 }
 
+// ---- Session authority profile (ADR 0052 Decision 3 / core-clients-surfaces.md § Session
+// authority profile / M13.1–M13.2) ----------------------------------------------------------
+//
+// A Session records at create the CLOSED set of Connections-estate connectors its runtime tool
+// surface may resolve. The default is the empty set — never the workspace's estate. The set is
+// validated against existing connector records at create, immutable for the session's lifetime,
+// and enforced by daemon admission on the connector invoke path (see `handle_connector_invoke`)
+// BEFORE org policy, principal scope or the wallet crossing — so no catalog or client filter can
+// widen a session, and a direct daemon invoke outside the profile refuses identically. This binds
+// the existing Session object to existing connector objects; it mints no authority of its own.
+pub(crate) const SESSION_AUTHORITY_PROFILE_SCHEMA_VERSION: &str =
+    "ioi.hypervisor.session_authority_profile.v1";
+const MAX_SESSION_AUTHORITY_CONNECTIONS: usize = 32;
+
+pub(crate) fn default_session_authority_profile(declared_at: &str) -> Value {
+    json!({
+        "schema_version": SESSION_AUTHORITY_PROFILE_SCHEMA_VERSION,
+        "connection_refs": [],
+        "declared_at": declared_at,
+    })
+}
+
+/// Parse and validate the create-time `authority_profile`. Absent/null → the empty profile.
+/// Every `connection_refs` entry must name an existing connector (`connector:<id>` or bare id);
+/// unknown connectors refuse the create (412) rather than being dropped, because a profile that
+/// silently shrank would let the caller believe a connection was bound that never was.
+fn parse_session_authority_profile(
+    data_dir: &str,
+    body: &Value,
+    declared_at: &str,
+) -> Result<Value, (StatusCode, Json<Value>)> {
+    let invalid = |message: String| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error":{
+                "code":"session_authority_profile_invalid",
+                "message":message
+            }})),
+        )
+    };
+    let object = match body.get("authority_profile") {
+        None | Some(Value::Null) => return Ok(default_session_authority_profile(declared_at)),
+        Some(Value::Object(object)) => object,
+        Some(_) => {
+            return Err(invalid(
+                "authority_profile must be an object with connection_refs[]".to_string(),
+            ))
+        }
+    };
+    for key in object.keys() {
+        if key != "connection_refs" && key != "schema_version" {
+            return Err(invalid(format!(
+                "authority_profile carries an unsupported field '{key}'; only connection_refs[] is accepted"
+            )));
+        }
+    }
+    if let Some(schema) = object.get("schema_version").and_then(Value::as_str) {
+        if schema != SESSION_AUTHORITY_PROFILE_SCHEMA_VERSION {
+            return Err(invalid(format!(
+                "authority_profile.schema_version must be {SESSION_AUTHORITY_PROFILE_SCHEMA_VERSION}"
+            )));
+        }
+    }
+    let refs = match object.get("connection_refs") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(items)) => items.clone(),
+        Some(_) => {
+            return Err(invalid(
+                "authority_profile.connection_refs must be an array of connector refs".to_string(),
+            ))
+        }
+    };
+    if refs.len() > MAX_SESSION_AUTHORITY_CONNECTIONS {
+        return Err(invalid(format!(
+            "authority_profile.connection_refs exceeds the bounded set ({MAX_SESSION_AUTHORITY_CONNECTIONS})"
+        )));
+    }
+    let mut normalized: Vec<String> = Vec::new();
+    for item in refs {
+        let Some(raw) = item.as_str() else {
+            return Err(invalid(
+                "authority_profile.connection_refs entries must be strings".to_string(),
+            ));
+        };
+        let id = raw.trim().strip_prefix("connector:").unwrap_or(raw.trim());
+        if id.is_empty()
+            || !id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        {
+            return Err(invalid(format!(
+                "authority_profile.connection_refs entry '{raw}' is not a connector ref"
+            )));
+        }
+        let canonical = format!("connector:{id}");
+        if !normalized.contains(&canonical) {
+            normalized.push(canonical);
+        }
+    }
+    if !normalized.is_empty() {
+        let connectors = read_record_dir(data_dir, "connectors");
+        for reference in &normalized {
+            let id = reference.trim_start_matches("connector:");
+            let known = connectors
+                .iter()
+                .any(|c| c["connector_id"].as_str() == Some(id));
+            if !known {
+                return Err((
+                    StatusCode::PRECONDITION_FAILED,
+                    Json(json!({"error":{
+                        "code":"session_authority_connection_unknown",
+                        "message":"authority_profile names a connection that does not exist in the Connections estate; attach it first, then create the session",
+                        "connection_ref":reference
+                    }})),
+                ));
+            }
+        }
+    }
+    Ok(json!({
+        "schema_version": SESSION_AUTHORITY_PROFILE_SCHEMA_VERSION,
+        "connection_refs": normalized,
+        "declared_at": declared_at,
+    }))
+}
+
+/// Does this Session's closed profile name the connector? A record without a profile (created
+/// before the profile existed) names nothing — the default was always the empty set.
+pub(crate) fn session_profile_names_connection(record: &Value, connection_ref: &str) -> bool {
+    record
+        .pointer("/authority_profile/connection_refs")
+        .and_then(Value::as_array)
+        .map(|refs| refs.iter().any(|v| v.as_str() == Some(connection_ref)))
+        .unwrap_or(false)
+}
+
+/// Durable, typed refusal receipt for an out-of-profile session invocation. The refusal is a
+/// daemon admission fact the session view can cite; it is written to the same `receipts` family
+/// as the session's other receipts so restart survival and readback are the ordinary path.
+fn persist_session_authority_refusal(
+    data_dir: &str,
+    session_ref: &str,
+    connector_id: &str,
+    tool: &str,
+    record: &Value,
+) -> String {
+    let at = iso_now();
+    let receipt_ref = format!(
+        "receipt://hypervisor/session-authority-refusal/{}",
+        short_hash(&format!("{session_ref}:{connector_id}:{tool}:{at}"))
+    );
+    let receipt = json!({
+        "id": receipt_ref,
+        "kind": "hypervisor.session.authority_refusal",
+        "session_ref": session_ref,
+        "connector_id": connector_id,
+        "connection_ref": format!("connector:{connector_id}"),
+        "tool": tool,
+        "reason": "session_authority_out_of_profile",
+        "profile_connection_refs": record
+            .pointer("/authority_profile/connection_refs")
+            .cloned()
+            .unwrap_or_else(|| json!([])),
+        "owner_ref": record.get("owner_ref").cloned().unwrap_or(Value::Null),
+        "at": at,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    // A refusal whose receipt did not persist is still a refusal; the receipt is evidence, not
+    // the gate. The caller reports the ref only when the write landed.
+    if persist_record(data_dir, "receipts", &session_receipt_key(&receipt_ref), &receipt).is_ok() {
+        receipt_ref
+    } else {
+        String::new()
+    }
+}
+
 fn session_receipt_key(receipt_ref: &str) -> String {
     format!(
         "session_receipt_{}",
@@ -11565,6 +11740,14 @@ fn prepare_session_create_bundle(
         "editor_target_ref": inputs.get("editor_target_ref").cloned().unwrap_or(Value::Null),
         "initial_input_projection": initial_input_projection,
         "latest_receipt_refs": latest_receipt_refs,
+        // ADR 0052 Decision 3: the closed authority profile declared at create. An intent
+        // reserved before the profile existed commits with the empty profile, which is what
+        // it always meant.
+        "authority_profile": inputs
+            .get("authority_profile")
+            .filter(|value| value.is_object())
+            .cloned()
+            .unwrap_or_else(|| default_session_authority_profile(&created_at)),
         // C-1 (core-clients-surfaces.md `HypervisorSession.subject_attachments`):
         // typed owner-registered rows {subject_kind, subject_ref, attachment_role}
         // are the ONLY way a Session names the work it serves. Create accepts no
@@ -11931,6 +12114,7 @@ fn session_create_projection(intent: &Value, idempotent_replay: bool) -> Value {
         "receipt_ref": intent.pointer("/provisioning_receipt/record/id"),
         "initial_input_projection": record.get("initial_input_projection"),
         "latest_receipt_refs": record.get("latest_receipt_refs"),
+        "authority_profile": record.get("authority_profile"),
         // C-1: `subject_attachments[]` is the ONLY way a Session names the work it
         // serves (owner-registered subject_kind/subject_ref/attachment_role). The
         // retired named app-family fields are gone, not aliased.
@@ -13013,6 +13197,13 @@ pub(crate) async fn handle_session_create(
         .as_ref()
         .map(|env_id| format!("environment:{env_id}"))
         .unwrap_or_else(|| format!("environment:session-{identity}"));
+    // ADR 0052 Decision 3 / M13.2: the closed authority profile is validated against the
+    // Connections estate BEFORE the WAL write, so a reserved intent never carries a connection
+    // that does not exist. Absent → the empty profile.
+    let authority_profile = match parse_session_authority_profile(&st.data_dir, &body, &now) {
+        Ok(profile) => profile,
+        Err(response) => return response,
+    };
     let initializer = RuntimeKernelService::new().derive_hypervisor_workspace_initializer(&json!({
         "contextUrl": body.get("context_url"),
         "gitSpec": body.get("git"),
@@ -13057,7 +13248,8 @@ pub(crate) async fn handle_session_create(
             "harness_binding": Value::Null,
             "model_route_binding": Value::Null,
             "editor_target_ref": editor_target_ref,
-            "initial_input": initial_input
+            "initial_input": initial_input,
+            "authority_profile": authority_profile
         },
         "reserved_at": now,
         "runtimeTruthSource": "daemon-runtime"
@@ -15562,6 +15754,66 @@ pub(crate) async fn handle_connector_invoke(
     };
     let request_args = body.get("request").cloned().unwrap_or_else(|| json!({}));
 
+    // SESSION AUTHORITY PROFILE gate (ADR 0052 Decision 3 / M13.2) — an invocation made on behalf
+    // of a Session (`session_ref` in the body) is admitted only when that Session's closed profile
+    // names THIS connector. It runs before org policy, principal scope and the wallet crossing, and
+    // it reads the durable session record, so neither a catalog filter nor a client can widen a
+    // session and a direct daemon invoke outside the profile refuses identically. The refusal is
+    // typed and receipted. An invocation without a session_ref is the operator's own direct act
+    // under the operator's identity, not a session act, and keeps its existing gates.
+    let session_ref = body
+        .get("session_ref")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    if let Some(session_ref) = session_ref.as_deref() {
+        if !canonical_session_ref(session_ref) {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({ "ok": false, "reason": "session_ref_invalid", "session_ref": session_ref })),
+            );
+        }
+        // Rule E: a session-scoped crossing is a governed act by the session's owner, so the
+        // typed 401 for an anonymous caller precedes the record load (no existence oracle).
+        let owner_ref = match session_request_write_owner(&st, &headers) {
+            Ok(owner) => owner,
+            Err(response) => return response,
+        };
+        let session_record = match load_session_record_owned_by(&st, &owner_ref, session_ref) {
+            Ok(record) => record,
+            Err(response) => return response,
+        };
+        let connection_ref = format!("connector:{id}");
+        if !session_profile_names_connection(&session_record, &connection_ref) {
+            let refusal_receipt_ref = persist_session_authority_refusal(
+                &st.data_dir,
+                session_ref,
+                &id,
+                &tool_name,
+                &session_record,
+            );
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "decision": "blocked",
+                    "reason": "session_authority_out_of_profile",
+                    "message": format!("Session {session_ref} did not name {connection_ref} in its authority profile at create; widening is a new session or a new Connections binding, never an in-run change."),
+                    "session_ref": session_ref,
+                    "connection_ref": connection_ref,
+                    "profile_connection_refs": session_record
+                        .pointer("/authority_profile/connection_refs")
+                        .cloned()
+                        .unwrap_or_else(|| json!([])),
+                    "refusal_receipt_ref": refusal_receipt_ref,
+                    "host_mutation": false,
+                    "runtimeTruthSource": "daemon-runtime",
+                })),
+            );
+        }
+    }
+
     // ORG POLICY gate (Phase C) — enforced before the wallet crossing. risk_posture "locked" blocks
     // all use; an allowed_tools allow-list (when set) restricts which tools members may invoke.
     let org_policy = connector["org_policy"].clone();
@@ -15620,7 +15872,9 @@ pub(crate) async fn handle_connector_invoke(
         scopes: vec![format!("{service}.{tool_name}")],
         policy_domain: "hypervisor.connector.invoke.policy.v1".to_string(),
         request_domain: "hypervisor.connector.invoke.request.v1".to_string(),
-        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args) }),
+        // The session (when named) is folded into the request hash so a grant minted for a
+        // session's crossing cannot be replayed as the operator's direct act, or vice versa.
+        request_facets: json!({ "service": service, "tool": tool_name, "request_hash": sha256_json_ref(&request_args), "session_ref": session_ref.clone() }),
         credential_connector_id: Some(id.clone()),
         credential_store: "connector-credentials".to_string(),
         credential_required: requires_credential,
@@ -15787,6 +16041,7 @@ pub(crate) async fn handle_connector_invoke(
         "schema_version": "ioi.hypervisor.connector-invoke-receipt.v1",
         "receipt_id": receipt_id, "connector_id": id, "service": service, "tool": tool_name,
         "method": method, "url": url, "status": status_code, "ok": ok,
+        "session_ref": session_ref,
         "principal_id": caller_id, "principal_scoped": org_policy["principal_scoped"].as_bool().unwrap_or(false),
         "credential_source": lease.credential_source, "grant_ref": lease.grant_ref,
         "capability_lease": lease.descriptor, "org_policy": org_policy, "host_mutation": true, "error": error,
@@ -19198,6 +19453,35 @@ pub(crate) async fn handle_auth_bootstrap(
         );
     };
     op["password_hash"] = json!(h);
+    // The bootstrapping operator names themselves: the seeded placeholder identity ("John Doe")
+    // is a fixture default, not the deployment's operator. Both fields are optional; a supplied
+    // value must be a bounded, printable string, and the email must look like one.
+    if let Some(name) = body.get("name").and_then(Value::as_str).map(str::trim) {
+        if !name.is_empty() {
+            if name.len() > 120 || name.chars().any(char::is_control) {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "reason": "name must be a printable string of at most 120 characters" })),
+                );
+            }
+            op["name"] = json!(name);
+        }
+    }
+    if let Some(email) = body.get("email").and_then(Value::as_str).map(str::trim) {
+        if !email.is_empty() {
+            let at = email.find('@');
+            if email.len() > 254
+                || email.chars().any(|c| c.is_control() || c.is_whitespace())
+                || !matches!(at, Some(index) if index > 0 && index + 1 < email.len())
+            {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "reason": "email must be a single address of the form local@domain" })),
+                );
+            }
+            op["email"] = json!(email.to_lowercase());
+        }
+    }
     op["updated_at"] = json!(iso_now());
     if let Err(error) = persist_record_durable(&st.data_dir, "principals", OPERATOR_ID, &op) {
         return (
@@ -23672,6 +23956,7 @@ pub(crate) async fn handle_sessions_list(
                 "lifecycle_state": r.get("lifecycle_state"),
                 "workspace_root": r.get("workspace_root"),
                 "editor_target_ref": r.get("editor_target_ref"),
+                "authority_profile": r.get("authority_profile"),
                 "harness_binding": slim_hb,
                 "latest_receipt_refs": r.get("latest_receipt_refs"),
                 "created_at": r.get("created_at"),
