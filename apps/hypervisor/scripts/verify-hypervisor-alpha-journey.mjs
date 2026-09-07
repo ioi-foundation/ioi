@@ -25,6 +25,12 @@
 //   IOI_ALPHA_MODEL_UPSTREAM       default http://127.0.0.1:11434/v1
 //   IOI_ALPHA_JOURNEY_EVIDENCE_DIR default apps/hypervisor/.artifacts/alpha-journey
 //   IOI_ALPHA_JOURNEY_SKIP_BACKUP  "1" skips the backup/restore sub-verifier (records skipped)
+//   IOI_ALPHA_JOURNEY_AUTHORITY    "fixture" (default) starts the real wallet.network fixture;
+//                                  "none" runs WITHOUT a deployment authority node — the steps
+//                                  that need one (approval, execution, artifacts, receipts) are
+//                                  recorded as TYPED BLOCKS, never as passes, and the evidence
+//                                  file says so. Use it to qualify the rest of the journey when
+//                                  the fixture cannot converge on a loaded host.
 
 import { spawn, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -48,6 +54,7 @@ const FIXTURE_APPROVER_SEED_HEX = "07".repeat(32);
 const MODEL = process.env.IOI_ALPHA_MODEL || "qwen2.5:7b";
 const MODEL_UPSTREAM = process.env.IOI_ALPHA_MODEL_UPSTREAM || "http://127.0.0.1:11434/v1";
 const EXECUTE_BUDGET_MS = 900_000;
+const AUTHORITY_MODE = process.env.IOI_ALPHA_JOURNEY_AUTHORITY === "none" ? "none" : "fixture";
 
 const results = [];
 const evidence = { schema: "ioi.hypervisor.alpha-journey-evidence.v1", started_at: new Date().toISOString(), steps: [] };
@@ -172,14 +179,27 @@ async function run() {
   const approverKeyPath = path.join(workDir, "approver.key");
   fs.writeFileSync(approverKeyPath, `${FIXTURE_APPROVER_SEED_HEX}\n`, { mode: 0o600 });
   const t0 = Date.now();
-  try {
-    fixture = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: sanitizedVerifierBaseEnv(process.env) });
-  } catch (error) {
-    console.error(`BLOCKED: the real wallet.network principal-authority fixture did not start — ${error?.message ?? error}`);
-    cleanup();
-    process.exit(2);
+  if (AUTHORITY_MODE === "fixture") {
+    try {
+      // The fixture's in-process debug cluster commits its setup transactions slowly on a loaded
+      // host (readiness has been observed between 7 and 25 minutes). The sanitizer strips every
+      // IOI_TEST* name from the ambient env by design, so the commit budget is passed explicitly;
+      // it changes no chain or authorization semantics, only how long the fixture waits.
+      const fixtureBaseEnv = {
+        ...sanitizedVerifierBaseEnv(process.env),
+        IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: process.env.IOI_ALPHA_FIXTURE_COMMIT_TIMEOUT_SECS || "900",
+      };
+      fixture = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: fixtureBaseEnv });
+    } catch (error) {
+      console.error(`BLOCKED: the real wallet.network principal-authority fixture did not start — ${error?.message ?? error}`);
+      cleanup();
+      process.exit(2);
+    }
+    record("2b-authority", "deployment-local wallet.network node", `ready in ${Math.round((Date.now() - t0) / 1000)}s · chain ${fixture.env.IOI_WALLET_NETWORK_CHAIN_ID} · approver key custodied at ${approverKeyPath} (mode 0600; FIXTURE seed = public test material)`);
+  } else {
+    evidence.authority_mode = "none";
+    record("2b-authority", "deployment-local wallet.network node", "NOT STARTED (IOI_ALPHA_JOURNEY_AUTHORITY=none): every step that needs execution authority is recorded as a typed block below; nothing in this run claims approval, execution, artifacts or execute receipts");
   }
-  record("2b-authority", "deployment-local wallet.network node", `ready in ${Math.round((Date.now() - t0) / 1000)}s · chain ${fixture.env.IOI_WALLET_NETWORK_CHAIN_ID} · approver key custodied at ${approverKeyPath} (mode 0600; FIXTURE seed = public test material)`);
 
   daemonPort = await freePort();
   servePort = await freePort();
@@ -190,8 +210,8 @@ async function run() {
   SERVE = `http://127.0.0.1:${servePort}`;
   daemonEnv = {
     ...sanitizedVerifierBaseEnv(process.env),
-    ...fixture.env,
-    IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF,
+    ...(fixture ? fixture.env : {}),
+    ...(fixture ? { IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF } : {}),
     IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`,
     IOI_HYPERVISOR_DATA_DIR: dataDir,
     IOI_HYPERVISOR_MODEL: MODEL,
@@ -239,7 +259,7 @@ async function run() {
 
   // ---- 4. project ------------------------------------------------------------------------------
   const project = await jd(DAEMON, "/v1/hypervisor/projects", { method: "POST", body: JSON.stringify({ project_name: "Alpha journey", repository_url: "https://example.invalid/alpha-journey.git" }) });
-  const projectId = project.body?.project?.project_id || project.body?.project_id || "";
+  const projectId = project.body?.selected_project_id || project.body?.project?.project_id || project.body?.project_id || "";
   const projects = await jd(DAEMON, "/v1/hypervisor/projects");
   ok("4-project", "a project can be created and listed", project.status < 300 && projectId && (projects.body?.projects || []).some((p) => p.project_id === projectId), `${project.status} ${projectId} · ${(projects.body?.projects || []).length} project(s)`);
 
@@ -271,7 +291,19 @@ async function run() {
     if (transcript?.status === "awaiting_operator_approval" || ["done", "failed", "denied"].includes(transcript?.status)) break;
     await sleep(1000);
   }
-  const pending = transcript?.pending_approval || null;
+  const runSessionRef = transcript?.session_ref || `session:ai-${runId}`;
+  if (AUTHORITY_MODE === "none") {
+    // Without a deployment authority node the daemon must refuse to execute, and say why, before
+    // any harness runs. That refusal is the only claim this mode makes about steps 6 and 7.
+    const blockedTyped = transcript?.status === "failed" && /authority/u.test(String(transcript?.error || ""));
+    ok("6-work", "WITHOUT a deployment authority node the run fails CLOSED with a typed authority error before any harness runs (no silent success, no unauthorized execution)", blockedTyped, `${transcript?.status} · ${String(transcript?.error || "").slice(0, 120)}`);
+    const noExec = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
+    ok("7-inspect", "no execute receipt and no artifact exist for the refused run (nothing ran)", noExec.length === 0, `${noExec.length} execute receipt(s)`);
+    record("6-work", "approval, execution, artifacts and execute receipts", "NOT QUALIFIED in this run (authority mode none) — requires the wallet.network authority node; see the profile's program-evidence table");
+    evidence.nonclaims_authority_mode_none = ["operator approval interaction", "harness execution", "written artifacts", "execute receipt and capability lease binding", "cost of a real run"];
+  }
+  const pending = AUTHORITY_MODE === "none" ? null : (transcript?.pending_approval || null);
+  if (AUTHORITY_MODE === "fixture") {
   ok("6-work", "the run PARKS on the operator's approval with the daemon's exact commitments (no signer runs automatically)", transcript?.status === "awaiting_operator_approval" && pending?.policy_hash && pending?.request_hash, `${transcript?.status} · ${pending?.request_hash?.slice(0, 24) || "no request hash"}`);
   const sessionsPage = await jd(SERVE, "/work/sessions");
   ok("6-work", "the canonical Work / Sessions route shows the approval card with the exact effect and its commitments", sessionsPage.status === 200 && sessionsPage.text.includes(`data-ioi-awaiting-approval="${runId}"`) && sessionsPage.text.includes(pending?.request_hash || "∅"), `${sessionsPage.status}`);
@@ -294,11 +326,11 @@ async function run() {
   let writtenFiles = [];
   try { writtenFiles = fs.readdirSync(workspaceRoot).filter((f) => !f.startsWith(".")); } catch { /* none */ }
   ok("7-inspect", "the written artifacts are in the session's workspace on disk", workspaceRoot && writtenFiles.length > 0, `${workspaceRoot} · ${writtenFiles.slice(0, 8).join(", ")}`);
-  const runSessionRef = transcript?.session_ref || `session:ai-${runId}`;
   const runSession = await jd(DAEMON, `/v1/hypervisor/sessions/${encodeURIComponent(runSessionRef)}`);
   const execReceipts = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
   ok("7-inspect", "the session record carries the execute receipt and the durable receipt binds the consumed capability lease and the authority scopes", runSession.status === 200 && execReceipts.length >= 1 && String(execReceipts[0].capability_lease_ref || "").length > 0 && Array.isArray(execReceipts[0].authority_scope_refs), `${execReceipts.length} receipt(s) · lease ${String(execReceipts[0]?.capability_lease_ref || "").slice(0, 40)}`);
   ok("7-inspect", "the run's authority record names the operator's approval (approver = deployment-local operator, exact hashes)", transcript?.authority?.approver === "deployment_local_operator" && transcript?.authority?.requestHash === pending?.request_hash && transcript?.pending_approval?.decision === "approved", JSON.stringify(transcript?.authority || null).slice(0, 160));
+  }
   const consumption = await jd(DAEMON, "/v1/hypervisor/usage/consumption");
   const timeline = await jd(SERVE, `/__ioi/run-timeline/env/${encodeURIComponent(envId)}`);
   const ledger = await jd(SERVE, "/__ioi/work-ledger");
@@ -322,7 +354,9 @@ async function run() {
   const runAfterRecord = runAfter.body?.run || runAfter.body?.record || runAfter.body;
   const receiptsAfter = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === runSessionRef);
   const pageAfter = await jd(SERVE, "/work/sessions");
-  ok("9-recover", "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth, its receipts and the Sessions surface are all recovered", listAfter.status === 200 && (listAfter.body?.sessions || []).some((s) => s.session_ref === runSessionRef) && runAfterRecord?.status === "done" && receiptsAfter.length >= 1 && pageAfter.status === 200 && pageAfter.text.includes(runSessionRef), `${listAfter.status} · run ${runAfterRecord?.status} · ${receiptsAfter.length} receipt(s) · page ${pageAfter.status}`);
+  const expectedTerminal = AUTHORITY_MODE === "fixture" ? "done" : "failed";
+  const expectedReceipts = AUTHORITY_MODE === "fixture" ? 1 : 0;
+  ok("9-recover", `after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (${expectedTerminal}), its execute receipts (${expectedReceipts}) and the Sessions surface are all recovered exactly as they were`, listAfter.status === 200 && (listAfter.body?.sessions || []).some((s) => s.session_ref === runSessionRef) && runAfterRecord?.status === expectedTerminal && receiptsAfter.length === expectedReceipts && pageAfter.status === 200 && pageAfter.text.includes(runSessionRef), `${listAfter.status} · run ${runAfterRecord?.status} · ${receiptsAfter.length} receipt(s) · page ${pageAfter.status}`);
   const whoAfter = await jd(DAEMON, "/v1/hypervisor/auth/whoami");
   ok("9-recover", "the operator's identity and session survive the restart", whoAfter.body?.principal?.email === "operator@alpha.local", `${whoAfter.status}`);
 

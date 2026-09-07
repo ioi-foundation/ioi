@@ -1,0 +1,232 @@
+{
+  "schema": "ioi.hypervisor.alpha-journey-evidence.v1",
+  "started_at": "2026-09-07T21:48:23.613Z",
+  "steps": [
+    {
+      "step": "1-install",
+      "name": "build provenance",
+      "recorded": true,
+      "detail": "dc19e811ef0917ac8dc242b9276f721cf314fc56 (2 dirty paths) · daemon 95ec91038983ce01 · linux x64 6.17.9-76061709-generic",
+      "at": "2026-09-07T21:48:24.664Z"
+    },
+    {
+      "step": "1-install",
+      "name": "the release is a SOURCE BUILD of this checkout — no packaged release, signer or supply-chain evidence exists (typed absence, recorded not passed)",
+      "pass": true,
+      "detail": "not_built: packaged release",
+      "at": "2026-09-07T21:48:24.664Z"
+    },
+    {
+      "step": "2b-authority",
+      "name": "deployment-local wallet.network node",
+      "recorded": true,
+      "detail": "NOT STARTED (IOI_ALPHA_JOURNEY_AUTHORITY=none): every step that needs execution authority is recorded as a typed block below; nothing in this run claims approval, execution, artifacts or execute receipts",
+      "at": "2026-09-07T21:48:24.781Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the daemon printed a one-boot bootstrap token",
+      "pass": true,
+      "detail": "ioi_bootstrap_f5f58c",
+      "at": "2026-09-07T21:48:27.634Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the served sign-in page IS the first-run operator setup while no operator exists",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-07T21:48:27.637Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the first-run form creates the operator account and lands on the product with an operator session",
+      "pass": true,
+      "detail": "302 → /ai",
+      "at": "2026-09-07T21:48:30.298Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "whoami is the operator who bootstrapped (their name and email, not a placeholder)",
+      "pass": true,
+      "detail": "{\"email\":\"operator@alpha.local\",\"name\":\"Alpha Operator\"}",
+      "at": "2026-09-07T21:48:30.375Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the token is one-shot: sign-in is the ordinary form afterwards and a replayed bootstrap is refused",
+      "pass": true,
+      "detail": "200/409",
+      "at": "2026-09-07T21:48:30.434Z"
+    },
+    {
+      "step": "2a-identity",
+      "name": "the operator can sign in again with the email and password they chose",
+      "pass": true,
+      "detail": "302",
+      "at": "2026-09-07T21:48:33.079Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "daemon health, doctor and substrate status answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-07T21:48:33.124Z"
+    },
+    {
+      "step": "3-readiness",
+      "name": "model route",
+      "recorded": true,
+      "detail": "qwen2.5:7b served at http://127.0.0.1:11434/v1 (verified via /api/tags before start)",
+      "at": "2026-09-07T21:48:33.124Z"
+    },
+    {
+      "step": "4-project",
+      "name": "a project can be created and listed",
+      "pass": true,
+      "detail": "201 project:alpha-journey · 1 project(s)",
+      "at": "2026-09-07T21:48:33.126Z"
+    },
+    {
+      "step": "5a-selection",
+      "name": "the New Session context offers harness profiles, model routes and the Connections estate from daemon truth",
+      "pass": true,
+      "detail": "200 · 6 harness · 1 routes · 0 connections",
+      "at": "2026-09-07T21:48:34.022Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "the composer's launch binds the operator's selected connection as the session's CLOSED authority profile",
+      "pass": true,
+      "detail": "202 session:hyp-a191efae23b4e20e844d5cad0d86863d5ef44d379f4396f6f866c93f5971f7af [\"connector:conn_617696bb35b1503c\"]",
+      "at": "2026-09-07T21:48:34.183Z"
+    },
+    {
+      "step": "5b-connections",
+      "name": "UI-BYPASS DRILL: a direct daemon invoke of a connection the session did not name refuses at admission",
+      "pass": true,
+      "detail": "403/session_authority_out_of_profile",
+      "at": "2026-09-07T21:48:34.236Z"
+    },
+    {
+      "step": "6-work",
+      "name": "the composer submit creates a real environment, a session and a registered run",
+      "pass": true,
+      "detail": "200 run agent_mtrrvq1h0 env env_40388f300708427e82dc56121c6f687c68df8cc02de947cb90e8ca0a056cf5df",
+      "at": "2026-09-07T21:48:34.478Z"
+    },
+    {
+      "step": "6-work",
+      "name": "WITHOUT a deployment authority node the run fails CLOSED with a typed authority error before any harness runs (no silent success, no unauthorized execution)",
+      "pass": true,
+      "detail": "failed · Execution authority is not available on this deployment (live_route_authority_principal_not_configured): a deployment-lo",
+      "at": "2026-09-07T21:48:35.486Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "no execute receipt and no artifact exist for the refused run (nothing ran)",
+      "pass": true,
+      "detail": "0 execute receipt(s)",
+      "at": "2026-09-07T21:48:35.487Z"
+    },
+    {
+      "step": "6-work",
+      "name": "approval, execution, artifacts and execute receipts",
+      "recorded": true,
+      "detail": "NOT QUALIFIED in this run (authority mode none) — requires the wallet.network authority node; see the profile's program-evidence table",
+      "at": "2026-09-07T21:48:35.487Z"
+    },
+    {
+      "step": "7-inspect",
+      "name": "cost/consumption, the run timeline and the work ledger answer for the operator",
+      "pass": true,
+      "detail": "200/200/200",
+      "at": "2026-09-07T21:48:35.496Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "the operator can stop (tear down) a session; the record is torn_down with a teardown receipt",
+      "pass": true,
+      "detail": "200 → torn_down",
+      "at": "2026-09-07T21:48:35.710Z"
+    },
+    {
+      "step": "8-stop",
+      "name": "revoking a connection refuses every later use under the sessions that named it",
+      "pass": true,
+      "detail": "200 → 400",
+      "at": "2026-09-07T21:48:35.798Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "after a daemon kill + restart and a serve restart, the sessions, the run's terminal truth (failed), its execute receipts (0) and the Sessions surface are all recovered exactly as they were",
+      "pass": true,
+      "detail": "200 · run failed · 0 receipt(s) · page 200",
+      "at": "2026-09-07T21:48:38.409Z"
+    },
+    {
+      "step": "9-recover",
+      "name": "the operator's identity and session survive the restart",
+      "pass": true,
+      "detail": "200",
+      "at": "2026-09-07T21:48:38.506Z"
+    },
+    {
+      "step": "10-backup",
+      "name": "backup export, import into a fresh daemon, restore, kill/restart and deletion pass the two-daemon backup/restore verifier (check:backup-restore)",
+      "pass": false,
+      "detail": "exit 1 · 75/76 passed",
+      "at": "2026-09-07T21:49:11.274Z"
+    },
+    {
+      "step": "11-diagnostics",
+      "name": "doctor, the audit trail, the Operations surface and the developer route ledger answer",
+      "pass": true,
+      "detail": "200/200/200/200",
+      "at": "2026-09-07T21:49:11.402Z"
+    },
+    {
+      "step": "12-update",
+      "name": "update/rollback of the release itself is NOT BUILT (no change-plan/self-update route family exists) — recorded as a typed absence, never a pass",
+      "pass": true,
+      "detail": "not_built: no route family",
+      "at": "2026-09-07T21:49:11.417Z"
+    },
+    {
+      "step": "13-agree",
+      "name": "the App's Sessions surface and the headless client render the same daemon-owned sessions",
+      "pass": true,
+      "detail": "2 session(s)",
+      "at": "2026-09-07T21:49:11.570Z"
+    }
+  ],
+  "checkout": {
+    "head": "dc19e811ef0917ac8dc242b9276f721cf314fc56",
+    "dirty_paths": 2,
+    "node": "v22.22.0",
+    "host": "linux x64 6.17.9-76061709-generic"
+  },
+  "daemon_binary": {
+    "path": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "sha256": "95ec91038983ce012db6e26a0d034756908aeda4ba787355512d19ffac8f338a",
+    "mtime": "2026-09-07T19:01:01.872Z"
+  },
+  "authority_mode": "none",
+  "nonclaims_authority_mode_none": [
+    "operator approval interaction",
+    "harness execution",
+    "written artifacts",
+    "execute receipt and capability lease binding",
+    "cost of a real run"
+  ],
+  "nonclaims": [
+    "packaged release / signer / supply-chain evidence",
+    "update and rollback of the release",
+    "workload-bound isolation (host_spawn only)",
+    "the wallet.network fixture is test material with a public approver seed"
+  ],
+  "finished_at": "2026-09-07T21:49:11.571Z",
+  "summary": {
+    "passed": 23,
+    "total": 24
+  }
+}

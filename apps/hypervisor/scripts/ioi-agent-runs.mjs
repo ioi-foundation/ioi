@@ -608,6 +608,18 @@ async function executeRun(run, base, dj) {
       finalize(run, challenge);
       return;
     }
+    // The daemon wraps EVERY authority failure in the same 403 challenge, including "this
+    // deployment has no authority node configured / reachable". A run must not park on the
+    // operator's approval when no approval could ever be consumed: fail closed with the daemon's
+    // own typed code, so the operator learns the deployment prerequisite instead of a dead card.
+    const innerCode = String(challenge.body?.authority_challenge?.error?.code || "");
+    if (/(?:principal_not_configured|binding_unavailable|resolver_unavailable|resolution_refused|resolution_invalid)$/u.test(innerCode)) {
+      run.status = "failed";
+      run.error = `Execution authority is not available on this deployment (${innerCode}): a deployment-local wallet.network authority node and IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF are required before any run can be approved.`;
+      run.authority = { policyHash, requestHash, grantId: null, expiresAt: null, mintedAt: null, unavailable: innerCode };
+      bump(run, `Blocked: ${run.error}`);
+      return;
+    }
     const grant = await mintTestGrant({ policyHash, requestHash }).catch(() => null);
     if (!grant) {
       run.authority = { policyHash, requestHash, grantId: null, expiresAt: null, mintedAt: null };
