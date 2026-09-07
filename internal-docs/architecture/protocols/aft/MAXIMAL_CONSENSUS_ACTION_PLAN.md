@@ -689,3 +689,9 @@ and failed only the PQ timeout drill on a bootstrap-window certificate for a
 late-launched leader; the fixture assertion is corrected
 (`evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/`) and the
 definitive clean run restarts from that commit.
+
+The third clean R2 run on `6ee42fd7f` passed 52 phases and failed the flood
+campaign by 9.5 ms against its 13 s service budget under unrelated host load;
+the flood budget is resized from three campaigns' measurements to 16 s
+(`evidence/m17q-r2-flood-host-contention-2026-09-07/`) and the definitive
+clean run restarts from that commit on a quiet host.

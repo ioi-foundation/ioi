@@ -1,0 +1,25 @@
+commit 6ee42fd7f0a01bdfdd615f8528cc216a01de801c
+Author:     papabear <papabear@decentralized.cloud>
+AuthorDate: Mon Sep 7 06:00:56 2026 -0400
+Commit:     papabear <papabear@decentralized.cloud>
+CommitDate: Mon Sep 7 06:00:56 2026 -0400
+
+    test(aft): scope the PQ timeout drill's certificate rule to the drill window
+    
+    The second clean M16Q R2 run on f41ba3b41 passed all 61 QUV and formal
+    phases and failed pq_ordering_restart: the fourth validator launched 36 s
+    after the third and was the round-robin leader for height 2, so the three
+    running nodes formed a genuine exact-q=3 scoped timeout certificate for
+    height 2 before the drill baseline, and the fixture rejected any embedded
+    certificate not at its scheduled failure height.
+    
+    The drill now requires every embedded scoped certificate to name its own
+    block height (the engine's own slot rule, stronger than before), records a
+    pre-baseline certificate as bootstrap-window evidence, and confines the
+    scheduled-failure rule to heights above the baseline. No runtime, deadline,
+    timeout, envelope or bound changed. Standalone drill passes (399 s); the
+    rejected clean-run phase is retained as the control.
+    
+    Evidence: internal-docs/architecture/protocols/aft/evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/
+    
+    Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

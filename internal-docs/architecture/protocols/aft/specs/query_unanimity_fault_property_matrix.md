@@ -1401,3 +1401,14 @@ the 30 s view timeout). The drill now requires every embedded certificate to
 name its own block height, records pre-baseline certificates, and applies the
 scheduled-failure rule only inside the drill window. Evidence and the
 rejected clean-run phase: `evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/`.
+
+### Flood active-service budget resized from measurement (2026-09-07)
+
+Measured cost, no row change: over three retained clean-run flood campaigns
+the executor's budgeted release maxima were 10.25 s, 10.20 s and 13.01 s; the
+last (on a host under unrelated CPU load with an 11 s finality stall) exceeded
+the 13 s budget by 9.5 ms and was correctly declared a service failure. The
+flood fixture's continuation is now 11 s (16 s budget); interval, envelope
+and failure semantics are unchanged. The executor's runtime-finality critical
+section remains an unqualified timing cost, not a guarantee. Evidence:
+`evidence/m17q-r2-flood-host-contention-2026-09-07/`.

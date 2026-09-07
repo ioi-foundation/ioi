@@ -4146,3 +4146,24 @@ retained failed phase is the control for the new branch). Evidence:
 `evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/`; the run directory
 is retained outside the candidate as history. The definitive clean run
 restarts from the commit carrying this correction. Dispositions unchanged.
+
+### Third clean R2 attempt: flood service budget under host contention (2026-09-07)
+
+The clean full M16Q R2 run on `6ee42fd7f` (`20260907T100107Z-6ee42fd7f0a0`)
+passed 52 phases and failed `quv_byzantine_flood`: one executor operation
+was released 9.5 ms past the 13 s active service budget (`elapsed_micros`
+13009511) after spending 5.3 s in the runtime-finality critical section while
+block finality stalled for 11 s; the run coincided with unrelated CPU-heavy
+work on the host (load average about 10 on 24 cores, the only
+`process_block() is slow` warning in three retained flood campaigns inside
+that operation's window, every process phase 10–15 % slower at p90). Measured
+release maxima over the three retained flood campaigns are 10.25 s, 10.20 s
+and 13.01 s (n = 58, 56, 44). Repair sized from measurement: the flood
+fixture's rooted continuation is 11 s (16 s budget), the same rule that set
+13 s after 10.25 s releases; the readiness profile stays at 10 s (maxima
+below 9.6 s). Interval, reply envelope, checker deadline rules and
+late-release-is-failure semantics are unchanged; the packet's cost section
+records the numbers. Qualification campaigns must not share the host with
+CPU-heavy work; the relaunch is gated on a quiet host and its load trace is
+retained. Evidence: `evidence/m17q-r2-flood-host-contention-2026-09-07/`.
+Dispositions unchanged.
