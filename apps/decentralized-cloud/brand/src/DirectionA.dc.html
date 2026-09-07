@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; padding: 40px 44px 44px;">
+  <div class="eyebrow">Direction A — the dot and its window</div>
+  <div style="height: 1px; background: #e1e1e1; margin: 16px 0 36px;"></div>
+
+  <div style="display: flex; align-items: center; gap: 44px;">
+    <svg width="160" height="160" viewBox="0 0 96 96" role="img" aria-label="Direction A icon">
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+      <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="6" stroke-linecap="butt"></path>
+      <circle cx="48" cy="48" r="9" fill="#7bbd97"></circle>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div class="w" style="font-size: 28px;">decentralized</div>
+        <div style="display: flex; align-items: baseline;"><span class="d" style="width: 5px; height: 5px; margin-right: 2px;"></span><span class="w" style="font-size: 28px;">cloud</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="Direction A at 24 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="Direction A at 16 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <path d="M 32 27.51 A 26 26 0 1 1 32 68.49" fill="none" stroke="#7bbd97" stroke-width="9" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
+        </svg>
+        <span class="eyebrow" style="text-transform: none; letter-spacing: 0.02em;">24px · 16px</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 40px;">
+    <div class="body">
+      <strong style="color: #0a0e19;">The case.</strong> The one character in the
+      name that IOI Display cannot set is the period, so the period is what gets
+      drawn. It carries the product's actual thesis rather than a picture of
+      infrastructure: the dot is a price, the arc is the window that price is
+      good for, and the 104 degrees sliced out of it are the part of the window
+      already spent.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">The outcome.</strong> Rejected as a logo and
+      kept as a component. Independent review found it read as a loading spinner
+      at 24px and as a stray letterform at 16px, and the construction that was
+      meant to rescue it — terminals cut flat and parallel — was never what the
+      SVG drew: butt caps cut along the radius, so the two faces sat 104° apart.
+      The ring is now the freshness dial beside a quote, where being a progress
+      ring is honest, and the identity is wordmark-led.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

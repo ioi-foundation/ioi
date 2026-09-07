@@ -1,0 +1,16 @@
+{
+  "artboards": [
+    { "file": "Alpha.dc.html", "x": 0, "y": 0, "w": 980, "h": 1000, "title": "Candidate A" },
+    { "file": "Beta.dc.html", "x": 1080, "y": 0, "w": 980, "h": 1690, "title": "Candidate B" }
+  ],
+  "annotations": [
+    {
+      "id": "round",
+      "x": 0,
+      "y": -200,
+      "w": 900,
+      "text": "Two marks for decentralized.cloud — a router that quotes cloud compute capacity and prices it with evidence: every quote carries the source that produced it, when it was observed, and when it stops being true.\n\nEach candidate is shown at lockup, at 24px and 16px true scale, in a product bar, and reduced to one colour. Each states its own construction, what it is not, and its own cost. One will be built out; the other will not."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

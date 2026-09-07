@@ -1,0 +1,15 @@
+{
+  "artboards": [
+    { "file": "Alpha.dc.html", "x": 0, "y": 0, "w": 980, "h": 1760, "title": "Candidate A" }
+  ],
+  "annotations": [
+    {
+      "id": "round",
+      "x": 0,
+      "y": -210,
+      "w": 900,
+      "text": "Two constructions for the decentralized.* family monogram — one device across .cloud, .exchange and .trade, with a per-sibling cue.\n\nEach is shown as the family base, three derivations, both lockups, true 16/24/32px renders, a tile, a flat-token form, one ink, and a dark ground. Each states its construction, what it is not, and its own cost.\n\nThe product routes cloud compute jobs and prices them with evidence: every quote carries the source that produced it, when it was observed, and when it stops being true."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

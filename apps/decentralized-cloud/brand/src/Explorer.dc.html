@@ -1,0 +1,323 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO_MED__) format("woff2"); font-weight: 500; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px;
+      border-radius: 999px; font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace;
+      font-size: 12px; letter-spacing: 0.02em; border: 1px solid transparent; white-space: nowrap; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .lbl { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .nav { font-size: 14px; color: #636363; }
+    .srow { display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #ececec; }
+    .sname { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .sreason { font-size: 13px; line-height: 1.45; color: #636363; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column;">
+
+  <!-- ── Top bar ───────────────────────────────────────────────────────── -->
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 32px;
+              padding: 0 40px; height: 66px; border-bottom: 1px solid #e1e1e1;">
+    <div style="display: flex; align-items: center; gap: 40px;">
+      <div style="display: flex; align-items: baseline;">
+          <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
+        </div>
+      <div style="display: flex; align-items: center; gap: 26px;">
+        <span class="nav" style="color: #0a0e19; box-shadow: inset 0 -2px 0 #0a0e19; padding-bottom: 4px;">Candidates</span>
+        <span class="nav">Sources</span>
+        <span class="nav">Placement</span>
+        <span class="nav">Receipts</span>
+        <span class="nav">API</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span class="mono" style="font-size: 12px; color: #636363;">daemon 127.0.0.1:8765</span>
+      <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+        <span class="dot" style="background: #818181;"></span>read-only surface
+      </span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) 460px;">
+
+    <!-- ── Candidates ──────────────────────────────────────────────────── -->
+    <div style="padding: 34px 40px 40px; display: flex; flex-direction: column;">
+
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 32px;">
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <h1 style="margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400;">
+            compute.gpu_runtime · any region
+          </h1>
+          <div class="mono" style="font-size: 12px; color: #636363;">
+            intent cri_18d226c34a17fe7f · observed 15:11:41Z · sweep took 38.8s
+          </div>
+        </div>
+        <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+          <span class="dot" style="background: #818181;"></span>last sweep shown while refreshing
+        </span>
+      </div>
+
+      <!-- One venue is not a routing decision -->
+      <div style="margin-top: 26px; border: 1px solid #e1e1e1; border-left: 3px solid #0a0e19;
+                  border-radius: 8px; padding: 20px 22px; display: flex; flex-direction: column; gap: 9px;">
+        <div style="font-size: 18px; letter-spacing: -0.012em;">24 live quotes, from one venue</div>
+        <div style="font-size: 14px; line-height: 1.5; color: #636363; max-width: 74ch;">
+          A routing decision needs at least two venues to be a decision at all. Every
+          quote below is real and every one of them is Vast, so this intent can be
+          priced but not routed, and no fee can be minted against it.
+        </div>
+      </div>
+
+      <div class="lbl" style="margin: 32px 0 12px;">Live evidence</div>
+      <div style="border: 1px solid #e1e1e1; border-radius: 10px; overflow: hidden;">
+        <div style="display: grid; grid-template-columns: 132px minmax(0, 1fr) 124px 132px; gap: 20px;
+                    padding: 12px 20px; background: #f9f9f9; border-bottom: 1px solid #e1e1e1;">
+          <div class="lbl" style="letter-spacing: 0.06em;">venue</div>
+          <div class="lbl" style="letter-spacing: 0.06em;">evidence</div>
+          <div class="lbl" style="letter-spacing: 0.06em;">per hour</div>
+          <div class="lbl" style="letter-spacing: 0.06em;">good until</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 132px minmax(0, 1fr) 124px 132px; gap: 20px;
+                    padding: 16px 20px; align-items: center; border-bottom: 1px solid #ececec;">
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <div class="mono" style="font-size: 14px; color: #0a0e19;">vast</div>
+            <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554; align-self: start;">
+              <span class="dot" style="background: #397554;"></span>live_evidence
+            </span>
+          </div>
+          <div class="mono" style="font-size: 13px; color: #636363; line-height: 1.5;">
+            offer 49676633 · dph_total, verbatim<br>provider-quote://crc_18d226d5e883f80b_v0
+          </div>
+          <div class="mono" style="font-size: 16px; color: #0a0e19;">$0.0136</div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <svg width="40" height="40" viewBox="0 0 96 96" role="img" aria-label="freshness dial, twelve minutes left">
+              <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="9"></circle>
+              <path d="M 48 22 A 26 26 0 1 1 23.27 39.97" fill="none" stroke="#397554" stroke-width="9" stroke-linecap="butt"></path>
+              <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+            </svg>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+              <div class="mono" style="font-size: 13px; color: #0a0e19;">15:26:41Z</div>
+              <div class="mono" style="font-size: 12px; color: #636363;">12 min left</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 132px minmax(0, 1fr) 124px 132px; gap: 20px;
+                    padding: 16px 20px; align-items: center; border-bottom: 1px solid #ececec;">
+          <div class="mono" style="font-size: 14px; color: #636363;">vast</div>
+          <div style="font-size: 13px; color: #636363; line-height: 1.5;">
+            23 further live quotes from the same venue — priced and comparable to each
+            other, but they add no venue diversity.
+          </div>
+          <div class="mono" style="font-size: 13px; color: #636363;">$0.0136 up</div>
+          <div class="mono" style="font-size: 13px; color: #636363;">same window</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 132px minmax(0, 1fr) 124px 132px; gap: 20px;
+                    padding: 16px 20px; align-items: center;">
+          <div class="mono" style="font-size: 14px; color: #636363;">akash</div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363; align-self: start;">
+              <span class="dot" style="background: #818181;"></span>credential_preflight_only
+            </span>
+            <div class="mono" style="font-size: 12px; color: #636363; line-height: 1.5;">
+              provider_capable · lifecycle_adapter_absent
+            </div>
+          </div>
+          <div class="mono" style="font-size: 13px; color: #636363;">—</div>
+          <div class="mono" style="font-size: 13px; color: #636363;">—</div>
+        </div>
+      </div>
+
+      <div style="font-size: 13px; line-height: 1.55; color: #636363; margin-top: 18px; max-width: 88ch;">
+        A price appears in this table only when the daemon returned it as
+        <span class="mono" style="font-size: 12px;">live_evidence</span> with an
+        <span class="mono" style="font-size: 12px;">observed_at</span>, an
+        <span class="mono" style="font-size: 12px;">expires_at</span> still in the
+        future, and a quote reference it can be traced back to. Simulator lanes are
+        excluded from this table, from the venue count, and from any fee.
+        <br><br>
+        Akash is in the table without one: it is reachable as a candidate under
+        <span class="mono" style="font-size: 12px;">direct_provider</span>, while the
+        <span class="mono" style="font-size: 12px;">depin_market</span> source that would
+        price it reports
+        <span class="mono" style="font-size: 12px;">akash_credential_absent</span> in the
+        rail. An account that exists without a resolvable sealed credential is exactly
+        that — reachable, unpriceable — which is not the same thing as expensive.
+      </div>
+
+      <div class="lbl" style="margin: 34px 0 12px;">What this page does with a fifteen-minute window</div>
+      <div style="border: 1px solid #e1e1e1; border-radius: 10px; padding: 20px 22px;
+                  display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 0;">
+          <div style="flex: 12; height: 4px; border-radius: 2px 0 0 2px; background: #cecece;"></div>
+          <div style="width: 2px; height: 14px; background: #0a0e19;"></div>
+          <div style="flex: 3; height: 4px; border-radius: 0 2px 2px 0; background: #397554;"></div>
+          <div style="width: 2px; height: 14px; background: #e40014;"></div>
+        </div>
+        <!-- The segments carry the same 12/15 and 3/15 the labels name, and each label
+             sits against its own tick rather than being spread across the row. -->
+        <div style="display: flex; align-items: baseline;">
+          <div style="flex: 12; display: flex; justify-content: space-between; gap: 16px;">
+            <div class="mono" style="font-size: 12px; color: #636363;">observed 15:11:41Z · spent</div>
+            <div class="mono" style="font-size: 12px; color: #636363;">refresh at 12 min</div>
+          </div>
+          <div style="flex: 3; text-align: right;">
+            <div class="mono" style="font-size: 12px; color: #e40014;">expires 15:26:41Z</div>
+          </div>
+        </div>
+        <div style="font-size: 13px; line-height: 1.55; color: #636363;">
+          Grey is the window already spent, green is what is left — the same reading
+          as the mark, where the drawn arc is the window still good and the gap is
+          the part gone. A full sweep takes 38.8 seconds against one live adapter, so
+          the page shows the last sweep with the time it was observed rather than an
+          empty spinner, and starts the next one three minutes before the window
+          closes. A quote past its
+          <span class="mono" style="font-size: 12px;">expires_at</span> turns red and
+          stops being a price — never re-labelled as current, never silently re-used.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Sources rail ────────────────────────────────────────────────── -->
+    <div style="border-left: 1px solid #e1e1e1; padding: 34px 32px 40px; background: #f9f9f9;">
+      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+        <div class="lbl">Sources</div>
+        <div class="mono" style="font-size: 12px; color: #636363;">1 quoting · 2 answering · 1 preflight · 9 absent</div>
+      </div>
+      <div style="font-size: 13px; line-height: 1.5; color: #636363; margin: 10px 0 16px;">
+        Thirteen sources, each reporting its own health in its own words.
+      </div>
+
+      <div class="srow" style="border-top: none;">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #0a0e19;">vast</span>
+          <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+            <span class="dot" style="background: #397554;"></span>live_quote_source
+          </span>
+        </div>
+        <div class="sreason">Verified account, endpoint live, preflight passed. The only venue quoting.</div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #0a0e19;">customer_inventory</span>
+          <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+            <span class="dot" style="background: #397554;"></span>available
+          </span>
+        </div>
+        <div class="sreason">Local host and verified baremetal_ssh accounts — capacity already owned.</div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #0a0e19;">storage_network</span>
+          <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+            <span class="dot" style="background: #397554;"></span>storage_backends_engaged
+          </span>
+        </div>
+        <div class="sreason">Verified storage backends. Storage availability is not restore truth.</div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #0a0e19;">direct_provider</span>
+          <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>credential_preflight_only
+          </span>
+        </div>
+        <div class="sreason">Connected cloud-kind accounts — provider-capable, no lifecycle adapter yet.</div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #636363;">runpod</span>
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
+          </span>
+        </div>
+        <div class="sreason">
+          runpod_credential_absent — no runpod ProviderAccount exists; create one, bind a
+          bearer api_key, and preflight it.
+        </div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #636363;">depin_market</span>
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
+          </span>
+        </div>
+        <div class="sreason">
+          akash_credential_absent — an akash ProviderAccount exists but no verified account
+          with a resolvable sealed bearer credential.
+        </div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #636363;">managed_capacity</span>
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
+          </span>
+        </div>
+        <div class="sreason">
+          managed_capacity_not_offered — Hypervisor-managed execution does not exist yet;
+          nothing honest to propose.
+        </div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #636363;">decentralized.cloud</span>
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
+          </span>
+        </div>
+        <div class="sreason">
+          network_adapter_absent — the network engine is not live; this plane realizes
+          candidate semantics from local facts only.
+        </div>
+      </div>
+
+      <div class="srow">
+        <div class="sname">
+          <span class="mono" style="font-size: 14px; color: #636363;">aws · gcp · azure · k8s · lambda_cloud</span>
+          <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+            <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
+          </span>
+        </div>
+        <div class="sreason">
+          Five more credential-absent sources, each naming the credential kind it
+          would need — SigV4, a service-account key, a service principal, a bearer
+          token or kubeconfig, a bearer api_key.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -2702,6 +2702,9 @@ pub(crate) async fn handle_model_route_credential_bind(
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
     let custody_lease =
         match super::lifecycle_routes::authorize_capability_lease(&st, &lease_request).await {

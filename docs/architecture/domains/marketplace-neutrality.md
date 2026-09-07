@@ -1,10 +1,10 @@
 # Marketplace Neutrality and Contribution Accounting Specification
 
 Status: canonical architecture authority.
-Canonical owner: this file for marketplace neutrality, first-party seed-supply neutrality, contribution and derivation accounting, assurance-state attribution, marketplace dispute-rail use, and anti-cannibalization doctrine.
+Canonical owner: this file for marketplace neutrality, first-party seed-supply neutrality (workers and compute supply), contribution and derivation accounting, assurance-state attribution, marketplace dispute-rail use, and anti-cannibalization doctrine.
 Supersedes: overlapping plan prose when marketplace neutrality or attribution conflicts.
 Superseded by: none.
-Last alignment pass: 2026-07-16.
+Last alignment pass: 2026-09-04 (compute-supply neutrality per ADR 0051; prior pass 2026-07-16).
 Doctrine status: canonical
 Implementation status: planned (the neutrality covenant, marketplace routing/contribution/settlement, and dispute admission/allocation remain planned; the shared registered dispute schema, invariants, fixtures, and generated projections are contract substrate only, without marketplace escrow, adjudication, remedy execution, or receipts)
 Last implementation audit: 2026-07-18
@@ -133,6 +133,13 @@ authority, and settlement judge for one consequential outcome.
 12. Sybil clusters, shared ownership, correlated model/provider dependencies,
     reciprocal review, and collusion signals must remain visible to routing,
     verifier-independence, reputation, and settlement policy.
+13. First-party compute supply — IOI managed capacity or partner
+    provider-of-record capacity behind `decentralized.cloud` — is an ordinary
+    placement candidate: scored by the same evidence as every other venue,
+    affiliation-disclosed, never given a default, tie-break, or fallback
+    preference, and every `PlacementDecision` that compared it records the
+    first-party win or loss against the named alternatives
+    ([ADR 0051](../../decisions/0051-decentralized-cloud-public-face-job-primitive-and-supply-registry.md)).
 
 ## Contribution Objects
 
@@ -332,6 +339,9 @@ eligibility or reward basis.
     payout from discovery, invitation, routing, or attribution alone. The exact
     accepted terms root and admitted work claim govern, and amendments are
     non-retroactive (`INV-30`, `INV-31`).
+16. No placement preference for first-party compute supply, and no routing fee
+    minted from a comparison that did not include at least two real,
+    evidence-bearing, unexpired candidates.
 
 ## One-Line Doctrine
 

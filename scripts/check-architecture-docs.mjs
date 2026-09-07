@@ -108,10 +108,6 @@ const HAND_RUN_BUILT_BASELINE = new Map([
     "docs/architecture/components/storage-backends/filecoin-cas.md",
     "verify-hypervisor-filecoin-cas-archive-custody.mjs is hand-run against the shared dev daemon; the live Filecoin lane is env-gated",
   ],
-  [
-    "docs/architecture/domains/decentralized/cloud.md",
-    "verify-hypervisor-cloud-candidate-plane.mjs and the vast candidate/lifecycle pair are hand-run against the shared dev daemon",
-  ],
 ]);
 
 const CI_WORKFLOW = ".github/workflows/ci.yml";

@@ -661,6 +661,14 @@ decentralized.cloud owns provider accounts or restore validity.
 Users must leave Hypervisor and use decentralized.cloud directly to run workloads.
 ```
 
+Under [ADR 0051](../../../decisions/0051-decentralized-cloud-public-face-job-primitive-and-supply-registry.md)
+a third party — a human with a wallet grant or an agent drawing down a scoped
+`CapabilityLease` — may call `decentralized.cloud` directly through its public
+job API. That changes the front door, not the owner: wallet.network still
+authorizes every spend and credential use, the caller never holds a provider
+credential, and the wallet cockpit still shows the grant, the lease, the spend,
+and the receipt.
+
 ## Trade, Prediction, and Position Authority
 
 Trade is a first-class but high-risk Wallet action. It is not the same product

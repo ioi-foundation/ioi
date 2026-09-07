@@ -1,0 +1,964 @@
+/* decentralized.cloud — the public face.
+   Every value here is a token from packages/design-system/tokens/*.css, restated
+   locally because this surface is served standalone and pulls no stylesheet from
+   another app. Where a value has no token it is not used. */
+
+@font-face { font-family: "IOI Display"; src: url("/fonts/IOI.ttf") format("truetype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "ABC Diatype"; src: url("/fonts/ABCDiatype-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "ABC Diatype"; src: url("/fonts/ABCDiatype-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "ABC Diatype Mono"; src: url("/fonts/ABCDiatypeSemi-Mono-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+
+:root {
+  --ink: #0a0e19;
+  --live: #397554;
+  --live-on-dark: #7bbd97;
+  --expired: #e40014;
+  --label: #636363;
+  --muted: #818181;
+  --hairline: #e1e1e1;
+  --hairline-soft: #ececec;
+  --border-strong: #cecece;
+  /* THE BOUNDARY OF AN INTERACTIVE CONTROL, which WCAG 1.4.11 holds to 3:1 against
+     what surrounds it. `--border-strong` is #cecece and measures 1.57:1 on this page —
+     a reviewer found every input, every select and the submit button on the only write
+     surface below half the required contrast. It is fine as a DECORATIVE edge (the
+     stale rail, the absent-chip dash) and it is not fine as the thing that tells you
+     where a field is.
+     #818181 is the design system's own --muted value and measures about 3.9:1 here,
+     so the fix uses a token that already exists rather than inventing a hex, which is
+     the rule the palette gate enforces. */
+  --control-border: #818181;
+  --surface: #f9f9f9;
+  --paper: #ffffff;
+
+  /* The mark's two colours: the ends of the cloud gradient, --color-dc-mark-indigo
+     and --color-dc-mark-cyan in the token file. Blue carries no meaning on the
+     surface — it is the identity's colour and appears in the mark and its dot only. */
+  --dc-mark-indigo: #3f3dfa;
+  --dc-mark-cyan: #41dbf9;
+  /* Paper on onyx at named steps, restated from the token file with their computed
+     contrasts against onyx: text 13.91:1, soft 7.27:1, caption 5.36:1, shape 3.55:1;
+     rule and band are decorative. The palette gate sees only #rrggbb literals, so
+     these are named here and in colors.css precisely so nobody mistakes its silence
+     for a measurement of them. */
+  --on-onyx-text: rgba(255, 255, 255, 0.85);
+  --on-onyx-soft: rgba(255, 255, 255, 0.6);
+  --on-onyx-caption: rgba(255, 255, 255, 0.5);
+  --on-onyx-shape: rgba(255, 255, 255, 0.38);
+  --on-onyx-rule: rgba(255, 255, 255, 0.14);
+  --on-onyx-band: rgba(255, 255, 255, 0.09);
+
+  --sans: "ABC Diatype", ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  --mono: "ABC Diatype Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --brand: "IOI Display", "ABC Diatype", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+a { color: var(--live); }
+a:hover { color: #3e7f5c; }
+
+.mono { font-family: var(--mono); }
+
+/* ── Lockup ───────────────────────────────────────────────────────────────
+   THE DESIGNER'S LOCKUP OF 2026-09-06 (brand/mark/source/FInal-CLOUD-v3.svg). Its
+   geometry is in brand/mark/mark.mjs, which the shell, the asset builder and the
+   face gate all import; every ratio below is that file's number restated in em.
+
+   1em ON .lockup IS THE BLOCK HEIGHT — the mark's 67.188 units, which is also the
+   wordmark's height from CLOUD's baseline to the top of DECENTRALIZED. Both SVGs
+   are sized from it, so the narrow-width rule that steps the lockup down steps the
+   pair together as one object. The mark is 130 units wide (1.9349em); the wordmark's
+   ink is 409.206 wide (6.0904em); the clear between them is 19.84 units (0.2953em).
+   At 36px the whole lockup is 300px wide — narrower than the single-line lockup it
+   replaces, which measured 466px at 22px.
+
+   THE WORDMARK is live text in the face inside an SVG, positioned by baseline (see
+   Lockup.jsx for why not HTML line boxes). The DOT is the one drawn element — the
+   face has no U+002E — and it carries the gradient: a rounded square on the baseline,
+   7.6 units on a 38 cap, spaced before CLOUD as a sixth letter. It used to be ink,
+   because green had once carried three meanings and colour was not asked to carry the
+   period; the brand's rule now is that the dot is always the gradient, and blue still
+   means nothing on the surface but the identity. */
+.lockup { display: flex; align-items: center; gap: 0.2953em; font-size: 36px; height: 1em; }
+.mark { display: block; flex-shrink: 0; width: 1.9349em; height: 1em; overflow: visible; }
+.wordmark { display: block; flex-shrink: 0; width: 6.0904em; height: 1em; overflow: visible;
+  font-family: var(--brand); font-weight: 400; }
+/* The two lines by name — sizes and positions are attributes from mark.mjs; only the
+   ink is the stylesheet's. The dot's size, radius and gradient are in the markup. */
+.wordmark .wm-top, .wordmark .wm-bottom { fill: var(--ink); }
+.wordmark .dot { shape-rendering: geometricPrecision; }
+
+/* ── Freshness ────────────────────────────────────────────────────────────
+   A quote is only worth what its window says. The dial is the fraction of the
+   observed_at→expires_at window still unspent, drawn from those two timestamps
+   and nothing else — there is no animation that runs independently of them, so
+   a dial that looks full is a window that is full.
+
+   The track clears the 3:1 non-text floor on its own (grey-700 on white is
+   3.90:1) because the empty portion carries meaning too: it is time spent. */
+.dial { display: block; flex-shrink: 0; }
+.dial .track { stroke: var(--muted); stroke-width: 2.5; fill: none; opacity: 0.35; }
+.dial .sweep { stroke: var(--live); stroke-width: 2.5; fill: none; stroke-linecap: round;
+  transform: rotate(-90deg); transform-origin: 50% 50%; }
+.dial.spent .sweep { stroke: var(--expired); }
+.freshness { display: flex; align-items: center; gap: 9px; }
+
+/* Stale-while-refresh: the previous batch stays legible while a newer read is in
+   flight, named as the older observation rather than blanked. A page that goes empty
+   while it refetches teaches the reader that absence means loading, which is the one
+   thing absence must never mean here.
+
+   IT USED TO BE `opacity: 0.55`, AND THAT WAS AN ACCESSIBILITY DEFECT. An independent
+   review measured the effective ratios during the refresh window: --ink fell 19.27 to
+   4.27, --label 6.01 to 2.34, --muted 3.90 to 1.95, and the live_evidence chip and its
+   dot 5.46 to 2.28. Every pair failed, so for the several seconds a re-read takes, a
+   surface whose entire claim is legible evidence became illegible — and it dimmed the
+   evidence chips hardest, which are the elements carrying the most meaning.
+
+   Staleness is now carried by a GROUND CHANGE and a rule, which cost no contrast:
+   ink on --surface still measures 18.14:1 and --label on --surface 5.40:1, both
+   computed, not estimated. The moving parts of the signal — the pulsing dot and the
+   "re-reading the daemon" chip — were already there and are what actually says a read
+   is in flight. */
+.stale { background: var(--surface); box-shadow: inset 3px 0 0 var(--border-strong); }
+.refreshing .dot { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .refreshing .dot { animation: none; } }
+
+/* ── Chrome ───────────────────────────────────────────────────────────────── */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 32px;
+  padding: 0 40px; height: 66px; border-bottom: 1px solid var(--hairline);
+  position: sticky; top: 0; background: var(--paper); z-index: 2; }
+/* `min-width: 0` on both, because a flex item defaults to min-width:auto — it refuses
+   to shrink below its content — and that is what stops `overflow-x: auto` from ever
+   engaging on the nav. Without it the nav measured 627px inside a 390px viewport and
+   pushed the body, which is the bug the scroll container was added to prevent. */
+.topbar-left { display: flex; align-items: center; gap: 40px; min-width: 0; }
+.topbar-status { display: flex; align-items: center; gap: 14px; min-width: 0; }
+/* The gap is 16 rather than 22 to pay for the tap-target padding below: adding 6px
+   either side of seven buttons widened the bar by 84px and pushed the status block
+   20px off a 1440 viewport, which is a regression this file caused and measured. */
+/* `overflow-x: auto` at EVERY width, not only under a breakpoint.
+   `min-width: 0` above lets these flex items shrink below their content, which is what
+   stops the body scrolling — but a shrunken box whose content does not scroll simply
+   spills, and the spill slides UNDER the neighbouring block. That is a collision, and
+   no overflow measurement can see one: the gate reported 0px of scroll and a nav
+   button sitting on top of the status text at 1520px, which is a wide viewport. It
+   appeared the moment the status chip's wording got longer.
+   The pair is the fix: the container scrolls, and its children refuse to shrink. */
+.nav { display: flex; align-items: center; gap: 16px; flex-wrap: nowrap; min-width: 0;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.topbar-status > * { flex-shrink: 0; }
+/* `flex-shrink: 0` at every width, for the reason the narrow breakpoint already
+   carried it: a scroll container whose items shrink does not scroll, it compresses
+   them until they overlap each other. The nav scrolls at all widths now, so its
+   children must refuse to shrink at all widths too. */
+.nav button { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 14px;
+  color: var(--label); cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+/* Green marks live evidence and nothing else, so the current-surface underline is
+   ink. A selection colour that is also the evidence colour makes chrome look like
+   a claim. */
+.nav button[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+
+/* A control that sits inside a sentence. It is a BUTTON, not a styled span with a
+   click handler: it toggles what the table shows, it is reachable by keyboard, and it
+   carries aria-pressed so a screen reader is told its state rather than only its
+   label. The underline is what makes it look like the affordance it is — without it
+   this was an unstyled browser button dropped into a line of prose, which is what it
+   renders as until this rule exists. */
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--ink);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.linklike:hover { text-decoration-thickness: 2px; }
+
+main { padding: 34px 40px 56px; max-width: 1560px; }
+
+h1 { margin: 0; font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; font-weight: 400; }
+h2 { margin: 0; font-size: 20px; letter-spacing: -0.012em; line-height: 1.25; font-weight: 400; }
+
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--label); }
+.meta { font-family: var(--mono); font-size: 12px; color: var(--label); }
+.prose { font-size: 13px; line-height: 1.55; color: var(--label); max-width: 88ch; }
+
+/* ── Evidence chips ───────────────────────────────────────────────────────
+   Green is worn only by a candidate the daemon returned as live_evidence. Grey is
+   absence. Red means one thing: a quote past its expires_at. */
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px;
+  border-radius: 999px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
+  /* A chip's border is the only edge the component has, so it clears the 3:1
+     non-text floor (grey-700 on white is 3.90:1); grey-500 measured 1.57:1. */
+  border: 1px solid var(--muted); background: var(--paper); color: var(--label);
+  white-space: nowrap; }
+/* A state dot carries meaning, so it clears the 3:1 non-text floor (grey-700 on
+   white measures 3.90:1); a hairline grey would not. */
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.chip.live { border-color: var(--live); color: var(--live); }
+.chip.live .dot { background: var(--live); }
+.chip.muted { background: var(--surface); border-color: var(--muted); }
+.chip.muted .dot { background: var(--muted); }
+.chip.expired { border-color: var(--expired); color: var(--expired); }
+.chip.expired .dot { background: var(--expired); }
+/* Absence. Four source states used to render in one identical grey chip, so no
+   reader could tell a healthy source from a broken one. It is NOT given a hue: red
+   already means one thing on this surface — a quote past its expires_at — and green
+   means live evidence. A dashed edge is the same absence affordance the inert
+   controls wear, it carries no second meaning, and it survives greyscale and one ink.
+   `.muted` stays for a source that is answering but not quoting; this is for one that
+   is not there at all. */
+.chip.absent { border-style: dashed; border-color: var(--border-strong); background: var(--paper); }
+.chip.absent .dot { background: transparent; box-shadow: inset 0 0 0 1px var(--muted); }
+
+/* ── Panels and tables ────────────────────────────────────────────────────── */
+.panel { border: 1px solid var(--hairline); border-radius: 10px; padding: 20px 22px; }
+.panel.flag { border-left: 3px solid var(--ink); }
+.panel.absent { border-left: 3px solid var(--border-strong); }
+.panel.fault { border-left: 3px solid var(--expired); }
+
+/* A REAL TABLE. This was a grid of <div>s: 0 <table>, 0 <th> on every surface, so the
+   price had no programmatic association with its column or its row. The layout below
+   deliberately does NOT restyle table elements to block or grid at any width —
+   changing `display` on a table strips its implicit roles, which would remove the
+   semantics this change exists to add. Narrow screens scroll it instead. */
+/* A SCROLL CONTAINER SAYS IT SCROLLS.
+   Four cold readers, on the 390px cells: "content is severed with no ellipsis, no fade,
+   no scroll cue. From a still image I cannot distinguish 'horizontally scrollable and
+   fine in the hand' from 'content is unreachable on mobile'." A reader glancing at the
+   real page is in the same position as a reader glancing at the screenshot.
+   The fade is painted on the container's right edge and only appears when there is
+   something to scroll to — `background-attachment: local` on the two inner layers
+   means they scroll away with the content, leaving the fixed shadow visible only while
+   content overflows in that direction. No script, no measurement, no state. */
+/* RULED AND OPEN, not a card. A reader on the direction canvases named the one
+   table treatment that read as designed: "a 2px black rule under the header row
+   against hairline row separators — one strong horizontal, everything else quiet —
+   plus no card wrapper at all, so the table is the page instead of an object floating
+   on it." The scroll container keeps its edge fade and loses its border and radius. */
+.table-scroll { overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--paper) 30%, rgba(255, 255, 255, 0)) left center,
+    linear-gradient(to left, var(--paper) 30%, rgba(255, 255, 255, 0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0)) right center;
+  background-repeat: no-repeat;
+  background-size: 40px 100%, 40px 100%, 16px 100%, 16px 100%;
+  background-attachment: local, local, scroll, scroll; }
+/* And it is SAID, not only shaded, for a reader who cannot see the shadow. */
+.scroll-note { display: none; }
+@media (max-width: 900px) { .scroll-note { display: block; } }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed;
+  /* Below this the columns would crush rather than scroll. */
+  min-width: 620px; }
+.trow > th, .trow > td { padding: 16px 20px; vertical-align: middle; text-align: left;
+  font-weight: 400; border-top: 1px solid var(--hairline-soft); }
+/* `thead > tr`, NOT `thead .trow`.
+   Not one of the six theads in this surface carries the `trow` class — it is used on
+   BODY rows — so this whole block matched NOTHING on every table in the product, and
+   every column header fell back to the browser default: bold, centred, in the body
+   face. A reviewer measured "all four th are text-align:center"; that was the visible
+   half. The uppercase mono label treatment had simply never rendered, anywhere.
+   The class-orphan gate cannot see this. It asserts every class EMITTED has a rule,
+   and `trow` has one. The inverse — A RULE THAT MATCHES NOTHING — is a different
+   smell, and it is the one that hid here for the whole life of the port. */
+.table thead > tr > th { padding: 10px 20px 12px; background: transparent; border-top: 0;
+  text-align: left; font-weight: 400;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--label); }
+.table tbody > tr:first-child > th, .table tbody > tr:first-child > td { border-top: 0; }
+/* The table sits on the page's own left edge: no padding well on the first column,
+   none on the last, so the header rule runs from margin to margin. */
+.table thead > tr > th:first-child, .trow > :first-child { padding-left: 0; }
+.table thead > tr > th:last-child, .trow > :last-child { padding-right: 0; }
+.table tbody > tr:last-child > th, .table tbody > tr:last-child > td { border-bottom: 1px solid var(--hairline); }
+.trow > :nth-child(1) { width: 168px; }
+.trow > :nth-child(3) { width: 132px; }
+.trow > :nth-child(4) { width: 178px; }
+/* A row header carries a chip and a name stacked, so it needs the stack's own flow. */
+.trow > th.stack { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 460px; gap: 40px; align-items: start; }
+.stack { display: flex; flex-direction: column; }
+.rail { border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface);
+  padding: 22px 24px; }
+.srow { display: flex; flex-direction: column; gap: 6px; padding: 13px 0;
+  border-top: 1px solid var(--hairline-soft); }
+.srow:first-of-type { border-top: 0; }
+.srow-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.srow-reason { font-size: 13px; line-height: 1.45; color: var(--label); }
+
+/* ── Write surfaces: designed, not connected ──────────────────────────────── */
+.unwired-banner { display: flex; align-items: baseline; gap: 14px; padding: 16px 40px;
+  background: var(--surface); border-bottom: 1px solid var(--hairline); }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.field-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--label); }
+/* AN INERT CONTROL MUST NOT LOOK OPERABLE. These six were drawn as dropdowns with a
+   solid border, a full-contrast value and a caret, and measured focusable:false,
+   cursor:auto, opacity:1, aria-disabled:null — so a reader could click one, get
+   nothing, and have no way to tell whether the product or their click was broken. The
+   page-level "designed, not connected" banner named the surface; nothing named the
+   control. The Submit button on the same screen was already done correctly, which made
+   the inconsistency worse rather than better.
+   A DASHED border is the affordance: it is the one border treatment nothing on this
+   surface uses for a working control, it survives one ink and greyscale, and it does
+   not rely on colour. `cursor: not-allowed` matches the Submit button's own state.
+   These are not focusable on purpose — a keyboard user should not be sent to a stop
+   that does nothing. They are specimens of controls, not disabled controls. */
+/* EVERYTHING ABOVE THIS LINE DESCRIBED AN INERT FORM, AND THE FORM IS NOW WIRED.
+   The dashed border, `cursor: not-allowed`, "these are not focusable on purpose", and a
+   `::after` reading "NOT WIRED" were all correct when the Job surface submitted
+   nothing. They became false the moment the job door was wired and I did not revisit
+   them — so a blind reviewer measured eight real controls rendering in 13.3px Arial
+   with dashed borders and called it "the visual grammar of 'not real'", on the one
+   surface that had just become real.
+   That is the same fault as the Redundancy sentence and the read-only chip: a claim
+   held in one place and contradicted by a change made in another. The comment above is
+   kept as the record of what these were, and the rules below are what they are. */
+.field-box { border: 1px solid var(--control-border); border-radius: 7px;
+  padding: 11px 13px; background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 14px; min-height: 44px; width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.field-box:hover { border-color: var(--ink); }
+/* A select and an input are replaced elements: `font: inherit` is what stops the
+   browser substituting its own 13.3px Arial, which is what the reviewer measured on
+   all eight of them. */
+select.field-box, input.field-box { appearance: auto; cursor: pointer; }
+input.field-box { cursor: text; }
+
+/* Focus was the user-agent default — visible, but undesigned and easily lost against
+   this surface's hairlines. */
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 3px; }
+
+/* Available to a screen reader, absent from the page. Deliberately NOT display:none,
+   which removes an element from the accessibility tree too and would silence the live
+   region this class exists to carry. */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* A skip link, because the first seven tab stops are the surface nav on every page. */
+.skip { position: absolute; left: -9999px; top: 0; z-index: 3; }
+.skip:focus { left: 8px; top: 8px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--ink); border-radius: 6px; padding: 10px 14px; font-size: 14px; }
+.field-hint { font-size: 13px; line-height: 1.45; color: var(--label); }
+.button-inert { background: var(--hairline-soft); color: var(--muted); border: 0; border-radius: 8px;
+  padding: 0 22px; height: 46px; display: inline-flex; align-items: center; font: inherit;
+  font-size: 16px; cursor: not-allowed; }
+
+/* THE PRIMARY ACTION. There was no `.button` rule at all: the Job surface's submit
+   control carried `className="button"` and rendered as a raw browser default —
+   measured by a reviewer at 96x21px, 13.3px Arial, `border-style: outset`, disabled
+   contrast 1.99:1, sitting beside a hand-drawn 286x28px chip three times its width. It
+   was the least prominent element on the page and it was the only thing on the page
+   that does anything.
+   Height 46px matches `.button-inert` so the wired and inert states are the same
+   object in two conditions rather than two different objects. 24x24 is WCAG 2.2 SC
+   2.5.8's floor and this clears it by a wide margin. */
+.button { background: var(--ink); color: var(--paper); border: 1px solid var(--ink);
+  border-radius: 8px; padding: 0 22px; height: 46px; display: inline-flex;
+  align-items: center; font: inherit; font-size: 16px; cursor: pointer; }
+.button:hover:not(:disabled) { background: var(--paper); color: var(--ink); }
+/* Disabled is a STATE OF THIS BUTTON, not a different control, and it still has to be
+   legible: --label on --surface measures 5.40:1, where the browser's own disabled
+   grey measured 1.99:1. */
+.button:disabled { background: var(--surface); color: var(--label);
+  border-color: var(--control-border); cursor: not-allowed; }
+
+/* Table cells whose content is machine-supplied and long. `.table` is
+   `table-layout: fixed`, so a column with no declared width gets an equal share — which
+   is how the Receipts "Receipts" column came out 132px and wrapped a twelve-word
+   sentence to eleven lines, and how Candidates' Basis column collapsed to 46px at 390
+   and rendered one character per line. */
+.basis, .src-evidence { font-size: 12px; line-height: 1.5; color: var(--label);
+  overflow-wrap: anywhere; }
+/* The price is the most important number on the surface and was rendering at the same
+   weight as the ref beside it. */
+/* Right-aligned and tabular, so the column can be READ AS A COLUMN. Left-aligned
+   proportional figures put $1.5900, $0.0415 and $6.7900 on three different decimal
+   positions, which is a price list you cannot compare by eye — on the surface whose
+   headline claims to have found the cheapest one. */
+.price { font-size: 16px; color: var(--ink); white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+/* The header sits over its own column. A right-aligned column under a left-aligned
+   label is the header pointing at the wrong place. */
+.reasons { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: 6px; font-size: 12px; color: var(--label); }
+
+/* COLUMN WIDTHS, because `table-layout: fixed` divides the row equally without them
+   and the widest content loses. Declared per table by its own class so a table with
+   four columns and one with two do not share a rule that fits neither. The evidence
+   column takes the slack in both, because it is the one carrying sentences. */
+/* A CHIP MUST NOT OUTGROW ITS CELL. `.table` is table-layout: fixed, so content wider
+   than its column does not widen the column — it paints over the neighbour. The
+   live_evidence chip is ~120px and the venue column was 15%, which is 123px at 900px
+   wide: the gate measured the chip sitting on top of the basis text at exactly that
+   width. The column is widened AND the chip is allowed to give, because either alone
+   only moves the width at which it happens. */
+.chip { max-width: 100%; }
+.trow > th > .chip, .trow > td > .chip { white-space: normal; }
+
+/* A TABLE CELL MAY NOT BE A FLEX CONTAINER, and finding this took measuring rather
+   than guessing. `.stack` sets `display: flex`, and it was applied directly to
+   `<th scope="row">` on four surfaces. That takes the cell OUT of the table layout
+   algorithm — it stops being a table-cell, stops taking its column's declared width,
+   and collapses to min-content. Measured at 1440px: the Venue HEADER cell was 264px,
+   exactly the 19% declared, above a BODY cell of 50px rendering "vast" as four
+   stacked letters, on every surface with a row header.
+   The contact sheet caught it. The gate did not and could not: the body never
+   scrolled, nothing collided, every class resolved to a rule, and every field existed
+   in the daemon's body. A green run and a visibly broken page — which is the entire
+   reason looking is now a step with an artifact rather than a habit.
+   The cell stays a cell; the stacking goes to its children. */
+/* Written for `.stack` first, and then the contact sheet showed the Freshness column
+   doing exactly the same thing — because `.freshness` is ALSO `display: flex` and is
+   ALSO applied straight to a cell. Fixing the one I had found and not looking for its
+   siblings is how the same defect ships twice, so the rule is now about CELLS rather
+   than about a class: a direct child cell of a row is a table-cell, whatever else it
+   is asked to be. The assertion below it in the gate enforces that for every cell on
+   every surface, so the next class with `display: flex` in it cannot do this quietly. */
+.trow > th.stack, .trow > td.stack,
+.trow > th.freshness, .trow > td.freshness { display: table-cell; }
+.trow > th.stack > *, .trow > td.stack > * { display: block; }
+/* A chip stays a chip in EITHER kind of cell. This rule named `th` only, because when
+   it was written the only stacked cells were row headers. Placement's decision table
+   put a chip in a stacked `td`, the blanket `display: block` above caught it, and the
+   "no fee minted for this advisory" pill rendered as an 800px-wide bar — a pill that
+   spans the column stops reading as a pill and starts reading as a banner.
+   Found in a screenshot. No assertion could have: nothing overflowed, nothing
+   collided, no class was orphaned, and the cell check only ever visits Candidates. */
+.trow > th.stack > .chip, .trow > td.stack > .chip { display: inline-flex; }
+/* Freshness is a dial beside two lines of text. With the cell restored to a table-cell
+   the pairing moves to an inner wrapper rather than the cell itself. */
+.trow > td.freshness { white-space: nowrap; }
+.trow > td.freshness > .dial { display: inline-block; vertical-align: middle;
+  margin-right: 9px; }
+.trow > td.freshness > .stack { display: inline-block; vertical-align: middle;
+  white-space: normal; }
+
+/* Price first and dominant; offer; basis takes the slack; the bar last. */
+.table.t-quotes { min-width: 720px; }
+.table.t-quotes thead th:nth-child(1), .table.t-quotes .trow > :nth-child(1) { width: 17%; }
+.table.t-quotes thead th:nth-child(2), .table.t-quotes .trow > :nth-child(2) { width: 22%; }
+.table.t-quotes thead th:nth-child(3), .table.t-quotes .trow > :nth-child(3) { width: 39%; }
+.table.t-quotes thead th:nth-child(4), .table.t-quotes .trow > :nth-child(4) { width: 22%; }
+.t-quotes thead > tr > th:nth-child(1) { text-align: left; }
+.t-quotes .trow > th.price { font-size: 22px; letter-spacing: -0.02em; text-align: left;
+  color: var(--ink); vertical-align: top; padding-top: 12px; }
+/* Denser rows than the rest of the product: forty-odd quotes is a list to scan, and
+   a three-line basis at 16px padding made each row 87px tall. */
+.t-quotes .trow > th, .t-quotes .trow > td { padding-top: 12px; padding-bottom: 12px; }
+.t-quotes .basis { line-height: 1.45; }
+.offer-name { font-size: 15px; color: var(--ink); }
+/* A VENUE GROUP HEADER ROW: name, count, cheapest, and the one live chip for the whole
+   group. It is a row-group header (th scope=rowgroup), so it keeps the table's
+   semantics and reads as a section to a screen reader. */
+.tgroup-head > th { padding: 22px 0 8px; border-top: 0; border-bottom: 1px solid var(--ink);
+  text-align: left; font-weight: 400; background: transparent; }
+.tgroup:first-of-type .tgroup-head > th { padding-top: 12px; }
+.tgroup-head > th > * { display: inline-block; vertical-align: middle; margin-right: 16px; }
+.tgroup-venue { font-size: 20px; letter-spacing: -0.012em; color: var(--ink); }
+.tgroup-count { font-size: 14px; color: var(--label); }
+.tgroup-cheapest { font-size: 13px; color: var(--label); }
+.tgroup .trow:first-of-type > th, .tgroup .trow:first-of-type > td { border-top: 0; }
+/* The bar's cell: the bar block inside a table-cell, not a flex cell. */
+.trow > td.freshness > .fresh { display: grid; }
+/* THE SOURCE COLUMN HOLDS THE LONGEST STATE NAMES IN THE PRODUCT.
+   `candidate_source_unavailable` and `storage_backends_engaged` are 28 and 24 mono
+   characters, and `.chip` is `white-space: nowrap`, so at 30% of a 620px table they
+   were painted straight over the evidence column beside them. A cold reader found
+   eight rows of it at 390px — "not truncation; two strings drawn on top of one
+   another" — and my collision probe reported zero, because it compared BOXES and ink
+   that overflows its box never moves the box.
+   The chips wrap here, and the column is wide enough that they usually need not. */
+.table.t-sources { min-width: 720px; }
+.table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 34%; }
+.table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 66%; }
+/* `th` AND `td`. The source cell is a row HEADER, so a `td`-only rule would have
+   matched nothing — which is the same half-cased selector that let a chip stretch in a
+   stacked `td` a few commits ago, and the same class as a thead rule that named a
+   class no thead carried. Third time; write both cases. */
+.table.t-sources th:nth-child(1) .chip,
+.table.t-sources td:nth-child(1) .chip { white-space: normal; }
+/* Five columns since the ledger gained Venue: job, authority, receipts, venue, state. */
+.table.t-receipts { min-width: 900px; }
+.table.t-receipts th:nth-child(1), .table.t-receipts td:nth-child(1) { width: 18%; }
+.table.t-receipts th:nth-child(2), .table.t-receipts td:nth-child(2) { width: 20%; }
+.table.t-receipts th:nth-child(3), .table.t-receipts td:nth-child(3) { width: 25%; }
+.table.t-receipts th:nth-child(4), .table.t-receipts td:nth-child(4) { width: 17%; }
+.table.t-receipts th:nth-child(5), .table.t-receipts td:nth-child(5) { width: 20%; }
+/* THE STATE CHIP WRAPS. `.chip` is `white-space: nowrap`, which is right for a short
+   state name and wrong for `refused_authority_mode_mismatch` — a reviewer measured 24
+   of 27 rows truncated mid-glyph at 1180, and it came back the moment this ledger
+   gained a column. The state is the column a ledger is read for; it does not get to be
+   the one that is cut. */
+.table.t-receipts td:nth-child(5) .chip { white-space: normal; }
+.table.t-api { min-width: 700px; }
+/* Redundancy's postures, converted from three prose cards to a table: posture, whether
+   the daemon accepts it, what it means, and what a refused one would need. The two
+   description columns carry the weight, so they take the width. */
+/* A chip inside a column stack must not stretch to the cell's width. `.stack` is
+   `display:flex; flex-direction:column`, whose default `align-items: stretch` turns a
+   chip into a full-width bar — a pill that is 800px wide stops reading as a pill and
+   starts reading as a banner. Caught in a screenshot of Placement's fee row, not by
+   any assertion: nothing here overflows, collides, or loses a class. */
+.stack > .chip { align-self: flex-start; }
+
+/* ── THE JOB LANE: Admit -> Place -> Execute ─────────────────────────────────
+   The spend boundary as a state row rather than a paragraph. Step three is a locked
+   control carrying its lock reason as its own label, because a boundary a reader has
+   to READ TO is a boundary they can miss. */
+.lane { list-style: none; margin: 0; padding: 0; display: grid; gap: 0;
+  border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.lane-step { display: flex; gap: 16px; padding: 18px 20px; align-items: flex-start;
+  border-top: 1px solid var(--hairline-soft); background: var(--paper); }
+.lane-step:first-child { border-top: 0; }
+.lane-mark { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid var(--border-strong); color: var(--label);
+  font-family: var(--mono); font-size: 12px;
+  display: flex; align-items: center; justify-content: center; }
+.lane-step.now { background: var(--surface); }
+.lane-step.now .lane-mark { border-color: var(--ink); color: var(--ink); }
+.lane-step.done .lane-mark { border-color: var(--live); color: var(--live); }
+/* The locked step is visibly the end of the lane, not a step waiting its turn. */
+.lane-step.locked { background: var(--surface); }
+.lane-step.locked .lane-mark { border-style: dashed; }
+.lane-title { font-size: 15px; }
+/* A button inside a column stack must not stretch to the lane's full width — the same
+   defect as the stretched chip, one container up. A control that spans 1100px does not
+   read as a control. */
+.lane-step .button { align-self: flex-start; }
+
+/* Placement's decision table: a what/answer pair, so the label column stays narrow. */
+.table.t-decision { min-width: 620px; }
+.table.t-decision th:nth-child(1), .table.t-decision td:nth-child(1) { width: 24%; }
+.table.t-decision th:nth-child(2), .table.t-decision td:nth-child(2) { width: 76%; }
+
+.table.t-postures { min-width: 760px; }
+.table.t-postures th:nth-child(1), .table.t-postures td:nth-child(1) { width: 17%; }
+.table.t-postures th:nth-child(2), .table.t-postures td:nth-child(2) { width: 19%; }
+.table.t-postures th:nth-child(3), .table.t-postures td:nth-child(3) { width: 32%; }
+.table.t-postures th:nth-child(4), .table.t-postures td:nth-child(4) { width: 32%; }
+.table.t-pairs th:nth-child(1), .table.t-pairs td:nth-child(1) { width: 34%; }
+
+/* GREY MEANT TWO OPPOSITE THINGS ON SOURCES — `available` as a filled grey chip and
+   `candidate_source_unavailable` as an outline chip whose only distinguishing feature
+   measured 1.57:1 against a 3:1 requirement. An absent source now wears the same
+   treatment absence wears everywhere else on this surface, at the strong border. */
+.chip.absent { background: var(--paper); border-color: var(--border-strong);
+  color: var(--ink); }
+.chip.absent .dot { background: var(--border-strong); }
+pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-radius: 10px;
+  padding: 20px 22px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.65; }
+
+/* ── Narrow widths ────────────────────────────────────────────────────────
+   There used to be one breakpoint here and it only touched .split and .trow, so the
+   TOPBAR never reflowed: a 250px lockup plus seven nowrap nav buttons plus a status
+   chip has a floor around 1376px whatever the viewport does. Measured before this
+   change: at 1180px the document was 1376px wide — 196px of horizontal BODY scroll —
+   and at 390px it was still 1376px, 986px of overflow, with the first nav button at
+   x = -352 and the wordmark at x = -557, off-screen to the left and reachable only by
+   dragging the whole page sideways. The first thing that overflow hid was the
+   status chip, which is the surface's own honesty label.
+
+   That chip used to claim the surface performed no writes. It does not any more,
+   because the job door is wired and the claim stopped being true — and this comment
+   QUOTED the old wording, in a stylesheet that is served with its comments intact.
+   The gate asserting that no served byte makes that claim fired on this sentence,
+   not on the chip, and it was right to: a reader running view-source would have found
+   the surface calling itself read-only either way. Same class as the identity score
+   that once shipped to every view-source inside a comment asserting it never reached
+   a reader. The old wording is therefore described here and not repeated.
+
+   A comment in this file also described a narrow lockup swapped in below 400px. No
+   such rule existed. It does now.
+
+   The rule these follow: the BODY never scrolls horizontally. Anything that cannot
+   fit scrolls inside its own container. */
+
+/* Long machine-supplied values — provider-quote refs, hashes — must wrap rather than
+   clip. The review found `provider-quote://crc_18d239655` cut off mid-string with no
+   ellipsis and no scroll container, which is the one field that makes a price
+   traceable. */
+.trow > *, .srow > *, .rail, .panel { min-width: 0; }
+.mono { overflow-wrap: anywhere; }
+
+/* Tap targets. WCAG 2.2 SC 2.5.8 wants 24x24; the "API" button measured 23x29.
+   `flex-shrink: 0` because the nav is now a scroll container whose items may shrink
+   below their content: without it the seven labels squeezed on top of one another at
+   390px and rendered as overlapping text. A scroll container's children must keep
+   their size — that is the whole point of scrolling them. */
+.nav button { padding: 4px 6px; min-width: 24px; min-height: 24px; flex-shrink: 0; }
+
+@media (max-width: 1180px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 1500px, arrived at by measurement twice over.
+   1080 was the first guess and left 1180 overflowing by 196px. 1330 fixed the
+   overflow and was still wrong: at 1440 the status block and the last nav button
+   OVERLAPPED — "API" sitting under "daemon 127.0.0.1:4182", 25x29px of shared area —
+   inside a viewport reporting zero horizontal scroll. No overflow measurement can see
+   a collision, which is why the brand harness has had a pairwise collision check
+   since the artboard round and why the face now gets the same one. Measured clean at
+   1920, 1520, 1180, 900 and 390; the collision band was 1330 to roughly 1500.
+
+   RAISED FROM 1500 TO 1640, and the number is measured rather than chosen. Wiring the
+   job door made the status chip's wording longer — it used to claim the surface
+   performed no writes, which stopped being true — and the single-row topbar's content
+   floor moved with it. Measured at 1520: lockup 466 + gap 40 + nav 607 + gap 32 +
+   status 408 + padding 80 = 1633. Below that floor the row cannot fit, and what
+   happened at 1520 was not a collision but something quieter: the nav clipped inside
+   its own scroll container and the API button disappeared entirely on a wide desktop.
+   A breakpoint set anywhere below the content's real floor hides a surface rather than
+   reflowing to it. */
+@media (max-width: 1640px) {
+  /* The topbar becomes two rows: identity and status, then the surfaces. */
+  .topbar { height: auto; flex-wrap: wrap; align-items: center; padding: 10px 24px 0;
+    row-gap: 4px; column-gap: 16px; }
+  .topbar-left { flex: 1 1 100%; order: 1; gap: 0; flex-wrap: wrap; }
+  .topbar-status { order: 0; flex: 1 1 auto; justify-content: flex-end; }
+  .lockup { flex: 1 1 auto; }
+  /* The nav scrolls in ITS OWN box, so seven surfaces at any width cost the body
+     nothing. The negative margin lets the first and last button reach the page edge
+     rather than sitting inside a padding well the reader cannot see past. */
+  .nav { flex: 1 1 100%; order: 2; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; gap: 18px; margin: 0 -24px; padding: 6px 24px 0; }
+  .nav::-webkit-scrollbar { display: none; }
+  main { padding: 26px 24px 48px; }
+  .unwired-banner { padding: 14px 24px; }
+}
+
+/* Multi-column blocks inside a surface. These used to be INLINE grid styles with a
+   fixed column count, which is why they never reflowed however many breakpoints this
+   file grew: a media query cannot reach an inline style. A second review found the
+   result — at 390px the Redundancy postures held about 55px of text width, one word
+   per line, with four measured text-on-text collisions up to 117x25px, and the Job
+   surface's two JSON panes clipped mid-token so the one field that differs between
+   them was unreadable. */
+.cols { display: grid; }
+.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 1000px) { .cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media (max-width: 700px) {
+  /* One column, every surface. The first responsive pass measured overflow and
+     collisions on the LANDING surface only and reported the layout fixed; four of the
+     seven were never opened at 390px. */
+  .cols-2, .cols-3 { grid-template-columns: minmax(0, 1fr); }
+
+  /* THE NAV WRAPS INSTEAD OF SCROLLING, below this width.
+     A horizontal scroll container costs the body nothing, which is why it was chosen —
+     but at 390px it measured 627px of content in a 390px box with Redundancy, Receipts
+     and API entirely off-screen and NO VISIBLE AFFORDANCE that they were there. A
+     blind reviewer reported three surfaces as unreachable, and the nav-visibility
+     assertion measured their visible boxes at 1x29, -104x29 and -186x29.
+     "It scrolls" is only true if a reader can tell. Seven short labels wrap into two
+     rows and every surface is on screen, which costs a row of height and hides
+     nothing. */
+  .nav { flex-wrap: wrap; overflow-x: visible; row-gap: 8px; margin: 0;
+    padding: 6px 0 0; }
+}
+
+/* A chip is `white-space: nowrap` so a state name never breaks mid-token, and that is
+   right for "live_evidence" and wrong for a long refusal sentence — measured at
+   213px and 299px wide, which is most of a phone. Below the single-column breakpoint a
+   long chip wraps; the dot stays put because it is a flex item that does not shrink. */
+@media (max-width: 700px) {
+  .chip { white-space: normal; max-width: 100%; }
+}
+
+@media (max-width: 780px) {
+  /* The table is NOT restyled here. An earlier version hid the header row and turned
+     each row into a block, which fixed the orphaned-labels complaint and would have
+     destroyed the table semantics added in the same pass. It scrolls in its own
+     container instead: the header stays a header, every cell keeps its column, and
+     the body still does not scroll. */
+  .trow > th, .trow > td { padding: 14px 16px; }
+  .rail { padding: 18px 16px; }
+  .panel { padding: 16px 16px; }
+  h1 { font-size: 26px; }
+}
+
+/* ── The catalog — "all resources, by category" ───────────────────────────────
+   The landing. A directory, dense and scannable, in the shape of a console's
+   all-services page: category blocks in a responsive grid, each a real table
+   (resource class · venue or network · state) so every row is a .trow the cell and
+   collision probes already cover. No hue here beyond the tokens: green is a venue
+   quoting live prices, and nothing else is green. */
+.catalog-page { gap: 26px; }
+.catalog-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 40px; align-items: end; padding-bottom: 22px; border-bottom: 1px solid var(--hairline); }
+.catalog-title { gap: 12px; }
+.catalog-lede { font-size: 15px; max-width: 62ch; }
+.catalog-now { gap: 8px; justify-self: end; text-align: right; }
+.catalog-line { font-size: 13px; color: var(--ink); line-height: 1.5; }
+.catalog-tools { display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.catalog-filter { width: min(420px, 100%); }
+/* Two-up at 1440, not three: at three-up the state column measured tight enough that
+   "no supply now" wrapped into a two-line oval and "1 account connected" broke. */
+.catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 26px 40px; }
+.cat { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.table.t-catalog { min-width: 0; table-layout: fixed; }
+.table.t-catalog th:nth-child(1), .table.t-catalog td:nth-child(1) { width: 30%; }
+.table.t-catalog th:nth-child(2), .table.t-catalog td:nth-child(2) { width: 38%; }
+.table.t-catalog th:nth-child(3), .table.t-catalog td:nth-child(3) { width: 32%; }
+.t-catalog .trow > th, .t-catalog .trow > td { padding: 11px 14px; vertical-align: top; }
+.cls-cell { border-right: 1px solid var(--hairline-soft); }
+.t-catalog .trow > th.cls-cell { padding-left: 0; }
+.cls-name { font-size: 14px; color: var(--ink); }
+.entry-name { color: var(--ink); text-decoration: none; font-size: 14px; }
+.entry-name:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.entry-state { white-space: normal; }
+.entry-state .chip { white-space: normal; }
+.entry-evidence { overflow-wrap: anywhere; }
+.catalog-foot { display: flex; gap: 28px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--hairline); }
+@media (max-width: 1000px) {
+  .catalog-head { grid-template-columns: minmax(0, 1fr); }
+  .catalog-now { justify-self: start; text-align: left; }
+  .catalog { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .table.t-catalog th:nth-child(1), .table.t-catalog td:nth-child(1) { width: 34%; }
+  .table.t-catalog th:nth-child(2), .table.t-catalog td:nth-child(2) { width: 36%; }
+  .table.t-catalog th:nth-child(3), .table.t-catalog td:nth-child(3) { width: 30%; }
+  .t-catalog .trow > th, .t-catalog .trow > td { padding: 10px 10px; }
+}
+
+@media (max-width: 430px) {
+  .topbar { padding: 10px 16px 0; }
+  /* THE DAEMON LABEL WAS BEING CLIPPED OFF THE LEFT EDGE, and this is the difference
+     between visible and invisible truncation.
+     `.topbar-status` is `justify-content: flex-end` and every child is
+     `flex-shrink: 0`, so at 390px the capability chip — "reads · two writes, neither
+     spends", the longest string in the chrome — pushed the daemon label past the
+     viewport's left edge. It read "mon 127.0.0.1:4211". A reader cannot tell that the
+     word "daemon" is missing; there is no ellipsis, no fade, nothing. A hard clip at
+     the viewport edge is a truncation that does not announce itself, which is the
+     shape of defect this whole surface exists to refuse — and a cold reader had
+     already reported it on an earlier build ("the word daemon is clipped off the
+     left"), on every surface, at every narrow width.
+     The status row wraps now, and the label truncates with an ELLIPSIS if it still
+     cannot fit: an ellipsis says "there is more here", a viewport clip says nothing. */
+  .topbar-status { flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }
+  .topbar-status #daemon-label { flex-shrink: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav { margin: 0 -16px; padding: 6px 16px 0; gap: 14px; }
+  main { padding: 22px 16px 44px; }
+  .unwired-banner { padding: 12px 16px; flex-direction: column; gap: 6px; }
+  /* The narrow lockup: mark and wordmark are both in em on .lockup, so one number
+     steps the pair down together. 28px is the block height: the lockup is then 233px
+     wide — above the brand's 200px floor for the full lockup and well inside 390 —
+     with DECENTRALIZED's cap at 9.2px. The gap is in em and steps down with it. */
+  .lockup { font-size: 28px; }
+  pre.code { padding: 14px 14px; font-size: 11px; }
+}
+
+/* ── THE HERO — the product performing ────────────────────────────────────────
+   One dark band at the head of the landing, full-bleed, onyx. The cheapest live
+   quote at display size, its window running out beneath it, the four figures a
+   routing is made of, and the routing drawn from them. It is the one place the face
+   goes dark: a long read is punished by a dark ground, and this band is not a long
+   read — it is a figure, a bar and a drawing. The catalog below stays on paper.
+
+   Colour keeps its one meaning each on the dark ground: green (the on-dark token) is
+   live evidence, red is expired, and everything else is paper at a stated opacity. */
+.hero { background: var(--ink); color: var(--paper);
+  margin: -34px -40px 34px; padding: 44px 40px 40px;
+  display: grid; gap: 36px; }
+.hero-statement { font-size: 17px; font-weight: 400; letter-spacing: 0; line-height: 1.3;
+  color: var(--on-onyx-text); max-width: 46ch; }
+.hero-focus { display: grid; gap: 10px; }
+.hero-eyebrow { color: var(--live-on-dark); }
+/* THE PRICE IS THE PAGE. 168px at desktop, tabular so a refresh that changes one digit
+   does not shift the rest; the fraction and the unit step down so the figure reads as
+   one number and not as a stat with two captions. */
+.hero-price { margin: 0; display: flex; align-items: baseline; gap: 0.06em;
+  font-size: 168px; line-height: 0.92; letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums; color: var(--paper); }
+.hero-cur { font-size: 0.42em; letter-spacing: -0.02em; color: var(--on-onyx-soft); align-self: flex-start; margin-top: 0.12em; }
+.hero-figure { font-weight: 400; }
+.hero-frac { font-size: 0.62em; letter-spacing: -0.02em; }
+.hero-unit { font-size: 0.13em; letter-spacing: 0.02em; font-family: var(--mono);
+  color: var(--on-onyx-soft); margin-left: 0.6em; text-transform: uppercase; }
+.hero-price-waiting .hero-figure { color: var(--on-onyx-shape); }
+.hero-what { margin: 2px 0 0; font-size: 17px; line-height: 1.4; color: var(--paper); }
+.hero-venue { font-size: 19px; }
+.hero-basis { font-size: 13px; color: var(--on-onyx-soft); }
+.hero-observed { margin: 0; font-size: 12px; color: var(--on-onyx-soft); }
+
+/* THE DEPLETING BAR. Track = time spent (paper at low opacity); left = time remaining
+   in live green; a spent window turns the text red because red means expired. */
+.fresh { display: grid; gap: 8px; }
+.fresh-track { position: relative; height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--on-onyx-rule); }
+.fresh-left { position: absolute; left: 0; top: 0; bottom: 0; background: var(--live-on-dark);
+  border-radius: 3px; transition: width 1s linear; }
+.fresh-text { font-size: 13px; color: var(--on-onyx-text); }
+.fresh-hero { max-width: 720px; margin-top: 10px; }
+.fresh-hero .fresh-track { height: 10px; border-radius: 5px; }
+.fresh-hero .fresh-text { font-size: 15px; }
+.fresh-expired .fresh-text { color: var(--expired); opacity: 1; }
+.fresh-expired .fresh-left { background: var(--expired); }
+.fresh-none .fresh-track { background: repeating-linear-gradient(90deg, var(--on-onyx-shape) 0 4px, transparent 4px 8px); }
+/* In a table row on paper the same bar, in the paper's own colours. */
+.fresh-row { min-width: 150px; }
+.fresh-row .fresh-track { background: var(--hairline); height: 5px; }
+.fresh-row .fresh-left { background: var(--live); }
+.fresh-row .fresh-text { color: var(--label); opacity: 1; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .fresh-left { transition: none; } }
+
+/* THE ROUTING DRAWING. The SVG stretches to the band's width (preserveAspectRatio
+   none; fills only, no strokes, so nothing distorts) and the legend is a 4-column
+   HTML grid whose columns sit under the SVG's four stacks. */
+.routing { margin: 0; display: grid; gap: 14px; padding-top: 26px;
+  border-top: 1px solid var(--on-onyx-rule); }
+.rt { display: block; width: 100%; height: 200px; }
+.rt-stage { fill: var(--on-onyx-shape); }
+.rt-live { fill: var(--live-on-dark); }
+.rt-placed { fill: var(--paper); }
+.rt-band { fill: var(--on-onyx-band); }
+.rt-base { stroke: var(--on-onyx-shape); stroke-width: 1; }
+/* NO GAP AND CENTRED, so each head's centre is at 12.5/37.5/62.5/87.5% of the width —
+   the four fractions the SVG places its stacks on (Routing.jsx, XS). A px gap here put
+   the heads 41–225px left of their stacks at 1440; measured, not guessed. */
+.rt-heads { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.rt-head { min-width: 0; text-align: center; padding: 0 6px; }
+.rt-details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;
+  padding-top: 14px; border-top: 1px solid var(--on-onyx-rule); }
+.rt-set-repeat { display: none; }
+.rt-cell { min-width: 0; display: grid; gap: 6px; align-content: start; }
+.rt-n { font-size: 56px; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.rt-set { margin-top: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--on-onyx-soft); }
+/* A reason code is long and the cell is a quarter of the band: the chip wraps. The
+   first build let one run 12px past the viewport. */
+.hero .chip { white-space: normal; overflow-wrap: anywhere; }
+/* TWO TIERS. What passed is at full weight in the live colour; what did not is a
+   count with a disclosure, because eleven lines of "no source" at 1440 were the right
+   facts at the wrong weight — a wall of small mono under the drawing. */
+.rt-why { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--on-onyx-soft); overflow-wrap: anywhere; }
+.rt-why .rt-live-word { color: var(--live-on-dark); }
+.rt-losers { margin-top: 4px; }
+.rt-losers > summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--on-onyx-soft);
+  list-style: none; }
+.rt-losers > summary::-webkit-details-marker { display: none; }
+.rt-losers > summary::before { content: "+ "; }
+.rt-losers[open] > summary::before { content: "− "; }
+.rt-losers > .rt-why { margin-top: 6px; }
+.rt-wait { font-family: var(--mono); font-size: 12px; color: var(--on-onyx-soft); }
+.rt-rec { display: grid; gap: 6px; }
+.rt-rec-name { font-size: 16px; line-height: 1.3; }
+.rt-rec-venue { font-family: var(--mono); font-size: 12px; color: var(--on-onyx-text); }
+.rt-codes { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px;
+  font-family: var(--mono); font-size: 11px; line-height: 1.4; color: var(--on-onyx-soft); overflow-wrap: anywhere; }
+.rt-why-line { font-family: var(--mono); font-size: 12px; color: var(--on-onyx-soft); }
+.rt-caption { font-size: 11px; color: var(--on-onyx-caption); max-width: 80ch; }
+/* Chips on the dark ground: same object, the ground's colours. */
+.hero .chip { background: transparent; border-color: var(--on-onyx-shape); color: var(--paper); }
+.hero .chip .dot { background: var(--on-onyx-caption); }
+.hero .chip.live { border-color: var(--live-on-dark); color: var(--live-on-dark); }
+.hero .chip.live .dot { background: var(--live-on-dark); }
+
+/* THE DOORS. One primary, paper on onyx, and two quiet links. */
+.hero-doors { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding-top: 4px; }
+/* The catalog's own heading, now second on the page: the hero's statement is the h1. */
+.catalog-h { font-size: 31px; letter-spacing: -0.012em; line-height: 1.1; }
+/* The Waiting block's own h1 beneath the hero is demoted the same way. */
+.catalog-page > [aria-busy] > h1 { font-size: 31px; }
+.hero-door { background: var(--paper); color: var(--ink); border-color: var(--paper); text-decoration: none; }
+.hero-door:hover { background: var(--ink); color: var(--paper); }
+.hero-door-link { color: var(--on-onyx-text); text-decoration: none; font-size: 15px; }
+.hero-door-link:hover { text-decoration: underline; text-underline-offset: 3px; color: var(--paper); }
+
+@media (max-width: 1640px) { .hero { margin: -26px -24px 26px; padding: 36px 24px 32px; } }
+@media (max-width: 1000px) {
+  .hero-price { font-size: 120px; }
+  .rt-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rt-set-repeat { display: block; }
+  .rt { height: 140px; }
+}
+@media (max-width: 700px) {
+  .hero { gap: 28px; }
+  .hero-price { font-size: 76px; letter-spacing: -0.03em; }
+  .hero-what { font-size: 15px; }
+  .hero-venue { font-size: 16px; }
+  .rt { height: 110px; }
+  .rt-head { padding: 0 2px; }
+  .rt-n { font-size: 34px; }
+  .rt-set { font-size: 10px; margin-top: 5px; }
+  .rt-details { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+@media (max-width: 430px) { .hero { margin: -22px -16px 22px; padding: 30px 16px 28px; } .hero-price { font-size: 64px; } }
+/* ── THE RECEIPT AS AN OBJECT ──────────────────────────────────────────────────
+   A ticket: one strong rule on top, a hairline beneath, the kind and time on the
+   first line, the root hash full-width so it can be selected and compared, the fee
+   as its own line. It is the same object at every size; `compact` only tightens it. */
+.receipt { display: grid; gap: 6px; padding: 10px 0 12px; border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--hairline); max-width: 520px; }
+.receipt + .receipt { border-top-width: 1px; }
+.receipt-head { display: flex; justify-content: space-between; gap: 4px 12px; align-items: baseline;
+  flex-wrap: wrap; }
+.receipt-kind { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+/* A timestamp never breaks inside itself ("2026-09-" / "05T06:22…" read as a fault);
+   the head wraps the whole stamp to its own line instead. */
+.receipt-at { font-size: 11px; color: var(--label); white-space: nowrap; }
+.receipt-root { font-size: 12px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.receipt-fee { font-size: 12px; color: var(--label); }
+.receipt-note { font-size: 13px; line-height: 1.45; color: var(--label); }
+/* Inside a table cell the ticket's top rule is one pixel: two 2px rules in one row —
+   the table's header rule and the ticket's — read as two tables. */
+.receipt-compact { padding: 8px 0 10px; gap: 4px; border-top-width: 1px; }
+
+/* ── THE PHONE CHROME ─────────────────────────────────────────────────────────
+   At 390 the header was four rows — status, lockup, two rows of nav — about 165px
+   of chrome before a word of product, with the honesty chip pushed to the very top
+   where it read as the page's title. Below 700 the order becomes what a phone
+   reader needs: the name, the surfaces, then one quiet status line — daemon host and
+   the generated capability sentence together, still every word of it. Measured at
+   390 after the change: the status wraps to two short lines under the nav, so the
+   chrome is lockup + two rows of nav + two lines of status, about 150px — down from
+   165 with the honesty chip no longer standing where a title would. */
+@media (max-width: 700px) {
+  .topbar { padding: 12px 16px 0; row-gap: 6px; }
+  .topbar-left { order: 0; }
+  .topbar-status { order: 3; flex: 1 1 100%; justify-content: flex-start; gap: 10px;
+    padding: 0 0 8px; }
+  .topbar-status #daemon-label { flex-shrink: 1; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .topbar-status .chip { font-size: 11px; padding: 2px 8px 2px 7px; }
+  .nav { padding-top: 4px; gap: 4px 14px; }
+  .nav button { font-size: 14px; }
+}
+
+/* ── TWO-COLUMN TABLES REFLOW ON A PHONE INSTEAD OF SCROLLING ─────────────────
+   A table with two columns fits a phone if its cells wrap; forcing it to 620px and
+   scrolling it hid the whole evidence column behind the fade. The four-and-five
+   column tables (quotes, postures, receipts, api) keep the scroll: their columns
+   carry machine strings that cannot wrap without becoming unreadable, and the
+   price-first order puts the fact that matters in the visible part. */
+@media (max-width: 700px) {
+  .table.t-sources, .table.t-decision, .table.t-catalog { min-width: 0; }
+  .table.t-sources th:nth-child(1), .table.t-sources td:nth-child(1) { width: 42%; }
+  .table.t-sources th:nth-child(2), .table.t-sources td:nth-child(2) { width: 58%; }
+  /* A chip whose text is one unbroken token — live_quote_source, a reason code —
+     cannot wrap without a break opportunity, and at 390 it painted straight into the
+     next column on Sources and Placement (seen in the unscaled bands; the body did not
+     overflow, so no width probe saw it). */
+  .chip { overflow-wrap: anywhere; }
+  .table.t-decision th:nth-child(1), .table.t-decision td:nth-child(1) { width: 30%; }
+  .table.t-decision th:nth-child(2), .table.t-decision td:nth-child(2) { width: 70%; }
+  .src-evidence, .basis { font-size: 11px; }
+}

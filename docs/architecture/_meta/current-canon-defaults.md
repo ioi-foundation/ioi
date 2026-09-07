@@ -1179,7 +1179,11 @@ applicable;
 - `decentralized.cloud` is a preferred first-party resource-intelligence
   engine for infrastructure capacity, not a mandatory cloud UI, cloud control
   plane, provider account owner, VM lifecycle owner, authority layer, restore
-  truth layer, storage custody owner, or trust root;
+  truth layer, storage custody owner, or trust root; under ADR 0051 it may
+  also be a standalone public product face (candidate API/SDK/explorer and a
+  human-or-agent `CloudJobRequest` front for Hypervisor's optimized-placement
+  lane) and a supply registry whose first-party supply is a neutral,
+  receipted candidate — brand is not owner, and local capacity is a venue;
 - Hypervisor has direct provider integrations for cloud compute, storage,
   GPUs, DePIN, local machines, customer cloud, enterprise infrastructure,
   decentralized storage, and user-specified provider routes; confidential

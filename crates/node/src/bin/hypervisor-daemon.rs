@@ -60,6 +60,8 @@ mod connector_session_routes;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/data_transformation_routes.rs"]
 mod data_transformation_routes;
+#[path = "hypervisor_daemon_routes/cloud_job_routes.rs"]
+mod cloud_job_routes;
 #[path = "hypervisor_daemon_routes/decentralized_cloud_routes.rs"]
 mod decentralized_cloud_routes;
 #[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
@@ -3588,6 +3590,22 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/failover/evaluate",
             post(placement_failover_routes::handle_failover_evaluate),
+        )
+        // Seam A — the job routes register beside the intents they compose, not in a
+        // plane of their own. A CloudJobRequest is an envelope over one intent; giving
+        // it its own router block would be the first step toward its own lane.
+        .route(
+            "/v1/hypervisor/cloud-jobs",
+            get(cloud_job_routes::handle_cloud_jobs_list)
+                .post(cloud_job_routes::handle_cloud_job_create),
+        )
+        .route(
+            "/v1/hypervisor/cloud-jobs/:id",
+            get(cloud_job_routes::handle_cloud_job_get),
+        )
+        .route(
+            "/v1/hypervisor/cloud-jobs/:id/execute",
+            post(cloud_job_routes::handle_cloud_job_execute),
         )
         .route(
             "/v1/hypervisor/cloud-candidates/intents",

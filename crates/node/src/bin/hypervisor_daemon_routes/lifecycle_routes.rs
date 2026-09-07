@@ -13688,6 +13688,27 @@ pub(crate) struct CapabilityLeaseRequest {
     /// Optional daemon-derived standing-envelope draw. Only a route that has validated every
     /// effect facet against the registered envelope may construct this value.
     pub(crate) standing_draw: Option<StandingCapabilityDraw>,
+    /// WHO THIS LEASE IS ISSUED TO, resolved server-side at the moment of issue.
+    ///
+    /// A CapabilityLease historically recorded what it permits and what revokes it, but never
+    /// whose it was — 2248 issued leases carry no principal, no owner and no subject. That
+    /// silence is why an agent holding a lease cannot execute under it: there is nothing to
+    /// name as the acting principal (INV-37), and supplying one from the session would put a
+    /// caller who did not act onto the receipt.
+    ///
+    /// `None` is a legitimate value, written as ABSENCE and never as a default identity: a
+    /// lease issued without a binding is one no agent may draw down, and the resolver refuses
+    /// it by name. Every construction site states this explicitly rather than inheriting it,
+    /// because "which leases confer authority on whom" must not be answered by omission.
+    pub(crate) principal_binding: Option<LeasePrincipalBinding>,
+}
+
+/// The principal a lease was issued to, and the tenant it was issued under. Both come from the
+/// SERVER-RESOLVED caller (`provider_write_caller` → `RequestIdentity`), never from a request
+/// field — a request able to name its own principal could name someone else's.
+pub(crate) struct LeasePrincipalBinding {
+    pub(crate) principal_ref: String,
+    pub(crate) owner_ref: String,
 }
 
 pub(crate) struct StandingCapabilityDraw {
@@ -14171,6 +14192,15 @@ pub(crate) async fn authorize_capability_lease(
         "credential_source": credential_source,
         "issued_at": iso_now(),
     });
+    // The lease says WHOSE it is, when the issuing route knew. Written only from the
+    // server-resolved caller; a route without one writes nothing here rather than a
+    // placeholder, because an absent principal must stay distinguishable from a
+    // fabricated one — the resolver refuses the former by name and can never be handed
+    // the latter.
+    if let (Some(target), Some(binding)) = (descriptor.as_object_mut(), &req.principal_binding) {
+        target.insert("principal_ref".into(), json!(binding.principal_ref));
+        target.insert("owner_ref".into(), json!(binding.owner_ref));
+    }
     if let (Some(target), Some(receipt)) = (descriptor.as_object_mut(), standing_receipt) {
         target.insert(
             "standing_consumption_id".into(),
@@ -15603,6 +15633,9 @@ pub(crate) async fn handle_connector_invoke(
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,
@@ -22217,6 +22250,9 @@ pub(crate) async fn handle_scm_abandon_pull_request(
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
     let lease = match authorize_capability_lease(&st, &lease_req).await {
         Ok(l) => l,

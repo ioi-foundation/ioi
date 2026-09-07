@@ -1,0 +1,314 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO_MED__) format("woff2"); font-weight: 500; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .rule { height: 1px; background: #e1e1e1; }
+    .swatch { height: 72px; border-radius: 6px; }
+    .chip { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px;
+      border-radius: 999px; font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace;
+      font-size: 12px; letter-spacing: 0.02em; border: 1px solid transparent; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; padding: 56px 64px 64px;">
+
+  <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 24px;">
+    <div class="eyebrow">decentralized.cloud · visual system</div>
+    <div class="eyebrow">inherits packages/design-system</div>
+  </div>
+  <div class="rule" style="margin: 20px 0 40px;"></div>
+
+  <!-- ── Palette ───────────────────────────────────────────────────────── -->
+  <div class="eyebrow" style="margin-bottom: 16px;">Palette — nine of the thirteen tokens these sheets use</div>
+  <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 12px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #0a0e19;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#0a0e19</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">onyx-black · ink</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #397554;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#397554</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">link-green · live</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #7bbd97;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#7bbd97</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">green-on-dark</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #e40014;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#e40014</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">red-600 · expired</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #636363;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#636363</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-800 · labels</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #818181;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#818181</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-700 · state dot</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #cecece;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#cecece</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-600 · panel accents</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #f9f9f9; border: 1px solid #e1e1e1; box-sizing: border-box;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#f9f9f9</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">porcelain · surface</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="swatch" style="background: #e1e1e1;"></div>
+      <div class="mono" style="font-size: 12px; color: #0a0e19;">#e1e1e1</div>
+      <div class="mono" style="font-size: 12px; color: #636363;">grey-500 · hairline</div>
+    </div>
+  </div>
+  <div class="body" style="margin-top: 14px; max-width: 100ch;">
+    Each swatch names the token it is, in
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">packages/design-system/tokens/colors.css</span>.
+    These nine carry meaning; four more are drawn and carry none —
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#ffffff</span> paper,
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#ececec</span> the softer
+    hairline inside tables and rails,
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#1f1f1f</span> body ink on
+    the type specimens, and
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">#3e7f5c</span> the link
+    hover. Thirteen in total, every one of them in that file, and none invented here.
+    Exactly one was added to that file for this product rather than kept on a
+    sheet: <span class="mono" style="font-size: 12px; color: #0a0e19;">green-on-dark</span>,
+    because link green measures 3.53:1 on onyx and fails AA where this measures
+    8.78:1. A second was drafted and then deleted — a darkened red for the
+    expired chip — once measurement showed red-600 already clears at 4.87:1 and
+    the token was solving nothing. Every figure in this paragraph comes from
+    <span class="mono" style="font-size: 12px; color: #0a0e19;">brand/measure-contrast.mjs</span>,
+    which prints them from the hex values themselves; the first draft of this
+    sheet asserted two contrast numbers from memory and both were wrong.
+  </div>
+
+  <!-- ── Type ──────────────────────────────────────────────────────────── -->
+  <div class="rule" style="margin: 40px 0;"></div>
+  <div class="eyebrow" style="margin-bottom: 20px;">Type — four faces in the system, three used here</div>
+  <div style="display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 18px 40px; align-items: baseline;">
+    <div class="mono" style="font-size: 12px; color: #636363;">IOI Display · wordmark only</div>
+    <div style="display: flex; align-items: baseline;">
+      <span class="w" style="font-size: 40px;">decentralized</span><span class="d" style="width: 7px; height: 7px; margin: 0 3px;"></span><span class="w" style="font-size: 40px;">cloud</span>
+    </div>
+
+    <div class="mono" style="font-size: 12px; color: #636363;">ABC Diatype · 31 section head</div>
+    <div style="font-size: 31px; letter-spacing: -0.012em; line-height: 1.1;">Capacity, priced with its evidence</div>
+
+    <div class="mono" style="font-size: 12px; color: #636363;">ABC Diatype · 16 body</div>
+    <div style="font-size: 16px; line-height: 1.5; max-width: 62ch; color: #1f1f1f;">
+      Every quote carries the source that produced it, when it was observed, and
+      when it stops being true. A price without those three is not shown.
+    </div>
+
+    <div class="mono" style="font-size: 12px; color: #636363;">ABC Diatype Mono · 12 label</div>
+    <div class="mono" style="font-size: 12px; color: #1f1f1f;">observed_at · expires_at · evidence_mode · provider_kind · source</div>
+  </div>
+  <div class="body" style="margin-top: 18px; max-width: 96ch;">
+    IOI Display is unicase and carries no digits and no period, so it sets the
+    wordmark and nothing else — never a price, never a timestamp, never a
+    heading with a number in it. The system's fourth face, Martina Plantijn, is
+    the umbrella's editorial serif and is deliberately unused here: a console
+    that reports machine state has no editorial voice to speak in.
+  </div>
+
+  <!-- ── Evidence states ───────────────────────────────────────────────── -->
+  <div class="rule" style="margin: 40px 0;"></div>
+  <div class="eyebrow" style="margin-bottom: 20px;">Evidence states — the one component this product cannot do without</div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>live_evidence
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>simulated_control_plane
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>advisory_only
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>candidate_source_unavailable
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #e40014; color: #e40014;">
+      <span class="dot" style="background: #e40014;"></span>expired
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>live_quote_source
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>available
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #397554; color: #397554;">
+      <span class="dot" style="background: #397554;"></span>storage_backends_engaged
+    </span>
+    <span class="chip" style="background: #ffffff; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>credential_preflight_only
+    </span>
+  </div>
+
+  <div class="eyebrow" style="margin: 22px 0 12px;">Statements the surface makes about itself</div>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>read-only surface
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>last sweep shown while refreshing
+    </span>
+    <span class="chip" style="background: #f9f9f9; border-color: #818181; color: #636363;">
+      <span class="dot" style="background: #818181;"></span>not wired — job api not live
+    </span>
+  </div>
+  <div class="body" style="margin-top: 16px; max-width: 100ch;">
+    <strong style="color: #0a0e19;">One rule decides which kind a chip is.</strong>
+    A chip reporting what the daemon said carries the daemon's token verbatim,
+    in mono — nine of them, above, and a surface may not gloss one into friendlier
+    English, because the reader who needs the chip is the reader who will search
+    for that string. A chip reporting what THIS SURFACE is doing is a sentence in
+    plain words, and there are exactly three. Nothing else is a chip.
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px; margin-top: 26px;">
+    <div class="body">
+      <strong style="color: #0a0e19;">Green means live, and only live.</strong>
+      A candidate wears it when the daemon returned it as
+      <span class="mono" style="font-size: 12px;">evidence_mode: live_evidence</span>,
+      and a source wears it when the daemon reports it answering —
+      <span class="mono" style="font-size: 12px;">live_quote_source</span>,
+      <span class="mono" style="font-size: 12px;">available</span>,
+      <span class="mono" style="font-size: 12px;">storage_backends_engaged</span>.
+      It is never chrome: not the selection colour, not a callout accent, not the
+      current tab. The one green that is not a status is the wordmark's own dot,
+      which is the mark itself.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">Grey is absence, red is time.</strong> A
+      source with no adapter or no credential is grey and says why, in the
+      daemon's own words, in the row where a price would have been. Red means
+      one thing only: a quote whose
+      <span class="mono" style="font-size: 12px;">expires_at</span> has passed
+      and which the surface has not yet refreshed. A state dot carries meaning,
+      so it is drawn in grey-700 at 3.90:1 rather than a hairline grey that
+      would fail the 3:1 floor for non-text.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">Unwired is visible.</strong> Write
+      surfaces designed ahead of the kernel carry the last chip and cannot be
+      submitted. A stub a reader cannot tell apart from truth is refused; a
+      labelled one is a design deliverable.
+    </div>
+  </div>
+
+  <!-- ── Freshness dial ────────────────────────────────────────────────── -->
+  <div class="rule" style="margin: 40px 0;"></div>
+  <div class="eyebrow" style="margin-bottom: 20px;">Freshness dial — a component, not a logo</div>
+  <div style="display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 40px; align-items: start;">
+    <div style="display: flex; align-items: flex-end; gap: 30px;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="freshness dial, three minutes into a fifteen-minute window">
+          <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="6"></circle>
+          <path d="M 48 22 A 26 26 0 1 1 23.27 39.97" fill="none" stroke="#397554" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+        </svg>
+        <div class="mono" style="font-size: 12px; color: #636363;">12 min left</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="freshness dial, twelve minutes into a fifteen-minute window">
+          <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="6"></circle>
+          <path d="M 48 22 A 26 26 0 0 1 72.73 39.97" fill="none" stroke="#397554" stroke-width="6" stroke-linecap="butt"></path>
+          <circle cx="48" cy="48" r="9" fill="#397554"></circle>
+        </svg>
+        <div class="mono" style="font-size: 12px; color: #636363;">3 min left</div>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="freshness dial, expired">
+          <circle cx="48" cy="48" r="26" fill="none" stroke="#e1e1e1" stroke-width="6"></circle>
+          <circle cx="48" cy="48" r="9" fill="#e40014"></circle>
+        </svg>
+        <div class="mono" style="font-size: 12px; color: #e40014;">expired</div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="body">
+        <strong style="color: #0a0e19;">The binding, written where the component is.</strong>
+        The drawn arc is the window still good — its sweep is the fraction remaining,
+        <span class="mono" style="font-size: 12px;">1 − (now − observed_at) / (expires_at − observed_at)</span>,
+        — and the grey it sits on is the window already spent. Both come from the
+        candidate the daemon returned, never from a timer this surface started.
+        Below 40px the dial reads as present-or-expired only and the text beside
+        it carries the number; it does not claim a precision it cannot draw. At
+        <span class="mono" style="font-size: 12px;">expires_at</span> the arc is
+        gone, the centre turns red, and the row stops being a price.
+      </div>
+      <div class="body">
+        It is allowed to look like a progress ring, because that is what it is.
+        This is the one place in the system where a ring is honest: it reports a
+        real number, it changes as that number changes, and it never appears
+        where there is no quote behind it. The identity does not use it — the
+        wordmark's period is the only drawn thing in the logo, and a logo that
+        appeared to report a live number would be the one thing this product
+        cannot ship.
+      </div>
+      <div class="body">
+        The centre disc is the same period the wordmark draws, at the same
+        quarter-cap proportion. That is the whole family tie: the mark is
+        punctuation, the dial is punctuation with a measure around it.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Endorsement ───────────────────────────────────────────────────── -->
+  <div class="rule" style="margin: 40px 0;"></div>
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 48px;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="eyebrow">Endorsement</div>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div class="w" style="font-size: 28px;">decentralized</div>
+        <div style="display: flex; align-items: baseline;"><span class="d" style="width: 5px; height: 5px; margin-right: 2px;"></span><span class="w" style="font-size: 28px;">cloud</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 22px; height: 1px; background: #cecece;"></span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #636363;">an</span>
+        <span class="w" style="font-size: 18px; color: #0a0e19;">ioi</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #636363;">product</span>
+      </div>
+    </div>
+    <div class="body" style="max-width: 56ch;">
+      The endorsement sets IOI in the same face at 13px against the lockup's
+      28px, on one line, outside the clear-space boundary. Brand is not owner:
+      decentralized.cloud proposes candidates, wallet.network authorizes,
+      Hypervisor places and executes, Agentgres records what ran and what it
+      cost. The face composes those four and adds none, and this line is the
+      only place the umbrella appears.
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -372,6 +372,20 @@ function postRuntimeBond(bytes32 providerId, uint256 amount) external payable;
 function updateProviderStatus(bytes32 providerId, ProviderStatus status) external;
 ```
 
+## CloudSupplyRootRegistry
+
+Sparse commitments for contributed compute supply behind `decentralized.cloud`
+(ADR 0051 §6). A supply root commits an epoch of `CloudSupplyRegistration`
+records; a reliability stake binds an operator to delivered, receipted
+capacity; disputes reuse `DisputeRegistry`. Per-job commitments are forbidden;
+ordinary jobs settle locally.
+
+```solidity
+function commitCloudSupplyRoot(bytes32 domainId, bytes32 supplyRoot, uint256 epoch) external;
+function postSupplyReliabilityStake(bytes32 supplyId, uint256 amount) external payable;
+function challengeCloudSupplyRoot(bytes32 domainId, uint256 epoch, bytes32 evidenceRoot) external;
+```
+
 ## AttestationProfileRegistry
 
 ```solidity

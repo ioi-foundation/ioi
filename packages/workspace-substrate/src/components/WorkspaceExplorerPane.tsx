@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import type { JSX } from "react";
 import { useState } from "react";
 import { Codicon } from "./Codicon";
 import workbenchExplorerHeaderFullStrip from "../assets/workbench-explorer-header-full-strip.png";

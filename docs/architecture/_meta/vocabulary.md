@@ -938,7 +938,29 @@ shorthand. Their canonical JSON wire objects use the owner-qualified
   failover plans, spend estimates, adapter registry metadata, reliability
   evidence, cloud-picker comparison, and optimized-placement suggestions; it
   does not own provider accounts, credentials, spend authority, VM lifecycle,
-  restore truth, storage custody, Hypervisor execution, or settlement.
+  restore truth, storage custody, Hypervisor execution, or settlement. Under
+  ADR 0051 it may also be served as a standalone public product face and a
+  supply registry; brand is not owner.
+- `CloudJobRequest`: the public unit of work behind the decentralized.cloud job
+  API — a composition envelope over exactly one `CloudResourceIntent` binding
+  caller kind (`human | agent`), an authority ref (wallet grant or
+  `CapabilityLease` draw-down, never a provider credential), an existing budget
+  ref, a deadline or duration, and receipt requirements. It is not a second
+  intent type and it is not authority; a human and an agent submit the same
+  envelope and receive the same receipts.
+- `RedundancyPosture`: the caller's declaration inside a `CloudJobRequest` of
+  how many places a job must exist at once — `none | warm_standby |
+  active_active` with replica count, a hard provider-class diversity
+  requirement, an explicitly authorized budget multiplier, and a state class.
+  A placement input, never authority, never inferred; each replica is its own
+  placement, exposure, and receipt. Reactive `FailoverPlan` is available under
+  every posture.
+- `CloudSupplyRegistration`: decentralized.cloud registry metadata for
+  capacity offered behind the face by IOI managed capacity, a partner
+  provider-of-record, or an independent contributor — affiliation-disclosed,
+  evidence-bound, expiring, referencing (never owning) a Hypervisor provider
+  account. It becomes candidates only through the ordinary candidate path and
+  never receives a placement preference.
 - `TradeIntent`: the semantic wallet object above raw venue order or calldata.
   It binds venue, market, side, collateral, leverage, margin mode, order type,
   liquidation/funding assumptions, max-loss policy, simulation, risk labels,

@@ -670,6 +670,9 @@ pub(crate) async fn handle_mrun_acquire_lease(
             .cloned()
             .unwrap_or(Value::Null),
         standing_draw: None,
+        // This route has no server-resolved caller identity to bind, so the lease is
+        // issued WITHOUT a principal and no agent may draw down on it.
+        principal_binding: None,
     };
     let _ = run_receipt(
         &st.data_dir,

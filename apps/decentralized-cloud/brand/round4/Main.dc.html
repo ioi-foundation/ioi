@@ -1,0 +1,451 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .mono { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
+    .rule { height: 1px; background: #e1e1e1; }
+    .cap { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: #636363; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; padding: 44px 48px 48px;">
+  <div class="eyebrow">decentralized.* · family monogram · identity v0 — provisional, score 50</div>
+  <div class="rule" style="margin: 16px 0 32px;"></div>
+
+  <!-- ── The mark ─────────────────────────────────────────────────────── -->
+  <div style="display: flex; align-items: flex-start; gap: 34px;">
+    <svg width="150" height="150" viewBox="0 0 96 96" role="img" aria-label="the decentralized.cloud monogram on its tile">
+      <defs>
+        <!-- userSpaceOnUse, not the default objectBoundingBox: the source's three
+             gradients are conformal rotations of ONE axis, −34.75°. Left to run
+             each shape's own bounding-box diagonal they would sit at 42.5°, 42.8°
+             and 20.6° — three axes under a caption claiming one. -->
+        <linearGradient id="g1" gradientUnits="userSpaceOnUse" x1="-8.58" y1="5.95" x2="72.86" y2="-50.54">
+          <stop offset="0" stop-color="#4075fa"></stop><stop offset="1" stop-color="#41dbf9"></stop>
+        </linearGradient>
+        <linearGradient id="g2" gradientUnits="userSpaceOnUse" x1="-24.35" y1="16.89" x2="9.99" y2="-6.93">
+          <stop offset="0" stop-color="#3f4dfa"></stop><stop offset="1" stop-color="#40a3f9"></stop>
+        </linearGradient>
+        <linearGradient id="g3" gradientUnits="userSpaceOnUse" x1="-44.97" y1="31.19" x2="19.53" y2="-13.54">
+          <stop offset="0" stop-color="#3f3dfa"></stop><stop offset="1" stop-color="#41bcf9"></stop>
+        </linearGradient>
+        <mask id="mc" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+          <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+          <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+      <g mask="url(#mc)"><g transform="translate(9.500 13.743) scale(0.71369)">
+        <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="url(#g1)"></path>
+        <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="url(#g2)"></path>
+        <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="url(#g3)"></path>
+      </g></g>
+    </svg>
+
+    <svg width="150" height="150" viewBox="0 0 96 96" role="img" aria-label="the monogram flattened to design-system tokens">
+      <defs>
+        <mask id="mt" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+          <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+          <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect>
+        </mask>
+      </defs>
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+      <g mask="url(#mt)"><g transform="translate(9.500 13.743) scale(0.71369)">
+        <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+        <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+        <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+      </g></g>
+    </svg>
+
+    <div style="display: flex; flex-direction: column; gap: 22px; flex-grow: 1;">
+      <!-- The lockups. The mark is set to the EM, not the cap — see the ratio note. -->
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <svg width="38.3" height="34" viewBox="9.5 13.743 77 68.51" role="img" aria-label="mark">
+          <g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g>
+        </svg>
+        <div style="display: flex; align-items: baseline;">
+          <span class="w" style="font-size: 34px;">decentralized</span><span class="d" style="width: 6px; height: 6px; margin: 0 3px;"></span><span class="w" style="font-size: 34px;">cloud</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <svg width="29.3" height="26" viewBox="9.5 13.743 77 68.51" role="img" aria-label="mark">
+          <g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g>
+        </svg>
+        <div style="display: flex; flex-direction: column;">
+          <div class="w" style="font-size: 26px;">decentralized</div>
+          <div style="display: flex; align-items: baseline; margin-top: 2px;">
+            <span class="d" style="width: 5px; height: 5px; margin-right: 2px;"></span><span class="w" style="font-size: 26px;">cloud</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- True scale, carrying the .cloud cue: this is the mark the product ships. -->
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <svg width="32" height="32" viewBox="0 0 96 96" role="img" aria-label="the cloud mark at 32 pixels">
+          <defs><mask id="t32" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+            <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+            <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+          <g mask="url(#t32)"><g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g></g>
+        </svg>
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="the cloud mark at 24 pixels">
+          <defs><mask id="t24" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+            <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+            <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+          <g mask="url(#t24)"><g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g></g>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="the cloud mark at 16 pixels">
+          <defs><mask id="t16" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+            <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+            <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+          <g mask="url(#t16)"><g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g></g>
+        </svg>
+        <span class="cap">32px · 24px · 16px, true scale</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── The ratio change, shown once ─────────────────────────────────── -->
+  <div class="eyebrow" style="margin: 34px 0 12px;">The mark against the wordmark — before and after</div>
+  <div style="display: flex; align-items: flex-start; gap: 40px;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 10px; opacity: 0.75;">
+        <svg width="26.6" height="23.6" viewBox="9.5 13.743 77 68.51" role="img" aria-label="mark at the old ratio">
+          <g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g>
+        </svg>
+        <div style="display: flex; align-items: baseline;">
+          <span class="w" style="font-size: 34px;">decentralized</span><span class="d" style="width: 6px; height: 6px; margin: 0 3px;"></span><span class="w" style="font-size: 34px;">cloud</span>
+        </div>
+      </div>
+      <div class="cap">before — mark height = 1.000 × cap</div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+        <svg width="38.3" height="34" viewBox="9.5 13.743 77 68.51" role="img" aria-label="mark at the proposed ratio">
+          <g transform="translate(9.500 13.743) scale(0.71369)">
+            <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+            <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+            <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+          </g>
+        </svg>
+        <div style="display: flex; align-items: baseline;">
+          <span class="w" style="font-size: 34px;">decentralized</span><span class="d" style="width: 6px; height: 6px; margin: 0 3px;"></span><span class="w" style="font-size: 34px;">cloud</span>
+        </div>
+      </div>
+      <div class="cap">after — mark height = 1.429 × cap</div>
+    </div>
+  </div>
+  <div style="display: flex; margin-top: 14px;">
+    <div class="body" style="max-width: 92ch;">
+      <strong style="color: #0a0e19;">The ratio, and where it comes from.</strong>
+      The wordmark's cap is <strong style="color: #0a0e19;">0.700 em</strong>,
+      measured on a rendered specimen — D, H, O, d and the full word
+      "decentralized" all ink exactly 140px at a 200px em — which agrees with the
+      font's declared <span class="mono" style="font-size: 12px;">sCapHeight</span>
+      of 0.700. An earlier cut of this board said the rendered figure was 0.695
+      against a declared 0.700 and made a point of the difference; there is no
+      difference. 0.695 is what E alone measures, and E is not the cap.
+      Setting the mark to the cap makes it 70.0% of the em, and a compact
+      shape set to the cap of a long line of type reads smaller than the type it
+      sits beside — the eye compares total mass, not cap heights. The proposal is
+      to set the mark's full height to the EM instead: 1.429 × cap, which is 1.000
+      em. That is not a stylistic increase but the ratio at which the two occupy
+      the same vertical band, and it is stated here so it can be argued with rather
+      than adopted silently.
+    </div>
+  </div>
+
+  <!-- ── The family ───────────────────────────────────────────────────── -->
+  <div class="eyebrow" style="margin: 34px 0 12px;">The family — one slot, three blocks</div>
+  <div style="display: flex; align-items: flex-start; gap: 30px;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <svg width="66" height="66" viewBox="0 0 96 96" role="img" aria-label="cloud">
+        <defs><mask id="s1" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+          <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+          <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+        <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+        <g mask="url(#s1)"><g transform="translate(9.500 13.743) scale(0.71369)">
+          <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+          <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+          <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+        </g></g>
+      </svg>
+      <div class="cap">.cloud</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <svg width="66" height="66" viewBox="0 0 96 96" role="img" aria-label="exchange, proposed">
+        <defs><mask id="s2" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+          <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+          <rect x="15.21" y="40.63" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+        <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+        <g mask="url(#s2)"><g transform="translate(9.500 13.743) scale(0.71369)">
+          <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+          <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+          <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+        </g></g>
+      </svg>
+      <div class="cap">.exchange · proposed</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <svg width="66" height="66" viewBox="0 0 96 96" role="img" aria-label="trade, proposed">
+        <defs><mask id="s3" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+          <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+          <rect x="36.72" y="69.00" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+        <rect x="0" y="0" width="96" height="96" rx="11" fill="#f9f9f9"></rect>
+        <g mask="url(#s3)"><g transform="translate(9.500 13.743) scale(0.71369)">
+          <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+          <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+          <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+        </g></g>
+      </svg>
+      <div class="cap">.trade · proposed</div>
+    </div>
+    <div class="body" style="max-width: 52ch;">
+      <strong style="color: #0a0e19;">One system, not three accidents.</strong>
+      The cue is a single slot — one shape, one size, a real mask knockout — and
+      WHICH BLOCK carries it names the sibling. The blocks are stacked, so the
+      system has something to mean:
+      <br><br>
+      <span class="mono" style="font-size: 12px; color: #0a0e19;">.cloud</span>
+      &nbsp;the top block — where work enters and is routed.<br>
+      <span class="mono" style="font-size: 12px; color: #0a0e19;">.exchange</span>
+      &nbsp;the middle block — the matching between two sides.<br>
+      <span class="mono" style="font-size: 12px; color: #0a0e19;">.trade</span>
+      &nbsp;the bottom block — the floor where a trade settles.
+      <br><br>
+      <strong style="color: #0a0e19;">Placed by measurement.</strong> Each block is
+      eroded to find its deepest interior point, so the slot sits where the block
+      is thickest rather than where it looked right; the tightest block has 10.00
+      units of room, and that sets one slot size — 15 × 6.2 units — used in all
+      three. Differenced against the uncued base at true device pixels, the closest
+      pair differs by 8px at 16px and 16px at 24px, against a floor of three. The
+      measurement is cross-checked against the same slots rasterised large: ratios
+      1.68 and 1.49, inside the stated band, or the run fails rather than printing
+      a plausible number.
+      <br><br>
+      Because the cue is a knockout it is absent ink, so it survives one colour and
+      any ground without a second asset — and unlike an index position, a viewer
+      who knows the system can name the sibling from the mark alone.
+    </div>
+  </div>
+
+  <!-- ── Reductions ───────────────────────────────────────────────────── -->
+  <div class="eyebrow" style="margin: 34px 0 14px;">One colour · dark ground</div>
+  <div style="display: flex; align-items: center; gap: 26px;">
+    <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="one ink on paper">
+      <defs><mask id="r1" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+        <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+        <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+      <g mask="url(#r1)"><g transform="translate(9.500 13.743) scale(0.71369)">
+        <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#0a0e19"></path>
+        <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#0a0e19"></path>
+        <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#0a0e19"></path>
+      </g></g>
+    </svg>
+    <svg width="64" height="64" viewBox="0 0 96 96" role="img" aria-label="reversed on a dark ground">
+      <defs><mask id="r2" maskUnits="userSpaceOnUse" x="-20" y="-20" width="136" height="136">
+        <rect x="-20" y="-20" width="136" height="136" fill="#ffffff"></rect>
+        <rect x="65.38" y="24.03" width="15" height="6.2" rx="3.1" fill="#000000"></rect></mask></defs>
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+      <g mask="url(#r2)"><g transform="translate(9.500 13.743) scale(0.71369)">
+        <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#ffffff"></path>
+        <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#ffffff"></path>
+        <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#ffffff"></path>
+      </g></g>
+    </svg>
+    <div class="body" style="max-width: 58ch;">
+      <strong style="color: #0a0e19;">A correction, then a correction to the
+      correction.</strong> An earlier board stated as a cost that the three blocks
+      "lose their separation entirely in one colour". This board replied that
+      flood-filling the ink gives three connected regions at every size and that
+      "a point contact never renders as connected ink at any resolution". That
+      reply was wrong, and it was wrong in this construction's own favour.
+      <br><br>
+      Counted properly, the region count depends entirely on two choices the reply
+      never stated. Treating any pixel darker than paper as ink gives <strong
+      style="color: #0a0e19;">ONE</strong> region at 16, 24, 32, 64 and 256px.
+      Three appears only at a 50% alpha threshold with 4-connectivity; at 32px even
+      the 50% threshold with diagonals gives one. Antialiasing deposits coverage
+      from both shapes into the shared vertex pixel, so the blocks DO bridge — a
+      topological count was the wrong instrument for a question about what the eye
+      reads, and picking the parameters that returned the wanted answer is the
+      failure this board spent its other columns warning about.
+      <br><br>
+      What survives of the original point: over most of their boundary the blocks
+      are held apart by white counters, not by colour. What does not survive: the
+      claim that the one-ink form is three separate shapes. In one ink this is one
+      stepped silhouette. The reversed form on onyx, at right, is the exception and
+      the best reduction here — the counters open and the blocks separate optically.
+    </div>
+  </div>
+
+  <!-- ── Product bar ──────────────────────────────────────────────────── -->
+  <div class="eyebrow" style="margin: 34px 0 12px;">In the product bar</div>
+  <div style="border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 13px 18px; border-bottom: 1px solid #e1e1e1;">
+      <div style="display: flex; align-items: center; gap: 22px;">
+        <div style="display: flex; align-items: center; gap: 7px;">
+          <svg width="24.7" height="22" viewBox="9.5 13.743 77 68.51" role="img" aria-label="mark">
+            <g transform="translate(9.500 13.743) scale(0.71369)">
+              <path d="M 41.44 0.00 C 38.66 0.00 36.33 2.13 36.09 4.90 L 34.09 27.84 L 79.17 27.84 L 75.70 67.48 L 103.42 67.48 L 107.83 17.16 C 108.63 7.94 101.36 0.00 92.10 0.00 Z" fill="#41a8fa"></path>
+              <path d="M 10.57 27.84 C 7.79 27.84 5.46 29.97 5.22 32.75 L 3.14 56.51 L 26.66 56.51 C 29.45 56.51 31.77 54.39 32.01 51.61 L 34.09 27.84 Z" fill="#4078fa"></path>
+              <path d="M 17.71 68.00 C 8.93 68.07 1.66 74.86 0.97 83.61 L 0.00 96.00 L 73.47 96.00 L 75.71 67.47 Z" fill="#4078fa"></path>
+            </g>
+          </svg>
+          <div style="display: flex; align-items: baseline;">
+            <span class="w" style="font-size: 22px;">decentralized</span><span class="d" style="width: 4px; height: 4px; margin: 0 2px;"></span><span class="w" style="font-size: 22px;">cloud</span>
+          </div>
+        </div>
+        <span style="font-size: 14px; color: #0a0e19; border-bottom: 2px solid #0a0e19; padding-bottom: 3px;">Candidates</span>
+        <span style="font-size: 14px; color: #636363;">Sources</span>
+      </div>
+      <span class="mono" style="font-size: 13px; color: #636363;">24 live · 1 venue</span>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 14px; padding: 14px 18px;">
+      <span class="mono" style="font-size: 20px; color: #0a0e19;">$0.0136</span>
+      <span class="mono" style="font-size: 13px; color: #636363;">vast · good until 15:26:41Z</span>
+    </div>
+  </div>
+
+  <!-- ── The written record ───────────────────────────────────────────── -->
+  <div style="display: flex; gap: 40px; margin-top: 34px;">
+    <div style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
+      <div class="body">
+        <strong style="color: #0a0e19;">The construction, read from the source.</strong>
+        Three offset blocks with rounded corners, forming a d from stepped counters
+        rather than from a bowl. Measured on the curves with getBBox: the visible
+        mark is 107.89 × 96 source units at aspect 1.124. Corner radii cluster on
+        two values, roughly 5.1 and 16.3, so the construction uses a small corner
+        and a large one rather than a single radius. Every path on this board is
+        the source's own, translated and scaled onto the tile and never redrawn —
+        byte-identical across the base and all three siblings.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">Placement in the tile.</strong> Centred on
+        the measured ink box on both axes: 9.50 units of tile each side, 13.74
+        above and below. An earlier placement sat 20.5 above and 6.8 below — low by
+        three to one — with its side edges tight against the tile, and its tile was
+        white on white paper so there was effectively no tile to judge. The tile
+        here is a real surface.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">Colour, and what flattening costs.</strong>
+        The source carries three separate gradients on one common −34.75° axis:
+        userSpaceOnUse, three conformal rotation matrices of the same angle. The
+        gradients above are drawn that way rather than on each shape's bounding-box
+        diagonal, which would put them at 42.5°, 42.8° and 20.6° — three axes under
+        a caption claiming one. A flat form therefore cannot flatten "the" gradient,
+        because there is no single gradient: each block takes the midpoint of its
+        own ramp. Two tokens result, not three — the second and third midpoints are
+        #4078fa and #407dfa, five units apart on one channel out of 255 and
+        indistinguishable — so the three-step sweep flattens to two steps, and this
+        board says two rather than claiming three.
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
+      <div class="body">
+        <strong style="color: #0a0e19;">Against the category.</strong> Stepped
+        offset blocks in a blue-to-cyan gradient is the house style of a decade of
+        crypto and fintech marks, and this one does not escape it: the gradient, the
+        slant and the rounded blocks are the genre's three signatures at once. An
+        independent reviewer, shown it cold at 16px, read it as a "duplicate layers"
+        UI glyph rather than as a letter. That is the sharpest thing that can be
+        said against this construction and it is said here rather than left for a
+        reviewer to find.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">The period is not in the mark, by
+        decision.</strong> The one character the decentralized.* name owns is a
+        period its brand face cannot set, and it is drawn wherever the wordmark
+        appears — medial, between the two words, as it has always been. It is
+        deliberately not carried into the monogram: a mark that showed a letter and
+        a following dot would be showing the seam of the name rather than the name,
+        and at small sizes the dot read as a speck rather than as punctuation. The
+        wordmark carries the family's hinge; the mark carries the family's
+        structure. That division is the decision, not an omission.
+      </div>
+      <div class="body">
+        <strong style="color: #0a0e19;">What is still open — the four findings this
+        board did not survive.</strong> An independent review, shown this cold,
+        scored it 50 and named four things.
+        <br><br>
+        <strong style="color: #0a0e19;">The cue is missing from every lockup.</strong>
+        Of fifteen instances of the mark on this board, ten carry the slot and five
+        do not — and the five are all four lockups and the product bar. On the
+        primary brand surface, the surface a customer actually sees, all three
+        siblings are byte-identical. The family differentiates only in the app-icon
+        form. That is the heaviest finding and it is structural, not cosmetic.
+        <br><br>
+        <strong style="color: #0a0e19;">.cloud is the weakest sibling.</strong> Its
+        slot knocks out the top block, which is the palest of the three, so the
+        flagship has the least visible cue of the family. Shown four marks at 16px
+        unlabelled, the reviewer separated .exchange and .trade and could not
+        distinguish .cloud from the uncued base at all.
+        <br><br>
+        <strong style="color: #0a0e19;">At product size it reads as a UI glyph.</strong>
+        Not as a letter, and not as a d: at 24px the nearest neighbour is the
+        duplicate-layers icon that appears in the same toolbars at the same size,
+        and in one ink the skeleton reads closer to a 2 than a d, because there is
+        no ascender. The board had already conceded a cold reader might not read a
+        letter; the sharper problem is that it reads the wrong one.
+        <br><br>
+        <strong style="color: #0a0e19;">Two more measurements did not hold</strong>
+        beyond the two corrected above: the sibling separations printed here (8px
+        at 16, 16px at 24) are threshold-dependent and are not the closest pair
+        under a plain RGB difference, and the .cloud slot sits at a depth of 9.50
+        rather than the 10.00 floor this board claims, with its block's deepest
+        point 1.9 units away. The radii cluster is reported as "roughly 5.1 and
+        16.3" where the measured values are 5.37, 15.80 and 16.94 — the large pair
+        is 7% apart and is not one value.
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

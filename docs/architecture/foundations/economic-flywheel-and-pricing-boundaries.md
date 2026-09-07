@@ -843,6 +843,17 @@ Optimized placement
   route, procure, fail over, reconcile, or aggregate provider billing
   a visible routing/procurement fee is legitimate only when it creates routing
   value and produces challengeable placement/routing evidence
+  the fee exists only as a minted RoutingDecisionReceipt, mintable only when
+  at least two real (non-simulator, evidence-bearing, unexpired) candidates
+  were compared (ADR 0051); the decentralized.cloud public job API is this
+  lane under a brand, priced identically
+
+Contributed supply
+  an independent operator registers capacity behind decentralized.cloud
+  the operator is paid for delivered, receipted capacity under the declared
+  settlement profile; IOI may take a registry/settlement margin only for
+  registry operation, reliability staking, dispute handling, and settlement
+  it actually performs, and never a placement preference
 ```
 
 Do not charge because "a VM exists." Charge because Hypervisor provides the
@@ -868,6 +879,10 @@ Optimized placement:
 
 Managed infrastructure:
   Work Credits, margin, support, reserved capacity, or provider-of-record fee
+
+Contributed supply behind decentralized.cloud:
+  registry, staking, dispute, or settlement margin for work performed; never a
+  spread taken by preferring first-party supply
 ```
 
 Foundry is priced as Hypervisor usage and capability-building work. Do not turn

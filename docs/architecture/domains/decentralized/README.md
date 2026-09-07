@@ -10,9 +10,9 @@ venue-intelligence services, or cloud-resource intelligence services as
 authority layers, custody owners, execution owners, mandatory gateways, or
 trust roots.
 Superseded by: none.
-Last alignment pass: 2026-07-05.
+Last alignment pass: 2026-09-04 (ADR 0051 public-face clause).
 Doctrine status: canonical
-Implementation status: mixed (cloud lane built; exchange/trade SDK seams only)
+Implementation status: mixed (cloud candidate lane built, cloud public face planned; exchange/trade SDK seams only)
 Last implementation audit: 2026-07-05
 
 ## Canonical Definition
@@ -41,6 +41,13 @@ lightweight standalone surfaces, and `decentralized.cloud` may have provider
 explorers, quote views, adapter registries, or status surfaces. The canonical
 user does not need to leave Wallet or Hypervisor to exchange, trade, or place
 workloads.
+
+`decentralized.cloud` may additionally be a standalone public product face
+([ADR 0051](../../../decisions/0051-decentralized-cloud-public-face-job-primitive-and-supply-registry.md)):
+a public candidate API/SDK/explorer and a branded job API that third-party
+callers, human or agent, use directly. Direct use changes the front door only;
+wallet.network still authorizes, Hypervisor still executes, Agentgres still
+records, and Hypervisor users keep their direct provider choices.
 
 ```text
 Candidates are proposed.

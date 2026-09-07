@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @font-face { font-family: "IOI Display"; src: url(data:font/ttf;base64,__B64_IOI__) format("truetype"); font-weight: 400 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS__) format("woff2"); font-weight: 400; font-style: normal; }
+    @font-face { font-family: "ABC Diatype"; src: url(data:font/woff2;base64,__B64_SANS_BOLD__) format("woff2"); font-weight: 700; font-style: normal; }
+    @font-face { font-family: "ABC Diatype Mono"; src: url(data:font/woff2;base64,__B64_MONO__) format("woff2"); font-weight: 400; font-style: normal; }
+    body { margin: 0; background: #ffffff; color: #0a0e19;
+      font-family: "ABC Diatype", ui-sans-serif, system-ui, Helvetica, Arial, sans-serif; }
+    a { color: #397554; } a:hover { color: #3e7f5c; }
+    .eyebrow { font-family: "ABC Diatype Mono", ui-monospace, Menlo, monospace; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase; color: #636363; }
+    .w { font-family: "IOI Display", "ABC Diatype", sans-serif; font-weight: 400;
+      letter-spacing: 0.01em; line-height: 1; white-space: nowrap; }
+    .body { font-size: 13px; line-height: 1.55; color: #636363; }
+    .d { display: inline-block; border-radius: 50%; background: #397554; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; padding: 40px 44px 44px;">
+  <div class="eyebrow">Direction B — the convergence</div>
+  <div style="height: 1px; background: #e1e1e1; margin: 16px 0 36px;"></div>
+
+  <div style="display: flex; align-items: center; gap: 44px;">
+    <svg width="160" height="160" viewBox="0 0 96 96" role="img" aria-label="Direction B icon">
+      <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+      <!-- Six approaches on six bearings, every one aimed at the centre, every one a
+           different length: 22, 16, 26, 12, 20 and 14 units of the 96-unit grid. -->
+      <g stroke="#818181" stroke-width="3" stroke-linecap="butt">
+        <line x1="48" y1="8" x2="48" y2="30"></line>
+        <line x1="77.4" y1="31.0" x2="63.6" y2="39.0"></line>
+        <line x1="89.3" y1="63.0" x2="64.9" y2="54.2"></line>
+        <line x1="55.8" y1="77.0" x2="52.7" y2="65.4"></line>
+        <line x1="18.9" y1="72.4" x2="34.2" y2="59.6"></line>
+        <line x1="16.5" y1="42.4" x2="30.3" y2="44.9"></line>
+      </g>
+      <circle cx="48" cy="48" r="11" fill="#7bbd97"></circle>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 22px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div class="w" style="font-size: 28px;">decentralized</div>
+        <div style="display: flex; align-items: baseline;"><span class="d" style="width: 5px; height: 5px; margin-right: 2px;"></span><span class="w" style="font-size: 28px;">cloud</span></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <svg width="24" height="24" viewBox="0 0 96 96" role="img" aria-label="Direction B at 24 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <g stroke="#818181" stroke-width="6" stroke-linecap="butt">
+            <line x1="48" y1="10" x2="48" y2="30"></line>
+            <line x1="86" y1="48" x2="66" y2="48"></line>
+            <line x1="14" y1="48" x2="30" y2="48"></line>
+            <line x1="55.8" y1="79" x2="51.6" y2="63"></line>
+          </g>
+          <circle cx="48" cy="48" r="13" fill="#7bbd97"></circle>
+        </svg>
+        <svg width="16" height="16" viewBox="0 0 96 96" role="img" aria-label="Direction B at 16 pixels">
+          <rect x="0" y="0" width="96" height="96" rx="11" fill="#0a0e19"></rect>
+          <g stroke="#818181" stroke-width="9" stroke-linecap="butt">
+            <line x1="48" y1="8" x2="48" y2="28"></line>
+            <line x1="88" y1="48" x2="68" y2="48"></line>
+            <line x1="8" y1="48" x2="28" y2="48"></line>
+          </g>
+          <circle cx="48" cy="48" r="15" fill="#7bbd97"></circle>
+        </svg>
+        <span class="eyebrow" style="text-transform: none; letter-spacing: 0.02em;">24px · 16px</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 14px; margin-top: 40px;">
+    <div class="body">
+      <strong style="color: #0a0e19;">The case.</strong> Six approaches of
+      unequal length arrive at one point: many venues, one placement. The
+      unevenness is the honest part — the venues are not alike, and the router
+      does not pretend they are.
+    </div>
+    <div class="body">
+      <strong style="color: #0a0e19;">The tradeoff.</strong> It does not read as a
+      router. Ticks radiating outward from a filled disc read as a sun or a
+      brightness control — they leave the centre rather than arrive at it — and
+      the 24px and 16px reductions drop to four ticks and three, so "six of
+      unequal length" survives only at display size. It also says nothing about
+      evidence or expiry, which is the part that separates this product from a
+      price aggregator.
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
