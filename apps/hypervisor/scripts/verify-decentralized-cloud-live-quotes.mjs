@@ -147,6 +147,27 @@ async function run() {
   const candidates = refreshRes.j.candidates || [];
   const now = Date.now();
 
+  // ── `?latest=true` returns ONE cohort, and says what it set aside. ──
+  // A long-lived intent accumulates every sweep ever run against it, so the default
+  // read mixes cohorts: a price observed minutes ago sits beside one from a fortnight
+  // ago, distinguishable only by batch. Exercised once here because a consumer asking
+  // "what is true now" must get one batch AND be told how much it did not get — a
+  // truncated read that looks complete is worse than a large honest one.
+  const allRead = await jd("GET", `/v1/hypervisor/cloud-candidates/candidates?intent_ref=${encodeURIComponent(intentRef)}`);
+  const latestRead = await jd("GET", `/v1/hypervisor/cloud-candidates/candidates?intent_ref=${encodeURIComponent(intentRef)}&latest=true`);
+  const allSel = allRead.j?.selection || {};
+  const latestSel = latestRead.j?.selection || {};
+  ok("the default candidates read is unchanged — every candidate, no subset",
+    allRead.status === 200 && allSel.latest_batch_only === false && allSel.returned === allSel.considered,
+    `returned ${allSel.returned} of ${allSel.considered}`);
+  ok("latest=true returns one batch and reports what it set aside",
+    latestRead.status === 200 && latestSel.latest_batch_only === true
+      && latestSel.returned <= latestSel.considered && latestSel.considered === allSel.considered,
+    `returned ${latestSel.returned} of ${latestSel.considered} considered`);
+  const latestBatches = [...new Set((latestRead.j?.candidates || []).map((c) => c.batch))];
+  ok("every candidate in a latest read belongs to the SAME batch",
+    latestBatches.length <= 1, `${latestBatches.length} batch(es)`);
+
   const live = candidates.filter((c) => classifyCandidate(c, now).live);
   const venues = liveVenues(candidates, now);
   const liveSources = [...new Set(live.map((c) => c.source))].sort();
