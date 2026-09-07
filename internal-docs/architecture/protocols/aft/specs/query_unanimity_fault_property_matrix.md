@@ -1391,3 +1391,13 @@ shows a later startup and no later nonce event (the fixture's armed crash
 window). Evidence: `evidence/m17q-r2-retired-sync-2026-09-07/`. This
 establishes the orchestration rule for these two campaigns only; it is not a
 reconfiguration proof and grants no observer profile to retired members.
+
+### PQ timeout drill bootstrap-window evidence (2026-09-07)
+
+Fixture scope correction, no row change: the mandatory `pq_ordering_restart`
+drill rejected a genuine scoped timeout certificate formed for a late-launched
+round-robin leader before the drill baseline (launch stagger 33–36 s against
+the 30 s view timeout). The drill now requires every embedded certificate to
+name its own block height, records pre-baseline certificates, and applies the
+scheduled-failure rule only inside the drill window. Evidence and the
+rejected clean-run phase: `evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/`.

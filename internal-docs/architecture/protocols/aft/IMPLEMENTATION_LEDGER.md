@@ -4122,3 +4122,27 @@ tooling; the release-lane runtime is unchanged.
 Disposition: unchanged (M15Q reopened, M16Q R2 unqualified, M17Q
 `REPAIR_REQUIRED`, M18Q `NOT_ADMITTED`). Next: definitive clean full M16Q R2
 run from this commit.
+
+### Second clean R2 attempt and PQ drill fixture correction (2026-09-07)
+
+The clean full M16Q R2 run on `f41ba3b41` (`20260907T074926Z-f41ba3b416ac`)
+passed 61 phases in 7230 s, including the complete formal corpus (2835 s),
+every QUV unit, mutation, reservation and process gate (single-correct 659 s,
+flood 601 s, status squat 198 s, consecutive readiness 419 s, disjoint handoff
+336 s and overlap 280 s with evidence maxima 721 ms and 697 ms, hash-async
+process 1101 s, the new `quv_successor_root_gate` phase), and then failed the
+non-QUV `pq_ordering_restart` drill: the fourth validator launched 36 s after
+the third (serialized key encryption) and was the round-robin leader for
+height 2, so the three running nodes formed a genuine exact-q=3 scoped
+timeout certificate for height 2 before the drill baseline, and the fixture
+rejected any certificate not at its scheduled failure height. The engine
+already requires an embedded certificate to authorize its own slot. The
+fixture now requires `certificate.height == height` for every block (stronger),
+records a pre-baseline certificate as bootstrap-window evidence, and confines
+the "only the scheduled failure" rule to the drill window. No runtime,
+deadline, timeout, envelope or bound changed. The drill passed standalone on
+the corrected fixture (399 s; that run had no pre-baseline timeout, so the
+retained failed phase is the control for the new branch). Evidence:
+`evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/`; the run directory
+is retained outside the candidate as history. The definitive clean run
+restarts from the commit carrying this correction. Dispositions unchanged.

@@ -3642,13 +3642,34 @@ async fn test_aft_pq_four_validator_timeout_quorum_and_restart() -> Result<()> {
                         certificate.votes.len()
                     ));
                 }
-                if certificate.height != timeout_height {
+                // The engine only admits a scoped certificate that authorizes
+                // the proposal's own slot; a certificate for another height in
+                // any block is a protocol defect, not a drill artifact.
+                if certificate.height != height {
                     return Err(anyhow::anyhow!(
-                        "block {height} carried timeout evidence for unexpected height {}",
+                        "block {height} carried timeout evidence for a different height {}",
                         certificate.height
                     ));
                 }
-                saw_timeout_certificate = true;
+                if height <= baseline {
+                    // Validators launch serially (their key encryption is
+                    // serialized) and consensus starts once the bootstrap peer
+                    // set is satisfied, so a round-robin leader that has not
+                    // launched within the 30 s view timeout produces a genuine
+                    // scoped timeout before the drill baseline. That is the
+                    // protocol working for a late leader, not the scheduled
+                    // leader failure; record it and keep the drill window
+                    // exact.
+                    println!(
+                        "--- PQ AFT bootstrap-window timeout evidence at height {height} (pre-baseline, late-launched leader); not the drill ---"
+                    );
+                } else if height != timeout_height {
+                    return Err(anyhow::anyhow!(
+                        "drill-window block {height} carried timeout evidence outside the scheduled leader failure at {timeout_height}"
+                    ));
+                } else {
+                    saw_timeout_certificate = true;
+                }
             }
             if height > 1 && block.header.parent_qc.signatures.len() == 3 {
                 saw_exact_q_parent = true;

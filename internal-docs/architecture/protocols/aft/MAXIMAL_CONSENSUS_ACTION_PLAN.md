@@ -683,3 +683,9 @@ ledger entry of the same date); both handoff campaigns pass standalone on the
 fixed tree. The definitive clean full M16Q R2 run must start from the commit
 that carries this repair. Dispositions are unchanged until that run, the
 immutable R2 tag and the fresh independent review exist.
+
+The second clean R2 run on `f41ba3b41` passed all 61 QUV and formal phases
+and failed only the PQ timeout drill on a bootstrap-window certificate for a
+late-launched leader; the fixture assertion is corrected
+(`evidence/m17q-r2-pq-drill-bootstrap-timeout-2026-09-07/`) and the
+definitive clean run restarts from that commit.
