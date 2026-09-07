@@ -35,8 +35,9 @@ live-text header, and the replica engine's constants.
 kept and two adaptations — the stage is the mark's own box, and the wordmark is set
 beside it as live text in IOI Display (owner ruling, 2026-09-05: one run per line, no
 drawn letters). It pauses in hidden tabs; under reduced motion the owner's
-`mark-dark.svg` stands verbatim. The 56px header cannot hold the 2.65× ratio legibly
-and wears a compact setting (mark 1.9× the wordmark block).
+`mark-dark.svg` stands verbatim. The header follows the owner's lockup rule — the
+mark 2.65× the wordmark block, the gap 7.5% of the mark's width — at a 20px block in
+a 64px bar (owner, 2026-09-07: the mark is bigger than the wordmark on every lockup).
 
 **Tokens added** to `packages/design-system/tokens/colors.css`:
 `--color-dc-cut-face-lit #2b4fb0`, `-side #23409a`, `-shade #1b2f72`, `-deep #101f4e`

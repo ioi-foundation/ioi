@@ -253,6 +253,17 @@ before scrolling, so the state that the filters act on is off-screen (open).
 |---|---|---|
 | Jobs & receipts | 3 9 6 7 6 7 7 6 → 7 9 7 7 8 7 8 7 | `007-jobs-r2/receipts-1440.png`, `receipts-390.png` |
 
+## Iteration 008 — the header lockup at the owner's ratio (2026-09-07, owner-directed)
+
+The owner: the mark is bigger than the wordmark on every lockup. The header now
+follows the rule exactly — mark 2.65× the wordmark block, gap 7.5% of the mark's
+width — at a 20px block, and the top bar grew from 56 to 64px to hold it; the rail
+and the sticky table heads follow a `--topbar-h` token. Measured in a browser at
+1440 and 390: mark 53px tall over a 20px wordmark block (ratio 2.65), gap 6.67px
+(7.49% of the mark's width), lockup 217.5px wide, no horizontal overflow. Captures:
+scratch `lockup-265-1440.png`, `lockup-265-390.png`. The compact 1.9× deviation is
+retired from the audit's open items.
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
