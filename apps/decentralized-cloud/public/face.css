@@ -218,6 +218,14 @@ a:hover { color: #3e7f5c; }
 .nav button[aria-current="page"] { background: var(--paper); box-shadow: inset 3px 0 0 var(--ink);
   color: var(--ink); }
 .rail-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* THE CATALOGUE ANCHORS under "All resources": indented links, one per resource
+   family, the open one marked in ink with the rail's edge bar. */
+.rail-item { display: flex; flex-direction: column; }
+.rail-sub { list-style: none; margin: 0; padding: 2px 0 6px; display: flex; flex-direction: column; gap: 1px; }
+.rail-sub a { display: block; padding: 4px 8px 4px 22px; border-radius: 7px; font-size: 13px;
+  color: var(--label); text-decoration: none; }
+.rail-sub a:hover { color: var(--ink); background: var(--hairline-soft); }
+.rail-sub a[aria-current="location"] { color: var(--ink); box-shadow: inset 3px 0 0 var(--ink); background: var(--paper); }
 /* An unwired surface carries the absence affordance in the rail as well: a dashed
    ring, the same device the absent chip and the unwired panel wear. */
 .rail-mark { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
@@ -693,6 +701,11 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .rail-group { flex-direction: row; flex-wrap: wrap; gap: 4px 6px; }
   .rail-eyebrow { display: none; }
   .nav button { width: auto; min-height: 30px; padding: 4px 10px; }
+  /* In a row the anchors sit beside "All resources" as the same kind of chip. */
+  .rail-item { flex-direction: row; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  .rail-sub { flex-direction: row; flex-wrap: wrap; gap: 4px 6px; padding: 0; }
+  .rail-sub a { padding: 4px 10px; }
+  .rail-sub a[aria-current="location"] { box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
   /* In a row, "you are here" is an underline, not an edge bar. */
   .nav button[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
   .rail-foot { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; align-items: center;

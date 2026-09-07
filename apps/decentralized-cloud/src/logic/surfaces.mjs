@@ -82,12 +82,36 @@ export const DEFAULT_SURFACE = "home";
 
 export const isSurface = (name) => SURFACE_IDS.includes(name);
 
+// CATALOGUE ANCHORS. A console's rail lists its product families under "all
+// products"; here they are the canon's resource categories, and each is an address
+// of the form #/catalog/<category> that opens the catalogue at that category alone.
+// The anchors are not surfaces — they are views of one surface — so the registry
+// stays twelve entries and the rail's buttons stay the gate's sweep. Only the four
+// families a console user looks for first are anchored; the rest stay in the full
+// catalogue.
+export const CATALOG_ANCHORS = [
+  { id: "compute", label: "Compute" },
+  { id: "storage", label: "Storage" },
+  { id: "network", label: "Networking" },
+  { id: "runtime", label: "Runtime" },
+];
+const isAnchor = (id) => CATALOG_ANCHORS.some((a) => a.id === id);
+
+const parts = (hash) => String(hash || "").replace(/^#\/?/, "").split("/");
+
 export const surfaceFromHash = (hash) => {
-  const name = String(hash || "").replace(/^#\/?/, "");
+  const name = parts(hash)[0];
   return isSurface(name) ? name : DEFAULT_SURFACE;
 };
 
+// The category an address opens the catalogue at, or null for the whole catalogue.
+export const catalogCategoryFromHash = (hash) => {
+  const [name, sub] = parts(hash);
+  return name === "catalog" && isAnchor(sub) ? sub : null;
+};
+
 export const hashForSurface = (name) => `#/${isSurface(name) ? name : DEFAULT_SURFACE}`;
+export const hashForCategory = (id) => (isAnchor(id) ? `#/catalog/${id}` : hashForSurface("catalog"));
 
 // The rail's search. It matches a surface by label or id, case-insensitively, and
 // returns the registry order — a filter, not a ranking, because a ranking of twelve

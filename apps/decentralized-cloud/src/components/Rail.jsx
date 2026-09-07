@@ -1,4 +1,4 @@
-import { SURFACES, GROUPS } from "../logic/surfaces.mjs";
+import { SURFACES, GROUPS, CATALOG_ANCHORS, hashForCategory } from "../logic/surfaces.mjs";
 
 // THE PRODUCT RAIL — the console's left edge.
 //
@@ -20,7 +20,11 @@ import { SURFACES, GROUPS } from "../logic/surfaces.mjs";
 // capability chip is GENERATED from the route table the proxy dispatches from, so
 // adding a write changes it in the same edit; the gate compares the rendered text
 // against the generator.
-export default function Rail({ surface, go, matches, daemonHost, capabilityChip }) {
+//
+// THE CATALOGUE ANCHORS sit under "All resources" as links (not buttons: they are
+// addresses of one surface, not surfaces), each opening the catalogue at one
+// category. `category` is the one open now, marked aria-current="location".
+export default function Rail({ surface, go, matches, daemonHost, capabilityChip, category = null }) {
   return (
     <nav className="nav console-rail" aria-label="Surfaces">
       {GROUPS.map((g) => {
@@ -30,25 +34,40 @@ export default function Rail({ surface, go, matches, daemonHost, capabilityChip 
           <div key={g.id} className="rail-group" role="group" aria-label={g.label || "Console"}>
             {g.label && <div className="rail-eyebrow">{g.label}</div>}
             {items.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                data-surface={s.id}
-                hidden={matches ? !matches.has(s.id) : false}
-                {...(s.id === surface ? { "aria-current": "page" } : {})}
-                onClick={() => go(s.id)}
-              >
-                <span className="rail-label">{s.label}</span>
-                {/* An unwired surface is marked in the rail too, not only on its own
-                    page: a reader deciding where to click is owed the fact before the
-                    click, not after. */}
-                {!s.wired && (
-                  <>
-                    <span className="rail-mark" aria-hidden="true" />
-                    <span className="sr-only"> — designed, not connected</span>
-                  </>
+              <div key={s.id} className="rail-item">
+                <button
+                  type="button"
+                  data-surface={s.id}
+                  hidden={matches ? !matches.has(s.id) : false}
+                  {...(s.id === surface ? { "aria-current": "page" } : {})}
+                  onClick={() => go(s.id)}
+                >
+                  <span className="rail-label">{s.label}</span>
+                  {/* An unwired surface is marked in the rail too, not only on its own
+                      page: a reader deciding where to click is owed the fact before the
+                      click, not after. */}
+                  {!s.wired && (
+                    <>
+                      <span className="rail-mark" aria-hidden="true" />
+                      <span className="sr-only"> — designed, not connected</span>
+                    </>
+                  )}
+                </button>
+                {s.id === "catalog" && !matches && (
+                  <ul className="rail-sub" aria-label="Resource categories">
+                    {CATALOG_ANCHORS.map((a) => (
+                      <li key={a.id}>
+                        <a
+                          href={hashForCategory(a.id)}
+                          {...(surface === "catalog" && category === a.id ? { "aria-current": "location" } : {})}
+                        >
+                          {a.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </button>
+              </div>
             ))}
           </div>
         );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface, searchSurfaces } from "./logic/surfaces.mjs";
+import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface, searchSurfaces, catalogCategoryFromHash } from "./logic/surfaces.mjs";
 import { forget } from "./logic/read.mjs";
 import { capabilitySentences } from "./logic/capability.mjs";
 import Topbar from "./components/Topbar.jsx";
@@ -49,12 +49,19 @@ export default function App() {
   );
   const [announcement, setAnnouncement] = useState("");
   const [query, setQuery] = useState("");
+  // The catalogue category an address opens at, or null for the whole catalogue.
+  const [category, setCategory] = useState(() =>
+    typeof location === "undefined" ? null : catalogCategoryFromHash(location.hash)
+  );
   const mainRef = useRef(null);
 
   // Back and Forward move between surfaces rather than out of the app. `hashchange`
   // fires for both, and for someone pasting a link into an already-open tab.
   useEffect(() => {
-    const onHash = () => setSurface(surfaceFromHash(location.hash));
+    const onHash = () => {
+      setSurface(surfaceFromHash(location.hash));
+      setCategory(catalogCategoryFromHash(location.hash));
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -67,8 +74,11 @@ export default function App() {
   // to a price and to a source's health.
   const go = useCallback((name) => {
     if (name !== "candidates") forget("candidates:paint");
-    if (surfaceFromHash(location.hash) !== name) location.hash = hashForSurface(name);
+    // A rail button opens the WHOLE surface: pressing "All resources" while a
+    // category is open returns to the full catalogue, which is what the label says.
+    if (location.hash !== hashForSurface(name)) location.hash = hashForSurface(name);
     setSurface(name);
+    setCategory(null);
   }, []);
 
   // The search filters the rail. Every surface matches an empty query, so the rail is
@@ -109,6 +119,7 @@ export default function App() {
           matches={query.trim() ? matches : null}
           daemonHost={typeof location === "undefined" ? "—" : location.host}
           capabilityChip={CAPABILITY.chip}
+          category={category}
         />
 
         {/* Announce WHAT CHANGED, not the document. `aria-live` used to sit on <main>,
@@ -120,7 +131,7 @@ export default function App() {
         {/* `tabIndex={-1}` because the skip link above is inert without it: a browser
             will not move focus to an element that cannot receive it. */}
         <main id="surface" tabIndex={-1} ref={mainRef}>
-          <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} />
+          <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} />
         </main>
       </div>
     </>

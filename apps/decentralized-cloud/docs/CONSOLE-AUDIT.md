@@ -264,6 +264,33 @@ and the sticky table heads follow a `--topbar-h` token. Measured in a browser at
 scratch `lockup-265-1440.png`, `lockup-265-390.png`. The compact 1.9× deviation is
 retired from the audit's open items.
 
+## Iteration 009 — catalogue anchors in the rail (2026-09-07)
+
+**Should look and feel like:** the product families a console lists under "all
+products" — Compute, Storage, Networking, Runtime — as sub-entries under All
+resources, each an address (`#/catalog/<family>`) that opens the catalogue at that
+family alone with its own heading, a crumb back, and counts scoped to the family.
+**Routes:** candidate-sources and candidates latest, unchanged; no new surface — the
+anchors are views of one surface, so the registry and the gate's sweep are unchanged.
+
+Captures: `.artifacts/console/009-anchors/` (four families × 1440 and 390, each
+labelled with the wait it observed); scratch `anchor-compute-1440.png`,
+`anchor-compute-390.png`.
+
+What the captures show. At 1440 the rail shows the four anchors indented under All
+resources with Compute marked by the edge bar; the page is headed "Compute" with a
+crumb "All resources · Compute", the family's four classes in one table, no hero.
+Pressing All resources in the rail returns to the whole catalogue (hash `#/catalog`,
+hero back, six categories). At 390 the anchors sit as chips in the rail row. Measured:
+h1 = the family name, `aria-current="location"` on the open anchor, no horizontal
+overflow at either width. Round 1 defect, fixed in the same iteration: the family
+page said "0 quoting live prices" before the candidates read landed — the line now
+says "asking the daemon" until it does.
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| All resources (catalogue) + anchors | 7 9 7 8 6 7 7 7 → 8 9 7 8 6 7 7 7 | `009-anchors/catalog-compute-1440.png`, `-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
@@ -271,8 +298,7 @@ retired from the audit's open items.
 3. ~~Spend wired to budgets~~ — landed in iteration 004.
 4. ~~Sources & health as a health panel~~ — landed in iteration 006.
 5. ~~Jobs list as a resource table~~ — landed in iteration 007 (sort, filter, sticky head at ≥1300).
-6. **Catalogue anchors** — Compute / Storage / Network / Runtime as rail entries that
-   open the catalogue filtered.
+6. ~~Catalogue anchors~~ — landed in iteration 009.
 7. **Candidates**: sort and filter controls, sticky header.
 8. Phone chrome: ~430px before the h1 at 390 (`001-shell-r2/supply-390.png`); the
    hero's routing drawing at 390; chip wrap mid-token on Sources.

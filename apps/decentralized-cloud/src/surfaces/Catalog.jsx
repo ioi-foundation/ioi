@@ -20,7 +20,11 @@ import Hero from "../components/Hero.jsx";
 
 const money = (n) => (typeof n === "number" ? `$${n.toFixed(4)}/hr` : null);
 
-export default function Catalog({ announce }) {
+// `category` is the catalogue anchor an address opened this at (#/catalog/compute),
+// or null for the whole catalogue. An anchor view is the same read and the same
+// tables, narrowed to one category, with its own heading and a way back; the hero
+// belongs to the whole catalogue and is not drawn on an anchor.
+export default function Catalog({ announce, category = null }) {
   const sources = useSurfaceRead("sources", "/api/candidate-sources");
   const cands = useSurfaceRead(
     "candidates",
@@ -55,10 +59,18 @@ export default function Catalog({ announce }) {
   const venuesQuoting = liveByVenue.size;
   const considered = typeof cands.data?.selection?.considered === "number" ? cands.data.selection.considered : null;
 
+  const shownCategories = category ? categories.filter((c) => c.id === category) : categories;
+  const title = category ? (shownCategories[0]?.title || category) : "All resources";
+
   useEffect(() => {
     if (sources.phase === "first") return;
-    announce(`All resources — ${counts.quoting} quoting, ${counts.answering} answering, ${counts.planned} not yet a source`);
-  }, [sources.phase, counts.quoting, counts.answering, counts.planned, announce]);
+    announce(`${title} — ${counts.quoting} quoting, ${counts.answering} answering, ${counts.planned} not yet a source`);
+  }, [sources.phase, title, counts.quoting, counts.answering, counts.planned, announce]);
+
+  // The heading: the hero's statement is the page's h1 on the whole catalogue, so
+  // the catalogue's own heading is an h2 there; on an anchor there is no hero and
+  // the category is the h1.
+  const Heading = category ? "h1" : "h2";
 
   // THE HERO PAINTS FIRST, AND THE CATALOG WAITS BENEATH IT. The sources read runs
   // about half a minute and the catalog needs it; the hero needs the candidates read,
@@ -68,10 +80,10 @@ export default function Catalog({ announce }) {
   if (sources.phase === "first") {
     return (
       <div className="stack catalog-page">
-        <Hero />
+        {!category && <Hero />}
         {/* The heading is an h2 here: the hero's statement is the page's one h1, and a
             waiting block that minted a second one would give the page two. */}
-        <h2 className="catalog-h">All resources</h2>
+        <Heading className="catalog-h">{title}</Heading>
         <Waiting
           what="the list of candidate sources — the quote above is already live; the catalog is what is still coming"
           title={null}
@@ -92,14 +104,19 @@ export default function Catalog({ announce }) {
 
   const view = (
     <div className="stack catalog-page">
-      <Hero />
+      {!category && <Hero />}
       <div className="catalog-head">
         <div className="stack catalog-title">
-          <h2 className="catalog-h">All resources</h2>
+          {category && (
+            <p className="meta">
+              <a className="entry-name" href={hashForSurface("catalog")}>All resources</a> · {title}
+            </p>
+          )}
+          <Heading className="catalog-h">{title}</Heading>
           <p className="prose catalog-lede">
-            One request, any venue. This is everything the router can place work on,
-            by category, with the state each supply source is in right now — read from
-            the daemon, not from a brochure.
+            {category
+              ? `Every ${title.toLowerCase()} class the router can be asked for, and every venue or network that can supply it, with the state each supply source is in right now — read from the daemon, not from a brochure.`
+              : "One request, any venue. This is everything the router can place work on, by category, with the state each supply source is in right now — read from the daemon, not from a brochure."}
           </p>
         </div>
         <div className="stack catalog-now">
@@ -116,8 +133,21 @@ export default function Catalog({ announce }) {
               sources: counts.sources,
             })}
           </p>
+          {/* ON AN ANCHOR THE COUNTS ARE THE CATEGORY'S. The whole-catalogue line
+              counted every entry while the page showed one family — a Compute page
+              saying "14 answering" over four classes. The population line above stays:
+              it names its sets, which are the intent's and not the page's. */}
           <p className="meta">
-            {counts.quoting} quoting · {counts.answering} answering · {counts.planned} not yet a source ·
+            {category
+              ? `${shownCategories.reduce((n, c) => n + c.classes.length, 0)} classes · ` +
+                `${shownCategories.reduce((n, c) => n + c.classes.reduce((m, cls) => m + cls.entries.length, 0), 0)} venues or networks · ` +
+                // The live count comes from the candidates read, which lands separately
+                // from the sources read; before it lands the page said "0 quoting",
+                // which is a number, not a wait. A 390 capture caught it.
+                (cands.data
+                  ? `${shownCategories.reduce((n, c) => n + c.classes.reduce((m, cls) => m + cls.entries.filter((e) => e.state.live).length, 0), 0)} quoting live prices for this intent · `
+                  : "live prices: asking the daemon · ")
+              : `${counts.quoting} quoting · ${counts.answering} answering · ${counts.planned} not yet a source · `}
             read at {stamp(sources.at)} in {duration(sources.ms)}
           </p>
         </div>
@@ -140,9 +170,9 @@ export default function Catalog({ announce }) {
         </p>
       </div>
 
-      <Eyebrow>resources by category</Eyebrow>
+      <Eyebrow>{category ? `${title} — resource classes` : "resources by category"}</Eyebrow>
       <div className="catalog">
-        {categories.map((cat) => {
+        {shownCategories.map((cat) => {
           const rows = cat.classes.flatMap((cls) =>
             cls.entries
               .filter((e) => matches(`${cls.label} ${cls.id} ${e.name} ${e.kind} ${e.state.word}`))
