@@ -131,6 +131,12 @@ are not automatically promoted into authority.
 - QUV supplies accepted-value non-conflict, not global payload availability.
   Q-EA7 therefore requires the complete state/predecessor payload be installed
   durably by each correct new member before activation.
+- Successor-root history that reaches a process as synced or gossiped bytes
+  does not activate it. A staged new member adopts blocks at or beyond the
+  activation height only after its own durable install gate has activated;
+  a process with no successor identity (a retired old member) refuses them
+  and stops. Neither a height nor a chain a process has merely followed is
+  successor authority.
 - Query-flood admission capacity, disk flush latency, clock error, and external
   endpoint latency must be measured against the rooted bounds in M16Q.
 - The current executor retains the runtime-finality lock while revalidating

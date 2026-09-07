@@ -394,6 +394,14 @@ for required_case in already_executed_prefix_is_skipped_only_on_exact_tip_hash_m
   fi
 done
 require_tests_ran quv_consequence_wait_lock
+run_phase quv_successor_root_gate cargo test --locked -p ioi-validator --features consensus-aft --lib standard::orchestration::consensus::production::tests::quv_
+require_tests_ran quv_successor_root_gate
+for required_case in quv_successor_root_gate_refuses_retired_and_defers_uninstalled_successor quv_post_activation_restart_stays_on_old_root_until_local_gate_recovers; do
+  if ! grep -Eq "^test standard::orchestration::consensus::production::tests::${required_case} \.\.\. ok$" "${OUTPUT_DIR}/quv_successor_root_gate.log"; then
+    echo "[M16Q] FAIL quv_successor_root_gate: missing passing successor-root gate regression ${required_case}" >&2
+    exit 1
+  fi
+done
 run_phase quv_runtime_policy cargo test --locked -p ioi-validator --features consensus-aft --lib standard::orchestration::quv::
 require_tests_ran quv_runtime_policy
 if ! grep -Eq '^test standard::orchestration::quv::tests::reserved_preparation_owns_capacity_and_checks_service_edges \.\.\. ok$' "${OUTPUT_DIR}/quv_runtime_policy.log"; then

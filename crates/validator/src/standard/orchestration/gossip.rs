@@ -554,6 +554,40 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
         }
         return;
     }
+    // Gossiped bytes grant no successor authority either. An old-only member
+    // must not adopt successor-root blocks at or beyond the staged activation
+    // height; a not-yet-activated successor treats them as a height hint only.
+    match super::consensus::quv_successor_root_gate(
+        context.config.aft_quv_handoff_source.is_some(),
+        context.aft_quv_staged_successor.as_ref(),
+        context.aft_quv_handoff_store.is_some(),
+        block.header.height,
+    ) {
+        super::consensus::QuvSuccessorRootGate::Admit => {}
+        super::consensus::QuvSuccessorRootGate::DeferUntilLocalInstall => {
+            tracing::debug!(
+                target: "gossip",
+                height = block.header.height,
+                "Ignoring a successor-root gossip block until the local QUV install gate activates."
+            );
+            return;
+        }
+        super::consensus::QuvSuccessorRootGate::RefuseRetired => {
+            context.aft_quv_retired = true;
+            context.sync_progress = None;
+            context
+                .is_quarantined
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            tracing::error!(
+                target: "quv",
+                height = block.header.height,
+                source_peer = %source_peer,
+                "{}; refusing successor-root history from gossip, node stopped",
+                super::consensus::QUV_RETIRED_SIGNER_REFUSAL
+            );
+            return;
+        }
+    }
     if block.header.height < our_height {
         if let Err(error) = maybe_apply_block_enrichment(context, &block, false).await {
             tracing::warn!(

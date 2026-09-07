@@ -30,9 +30,19 @@ def validate(text, records):
     if not 0 < envelope <= decision:
         raise ValueError('invalid timing envelope')
     starts, finishes, releases, audits = {}, {}, {}, []
+    finished_at, startups, last_nonce_event = {}, {}, {}
     for file, record in records:
         fields = record.get('fields', {})
         event, nonce = fields.get('event'), fields.get('nonce')
+        stamp = record.get('timestamp')
+        if not isinstance(stamp, str):
+            stamp = ''
+        if event == 'startup':
+            startups.setdefault(file, []).append(stamp)
+        if nonce is not None and event is not None:
+            last_nonce_event[(file, nonce)] = max(last_nonce_event.get((file, nonce), ''), stamp)
+        if event == 'operation_finished':
+            finished_at[(file, nonce)] = stamp
         if event in ('push_admission_overflow', 'push_admission_worker_stopped', 'preparation_service_expired', 'operation_service_expired'):
             raise ValueError('QUV scheduling/service failure invalidates handoff timing qualification')
         if event in ('operation_finished', 'operation_admission_released') and (fields.get('service_budgeted') is not True or fields.get('service_budget_met') is not True):
@@ -47,8 +57,21 @@ def validate(text, records):
             if fields.get('configuration_root') != expected['old_root']:
                 raise ValueError('handoff audit changed rooted configuration')
             audits.append((file, fields))
-    if not set(finishes) <= set(releases):
-        raise ValueError("completed operation lacks final admission release")
+    # The admission is process-local memory released when the admitted
+    # authorization is consumed. A process that the fixture terminates in the
+    # deliberate crash window between operation completion and that consumption
+    # (the interrupted successor exits right after its handoff state is durable)
+    # cannot log the release; its termination is proven only by a later
+    # `startup` record in the same component log with no further event for the
+    # nonce. Any other missing release is a runtime defect.
+    terminated = set()
+    for key in set(finishes) - set(releases):
+        file, _ = key
+        completed = finished_at.get(key, '')
+        restarted = any(stamp > completed for stamp in startups.get(file, ()))
+        if not restarted or last_nonce_event.get(key, '') > completed:
+            raise ValueError("completed operation lacks final admission release")
+        terminated.add(key)
     if len(audits) != len(successors):
         raise ValueError('require one accepted live handoff per expected successor')
     observed, nonces, candidates, elapsed = set(), set(), set(), []
@@ -58,7 +81,7 @@ def validate(text, records):
             raise ValueError('duplicate/malformed live nonce')
         nonces.add(nonce)
         start, finish = starts[(file, nonce)], finishes[(file, nonce)]
-        if (file, nonce) not in releases:
+        if (file, nonce) not in releases and (file, nonce) not in terminated:
             raise ValueError('missing final admission release')
         account = start['local_account_hex']
         if account not in successors or account in observed:
@@ -127,6 +150,22 @@ def self_test():
                 changed[2][1]['fields'][field] = replacement
             negatives.append((text, changed))
     negatives.append((text, [row for row in records if row[1]['fields']['event'] != 'operation_admission_released']))
+    # A process terminated in the crash window between completion and release
+    # is excused only by a later startup record with no further nonce event.
+    stamped = copy.deepcopy(records)
+    for index, (_, row) in enumerate(stamped):
+        row['timestamp'] = f'2026-01-01T00:00:{index:02d}Z'
+    stamped_finish = next(i for i, row in enumerate(stamped) if row[1]['fields']['event'] == 'operation_finished')
+    stamped_release = next(i for i, row in enumerate(stamped) if row[1]['fields']['event'] == 'operation_admission_released')
+    terminated_file = stamped[stamped_finish][0]
+    without_release = [row for i, row in enumerate(stamped) if i != stamped_release]
+    validate(text, without_release + [(terminated_file, {'timestamp': '2026-01-01T00:01:00Z', 'fields': {'event': 'startup'}})])
+    negatives.append((text, without_release))
+    negatives.append((text, without_release + [(terminated_file, {'timestamp': '2025-12-31T00:00:00Z', 'fields': {'event': 'startup'}})]))
+    negatives.append((text, without_release + [('other-orch.log', {'timestamp': '2026-01-01T00:01:00Z', 'fields': {'event': 'startup'}})]))
+    negatives.append((text, without_release
+                      + [(terminated_file, {'timestamp': '2026-01-01T00:01:00Z', 'fields': {'event': 'startup'}}),
+                         (terminated_file, {'timestamp': '2026-01-01T00:02:00Z', 'fields': {'event': 'reply_recorded', 'nonce': stamped[stamped_finish][1]['fields']['nonce']}})]))
     for field in ['service_budgeted', 'service_budget_met']:
         changed = copy.deepcopy(records); changed[3][1]['fields'][field] = False
         negatives.append((text, changed))
@@ -137,7 +176,7 @@ def self_test():
         except (ValueError, KeyError):
             continue
         raise AssertionError('invalid handoff evidence accepted')
-    return {'positive_cases': 1, 'negative_cases': len(negatives)}
+    return {'positive_cases': 2, 'negative_cases': len(negatives)}
 
 
 if __name__ == '__main__':

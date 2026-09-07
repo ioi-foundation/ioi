@@ -663,6 +663,15 @@ pub async fn handle_status_response<CS, ST, CE, V>(
         }
     }
 
+    if sync_cursor.is_some() && context.aft_quv_retired {
+        tracing::debug!(
+            target: "sync",
+            %peer,
+            peer_height,
+            "Retired old-root process does not re-initiate sync toward successor-root history."
+        );
+        return;
+    }
     if let Some(sync_cursor) = sync_cursor {
         if let Some(progress) = context.sync_progress.as_mut() {
             if peer_height > progress.tip {
@@ -749,6 +758,18 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 {
     let mut blocks = blocks;
     let workload_client = context.view_resolver.workload_client().clone();
+    if context.aft_quv_retired {
+        // Already refused successor-root history without a successor
+        // identity; solicited or unsolicited responses carry nothing this
+        // process may adopt.
+        tracing::debug!(
+            target: "sync",
+            %peer,
+            received_blocks = blocks.len(),
+            "Retired old-root process ignores blocks responses."
+        );
+        return;
+    }
     if context.sync_progress.is_none() {
         let Some(local_height) = agentgres_sync_floor(context).await else {
             return;
@@ -1028,6 +1049,45 @@ pub async fn handle_blocks_response<CS, ST, CE, V>(
 
     for block in blocks {
         let applying_height = block.header.height;
+        // Successor authority comes only from this process's durable
+        // live-install gate. Synced bytes at or beyond the staged activation
+        // height are not adopted while that gate is pending: a successor
+        // waits for its own activation, an old-only member is retired and
+        // stops. Heights below activation (including the exact QC-certified
+        // handoff boundary) are unaffected.
+        match super::consensus::quv_successor_root_gate(
+            context.config.aft_quv_handoff_source.is_some(),
+            context.aft_quv_staged_successor.as_ref(),
+            context.aft_quv_handoff_store.is_some(),
+            applying_height,
+        ) {
+            super::consensus::QuvSuccessorRootGate::Admit => {}
+            super::consensus::QuvSuccessorRootGate::DeferUntilLocalInstall => {
+                tracing::warn!(
+                    target: "sync",
+                    %peer,
+                    applying_height,
+                    "Deferring successor-root sync until the local QUV install gate activates."
+                );
+                context.sync_progress = None;
+                return;
+            }
+            super::consensus::QuvSuccessorRootGate::RefuseRetired => {
+                context.aft_quv_retired = true;
+                context.sync_progress = None;
+                context
+                    .is_quarantined
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                tracing::error!(
+                    target: "quv",
+                    %peer,
+                    applying_height,
+                    "{}; refusing successor-root history from sync, node stopped",
+                    super::consensus::QUV_RETIRED_SIGNER_REFUSAL
+                );
+                return;
+            }
+        }
         let reported_height = workload_client
             .get_execution_status()
             .await

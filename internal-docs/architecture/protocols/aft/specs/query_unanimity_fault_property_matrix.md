@@ -1370,3 +1370,24 @@ includes scheduled proofs, models, negatives, trace replay and timed QUV checks.
 Only syntax/census were run after this harness-only change; the expensive full
 suite remains deferred until integration. Manual debt from other profiles is
 neither counted as passing nor used to admit the online claim.
+
+### Retired process and successor-root history (2026-09-07)
+
+Q-EA7 activation boundary, orchestration side (no R1 row; whole findings
+unchanged): a process rooted in the old configuration adopted successor-root
+blocks through sync after restarting below the activation height, because the
+canonical `ValidatorSetsV1` projection makes the staged successor effective by
+height and no sync/gossip path consulted the process-local durable install
+gate. The `quv_successor_root_gate` now defers successor-root blocks on a
+staged successor until its own gate activates and refuses them on a process
+with no successor identity (retirement diagnostic, sync dropped, node
+quarantined); startup also consults the durable executed projection. Positive
+regression, removed-rule control, standalone disjoint (569 s, max valid reply
+888 ms) and overlapping (263 s, 824 ms) handoff campaigns and both evidence
+checks passed on the fixed tree; the failed campaign on the unrepaired tree is
+retained as the process-level control. The handoff evidence checker now
+excuses a missing admission release only for a process whose component log
+shows a later startup and no later nonce event (the fixture's armed crash
+window). Evidence: `evidence/m17q-r2-retired-sync-2026-09-07/`. This
+establishes the orchestration rule for these two campaigns only; it is not a
+reconfiguration proof and grants no observer profile to retired members.

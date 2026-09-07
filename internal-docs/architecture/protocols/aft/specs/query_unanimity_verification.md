@@ -787,6 +787,20 @@ if the oneshot result receiver disappears, then releases the transport operation
 and forwards the grant for the independent immediate T10 checks. The dedicated
 handoff install gate remains responsible for one-shot handoff acceptance.
 
+Successor-root adoption (2026-09-07): while a QUV successor is staged but not
+yet activated in a process, blocks at or beyond the staged activation height
+are not adopted from sync or gossip. A staged successor defers them until its
+own durable install gate activates (the exact QC-certified boundary at
+activation minus one is still admitted); a process with no successor identity
+refuses them with the retirement diagnostic, drops sync progress, stops
+re-initiating sync and quarantines itself. Startup additionally consults the
+workload's durable executed projection, not only the admitted tip, so a
+retired process whose projection already crossed activation refuses at
+startup. This is an authority-boundary repair of the orchestration; it changes
+no Q-A or Q-EA premise. It was found because the sync dedup repairs let a
+retired member follow successor history through sync and then restart below
+activation as an ordinary old member.
+
 The core suite passed 32 tests (one separate component benchmark ignored in that
 suite), including both modes, future-slot refusal without writes, two accepted
 steps, historical queries, changed-enrollment refusal at synchronized/pending

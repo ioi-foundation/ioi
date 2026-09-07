@@ -234,6 +234,10 @@ where
     pub configured_bootstrap_peers: usize,
     /// Flag indicating if the node is quarantined.
     pub is_quarantined: Arc<AtomicBool>,
+    /// Set once this process refused successor-root history because it holds
+    /// no successor identity for the staged QUV activation. A retired process
+    /// stops re-initiating sync toward that history; nothing clears the flag.
+    pub aft_quv_retired: bool,
     /// pending attestations for Oracle requests.
     pub pending_attestations: HashMap<u64, Vec<OracleAttestation>>,
     /// The last block admitted by the canonical Agentgres finality spine.

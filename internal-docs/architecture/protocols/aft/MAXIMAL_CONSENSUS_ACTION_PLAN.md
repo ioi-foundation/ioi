@@ -671,3 +671,15 @@ critical path: metadata/RAM/consequence bounds, aggregate fair service/recovery,
 cross-configuration retention and full transition refinement precede clean full
 M16Q R2, immutable candidate, fresh independent review and honest M18Q admission.
 All 13 whole findings remain OPEN; component evidence changes no admission gate.
+
+### Clean R2 attempt and retired-process repair (2026-09-07)
+
+The first clean M16Q R2 run on `5ae464c11` failed at
+`quv_disjoint_reconfiguration`: a retired old-root process followed
+successor-root history through sync without a successor identity. The
+orchestration now gates successor-root blocks on the process-local durable
+install gate in sync, gossip and startup (`evidence/m17q-r2-retired-sync-2026-09-07/`,
+ledger entry of the same date); both handoff campaigns pass standalone on the
+fixed tree. The definitive clean full M16Q R2 run must start from the commit
+that carries this repair. Dispositions are unchanged until that run, the
+immutable R2 tag and the fresh independent review exist.

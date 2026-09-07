@@ -1106,9 +1106,36 @@ where
                 });
                 if quv_recovery_required && !local_is_successor {
                     return Err(ValidatorError::Config(
-                        "local ML-DSA signer belongs to neither the effective set nor the staged QUV successor set"
-                            .into(),
+                        super::consensus::QUV_RETIRED_SIGNER_REFUSAL.into(),
                     ));
+                }
+                // The admitted tip can trail the workload's durable executed
+                // projection. If that projection already crossed the staged
+                // activation height, this process followed successor-root
+                // history without a successor identity; it is retired and
+                // must not restart as an old member on the strength of a
+                // lower admitted height.
+                if quv_handoff_enabled {
+                    let executed_height = workload_client
+                        .get_execution_status()
+                        .await
+                        .map(|status| status.height)
+                        .map_err(|error| {
+                            ValidatorError::Other(format!(
+                                "failed to read the durable executed projection at startup: {error}"
+                            ))
+                        })?;
+                    if super::consensus::quv_successor_root_gate(
+                        quv_handoff_enabled,
+                        staged_successor,
+                        local_is_successor,
+                        executed_height,
+                    ) == super::consensus::QuvSuccessorRootGate::RefuseRetired
+                    {
+                        return Err(ValidatorError::Config(
+                            super::consensus::QUV_RETIRED_SIGNER_REFUSAL.into(),
+                        ));
+                    }
                 }
                 if quv_handoff_enabled && local_is_successor {
                     // The live-install gate is permanently scoped by the old
@@ -1446,6 +1473,7 @@ where
             genesis_hash: self.genesis_hash,
             genesis_root,
             is_quarantined: self.is_quarantined.clone(),
+            aft_quv_retired: false,
             pending_attestations: std::collections::HashMap::new(),
             last_committed_block: last_admitted_block,
             last_executed_block: initial_block,

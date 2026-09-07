@@ -4073,3 +4073,52 @@ concurrent builds failed and are retained), M17Q `REPAIR_REQUIRED`, M18Q
 `NOT_ADMITTED`. Next: passing campaigns, Byzantine-status process case, commit
 coherent slices, clean full M16Q R2 on the committed tree, immutable R2 tag,
 fresh independent review.
+
+### Retired-process successor-root gate (2026-09-07)
+
+The first clean M16Q R2 attempt on `5ae464c11` passed every gate through
+`quv_status_squat_evidence` and failed `quv_disjoint_reconfiguration`: the
+retired old-root member restarted from admitted height 1 (its executed
+projection was 2, below the activation height 3), took the ordinary old-member
+startup path, then adopted successor-signed heights 2..14 through sync because
+the engine's validator-set projection makes `next` effective at its
+`effective_from_height` and neither sync nor gossip consulted the
+process-local QUV install gate. Before the R2 sync repairs the same member had
+usually followed successor history *before* its restart, so the fixture's
+retirement refusal had been produced by the defect itself.
+
+Repair: `quv_successor_root_gate` (`orchestration/consensus.rs`) is applied per
+block in the sync apply loop, in `handle_gossip_block`, and at startup against
+the workload's durable executed projection. A staged successor whose durable
+install gate has not activated defers successor-root blocks; a process with no
+successor identity refuses them with the single retirement diagnostic, drops
+sync progress, stops accepting or re-initiating sync and quarantines itself.
+Heights below activation, including the exact QC-certified boundary, are
+unaffected. No premise changes; the end-to-end theorem boundary list and the
+verification specification record the rule. Unit regression, removed-rule
+control (`left: Admit, right: RefuseRetired`) and the new mandatory
+`quv_successor_root_gate` phase are in
+`evidence/m17q-r2-retired-sync-2026-09-07/`.
+
+Standalone campaigns on the fixed tree: disjoint handoff passed (569 s; the
+retired member refused height 3 from sync after restart; one restarted
+successor deferred height 4 for 42 ms until its gate re-activated); overlapping
+handoff passed (263 s; three old-only members refused the first successor
+gossip block within 0.3 ms of each other; the common member recovered from its
+gate and advanced). Both handoff evidence checks passed (maximum valid replies
+888 ms and 824 ms within the 24 000 ms envelope).
+
+Checker finding on its first execution: `check_aft_quv_handoff_evidence.py`
+had never run against a disjoint campaign (the phase postdates the retained
+runs and the R2 attempt failed before it). It rejected the passing campaign
+because the interrupted successor is armed to exit in the crash window after
+its handoff state is durable and before its admitted authorization is consumed,
+so `operation_finished` is logged and `operation_admission_released` cannot
+be. The checker now excuses a missing release only when the same component
+log carries a later `startup` record and no later event for that nonce; four
+negative self-test cases pin that (2 positive, 34 negative). This is evidence
+tooling; the release-lane runtime is unchanged.
+
+Disposition: unchanged (M15Q reopened, M16Q R2 unqualified, M17Q
+`REPAIR_REQUIRED`, M18Q `NOT_ADMITTED`). Next: definitive clean full M16Q R2
+run from this commit.
