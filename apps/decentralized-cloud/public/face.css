@@ -970,6 +970,65 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .nav button { font-size: 13px; padding: 4px 9px; }
 }
 
+/* ── HOME — quick actions and widgets ────────────────────────────────────────
+   The welcome page. Quick actions are four tiles in a row; the widgets are a
+   two-column grid of ruled sections, the activity table spanning both. Every widget
+   ends on its read line — route, time, duration — in the meta face, so no figure
+   stands without its source. Spent budget is drawn in ink on a hairline track: not
+   green (green is live evidence) and not red (red is expired). */
+.home { gap: 28px; }
+.home-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 32px;
+  align-items: end; padding-bottom: 20px; border-bottom: 1px solid var(--hairline); }
+.home-principal { gap: 8px; justify-self: end; align-items: flex-end; text-align: right; }
+.quick { list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.quick-tile { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; min-height: 76px;
+  border: 1px solid var(--hairline); border-radius: 10px; color: var(--ink); text-decoration: none;
+  background: var(--paper); }
+.quick-tile:hover { border-color: var(--ink); }
+.quick-title { font-size: 16px; }
+/* `align-items: start`: a widget is as tall as its content. Stretched to the row, the
+   cost widget stood 700px tall beside the thirteen-row health table with 500px of
+   nothing inside it (003-home/home-1440.png). */
+.widgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.widget { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 18px 20px 14px;
+  border: 1px solid var(--hairline); border-radius: 10px; }
+.widget-wide { grid-column: 1 / -1; }
+.widget-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.widget-read { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--hairline-soft); }
+.budgets { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.budget { display: grid; gap: 6px; }
+.budget-name { font-size: 15px; }
+.budget-figs { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; font-variant-numeric: tabular-nums; }
+.budget-bar { height: 6px; border-radius: 3px; background: var(--hairline); overflow: hidden; }
+.budget-spent { height: 100%; background: var(--ink); }
+.home-price { font-size: 34px; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
+.visited { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.table.t-health { min-width: 0; }
+.table.t-health th:nth-child(1), .table.t-health td:nth-child(1) { width: 42%; }
+.table.t-health th:nth-child(2), .table.t-health td:nth-child(2) { width: 58%; }
+.t-health .trow > th { overflow-wrap: anywhere; }
+.t-health .trow > th, .t-health .trow > td { padding: 8px 12px; }
+.t-health .trow > th:first-child { padding-left: 0; }
+.t-health .chip { white-space: normal; }
+.table.t-activity { min-width: 720px; }
+/* The state column holds `refused_authority_mode_mismatch`-length names; at 16% of
+   720 the chip broke mid-token at 390. 24% and a wrapping chip. */
+.table.t-activity th:nth-child(1), .table.t-activity td:nth-child(1) { width: 28%; }
+.table.t-activity th:nth-child(2), .table.t-activity td:nth-child(2) { width: 24%; }
+.table.t-activity th:nth-child(3), .table.t-activity td:nth-child(3) { width: 18%; }
+.table.t-activity th:nth-child(4), .table.t-activity td:nth-child(4) { width: 30%; }
+.t-activity .chip { white-space: normal; overflow-wrap: normal; }
+.t-activity .trow > th, .t-activity .trow > td { padding: 10px 12px; }
+@media (max-width: 1000px) {
+  .home-head { grid-template-columns: minmax(0, 1fr); }
+  .home-principal { justify-self: start; align-items: flex-start; text-align: left; }
+  .widgets { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .widget { padding: 14px 14px 12px; }
+}
+
 /* ── THE UNWIRED PLACEHOLDER — where a figure would stand ─────────────────────
    Dashed, on the surface tint, with no digit in it: the same absence device the
    absent chip and the rail mark wear. It is deliberately not a skeleton or a shimmer,

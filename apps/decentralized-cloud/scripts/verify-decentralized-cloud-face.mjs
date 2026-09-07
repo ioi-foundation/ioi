@@ -237,6 +237,8 @@ const SRC_FILES = [
   "src/surfaces/Iam.jsx",
   "src/surfaces/Supply.jsx",
   "src/surfaces/Settings.jsx",
+  "src/surfaces/Home.jsx",
+  "src/logic/visited.mjs",
 ];
 
 const srcText = () => SRC_FILES.map((f) => readFileSync(path.join(APP, f), "utf8")).join("\n");
@@ -1795,6 +1797,9 @@ async function checkResponsiveLayout() {
         // renders a real table of its own shape synchronously. Settings renders after
         // the in-process config read, which is fast.
         spend: ".t-pairs", iam: ".t-leases", supply: ".t-supply", settings: ".t-pairs",
+        // Home's health widget is a table fed by candidate-sources, which always
+        // answers with rows; it is the surface's arrival signal.
+        home: ".t-health",
       };
       // FAIL CLOSED ON AN UNLISTED SURFACE. `TABLE_OF[unknown]` is undefined, and
       // `if (want)` then SKIPS the wait with `arrived` still true — the surface is

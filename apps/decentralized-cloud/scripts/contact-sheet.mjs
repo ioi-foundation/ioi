@@ -57,6 +57,7 @@ const CONTENT_OF = {
   iam: ".t-leases .trow",
   supply: ".t-supply .trow",
   settings: ".t-pairs .trow",
+  home: ".t-health .trow",
 };
 // FAIL CLOSED. An unlisted surface used to get `undefined`, skip the wait, and be
 // photographed mid-load with nothing saying so — which is how three cold readers came

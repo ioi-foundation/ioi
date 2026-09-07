@@ -57,6 +57,7 @@ const ARRIVAL = {
   iam: ".t-leases .trow",
   supply: ".t-supply .trow",
   settings: ".t-pairs .trow",
+  home: ".t-health .trow",
 };
 
 const browser = await chromium.launch({

@@ -48,6 +48,9 @@ export const SURFACES = [
   // every venue that can supply it, with its state read from the daemon on every
   // render — the decentralized counterpart of a console's "all services" page. It is
   // wired: it reads candidate-sources and the latest candidates batch.
+  // The console's welcome page and default surface: quick actions and widgets that
+  // read candidate-sources, jobs, budgets and the latest candidates batch.
+  { id: "home", label: "Home", group: "console", wired: true },
   { id: "catalog", label: "All resources", group: "console", wired: true },
   { id: "candidates", label: "Candidates", group: "obtain", wired: true },
   { id: "placement", label: "Placement", group: "obtain", wired: true },
@@ -73,7 +76,7 @@ export const GROUPS = [
 ];
 
 export const SURFACE_IDS = SURFACES.map((s) => s.id);
-export const DEFAULT_SURFACE = "catalog";
+export const DEFAULT_SURFACE = "home";
 
 export const isSurface = (name) => SURFACE_IDS.includes(name);
 

@@ -16,10 +16,13 @@ import Spend from "./surfaces/Spend.jsx";
 import Iam from "./surfaces/Iam.jsx";
 import Supply from "./surfaces/Supply.jsx";
 import Settings from "./surfaces/Settings.jsx";
+import Home from "./surfaces/Home.jsx";
+import { recordVisit } from "./logic/visited.mjs";
 
 const CAPABILITY = capabilitySentences();
 
 const VIEWS = {
+  home: Home,
   catalog: Catalog,
   candidates: Candidates,
   sources: Sources,
@@ -79,6 +82,9 @@ export default function App() {
     go(first.id);
     mainRef.current?.focus();
   }, [query, go]);
+
+  // Recently visited, for Home — this browser only, never sent anywhere.
+  useEffect(() => { recordVisit(surface); }, [surface]);
 
   const View = VIEWS[surface] || VIEWS[DEFAULT_SURFACE];
   const meta = SURFACES.find((s) => s.id === surface);

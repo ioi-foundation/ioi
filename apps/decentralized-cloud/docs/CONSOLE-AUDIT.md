@@ -130,12 +130,39 @@ the face. Open: no blind reader has scored this mark; the header uses a compact
 1.9× ratio against the owner's 2.65× rule and says so on the brand page; the
 network is 3.7px at header size and reads as texture rather than as squares.
 
+## Iteration 003 — Home (2026-09-07)
+
+**Should look and feel like:** the page a console opens on — a row of quick actions,
+then widgets a stranger recognises by name: Health, Cost and usage, Recent activity,
+Live now, Recently visited — each figure with its route and read time under it.
+**Routes:** candidate-sources (health), budgets (cost), jobs (activity, gate records
+hidden as on Receipts), candidates latest (live now). Settled spend is an Unwired
+placeholder; Recently visited is localStorage only and says so. Home is now the
+default surface; All resources keeps the hero.
+
+Captures: `.artifacts/console/003-home/` (6, all widths + reduced), `003-home-r2/`
+(after two fixes). Before: Home did not exist (`000-baseline/catalog-1440.png` is
+what a visitor landed on).
+
+What the captures show. At 1440 (`003-home-r2/home-1440.png`) the page reads as a
+console home at a glance: four tiles, then Health (13 rows, two quoting), Cost
+(one budget: USD 0 spent of 5, bar in ink), Activity (five newest records with
+state, venue, receipts), Live now, Recently visited. Every widget ends on its route
+and read time. Round 1 defects, both fixed in r2: the cost widget stretched to the
+health table's height with ~500px of nothing inside; the activity state chip broke
+mid-token at 390. Still visible: at 390 the health table's source names wrap
+mid-token (`customer_inven/tory`); under a busy daemon every read landed at ~30 s
+while the "asking" line quotes the quiet-daemon cost ("under a second") — honest
+about what was measured, not about the moment.
+
+| Surface | R | H | C | T | D | M | A | K | Capture |
+|---|---|---|---|---|---|---|---|---|---|
+| Home | 8 | 9 | 7 | 8 | 6 | 7 | 7 | 7 | `003-home-r2/home-1440.png`, `home-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
-2. **Home** — widgets: health (sources), cost (budgets + "no settled spend read"),
-   recent jobs, quick-create, the cheapest quote. Reads candidate-sources, jobs,
-   budgets, candidates.
+2. ~~Home~~ — landed in iteration 003 (R 8 H 9 C 7 T 8 D 6 M 7 A 7 K 7).
 3. **Spend** wired to budgets; reconciliation stays a labelled door.
 4. **Sources & health as a health panel** — a status strip above the ledger.
 5. **Jobs list** as a resource table (sortable, sticky header) with Receipts as detail.
