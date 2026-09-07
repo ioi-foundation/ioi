@@ -4,10 +4,11 @@ Status: canonical implementation index.
 Canonical owner: this file for the object-level delta between the foundational bounded-DAS, institutional-learning-boundary, collaborative-pursuit, federated-ontology, and embedded wallet-authority canon and what the code durably implements today, and for the deferred application-UX backlog that replaced the former surface-by-surface implementation queue.
 Supersedes: the PR68 operational-depth queue as an implementation SEQUENCE (its audit evidence remains valid and referenced); ad hoc "what do we build next" lists in plans.
 Superseded by: none.
-Last alignment pass: 2026-09-04 (ADR 0051 decentralized.cloud public-face,
-supply-registry, and routing-receipt rows added as not-started targets; the
-2026-08-30 Machine Authority and SCM rows and all earlier rows retain their
-measured bases).
+Last alignment pass: 2026-09-05 (deferred OCI workload-source capability recorded;
+ADR 0051 decentralized.cloud public-face, supply-registry, and routing-receipt
+rows added as not-started targets; Machine Authority category/profile ownership
+and the qualified SCM governed-effect evidence retain their 2026-08-30 basis;
+earlier rows retain their measured bases).
 Doctrine status: canonical
 Implementation status: mixed (each row carries its own state; most target objects are not started — that is the point of this file)
 Last implementation audit: 2026-08-30 (targeted authority-profile and live SCM
@@ -192,6 +193,51 @@ Two rules keep this from becoming a source of conflation:
 | OutcomeRoom hosted versus `federated_admission` ownership in the runtime | [`objects/collaborative-pursuit.md`](../domains/ioi-ai/collaborative-pursuit.md) | the two-node distributed proof begins |
 | Session / WorkRun / GoalRun / room boundary as enforced object identity, not only documented boundary | [`term-boundaries.md`](../foundations/term-boundaries.md) | partially landed through M04.7: shared work-lifecycle persistence binds GoalRun creation and hosted OutcomeRoom creation through separate owner gates; WorkRun and the remaining owners resume at their legal mutation boundaries |
 | M-sequencer program-state refresh after `CANON_BASIS_FILES` changed | `scripts/lib/m0-program-control-model.mjs` | next sequencer leg |
+
+## Deferred: OCI workload source to governed environment execution
+
+Status: deferred candidate capability; end-to-end acceptance not established.
+Canon owner: [workload sources and runtime reuse](../components/hypervisor/providers-and-environments.md#workload-sources-and-runtime-reuse).
+Priority is pulled by a concrete workload or customer journey requiring OCI
+input. This entry does not reorder the foundational build sequence or establish
+a Docker replacement, generic orchestrator, or container-runtime program.
+
+Current implementation evidence (source review, 2026-09-05):
+
+- `crates/node/src/bin/hypervisor_daemon_routes/recipe_routes.rs` detects
+  Dockerfile/devcontainer inputs; the recipe owner's registered-contract notes
+  record the narrower produced shape and missing canonical admission lineage.
+- `crates/node/src/bin/hypervisor_daemon_routes/microvm.rs` contains Cloud
+  Hypervisor, Firecracker, and QEMU boot paths using pinned guest components.
+  The documented hostile-guest proof is local and profile-specific.
+- `crates/cli/src/testing/backend.rs` consumes Docker through `DockerBackend`.
+  This is test infrastructure, not evidence of governed OCI environment launch.
+
+These are implementation precedents. They do not establish an admitted,
+digest-bound OCI image-to-environment execution contract. No end-to-end OCI
+verification was run for this entry.
+
+When pulled, implement and verify in this order:
+
+1. Resolve OCI input through an existing image implementation to immutable,
+   platform-specific content and retained configuration/provenance. Bind it
+   through the owning recipe/resolution contracts; reject unavailable or
+   mismatched content and prevent mutable-tag substitution after admission.
+2. Launch one declared workload profile on one existing VM backend through the
+   owning startup, isolation, authority, and lifecycle contracts. Declare limits
+   for image platforms, command semantics, networking/ports, mounts, persistence,
+   and resources; refuse unsupported requirements before launch.
+3. Prove the actual workload's readiness, command completion, logs/artifacts,
+   stop and cleanup, and recovery after daemon restart. Verify refusal without
+   execution for invalid authority or image/configuration bindings, and preserve
+   typed reconciliation and cleanup obligations after partial failure. Gate
+   capability claims on this bounded end-to-end evidence.
+4. Add a convenient CLI run verb over that implemented contract. Familiar
+   ergonomics do not promise Docker flag, API, or Compose compatibility.
+5. Add Dockerfile builds only when demanded, using an existing builder and a
+   separately governed build with exact context/configuration, credential/network
+   policy, isolation, and output-image evidence. Feed its result into the same
+   OCI path rather than adding a parallel launch or authority path.
 
 ## Deferred application-UX backlog (replaces the PR68 queue)
 
