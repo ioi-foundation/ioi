@@ -159,11 +159,36 @@ about what was measured, not about the moment.
 |---|---|---|---|---|---|---|---|---|---|
 | Home | 8 | 9 | 7 | 8 | 6 | 7 | 7 | 7 | `003-home-r2/home-1440.png`, `home-390.png` |
 
+## Iteration 004 — Spend wired to budgets (2026-09-07)
+
+**Should look and feel like:** a cost page — a budgets ledger at the top (budget,
+spent, remaining, limit, drawn bar in ink), then the two panels no route feeds,
+settled spend and quoted-versus-settled, with their Unwired placeholders, then the
+provenance rules. **Route:** budgets. Settled spend stays a labelled door (no route on
+the capability table; the fee object does not exist).
+
+Captures: `.artifacts/console/004-spend/` (6). Before: `001-shell/spend-1440.png`
+(a fully unwired stub).
+
+What the captures show. At 1440 (`004-spend/spend-1440.png`) the ledger carries the
+daemon's one external_spend budget — USD 0 spent, USD 5 remaining, 0% drawn — with
+its id, creation time and the wallet-authorization note, and the "wired · GET
+/api/budgets" chip beside the heading. At 390 the five-column ledger scrolls with the
+fade cue; only Budget and Spent are visible without scrolling, which is the right
+first pair. The gate gains an assertion that Spend reads budgets AND still draws
+settled spend as an Unwired door naming SpendEstimate; three planted mutants
+(Unwired removed, the budgets read removed, the shape moved into a comment) each
+turned it red before it was committed green.
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| Spend | 6 9 7 8 3 – 7 7 → 8 9 7 8 5 7 7 7 | `004-spend/spend-1440.png`, `spend-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
 2. ~~Home~~ — landed in iteration 003 (R 8 H 9 C 7 T 8 D 6 M 7 A 7 K 7).
-3. **Spend** wired to budgets; reconciliation stays a labelled door.
+3. ~~Spend wired to budgets~~ — landed in iteration 004.
 4. **Sources & health as a health panel** — a status strip above the ledger.
 5. **Jobs list** as a resource table (sortable, sticky header) with Receipts as detail.
 6. **Catalogue anchors** — Compute / Storage / Network / Runtime as rail entries that

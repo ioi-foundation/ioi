@@ -385,7 +385,6 @@ function checkUnwiredSurfaces() {
   // the canonical object it draws, and each must carry the label a reader is owed.
   for (const [file, surface, shape] of [
     ["src/surfaces/Redundancy.jsx", "Redundancy", "RedundancyPosture"],
-    ["src/surfaces/Spend.jsx", "Spend", "SpendEstimate"],
     ["src/surfaces/Iam.jsx", "IAM", "CapabilityLease"],
     ["src/surfaces/Supply.jsx", "Supply registry", "CloudSupplyRegistration"],
   ]) {
@@ -408,14 +407,21 @@ function checkUnwiredSurfaces() {
   // renders <NotConnected>, or an unwired one that has quietly lost its label, is a
   // disagreement between what the app believes and what it tells a reader.
   const registry = readFileSync(path.join(APP, "src/logic/surfaces.mjs"), "utf8");
-  for (const id of ["redundancy", "spend", "iam", "supply"]) {
+  // SPEND LEFT THIS LIST when it began reading budgets. What it still cannot read —
+  // settled spend — is an Unwired placeholder on the page, asserted below by name so
+  // a wired surface cannot quietly drop the door it still owes.
+  const spendSrc = stripComments(readFileSync(path.join(APP, "src/surfaces/Spend.jsx"), "utf8"));
+  ok("Spend reads budgets and still draws settled spend as an Unwired door, naming the shape",
+    /\/api\/budgets/.test(spendSrc) && /<Unwired/.test(spendSrc) && /SpendEstimate/.test(spendSrc) &&
+      /provider spend reconciliation — not on the capability table/.test(spendSrc));
+  for (const id of ["redundancy", "iam", "supply"]) {
     ok(`the registry marks ${id} unwired while it renders an unwired label`,
       new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*false`).test(registry));
   }
   // The two that were unwired and now are not, plus Settings, which reads the
   // surface's own configuration route. This is asserted so the flag cannot be flipped
   // back to false while the door still exists, or forward while it does not.
-  for (const id of ["job", "receipts", "settings"]) {
+  for (const id of ["job", "receipts", "settings", "spend", "home"]) {
     ok(`the registry marks ${id} wired, and the door it names exists`,
       new RegExp(`id:\\s*"${id}"[^}]*wired:\\s*true`).test(registry));
   }
@@ -1796,7 +1802,7 @@ async function checkResponsiveLayout() {
         // The console surfaces. Spend and IAM and Supply are drawn and unwired; each
         // renders a real table of its own shape synchronously. Settings renders after
         // the in-process config read, which is fast.
-        spend: ".t-pairs", iam: ".t-leases", supply: ".t-supply", settings: ".t-pairs",
+        spend: ".t-budgets", iam: ".t-leases", supply: ".t-supply", settings: ".t-pairs",
         // Home's health widget is a table fed by candidate-sources, which always
         // answers with rows; it is the surface's arrival signal.
         home: ".t-health",

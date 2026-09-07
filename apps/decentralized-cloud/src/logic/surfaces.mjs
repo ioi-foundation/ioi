@@ -36,13 +36,14 @@
 // things — the catalogue, then obtaining capacity, then running it, then the account
 // and the surface itself. The group names are product words, not the estate's.
 //
-// SPEND, IAM AND SUPPLY REGISTRY ARE UNWIRED. Each is drawn in full and says so on its
-// own surface: no route on the capability table reads settled provider spend, a
-// wallet principal's leases, or the supply registry, and this surface will not invent
-// one. Registering them unwired is what puts them in the rail honestly — a console
-// with no Spend entry hides the question; one with a Spend entry that reads nothing
-// and says nothing would be lying. SETTINGS is wired: it renders the surface's own
-// configuration route, which never leaves the process.
+// IAM AND SUPPLY REGISTRY ARE UNWIRED. Each is drawn in full and says so on its own
+// surface: no route on the capability table reads a wallet principal's leases or the
+// supply registry, and this surface will not invent one. Registering them unwired is
+// what puts them in the rail honestly — a console with no IAM entry hides the
+// question; one with an IAM entry that reads nothing and says nothing would be lying.
+// SPEND reads the daemon's budgets and draws settled spend as a labelled door;
+// SETTINGS renders the surface's own configuration route, which never leaves the
+// process.
 export const SURFACES = [
   // The landing. Every resource class the router can be asked for, by category, and
   // every venue that can supply it, with its state read from the daemon on every
@@ -57,7 +58,8 @@ export const SURFACES = [
   { id: "job", label: "Submit a job", group: "obtain", wired: true },
   { id: "receipts", label: "Receipts", group: "run", wired: true },
   { id: "redundancy", label: "Redundancy", group: "run", wired: false },
-  { id: "spend", label: "Spend", group: "account", wired: false },
+  // Spend reads the daemon's budgets; settled spend stays a labelled door on the page.
+  { id: "spend", label: "Spend", group: "account", wired: true },
   { id: "sources", label: "Sources & health", group: "account", wired: true },
   { id: "iam", label: "IAM · leases", group: "account", wired: false },
   { id: "supply", label: "Supply registry", group: "account", wired: false },

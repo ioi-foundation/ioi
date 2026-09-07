@@ -115,11 +115,11 @@ export const FIELD_CONTRACT = {
                "receipt_requirements", "redundancy"],
   },
   "/api/budgets": {
-    read_by: "src/surfaces/Job.jsx",
+    read_by: "src/surfaces/Job.jsx + src/surfaces/Spend.jsx + src/surfaces/Home.jsx",
     container: "budgets",
     every: ["budget_id", "scope"],
     sampled: ["currency"],
-    optional: ["name", "limit", "remaining", "spent"],
+    optional: ["name", "limit", "remaining", "spent", "created_at", "authority_required"],
   },
   // Answered by the surface itself and never by the daemon — but Settings reads it by
   // name, and a name read is a name declared, whichever process answers.

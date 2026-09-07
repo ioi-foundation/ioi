@@ -53,7 +53,7 @@ const ARRIVAL = {
   job: "select.field-box option:nth-child(2)",
   redundancy: ".t-postures .trow",
   api: ".t-api .trow",
-  spend: ".t-pairs .trow",
+  spend: ".t-budgets .trow",
   iam: ".t-leases .trow",
   supply: ".t-supply .trow",
   settings: ".t-pairs .trow",

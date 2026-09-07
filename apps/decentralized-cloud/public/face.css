@@ -1040,6 +1040,16 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
 .unwired-route { font-size: 12px; color: var(--label); overflow-wrap: anywhere; }
 .unwired-would { margin: 0; font-size: 13px; line-height: 1.5; color: var(--label); }
 .spend-panels { gap: 20px; }
+/* The budgets ledger: name takes the slack; the three money columns are tabular and
+   right-aligned so they read as columns; the bar is last. */
+.table.t-budgets { min-width: 760px; }
+.table.t-budgets th:nth-child(1), .table.t-budgets td:nth-child(1) { width: 36%; }
+.table.t-budgets th:nth-child(2), .table.t-budgets td:nth-child(2) { width: 15%; }
+.table.t-budgets th:nth-child(3), .table.t-budgets td:nth-child(3) { width: 15%; }
+.table.t-budgets th:nth-child(4), .table.t-budgets td:nth-child(4) { width: 14%; }
+.table.t-budgets th:nth-child(5), .table.t-budgets td:nth-child(5) { width: 20%; }
+.t-budgets .trow > td.price { font-size: 16px; }
+.t-budgets .budget-bar { margin-top: 6px; }
 .spend-panel { gap: 10px; }
 /* Four and five column tables scroll on a phone rather than reflow: at 390 the five
    supply headers squeezed to one word per column and "Evidence mode" was painted over
