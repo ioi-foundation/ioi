@@ -3,8 +3,20 @@ import { envelope } from "../logic/classify.mjs";
 // The small shared pieces. Each carries the rule it enforces, because each exists
 // because that rule was once broken on this surface.
 
+// A STATE WORD BREAKS AT ITS UNDERSCORES, NEVER INSIDE A WORD. `candidate_source_
+// unavailable` is 28 mono characters; on a phone the chip either painted over the
+// next column or, with `overflow-wrap: anywhere`, broke as `live_quote_sour / ce` —
+// two readers read that as a fault. A <wbr> after each underscore gives the browser
+// the break the token already has, so it wraps as `candidate_source_ / unavailable`
+// and the text a reader copies is unchanged. Only strings are treated; other
+// children pass through.
+export const breakable = (s) => {
+  if (typeof s !== "string" || !s.includes("_")) return s;
+  const parts = s.split("_");
+  return parts.flatMap((p, i) => (i < parts.length - 1 ? [p + "_", <wbr key={i} />] : [p]));
+};
 export const Chip = ({ children, kind = "" }) => (
-  <span className={`chip ${kind}`.trim()}><span className="dot" />{children}</span>
+  <span className={`chip ${kind}`.trim()}><span className="dot" />{breakable(children)}</span>
 );
 
 export const Eyebrow = ({ children }) => <div className="eyebrow">{children}</div>;

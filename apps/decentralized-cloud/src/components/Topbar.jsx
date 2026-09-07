@@ -66,11 +66,17 @@ export default function Topbar({ query, setQuery, onSearchEnter, matchCount }) {
       </form>
 
       <div className="topbar-status">
+        {/* Each chip carries its full sentence and a short one; the stylesheet shows
+            the short one on a phone. Both say the same thing: nothing is set here. */}
         <a className="chip absent topbar-posture" href={hashForSurface("placement")}>
-          <span className="dot" />posture · on the intent, not set here
+          <span className="dot" />
+          <span className="chip-long">posture · on the intent, not set here</span>
+          <span className="chip-short">posture · on the intent</span>
         </a>
         <a className="chip absent topbar-principal" href={hashForSurface("iam")}>
-          <span className="dot" />principal · no wallet session
+          <span className="dot" />
+          <span className="chip-long">principal · no wallet session</span>
+          <span className="chip-short">principal · none</span>
         </a>
       </div>
     </header>

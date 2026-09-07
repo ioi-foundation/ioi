@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSurfaceRead } from "../useSurfaceRead.js";
 import { stamp, duration } from "../logic/classify.mjs";
-import { Chip, Waiting, Failure, Kept } from "../components/Bits.jsx";
+import { Chip, Waiting, Failure, Kept, breakable } from "../components/Bits.jsx";
 
 // SOURCES — the surface stale-while-refresh was built for.
 //
@@ -78,7 +78,7 @@ export default function Sources({ announce }) {
   const row = (s) => (
     <tr key={s.source || s.state} className="trow">
       <th scope="row" className="stack" style={{ gap: "7px" }}>
-        <div className="mono" style={{ fontSize: "14px" }}>{s.source || "source not named by the daemon"}</div>
+        <div className="mono" style={{ fontSize: "14px" }}>{breakable(s.source || "source not named by the daemon")}</div>
         <Chip kind={s.state === "live_quote_source" ? "live" : s.state === "candidate_source_unavailable" ? "absent" : "muted"}>
           {s.state || "state absent"}
         </Chip>

@@ -6,7 +6,7 @@ import { latestBatch, summarise } from "../logic/batches.mjs";
 import { jobView } from "../logic/job-door.mjs";
 import { SURFACES, hashForSurface } from "../logic/surfaces.mjs";
 import { recentVisits } from "../logic/visited.mjs";
-import { Chip, Failure, Eyebrow, Unwired } from "../components/Bits.jsx";
+import { Chip, Failure, Eyebrow, Unwired, breakable } from "../components/Bits.jsx";
 import Freshness from "../components/Freshness.jsx";
 
 // HOME — the console's welcome page.
@@ -133,7 +133,7 @@ export default function Home({ announce }) {
                   <tbody>
                     {[...quoting, ...answering, ...absent].map((s) => (
                       <tr key={s.source || s.state} className="trow">
-                        <th scope="row" className="mono">{s.source || "source not named"}</th>
+                        <th scope="row" className="mono">{breakable(s.source || "source not named")}</th>
                         <td>
                           <Chip kind={s.state === "live_quote_source" ? "live" : s.state === "candidate_source_unavailable" ? "absent" : "muted"}>
                             {s.state || "state absent"}

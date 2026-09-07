@@ -983,10 +983,30 @@ pre.code { margin: 0; background: var(--ink); color: var(--hairline); border-rad
   .topbar-status { order: 2; flex: 1 1 100%; justify-content: flex-start; gap: 6px 10px;
     margin-left: 0; }
   .topbar-status .chip { font-size: 11px; padding: 2px 8px 2px 7px; }
+  /* THE PHONE CHROME, MEASURED: before this block the first heading sat 544px down a
+     390px screen — a 177px bar over a 345px rail. The two console chips wear their
+     short words on a phone and share one row; the search's scope line goes (the
+     placeholder says it); the rail's buttons tighten; its foot is one line. */
+  .chip-long { display: none; }
+  .console-search-scope { display: none; }
+  .console-search { flex: 1 1 100%; }
+  .topbar { padding: 8px 16px 8px; row-gap: 6px; }
   .rail-foot #daemon-label { font-size: 11px; }
   .rail-foot .chip { font-size: 11px; padding: 2px 8px 2px 7px; }
-  .nav button { font-size: 13px; padding: 4px 9px; }
+  .rail-foot { gap: 4px 10px; margin-top: 2px; padding-top: 6px; }
+  .nav.console-rail { gap: 2px 4px; padding: 6px 16px 6px; }
+  .rail-group, .rail-item, .rail-sub { gap: 2px 4px; }
+  .nav button { font-size: 13px; padding: 3px 8px; min-height: 26px; }
+  .rail-sub a { padding: 3px 8px; font-size: 12px; }
+  /* The catalogue anchors leave the phone rail: they are one row of chrome a phone
+     cannot spare, and the catalogue's own category headings are a tap away. */
+  .rail-sub { display: none; }
 }
+@media (min-width: 701px) { .chip-short { display: none; } }
+/* The hero's routing drawing at phone width: 44 marks in a 110px-high strip read as
+   texture, not as a count, and the caption explains a drawing nobody can read. The
+   four numbers and the reasons under them stay; they are the drawing's content. */
+@media (max-width: 430px) { .rt, .rt-caption { display: none; } .routing { padding-top: 16px; } }
 
 /* ── HOME — quick actions and widgets ────────────────────────────────────────
    The welcome page. Quick actions are four tiles in a row; the widgets are a
@@ -1140,7 +1160,9 @@ th[aria-sort="ascending"] .sort-mark, th[aria-sort="descending"] .sort-mark { co
      cannot wrap without a break opportunity, and at 390 it painted straight into the
      next column on Sources and Placement (seen in the unscaled bands; the body did not
      overflow, so no width probe saw it). */
-  .chip { overflow-wrap: anywhere; }
+  /* The `overflow-wrap: anywhere` that used to sit here is gone: it broke state
+     words mid-token (`live_quote_sour / ce`). The Chip component now puts a <wbr>
+     after every underscore, so a long state word wraps at its own joints. */
   .table.t-decision th:nth-child(1), .table.t-decision td:nth-child(1) { width: 30%; }
   .table.t-decision th:nth-child(2), .table.t-decision td:nth-child(2) { width: 70%; }
   .src-evidence, .basis { font-size: 11px; }

@@ -311,6 +311,34 @@ grouped shape, per-venue cheapest and freshness bars are unchanged.
 |---|---|---|
 | Candidates | 4 9 7 8 7 8 7 7 → 6 9 7 8 8 8 8 7 | `010-candidates/candidates-1440.png`, `-390.png` |
 
+## Iteration 011 — the phone chrome (2026-09-07)
+
+**Should look and feel like:** at 390 a compact band — lockup, search, two short
+chips, the surfaces, one status line — and then the page; state words that wrap at
+their underscores; the hero's four numbers without the drawing they cannot hold.
+**Routes:** none.
+
+Captures: `.artifacts/console/011-phone/` (round 1) and `011-phone-r2/` (final):
+`home-390.png`, `sources-390.png`.
+
+Measured in a browser at 390 (Settings, the shortest surface): the first heading
+sat **544px** down the screen before (bar 177 + rail 345); **448px** after round 1
+(short chip words, scope line gone, tighter rail); **394px** after round 2 (the
+catalogue anchors leave the phone rail, where the catalogue's own headings are a tap
+away). Every rail button keeps a visible box. Chips now break at their underscores
+(`candidate_source_` / `unavailable`) instead of mid-token; source names in the
+Sources and Home tables do the same. Below 430 the hero's routing strip and its
+caption are not drawn; the four numbers and their reasons stay.
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| Chrome at 390 | 7 9 6 8 – – 7 7 → 7 9 7 8 – – 7 7 | `011-phone-r2/home-390.png` |
+| Sources & health at 390 | (chip wrap) → fixed | `011-phone-r2/sources-390.png` |
+
+Open: 394px is still a lot of chrome before the first heading; the next step is a
+phone-only disclosure for the rail, which needs the gate's nav-visibility assertion
+rewritten to open it first (and mutation-tested), so it is its own iteration.
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
@@ -320,8 +348,9 @@ grouped shape, per-venue cheapest and freshness bars are unchanged.
 5. ~~Jobs list as a resource table~~ — landed in iteration 007 (sort, filter, sticky head at ≥1300).
 6. ~~Catalogue anchors~~ — landed in iteration 009.
 7. ~~Candidates: sort and filter controls~~ — landed in iteration 010 (no sticky head: the grouped table's row-group heads are the anchors).
-8. Phone chrome: ~430px before the h1 at 390 (`001-shell-r2/supply-390.png`); the
-   hero's routing drawing at 390; chip wrap mid-token on Sources.
+8. ~~Phone chrome~~ — iteration 011 took it from 544 to 394px before the h1, fixed
+   the chip wrap and hid the drawing at phone width. Remaining: a phone rail
+   disclosure (needs the nav-visibility assertion rewritten and mutation-tested).
 9. 404 and daemon-down as compositions.
 10. Live-region narration transcripts for a rail navigation and a search.
 
