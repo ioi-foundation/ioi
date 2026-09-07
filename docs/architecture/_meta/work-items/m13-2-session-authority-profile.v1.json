@@ -1,0 +1,34 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m13-2-session-authority-profile",
+  "stage_id": "M13",
+  "required_work": ["M13.1", "M13.2"],
+  "status": "verified",
+  "objective": "Bind each Session to a closed, default-empty set of Connections-estate connectors declared at create, and enforce that set at daemon admission on the connector invoke path independently of any catalog or client filter (ADR 0052 Decision 3).",
+  "falsifiable_claim": "A connector invocation made on behalf of a Session whose authority_profile does not name that connector refuses with typed 403 session_authority_out_of_profile and a durable refusal receipt before org policy, principal scope and the wallet crossing; the same invocation under a Session that names the connector reaches the ordinary authority challenge; naming an unknown connector refuses the create; deleting a connector fences every Session that named it; the profile and the refusal survive a daemon kill and restart.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/connectors-tools/doctrine.md",
+    "docs/decisions/0052-hypervisor-bounded-alpha-profile-and-base-platform-acceptance.md"
+  ],
+  "code_anchors": [
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", "literal": "SESSION_AUTHORITY_PROFILE_SCHEMA_VERSION", "present_when": "merged" },
+    { "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs", "literal": "session_authority_out_of_profile", "present_when": "merged" },
+    { "path": "apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs", "present_when": "merged" },
+    { "path": "apps/hypervisor/verifier-floors.v1.json", "literal": "session-authority-profile", "present_when": "merged" },
+    { "path": "apps/hypervisor/scripts/serve-product-ui.mjs", "literal": "sessionBody.authority_profile", "present_when": "merged" }
+  ],
+  "evidence_refs": [
+    "apps/hypervisor/scripts/verify-hypervisor-session-authority-profile.mjs",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "check:session-authority-profile drives the DIRECT daemon path (no UI): empty-profile refusal with a durable receipt, in-profile authority challenge, session-less invoke unchanged, anonymous session-scoped invoke 401 before the record load, bogus session 404, unknown connection 412, malformed profile 422, deletion fencing, and identical refusals after a SIGKILL restart; the verifier is CI-gated and floor-pinned at 21 assertions so a deleted assertion is red.",
+  "remaining_nonclaims": [
+    "The generic-cli-local harness makes no connector calls, so on the alpha profile the binding is proven at the daemon path; a harness that calls connectors must carry session_ref (a session-less invoke is the operator's own direct act).",
+    "No standing-envelope draw-down, budget or expiry is bound at attach (M13.3); the profile names connectors, not lease facets.",
+    "No claim that in-profile invocations complete: the positive path is proven to the wallet authority challenge; completion needs the deployment authority node (see check:alpha-journey)."
+  ],
+  "source_provenance": "Landed 2026-09-07 by the bounded-alpha program (commit 3bec178d1); recorded in canon-to-code-delta.md § Journey verification XV.",
+  "last_status_transaction": "2026-09-07"
+}

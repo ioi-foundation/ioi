@@ -278,9 +278,17 @@ const LOOPBACK_REMOTE_ADDRESSES = new Set([
 // adjudicates as unauthenticated rather than as an operator.
 function daemonFetch(pathOrUrl, init = {}) {
   const req = init.req || reqCtx.getStore()?.req || null;
+  // Header names are case-insensitive on the wire but not in an object spread: a handler that
+  // re-encodes a browser form post as JSON sets `Content-Type` while the ambient request carries
+  // `content-type: application/x-www-form-urlencoded`, and both keys reached the daemon (the
+  // form type first → axum answered 415 Unsupported Media Type). Normalize the handler's keys to
+  // lowercase so an explicit header always REPLACES the ambient one.
+  const explicit = Object.fromEntries(
+    Object.entries(init.headers || {}).map(([name, value]) => [String(name).toLowerCase(), value]),
+  );
   const headers = {
     ...(req ? daemonRequestHeaders(req, { includeContentType: Boolean(init.body) }) : {}),
-    ...(init.headers || {}),
+    ...explicit,
   };
   const { req: _drop, ...rest } = init;
   const url = String(pathOrUrl).startsWith("http") ? pathOrUrl : `${DAEMON}${pathOrUrl}`;

@@ -92,6 +92,7 @@ let DAEMON = "";
 let SERVE = "";
 let COOKIE = "";
 let daemonLog = "";
+let serveLog = "";
 let daemonEnv = {};
 
 async function startDaemon() {
@@ -110,9 +111,14 @@ async function stopDaemon(signal = "SIGKILL") {
 let serveEnv = {};
 async function startServe() {
   serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], { cwd: ROOT, env: serveEnv, stdio: ["ignore", "pipe", "pipe"] });
-  serve.stdout.on("data", () => {});
-  serve.stderr.on("data", () => {});
-  await waitFor(`${SERVE}/__ioi/login`, 60_000);
+  serve.stdout.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-40_000); });
+  serve.stderr.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-40_000); });
+  try {
+    await waitFor(`${SERVE}/__ioi/login`, 90_000);
+  } catch (error) {
+    evidence.serve_log_tail = serveLog.slice(-4_000);
+    throw error;
+  }
 }
 async function stopServe() {
   if (!serve) return;
@@ -177,6 +183,9 @@ async function run() {
 
   daemonPort = await freePort();
   servePort = await freePort();
+  // The serve spawns the product-ui mirror on PRODUCT_UI_PORT (default 9301); a journey must not
+  // collide with an operator's own serve on the same host.
+  const productUiPort = await freePort();
   DAEMON = `http://127.0.0.1:${daemonPort}`;
   SERVE = `http://127.0.0.1:${servePort}`;
   daemonEnv = {
@@ -194,6 +203,7 @@ async function run() {
     ...sanitizedVerifierBaseEnv(process.env),
     IOI_HYPERVISOR_DAEMON_URL: DAEMON,
     PORT: String(servePort),
+    PRODUCT_UI_PORT: String(productUiPort),
     IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: approverKeyPath,
   };
   delete serveEnv.IOI_WALLET_TEST_SIGNER;
@@ -228,9 +238,10 @@ async function run() {
   record("3-readiness", "model route", `${MODEL} served at ${MODEL_UPSTREAM} (verified via /api/tags before start)`);
 
   // ---- 4. project ------------------------------------------------------------------------------
-  const project = await jd(DAEMON, "/v1/hypervisor/projects", { method: "POST", body: JSON.stringify({ project_id: "alpha-journey", name: "Alpha journey", repository_url: "" }) });
+  const project = await jd(DAEMON, "/v1/hypervisor/projects", { method: "POST", body: JSON.stringify({ project_name: "Alpha journey", repository_url: "https://example.invalid/alpha-journey.git" }) });
+  const projectId = project.body?.project?.project_id || project.body?.project_id || "";
   const projects = await jd(DAEMON, "/v1/hypervisor/projects");
-  ok("4-project", "a project can be created and listed", project.status < 300 && (projects.body?.projects || []).some((p) => p.project_id === "alpha-journey"), `${project.status} · ${(projects.body?.projects || []).length} project(s)`);
+  ok("4-project", "a project can be created and listed", project.status < 300 && projectId && (projects.body?.projects || []).some((p) => p.project_id === projectId), `${project.status} ${projectId} · ${(projects.body?.projects || []).length} project(s)`);
 
   // ---- 5. harness / model / connections (closed authority profile) ----------------------------
   const ctx = await jd(SERVE, "/__ioi/api/new-session/context");
