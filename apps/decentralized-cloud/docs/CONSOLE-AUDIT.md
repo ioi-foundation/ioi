@@ -339,6 +339,33 @@ Open: 394px is still a lot of chrome before the first heading; the next step is 
 phone-only disclosure for the rail, which needs the gate's nav-visibility assertion
 rewritten to open it first (and mutation-tested), so it is its own iteration.
 
+## Iteration 012 — the 404 and the daemon-down state as compositions (2026-09-07)
+
+**Should look and feel like:** an address that is not a surface gets a page inside
+the shell — the address verbatim, "resolves to no surface", the surfaces by name —
+instead of silently landing on Home; a read the daemon did not answer keeps its named
+state and reason and adds what to do next, with no timer and nothing spinning.
+**Routes:** none. The 404 is not a registered surface.
+
+Captures: `.artifacts/console/012-errors/` — `notfound-1440.png`, `notfound-390.png`
+(address `#/nope/here`), `down-sources-1440.png`, `down-home-390.png` (a second
+server pointed at a dead daemon port).
+
+What the captures show. The 404 sits in the shell with the rail intact, the address
+in mono at reading size and all thirteen surfaces listed with their addresses and
+unwired marks; the live region says "No surface at nope/here". Daemon-down: each
+read's panel is headed "the daemon did not answer · candidate_plane_unreachable" with
+the proxy's reason verbatim and a next-steps line; Home shows four such panels, one
+per widget. Fixed in the same iteration: Sources and Home announced "0 quoting, 0
+unavailable" and four zeros as counts when every read had failed; they now announce
+that the daemon did not answer. Open: Home's four identical fault panels want one
+banner, which needs a shell-level notion of "the daemon is down" (next item).
+
+| Surface | before → after (R H C T D M A K) | Capture |
+|---|---|---|
+| 404 | – 7 4 – – – – 4 → 8 9 7 8 – – 8 7 | `012-errors/notfound-1440.png` |
+| Daemon-down | (per-read panel) → 7 9 6 8 – 8 8 7 | `012-errors/down-home-390.png` |
+
 ## Worklist (lowest score × importance first)
 
 1. ~~The console shell~~ — landed in iteration 001.
@@ -351,7 +378,8 @@ rewritten to open it first (and mutation-tested), so it is its own iteration.
 8. ~~Phone chrome~~ — iteration 011 took it from 544 to 394px before the h1, fixed
    the chip wrap and hid the drawing at phone width. Remaining: a phone rail
    disclosure (needs the nav-visibility assertion rewritten and mutation-tested).
-9. 404 and daemon-down as compositions.
+9. ~~404 and daemon-down as compositions~~ — landed in iteration 012. Remaining: one
+   daemon-down banner on Home instead of four panels.
 10. Live-region narration transcripts for a rail navigation and a search.
 
 ## Kernel gaps this console waits on (recorded, not decided here)

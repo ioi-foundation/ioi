@@ -110,6 +110,19 @@ export const catalogCategoryFromHash = (hash) => {
   return name === "catalog" && isAnchor(sub) ? sub : null;
 };
 
+// AN ADDRESS THAT IS NOT A SURFACE is reported, not swallowed. An empty hash is Home
+// by design; anything else that resolves to nothing is returned so the shell can
+// show the 404 composition with the address on it — a mistyped or stale link that
+// silently lands on Home teaches a reader that the link worked.
+export const unknownFromHash = (hash) => {
+  const raw = String(hash || "").replace(/^#\/?/, "");
+  if (!raw) return null;
+  const [name, sub] = raw.split("/");
+  if (!isSurface(name)) return raw;
+  if (name === "catalog" && sub && !isAnchor(sub)) return raw;
+  return null;
+};
+
 export const hashForSurface = (name) => `#/${isSurface(name) ? name : DEFAULT_SURFACE}`;
 export const hashForCategory = (id) => (isAnchor(id) ? `#/catalog/${id}` : hashForSurface("catalog"));
 

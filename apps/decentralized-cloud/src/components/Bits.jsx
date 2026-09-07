@@ -76,14 +76,31 @@ export const Waiting = ({ what, title, why, willShow }) => (
 // surface can do: it is the one page whose entire claim is that you can always see
 // where a number, or a refusal, came from. The fallback fires only when the body
 // genuinely carries neither.
+// THE DAEMON-DOWN COMPOSITION. The proxy names the state — candidate_plane_unreachable,
+// candidate_plane_timeout, face_read_failed — and the panel renders that name and
+// the reason verbatim. What it adds is what to do: a read is re-run when a reader
+// returns to the surface, the daemon's health is on Sources, and a kept answer, if
+// there is one, is shown beneath this panel dated as the previous reading. Nothing
+// here retries on a timer: a page that hammers a daemon that is down is not being
+// helpful, and nothing spins.
+const DOWN_STATES = new Set(["candidate_plane_unreachable", "candidate_plane_timeout", "face_read_failed", "job_plane_unreachable", "job_plane_timeout"]);
 export const Failure = ({ result }) => {
   const { code, detail } = envelope(result);
+  const down = DOWN_STATES.has(code);
   return (
-    <div className="panel fault stack" style={{ gap: "8px" }}>
-      <Eyebrow>{code}</Eyebrow>
+    <div className="panel fault stack" style={{ gap: "8px" }} role="alert">
+      <Eyebrow>{down ? `the daemon did not answer · ${code}` : code}</Eyebrow>
       <p className="prose">
         {detail || "The read failed and the response carried no reason — which is itself worth reporting."}
       </p>
+      {down && (
+        <p className="meta fault-next">
+          This surface re-reads when you return to it. The previous answer, if this browser holds one,
+          is shown beneath and dated. Source health is on{" "}
+          <a href="#/sources">Sources &amp; health</a>; the daemon this console talks to is named in
+          the rail's foot.
+        </p>
+      )}
     </div>
   );
 };

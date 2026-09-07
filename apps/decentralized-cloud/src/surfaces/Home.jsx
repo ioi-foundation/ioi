@@ -74,11 +74,15 @@ export default function Home({ announce }) {
 
   useEffect(() => {
     if (sources.phase === "first" && jobs.phase === "first") return;
+    // Every read failed and nothing is kept: say so, rather than reading four zeros
+    // out as counts (a daemon-down capture caught exactly that).
+    const allDown = [sources, jobs, budgets, cands].every((r) => r.phase === "failed" && !r.data);
+    if (allDown) { announce("Home — the daemon did not answer any read; nothing to count"); return; }
     announce(
       `Home — ${quoting.length} sources quoting, ${absent.length} unavailable, ${productJobs.length} job records, ` +
       `${live.length} candidates live right now`
     );
-  }, [sources.phase, jobs.phase, quoting.length, absent.length, productJobs.length, live.length, announce]);
+  }, [sources.phase, jobs.phase, budgets.phase, cands.phase, sources.data, jobs.data, budgets.data, cands.data, quoting.length, absent.length, productJobs.length, live.length, announce]);
 
   return (
     <div className="stack home">

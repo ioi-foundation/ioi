@@ -1118,6 +1118,17 @@ th[aria-sort="ascending"] .sort-mark, th[aria-sort="descending"] .sort-mark { co
   .table-sticky thead > tr > th { position: sticky; top: var(--topbar-h); background: var(--paper); z-index: 1; }
 }
 
+/* ── THE 404 AND THE DAEMON-DOWN PANEL ───────────────────────────────────────
+   The 404 is a page inside the shell: the address in mono at reading size, the
+   surfaces as a plain list. The fault panel keeps its red edge (red is expired or
+   failed, nothing else) and adds a next-steps line in the meta face. */
+.notfound { max-width: 960px; }
+.notfound-address { font-size: 15px; color: var(--ink); overflow-wrap: anywhere; }
+.notfound-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.fault-next { line-height: 1.5; }
+.fault-next a { color: var(--ink); }
+
 /* ── THE UNWIRED PLACEHOLDER — where a figure would stand ─────────────────────
    Dashed, on the surface tint, with no digit in it: the same absence device the
    absent chip and the rail mark wear. It is deliberately not a skeleton or a shimmer,

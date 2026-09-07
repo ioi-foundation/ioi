@@ -239,6 +239,7 @@ const SRC_FILES = [
   "src/surfaces/Settings.jsx",
   "src/surfaces/Home.jsx",
   "src/logic/visited.mjs",
+  "src/surfaces/NotFound.jsx",
 ];
 
 const srcText = () => SRC_FILES.map((f) => readFileSync(path.join(APP, f), "utf8")).join("\n");

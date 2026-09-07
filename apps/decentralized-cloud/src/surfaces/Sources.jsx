@@ -23,8 +23,11 @@ export default function Sources({ announce }) {
 
   useEffect(() => {
     if (state.phase === "first") return;
+    // A failed read with nothing kept announces the failure, not a row of zeros: a
+    // daemon-down capture caught "0 quoting, 0 unavailable" being read out as a count.
+    if (state.phase === "failed" && !state.data) { announce("Sources & health — the daemon did not answer; nothing to count"); return; }
     announce(`Sources — ${quoting.length} quoting, ${absent.length} unavailable`);
-  }, [state.phase, quoting.length, absent.length, announce]);
+  }, [state.phase, state.data, quoting.length, absent.length, announce]);
 
   if (state.phase === "first") return (
     <Waiting

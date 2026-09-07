@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface, searchSurfaces, catalogCategoryFromHash } from "./logic/surfaces.mjs";
+import { SURFACES, DEFAULT_SURFACE, surfaceFromHash, hashForSurface, searchSurfaces, catalogCategoryFromHash, unknownFromHash } from "./logic/surfaces.mjs";
+import NotFound from "./surfaces/NotFound.jsx";
 import { forget } from "./logic/read.mjs";
 import { capabilitySentences } from "./logic/capability.mjs";
 import Topbar from "./components/Topbar.jsx";
@@ -53,6 +54,10 @@ export default function App() {
   const [category, setCategory] = useState(() =>
     typeof location === "undefined" ? null : catalogCategoryFromHash(location.hash)
   );
+  // An address that is not a surface, kept so the 404 can show it; null otherwise.
+  const [missing, setMissing] = useState(() =>
+    typeof location === "undefined" ? null : unknownFromHash(location.hash)
+  );
   const mainRef = useRef(null);
 
   // Back and Forward move between surfaces rather than out of the app. `hashchange`
@@ -61,6 +66,7 @@ export default function App() {
     const onHash = () => {
       setSurface(surfaceFromHash(location.hash));
       setCategory(catalogCategoryFromHash(location.hash));
+      setMissing(unknownFromHash(location.hash));
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -79,6 +85,7 @@ export default function App() {
     if (location.hash !== hashForSurface(name)) location.hash = hashForSurface(name);
     setSurface(name);
     setCategory(null);
+    setMissing(null);
   }, []);
 
   // The search filters the rail. Every surface matches an empty query, so the rail is
@@ -131,7 +138,9 @@ export default function App() {
         {/* `tabIndex={-1}` because the skip link above is inert without it: a browser
             will not move focus to an element that cannot receive it. */}
         <main id="surface" tabIndex={-1} ref={mainRef}>
-          <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} />
+          {missing
+            ? <NotFound address={missing} announce={setAnnouncement} />
+            : <View key={surface} announce={setAnnouncement} wired={meta?.wired !== false} category={category} />}
         </main>
       </div>
     </>
